@@ -5,10 +5,13 @@ use crate::tx::builder;
 pub struct AllowTrust(xdr::AllowTrustOp);
 
 impl AllowTrust {
-    pub fn new(trustor: impl Into<builder::AccountId>, asset: xdr::AssetCode) -> Self {
+    pub fn new(
+        trustor: impl Into<builder::AccountId>,
+        asset: impl Into<builder::AssetCode>,
+    ) -> Self {
         Self(xdr::AllowTrustOp {
             trustor: trustor.into().into(),
-            asset,
+            asset: asset.into().into(),
             authorize: 0,
         })
     }

@@ -201,6 +201,7 @@ pub mod parsing {
     use soroban_env_host::xdr::{
         AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, PublicKey,
     };
+    use soroban_sdk::xdr::AssetCode;
 
     #[derive(thiserror::Error, Debug)]
     pub enum Error {
@@ -226,10 +227,22 @@ pub mod parsing {
         }
         let code = split[0];
         let issuer = split[1];
+        let issuer = parse_account_id(issuer)?;
+        Ok(match parse_asset_code(code)? {
+            AssetCode::CreditAlphanum4(asset_code) => {
+                Asset::CreditAlphanum4(AlphaNum4 { asset_code, issuer })
+            }
+            AssetCode::CreditAlphanum12(asset_code) => {
+                Asset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
+            }
+        })
+    }
+
+    pub fn parse_asset_code(code: &str) -> Result<AssetCode, Error> {
         let re = Regex::new("^[[:alnum:]]{1,12}$")?;
         if !re.is_match(code) {
             return Err(Error::InvalidAssetCode {
-                asset: str.to_string(),
+                asset: code.to_string(),
             });
         }
         if code.len() <= 4 {
@@ -237,19 +250,13 @@ pub mod parsing {
             for (i, b) in code.as_bytes().iter().enumerate() {
                 asset_code[i] = *b;
             }
-            Ok(Asset::CreditAlphanum4(AlphaNum4 {
-                asset_code: AssetCode4(asset_code),
-                issuer: parse_account_id(issuer)?,
-            }))
+            Ok(AssetCode::CreditAlphanum4(AssetCode4(asset_code)))
         } else {
             let mut asset_code: [u8; 12] = [0; 12];
             for (i, b) in code.as_bytes().iter().enumerate() {
                 asset_code[i] = *b;
             }
-            Ok(Asset::CreditAlphanum12(AlphaNum12 {
-                asset_code: AssetCode12(asset_code),
-                issuer: parse_account_id(issuer)?,
-            }))
+            Ok(AssetCode::CreditAlphanum12(AssetCode12(asset_code)))
         }
     }
 
