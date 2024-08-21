@@ -7,7 +7,13 @@ use bollard::{
 };
 use futures_util::TryStreamExt;
 
-use crate::commands::network::container::shared::{Error as ConnectionError, Network};
+use crate::{
+    commands::{
+        global,
+        network::container::shared::{Error as ConnectionError, Network},
+    },
+    print,
+};
 
 use super::shared::{Args, Name};
 
@@ -53,26 +59,57 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        println!("ℹ️  Starting {} network", &self.network);
-        self.run_docker_command().await
-    }
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let runner = Runner {
+            args: self.clone(),
+            print: print::Print::new(global_args.quiet),
+        };
 
+        runner.run_docker_command().await
+    }
+}
+
+struct Runner {
+    args: Cmd,
+    print: print::Print,
+}
+
+impl Runner {
     async fn run_docker_command(&self) -> Result<(), Error> {
-        let docker = self.container_args.connect_to_docker().await?;
+        self.print
+            .infoln(format!("Starting {} network", &self.args.network));
+
+        let docker = self.args.container_args.connect_to_docker().await?;
 
         let image = self.get_image_name();
-        docker
-            .create_image(
-                Some(CreateImageOptions {
-                    from_image: image.clone(),
-                    ..Default::default()
-                }),
-                None,
-                None,
-            )
-            .try_collect::<Vec<_>>()
-            .await?;
+        let mut stream = docker.create_image(
+            Some(CreateImageOptions {
+                from_image: image.clone(),
+                ..Default::default()
+            }),
+            None,
+            None,
+        );
+
+        while let Some(result) = stream.try_next().await.transpose() {
+            if let Ok(item) = result {
+                if let Some(status) = item.status {
+                    if status.contains("Pulling from")
+                        || status.contains("Digest")
+                        || status.contains("Status")
+                    {
+                        self.print.infoln(status);
+                    }
+                }
+            } else {
+                self.print
+                    .warnln(format!("Failed to fetch image: {image}."));
+                self.print.warnln(
+                    "Attempting to start local quickstart image. The image may be out-of-date.",
+                );
+                break;
+            }
+        }
 
         let config = Config {
             image: Some(image),
@@ -103,27 +140,23 @@ impl Cmd {
                 None::<StartContainerOptions<String>>,
             )
             .await?;
-        println!(
-            "✅ Container started: {}",
-            self.container_name().get_external_container_name()
-        );
-        self.print_log_message();
-        self.print_stop_message();
+        self.print.checkln("Started container");
+        self.print_instructions();
         Ok(())
     }
 
     fn get_image_name(&self) -> String {
         // this can be overriden with the `-t` flag
-        let mut image_tag = match &self.network {
+        let mut image_tag = match &self.args.network {
             Network::Pubnet => "latest",
             Network::Futurenet => "future",
             _ => "testing", // default to testing for local and testnet
         };
 
-        if let Some(image_override) = &self.image_tag_override {
-            println!(
+        if let Some(image_override) = &self.args.image_tag_override {
+            self.print.infoln(format!(
                 "Overriding docker image tag to use '{image_override}' instead of '{image_tag}'"
-            );
+            ));
             image_tag = image_override;
         }
 
@@ -132,7 +165,7 @@ impl Cmd {
 
     fn get_container_args(&self) -> Vec<String> {
         [
-            format!("--{}", self.network),
+            format!("--{}", self.args.network),
             "--enable rpc,horizon".to_string(),
             self.get_protocol_version_arg(),
             self.get_limits_arg(),
@@ -146,7 +179,7 @@ impl Cmd {
     // The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
     fn get_port_mapping(&self) -> HashMap<String, Option<Vec<PortBinding>>> {
         let mut port_mapping_hash = HashMap::new();
-        for port_mapping in &self.ports_mapping {
+        for port_mapping in &self.args.ports_mapping {
             let ports_vec: Vec<&str> = port_mapping.split(':').collect();
             let from_port = ports_vec[0];
             let to_port = ports_vec[1];
@@ -164,31 +197,33 @@ impl Cmd {
     }
 
     fn container_name(&self) -> Name {
-        Name(self.name.clone().unwrap_or(self.network.to_string()))
+        Name(
+            self.args
+                .name
+                .clone()
+                .unwrap_or(self.args.network.to_string()),
+        )
     }
 
-    fn print_log_message(&self) {
-        let log_message = format!(
-            "ℹ️ To see the logs for this container run: stellar network container logs {container_name} {additional_flags}",
-            container_name = self.container_name().get_external_container_name(),
-            additional_flags = self.container_args.get_additional_flags(),
-        );
-        println!("{log_message}");
-    }
+    fn print_instructions(&self) {
+        let container_name = self.container_name().get_external_container_name().clone();
+        let additional_flags = self.args.container_args.get_additional_flags().clone();
+        let tail = format!("{container_name} {additional_flags}");
 
-    fn print_stop_message(&self) {
-        let stop_message =
-            format!(
-            "ℹ️ To stop this container run: stellar network container stop {container_name} {additional_flags}",
-            container_name = self.container_name().get_external_container_name(),
-            additional_flags = self.container_args.get_additional_flags(),
-        );
-        println!("{stop_message}");
+        self.print.searchln(format!(
+            "Watch logs with `stellar network container logs {}`",
+            tail.trim()
+        ));
+
+        self.print.infoln(format!(
+            "Stop the container with `stellar network container stop {}`",
+            tail.trim()
+        ));
     }
 
     fn get_protocol_version_arg(&self) -> String {
-        if self.network == Network::Local && self.protocol_version.is_some() {
-            let version = self.protocol_version.as_ref().unwrap();
+        if self.args.network == Network::Local && self.args.protocol_version.is_some() {
+            let version = self.args.protocol_version.as_ref().unwrap();
             format!("--protocol-version {version}")
         } else {
             String::new()
@@ -196,8 +231,8 @@ impl Cmd {
     }
 
     fn get_limits_arg(&self) -> String {
-        if self.network == Network::Local && self.limits.is_some() {
-            let limits = self.limits.as_ref().unwrap();
+        if self.args.network == Network::Local && self.args.limits.is_some() {
+            let limits = self.args.limits.as_ref().unwrap();
             format!("--limits {limits}")
         } else {
             String::new()
