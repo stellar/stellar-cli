@@ -11,7 +11,16 @@ fn parse_command(command: &str) -> Vec<String> {
         .collect()
 }
 
-async fn run_command(sandbox: &TestEnv, command: &str, wasm_path: &str, wasm_hash: &str, source: &str, contract_id: &str, bob_id: &str, native_id: &str) -> Result<(), String> {
+async fn run_command(
+    sandbox: &TestEnv,
+    command: &str,
+    wasm_path: &str,
+    wasm_hash: &str,
+    source: &str,
+    contract_id: &str,
+    bob_id: &str,
+    native_id: &str,
+) -> Result<(), String> {
     if command.contains("export") {
         return Ok(());
     }
@@ -19,7 +28,7 @@ async fn run_command(sandbox: &TestEnv, command: &str, wasm_path: &str, wasm_has
     if args.is_empty() {
         return Err("Empty command".to_string());
     }
-    if command.contains("contract asset deploy"){
+    if command.contains("contract asset deploy") {
         return Ok(());
     }
     /*if command.contains("keys generate"){
@@ -40,48 +49,48 @@ async fn run_command(sandbox: &TestEnv, command: &str, wasm_path: &str, wasm_has
                 modified_args.push(arg.to_string());
                 modified_args.push(wasm_path.to_string());
                 skip_next = true;
-            },
+            }
             "--wasm-hash" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(wasm_hash.to_string());
                 skip_next = true;
-            },
+            }
             "--source" | "--source-account" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(source.to_string());
                 skip_next = true;
-            },
+            }
             "--contract-id" | "--id" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(contract_id.to_string());
                 skip_next = true;
-            },
+            }
             "--network-passphrase" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(LOCAL.to_string());
                 skip_next = true;
-            },
+            }
             "--network" => {
                 modified_args.push(arg.to_string());
                 modified_args.push("local".to_string());
                 skip_next = true;
-            },
+            }
             "<DURABILITY>" => {
                 modified_args.push("persistent".to_string());
                 skip_next = false;
-            },
+            }
             "<KEY>" => {
                 modified_args.push("COUNTER".to_string());
                 skip_next = false;
-            },
+            }
             "<Bob_ID>" => {
                 modified_args.push(bob_id.to_string());
                 skip_next = false;
-            },
+            }
             "<asset_contract_ID>" => {
                 modified_args.push(native_id.to_string());
                 skip_next = false;
-            },
+            }
             _ => modified_args.push(arg.to_string()),
         }
 
@@ -103,7 +112,16 @@ async fn run_command(sandbox: &TestEnv, command: &str, wasm_path: &str, wasm_has
     Ok(())
 }
 
-async fn test_mdx_file(sandbox: &TestEnv, file_path: &str, wasm_path: &str, wasm_hash: &str, source: &str, contract_id: &str, bob_id: &str, native_id: &str) -> Result<(), String> {
+async fn test_mdx_file(
+    sandbox: &TestEnv,
+    file_path: &str,
+    wasm_path: &str,
+    wasm_hash: &str,
+    source: &str,
+    contract_id: &str,
+    bob_id: &str,
+    native_id: &str,
+) -> Result<(), String> {
     let content = fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
 
@@ -117,7 +135,17 @@ async fn test_mdx_file(sandbox: &TestEnv, file_path: &str, wasm_path: &str, wasm
 
     for (i, command) in commands.iter().enumerate() {
         println!("Running command {}: {}", i + 1, command);
-        run_command(sandbox, command, wasm_path, wasm_hash, source, contract_id, bob_id, native_id).await?;
+        run_command(
+            sandbox,
+            command,
+            wasm_path,
+            wasm_hash,
+            source,
+            contract_id,
+            bob_id,
+            native_id,
+        )
+        .await?;
     }
 
     Ok(())
@@ -147,14 +175,14 @@ mod tests {
         let wasm_path = wasm.path();
         let wasm_hash = wasm.hash().expect("should exist").to_string();
         let source = "test";
-        
+
         sandbox
             .new_assert_cmd("keys")
             .arg("fund")
             .arg(source)
             .assert()
             .success();
-        
+
         sandbox
             .new_assert_cmd("keys")
             .arg("generate")
@@ -211,7 +239,18 @@ mod tests {
                 }
 
                 let file_path = path.to_str().unwrap();
-                match test_mdx_file(&sandbox, file_path, &wasm_path.to_str().unwrap(), &wasm_hash, source, &contract_id, &bob_id, &native_id).await {
+                match test_mdx_file(
+                    &sandbox,
+                    file_path,
+                    &wasm_path.to_str().unwrap(),
+                    &wasm_hash,
+                    source,
+                    &contract_id,
+                    &bob_id,
+                    &native_id,
+                )
+                .await
+                {
                     Ok(_) => println!("Successfully tested all commands in {}", file_path),
                     Err(e) => panic!("Error testing {}: {}", file_path, e),
                 }
