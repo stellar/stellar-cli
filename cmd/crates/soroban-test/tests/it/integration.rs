@@ -1,4 +1,5 @@
 mod bindings;
+mod cookbook;
 mod custom_types;
 mod dotenv;
 mod fund;
