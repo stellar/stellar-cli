@@ -105,6 +105,7 @@ impl TestEnv {
             ..Default::default()
         };
         env.generate_account("test", None).assert().success();
+        env.fund_account("test").success();
         env
     }
 
