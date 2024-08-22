@@ -101,4 +101,9 @@ impl Args {
             .account(&self.source_account)?
             .public_key(self.hd_path)?)
     }
+
+    pub async fn sign_tx_env_with_lab(&self, network: &Network) -> Result<(), Error> {
+        println!("signing with lab...");
+        Ok(())
+    }
 }
