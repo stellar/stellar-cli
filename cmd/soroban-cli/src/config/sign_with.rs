@@ -88,6 +88,12 @@ impl Args {
         Ok(sign_txn_env(signer, tx_env, &network).await?)
     }
 
+    pub async fn sign_tx_env_with_lab(&self) -> Result<(), Error> {
+        let network = self.get_network()?;
+        println!("signing with lab...");
+        Ok(())
+    }
+
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }

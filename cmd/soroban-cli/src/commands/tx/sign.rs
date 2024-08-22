@@ -24,12 +24,20 @@ impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self) -> Result<(), Error> {
         let txn_env = super::xdr::tx_envelope_from_stdin()?;
-        let envelope = self.sign_tx_env(txn_env).await?;
-        println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
+        if self.sign_with.sign_with_lab {
+            return self.sign_tx_env_with_lab(txn_env).await;
+        } else {
+            let envelope = self.sign_tx_env(txn_env).await?;
+            println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
+        }
         Ok(())
     }
 
     pub async fn sign_tx_env(&self, tx: TransactionEnvelope) -> Result<TransactionEnvelope, Error> {
         Ok(self.sign_with.sign_txn_env(tx).await?)
+    }
+
+    pub async fn sign_tx_env_with_lab(&self, tx: TransactionEnvelope) -> Result<(), Error> {
+        Ok(self.sign_with.sign_tx_env_with_lab().await?)
     }
 }
