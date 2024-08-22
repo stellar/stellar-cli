@@ -25,11 +25,11 @@ pub struct Cmd {
     /// Asset to set trustline flags for
     #[arg(long)]
     pub asset: builder::Asset,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_authorize")]
     pub set_authorize: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_authorize_to_maintain_liabilities")]
     pub set_authorize_to_maintain_liabilities: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_trustline_clawback_enabled")]
     pub set_trustline_clawback_enabled: bool,
     #[arg(long)]
     pub clear_authorize: bool,

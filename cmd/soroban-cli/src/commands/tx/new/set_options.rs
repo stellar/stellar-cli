@@ -33,13 +33,14 @@ pub struct Cmd {
     pub home_domain: Option<String>,
     #[arg(long)]
     pub signer: Option<String>,
-    #[arg(long)]
+
+    #[arg(long, conflicts_with = "clear_required")]
     pub set_required: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_revocable")]
     pub set_revocable: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_immutable")]
     pub set_immutable: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "clear_clawback_enabled")]
     pub set_clawback_enabled: bool,
     #[arg(long)]
     pub clear_required: bool,
