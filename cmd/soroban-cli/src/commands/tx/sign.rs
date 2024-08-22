@@ -38,6 +38,6 @@ impl Cmd {
     }
 
     pub async fn sign_tx_env_with_lab(&self, tx: TransactionEnvelope) -> Result<(), Error> {
-        Ok(self.sign_with.sign_tx_env_with_lab().await?)
+        Ok(self.sign_with.sign_tx_env_with_lab(tx).await?)
     }
 }
