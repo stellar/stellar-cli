@@ -162,6 +162,7 @@ Utilities to manage contract aliases
 
 * `remove` — Remove contract alias
 * `add` — Add contract alias
+* `show` — Show the contract id associated with a given alias
 
 
 
@@ -204,6 +205,26 @@ Add contract alias
 * `--network <NETWORK>` — Name of network to use from config
 * `--overwrite` — Overwrite the contract alias if it already exists
 * `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+
+
+
+## `stellar contract alias show`
+
+Show the contract id associated with a given alias
+
+**Usage:** `stellar contract alias show [OPTIONS] <ALIAS>`
+
+###### **Arguments:**
+
+* `<ALIAS>` — The contract alias that will be displayed
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
