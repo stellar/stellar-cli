@@ -4,9 +4,11 @@ use super::MuxedAccount;
 
 mod account_merge;
 mod allow_trust;
+mod begin_sponsoring_future_reserves;
 mod bump_sequence;
 mod change_trust;
 mod create_account;
+mod end_sponsoring_future_reserves;
 mod manage_data;
 mod payment;
 mod set_options;
@@ -14,9 +16,11 @@ mod set_trustline_flags;
 
 pub use account_merge::*;
 pub use allow_trust::*;
+pub use begin_sponsoring_future_reserves::*;
 pub use bump_sequence::*;
 pub use change_trust::*;
 pub use create_account::*;
+pub use end_sponsoring_future_reserves::*;
 pub use manage_data::*;
 pub use payment::*;
 pub use set_options::*;

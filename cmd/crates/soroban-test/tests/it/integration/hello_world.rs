@@ -137,7 +137,7 @@ async fn invoke() {
     invoke_log(sandbox, id);
 }
 
-fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
+pub(crate) fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")

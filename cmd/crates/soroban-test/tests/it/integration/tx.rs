@@ -3,11 +3,15 @@ use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
 
+mod operations;
+
 #[tokio::test]
 async fn txn_simulate() {
     let sandbox = &TestEnv::new();
-    let xdr_base64_build_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::BuildOnly).await;
-    let xdr_base64_sim_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    let xdr_base64_build_only =
+        deploy_contract(sandbox, HELLO_WORLD, DeployKind::BuildOnly, None).await;
+    let xdr_base64_sim_only =
+        deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly, None).await;
     let tx_env =
         TransactionEnvelope::from_xdr_base64(&xdr_base64_build_only, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();

@@ -1,5 +1,3 @@
-use std::{fmt::Debug, str::FromStr};
-
 use clap::{command, Parser};
 
 use soroban_sdk::xdr::{self, Limits, WriteXdr};
@@ -20,12 +18,9 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::args::Args,
-    /// Account to merge with
+    /// Sequence number to bump to
     #[arg(long)]
-    pub trustor: String,
-    /// Asset code to allow trust for, either 4 or 12 alhanumeric characters
-    #[arg(long)]
-    pub asset_code: builder::AssetCode,
+    pub bump_to: i64,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -77,8 +72,7 @@ impl NetworkRunnable for Cmd {
         _: Option<&config::Args>,
     ) -> Result<TxnResult<()>, Error> {
         let tx_build = self.tx.tx_builder().await?;
-        let account = stellar_strkey::ed25519::PublicKey::from_str(&self.trustor)?;
-        let op = builder::ops::AllowTrust::new(account, self.asset_code.clone());
+        let op = builder::ops::BumpSequence::new(self.bump_to);
 
         self.tx
             .handle_tx(

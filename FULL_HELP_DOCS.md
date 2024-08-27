@@ -1245,7 +1245,7 @@ Create a new transaction
 ###### **Subcommands:**
 
 * `account-merge` — Merge an account into another account
-* `allow-trust` — Allow trust for an asset
+* `begin-sponsoring-future-reserves` — Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
 * `bump-sequence` — Bump the sequence number of an account
 * `change-trust` — Change trust for an asset
 * `create-account` — Create a new account using another account
@@ -1282,11 +1282,11 @@ Merge an account into another account
 
 
 
-## `stellar tx new allow-trust`
+## `stellar tx new begin-sponsoring-future-reserves`
 
-Allow trust for an asset
+Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
 
-**Usage:** `stellar tx new allow-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset-code <ASSET_CODE>`
+**Usage:** `stellar tx new begin-sponsoring-future-reserves [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
 
 ###### **Options:**
 
@@ -1304,8 +1304,7 @@ Allow trust for an asset
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--trustor <TRUSTOR>` — Account to merge with
-* `--asset-code <ASSET_CODE>` — Asset code to allow trust for, either 4 or 12 alhanumeric characters
+* `--bump-to <BUMP_TO>` — Sequence number to bump to
 
 
 

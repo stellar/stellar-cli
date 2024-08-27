@@ -69,13 +69,6 @@ impl Args {
             return Ok(TxnResult::Txn(tx));
         }
 
-        // let txn = client.simulate_and_assemble_transaction(&tx).await?;
-        // let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
-
-        // if self.fee.sim_only {
-        //     return Ok(TxnResult::Txn(txn));
-        // }
-
         let txn_resp = client
             .send_transaction_polling(&self.config.sign_with_local_key(tx).await?)
             .await?;

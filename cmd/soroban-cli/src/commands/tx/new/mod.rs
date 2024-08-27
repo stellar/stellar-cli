@@ -3,7 +3,7 @@ use clap::Parser;
 use super::global;
 
 mod account_merge;
-mod allow_trust;
+mod begin_sponsoring_future_reserves;
 mod bump_sequence;
 mod change_trust;
 mod create_account;
@@ -16,8 +16,10 @@ mod set_trustline_flags;
 pub enum Cmd {
     /// Merge an account into another account
     AccountMerge(account_merge::Cmd),
-    /// Allow trust for an asset
-    AllowTrust(allow_trust::Cmd),
+    /// Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship
+    /// There must also be an end sponsoring future reserves operation in the same transaction
+    /// Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
+    BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd),
     /// Bump the sequence number of an account
     BumpSequence(bump_sequence::Cmd),
     /// Change trust for an asset
@@ -39,7 +41,7 @@ pub enum Error {
     #[error(transparent)]
     AccountMerge(#[from] account_merge::Error),
     #[error(transparent)]
-    AllowTrust(#[from] allow_trust::Error),
+    BeginSponsoringFutureReserves(#[from] begin_sponsoring_future_reserves::Error),
     #[error(transparent)]
     BumpSequence(#[from] bump_sequence::Error),
     #[error(transparent)]
@@ -60,7 +62,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::AccountMerge(cmd) => cmd.run(global_args).await?,
-            Cmd::AllowTrust(cmd) => cmd.run(global_args).await?,
+            Cmd::BeginSponsoringFutureReserves(cmd) => cmd.run(global_args).await?,
             Cmd::BumpSequence(cmd) => cmd.run(global_args).await?,
             Cmd::ChangeTrust(cmd) => cmd.run(global_args).await?,
             Cmd::CreateAccount(cmd) => cmd.run(global_args).await?,
