@@ -32,8 +32,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    #[allow(clippy::unused_async)]
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let alias = &self.alias;
         let network = self.network.get(&self.config_locator)?;
