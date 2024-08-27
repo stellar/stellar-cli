@@ -233,6 +233,7 @@ impl Cmd {
         let sc_val = if let Some(mut val) = matches_.get_raw(&name) {
             let mut s = val.next().unwrap().to_string_lossy().to_string();
             if matches!(input.type_, ScSpecTypeDef::Address) {
+                // Currently we only support local keys, same as input for --sign-with-key`, for signing auth entries.
                 if let Ok(signer_) = config
                     .sign_with
                     .locator
