@@ -1,3 +1,4 @@
+pub mod alias;
 pub mod asset;
 pub mod bindings;
 pub mod build;
@@ -21,6 +22,11 @@ pub enum Cmd {
     /// Utilities to deploy a Stellar Asset Contract or get its id
     #[command(subcommand)]
     Asset(asset::Cmd),
+
+    /// Utilities to manage contract aliases
+    #[command(subcommand)]
+    Alias(alias::Cmd),
+
     /// Generate code client bindings for a contract
     #[command(subcommand)]
     Bindings(bindings::Cmd),
@@ -83,6 +89,9 @@ pub enum Error {
     Asset(#[from] asset::Error),
 
     #[error(transparent)]
+    Alias(#[from] alias::Error),
+
+    #[error(transparent)]
     Bindings(#[from] bindings::Error),
 
     #[error(transparent)]
@@ -132,6 +141,7 @@ impl Cmd {
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
             Cmd::Extend(extend) => extend.run().await?,
+            Cmd::Alias(alias) => alias.run(global_args).await?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
             Cmd::Id(id) => id.run().await?,
             Cmd::Info(info) => info.run().await?,

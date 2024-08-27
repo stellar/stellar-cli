@@ -190,7 +190,7 @@ impl NetworkRunnable for Cmd {
             }
         })?);
 
-        print.info(format!("Using wasm hash {wasm_hash}").as_str());
+        print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
 
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
@@ -219,21 +219,21 @@ impl NetworkRunnable for Cmd {
         )?;
 
         if self.fee.build_only {
-            print.check("Transaction built!");
+            print.checkln("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.info("Simulating deploy transaction…");
+        print.infoln("Simulating deploy transaction…");
 
         let txn = client.simulate_and_assemble_transaction(&txn).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
 
         if self.fee.sim_only {
-            print.check("Done!");
+            print.checkln("Done!");
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.globe("Submitting deploy transaction…");
+        print.globeln("Submitting deploy transaction…");
         print.log_transaction(&txn, &network, true)?;
 
         let get_txn_resp = client
@@ -248,10 +248,10 @@ impl NetworkRunnable for Cmd {
         let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
 
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
-            print.link(url);
+            print.linkln(url);
         }
 
-        print.check("Deployed!");
+        print.checkln("Deployed!");
 
         Ok(TxnResult::Res(contract_id))
     }
