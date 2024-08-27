@@ -166,7 +166,7 @@ impl NetworkRunnable for Cmd {
                             // Skip reupload if this isn't V0 because V1 extension already
                             // exists.
                             if code.ext.ne(&ContractCodeEntryExt::V0) {
-                                print.info("Skipping install because wasm already installed");
+                                print.infoln("Skipping install because wasm already installed");
                                 return Ok(TxnResult::Res(hash));
                             }
                         }
@@ -178,7 +178,7 @@ impl NetworkRunnable for Cmd {
             }
         }
 
-        print.info("Simulating install transaction…");
+        print.infoln("Simulating install transaction…");
 
         let txn = client
             .simulate_and_assemble_transaction(&tx_without_preflight)
@@ -189,7 +189,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.globe("Submitting install transaction…");
+        print.globeln("Submitting install transaction…");
 
         let txn_resp = client
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)

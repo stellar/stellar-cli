@@ -76,6 +76,7 @@ Tools for smart contract developers
 ###### **Subcommands:**
 
 * `asset` — Utilities to deploy a Stellar Asset Contract or get its id
+* `alias` — Utilities to manage contract aliases
 * `bindings` — Generate code client bindings for a contract
 * `build` — Build a contract from source
 * `extend` — Extend the time to live ledger of a contract-data ledger entry
@@ -148,6 +149,38 @@ Deploy builtin Soroban Asset Contract
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+
+
+
+## `stellar contract alias`
+
+Utilities to manage contract aliases
+
+**Usage:** `stellar contract alias <COMMAND>`
+
+###### **Subcommands:**
+
+* `remove` — Remove contract alias
+
+
+
+## `stellar contract alias remove`
+
+Remove contract alias
+
+**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+
+###### **Arguments:**
+
+* `<ALIAS>` — The contract alias that will be removed
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
 
 
 
