@@ -24,7 +24,7 @@ pub struct Cmd {
 
     /// The contract id that will be associated with the alias.
     #[arg(long = "id")]
-    pub contract_id: String,
+    pub contract_id: stellar_strkey::Contract,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -57,7 +57,7 @@ impl Cmd {
             .get_contract_id(&self.alias, network_passphrase)?;
 
         if let Some(contract) = contract {
-            if contract != self.contract_id && !self.overwrite {
+            if contract != self.contract_id.to_string() && !self.overwrite {
                 return Err(Error::AlreadyExist {
                     alias: alias.to_string(),
                     network_passphrase: network_passphrase.to_string(),
@@ -73,7 +73,7 @@ impl Cmd {
 
         self.config_locator.save_contract_id(
             &network.network_passphrase,
-            &self.contract_id,
+            &self.contract_id.to_string(),
             alias,
         )?;
 
