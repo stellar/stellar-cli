@@ -7,11 +7,6 @@ use crate::config::locator;
 use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
-// #[command(group(
-//     clap::ArgGroup::new("wasm_src")
-//         .required(true)
-//         .args(&["wasm", "wasm_hash"]),
-// ))]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
@@ -42,30 +37,25 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let alias = &self.alias;
         let network = self.network.get(&self.config_locator)?;
+        let network_passphrase = &network.network_passphrase;
 
-        print.infoln(format!(
-            "Network passphrase: {passphrase}",
-            passphrase = network.network_passphrase
-        ));
-
-        let contract = self
+        let Some(contract) = self
             .config_locator
-            .get_contract_id(&self.alias, &network.network_passphrase)?;
-
-        if contract.is_none() {
+            .get_contract_id(&self.alias, network_passphrase)?
+        else {
             return Err(Error::NoContract {
                 alias: alias.into(),
             });
         };
 
-        let contract = contract.expect("contract must be set");
-
-        print.infoln(format!("Contract is {contract}"));
+        print.infoln(format!(
+            "Contract alias '{alias}' references {contract} on network '{network_passphrase}'"
+        ));
 
         self.config_locator
             .remove_contract_id(&network.network_passphrase, alias)?;
 
-        print.checkln("Contract alias has been removed");
+        print.checkln(format!("Contract alias '{alias}' has been removed"));
 
         Ok(())
     }
