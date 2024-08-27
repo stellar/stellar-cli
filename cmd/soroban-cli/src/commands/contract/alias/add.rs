@@ -35,9 +35,6 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
 
-    #[error("no contract found with alias `{alias}`")]
-    NoContract { alias: String },
-
     #[error(
         "alias '{alias}' is already referencing contract '{contract}' on network '{network_passphrase}'"
     )]
