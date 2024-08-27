@@ -27,8 +27,11 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
 
-    #[error("no contract found with alias `{alias}`")]
-    NoContract { alias: String },
+    #[error("no contract found with alias '{alias}' for network '{network_passphrase}'")]
+    NoContract {
+        alias: String,
+        network_passphrase: String,
+    },
 }
 
 impl Cmd {
@@ -52,6 +55,7 @@ impl Cmd {
         } else {
             Err(Error::NoContract {
                 alias: alias.into(),
+                network_passphrase: network_passphrase.into(),
             })
         }
     }
