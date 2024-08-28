@@ -25,12 +25,6 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
 
-    #[error("no contract found with alias '{alias}' for network '{network_passphrase}'")]
-    NoContract {
-        alias: String,
-        network_passphrase: String,
-    },
-
     #[error(transparent)]
     PatternError(#[from] glob::PatternError),
 
