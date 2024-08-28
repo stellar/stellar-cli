@@ -161,6 +161,8 @@ Utilities to manage contract aliases
 ###### **Subcommands:**
 
 * `remove` — Remove contract alias
+* `add` — Add contract alias
+* `show` — Show the contract id associated with a given alias
 
 
 
@@ -173,6 +175,48 @@ Remove contract alias
 ###### **Arguments:**
 
 * `<ALIAS>` — The contract alias that will be removed
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar contract alias add`
+
+Add contract alias
+
+**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+
+###### **Arguments:**
+
+* `<ALIAS>` — The contract alias that will be removed
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--overwrite` — Overwrite the contract alias if it already exists
+* `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+
+
+
+## `stellar contract alias show`
+
+Show the contract id associated with a given alias
+
+**Usage:** `stellar contract alias show [OPTIONS] <ALIAS>`
+
+###### **Arguments:**
+
+* `<ALIAS>` — The contract alias that will be displayed
 
 ###### **Options:**
 
@@ -1277,21 +1321,21 @@ Create a new transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Merge an account into another account
+* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger Threshold: High
 * `begin-sponsoring-future-reserves` — Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
-* `bump-sequence` — Bump the sequence number of an account
-* `change-trust` — Change trust for an asset
-* `create-account` — Create a new account using another account
-* `manage-data` — Manage data on an account
-* `payment` — Send a payment to an account
-* `set-options` — Set options on an account
-* `set-trustline-flags` — Set trustline flags on an account
+* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number Threshold: Low
+* `change-trust` — Creates, updates, or deletes a trustline Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/) Threshold: Medium
+* `create-account` — Creates and funds a new account with the specified starting balance Threshold: Medium
+* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: [Accounts section](../stellar-data-structures/accounts.mdx#subentries) Threshold: Medium
+* `payment` — Sends an amount in a specific asset to a destination account Threshold: Medium
+* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight Learn more about flags: [Flags Encyclopedia Entry](../../glossary.mdx#flags) Learn more about the home domain: [Stellar Ecosystem Proposals SEP-0001](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md) Learn more about signers operations and key weight: [Signature and Multisignature Encyclopedia Entry](../../encyclopedia/security/signatures-multisig.mdx) Threshold: High
+* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID. Learn more about flags: [Flags Glossary Entry](../../glossary.mdx#flags) Threshold: Low
 
 
 
 ## `stellar tx new account-merge`
 
-Merge an account into another account
+Transfers the XLM balance of an account to another account and removes the source account from the ledger Threshold: High
 
 **Usage:** `stellar tx new account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
 
@@ -1319,7 +1363,7 @@ Merge an account into another account
 
 Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
 
-**Usage:** `stellar tx new begin-sponsoring-future-reserves [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
+**Usage:** `stellar tx new begin-sponsoring-future-reserves [OPTIONS] --source-account <SOURCE_ACCOUNT> --sponsorship-id <SPONSORSHIP_ID>`
 
 ###### **Options:**
 
@@ -1337,13 +1381,13 @@ Allows an account to pay the base reserves for another account; sponsoring accou
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--bump-to <BUMP_TO>` — Sequence number to bump to
+* `--sponsorship-id <SPONSORSHIP_ID>` — Sequence number to bump to
 
 
 
 ## `stellar tx new bump-sequence`
 
-Bump the sequence number of an account
+Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number Threshold: Low
 
 **Usage:** `stellar tx new bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
 
@@ -1369,7 +1413,7 @@ Bump the sequence number of an account
 
 ## `stellar tx new change-trust`
 
-Change trust for an asset
+Creates, updates, or deletes a trustline Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/) Threshold: Medium
 
 **Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE> --limit <LIMIT>`
 
@@ -1396,7 +1440,7 @@ Change trust for an asset
 
 ## `stellar tx new create-account`
 
-Create a new account using another account
+Creates and funds a new account with the specified starting balance Threshold: Medium
 
 **Usage:** `stellar tx new create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
 
@@ -1423,7 +1467,7 @@ Create a new account using another account
 
 ## `stellar tx new manage-data`
 
-Manage data on an account
+Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: [Accounts section](../stellar-data-structures/accounts.mdx#subentries) Threshold: Medium
 
 **Usage:** `stellar tx new manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
 
@@ -1450,7 +1494,7 @@ Manage data on an account
 
 ## `stellar tx new payment`
 
-Send a payment to an account
+Sends an amount in a specific asset to a destination account Threshold: Medium
 
 **Usage:** `stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
 
@@ -1471,16 +1515,16 @@ Send a payment to an account
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--destination <DESTINATION>` — Account to send to
-* `--asset <ASSET>` — Asset to send, default XLM
+* `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Initial balance of the account, default 1 XLM
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send
 
 
 
 ## `stellar tx new set-options`
 
-Set options on an account
+Set option for an account such as flags, inflation destination, signers, home domain, and master key weight Learn more about flags: [Flags Encyclopedia Entry](../../glossary.mdx#flags) Learn more about the home domain: [Stellar Ecosystem Proposals SEP-0001](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md) Learn more about signers operations and key weight: [Signature and Multisignature Encyclopedia Entry](../../encyclopedia/security/signatures-multisig.mdx) Threshold: High
 
 **Usage:** `stellar tx new set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
@@ -1500,17 +1544,18 @@ Set options on an account
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--inflation-dest <INFLATION_DEST>`
-* `--master-weight <MASTER_WEIGHT>`
-* `--low-threshold <LOW_THRESHOLD>`
-* `--med-threshold <MED_THRESHOLD>`
-* `--high-threshold <HIGH_THRESHOLD>`
-* `--home-domain <HOME_DOMAIN>`
-* `--signer <SIGNER>`
-* `--set-required`
-* `--set-revocable`
-* `--set-immutable`
-* `--set-clawback-enabled`
+* `--inflation-dest <INFLATION_DEST>` — Account of the inflation destination
+* `--master-weight <MASTER_WEIGHT>` — A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled
+* `--low-threshold <LOW_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a low threshold](../../encyclopedia/security/signatures-multisig.mdx)
+* `--med-threshold <MED_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a medium threshold](../../encyclopedia/security/signatures-multisig.mdx)
+* `--high-threshold <HIGH_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a high threshold](../../encyclopedia/security/signatures-multisig.mdx)
+* `--home-domain <HOME_DOMAIN>` — Sets the home domain of an account. See [Federation](../../encyclopedia/network-configuration/federation.mdx)
+* `--signer <SIGNER>` — Add, update, or remove a signer from an account
+* `--signer-weight <SIGNER_WEIGHT>` — Signer weight is a number from 0-255 (inclusive). The signer is deleted if the weight is 0
+* `--set-required` — When enabled, an issuer must approve an account before that account can hold its asset. [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1)
+* `--set-revocable` — When enabled, an issuer can revoke an existing trustline’s authorization, thereby freezing the asset held by an account. [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2)
+* `--set-clawback-enabled` — Enables the issuing account to take back (burning) all of the asset. [More info](https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8)
+* `--set-immutable` — With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can’t be merged. [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4)
 * `--clear-required`
 * `--clear-revocable`
 * `--clear-immutable`
@@ -1520,7 +1565,7 @@ Set options on an account
 
 ## `stellar tx new set-trustline-flags`
 
-Set trustline flags on an account
+Allows issuing account to configure authorization and trustline flags to an asset The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID. Learn more about flags: [Flags Glossary Entry](../../glossary.mdx#flags) Threshold: Low
 
 **Usage:** `stellar tx new set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
 
@@ -1542,9 +1587,9 @@ Set trustline flags on an account
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--trustor <TRUSTOR>` — Account to set trustline flags for
 * `--asset <ASSET>` — Asset to set trustline flags for
-* `--set-authorize`
-* `--set-authorize-to-maintain-liabilities`
-* `--set-trustline-clawback-enabled`
+* `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders
+* `--set-authorize-to-maintain-liabilities` — Denotes limited authorization that allows an account to maintain current orders but not to otherwise transact with the asset
+* `--set-trustline-clawback-enabled` — Enables the issuing account to take back (burning) all of the asset. See our [section on Clawbacks](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/clawbacks)
 * `--clear-authorize`
 * `--clear-authorize-to-maintain-liabilities`
 * `--clear-trustline-clawback-enabled`

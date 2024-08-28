@@ -15,7 +15,7 @@ pub struct Cmd {
     #[command(flatten)]
     network: network::Args,
 
-    /// The contract alias that will be removed.
+    /// The contract alias that will be displayed.
     pub alias: String,
 }
 
@@ -41,25 +41,22 @@ impl Cmd {
         let network = self.network.get(&self.config_locator)?;
         let network_passphrase = &network.network_passphrase;
 
-        let Some(contract) = self
+        if let Some(contract) = self
             .config_locator
             .get_contract_id(&self.alias, network_passphrase)?
-        else {
-            return Err(Error::NoContract {
+        {
+            print.infoln(format!(
+                "Contract alias '{alias}' references {contract} on network '{network_passphrase}'"
+            ));
+
+            println!("{contract}");
+
+            Ok(())
+        } else {
+            Err(Error::NoContract {
                 alias: alias.into(),
                 network_passphrase: network_passphrase.into(),
-            });
-        };
-
-        print.infoln(format!(
-            "Contract alias '{alias}' references {contract} on network '{network_passphrase}'"
-        ));
-
-        self.config_locator
-            .remove_contract_id(&network.network_passphrase, alias)?;
-
-        print.checkln(format!("Contract alias '{alias}' has been removed"));
-
-        Ok(())
+            })
+        }
     }
 }
