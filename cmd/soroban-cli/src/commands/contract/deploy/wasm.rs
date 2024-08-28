@@ -1,6 +1,6 @@
-use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
+use std::{array::TryFromSliceError, ffi::OsString};
 
 use clap::{arg, command, Parser};
 use rand::Rng;
@@ -14,7 +14,11 @@ use soroban_env_host::{
     },
     HostError,
 };
+use soroban_sdk::xdr::InvokeContractArgs;
+use soroban_spec_tools::contract as contract_spec;
 
+use crate::commands::contract::arg_parsing;
+use crate::utils::rpc::get_remote_wasm_from_hash;
 use crate::{
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
@@ -30,6 +34,8 @@ use crate::{
     },
     print::Print,
 };
+
+pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
@@ -63,6 +69,9 @@ pub struct Cmd {
     /// configuration without asking for confirmation.
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
+    /// If provided, in one transaction will deploy and call `__constructor` with provided arguments for that function as `--arg-name value`
+    #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
+    pub slop: Vec<OsString>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -115,6 +124,10 @@ pub enum Error {
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    ContractSpec(#[from] contract_spec::Error),
+    #[error(transparent)]
+    ArgParse(#[from] arg_parsing::Error),
 }
 
 impl Cmd {
@@ -160,6 +173,7 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<String>;
 
+    #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
@@ -213,6 +227,40 @@ impl NetworkRunnable for Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
         let key = config.key_pair()?;
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
+            key.verifying_key().to_bytes().into(),
+        ));
+
+        let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+            address: ScAddress::Account(source_account),
+            salt: Uint256(salt),
+        });
+        let contract_id =
+            get_contract_id(contract_id_preimage.clone(), &network.network_passphrase)?;
+        let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
+            wasm::Args { wasm: wasm.clone() }.read()?
+        } else {
+            get_remote_wasm_from_hash(&client, &wasm_hash).await?
+        };
+        let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
+        let res = soroban_spec_tools::Spec::new(entries.clone());
+        let constructor_params = if res.find_function(CONSTRUCTOR_FUNCTION_NAME).is_ok() {
+            let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+            slop.extend_from_slice(&self.slop);
+            if let Ok((_, _, args, _)) = arg_parsing::build_host_function_parameters(
+                &stellar_strkey::Contract(contract_id.0),
+                &slop,
+                &entries,
+                config,
+            ) {
+                Some(args)
+            } else {
+                print.warnln("Contract has `__constructor` function but no arguments provided so skipping deploy and init");
+                None
+            }
+        } else {
+            None
+        };
 
         // Get the account sequence number
         let public_strkey =
@@ -220,13 +268,13 @@ impl NetworkRunnable for Cmd {
 
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
-        let (txn, contract_id) = build_create_contract_tx(
+        let txn = build_create_contract_tx(
             wasm_hash,
             sequence + 1,
             self.fee.fee,
-            &network.network_passphrase,
-            salt,
             &key,
+            contract_id_preimage,
+            constructor_params.as_ref(),
         )?;
 
         if self.fee.build_only {
@@ -269,29 +317,22 @@ impl NetworkRunnable for Cmd {
 }
 
 fn build_create_contract_tx(
-    hash: Hash,
+    wasm_hash: Hash,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
-    salt: [u8; 32],
     key: &ed25519_dalek::SigningKey,
-) -> Result<(Transaction, Hash), Error> {
-    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-        key.verifying_key().to_bytes().into(),
-    ));
-
-    let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-        address: ScAddress::Account(source_account),
-        salt: Uint256(salt),
-    });
-    let contract_id = get_contract_id(contract_id_preimage.clone(), network_passphrase)?;
-
+    contract_id_preimage: ContractIdPreimage,
+    constructor_params: Option<&InvokeContractArgs>,
+) -> Result<Transaction, Error> {
+    if let Some(constructor_args) = constructor_params {
+        eprintln!("Deploying with constructor arguments {constructor_args:#?}");
+    }
     let op = Operation {
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
                 contract_id_preimage,
-                executable: ContractExecutable::Wasm(hash),
+                executable: ContractExecutable::Wasm(wasm_hash),
             }),
             auth: VecM::default(),
         }),
@@ -306,7 +347,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    Ok((tx, Hash(contract_id.into())))
+    Ok(tx)
 }
 
 #[cfg(test)]
@@ -319,15 +360,24 @@ mod tests {
             .unwrap()
             .try_into()
             .unwrap();
-        let result = build_create_contract_tx(
-            Hash(hash),
-            300,
-            1,
-            "Public Global Stellar Network ; September 2015",
-            [0u8; 32],
+        let salt = [0u8; 32];
+        let key =
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
-                .unwrap(),
-        );
+                .unwrap();
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
+            key.verifying_key().to_bytes().into(),
+        ));
+
+        let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+            address: ScAddress::Account(source_account),
+            salt: Uint256(salt),
+        });
+        // let contract_id = get_contract_id(
+        //     contract_id_preimage.clone(),
+        //     "Public Global Stellar Network ; September 2015",
+        // )
+        // .unwrap();
+        let result = build_create_contract_tx(Hash(hash), 300, 1, key, contract_id_preimage, None);
 
         assert!(result.is_ok());
     }
