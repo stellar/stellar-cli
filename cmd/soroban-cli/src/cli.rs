@@ -2,6 +2,7 @@ use clap::CommandFactory;
 use dotenvy::dotenv;
 use tracing_subscriber::{fmt, EnvFilter};
 
+use crate::self_outdated_check::print_upgrade_prompt;
 use crate::{commands, Root};
 
 #[tokio::main]
@@ -34,13 +35,16 @@ pub async fn main() {
     let mut root = Root::new().unwrap_or_else(|e| match e {
         commands::Error::Clap(e) => {
             let mut cmd = Root::command();
-            e.format(&mut cmd).exit();
+            let e = e.format(&mut cmd);
+            let _ = e.print();
+            exit(e.exit_code());
         }
         e => {
             eprintln!("{e}");
-            std::process::exit(1);
+            exit(1);
         }
     });
+
     // Now use root to setup the logger
     if let Some(level) = root.global_args.log_level() {
         let mut e_filter = EnvFilter::from_default_env()
@@ -54,7 +58,7 @@ pub async fn main() {
                     .parse()
                     .map_err(|e| {
                         eprintln!("{e}: {filter}");
-                        std::process::exit(1);
+                        exit(1);
                     })
                     .unwrap(),
             );
@@ -72,6 +76,13 @@ pub async fn main() {
 
     if let Err(e) = root.run().await {
         eprintln!("error: {e}");
-        std::process::exit(1);
+        exit(1);
     }
+
+    print_upgrade_prompt(root.global_args.quiet);
+}
+
+fn exit(exit_code: i32) -> ! {
+    print_upgrade_prompt(false);
+    std::process::exit(exit_code);
 }

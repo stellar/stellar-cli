@@ -18,6 +18,7 @@ pub mod get_spec;
 pub mod key;
 pub mod log;
 pub mod print;
+pub mod self_outdated_check;
 pub mod signer;
 pub mod toid;
 pub mod utils;

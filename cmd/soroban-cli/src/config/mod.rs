@@ -18,6 +18,7 @@ pub mod data;
 pub mod locator;
 pub mod network;
 pub mod secret;
+pub mod self_outdated_check;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

@@ -4719,6 +4719,7 @@ dependencies = [
  "regex",
  "rpassword",
  "rust-embed",
+ "semver",
  "sep5",
  "serde",
  "serde-aux",
