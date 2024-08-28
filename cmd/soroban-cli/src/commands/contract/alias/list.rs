@@ -34,10 +34,8 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        #[allow(unused_variables)]
         let print = Print::new(global_args.quiet);
         let network = self.network.get(&self.config_locator)?;
-        #[allow(unused_variables)]
         let network_passphrase = &network.network_passphrase;
         let config_dir = self.config_locator.config_dir()?;
         let pattern = config_dir
