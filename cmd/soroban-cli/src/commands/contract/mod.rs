@@ -1,4 +1,5 @@
 pub mod alias;
+pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
