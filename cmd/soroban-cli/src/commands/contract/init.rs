@@ -26,12 +26,6 @@ const GITHUB_URL: &str = "https://github.com";
 const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
     "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.";
 
-#[derive(Clone, Debug, ValueEnum, PartialEq)]
-pub enum FrontendTemplate {
-    Astro,
-    None,
-}
-
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
