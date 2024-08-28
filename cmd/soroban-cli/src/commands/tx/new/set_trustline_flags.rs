@@ -26,10 +26,13 @@ pub struct Cmd {
     #[arg(long)]
     pub asset: builder::Asset,
     #[arg(long, conflicts_with = "clear_authorize")]
+    /// Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders.
     pub set_authorize: bool,
     #[arg(long, conflicts_with = "clear_authorize_to_maintain_liabilities")]
+    /// Denotes limited authorization that allows an account to maintain current orders but not to otherwise transact with the asset.
     pub set_authorize_to_maintain_liabilities: bool,
     #[arg(long, conflicts_with = "clear_trustline_clawback_enabled")]
+    /// Enables the issuing account to take back (burning) all of the asset. See our [section on Clawbacks](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/clawbacks)
     pub set_trustline_clawback_enabled: bool,
     #[arg(long)]
     pub clear_authorize: bool,

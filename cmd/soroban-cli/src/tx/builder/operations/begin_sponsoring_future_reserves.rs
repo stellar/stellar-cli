@@ -1,11 +1,13 @@
 use stellar_xdr::curr as xdr;
 
+use crate::tx::builder;
+
 pub struct BeginSponsoringFutureReserves(xdr::BeginSponsoringFutureReservesOp);
 
 impl BeginSponsoringFutureReserves {
-    pub fn new(sponsored_id: impl Into<xdr::AccountId>) -> Self {
+    pub fn new(sponsored_id: impl Into<builder::AccountId>) -> Self {
         Self(xdr::BeginSponsoringFutureReservesOp {
-            sponsored_id: sponsored_id.into(),
+            sponsored_id: sponsored_id.into().into(),
         })
     }
 }

@@ -23,10 +23,10 @@ pub struct Cmd {
     /// Account to send to
     #[arg(long)]
     pub destination: String,
-    /// Asset to send, default XLM
+    /// Asset to send, default native, e.i. XLM
     #[arg(long, default_value = "native")]
     pub asset: builder::Asset,
-    /// Initial balance of the account, default 1 XLM
+    /// Amount of the aforementioned asset to send.
     #[arg(long)]
     pub amount: i64,
 }

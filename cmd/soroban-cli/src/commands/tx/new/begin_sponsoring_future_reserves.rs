@@ -9,8 +9,8 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network, secret},
-    rpc::{self},
-    tx::builder,
+    rpc,
+    tx::builder::{self, ops},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct Cmd {
     pub tx: tx::args::Args,
     /// Sequence number to bump to
     #[arg(long)]
-    pub bump_to: i64,
+    pub sponsorship_id: builder::AccountId,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -72,7 +72,7 @@ impl NetworkRunnable for Cmd {
         _: Option<&config::Args>,
     ) -> Result<TxnResult<()>, Error> {
         let tx_build = self.tx.tx_builder().await?;
-        let op = builder::ops::BumpSequence::new(self.bump_to);
+        let op = ops::BeginSponsoringFutureReserves::new(self.sponsorship_id.clone());
 
         self.tx
             .handle_tx(
