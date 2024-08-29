@@ -14,7 +14,7 @@ use std::{
     },
     io::{self, Read, Write},
     num::NonZeroU32,
-    path::Path,
+    path::{Path, PathBuf},
     str,
     sync::atomic::AtomicBool,
 };
@@ -109,12 +109,12 @@ struct Runner {
 
 impl Runner {
     fn run(&self) -> Result<(), Error> {
-        let project_path = Path::new(&self.args.project_path);
+        let project_path = PathBuf::from(&self.args.project_path);
         self.print
             .infoln(format!("Initializing project at {project_path:?}"));
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
-        create_dir_all(project_path).map_err(|e| {
+        create_dir_all(&project_path).map_err(|e| {
             self.print
                 .errorln("Error creating new project directory: {project_path:?}");
             e
@@ -126,7 +126,7 @@ impl Runner {
             return Ok(());
         }
 
-        if !&self.args.frontend_template.is_empty() {
+        if !self.args.frontend_template.is_empty() {
             // create a temp dir for the template repo
             let fe_template_dir = tempfile::tempdir().map_err(|e| {
                 self.print
@@ -138,7 +138,7 @@ impl Runner {
             self.clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
 
             // copy the frontend template files into the project
-            self.copy_frontend_files(fe_template_dir.path(), project_path)?;
+            self.copy_frontend_files(fe_template_dir.path(), &project_path)?;
         }
 
         // if there are --with-example flags, include the example contracts
@@ -156,7 +156,7 @@ impl Runner {
             // copy the example contracts into the project
             self.copy_example_contracts(
                 examples_dir.path(),
-                project_path,
+                &project_path,
                 &self.args.with_example,
             )?;
         }
@@ -203,7 +203,8 @@ impl Runner {
             }
 
             if exists {
-                self.print.overln(format!("Overwriting {to:?}"));
+                self.print
+                    .plusln(format!("Writing {to:?} (overwriting existing file)"));
             } else {
                 self.print.plusln(format!("Writing {to:?}"));
             }
@@ -260,7 +261,9 @@ impl Runner {
                     }
 
                     if self.args.overwrite && !append {
-                        self.print.overln(format!("Overwriting {new_path_str}"));
+                        self.print.plusln(format!(
+                            "Writing {new_path_str} (overwriting existing file)"
+                        ));
                     } else {
                         self.print.infoln(format!(
                             "Skipped creating {new_path_str} as it already exists"
