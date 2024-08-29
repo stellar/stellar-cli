@@ -1,5 +1,4 @@
-use crate::config::self_outdated_check::SelfOutdatedCheck;
-use crate::print::Print;
+use crate::config::upgrade_check::UpgradeCheck;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
@@ -35,7 +34,7 @@ fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
 }
 
 /// Print a warning if a new version of the CLI is available
-pub fn print_upgrade_prompt() {
+pub fn upgrade_check() {
     // We should skip the upgrade check if we're not in a tty environment.
     if !std::io::stderr().is_terminal() {
         return;
@@ -48,15 +47,11 @@ pub fn print_upgrade_prompt() {
     }
 
     let current_version = crate::commands::version::pkg();
-    let print = Print::new(false);
 
-    let mut stats = match SelfOutdatedCheck::load() {
-        Ok(stats) => stats,
-        Err(e) => {
-            print.warnln(format!("Failed to load self outdated check data: {}", e));
-            SelfOutdatedCheck::default()
-        }
-    };
+    let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
+        println!("Failed to load self outdated check data: {e}");
+        UpgradeCheck::default()
+    });
 
     #[allow(clippy::cast_sign_loss)]
     let now = chrono::Utc::now().timestamp() as u64;
@@ -65,17 +60,14 @@ pub fn print_upgrade_prompt() {
     if now - stats.latest_check_time >= MINIMUM_CHECK_INTERVAL.as_secs() {
         match fetch_latest_crate_info() {
             Ok(c) => {
-                stats = SelfOutdatedCheck {
+                stats = UpgradeCheck {
                     latest_check_time: now,
                     max_stable_version: c.max_stable_version,
                     max_version: c.max_version,
                 };
             }
             Err(e) => {
-                print.warnln(format!(
-                    "Failed to fetch stellar-cli info from crates.io: {}",
-                    e
-                ));
+                println!("Failed to fetch stellar-cli info from crates.io: {e}");
                 // Only update the latest check time if the fetch failed
                 // This way we don't spam the user with errors
                 stats.latest_check_time = now;
@@ -83,7 +75,7 @@ pub fn print_upgrade_prompt() {
         }
 
         if let Err(e) = stats.save() {
-            print.warnln(format!("Failed to save self outdated check data: {}", e));
+            println!("Failed to save self outdated check data: {e}");
         }
     }
 
@@ -91,13 +83,13 @@ pub fn print_upgrade_prompt() {
     let latest_version = get_latest_version(&current_version, &stats);
 
     if *latest_version > current_version {
-        print.warnln(format!(
+        println!(
             "A new release of stellar-cli is available: {current_version} -> {latest_version}",
-        ));
+        );
     }
 }
 
-fn get_latest_version<'a>(current_version: &Version, stats: &'a SelfOutdatedCheck) -> &'a Version {
+fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) -> &'a Version {
     if current_version.pre.is_empty() {
         // If we are currently using a non-preview version
         &stats.max_stable_version
@@ -123,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_get_latest_version() {
-        let stats = SelfOutdatedCheck {
+        let stats = UpgradeCheck {
             latest_check_time: 0,
             max_stable_version: Version::parse("1.0.0").unwrap(),
             max_version: Version::parse("1.1.0-rc.1").unwrap(),

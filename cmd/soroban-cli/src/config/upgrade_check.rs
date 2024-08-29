@@ -2,15 +2,16 @@ use crate::config::locator;
 use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
+use serde_json;
 use std::fs;
 
-const FILE_NAME: &str = "self_outdated_check.toml";
+const FILE_NAME: &str = "upgrade_check.json";
 
 /// The `SelfOutdatedCheck` struct represents the state of the self-outdated check.
-/// This state is global and stored in the `self_outdated_check.toml` file in
+/// This state is global and stored in the `self_outdated_check.json` file in
 /// the global configuration directory.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct SelfOutdatedCheck {
+pub struct UpgradeCheck {
     /// The timestamp of the latest check for a new version of the CLI.
     pub latest_check_time: u64,
     /// The latest stable version of the CLI available on crates.io.
@@ -19,7 +20,7 @@ pub struct SelfOutdatedCheck {
     pub max_version: Version,
 }
 
-impl Default for SelfOutdatedCheck {
+impl Default for UpgradeCheck {
     fn default() -> Self {
         Self {
             latest_check_time: 0,
@@ -29,7 +30,7 @@ impl Default for SelfOutdatedCheck {
     }
 }
 
-impl SelfOutdatedCheck {
+impl UpgradeCheck {
     /// Loads the state of the self-outdated check from the global configuration directory.
     /// If the file doesn't exist, returns a default instance of `SelfOutdatedCheck`.
     pub fn load() -> Result<Self, locator::Error> {
@@ -39,14 +40,14 @@ impl SelfOutdatedCheck {
         }
         let data = fs::read(&path)
             .map_err(|error| locator::Error::SelfOutdatedCheckReadFailed { path, error })?;
-        Ok(toml::from_slice(data.as_slice())?)
+        Ok(serde_json::from_slice(data.as_slice())?)
     }
 
-    /// Saves the state of the self-outdated check to the `self_outdated_check.toml` file in the global configuration directory.
+    /// Saves the state of the self-outdated check to the `self_outdated_check.json` file in the global configuration directory.
     pub fn save(&self) -> Result<(), locator::Error> {
         let path = locator::global_config_path()?.join(FILE_NAME);
         let path = locator::ensure_directory(path)?;
-        let data = toml::to_string(self).map_err(|_| locator::Error::ConfigSerialization)?;
+        let data = serde_json::to_string(self).map_err(|_| locator::Error::ConfigSerialization)?;
         fs::write(&path, data)
             .map_err(|error| locator::Error::SelfOutdatedCheckWriteFailed { path, error })
     }
@@ -64,19 +65,19 @@ mod tests {
         env::set_var("XDG_CONFIG_HOME", temp_dir.path());
 
         // Test default loading
-        let default_check = SelfOutdatedCheck::load().unwrap();
-        assert_eq!(default_check, SelfOutdatedCheck::default());
+        let default_check = UpgradeCheck::load().unwrap();
+        assert_eq!(default_check, UpgradeCheck::default());
         assert_eq!(default_check.latest_check_time, 0);
         assert_eq!(default_check.max_stable_version, Version::new(0, 0, 0));
 
         // Test saving and loading
-        let saved_check = SelfOutdatedCheck {
+        let saved_check = UpgradeCheck {
             latest_check_time: 1_234_567_890,
             max_stable_version: Version::new(1, 2, 3),
             max_version: Version::parse("1.2.4-rc.1").unwrap(),
         };
         saved_check.save().unwrap();
-        let loaded_check = SelfOutdatedCheck::load().unwrap();
+        let loaded_check = UpgradeCheck::load().unwrap();
         assert_eq!(loaded_check, saved_check);
     }
 }

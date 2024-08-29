@@ -3,13 +3,13 @@ use dotenvy::dotenv;
 use std::thread;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::self_outdated_check::print_upgrade_prompt;
+use crate::upgrade_check::upgrade_check;
 use crate::{commands, Root};
 
 #[tokio::main]
 pub async fn main() {
     // Spawn a thread to print the upgrade prompt in the background
-    thread::spawn(print_upgrade_prompt);
+    thread::spawn(upgrade_check);
 
     let _ = dotenv().unwrap_or_default();
 
