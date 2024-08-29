@@ -72,10 +72,10 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("Failed to read self outdated check file: {path}: {error}")]
-    SelfOutdatedCheckReadFailed { path: PathBuf, error: io::Error },
-    #[error("Failed to write self outdated check file: {path}: {error}")]
-    SelfOutdatedCheckWriteFailed { path: PathBuf, error: io::Error },
+    #[error("Failed to read upgrade check file: {path}: {error}")]
+    UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
+    #[error("Failed to write upgrade check file: {path}: {error}")]
+    UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]

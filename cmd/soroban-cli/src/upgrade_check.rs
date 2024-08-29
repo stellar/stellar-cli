@@ -49,7 +49,7 @@ pub fn upgrade_check() {
     let current_version = crate::commands::version::pkg();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
-        println!("⚠️ Failed to load self outdated check data: {e}");
+        println!("⚠️ Failed to load upgrade check data: {e}");
         UpgradeCheck::default()
     });
 
@@ -75,7 +75,7 @@ pub fn upgrade_check() {
         }
 
         if let Err(e) = stats.save() {
-            println!("⚠️ Failed to save self outdated check data: {e}");
+            println!("⚠️ Failed to save upgrade check data: {e}");
         }
     }
 

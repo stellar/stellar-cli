@@ -7,8 +7,8 @@ use std::fs;
 
 const FILE_NAME: &str = "upgrade_check.json";
 
-/// The `SelfOutdatedCheck` struct represents the state of the self-outdated check.
-/// This state is global and stored in the `self_outdated_check.json` file in
+/// The `UpgradeCheck` struct represents the state of the upgrade check.
+/// This state is global and stored in the `upgrade_check.json` file in
 /// the global configuration directory.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct UpgradeCheck {
@@ -31,25 +31,25 @@ impl Default for UpgradeCheck {
 }
 
 impl UpgradeCheck {
-    /// Loads the state of the self-outdated check from the global configuration directory.
-    /// If the file doesn't exist, returns a default instance of `SelfOutdatedCheck`.
+    /// Loads the state of the upgrade check from the global configuration directory.
+    /// If the file doesn't exist, returns a default instance of `UpgradeCheck`.
     pub fn load() -> Result<Self, locator::Error> {
         let path = locator::global_config_path()?.join(FILE_NAME);
         if !path.exists() {
             return Ok(Self::default());
         }
         let data = fs::read(&path)
-            .map_err(|error| locator::Error::SelfOutdatedCheckReadFailed { path, error })?;
+            .map_err(|error| locator::Error::UpgradeCheckReadFailed { path, error })?;
         Ok(serde_json::from_slice(data.as_slice())?)
     }
 
-    /// Saves the state of the self-outdated check to the `self_outdated_check.json` file in the global configuration directory.
+    /// Saves the state of the upgrade check to the `upgrade_check.json` file in the global configuration directory.
     pub fn save(&self) -> Result<(), locator::Error> {
         let path = locator::global_config_path()?.join(FILE_NAME);
         let path = locator::ensure_directory(path)?;
         let data = serde_json::to_string(self).map_err(|_| locator::Error::ConfigSerialization)?;
         fs::write(&path, data)
-            .map_err(|error| locator::Error::SelfOutdatedCheckWriteFailed { path, error })
+            .map_err(|error| locator::Error::UpgradeCheckWriteFailed { path, error })
     }
 }
 
@@ -59,7 +59,7 @@ mod tests {
     use std::env;
 
     #[test]
-    fn test_self_outdated_check_load_save() {
+    fn test_upgrade_check_load_save() {
         // Set the `XDG_CONFIG_HOME` environment variable to a temporary directory
         let temp_dir = tempfile::tempdir().unwrap();
         env::set_var("XDG_CONFIG_HOME", temp_dir.path());
