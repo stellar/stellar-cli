@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::process;
+use std::{fs, process};
 
 use clap::{command, Parser};
 
 use crate::commands::{config::network, global};
-use crate::config::locator;
+use crate::config::{alias, locator};
 use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
@@ -12,9 +13,6 @@ use crate::print::Print;
 pub struct Cmd {
     #[command(flatten)]
     pub config_locator: locator::Args,
-
-    #[command(flatten)]
-    network: network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,13 +28,20 @@ pub enum Error {
 
     #[error(transparent)]
     GlobError(#[from] glob::GlobError),
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+}
+
+#[derive(Debug, Clone)]
+struct AliasEntry {
+    alias: String,
+    contract: String,
 }
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let network = self.network.get(&self.config_locator)?;
-        let network_passphrase = &network.network_passphrase;
         let config_dir = self.config_locator.config_dir()?;
         let pattern = config_dir
             .join("contract-ids")
@@ -46,31 +51,54 @@ impl Cmd {
 
         let paths = glob::glob(&pattern)?;
         let mut found = false;
-
-        print.infoln(format!(
-            "Showing aliases for network '{network_passphrase}'"
-        ));
+        let mut map: HashMap<String, Vec<AliasEntry>> = HashMap::new();
 
         for path in paths {
             let path = path?;
 
             if let Some(alias) = path.file_stem() {
                 let alias = alias.to_string_lossy().into_owned();
+                let content = fs::read_to_string(path)?;
+                let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
-                if let Some(contract_id) = self
-                    .config_locator
-                    .get_contract_id(&alias, network_passphrase)?
-                {
+                for network_passphrase in data.ids.keys() {
+                    let network_passphrase = network_passphrase.to_string();
+                    let contract = data
+                        .ids
+                        .get(&network_passphrase)
+                        .map(ToString::to_string)
+                        .unwrap_or_default();
+                    let entry = AliasEntry {
+                        alias: alias.clone(),
+                        contract,
+                    };
+
+                    let list = map.entry(network_passphrase.clone()).or_default();
+
+                    list.push(entry.clone());
+                }
+            }
+        }
+
+        for network_passphrase in map.keys() {
+            if let Some(list) = map.clone().get_mut(network_passphrase) {
+                print.infoln(format!(
+                    "Aliases available for network '{network_passphrase}'"
+                ));
+
+                list.sort_by(|a, b| a.alias.cmp(&b.alias));
+
+                for entry in list {
                     found = true;
-                    println!("{alias}: {contract_id}");
-                };
+                    println!("{}: {}", entry.alias, entry.contract);
+                }
+
+                print.println("");
             }
         }
 
         if !found {
-            print.warnln(format!(
-                "No aliases defined for network '{network_passphrase}'"
-            ));
+            print.warnln("No aliases defined for network");
 
             process::exit(1);
         }
