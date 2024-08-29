@@ -102,8 +102,21 @@ impl Args {
             .public_key(self.hd_path)?)
     }
 
-    pub async fn sign_tx_env_with_lab(&self, network: &Network) -> Result<(), Error> {
-        println!("signing with lab...");
+    pub async fn sign_tx_env_with_lab(
+        &self,
+        network: &Network,
+        tx_env: TransactionEnvelope,
+    ) -> Result<(), Error> {
+        let passphrase = network.network_passphrase.clone();
+        // fixme: this is not the correct way to encode url query strings, but this is how the version of zustand-querystring in lab is expecting it. zustand-querystring recently released an update, that _may_ fix this.
+        let encoded_passphrase = passphrase.replace(" ", "%20").replace(";", "/;");
+        let xdr = "AAAAAgAAAAC3g0zwH+GTFKaencL9HEX62fg4A2jjirzHdBH9cPvjCQAAAGQAEb7FAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAALeDTPAf4ZMUpp6dwv0cRfrZ+DgDaOOKvMd0Ef1w++MJAAAAAAAAAADcOHnq5sGLOngOCEMyLqqn5CvFV2HGbOSjJAIzhqBdkAAAAAA7msoAAAAAAAAAAAFw++MJAAAAQGVOS50rimyFFTxO0loZZ24n3FPSttnVHqvQQNZWkSgeHYywX6IGUqR6mBDCi7VQwgfNiACpLK7eySx2//SAjYw0=";
+        let txn_sign_url = format!(
+            "http://localhost:3000/transaction/sign?$=network$&passphrase={encoded_passphrase};&transaction$sign$activeView=overview&importXdr={xdr}"
+        );
+
+        open::that(txn_sign_url).unwrap(); //todo: handle unwrap
+
         Ok(())
     }
 }
