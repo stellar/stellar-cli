@@ -5,7 +5,7 @@ use soroban_test::TestEnv;
 #[test]
 fn init() {
     let sandbox = TestEnv::default();
-    let major = soroban_cli::commands::version::pkg()
+    let major = soroban_cli::commands::version::pkg_version()
         .split('.')
         .next()
         .unwrap();
