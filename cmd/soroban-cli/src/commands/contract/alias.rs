@@ -41,7 +41,7 @@ impl Cmd {
             Cmd::Remove(remove) => remove.run(global_args)?,
             Cmd::Add(add) => add.run(global_args)?,
             Cmd::Show(show) => show.run(global_args)?,
-            Cmd::List(list) => list.run(global_args)?,
+            Cmd::List(list) => list.run()?,
         }
         Ok(())
     }

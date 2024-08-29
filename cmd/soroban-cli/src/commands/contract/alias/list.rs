@@ -4,9 +4,8 @@ use std::{fs, process};
 
 use clap::{command, Parser};
 
-use crate::commands::{config::network, global};
+use crate::commands::config::network;
 use crate::config::{alias, locator};
-use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -40,8 +39,7 @@ struct AliasEntry {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = Print::new(global_args.quiet);
+    pub fn run(&self) -> Result<(), Error> {
         let config_dir = self.config_locator.config_dir()?;
         let pattern = config_dir
             .join("contract-ids")
@@ -82,9 +80,7 @@ impl Cmd {
 
         for network_passphrase in map.keys() {
             if let Some(list) = map.clone().get_mut(network_passphrase) {
-                print.infoln(format!(
-                    "Aliases available for network '{network_passphrase}'"
-                ));
+                println!("ℹ️ Aliases available for network '{network_passphrase}'");
 
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
@@ -93,12 +89,12 @@ impl Cmd {
                     println!("{}: {}", entry.alias, entry.contract);
                 }
 
-                print.println("");
+                println!();
             }
         }
 
         if !found {
-            print.warnln("No aliases defined for network");
+            eprintln!("⚠️ No aliases defined for network");
 
             process::exit(1);
         }
