@@ -1,6 +1,6 @@
 use clap::{
     builder::{PossibleValue, PossibleValuesParser, ValueParser},
-    Parser, ValueEnum,
+    Parser,
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
