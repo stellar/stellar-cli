@@ -163,7 +163,7 @@ Utilities to manage contract aliases
 * `remove` — Remove contract alias
 * `add` — Add contract alias
 * `show` — Show the contract id associated with a given alias
-* `list` — List all aliases
+* `ls` — List all aliases
 
 
 
@@ -229,11 +229,11 @@ Show the contract id associated with a given alias
 
 
 
-## `stellar contract alias list`
+## `stellar contract alias ls`
 
 List all aliases
 
-**Usage:** `stellar contract alias list [OPTIONS]`
+**Usage:** `stellar contract alias ls [OPTIONS]`
 
 ###### **Options:**
 

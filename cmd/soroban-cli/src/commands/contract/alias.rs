@@ -1,7 +1,7 @@
 use crate::commands::global;
 
 pub mod add;
-pub mod list;
+pub mod ls;
 pub mod remove;
 pub mod show;
 
@@ -17,7 +17,7 @@ pub enum Cmd {
     Show(show::Cmd),
 
     /// List all aliases
-    List(list::Cmd),
+    Ls(ls::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -32,7 +32,7 @@ pub enum Error {
     Show(#[from] show::Error),
 
     #[error(transparent)]
-    List(#[from] list::Error),
+    Ls(#[from] ls::Error),
 }
 
 impl Cmd {
@@ -41,7 +41,7 @@ impl Cmd {
             Cmd::Remove(remove) => remove.run(global_args)?,
             Cmd::Add(add) => add.run(global_args)?,
             Cmd::Show(show) => show.run(global_args)?,
-            Cmd::List(list) => list.run()?,
+            Cmd::Ls(ls) => ls.run()?,
         }
         Ok(())
     }
