@@ -72,7 +72,10 @@ pub fn print_upgrade_prompt() {
                 };
             }
             Err(e) => {
-                print.warnln(format!("Failed to fetch stellar-cli info from crates.io: {}", e));
+                print.warnln(format!(
+                    "Failed to fetch stellar-cli info from crates.io: {}",
+                    e
+                ));
                 // Only update the latest check time if the fetch failed
                 // This way we don't spam the user with errors
                 stats.latest_check_time = now;
