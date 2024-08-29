@@ -8,9 +8,6 @@ use crate::{commands, Root};
 
 #[tokio::main]
 pub async fn main() {
-    // Spawn a thread to print the upgrade prompt in the background
-    thread::spawn(upgrade_check);
-
     let _ = dotenv().unwrap_or_default();
 
     // Map SOROBAN_ env vars to STELLAR_ env vars for backwards compatibility
@@ -74,6 +71,11 @@ pub async fn main() {
         tracing::subscriber::set_global_default(subscriber)
             .expect("Failed to set the global tracing subscriber");
     }
+
+    // Spawn a thread to check if a new version exists.
+    // It depends on logger, so we need to place it after
+    // the code block that initializes the logger.
+    thread::spawn(upgrade_check);
 
     if let Err(e) = root.run().await {
         eprintln!("error: {e}");
