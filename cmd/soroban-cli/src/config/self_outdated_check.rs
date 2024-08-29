@@ -1,8 +1,8 @@
 use crate::config::locator;
 use jsonrpsee_core::Serialize;
+use semver::Version;
 use serde::Deserialize;
 use std::fs;
-use semver::Version;
 
 const FILE_NAME: &str = "self_outdated_check.toml";
 
@@ -73,7 +73,7 @@ mod tests {
         let saved_check = SelfOutdatedCheck {
             latest_check_time: 1_234_567_890,
             max_stable_version: Version::new(1, 2, 3),
-            max_version: Version::parse("1.2.4-rc.1").unwrap()
+            max_version: Version::parse("1.2.4-rc.1").unwrap(),
         };
         saved_check.save().unwrap();
         let loaded_check = SelfOutdatedCheck::load().unwrap();

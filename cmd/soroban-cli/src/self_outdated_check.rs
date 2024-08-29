@@ -50,20 +50,37 @@ pub fn print_upgrade_prompt() {
     let current_version = crate::commands::version::pkg();
     let print = Print::new(false);
 
-    let mut stats = SelfOutdatedCheck::load().unwrap_or_default();
+    let mut stats = match SelfOutdatedCheck::load() {
+        Ok(stats) => stats,
+        Err(e) => {
+            print.warnln(format!("Failed to load self outdated check data: {}", e));
+            SelfOutdatedCheck::default()
+        }
+    };
 
     #[allow(clippy::cast_sign_loss)]
     let now = chrono::Utc::now().timestamp() as u64;
 
     // Skip fetch from crates.io if we've checked recently
     if now - stats.latest_check_time >= MINIMUM_CHECK_INTERVAL.as_secs() {
-        if let Ok(c) = fetch_latest_crate_info() {
-            stats = SelfOutdatedCheck {
-                latest_check_time: now,
-                max_stable_version: c.max_stable_version,
-                max_version: c.max_version,
-            };
-            stats.save().unwrap_or_default();
+        match fetch_latest_crate_info() {
+            Ok(c) => {
+                stats = SelfOutdatedCheck {
+                    latest_check_time: now,
+                    max_stable_version: c.max_stable_version,
+                    max_version: c.max_version,
+                };
+            }
+            Err(e) => {
+                print.warnln(format!("Failed to fetch stellar-cli info from crates.io: {}", e));
+                // Only update the latest check time if the fetch failed
+                // This way we don't spam the user with errors
+                stats.latest_check_time = now;
+            }
+        }
+
+        if let Err(e) = stats.save() {
+            print.warnln(format!("Failed to save self outdated check data: {}", e));
         }
     }
 
