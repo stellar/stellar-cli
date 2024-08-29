@@ -39,8 +39,7 @@ impl SelfOutdatedCheck {
         }
         let data = fs::read(&path)
             .map_err(|error| locator::Error::SelfOutdatedCheckReadFailed { path, error })?;
-        let res = toml::from_slice(data.as_slice());
-        Ok(res?)
+        Ok(toml::from_slice(data.as_slice())?)
     }
 
     /// Saves the state of the self-outdated check to the `self_outdated_check.toml` file in the global configuration directory.
