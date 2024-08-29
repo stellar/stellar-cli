@@ -3,7 +3,6 @@ use crate::print::Print;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
-use std::io::IsTerminal;
 use std::time::Duration;
 
 const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
@@ -27,7 +26,7 @@ struct Crate {
 
 /// Fetch the latest stable version of the crate from crates.io
 fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
-    let crate_name = crate::commands::version::pkg_name();
+    let crate_name = env!("CARGO_PKG_NAME");
     let url = format!("{CRATES_IO_API_URL}{crate_name}");
     let response = ureq::get(&url).timeout(REQUEST_TIMEOUT).call()?;
     let crate_data: CrateResponse = response.into_json()?;
@@ -47,7 +46,7 @@ pub fn print_upgrade_prompt(quiet: bool) {
         return;
     }
 
-    let current_version = crate::commands::version::pkg_version();
+    let current_version = env!("CARGO_PKG_VERSION");
     let print = Print::new(quiet);
 
     let mut stats = SelfOutdatedCheck::load().unwrap_or_default();

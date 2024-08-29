@@ -13,12 +13,8 @@ impl Cmd {
     }
 }
 
-pub fn pkg_version() -> &'static str {
+pub fn pkg() -> &'static str {
     env!("CARGO_PKG_VERSION")
-}
-
-pub fn pkg_name() -> &'static str {
-    env!("CARGO_PKG_NAME")
 }
 
 pub fn git() -> &'static str {
@@ -29,7 +25,7 @@ pub fn long() -> String {
     let env = soroban_env_host::VERSION;
     let xdr = soroban_env_host::VERSION.xdr;
     [
-        format!("{} ({})", pkg_version(), git()),
+        format!("{} ({})", pkg(), git()),
         format!("soroban-env {} ({})", env.pkg, env.rev),
         format!("soroban-env interface version {}", meta::INTERFACE_VERSION),
         format!(
