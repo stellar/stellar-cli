@@ -3,11 +3,13 @@ use crate::print::Print;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
+use std::io::IsTerminal;
 use std::time::Duration;
 
 const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
 const CRATES_IO_API_URL: &str = "https://crates.io/api/v1/crates/";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const NO_UPDATE_CHECK_ENV_VAR: &str = "STELLAR_NO_UPDATE_CHECK";
 
 #[derive(Deserialize)]
 struct CrateResponse {
@@ -32,6 +34,17 @@ fn fetch_latest_stable_version() -> Result<String, Box<dyn Error>> {
 
 /// Print a warning if a new version of the CLI is available
 pub fn print_upgrade_prompt(quiet: bool) {
+    // We should skip the upgrade check if we're not in a tty environment.
+    if !std::io::stderr().is_terminal() {
+        return;
+    }
+
+    // We should skip the upgrade check if the user has disabled it by setting
+    // the environment variable (STELLAR_NO_UPDATE_CHECK)
+    if std::env::var(NO_UPDATE_CHECK_ENV_VAR).is_ok() {
+        return;
+    }
+
     let current_version = crate::commands::version::pkg_version();
     let print = Print::new(quiet);
 
