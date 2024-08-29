@@ -125,7 +125,7 @@ semver = "1.0.0"
 glob = "0.3.1"
 crossterm = "0.28.1"
 open = "5.3.0"
-
+url = "2.5.2"
 # For hyper-tls
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "=0.10.55", features = ["vendored"] }

@@ -4833,6 +4833,7 @@ dependencies = [
  "tracing-subscriber",
  "ulid",
  "ureq",
+ "url",
  "walkdir",
  "wasm-opt",
  "wasmparser 0.90.0",

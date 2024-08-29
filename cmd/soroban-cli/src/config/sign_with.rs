@@ -7,6 +7,7 @@ use crate::{
 };
 use clap::arg;
 use stellar_strkey::ed25519::PublicKey;
+use url::Url;
 
 use super::{
     locator,
@@ -108,13 +109,16 @@ impl Args {
         tx_env: TransactionEnvelope,
     ) -> Result<(), Error> {
         let passphrase = network.network_passphrase.clone();
-        // fixme: this is not the correct way to encode url query strings, but this is how the version of zustand-querystring in lab is expecting it. zustand-querystring recently released an update, that _may_ fix this.
-        let encoded_passphrase = passphrase.replace(" ", "%20").replace(";", "/;");
         let xdr = "AAAAAgAAAAC3g0zwH+GTFKaencL9HEX62fg4A2jjirzHdBH9cPvjCQAAAGQAEb7FAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAALeDTPAf4ZMUpp6dwv0cRfrZ+DgDaOOKvMd0Ef1w++MJAAAAAAAAAADcOHnq5sGLOngOCEMyLqqn5CvFV2HGbOSjJAIzhqBdkAAAAAA7msoAAAAAAAAAAAFw++MJAAAAQGVOS50rimyFFTxO0loZZ24n3FPSttnVHqvQQNZWkSgeHYywX6IGUqR6mBDCi7VQwgfNiACpLK7eySx2//SAjYw0=";
-        let txn_sign_url = format!(
-            "http://localhost:3000/transaction/sign?$=network$&passphrase={encoded_passphrase};&transaction$sign$activeView=overview&importXdr={xdr}"
-        );
+        let base_url = "http://localhost:3000/transaction/sign?";
+        let mut url = Url::parse(base_url).unwrap();
+        url.query_pairs_mut()
+            .append_pair("networkPassphrase", &passphrase)
+            .append_pair("xdr", xdr);
 
+        let txn_sign_url = url.to_string();
+
+        println!("Opening lab to sign transaction: {}", &txn_sign_url);
         open::that(txn_sign_url).unwrap(); //todo: handle unwrap
 
         Ok(())
