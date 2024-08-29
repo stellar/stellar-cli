@@ -59,9 +59,6 @@ pub fn print_upgrade_prompt(quiet: bool) {
         print.warnln(format!(
             "A new release of stellar-cli is available: {current_version} -> {latest_version}",
         ));
-        print.warnln(
-            "We recommend upgrading to the latest version to get the latest features and bug fixes."
-        );
     }
 }
 
