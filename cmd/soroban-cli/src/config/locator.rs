@@ -68,6 +68,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("cannot access config dir for alias file")]
     CannotAccessConfigDir,
+    #[error("cannot access alias config file (no permission or doesn't exist)")]
+    CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
 }
@@ -271,6 +273,29 @@ impl Args {
 
         data.ids
             .insert(network_passphrase.into(), contract_id.into());
+
+        let content = serde_json::to_string(&data)?;
+
+        Ok(to_file.write_all(content.as_bytes())?)
+    }
+
+    pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
+        let path = self.alias_path(alias)?;
+
+        if !path.is_file() {
+            return Err(Error::CannotAccessAliasConfigFile);
+        }
+
+        let content = fs::read_to_string(&path).unwrap_or_default();
+        let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+        let mut to_file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(path)?;
+
+        data.ids.remove::<str>(network_passphrase);
 
         let content = serde_json::to_string(&data)?;
 
