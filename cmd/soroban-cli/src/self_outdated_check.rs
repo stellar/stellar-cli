@@ -3,6 +3,7 @@ use crate::print::Print;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
+use std::io::IsTerminal;
 use std::time::Duration;
 
 const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
@@ -46,7 +47,7 @@ pub fn print_upgrade_prompt(quiet: bool) {
         return;
     }
 
-    let current_version = env!("CARGO_PKG_VERSION");
+    let current_version = crate::commands::version::pkg();
     let print = Print::new(quiet);
 
     let mut stats = SelfOutdatedCheck::load().unwrap_or_default();
