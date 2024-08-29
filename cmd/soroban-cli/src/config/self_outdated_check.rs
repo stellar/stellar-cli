@@ -10,15 +10,20 @@ const FILE_NAME: &str = "self_outdated_check.toml";
 /// the global configuration directory.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct SelfOutdatedCheck {
+    /// The timestamp of the latest check for a new version of the CLI.
     pub latest_check_time: u64,
-    pub latest_version: String,
+    /// The latest stable version of the CLI available on crates.io.
+    pub max_stable_version: String,
+    /// The latest version of the CLI available on crates.io, including pre-releases.
+    pub max_version: String,
 }
 
 impl Default for SelfOutdatedCheck {
     fn default() -> Self {
         Self {
             latest_check_time: 0,
-            latest_version: "0.0.0".to_string(),
+            max_stable_version: "0.0.0".to_string(),
+            max_version: "0.0.0".to_string(),
         }
     }
 }
@@ -62,12 +67,13 @@ mod tests {
         let default_check = SelfOutdatedCheck::load().unwrap();
         assert_eq!(default_check, SelfOutdatedCheck::default());
         assert_eq!(default_check.latest_check_time, 0);
-        assert_eq!(default_check.latest_version, "0.0.0");
+        assert_eq!(default_check.max_stable_version, "0.0.0");
 
         // Test saving and loading
         let saved_check = SelfOutdatedCheck {
             latest_check_time: 1_234_567_890,
-            latest_version: "1.2.3".to_string(),
+            max_stable_version: "1.2.3".to_string(),
+            max_version: "1.2.4-rc.1".to_string(),
         };
         saved_check.save().unwrap();
         let loaded_check = SelfOutdatedCheck::load().unwrap();
