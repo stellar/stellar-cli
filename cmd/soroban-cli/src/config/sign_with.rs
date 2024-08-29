@@ -5,6 +5,8 @@ use crate::{
     xdr::TransactionEnvelope,
 };
 use clap::arg;
+use soroban_env_host::xdr::WriteXdr;
+use soroban_sdk::xdr::{self, Limits};
 use url::Url;
 
 use super::{
@@ -92,13 +94,15 @@ impl Args {
     pub async fn sign_tx_env_with_lab(&self, tx_env: TransactionEnvelope) -> Result<(), Error> {
         let network = self.get_network()?;
         let passphrase = network.network_passphrase;
-        let xdr = "AAAAAgAAAAC3g0zwH+GTFKaencL9HEX62fg4A2jjirzHdBH9cPvjCQAAAGQAEb7FAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAALeDTPAf4ZMUpp6dwv0cRfrZ+DgDaOOKvMd0Ef1w++MJAAAAAAAAAADcOHnq5sGLOngOCEMyLqqn5CvFV2HGbOSjJAIzhqBdkAAAAAA7msoAAAAAAAAAAAFw++MJAAAAQGVOS50rimyFFTxO0loZZ24n3FPSttnVHqvQQNZWkSgeHYywX6IGUqR6mBDCi7VQwgfNiACpLK7eySx2/SAjYw0=";
+        let xdr_buffer = tx_env
+            .to_xdr_base64(Limits::none())
+            .expect("Failed to write XDR");
 
         let base_url = "http://localhost:3000/transaction/sign?";
         let mut url = Url::parse(base_url).unwrap();
         url.query_pairs_mut()
             .append_pair("networkPassphrase", &passphrase)
-            .append_pair("xdr", xdr);
+            .append_pair("xdr", &xdr_buffer);
 
         let txn_sign_url = url.to_string();
 
