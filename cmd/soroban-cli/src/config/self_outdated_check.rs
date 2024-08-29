@@ -2,6 +2,7 @@ use crate::config::locator;
 use jsonrpsee_core::Serialize;
 use serde::Deserialize;
 use std::fs;
+use semver::Version;
 
 const FILE_NAME: &str = "self_outdated_check.toml";
 
@@ -13,17 +14,17 @@ pub struct SelfOutdatedCheck {
     /// The timestamp of the latest check for a new version of the CLI.
     pub latest_check_time: u64,
     /// The latest stable version of the CLI available on crates.io.
-    pub max_stable_version: String,
+    pub max_stable_version: Version,
     /// The latest version of the CLI available on crates.io, including pre-releases.
-    pub max_version: String,
+    pub max_version: Version,
 }
 
 impl Default for SelfOutdatedCheck {
     fn default() -> Self {
         Self {
             latest_check_time: 0,
-            max_stable_version: "0.0.0".to_string(),
-            max_version: "0.0.0".to_string(),
+            max_stable_version: Version::new(0, 0, 0),
+            max_version: Version::new(0, 0, 0),
         }
     }
 }
@@ -67,13 +68,13 @@ mod tests {
         let default_check = SelfOutdatedCheck::load().unwrap();
         assert_eq!(default_check, SelfOutdatedCheck::default());
         assert_eq!(default_check.latest_check_time, 0);
-        assert_eq!(default_check.max_stable_version, "0.0.0");
+        assert_eq!(default_check.max_stable_version, Version::new(0, 0, 0));
 
         // Test saving and loading
         let saved_check = SelfOutdatedCheck {
             latest_check_time: 1_234_567_890,
-            max_stable_version: "1.2.3".to_string(),
-            max_version: "1.2.4-rc.1".to_string(),
+            max_stable_version: Version::new(1, 2, 3),
+            max_version: Version::parse("1.2.4-rc.1").unwrap()
         };
         saved_check.save().unwrap();
         let loaded_check = SelfOutdatedCheck::load().unwrap();

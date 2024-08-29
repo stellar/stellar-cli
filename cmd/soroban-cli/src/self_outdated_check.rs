@@ -20,9 +20,9 @@ struct CrateResponse {
 #[derive(Deserialize)]
 struct Crate {
     #[serde(rename = "max_stable_version")]
-    max_stable_version: String,
+    max_stable_version: Version,
     #[serde(rename = "max_version")]
-    max_version: String, // This is the latest version, including pre-releases
+    max_version: Version, // This is the latest version, including pre-releases
 }
 
 /// Fetch the latest stable version of the crate from crates.io
@@ -70,27 +70,24 @@ pub fn print_upgrade_prompt() {
     let current_version = Version::parse(current_version).unwrap();
     let latest_version = get_latest_version(&current_version, &stats);
 
-    if latest_version > current_version {
+    if *latest_version > current_version {
         print.warnln(format!(
             "A new release of stellar-cli is available: {current_version} -> {latest_version}",
         ));
     }
 }
 
-fn get_latest_version(current_version: &Version, stats: &SelfOutdatedCheck) -> Version {
+fn get_latest_version<'a>(current_version: &Version, stats: &'a SelfOutdatedCheck) -> &'a Version {
     if current_version.pre.is_empty() {
         // If we are currently using a non-preview version
-        Version::parse(&stats.max_stable_version).unwrap()
+        &stats.max_stable_version
     } else {
         // If we are currently using a preview version
-        let max_stable_version = Version::parse(&stats.max_stable_version).unwrap();
-        let max_version = Version::parse(&stats.max_version).unwrap();
-
-        if max_stable_version > *current_version {
+        if stats.max_stable_version > *current_version {
             // If there is a new stable version available, we should use that instead
-            max_stable_version
+            &stats.max_stable_version
         } else {
-            max_version
+            &stats.max_version
         }
     }
 }
@@ -101,33 +98,31 @@ mod tests {
 
     #[test]
     fn test_fetch_latest_stable_version() {
-        let version = fetch_latest_crate_info().unwrap();
-        Version::parse(&version.max_version).unwrap();
-        Version::parse(&version.max_stable_version).unwrap();
+        let _ = fetch_latest_crate_info().unwrap();
     }
 
     #[test]
     fn test_get_latest_version() {
         let stats = SelfOutdatedCheck {
             latest_check_time: 0,
-            max_stable_version: "1.0.0".to_string(),
-            max_version: "1.1.0-rc.1".to_string(),
+            max_stable_version: Version::parse("1.0.0").unwrap(),
+            max_version: Version::parse("1.1.0-rc.1").unwrap(),
         };
 
         // When using a non-preview version
         let current_version = Version::parse("0.9.0").unwrap();
         let latest_version = get_latest_version(&current_version, &stats);
-        assert_eq!(latest_version, Version::parse("1.0.0").unwrap());
+        assert_eq!(*latest_version, Version::parse("1.0.0").unwrap());
 
         // When using a preview version and a new stable version is available
         let current_version = Version::parse("0.9.0-rc.1").unwrap();
         let latest_version = get_latest_version(&current_version, &stats);
-        assert_eq!(latest_version, Version::parse("1.0.0").unwrap());
+        assert_eq!(*latest_version, Version::parse("1.0.0").unwrap());
 
         // When using a preview version and no new stable version is available
         let current_version = Version::parse("1.1.0-beta.1").unwrap();
         let latest_version = get_latest_version(&current_version, &stats);
-        assert_eq!(latest_version, Version::parse("1.1.0-rc.1").unwrap());
+        assert_eq!(*latest_version, Version::parse("1.1.0-rc.1").unwrap());
     }
 
     #[test]
