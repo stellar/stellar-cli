@@ -35,7 +35,7 @@ fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
 }
 
 /// Print a warning if a new version of the CLI is available
-pub fn print_upgrade_prompt(quiet: bool) {
+pub fn print_upgrade_prompt() {
     // We should skip the upgrade check if we're not in a tty environment.
     if !std::io::stderr().is_terminal() {
         return;
@@ -48,7 +48,7 @@ pub fn print_upgrade_prompt(quiet: bool) {
     }
 
     let current_version = crate::commands::version::pkg();
-    let print = Print::new(quiet);
+    let print = Print::new(false);
 
     let mut stats = SelfOutdatedCheck::load().unwrap_or_default();
 
@@ -71,7 +71,6 @@ pub fn print_upgrade_prompt(quiet: bool) {
     let latest_version = get_latest_version(&current_version, &stats);
 
     if latest_version > current_version {
-        print.println("");
         print.warnln(format!(
             "A new release of stellar-cli is available: {current_version} -> {latest_version}",
         ));
