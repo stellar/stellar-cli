@@ -16,7 +16,7 @@ pub enum Cmd {
     /// Show the contract id associated with a given alias
     Show(show::Cmd),
 
-    /// List all stored aliases for a given network
+    /// List all aliases
     List(list::Cmd),
 }
 

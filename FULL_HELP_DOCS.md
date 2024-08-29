@@ -163,7 +163,7 @@ Utilities to manage contract aliases
 * `remove` — Remove contract alias
 * `add` — Add contract alias
 * `show` — Show the contract id associated with a given alias
-* `list` — List all stored aliases for a given network
+* `list` — List all aliases
 
 
 
@@ -231,7 +231,7 @@ Show the contract id associated with a given alias
 
 ## `stellar contract alias list`
 
-List all stored aliases for a given network
+List all aliases
 
 **Usage:** `stellar contract alias list [OPTIONS]`
 
