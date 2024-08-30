@@ -79,6 +79,8 @@ async fn payment() {
     println!("test account has a balance of {}", test_account.balance);
 
     let before = client.get_account(&test).await.unwrap();
+    let test1_account_entry_before = client.get_account(&test1).await.unwrap();
+
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -92,7 +94,11 @@ async fn payment() {
         .assert()
         .success();
     let test1_account_entry = client.get_account(&test1).await.unwrap();
-    assert_eq!(ONE_XLM, test1_account_entry.balance);
+    assert_eq!(
+        ONE_XLM,
+        test1_account_entry.balance - test1_account_entry_before.balance,
+        "Should have One XLM more"
+    );
     let after = client.get_account(&test).await.unwrap();
     assert_eq!(before.balance - 10_000_100, after.balance);
 }
@@ -134,7 +140,7 @@ async fn account_merge() {
             "account-merge",
             "--source",
             test1.as_str(),
-            "--destination",
+            "--account",
             test.as_str(),
         ])
         .assert()
