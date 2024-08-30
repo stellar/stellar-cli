@@ -33,6 +33,7 @@ pub enum Error {
     NoSignWithKey,
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
     Xdr(#[from] soroban_env_host::xdr::Error),
     #[error(transparent)]
     Url(#[from] url::ParseError),
@@ -58,7 +59,7 @@ pub struct Args {
         hide = true
     )]
     pub sign_with_lab: bool,
-    /// Lab URL for sign_with_lab
+    /// Lab URL for `sign_with_lab`
     #[arg(
         long,
         env = "STELLAR_SIGN_WITH_LAB_URL",
@@ -118,10 +119,10 @@ impl Args {
             .public_key(self.hd_path)?)
     }
 
-    pub async fn sign_tx_env_with_lab(
+    pub fn sign_tx_env_with_lab(
         &self,
         network: &Network,
-        tx_env: TransactionEnvelope,
+        tx_env: &TransactionEnvelope,
     ) -> Result<(), Error> {
         let passphrase = network.network_passphrase.clone();
         let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
