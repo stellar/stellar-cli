@@ -176,8 +176,6 @@ impl Cmd {
                 OutputFormat::Pretty => event.pretty_print()?,
             }
         }
-        println!("Latest Ledger: {}", response.latest_ledger);
-
         Ok(())
     }
 
