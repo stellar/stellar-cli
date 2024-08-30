@@ -81,7 +81,7 @@ hyper-tls = "0.5"
 http = "0.2.9"
 regex = "1.6.0"
 wasm-opt = { version = "0.114.0", optional = true }
-chrono = "0.4.27"
+chrono = { version = "0.4.27", features = ["serde"]}
 rpassword = "7.2.0"
 dirs = "4.0.0"
 toml = "0.5.9"

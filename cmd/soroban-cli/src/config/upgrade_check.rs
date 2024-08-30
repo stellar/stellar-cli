@@ -1,4 +1,5 @@
 use crate::config::locator;
+use chrono::{DateTime, Utc};
 use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
@@ -12,8 +13,8 @@ const FILE_NAME: &str = "upgrade_check.json";
 /// the global configuration directory.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct UpgradeCheck {
-    /// The timestamp of the latest check for a new version of the CLI.
-    pub latest_check_time: u64,
+    /// The time of the latest check for a new version of the CLI.
+    pub latest_check_time: DateTime<Utc>,
     /// The latest stable version of the CLI available on crates.io.
     pub max_stable_version: Version,
     /// The latest version of the CLI available on crates.io, including pre-releases.
@@ -23,7 +24,7 @@ pub struct UpgradeCheck {
 impl Default for UpgradeCheck {
     fn default() -> Self {
         Self {
-            latest_check_time: 0,
+            latest_check_time: DateTime::<Utc>::UNIX_EPOCH,
             max_stable_version: Version::new(0, 0, 0),
             max_version: Version::new(0, 0, 0),
         }
@@ -63,16 +64,18 @@ mod tests {
         // Set the `XDG_CONFIG_HOME` environment variable to a temporary directory
         let temp_dir = tempfile::tempdir().unwrap();
         env::set_var("XDG_CONFIG_HOME", temp_dir.path());
-
         // Test default loading
         let default_check = UpgradeCheck::load().unwrap();
         assert_eq!(default_check, UpgradeCheck::default());
-        assert_eq!(default_check.latest_check_time, 0);
+        assert_eq!(
+            default_check.latest_check_time,
+            DateTime::<Utc>::from_timestamp_millis(0).unwrap()
+        );
         assert_eq!(default_check.max_stable_version, Version::new(0, 0, 0));
 
         // Test saving and loading
         let saved_check = UpgradeCheck {
-            latest_check_time: 1_234_567_890,
+            latest_check_time: DateTime::<Utc>::from_timestamp(1_234_567_890, 0).unwrap(),
             max_stable_version: Version::new(1, 2, 3),
             max_version: Version::parse("1.2.4-rc.1").unwrap(),
         };

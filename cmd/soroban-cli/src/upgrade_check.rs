@@ -55,11 +55,9 @@ pub fn upgrade_check() {
         UpgradeCheck::default()
     });
 
-    #[allow(clippy::cast_sign_loss)]
-    let now = chrono::Utc::now().timestamp() as u64;
-
+    let now = chrono::Utc::now();
     // Skip fetch from crates.io if we've checked recently
-    if now - stats.latest_check_time >= MINIMUM_CHECK_INTERVAL.as_secs() {
+    if now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
         match fetch_latest_crate_info() {
             Ok(c) => {
                 stats = UpgradeCheck {
@@ -120,7 +118,7 @@ mod tests {
     #[test]
     fn test_get_latest_version() {
         let stats = UpgradeCheck {
-            latest_check_time: 0,
+            latest_check_time: chrono::Utc::now(),
             max_stable_version: Version::parse("1.0.0").unwrap(),
             max_version: Version::parse("1.1.0-rc.1").unwrap(),
         };
