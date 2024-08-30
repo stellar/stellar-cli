@@ -1,6 +1,6 @@
 use clap::{
     builder::{PossibleValue, PossibleValuesParser, ValueParser},
-    Parser, ValueEnum,
+    Parser,
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
@@ -27,12 +27,6 @@ const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.
 const GITHUB_URL: &str = "https://github.com";
 const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
     "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.";
-
-#[derive(Clone, Debug, ValueEnum, PartialEq)]
-pub enum FrontendTemplate {
-    Astro,
-    None,
-}
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
