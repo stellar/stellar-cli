@@ -53,6 +53,14 @@ pub struct Args {
         hide = true
     )]
     pub sign_with_lab: bool,
+    /// Lab URL for sign_with_lab
+    #[arg(
+        long,
+        env = "STELLAR_SIGN_WITH_LAB_URL",
+        hide = true,
+        default_value = "https://lab.stellar.org/transaction/sign?"
+    )]
+    pub lab_url: String,
 
     #[arg(long, conflicts_with = "sign_with_lab")]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -114,8 +122,8 @@ impl Args {
         let xdr_buffer = tx_env
             .to_xdr_base64(Limits::none())
             .expect("Failed to write XDR");
-        let base_url = "http://localhost:3000/transaction/sign?";
-        let mut url = Url::parse(base_url).unwrap();
+
+        let mut url = Url::parse(&self.lab_url).unwrap();
         url.query_pairs_mut()
             .append_pair("networkPassphrase", &passphrase)
             .append_pair("xdr", &xdr_buffer);
