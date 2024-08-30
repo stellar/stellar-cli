@@ -1,6 +1,4 @@
 use clap::{arg, command, Parser};
-use itertools::Itertools;
-use soroban_rpc::Event;
 use std::io;
 
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
@@ -157,19 +155,27 @@ impl Cmd {
         }
 
         let response = self.run_against_rpc_server(None, None).await?;
-        let output = match self.output {
-            OutputFormat::Json => {
-                serde_json::to_string_pretty(&response.events).map_err(|e| Error::InvalidJson {
-                    debug: format!("{:#?}", response.events),
-                    error: e,
-                })?
+
+        for event in &response.events {
+            match self.output {
+                // Should we pretty-print the JSON like we're doing here or just
+                // dump an event in raw JSON on each line? The latter is easier
+                // to consume programmatically.
+                OutputFormat::Json => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&event).map_err(|e| {
+                            Error::InvalidJson {
+                                debug: format!("{event:#?}"),
+                                error: e,
+                            }
+                        })?,
+                    );
+                }
+                OutputFormat::Plain => println!("{event}"),
+                OutputFormat::Pretty => event.pretty_print()?,
             }
-            OutputFormat::Plain => response.events.iter().join("\n"),
-            OutputFormat::Pretty => {
-                return Ok(response.events.iter().try_for_each(Event::pretty_print)?);
-            }
-        };
-        println!("{output}");
+        }
         Ok(())
     }
 
