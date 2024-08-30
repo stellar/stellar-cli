@@ -146,9 +146,8 @@ async fn account_merge() {
         .assert()
         .success();
     let after = client.get_account(&test).await.unwrap();
-    let after1 = client.get_account(&test1).await.unwrap();
+    assert!(client.get_account(&test1).await.is_err());
     assert_eq!(before.balance + before1.balance, after.balance);
-    assert_eq!(0, after1.balance);
 }
 
 #[tokio::test]
