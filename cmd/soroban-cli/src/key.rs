@@ -1,12 +1,14 @@
+use crate::{
+    commands::contract::Durability,
+    config::{locator, network::Network},
+    wasm,
+};
 use clap::arg;
 use soroban_env_host::xdr::{
     self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
     ScVal,
 };
 use std::path::PathBuf;
-use stellar_strkey::Contract;
-
-use crate::{commands::contract::Durability, wasm};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -18,6 +20,8 @@ pub enum Error {
     CannotParseContractId(String, stellar_strkey::DecodeError),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -61,7 +65,13 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn parse_keys(&self, contract: Contract) -> Result<Vec<LedgerKey>, Error> {
+    pub fn parse_keys(
+        &self,
+        locator: &locator::Args,
+        Network {
+            network_passphrase, ..
+        }: &Network,
+    ) -> Result<Vec<LedgerKey>, Error> {
         let keys = if let Some(keys) = &self.key {
             keys.iter()
                 .map(|key| {
@@ -87,6 +97,8 @@ impl Args {
         } else {
             vec![ScVal::LedgerKeyContractInstance]
         };
+        let contract =
+            locator.resolve_contract_id(self.contract_id.as_ref().unwrap(), network_passphrase)?;
 
         Ok(keys
             .into_iter()
