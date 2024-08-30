@@ -1,6 +1,6 @@
 use clap::{
     builder::{PossibleValue, PossibleValuesParser, ValueParser},
-    Parser, ValueEnum,
+    Parser,
 };
 use gix::{clone, create, open, progress, remote};
 use rust_embed::RustEmbed;
@@ -14,23 +14,19 @@ use std::{
     },
     io::{self, Read, Write},
     num::NonZeroU32,
-    path::Path,
+    path::{Path, PathBuf},
     str,
     sync::atomic::AtomicBool,
 };
 use toml_edit::{Document, TomlError};
 use ureq::get;
 
+use crate::{commands::global, print};
+
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
 const GITHUB_URL: &str = "https://github.com";
 const WITH_EXAMPLE_LONG_HELP_TEXT: &str =
     "An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.";
-
-#[derive(Clone, Debug, ValueEnum, PartialEq)]
-pub enum FrontendTemplate {
-    Astro,
-    None,
-}
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -87,380 +83,415 @@ pub enum Error {
 
 impl Cmd {
     #[allow(clippy::unused_self)]
-    pub fn run(&self) -> Result<(), Error> {
-        println!("ℹ️  Initializing project at {}", self.project_path);
-        let project_path = Path::new(&self.project_path);
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let runner = Runner {
+            args: self.clone(),
+            print: print::Print::new(global_args.quiet),
+        };
 
-        init(
-            project_path,
-            &self.frontend_template,
-            &self.with_example,
-            self.overwrite,
-        )?;
-
-        Ok(())
+        runner.run()
     }
 }
 
 #[derive(RustEmbed)]
 #[folder = "src/utils/contract-init-template"]
 struct TemplateFiles;
-
-fn init(
-    project_path: &Path,
-    frontend_template: &str,
-    with_examples: &[String],
-    overwrite: bool,
-) -> Result<(), Error> {
-    // create a project dir, and copy the contents of the base template (contract-init-template) into it
-    create_dir_all(project_path).map_err(|e| {
-        eprintln!("Error creating new project directory: {project_path:?}");
-        e
-    })?;
-    copy_template_files(project_path, overwrite)?;
-
-    if !check_internet_connection() {
-        println!("⚠️  It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
-        return Ok(());
-    }
-
-    if !frontend_template.is_empty() {
-        // create a temp dir for the template repo
-        let fe_template_dir = tempfile::tempdir().map_err(|e| {
-            eprintln!("Error creating temp dir for frontend template");
-            e
-        })?;
-
-        // clone the template repo into the temp dir
-        clone_repo(frontend_template, fe_template_dir.path())?;
-
-        // copy the frontend template files into the project
-        copy_frontend_files(fe_template_dir.path(), project_path, overwrite)?;
-    }
-
-    // if there are --with-example flags, include the example contracts
-    if include_example_contracts(with_examples) {
-        // create an examples temp dir
-        let examples_dir = tempfile::tempdir().map_err(|e| {
-            eprintln!("Error creating temp dir for soroban-examples");
-            e
-        })?;
-
-        // clone the soroban-examples repo into the temp dir
-        clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
-
-        // copy the example contracts into the project
-        copy_example_contracts(examples_dir.path(), project_path, with_examples, overwrite)?;
-    }
-
-    Ok(())
+struct Runner {
+    args: Cmd,
+    print: print::Print,
 }
 
-fn copy_template_files(project_path: &Path, overwrite: bool) -> Result<(), Error> {
-    for item in TemplateFiles::iter() {
-        let mut to = project_path.join(item.as_ref());
-        let exists = file_exists(&to);
-        if exists && !overwrite {
-            println!(
-                "ℹ️  Skipped creating {} as it already exists",
-                &to.to_string_lossy()
-            );
-            continue;
+impl Runner {
+    fn run(&self) -> Result<(), Error> {
+        let project_path = PathBuf::from(&self.args.project_path);
+        self.print
+            .infoln(format!("Initializing project at {project_path:?}"));
+
+        // create a project dir, and copy the contents of the base template (contract-init-template) into it
+        create_dir_all(&project_path).map_err(|e| {
+            self.print
+                .errorln("Error creating new project directory: {project_path:?}");
+            e
+        })?;
+        self.copy_template_files()?;
+
+        if !Self::check_internet_connection() {
+            self.print.warnln("It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
+            return Ok(());
         }
-        create_dir_all(to.parent().unwrap()).map_err(|e| {
-            eprintln!("Error creating directory path for: {to:?}");
+
+        if !self.args.frontend_template.is_empty() {
+            // create a temp dir for the template repo
+            let fe_template_dir = tempfile::tempdir().map_err(|e| {
+                self.print
+                    .errorln("Error creating temp dir for frontend template");
+                e
+            })?;
+
+            // clone the template repo into the temp dir
+            self.clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
+
+            // copy the frontend template files into the project
+            self.copy_frontend_files(fe_template_dir.path(), &project_path)?;
+        }
+
+        // if there are --with-example flags, include the example contracts
+        if self.include_example_contracts() {
+            // create an examples temp dir
+            let examples_dir = tempfile::tempdir().map_err(|e| {
+                self.print
+                    .errorln("Error creating temp dir for soroban-examples");
+                e
+            })?;
+
+            // clone the soroban-examples repo into the temp dir
+            self.clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
+
+            // copy the example contracts into the project
+            self.copy_example_contracts(
+                examples_dir.path(),
+                &project_path,
+                &self.args.with_example,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn copy_template_files(&self) -> Result<(), Error> {
+        let project_path = Path::new(&self.args.project_path);
+        for item in TemplateFiles::iter() {
+            let mut to = project_path.join(item.as_ref());
+            let exists = Self::file_exists(&to);
+            if exists && !self.args.overwrite {
+                self.print
+                    .infoln(format!("Skipped creating {to:?} as it already exists"));
+                continue;
+            }
+
+            create_dir_all(to.parent().unwrap()).map_err(|e| {
+                self.print
+                    .errorln(format!("Error creating directory path for: {to:?}"));
+                e
+            })?;
+
+            let Some(file) = TemplateFiles::get(item.as_ref()) else {
+                self.print
+                    .warnln(format!("Failed to read file: {}", item.as_ref()));
+                continue;
+            };
+
+            let file_contents = std::str::from_utf8(file.data.as_ref()).map_err(|e| {
+                self.print.errorln(format!(
+                    "Error converting file contents in {:?} to string",
+                    item.as_ref()
+                ));
+                e
+            })?;
+
+            // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
+            let item_path = Path::new(item.as_ref());
+            if item_path.file_name().unwrap() == "Cargo.toml.removeextension" {
+                let item_parent_path = item_path.parent().unwrap();
+                to = project_path.join(item_parent_path).join("Cargo.toml");
+            }
+
+            if exists {
+                self.print
+                    .plusln(format!("Writing {to:?} (overwriting existing file)"));
+            } else {
+                self.print.plusln(format!("Writing {to:?}"));
+            }
+            write(&to, file_contents).map_err(|e| {
+                self.print.errorln(format!("Error writing file: {to:?}"));
+                e
+            })?;
+        }
+        Ok(())
+    }
+
+    fn copy_contents(&self, from: &Path, to: &Path) -> Result<(), Error> {
+        let contents_to_exclude_from_copy = [
+            ".git",
+            ".github",
+            "Makefile",
+            ".vscode",
+            "target",
+            "Cargo.lock",
+        ];
+        for entry in read_dir(from).map_err(|e| {
+            self.print
+                .errorln(format!("Error reading directory: {from:?}"));
+            e
+        })? {
+            let entry = entry.map_err(|e| {
+                self.print
+                    .errorln(format!("Error reading entry in directory: {from:?}"));
+                e
+            })?;
+            let path = entry.path();
+            let entry_name = entry.file_name().to_string_lossy().to_string();
+            let new_path = to.join(&entry_name);
+
+            if contents_to_exclude_from_copy.contains(&entry_name.as_str()) {
+                continue;
+            }
+
+            if path.is_dir() {
+                create_dir_all(&new_path).map_err(|e| {
+                    self.print
+                        .errorln(format!("Error creating directory: {new_path:?}"));
+                    e
+                })?;
+                self.copy_contents(&path, &new_path)?;
+            } else {
+                let exists = Self::file_exists(&new_path);
+                let new_path_str = new_path.to_string_lossy();
+                if exists {
+                    let append =
+                        new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
+                    if append {
+                        self.append_contents(&path, &new_path)?;
+                    }
+
+                    if self.args.overwrite && !append {
+                        self.print.plusln(format!(
+                            "Writing {new_path_str} (overwriting existing file)"
+                        ));
+                    } else {
+                        self.print.infoln(format!(
+                            "Skipped creating {new_path_str} as it already exists"
+                        ));
+                        continue;
+                    }
+                } else {
+                    self.print.plus(format!("Writing {new_path_str}"));
+                }
+                copy(&path, &new_path).map_err(|e| {
+                    self.print.errorln(format!(
+                        "Error copying from {:?} to {:?}",
+                        path.to_string_lossy(),
+                        new_path
+                    ));
+                    e
+                })?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn file_exists(file_path: &Path) -> bool {
+        metadata(file_path)
+            .as_ref()
+            .map(Metadata::is_file)
+            .unwrap_or(false)
+    }
+
+    fn check_internet_connection() -> bool {
+        if let Ok(_req) = get(GITHUB_URL).call() {
+            return true;
+        }
+
+        false
+    }
+
+    fn include_example_contracts(&self) -> bool {
+        !self.args.with_example.is_empty()
+    }
+
+    fn clone_repo(&self, from_url: &str, to_path: &Path) -> Result<(), Error> {
+        let mut prepare = clone::PrepareFetch::new(
+            from_url,
+            to_path,
+            create::Kind::WithWorktree,
+            create::Options {
+                destination_must_be_empty: false,
+                fs_capabilities: None,
+            },
+            open::Options::isolated(),
+        )
+        .map_err(|e| {
+            self.print
+                .errorln(format!("Error preparing fetch for {from_url:?}"));
+            Box::new(e)
+        })?
+        .with_shallow(remote::fetch::Shallow::DepthAtRemote(
+            NonZeroU32::new(1).unwrap(),
+        ));
+
+        let (mut checkout, _outcome) = prepare
+            .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
+            .map_err(|e| {
+                self.print.errorln(format!(
+                    "Error calling fetch_then_checkout with {from_url:?}"
+                ));
+                Box::new(e)
+            })?;
+
+        let (_repo, _outcome) = checkout
+            .main_worktree(progress::Discard, &AtomicBool::new(false))
+            .map_err(|e| {
+                self.print
+                    .errorln(format!("Error calling main_worktree for {from_url:?}"));
+                e
+            })?;
+
+        Ok(())
+    }
+
+    fn copy_example_contracts(
+        &self,
+        from: &Path,
+        to: &Path,
+        contracts: &[String],
+    ) -> Result<(), Error> {
+        let project_contracts_path = to.join("contracts");
+        for contract in contracts {
+            self.print
+                .infoln(format!("Initializing example contract: {contract}"));
+            let contract_as_string = contract.to_string();
+            let contract_path = Path::new(&contract_as_string);
+            let from_contract_path = from.join(contract_path);
+            let to_contract_path = project_contracts_path.join(contract_path);
+            create_dir_all(&to_contract_path).map_err(|e| {
+                self.print
+                    .errorln(format!("Error creating directory: {contract_path:?}"));
+                e
+            })?;
+
+            self.copy_contents(&from_contract_path, &to_contract_path)?;
+            self.edit_contract_cargo_file(&to_contract_path)?;
+        }
+
+        Ok(())
+    }
+
+    fn edit_contract_cargo_file(&self, contract_path: &Path) -> Result<(), Error> {
+        let cargo_path = contract_path.join("Cargo.toml");
+        let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
+            self.print.errorln(format!(
+                "Error reading Cargo.toml file in: {contract_path:?}"
+            ));
             e
         })?;
 
-        let Some(file) = TemplateFiles::get(item.as_ref()) else {
-            println!("⚠️  Failed to read file: {}", item.as_ref());
-            continue;
+        let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
+            .unwrap()
+            .replace_all(
+                cargo_toml_str.as_str(),
+                "soroban-sdk = { workspace = true }",
+            );
+
+        let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = \{(.*) version = "[^"]+"(.+)}"#)
+            .unwrap()
+            .replace_all(&cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
+
+        let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
+            self.print.errorln(format!(
+                "Error parsing Cargo.toml file in: {contract_path:?}"
+            ));
+            e
+        })?;
+        doc.remove("profile");
+
+        write(&cargo_path, doc.to_string()).map_err(|e| {
+            self.print.errorln(format!(
+                "Error writing to Cargo.toml file in: {contract_path:?}"
+            ));
+            e
+        })?;
+
+        Ok(())
+    }
+
+    fn copy_frontend_files(&self, from: &Path, to: &Path) -> Result<(), Error> {
+        self.print.infoln("ℹ️  Initializing with frontend template");
+        self.copy_contents(from, to)?;
+        self.edit_package_json_files(to)
+    }
+
+    fn edit_package_json_files(&self, project_path: &Path) -> Result<(), Error> {
+        let package_name = if let Some(name) = project_path.file_name() {
+            name.to_owned()
+        } else {
+            let current_dir = env::current_dir()?;
+            let file_name = current_dir
+                .file_name()
+                .unwrap_or(OsStr::new("soroban-astro-template"))
+                .to_os_string();
+            file_name
         };
 
-        let file_contents = std::str::from_utf8(file.data.as_ref()).map_err(|e| {
-            eprintln!(
-                "Error converting file contents in {:?} to string",
-                item.as_ref()
-            );
-            e
-        })?;
-
-        // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
-        let item_path = Path::new(item.as_ref());
-        if item_path.file_name().unwrap() == "Cargo.toml.removeextension" {
-            let item_parent_path = item_path.parent().unwrap();
-            to = project_path.join(item_parent_path).join("Cargo.toml");
-        }
-
-        if exists {
-            println!("🔄  Overwriting {}", &to.to_string_lossy());
-        } else {
-            println!("➕  Writing {}", &to.to_string_lossy());
-        }
-        write(&to, file_contents).map_err(|e| {
-            eprintln!("Error writing file: {to:?}");
-            e
-        })?;
-    }
-    Ok(())
-}
-
-fn copy_contents(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
-    let contents_to_exclude_from_copy = [
-        ".git",
-        ".github",
-        "Makefile",
-        ".vscode",
-        "target",
-        "Cargo.lock",
-    ];
-    for entry in read_dir(from).map_err(|e| {
-        eprintln!("Error reading directory: {from:?}");
-        e
-    })? {
-        let entry = entry.map_err(|e| {
-            eprintln!("Error reading entry in directory: {from:?}");
-            e
-        })?;
-        let path = entry.path();
-        let entry_name = entry.file_name().to_string_lossy().to_string();
-        let new_path = to.join(&entry_name);
-
-        if contents_to_exclude_from_copy.contains(&entry_name.as_str()) {
-            continue;
-        }
-
-        if path.is_dir() {
-            create_dir_all(&new_path).map_err(|e| {
-                eprintln!("Error creating directory: {new_path:?}");
+        self.edit_package_name(project_path, &package_name, "package.json")
+            .map_err(|e| {
+                self.print.errorln(format!(
+                    "Error editing package.json file in: {project_path:?}"
+                ));
                 e
             })?;
-            copy_contents(&path, &new_path, overwrite)?;
-        } else {
-            let exists = file_exists(&new_path);
-            let new_path_str = new_path.to_string_lossy();
-            if exists {
-                let append =
-                    new_path_str.contains(".gitignore") || new_path_str.contains("README.md");
-                if append {
-                    append_contents(&path, &new_path)?;
-                }
+        self.edit_package_name(project_path, &package_name, "package-lock.json")
+    }
 
-                if overwrite && !append {
-                    println!("🔄  Overwriting {new_path_str}");
-                } else {
-                    println!("ℹ️  Skipped creating {new_path_str} as it already exists");
-                    continue;
-                }
-            } else {
-                println!("➕  Writing {new_path_str}");
-            }
-            copy(&path, &new_path).map_err(|e| {
-                eprintln!(
-                    "Error copying from {:?} to {:?}",
-                    path.to_string_lossy(),
-                    new_path
-                );
-                e
-            })?;
+    fn edit_package_name(
+        &self,
+        project_path: &Path,
+        package_name: &OsStr,
+        file_name: &str,
+    ) -> Result<(), Error> {
+        let file_path = project_path.join(file_name);
+        let file_contents = read_to_string(&file_path)?;
+
+        let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
+            self.print.errorln(format!(
+                "Error parsing {file_name} file in: {project_path:?}"
+            ));
+            e
+        })?;
+
+        doc["name"] = json!(package_name.to_string_lossy());
+
+        let formatted_json = to_string_pretty(&doc)?;
+
+        write(&file_path, formatted_json)?;
+
+        Ok(())
+    }
+
+    // Appends the contents of a file to another file, separated by a delimiter
+    fn append_contents(&self, from: &Path, to: &Path) -> Result<(), Error> {
+        let mut from_file = File::open(from)?;
+        let mut from_content = String::new();
+        from_file.read_to_string(&mut from_content)?;
+
+        let mut to_file = OpenOptions::new().read(true).append(true).open(to)?;
+        let mut to_content = String::new();
+        to_file.read_to_string(&mut to_content)?;
+
+        let delimiter = Self::get_merged_file_delimiter(to);
+        // if the to file already contains the delimiter, we don't need to append the contents again
+        if to_content.contains(&delimiter) {
+            return Ok(());
         }
+
+        to_file.write_all(delimiter.as_bytes())?;
+        to_file.write_all(from_content.as_bytes())?;
+
+        self.print.infoln(format!("Merging {to:?} contents"));
+        Ok(())
     }
 
-    Ok(())
-}
+    fn get_merged_file_delimiter(file_path: &Path) -> String {
+        let comment = if file_path.to_string_lossy().contains("README.md") {
+            "---\n<!-- The following is the Frontend Template's README.md -->".to_string()
+        } else if file_path.to_string_lossy().contains("gitignore") {
+            "# The following is from the Frontend Template's .gitignore".to_string()
+        } else {
+            String::new()
+        };
 
-fn file_exists(file_path: &Path) -> bool {
-    metadata(file_path)
-        .as_ref()
-        .map(Metadata::is_file)
-        .unwrap_or(false)
-}
-
-fn include_example_contracts(contracts: &[String]) -> bool {
-    !contracts.is_empty()
-}
-
-fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
-    let mut prepare = clone::PrepareFetch::new(
-        from_url,
-        to_path,
-        create::Kind::WithWorktree,
-        create::Options {
-            destination_must_be_empty: false,
-            fs_capabilities: None,
-        },
-        open::Options::isolated(),
-    )
-    .map_err(|e| {
-        eprintln!("Error preparing fetch for {from_url:?}");
-        Box::new(e)
-    })?
-    .with_shallow(remote::fetch::Shallow::DepthAtRemote(
-        NonZeroU32::new(1).unwrap(),
-    ));
-
-    let (mut checkout, _outcome) = prepare
-        .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
-        .map_err(|e| {
-            eprintln!("Error calling fetch_then_checkout with {from_url:?}");
-            Box::new(e)
-        })?;
-
-    let (_repo, _outcome) = checkout
-        .main_worktree(progress::Discard, &AtomicBool::new(false))
-        .map_err(|e| {
-            eprintln!("Error calling main_worktree for {from_url:?}");
-            e
-        })?;
-
-    Ok(())
-}
-
-fn copy_example_contracts(
-    from: &Path,
-    to: &Path,
-    contracts: &[String],
-    overwrite: bool,
-) -> Result<(), Error> {
-    let project_contracts_path = to.join("contracts");
-    for contract in contracts {
-        println!("ℹ️  Initializing example contract: {contract}");
-        let contract_as_string = contract.to_string();
-        let contract_path = Path::new(&contract_as_string);
-        let from_contract_path = from.join(contract_path);
-        let to_contract_path = project_contracts_path.join(contract_path);
-        create_dir_all(&to_contract_path).map_err(|e| {
-            eprintln!("Error creating directory: {contract_path:?}");
-            e
-        })?;
-
-        copy_contents(&from_contract_path, &to_contract_path, overwrite)?;
-        edit_contract_cargo_file(&to_contract_path)?;
+        format!("\n\n{comment}\n\n").to_string()
     }
-
-    Ok(())
-}
-
-fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
-    let cargo_path = contract_path.join("Cargo.toml");
-    let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
-        eprint!("Error reading Cargo.toml file in: {contract_path:?}");
-        e
-    })?;
-
-    let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
-        .unwrap()
-        .replace_all(
-            cargo_toml_str.as_str(),
-            "soroban-sdk = { workspace = true }",
-        );
-
-    let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = \{(.*) version = "[^"]+"(.+)}"#)
-        .unwrap()
-        .replace_all(&cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
-
-    let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
-        eprintln!("Error parsing Cargo.toml file in: {contract_path:?}");
-        e
-    })?;
-    doc.remove("profile");
-
-    write(&cargo_path, doc.to_string()).map_err(|e| {
-        eprintln!("Error writing to Cargo.toml file in: {contract_path:?}");
-        e
-    })?;
-
-    Ok(())
-}
-
-fn copy_frontend_files(from: &Path, to: &Path, overwrite: bool) -> Result<(), Error> {
-    println!("ℹ️  Initializing with frontend template");
-    copy_contents(from, to, overwrite)?;
-    edit_package_json_files(to)
-}
-
-fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
-    let package_name = if let Some(name) = project_path.file_name() {
-        name.to_owned()
-    } else {
-        let current_dir = env::current_dir()?;
-        let file_name = current_dir
-            .file_name()
-            .unwrap_or(OsStr::new("soroban-astro-template"))
-            .to_os_string();
-        file_name
-    };
-
-    edit_package_name(project_path, &package_name, "package.json").map_err(|e| {
-        eprintln!("Error editing package.json file in: {project_path:?}");
-        e
-    })?;
-    edit_package_name(project_path, &package_name, "package-lock.json")
-}
-
-fn edit_package_name(
-    project_path: &Path,
-    package_name: &OsStr,
-    file_name: &str,
-) -> Result<(), Error> {
-    let file_path = project_path.join(file_name);
-    let file_contents = read_to_string(&file_path)?;
-
-    let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
-        eprintln!("Error parsing package.json file in: {project_path:?}");
-        e
-    })?;
-
-    doc["name"] = json!(package_name.to_string_lossy());
-
-    let formatted_json = to_string_pretty(&doc)?;
-
-    write(&file_path, formatted_json)?;
-
-    Ok(())
-}
-
-fn check_internet_connection() -> bool {
-    if let Ok(_req) = get(GITHUB_URL).call() {
-        return true;
-    }
-
-    false
-}
-
-// Appends the contents of a file to another file, separated by a delimiter
-fn append_contents(from: &Path, to: &Path) -> Result<(), Error> {
-    let mut from_file = File::open(from)?;
-    let mut from_content = String::new();
-    from_file.read_to_string(&mut from_content)?;
-
-    let mut to_file = OpenOptions::new().read(true).append(true).open(to)?;
-    let mut to_content = String::new();
-    to_file.read_to_string(&mut to_content)?;
-
-    let delimiter = get_merged_file_delimiter(to);
-    // if the to file already contains the delimiter, we don't need to append the contents again
-    if to_content.contains(&delimiter) {
-        return Ok(());
-    }
-
-    to_file.write_all(delimiter.as_bytes())?;
-    to_file.write_all(from_content.as_bytes())?;
-
-    println!("ℹ️  Merging {} contents", &to.to_string_lossy());
-    Ok(())
-}
-
-fn get_merged_file_delimiter(file_path: &Path) -> String {
-    let comment = if file_path.to_string_lossy().contains("README.md") {
-        "---\n<!-- The following is the Frontend Template's README.md -->".to_string()
-    } else if file_path.to_string_lossy().contains("gitignore") {
-        "# The following is from the Frontend Template's .gitignore".to_string()
-    } else {
-        String::new()
-    };
-
-    format!("\n\n{comment}\n\n").to_string()
 }
 
 #[cfg(test)]
@@ -482,9 +513,16 @@ mod tests {
     fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
-        let with_examples = vec![];
-        let overwrite = false;
-        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: String::new(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -501,9 +539,16 @@ mod tests {
     fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
-        let with_examples = ["alloc".to_owned()];
-        let overwrite = false;
-        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: ["alloc".to_owned()].to_vec(),
+                frontend_template: String::new(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -525,9 +570,16 @@ mod tests {
     fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = ["account".to_owned(), "atomic_swap".to_owned()];
-        let overwrite = false;
-        init(project_dir.as_path(), "", &with_examples, overwrite).unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: ["account".to_owned(), "atomic_swap".to_owned()].to_vec(),
+                frontend_template: String::new(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -550,9 +602,16 @@ mod tests {
     fn test_init_with_invalid_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
-        let with_examples = ["invalid_example".to_owned(), "atomic_swap".to_owned()];
-        let overwrite = false;
-        assert!(init(project_dir.as_path(), "", &with_examples, overwrite).is_err());
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: ["invalid_example".to_owned(), "atomic_swap".to_owned()].to_vec(),
+                frontend_template: String::new(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        assert!(runner.run().is_err());
 
         temp_dir.close().unwrap();
     }
@@ -561,15 +620,16 @@ mod tests {
     fn test_init_with_frontend_template() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
-        let with_examples = vec![];
-        let overwrite = false;
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            overwrite,
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -591,28 +651,33 @@ mod tests {
     fn test_init_with_overwrite() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
-        let with_examples = vec![];
 
         // First initialization
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            false,
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         // Get initial modification times
         let initial_mod_times = get_mod_times(&project_dir);
 
         // Second initialization with overwrite
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            true, // overwrite = true
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: true,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         // Get new modification times
         let new_mod_times = get_mod_times(&project_dir);
@@ -647,15 +712,16 @@ mod tests {
     fn test_init_from_within_an_existing_project() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("./");
-        let with_examples = vec![];
-        let overwrite = false;
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            overwrite,
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -679,24 +745,28 @@ mod tests {
     fn test_init_does_not_duplicate_frontend_readme_contents_when_run_more_than_once() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
-        let with_examples = vec![];
-        let overwrite = false;
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            overwrite,
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         // call init again to make sure the README.md's contents are not duplicated
-        init(
-            project_dir.as_path(),
-            "https://github.com/stellar/soroban-astro-template",
-            &with_examples,
-            overwrite,
-        )
-        .unwrap();
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                with_example: vec![],
+                frontend_template: "https://github.com/stellar/soroban-astro-template".to_owned(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -743,7 +813,6 @@ mod tests {
         let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
         let cargo_toml_str = read_to_string(cargo_toml_path.clone()).unwrap();
         let doc = cargo_toml_str.parse::<toml_edit::Document>().unwrap();
-        println!("{cargo_toml_path:?} contents:\n{cargo_toml_str}");
         assert!(
             doc.get("dependencies")
                 .unwrap()
