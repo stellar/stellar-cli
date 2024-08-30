@@ -59,7 +59,10 @@ export type TupleStruct = readonly [Test,  SimpleEnum];
 export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tuple", values: readonly [TupleStruct]} | {tag: "Enum", values: readonly [SimpleEnum]} | {tag: "Asset", values: readonly [string, i128]} | {tag: "Void", values: void};
 
 export const Errors = {
-  1: {message:"Please provide an odd number"}
+  /**
+   * Please provide an odd number
+   */
+  1: {message:"NumberMustBeOdd"}
 }
 
 export interface Client {
@@ -204,7 +207,7 @@ export interface Client {
   }) => Promise<AssembledTransaction<i64>>
 
   /**
-   * Construct and simulate a strukt_hel transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.   *
+   * Construct and simulate a strukt_hel transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Example contract method which takes a struct
    */
   strukt_hel: ({strukt}: {strukt: Test}, options?: {
@@ -385,7 +388,7 @@ export interface Client {
   }) => Promise<AssembledTransaction<boolean>>
 
   /**
-   * Construct and simulate a not transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.   *
+   * Construct and simulate a not transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Negates a boolean value
    */
   not: ({boolean}: {boolean: boolean}, options?: {
@@ -526,7 +529,7 @@ export interface Client {
   }) => Promise<AssembledTransaction<readonly [string, u32]>>
 
   /**
-   * Construct and simulate a option transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.   *
+   * Construct and simulate a option transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Example of an optional argument
    */
   option: ({option}: {option: Option<u32>}, options?: {
