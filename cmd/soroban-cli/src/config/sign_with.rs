@@ -55,7 +55,7 @@ pub struct Args {
         hide = true
     )]
     pub sign_with_lab: bool,
-    /// Lab URL for sign_with_lab
+    /// Lab URL for `sign_with_lab`
     #[arg(
         long,
         env = "STELLAR_SIGN_WITH_LAB_URL",
@@ -105,7 +105,7 @@ impl Args {
         Ok(sign_txn_env(signer, tx_env, &network).await?)
     }
 
-    pub async fn sign_tx_env_with_lab(&self, tx_env: TransactionEnvelope) -> Result<(), Error> {
+    pub fn sign_tx_env_with_lab(&self, tx_env: &TransactionEnvelope) -> Result<(), Error> {
         let passphrase = self.get_network()?.network_passphrase;
         let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
 
