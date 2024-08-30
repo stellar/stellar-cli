@@ -50,7 +50,7 @@ async fn create_account() {
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
-
+    let starting_balance = ONE_XLM * 100;
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -59,10 +59,12 @@ async fn create_account() {
             "--destination",
             address.as_str(),
             "--starting-balance",
-            ONE_XLM.to_string().as_str(),
+            starting_balance.to_string().as_str(),
         ])
         .assert()
         .success();
+    let test_account_after = client.get_account(&test).await.unwrap();
+    assert!(test_account_after.balance < test_account.balance);
     let id = deploy_contract(sandbox, HELLO_WORLD, DeployKind::Normal, Some("new")).await;
     println!("{id}");
     invoke_hello_world(sandbox, &id);
@@ -89,9 +91,10 @@ async fn payment() {
         ])
         .assert()
         .success();
-
+    let test1_account_entry = client.get_account(&test1).await.unwrap();
+    assert_eq!(ONE_XLM, test1_account_entry.balance);
     let after = client.get_account(&test).await.unwrap();
-    assert_eq!(before.balance - ONE_XLM, after.balance);
+    assert_eq!(before.balance - 10_000_100, after.balance);
 }
 
 #[tokio::test]
@@ -118,7 +121,7 @@ async fn bump_sequence() {
 }
 
 #[tokio::test]
-async fn merge_account() {
+async fn account_merge() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, test1) = setup_accounts(sandbox);
@@ -128,7 +131,7 @@ async fn merge_account() {
         .new_assert_cmd("tx")
         .args([
             "new",
-            "merge-account",
+            "account-merge",
             "--source",
             test1.as_str(),
             "--destination",
