@@ -6,7 +6,7 @@ use crate::{
 };
 use clap::arg;
 use soroban_env_host::xdr::WriteXdr;
-use soroban_sdk::xdr::{self, Limits};
+use soroban_sdk::xdr::Limits;
 use url::Url;
 
 use super::{
@@ -29,6 +29,12 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error("No sign with key provided")]
     NoSignWithKey,
+    #[error(transparent)]
+    Xdr(#[from] soroban_env_host::xdr::Error),
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+    #[error(transparent)]
+    Open(#[from] std::io::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -100,13 +106,10 @@ impl Args {
     }
 
     pub async fn sign_tx_env_with_lab(&self, tx_env: TransactionEnvelope) -> Result<(), Error> {
-        let network = self.get_network()?;
-        let passphrase = network.network_passphrase;
-        let xdr_buffer = tx_env
-            .to_xdr_base64(Limits::none())
-            .expect("Failed to write XDR");
+        let passphrase = self.get_network()?.network_passphrase;
+        let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
 
-        let mut url = Url::parse(&self.lab_url).unwrap();
+        let mut url = Url::parse(&self.lab_url)?;
         url.query_pairs_mut()
             .append_pair("networkPassphrase", &passphrase)
             .append_pair("xdr", &xdr_buffer);
@@ -114,7 +117,7 @@ impl Args {
         let txn_sign_url = url.to_string();
 
         println!("Opening lab to sign transaction: {}", &txn_sign_url);
-        open::that(txn_sign_url).unwrap(); //todo: handle unwrap
+        open::that(txn_sign_url)?;
 
         Ok(())
     }
