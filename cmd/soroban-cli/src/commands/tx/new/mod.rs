@@ -45,7 +45,7 @@ pub enum Cmd {
     /// Threshold: High
     SetOptions(set_options::Cmd),
     /// Allows issuing account to configure authorization and trustline flags to an asset
-    /// The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. 
+    /// The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
     /// If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
     /// Learn more about flags: [Flags Glossary Entry](../../glossary.mdx#flags)
     /// Threshold: Low

@@ -1,5 +1,5 @@
 use soroban_cli::tx::ONE_XLM;
-use soroban_sdk::xdr::{AccountEntry, SequenceNumber};
+use soroban_sdk::xdr::SequenceNumber;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
@@ -20,8 +20,11 @@ fn test_address(sandbox: &TestEnv) -> String {
 // returns test and test1 addresses
 fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
     let test = test_address(sandbox);
+    sandbox.generate_account("test1", None).assert().success();
     let test1 = sandbox
-        .generate_account("test1", None)
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test1")
         .assert()
         .success()
         .stdout_as_str();
@@ -43,6 +46,10 @@ async fn create_account() {
         .assert()
         .success()
         .stdout_as_str();
+    let test = test_address(sandbox);
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
 
     sandbox
         .new_assert_cmd("tx")
@@ -66,6 +73,8 @@ async fn payment() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, test1) = setup_accounts(sandbox);
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
 
     let before = client.get_account(&test).await.unwrap();
     sandbox
@@ -138,7 +147,7 @@ async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test = test_address(sandbox);
-    let before = client.get_account(&test).await.unwrap();
+    let _ = client.get_account(&test).await.unwrap();
 }
 
 #[tokio::test]
@@ -154,7 +163,7 @@ async fn set_options_add_signer() {
             "set-options",
             "--signer",
             test1.as_str(),
-            "--weight",
+            "--signer-weight",
             "1",
         ])
         .assert()
@@ -169,7 +178,7 @@ async fn set_options_add_signer() {
             "set-options",
             "--signer",
             test1.as_str(),
-            "--weight",
+            "--signer-weight",
             "0",
         ])
         .assert()
