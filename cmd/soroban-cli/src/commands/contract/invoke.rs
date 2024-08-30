@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::{Infallible, TryInto};
 use std::ffi::OsString;
 use std::num::ParseIntError;
@@ -6,17 +5,15 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, value_parser, Parser, ValueEnum};
-use heck::ToKebabCase;
+use clap::{arg, command, Parser, ValueEnum};
 
 use soroban_env_host::{
     xdr::{
         self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp,
-        LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        PublicKey, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
-        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
-        WriteXdr,
+        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
+        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
+        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
+        Uint256, VecM, WriteXdr,
     },
     HostError,
 };
@@ -26,7 +23,9 @@ use soroban_sdk::xdr::ScSpecFunctionInputV0;
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
+use super::arg_parsing;
 use crate::commands::config::secret::StellarSigner;
+use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::config::{self, data, locator, network};
@@ -34,7 +33,13 @@ use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
 use crate::signer::auth::sign_soroban_authorizations;
 use crate::signer::{self, Stellar};
+use crate::{
+    commands::global,
+    config::{self, data, locator, network},
+    rpc, Pwd,
+};
 use crate::{commands::global, rpc, Pwd};
+use soroban_spec_tools::contract;
 use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -81,11 +86,6 @@ impl Pwd for Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("parsing argument {arg}: {error}")]
-    CannotParseArg {
-        arg: String,
-        error: soroban_spec_tools::Error,
-    },
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
     #[error(transparent)]
@@ -99,19 +99,8 @@ pub enum Error {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
-    #[error("function {0} was not found in the contract")]
-    FunctionNotFoundInContractSpec(String),
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
-    #[error("function name {0} is too long")]
-    FunctionNameTooLong(String),
-    #[error("argument count ({current}) surpasses maximum allowed count ({maximum})")]
-    MaxNumberOfArgumentsReached { current: usize, maximum: usize },
-    #[error("cannot print result {result:?}: {error}")]
-    CannotPrintResult {
-        result: ScVal,
-        error: soroban_spec_tools::Error,
-    },
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("error parsing int: {0}")]
@@ -122,16 +111,12 @@ pub enum Error {
     UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
-    #[error(transparent)]
-    StrVal(#[from] soroban_spec_tools::Error),
     #[error("error loading signing key: {0}")]
     SignatureError(#[from] ed25519_dalek::SignatureError),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
-    #[error("Missing argument {0}")]
-    MissingArgument(String),
     #[error(transparent)]
     Clap(#[from] clap::Error),
     #[error(transparent)]
@@ -142,8 +127,6 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     ContractSpec(#[from] contract::Error),
-    #[error("")]
-    MissingFileArg(PathBuf),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -154,6 +137,8 @@ pub enum Error {
     GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    ArgParsing(#[from] arg_parsing::Error),
 }
 
 impl From<Infallible> for Error {
@@ -163,118 +148,6 @@ impl From<Infallible> for Error {
 }
 
 impl Cmd {
-    async fn build_host_function_parameters(
-        &self,
-        contract_id: [u8; 32],
-        spec_entries: &[ScSpecEntry],
-        config: &config::Args,
-    ) -> Result<(String, Spec, InvokeContractArgs, Vec<StellarSigner>), Error> {
-        let spec = Spec(Some(spec_entries.to_vec()));
-        let mut cmd = clap::Command::new(self.contract_id.clone())
-            .no_binary_name(true)
-            .term_width(300)
-            .max_term_width(300);
-
-        for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
-            cmd = cmd.subcommand(build_custom_cmd(&name.to_utf8_string_lossy(), &spec)?);
-        }
-        cmd.build();
-        let long_help = cmd.render_long_help();
-        let mut matches_ = cmd.get_matches_from(&self.slop);
-        let Some((function, matches_)) = &matches_.remove_subcommand() else {
-            println!("{long_help}");
-            std::process::exit(1);
-        };
-
-        let func = spec.find_function(function)?;
-        // create parsed_args in same order as the inputs to func
-        let mut signers: Vec<StellarSigner> = vec![];
-        let mut parsed_args: Vec<ScVal> = Vec::new();
-        for i in func.inputs.iter() {
-            let (val, signer) = self.parse_arg(i, matches_, config, &spec).await?;
-            parsed_args.push(val);
-            if let Some(signer) = signer {
-                signers.push(signer);
-            }
-        }
-
-        let contract_address_arg = ScAddress::Contract(Hash(contract_id));
-        let function_symbol_arg = function
-            .try_into()
-            .map_err(|()| Error::FunctionNameTooLong(function.clone()))?;
-
-        let final_args =
-            parsed_args
-                .clone()
-                .try_into()
-                .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                    current: parsed_args.len(),
-                    maximum: ScVec::default().max_len(),
-                })?;
-
-        let invoke_args = InvokeContractArgs {
-            contract_address: contract_address_arg,
-            function_name: function_symbol_arg,
-            args: final_args,
-        };
-
-        Ok((function.clone(), spec, invoke_args, signers))
-    }
-
-    pub async fn parse_arg(
-        &self,
-        input: &ScSpecFunctionInputV0,
-        matches_: &clap::ArgMatches,
-        config: &config::Args,
-        spec: &Spec,
-    ) -> Result<(ScVal, Option<StellarSigner>), Error> {
-        let mut signer: Option<StellarSigner> = None;
-        let name = input.name.to_utf8_string()?;
-        let sc_val = if let Some(mut val) = matches_.get_raw(&name) {
-            let mut s = val.next().unwrap().to_string_lossy().to_string();
-            if matches!(input.type_, ScSpecTypeDef::Address) {
-                // Currently we only support local keys, same as input for --sign-with-key`, for signing auth entries.
-                if let Ok(signer_) = config
-                    .sign_with
-                    .locator
-                    .account(&s)
-                    .and_then(|signer| Ok(signer.signer(config.sign_with.hd_path, false)?))
-                {
-                    s = signer_.get_public_key().await?.to_string();
-                    signer = Some(signer_);
-                }
-            }
-            spec.from_string(&s, &input.type_)
-                .map_err(|error| Error::CannotParseArg { arg: name, error })?
-        } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
-            ScVal::Void
-        } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-            if matches!(input.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
-                ScVal::try_from(
-                    &std::fs::read(arg_path)
-                        .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
-                )
-                .map_err(|()| Error::CannotParseArg {
-                    arg: name.clone(),
-                    error: soroban_spec_tools::Error::Unknown,
-                })?
-            } else {
-                let file_contents = std::fs::read_to_string(arg_path)
-                    .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
-                tracing::debug!(
-                    "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
-                    input.type_,
-                    file_contents.len()
-                );
-                spec.from_string(&file_contents, &input.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })?
-            }
-        } else {
-            return Err(Error::MissingArgument(name));
-        };
-        Ok((sc_val, signer))
-    }
-
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.invoke(global_args).await?.to_envelope();
         match res {
@@ -337,13 +210,15 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let contract_id = config.resolve_contract_id(&self.contract_id)?.0;
+        let contract_id = self
+            .config
+            .locator
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = self
-                .build_host_function_parameters(contract_id, spec_entries, config)
-                .await?;
+            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
         let account_details = if self.is_view {
@@ -361,7 +236,7 @@ impl NetworkRunnable for Cmd {
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
         let spec_entries = get_remote_contract_spec(
-            &contract_id,
+            &contract_id.0,
             &config.sign_with.locator,
             &config.sign_with.network,
             global_args,
@@ -371,9 +246,8 @@ impl NetworkRunnable for Cmd {
         .map_err(Error::from)?;
 
         // Get the ledger footprint
-        let (function, spec, host_function_params, signers) = self
-            .build_host_function_parameters(contract_id, &spec_entries, config)
-            .await?;
+        let (function, spec, host_function_params, signers) =
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -428,7 +302,7 @@ impl NetworkRunnable for Cmd {
             }
         };
         crate::log::events(&events);
-        output_to_string(&spec, &return_value, &function)
+        Ok(output_to_string(&spec, &return_value, &function)?)
     }
 }
 
@@ -477,24 +351,6 @@ fn default_account_entry() -> AccountEntry {
     }
 }
 
-pub fn output_to_string(
-    spec: &Spec,
-    res: &ScVal,
-    function: &str,
-) -> Result<TxnResult<String>, Error> {
-    let mut res_str = String::new();
-    if let Some(output) = spec.find_function(function)?.outputs.first() {
-        res_str = spec
-            .xdr_to_json(res, output)
-            .map_err(|e| Error::CannotPrintResult {
-                result: res.clone(),
-                error: e,
-            })?
-            .to_string();
-    }
-    Ok(TxnResult::Res(res_str))
-}
-
 fn build_invoke_contract_tx(
     parameters: InvokeContractArgs,
     sequence: i64,
@@ -517,87 +373,6 @@ fn build_invoke_contract_tx(
         operations: vec![op].try_into()?,
         ext: TransactionExt::V0,
     })
-}
-
-fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
-    let func = spec
-        .find_function(name)
-        .map_err(|_| Error::FunctionNotFoundInContractSpec(name.to_string()))?;
-
-    // Parse the function arguments
-    let inputs_map = &func
-        .inputs
-        .iter()
-        .map(|i| (i.name.to_utf8_string().unwrap(), i.type_.clone()))
-        .collect::<HashMap<String, ScSpecTypeDef>>();
-    let name: &'static str = Box::leak(name.to_string().into_boxed_str());
-    let mut cmd = clap::Command::new(name)
-        .no_binary_name(true)
-        .term_width(300)
-        .max_term_width(300);
-    let kebab_name = name.to_kebab_case();
-    if kebab_name != name {
-        cmd = cmd.alias(kebab_name);
-    }
-    let doc: &'static str = Box::leak(func.doc.to_utf8_string_lossy().into_boxed_str());
-    let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
-
-    cmd = cmd.about(Some(doc)).long_about(long_doc);
-    for (name, type_) in inputs_map {
-        let mut arg = clap::Arg::new(name);
-        let file_arg_name = fmt_arg_file_name(name);
-        let mut file_arg = clap::Arg::new(&file_arg_name);
-        arg = arg
-            .long(name)
-            .alias(name.to_kebab_case())
-            .num_args(1)
-            .value_parser(clap::builder::NonEmptyStringValueParser::new())
-            .long_help(spec.doc(name, type_)?);
-
-        file_arg = file_arg
-            .long(&file_arg_name)
-            .alias(file_arg_name.to_kebab_case())
-            .num_args(1)
-            .hide(true)
-            .value_parser(value_parser!(PathBuf))
-            .conflicts_with(name);
-
-        if let Some(value_name) = spec.arg_value_name(type_, 0) {
-            let value_name: &'static str = Box::leak(value_name.into_boxed_str());
-            arg = arg.value_name(value_name);
-        }
-
-        // Set up special-case arg rules
-        arg = match type_ {
-            ScSpecTypeDef::Bool => arg
-                .num_args(0..1)
-                .default_missing_value("true")
-                .default_value("false")
-                .num_args(0..=1),
-            ScSpecTypeDef::Option(_val) => arg.required(false),
-            ScSpecTypeDef::I256 | ScSpecTypeDef::I128 | ScSpecTypeDef::I64 | ScSpecTypeDef::I32 => {
-                arg.allow_hyphen_values(true)
-            }
-            _ => arg,
-        };
-
-        cmd = cmd.arg(arg);
-        cmd = cmd.arg(file_arg);
-    }
-    Ok(cmd)
-}
-
-fn fmt_arg_file_name(name: &str) -> String {
-    format!("{name}-file-path")
-}
-
-fn arg_file_help(docs: &str) -> String {
-    format!(
-        r#"{docs}
-Usage Notes:
-Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
-Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
-    )
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]

@@ -1,4 +1,5 @@
 pub mod alias;
+pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
@@ -141,7 +142,7 @@ impl Cmd {
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run()?,
             Cmd::Extend(extend) => extend.run().await?,
-            Cmd::Alias(alias) => alias.run(global_args).await?,
+            Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
             Cmd::Id(id) => id.run().await?,
             Cmd::Info(info) => info.run().await?,
