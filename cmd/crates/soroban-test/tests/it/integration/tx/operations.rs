@@ -139,7 +139,7 @@ async fn account_merge() {
             "new",
             "account-merge",
             "--source",
-            test1.as_str(),
+            "test1",
             "--account",
             test.as_str(),
         ])
