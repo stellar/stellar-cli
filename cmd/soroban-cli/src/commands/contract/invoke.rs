@@ -19,28 +19,23 @@ use soroban_env_host::{
 };
 
 use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
-use soroban_sdk::xdr::ScSpecFunctionInputV0;
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::commands::config::secret::StellarSigner;
 use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
-use crate::config::{self, data, locator, network};
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
-use crate::signer::auth::sign_soroban_authorizations;
-use crate::signer::{self, Stellar};
+use crate::signer::{self, auth::sign_soroban_authorizations};
+// use crate::signer;
 use crate::{
     commands::global,
     config::{self, data, locator, network},
     rpc, Pwd,
 };
-use crate::{commands::global, rpc, Pwd};
 use soroban_spec_tools::contract;
-use soroban_spec_tools::{contract, Spec};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -212,13 +207,15 @@ impl NetworkRunnable for Cmd {
         tracing::trace!(?network);
         let contract_id = self
             .config
+            .sign_with
             .locator
             .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)
+                .await?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
         let account_details = if self.is_view {
@@ -247,7 +244,7 @@ impl NetworkRunnable for Cmd {
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,

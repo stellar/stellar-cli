@@ -133,7 +133,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let entry_keys = self.key.parse_keys(&config.locator, &network)?;
+        let entry_keys = self.key.parse_keys(&config.sign_with.locator, &network)?;
         let client = Client::new(&network.rpc_url)?;
 
         // Get the account sequence number

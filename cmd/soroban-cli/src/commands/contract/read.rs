@@ -186,7 +186,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys(&config.locator, &network)?;
+        let keys = self.key.parse_keys(&config.sign_with.locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }

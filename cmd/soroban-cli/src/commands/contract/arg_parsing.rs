@@ -5,16 +5,17 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use clap::value_parser;
-use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 
+use crate::commands::txn_result::TxnResult;
+use crate::config::secret::StellarSigner;
+use crate::config::{self};
+use crate::signer::{self, Stellar};
 use soroban_env_host::xdr::{
     self, Hash, InvokeContractArgs, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
     ScVec,
 };
-
-use crate::commands::txn_result::TxnResult;
-use crate::config::{self};
+use soroban_sdk::xdr::ScSpecFunctionInputV0;
 use soroban_spec_tools::Spec;
 
 #[derive(thiserror::Error, Debug)]
@@ -43,14 +44,16 @@ pub enum Error {
     MissingArgument(String),
     #[error("")]
     MissingFileArg(PathBuf),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
-pub fn build_host_function_parameters(
+pub async fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
-) -> Result<(String, Spec, InvokeContractArgs, Vec<SigningKey>), Error> {
+) -> Result<(String, Spec, InvokeContractArgs, Vec<StellarSigner>), Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let mut cmd = clap::Command::new(contract_id.to_string())
         .no_binary_name(true)
@@ -70,57 +73,15 @@ pub fn build_host_function_parameters(
 
     let func = spec.find_function(function)?;
     // create parsed_args in same order as the inputs to func
-    let mut signers: Vec<SigningKey> = vec![];
-    let parsed_args = func
-        .inputs
-        .iter()
-        .map(|i| {
-            let name = i.name.to_utf8_string()?;
-            if let Some(mut val) = matches_.get_raw(&name) {
-                let mut s = val.next().unwrap().to_string_lossy().to_string();
-                if matches!(i.type_, ScSpecTypeDef::Address) {
-                    let cmd = crate::commands::keys::address::Cmd {
-                        name: s.clone(),
-                        hd_path: Some(0),
-                        locator: config.locator.clone(),
-                    };
-                    if let Ok(address) = cmd.public_key() {
-                        s = address.to_string();
-                    }
-                    if let Ok(key) = cmd.private_key() {
-                        signers.push(key);
-                    }
-                }
-                spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
-            } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
-                Ok(ScVal::Void)
-            } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-                if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
-                    Ok(ScVal::try_from(
-                        &std::fs::read(arg_path)
-                            .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
-                    )
-                    .map_err(|()| Error::CannotParseArg {
-                        arg: name.clone(),
-                        error: soroban_spec_tools::Error::Unknown,
-                    })?)
-                } else {
-                    let file_contents = std::fs::read_to_string(arg_path)
-                        .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
-                    tracing::debug!(
-                        "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
-                        i.type_,
-                        file_contents.len()
-                    );
-                    spec.from_string(&file_contents, &i.type_)
-                        .map_err(|error| Error::CannotParseArg { arg: name, error })
-                }
-            } else {
-                Err(Error::MissingArgument(name))
-            }
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+    let mut signers: Vec<StellarSigner> = vec![];
+    let mut parsed_args: Vec<ScVal> = Vec::new();
+    for i in func.inputs.iter() {
+        let (val, signer) = parse_arg(i, matches_, config, &spec).await?;
+        parsed_args.push(val);
+        if let Some(signer) = signer {
+            signers.push(signer);
+        }
+    }
 
     let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
     let function_symbol_arg = function
@@ -143,6 +104,58 @@ pub fn build_host_function_parameters(
     };
 
     Ok((function.clone(), spec, invoke_args, signers))
+}
+
+pub async fn parse_arg(
+    input: &ScSpecFunctionInputV0,
+    matches_: &clap::ArgMatches,
+    config: &config::Args,
+    spec: &Spec,
+) -> Result<(ScVal, Option<StellarSigner>), Error> {
+    let mut signer: Option<StellarSigner> = None;
+    let name = input.name.to_utf8_string()?;
+    let sc_val = if let Some(mut val) = matches_.get_raw(&name) {
+        let mut s = val.next().unwrap().to_string_lossy().to_string();
+        if matches!(input.type_, ScSpecTypeDef::Address) {
+            // Currently we only support local keys, same as input for --sign-with-key`, for signing auth entries.
+            if let Ok(signer_) = config
+                .sign_with
+                .locator
+                .account(&s)
+                .and_then(|signer| Ok(signer.signer(config.sign_with.hd_path, false)?))
+            {
+                s = signer_.get_public_key().await?.to_string();
+                signer = Some(signer_);
+            }
+        }
+        spec.from_string(&s, &input.type_)
+            .map_err(|error| Error::CannotParseArg { arg: name, error })?
+    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
+        ScVal::Void
+    } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
+        if matches!(input.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
+            ScVal::try_from(
+                &std::fs::read(arg_path).map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
+            )
+            .map_err(|()| Error::CannotParseArg {
+                arg: name.clone(),
+                error: soroban_spec_tools::Error::Unknown,
+            })?
+        } else {
+            let file_contents = std::fs::read_to_string(arg_path)
+                .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
+            tracing::debug!(
+                "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+                input.type_,
+                file_contents.len()
+            );
+            spec.from_string(&file_contents, &input.type_)
+                .map_err(|error| Error::CannotParseArg { arg: name, error })?
+        }
+    } else {
+        return Err(Error::MissingArgument(name));
+    };
+    Ok((sc_val, signer))
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
