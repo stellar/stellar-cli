@@ -46,6 +46,8 @@ pub fn upgrade_check() {
         return;
     }
 
+    tracing::debug!("start upgrade check");
+
     let current_version = crate::commands::version::pkg();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
@@ -87,6 +89,8 @@ pub fn upgrade_check() {
             "⚠️ A new release of stellar-cli is available: {current_version} -> {latest_version}",
         );
     }
+
+    tracing::debug!("finished upgrade check");
 }
 
 fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) -> &'a Version {
