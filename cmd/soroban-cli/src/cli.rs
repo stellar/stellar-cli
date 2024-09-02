@@ -75,7 +75,9 @@ pub async fn main() {
     // Spawn a thread to check if a new version exists.
     // It depends on logger, so we need to place it after
     // the code block that initializes the logger.
-    thread::spawn(upgrade_check);
+    thread::spawn(move || {
+        upgrade_check(root.global_args.quiet);
+    });
 
     if let Err(e) = root.run().await {
         eprintln!("error: {e}");

@@ -1,4 +1,5 @@
 use crate::config::upgrade_check::UpgradeCheck;
+use crate::print::Print;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
@@ -34,7 +35,7 @@ fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
 }
 
 /// Print a warning if a new version of the CLI is available
-pub fn upgrade_check() {
+pub fn upgrade_check(quiet: bool) {
     // We should skip the upgrade check if we're not in a tty environment.
     if !std::io::stderr().is_terminal() {
         return;
@@ -51,7 +52,7 @@ pub fn upgrade_check() {
     let current_version = crate::commands::version::pkg();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
-        tracing::error!("⚠️ Failed to load upgrade check data: {e}");
+        tracing::error!("Failed to load upgrade check data: {e}");
         UpgradeCheck::default()
     });
 
@@ -67,7 +68,7 @@ pub fn upgrade_check() {
                 };
             }
             Err(e) => {
-                tracing::error!("⚠️ Failed to fetch stellar-cli info from crates.io: {e}");
+                tracing::error!("Failed to fetch stellar-cli info from crates.io: {e}");
                 // Only update the latest check time if the fetch failed
                 // This way we don't spam the user with errors
                 stats.latest_check_time = now;
@@ -75,7 +76,7 @@ pub fn upgrade_check() {
         }
 
         if let Err(e) = stats.save() {
-            tracing::error!("⚠️ Failed to save upgrade check data: {e}");
+            tracing::error!("Failed to save upgrade check data: {e}");
         }
     }
 
@@ -83,9 +84,10 @@ pub fn upgrade_check() {
     let latest_version = get_latest_version(&current_version, &stats);
 
     if *latest_version > current_version {
-        tracing::warn!(
-            "⚠️ A new release of stellar-cli is available: {current_version} -> {latest_version}",
-        );
+        let printer = Print::new(quiet);
+        printer.warnln(format!(
+            "A new release of stellar-cli is available: {current_version} -> {latest_version}"
+        ));
     }
 
     tracing::debug!("finished upgrade check");
