@@ -20,7 +20,10 @@ export var RoyalCard;
     RoyalCard[RoyalCard["King"] = 13] = "King";
 })(RoyalCard || (RoyalCard = {}));
 export const Errors = {
-    1: { message: "Please provide an odd number" }
+    /**
+     * Please provide an odd number
+     */
+    1: { message: "NumberMustBeOdd" }
 };
 export class Client extends ContractClient {
     options;
