@@ -118,6 +118,10 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -139,6 +143,10 @@ Deploy builtin Soroban Asset Contract
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -366,6 +374,10 @@ If no keys are specified the contract itself is extended.
 
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -396,6 +408,10 @@ Deploy a wasm contract
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -459,6 +475,10 @@ Deploy builtin Soroban Asset Contract
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -480,6 +500,10 @@ Deploy normal Wasm Contract
 * `--salt <SALT>` — ID of the Soroban contract
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -680,6 +704,10 @@ Install a WASM file to the ledger without creating a contract instance
 
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -721,6 +749,10 @@ stellar contract invoke ... -- --help
 * `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -804,6 +836,10 @@ Print the current value of a contract-data ledger entry
 
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -843,6 +879,10 @@ If no keys are specificed the contract itself is restored.
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -1330,6 +1370,10 @@ Simulate a transaction envelope from stdin
 
 * `--source-account <SOURCE_ACCOUNT>` — Account where the final transaction originates from. If no `--sign-with-*` flag is passed, passed key will also be used to sign the transaction. Can be an identity (`--source alice`), a secret key (`--source SC36…`), or a seed phrase (`--source "kite urban…"`)
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -1363,6 +1407,10 @@ Sign a transaction envolope appending the signature to the envelope
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
