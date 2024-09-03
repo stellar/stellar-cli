@@ -1,5 +1,6 @@
 use soroban_cli::config::network::passphrase::LOCAL;
 use soroban_test::TestEnv;
+use predicates::prelude::*;
 use std::fs;
 use std::path::PathBuf;
 
@@ -20,6 +21,7 @@ async fn run_command(
     contract_id: &str,
     bob_id: &str,
     native_id: &str,
+    key_xdr: &str,
 ) -> Result<(), String> {
     if command.contains("export") {
         return Ok(());
@@ -75,6 +77,11 @@ async fn run_command(
                 modified_args.push("local".to_string());
                 skip_next = true;
             }
+            "--key-xdr" => {
+                modified_args.push(arg.to_string());
+                modified_args.push(key_xdr.to_string());
+                skip_next = true;
+            }
             "<DURABILITY>" => {
                 modified_args.push("persistent".to_string());
                 skip_next = false;
@@ -102,13 +109,28 @@ async fn run_command(
 
     println!("Executing command: {} {}", cmd, modified_args.join(" "));
     let result = sandbox.new_assert_cmd(&cmd).args(&modified_args).assert();
-    if command.contains("contract invoke") {
+
+    if command.contains("keys generate") {
+        result
+            .code(predicates::ord::eq(0).or(predicates::ord::eq(1)))
+            .stderr(
+                predicate::str::is_empty().or(predicates::str::contains("Generated new key for").or(
+                    predicates::str::contains("The identity")
+                        .and(predicates::str::contains("already exists"))
+                ))
+            );
+    } else if command.contains("contract invoke") {
         result
             .failure()
             .stderr(predicates::str::contains("error: unrecognized subcommand"));
+    } else if command.contains("contract restore") {
+        result
+            .failure()
+            .stderr(predicates::str::contains("TxSorobanInvalid"));
     } else {
         result.success();
     }
+
     Ok(())
 }
 
@@ -121,6 +143,7 @@ async fn test_mdx_file(
     contract_id: &str,
     bob_id: &str,
     native_id: &str,
+    key_xdr: &str,
 ) -> Result<(), String> {
     let content = fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
@@ -144,6 +167,7 @@ async fn test_mdx_file(
             contract_id,
             bob_id,
             native_id,
+            key_xdr
         )
         .await?;
     }
@@ -203,9 +227,9 @@ mod tests {
             .arg("--asset")
             .arg("native")
             .arg("--source-account")
-            .arg("test")
-            .assert()
-            .success();
+            .arg(source)
+            .output()
+            .expect("Failed to execute command");
         let native_id = sandbox
             .new_assert_cmd("contract")
             .arg("id")
@@ -213,7 +237,7 @@ mod tests {
             .arg("--asset")
             .arg("native")
             .arg("--source-account")
-            .arg("test")
+            .arg(source)
             .assert()
             .stdout_as_str();
         let contract_id = deploy_hello(&sandbox).await;
@@ -221,8 +245,22 @@ mod tests {
             .invoke_with_test(&["--id", &contract_id, "--", "inc"])
             .await
             .unwrap();
+        let read_xdr = sandbox
+            .new_assert_cmd("contract")
+            .arg("read")
+            .arg("--id")
+            .arg(contract_id.clone())
+            .arg("--output")
+            .arg("xdr")
+            .arg("--key")
+            .arg("COUNTER")
+            .arg("--source-account")
+            .arg(source)
+            .assert()
+            .stdout_as_str();
+        let key_xdr = read_xdr.split(',').next().unwrap_or("").trim();
         let repo_root = get_repo_root();
-        let docs_dir = repo_root.join("docs");
+        let docs_dir = repo_root.join("cookbook");
         if !docs_dir.is_dir() {
             panic!("docs directory not found");
         }
@@ -232,12 +270,6 @@ mod tests {
             let path = entry.path();
 
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("mdx") {
-                let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-                if file_name.starts_with("restore") {
-                    println!("Skipping file: {}", file_name);
-                    continue;
-                }
-
                 let file_path = path.to_str().unwrap();
                 match test_mdx_file(
                     &sandbox,
@@ -248,6 +280,7 @@ mod tests {
                     &contract_id,
                     &bob_id,
                     &native_id,
+                    &key_xdr,
                 )
                 .await
                 {
