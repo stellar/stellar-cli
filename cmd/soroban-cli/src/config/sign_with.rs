@@ -52,11 +52,7 @@ pub struct Args {
     )]
     pub sign_with_key: Option<String>,
     /// Sign with laboratory
-    #[arg(
-        long,
-        conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LABORATORY"
-    )]
+    #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
     pub sign_with_lab: bool,
     /// Lab URL for `sign_with_lab`
     #[arg(

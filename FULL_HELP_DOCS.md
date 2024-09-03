@@ -1291,7 +1291,7 @@ Sign, Simulate, and Send transactions
 
 * `simulate` — Simulate a transaction envelope from stdin
 * `hash` — Calculate the hash of a transaction envelope from stdin
-* `sign` — Sign a transaction envolope appending the signature to the envelope
+* `sign` — Sign a transaction envelope appending the signature to the envelope
 
 
 
@@ -1329,13 +1329,17 @@ Calculate the hash of a transaction envelope from stdin
 
 ## `stellar tx sign`
 
-Sign a transaction envolope appending the signature to the envelope
+Sign a transaction envelope appending the signature to the envelope
 
 **Usage:** `stellar tx sign [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-lab` — Sign with laboratory
+* `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
+
+  Default value: `https://lab.stellar.org/transaction/sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
