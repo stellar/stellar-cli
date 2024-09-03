@@ -16,6 +16,7 @@ pub mod locator;
 pub mod network;
 pub mod secret;
 pub mod sign_with;
+pub mod upgrade_check;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

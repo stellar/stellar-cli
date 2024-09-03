@@ -72,6 +72,10 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("Failed to read upgrade check file: {path}: {error}")]
+    UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
+    #[error("Failed to write upgrade check file: {path}: {error}")]
+    UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -338,7 +342,7 @@ impl Args {
     }
 }
 
-fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
+pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
     Ok(dir)
@@ -461,7 +465,7 @@ impl KeyType {
     }
 }
 
-fn global_config_path() -> Result<PathBuf, Error> {
+pub fn global_config_path() -> Result<PathBuf, Error> {
     Ok(if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
