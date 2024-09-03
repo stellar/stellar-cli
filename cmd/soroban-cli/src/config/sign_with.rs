@@ -51,16 +51,14 @@ pub struct Args {
     #[arg(
         long,
         conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LABORATORY",
-        hide = true
+        env = "STELLAR_SIGN_WITH_LABORATORY"
     )]
     pub sign_with_lab: bool,
     /// Lab URL for `sign_with_lab`
     #[arg(
         long,
         env = "STELLAR_SIGN_WITH_LAB_URL",
-        hide = true,
-        default_value = "https://lab.stellar.org/transaction/sign?"
+        default_value = "https://lab.stellar.org/transaction/sign"
     )]
     pub lab_url: String,
 
