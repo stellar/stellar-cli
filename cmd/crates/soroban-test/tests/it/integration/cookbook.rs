@@ -1,6 +1,6 @@
+use predicates::prelude::*;
 use soroban_cli::config::network::passphrase::LOCAL;
 use soroban_test::TestEnv;
-use predicates::prelude::*;
 use std::fs;
 use std::path::PathBuf;
 
@@ -114,10 +114,9 @@ async fn run_command(
         result
             .code(predicates::ord::eq(0).or(predicates::ord::eq(1)))
             .stderr(
-                predicate::str::is_empty().or(predicates::str::contains("Generated new key for").or(
-                    predicates::str::contains("The identity")
-                        .and(predicates::str::contains("already exists"))
-                ))
+                predicate::str::is_empty().or(predicates::str::contains("Generated new key for")
+                    .or(predicates::str::contains("The identity")
+                        .and(predicates::str::contains("already exists")))),
             );
     } else if command.contains("contract invoke") {
         result
@@ -167,7 +166,7 @@ async fn test_mdx_file(
             contract_id,
             bob_id,
             native_id,
-            key_xdr
+            key_xdr,
         )
         .await?;
     }
