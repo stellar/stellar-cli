@@ -1339,7 +1339,7 @@ Sign a transaction envelope appending the signature to the envelope
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--source-account <SOURCE_ACCOUNT>` — Account that signs the transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
