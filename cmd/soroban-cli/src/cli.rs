@@ -4,7 +4,7 @@ use std::thread;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::upgrade_check::upgrade_check;
-use crate::{commands, Root};
+use crate::{commands, print, Root};
 
 #[tokio::main]
 pub async fn main() {
@@ -79,8 +79,9 @@ pub async fn main() {
         upgrade_check(root.global_args.quiet);
     });
 
+    let printer = print::Print::new(root.global_args.quiet);
     if let Err(e) = root.run().await {
-        eprintln!("error: {e}");
+        printer.errorln(format!("error: {e}"));
         std::process::exit(1);
     }
 }
