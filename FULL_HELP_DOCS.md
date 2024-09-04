@@ -121,7 +121,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -146,7 +146,7 @@ Deploy builtin Soroban Asset Contract
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -377,7 +377,7 @@ If no keys are specified the contract itself is extended.
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -411,7 +411,7 @@ Deploy a wasm contract
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -478,7 +478,7 @@ Deploy builtin Soroban Asset Contract
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -503,7 +503,7 @@ Deploy normal Wasm Contract
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -707,7 +707,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -752,7 +752,7 @@ stellar contract invoke ... -- --help
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -839,7 +839,7 @@ Print the current value of a contract-data ledger entry
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -882,7 +882,7 @@ If no keys are specificed the contract itself is restored.
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -1373,7 +1373,7 @@ Simulate a transaction envelope from stdin
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -1410,7 +1410,7 @@ Sign a transaction envolope appending the signature to the envelope
 * `--sign-with-lab` — Sign with laboratory
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
-  Default value: `https://lab.stellar.org/transaction/sign`
+  Default value: `https://lab.stellar.org/transaction/cli-sign`
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--yes` — If one of `--sign-with-*` flags is provided, don't ask to confirm to sign a transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint

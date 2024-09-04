@@ -54,7 +54,7 @@ pub struct Args {
     #[arg(
         long,
         env = "STELLAR_SIGN_WITH_LAB_URL",
-        default_value = "https://lab.stellar.org/transaction/sign"
+        default_value = "https://lab.stellar.org/transaction/cli-sign"
     )]
     pub lab_url: String,
 
