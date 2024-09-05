@@ -127,7 +127,7 @@ impl Runner {
             })?;
 
             // clone the template repo into the temp dir
-            self.clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
+            Self::clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
 
             // copy the frontend template files into the project
             self.copy_frontend_files(fe_template_dir.path(), &project_path)?;
@@ -144,7 +144,7 @@ impl Runner {
             })?;
 
             // clone the soroban-examples repo into the temp dir
-            self.clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
+            Self::clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
             // copy the example contracts into the project
             self.copy_example_contracts(
@@ -280,7 +280,7 @@ impl Runner {
         !self.args.with_example.is_empty()
     }
 
-    fn clone_repo(&self, from_url: &str, to_path: &Path) -> Result<(), Error> {
+    fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
         let mut prepare = clone::PrepareFetch::new(
             from_url,
             to_path,
@@ -323,13 +323,13 @@ impl Runner {
             Self::create_dir_all(&to_contract_path)?;
 
             self.copy_contents(&from_contract_path, &to_contract_path)?;
-            self.edit_contract_cargo_file(&to_contract_path)?;
+            Self::edit_contract_cargo_file(&to_contract_path)?;
         }
 
         Ok(())
     }
 
-    fn edit_contract_cargo_file(&self, contract_path: &Path) -> Result<(), Error> {
+    fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
         let cargo_path = contract_path.join("Cargo.toml");
 
         let cargo_toml_str = Self::read_to_string(&cargo_path)?;
@@ -357,10 +357,10 @@ impl Runner {
     fn copy_frontend_files(&self, from: &Path, to: &Path) -> Result<(), Error> {
         self.print.infoln("Initializing with frontend template");
         self.copy_contents(from, to)?;
-        self.edit_package_json_files(to)
+        Self::edit_package_json_files(to)
     }
 
-    fn edit_package_json_files(&self, project_path: &Path) -> Result<(), Error> {
+    fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
         let package_name = if let Some(name) = project_path.file_name() {
             name.to_owned()
         } else {
@@ -373,12 +373,11 @@ impl Runner {
             file_name
         };
 
-        self.edit_package_name(project_path, &package_name, "package.json")?;
-        self.edit_package_name(project_path, &package_name, "package-lock.json")
+        Self::edit_package_name(project_path, &package_name, "package.json")?;
+        Self::edit_package_name(project_path, &package_name, "package-lock.json")
     }
 
     fn edit_package_name(
-        &self,
         project_path: &Path,
         package_name: &OsStr,
         file_name: &str,
