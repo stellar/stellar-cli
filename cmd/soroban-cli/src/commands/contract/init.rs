@@ -64,12 +64,8 @@ pub enum Error {
     #[error("Failed to clone repository: {0}")]
     CloneError(#[from] Box<clone::Error>),
 
-    // the gix::clone::fetch::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to fetch repository: {0}")]
-    FetchError(#[from] Box<clone::fetch::Error>),
-
-    #[error("Failed to checkout repository worktree: {0}")]
-    CheckoutError(#[from] clone::checkout::main_worktree::Error),
+    #[error("{0}: {1}")]
+    Json(String, JsonError),
 
     #[error("Failed to parse toml file: {0}")]
     TomlParse(#[from] TomlError),
@@ -407,13 +403,7 @@ impl Runner {
             file_name
         };
 
-        self.edit_package_name(project_path, &package_name, "package.json")
-            .map_err(|e| {
-                self.print.errorln(format!(
-                    "Error editing package.json file in: {project_path:?}"
-                ));
-                e
-            })?;
+        self.edit_package_name(project_path, &package_name, "package.json")?;
         self.edit_package_name(project_path, &package_name, "package-lock.json")
     }
 
@@ -427,15 +417,20 @@ impl Runner {
         let file_contents = read_to_string(&file_path)?;
 
         let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
-            self.print.errorln(format!(
-                "Error parsing {file_name} file in: {project_path:?}"
-            ));
-            e
+            Error::Json(
+                format!("Error parsing {file_name} file in: {project_path:?}"),
+                e,
+            )
         })?;
 
         doc["name"] = json!(package_name.to_string_lossy());
 
-        let formatted_json = to_string_pretty(&doc)?;
+        let formatted_json = to_string_pretty(&doc).map_err(|e| {
+            Error::Json(
+                "Error calling to_string_pretty for package.json".to_string(),
+                e,
+            )
+        })?;
 
         write(&file_path, formatted_json)?;
 
