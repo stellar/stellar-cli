@@ -57,8 +57,8 @@ fn possible_example_values() -> ValueParser {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Io error: {0}")]
-    IoError(#[from] io::Error),
+    #[error("{0}: {1}")]
+    Io(String, io::Error),
 
     // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
     #[error("Failed to clone repository: {0}")]
@@ -111,9 +111,10 @@ impl Runner {
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
         create_dir_all(&project_path).map_err(|e| {
-            self.print
-                .errorln("Error creating new project directory: {project_path:?}");
-            e
+            Error::Io(
+                format!("Error creating new project directory: {project_path:?}"),
+                e,
+            )
         })?;
         self.copy_template_files()?;
 
@@ -125,9 +126,10 @@ impl Runner {
         if !self.args.frontend_template.is_empty() {
             // create a temp dir for the template repo
             let fe_template_dir = tempfile::tempdir().map_err(|e| {
-                self.print
-                    .errorln("Error creating temp dir for frontend template");
-                e
+                Error::Io(
+                    "Error creating temp dir for frontend template".to_string(),
+                    e,
+                )
             })?;
 
             // clone the template repo into the temp dir
@@ -141,9 +143,10 @@ impl Runner {
         if self.include_example_contracts() {
             // create an examples temp dir
             let examples_dir = tempfile::tempdir().map_err(|e| {
-                self.print
-                    .errorln("Error creating temp dir for soroban-examples");
-                e
+                Error::Io(
+                    "Error creating temp dir for soroban-examples".to_string(),
+                    e,
+                )
             })?;
 
             // clone the soroban-examples repo into the temp dir
@@ -171,11 +174,8 @@ impl Runner {
                 continue;
             }
 
-            create_dir_all(to.parent().unwrap()).map_err(|e| {
-                self.print
-                    .errorln(format!("Error creating directory path for: {to:?}"));
-                e
-            })?;
+            create_dir_all(to.parent().unwrap())
+                .map_err(|e| Error::Io(format!("Error creating directory path for: {to:?}"), e))?;
 
             let Some(file) = TemplateFiles::get(item.as_ref()) else {
                 self.print
@@ -199,10 +199,8 @@ impl Runner {
             } else {
                 self.print.plusln(format!("Writing {to:?}"));
             }
-            write(&to, file_contents).map_err(|e| {
-                self.print.errorln(format!("Error writing file: {to:?}"));
-                e
-            })?;
+            write(&to, file_contents)
+                .map_err(|e| Error::Io(format!("Error writing file: {to:?}"), e))?;
         }
         Ok(())
     }
@@ -216,15 +214,14 @@ impl Runner {
             "target",
             "Cargo.lock",
         ];
-        for entry in read_dir(from).map_err(|e| {
-            self.print
-                .errorln(format!("Error reading directory: {from:?}"));
-            e
-        })? {
+        for entry in read_dir(from)
+            .map_err(|e| Error::Io(format!("Error reading directory: {from:?}"), e))?
+        {
             let entry = entry.map_err(|e| {
-                self.print
-                    .errorln(format!("Error reading entry in directory: {from:?}"));
-                e
+                Error::Io(
+                    format!("Error reading entry {:?} in directory {from:?}", &entry),
+                    e,
+                )
             })?;
             let path = entry.path();
             let entry_name = entry.file_name().to_string_lossy().to_string();
@@ -235,11 +232,8 @@ impl Runner {
             }
 
             if path.is_dir() {
-                create_dir_all(&new_path).map_err(|e| {
-                    self.print
-                        .errorln(format!("Error creating directory: {new_path:?}"));
-                    e
-                })?;
+                create_dir_all(&new_path)
+                    .map_err(|e| Error::Io(format!("Error creating directory: {new_path:?}"), e))?;
                 self.copy_contents(&path, &new_path)?;
             } else {
                 let exists = Self::file_exists(&new_path);
@@ -265,12 +259,14 @@ impl Runner {
                     self.print.plus(format!("Writing {new_path_str}"));
                 }
                 copy(&path, &new_path).map_err(|e| {
-                    self.print.errorln(format!(
-                        "Error copying from {:?} to {:?}",
-                        path.to_string_lossy(),
-                        new_path
-                    ));
-                    e
+                    Error::Io(
+                        format!(
+                            "Error copying from {:?} to {:?}",
+                            path.to_string_lossy(),
+                            new_path
+                        ),
+                        e,
+                    )
                 })?;
             }
         }
@@ -338,9 +334,7 @@ impl Runner {
             let from_contract_path = from.join(contract_path);
             let to_contract_path = project_contracts_path.join(contract_path);
             create_dir_all(&to_contract_path).map_err(|e| {
-                self.print
-                    .errorln(format!("Error creating directory: {contract_path:?}"));
-                e
+                Error::Io(format!("Error creating directory: {contract_path:?}"), e)
             })?;
 
             self.copy_contents(&from_contract_path, &to_contract_path)?;
@@ -353,10 +347,10 @@ impl Runner {
     fn edit_contract_cargo_file(&self, contract_path: &Path) -> Result<(), Error> {
         let cargo_path = contract_path.join("Cargo.toml");
         let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
-            self.print.errorln(format!(
-                "Error reading Cargo.toml file in: {contract_path:?}"
-            ));
-            e
+            Error::Io(
+                format!("Error reading Cargo.toml file in: {contract_path:?}"),
+                e,
+            )
         })?;
 
         let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
@@ -376,10 +370,10 @@ impl Runner {
         doc.remove("profile");
 
         write(&cargo_path, doc.to_string()).map_err(|e| {
-            self.print.errorln(format!(
-                "Error writing to Cargo.toml file in: {contract_path:?}"
-            ));
-            e
+            Error::Io(
+                format!("Error writing to Cargo.toml file in: {contract_path:?}"),
+                e,
+            )
         })?;
 
         Ok(())
@@ -395,7 +389,8 @@ impl Runner {
         let package_name = if let Some(name) = project_path.file_name() {
             name.to_owned()
         } else {
-            let current_dir = env::current_dir()?;
+            let current_dir = env::current_dir()
+                .map_err(|e| Error::Io("Error getting current dir from env".to_string(), e))?;
             let file_name = current_dir
                 .file_name()
                 .unwrap_or(OsStr::new("soroban-astro-template"))
