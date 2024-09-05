@@ -60,9 +60,8 @@ pub enum Error {
     #[error("{0}: {1}")]
     Io(String, io::Error),
 
-    // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to clone repository: {0}")]
-    CloneError(#[from] Box<clone::Error>),
+    #[error("Io Error:")]
+    StdIo(#[from] io::Error),
 
     #[error("{0}: {1}")]
     Json(String, JsonError),
