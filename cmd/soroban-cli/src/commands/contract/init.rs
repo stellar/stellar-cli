@@ -110,12 +110,7 @@ impl Runner {
             .infoln(format!("Initializing project at {project_path:?}"));
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
-        create_dir_all(&project_path).map_err(|e| {
-            Error::Io(
-                format!("Error creating new project directory: {project_path:?}"),
-                e,
-            )
-        })?;
+        Self::create_dir_all(&project_path)?;
         self.copy_template_files()?;
 
         if !Self::check_internet_connection() {
@@ -174,8 +169,7 @@ impl Runner {
                 continue;
             }
 
-            create_dir_all(to.parent().unwrap())
-                .map_err(|e| Error::Io(format!("Error creating directory path for: {to:?}"), e))?;
+            Self::create_dir_all(to.parent().unwrap())?;
 
             let Some(file) = TemplateFiles::get(item.as_ref()) else {
                 self.print
@@ -217,12 +211,8 @@ impl Runner {
         for entry in read_dir(from)
             .map_err(|e| Error::Io(format!("Error reading directory: {from:?}"), e))?
         {
-            let entry = entry.map_err(|e| {
-                Error::Io(
-                    format!("Error reading entry {:?} in directory {from:?}", &entry),
-                    e,
-                )
-            })?;
+            let entry = entry
+                .map_err(|e| Error::Io(format!("Error reading entry in directory {from:?}",), e))?;
             let path = entry.path();
             let entry_name = entry.file_name().to_string_lossy().to_string();
             let new_path = to.join(&entry_name);
@@ -232,8 +222,7 @@ impl Runner {
             }
 
             if path.is_dir() {
-                create_dir_all(&new_path)
-                    .map_err(|e| Error::Io(format!("Error creating directory: {new_path:?}"), e))?;
+                Self::create_dir_all(&new_path)?;
                 self.copy_contents(&path, &new_path)?;
             } else {
                 let exists = Self::file_exists(&new_path);
@@ -333,9 +322,7 @@ impl Runner {
             let contract_path = Path::new(&contract_as_string);
             let from_contract_path = from.join(contract_path);
             let to_contract_path = project_contracts_path.join(contract_path);
-            create_dir_all(&to_contract_path).map_err(|e| {
-                Error::Io(format!("Error creating directory: {contract_path:?}"), e)
-            })?;
+            Self::create_dir_all(&to_contract_path)?;
 
             self.copy_contents(&from_contract_path, &to_contract_path)?;
             self.edit_contract_cargo_file(&to_contract_path)?;
@@ -465,6 +452,11 @@ impl Runner {
         };
 
         format!("\n\n{comment}\n\n").to_string()
+    }
+
+    fn create_dir_all(path: &Path) -> Result<(), Error> {
+        create_dir_all(path)
+            .map_err(|e| Error::Io(format!("Error creating directory: {path:?}"), e))
     }
 }
 
