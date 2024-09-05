@@ -406,7 +406,7 @@ impl Runner {
     }
 
     fn copy_frontend_files(&self, from: &Path, to: &Path) -> Result<(), Error> {
-        self.print.infoln("ℹ️  Initializing with frontend template");
+        self.print.infoln("Initializing with frontend template");
         self.copy_contents(from, to)?;
         self.edit_package_json_files(to)
     }
