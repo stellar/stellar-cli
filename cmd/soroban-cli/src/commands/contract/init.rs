@@ -193,8 +193,7 @@ impl Runner {
             } else {
                 self.print.plusln(format!("Writing {to:?}"));
             }
-            write(&to, file_contents)
-                .map_err(|e| Error::Io(format!("Error writing file: {to:?}"), e))?;
+            Self::write(&to, file_contents)?;
         }
         Ok(())
     }
@@ -356,12 +355,7 @@ impl Runner {
             .map_err(Error::TomlParse)?;
         doc.remove("profile");
 
-        write(&cargo_path, doc.to_string()).map_err(|e| {
-            Error::Io(
-                format!("Error writing to Cargo.toml file in: {contract_path:?}"),
-                e,
-            )
-        })?;
+        Self::write(&cargo_path, &doc.to_string())?;
 
         Ok(())
     }
@@ -414,7 +408,7 @@ impl Runner {
             )
         })?;
 
-        write(&file_path, formatted_json)?;
+        Self::write(&file_path, &formatted_json)?;
 
         Ok(())
     }
@@ -457,6 +451,10 @@ impl Runner {
     fn create_dir_all(path: &Path) -> Result<(), Error> {
         create_dir_all(path)
             .map_err(|e| Error::Io(format!("Error creating directory: {path:?}"), e))
+    }
+
+    fn write(path: &Path, contents: &str) -> Result<(), Error> {
+        write(path, contents).map_err(|e| Error::Io(format!("Error writing file: {path:?}"), e))
     }
 }
 
