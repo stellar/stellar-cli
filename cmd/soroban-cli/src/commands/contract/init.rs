@@ -72,13 +72,19 @@ pub enum Error {
     CheckoutError(#[from] clone::checkout::main_worktree::Error),
 
     #[error("Failed to parse toml file: {0}")]
-    TomlParseError(#[from] TomlError),
-
-    #[error("Failed to parse package.json file: {0}")]
-    JsonParseError(#[from] JsonError),
+    TomlParse(#[from] TomlError),
 
     #[error("Failed to convert bytes to string: {0}")]
-    ConverBytesToStringErr(#[from] str::Utf8Error),
+    ConvertBytesToString(#[from] str::Utf8Error),
+
+    #[error("Error preparing fetch repository: {0}")]
+    PrepareFetch(#[from] clone::Error),
+
+    #[error("Failed to fetch repository: {0}")]
+    Fetch(clone::fetch::Error),
+
+    #[error("Failed to checkout main worktree: {0}")]
+    Checkout(#[from] clone::checkout::main_worktree::Error),
 }
 
 impl Cmd {
@@ -181,13 +187,8 @@ impl Runner {
                 continue;
             };
 
-            let file_contents = std::str::from_utf8(file.data.as_ref()).map_err(|e| {
-                self.print.errorln(format!(
-                    "Error converting file contents in {:?} to string",
-                    item.as_ref()
-                ));
-                e
-            })?;
+            let file_contents =
+                std::str::from_utf8(file.data.as_ref()).map_err(Error::ConvertBytesToString)?;
 
             // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
             let item_path = Path::new(item.as_ref());
@@ -311,31 +312,17 @@ impl Runner {
             },
             open::Options::isolated(),
         )
-        .map_err(|e| {
-            self.print
-                .errorln(format!("Error preparing fetch for {from_url:?}"));
-            Box::new(e)
-        })?
+        .map_err(Error::PrepareFetch)?
         .with_shallow(remote::fetch::Shallow::DepthAtRemote(
             NonZeroU32::new(1).unwrap(),
         ));
 
         let (mut checkout, _outcome) = prepare
             .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
-            .map_err(|e| {
-                self.print.errorln(format!(
-                    "Error calling fetch_then_checkout with {from_url:?}"
-                ));
-                Box::new(e)
-            })?;
-
+            .map_err(Error::Fetch)?;
         let (_repo, _outcome) = checkout
             .main_worktree(progress::Discard, &AtomicBool::new(false))
-            .map_err(|e| {
-                self.print
-                    .errorln(format!("Error calling main_worktree for {from_url:?}"));
-                e
-            })?;
+            .map_err(Error::Checkout)?;
 
         Ok(())
     }
@@ -387,12 +374,9 @@ impl Runner {
             .unwrap()
             .replace_all(&cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
 
-        let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
-            self.print.errorln(format!(
-                "Error parsing Cargo.toml file in: {contract_path:?}"
-            ));
-            e
-        })?;
+        let mut doc = cargo_toml_str
+            .parse::<Document>()
+            .map_err(Error::TomlParse)?;
         doc.remove("profile");
 
         write(&cargo_path, doc.to_string()).map_err(|e| {
