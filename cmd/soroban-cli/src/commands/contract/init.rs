@@ -73,10 +73,10 @@ pub enum Error {
     ConvertBytesToString(#[from] str::Utf8Error),
 
     #[error("Error preparing fetch repository: {0}")]
-    PrepareFetch(#[from] clone::Error),
+    PrepareFetch(Box<clone::Error>),
 
     #[error("Failed to fetch repository: {0}")]
-    Fetch(clone::fetch::Error),
+    Fetch(Box<clone::fetch::Error>),
 
     #[error("Failed to checkout main worktree: {0}")]
     Checkout(#[from] clone::checkout::main_worktree::Error),
@@ -291,14 +291,14 @@ impl Runner {
             },
             open::Options::isolated(),
         )
-        .map_err(Error::PrepareFetch)?
+        .map_err(|e| Error::PrepareFetch(Box::new(e)))?
         .with_shallow(remote::fetch::Shallow::DepthAtRemote(
             NonZeroU32::new(1).unwrap(),
         ));
 
         let (mut checkout, _outcome) = prepare
             .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
-            .map_err(Error::Fetch)?;
+            .map_err(|e| Error::Fetch(Box::new(e)))?;
         let (_repo, _outcome) = checkout
             .main_worktree(progress::Discard, &AtomicBool::new(false))
             .map_err(Error::Checkout)?;
