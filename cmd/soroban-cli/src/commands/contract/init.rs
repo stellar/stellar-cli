@@ -332,13 +332,8 @@ impl Runner {
 
     fn edit_contract_cargo_file(&self, contract_path: &Path) -> Result<(), Error> {
         let cargo_path = contract_path.join("Cargo.toml");
-        let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
-            Error::Io(
-                format!("Error reading Cargo.toml file in: {contract_path:?}"),
-                e,
-            )
-        })?;
 
+        let cargo_toml_str = Self::read_to_string(&cargo_path)?;
         let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
             .unwrap()
             .replace_all(
@@ -390,7 +385,7 @@ impl Runner {
         file_name: &str,
     ) -> Result<(), Error> {
         let file_path = project_path.join(file_name);
-        let file_contents = read_to_string(&file_path)?;
+        let file_contents = Self::read_to_string(&file_path)?;
 
         let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
             Error::Json(
@@ -455,6 +450,10 @@ impl Runner {
 
     fn write(path: &Path, contents: &str) -> Result<(), Error> {
         write(path, contents).map_err(|e| Error::Io(format!("Error writing file: {path:?}"), e))
+    }
+
+    fn read_to_string(path: &Path) -> Result<String, Error> {
+        read_to_string(path).map_err(|e| Error::Io(format!("Error reading file: {path:?}"), e))
     }
 }
 
