@@ -60,25 +60,25 @@ pub enum Error {
     #[error("{0}: {1}")]
     Io(String, io::Error),
 
-    #[error("Io Error:")]
+    #[error("io error:")]
     StdIo(#[from] io::Error),
 
     #[error("{0}: {1}")]
     Json(String, JsonError),
 
-    #[error("Failed to parse toml file: {0}")]
+    #[error("failed to parse toml file: {0}")]
     TomlParse(#[from] TomlError),
 
-    #[error("Failed to convert bytes to string: {0}")]
+    #[error("failed to convert bytes to string: {0}")]
     ConvertBytesToString(#[from] str::Utf8Error),
 
-    #[error("Error preparing fetch repository: {0}")]
+    #[error("preparing fetch repository: {0}")]
     PrepareFetch(Box<clone::Error>),
 
-    #[error("Failed to fetch repository: {0}")]
+    #[error("failed to fetch repository: {0}")]
     Fetch(Box<clone::fetch::Error>),
 
-    #[error("Failed to checkout main worktree: {0}")]
+    #[error("failed to checkout main worktree: {0}")]
     Checkout(#[from] clone::checkout::main_worktree::Error),
 }
 
@@ -119,12 +119,8 @@ impl Runner {
 
         if !self.args.frontend_template.is_empty() {
             // create a temp dir for the template repo
-            let fe_template_dir = tempfile::tempdir().map_err(|e| {
-                Error::Io(
-                    "Error creating temp dir for frontend template".to_string(),
-                    e,
-                )
-            })?;
+            let fe_template_dir = tempfile::tempdir()
+                .map_err(|e| Error::Io("creating temp dir for frontend template".to_string(), e))?;
 
             // clone the template repo into the temp dir
             Self::clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
@@ -136,12 +132,8 @@ impl Runner {
         // if there are --with-example flags, include the example contracts
         if self.include_example_contracts() {
             // create an examples temp dir
-            let examples_dir = tempfile::tempdir().map_err(|e| {
-                Error::Io(
-                    "Error creating temp dir for soroban-examples".to_string(),
-                    e,
-                )
-            })?;
+            let examples_dir = tempfile::tempdir()
+                .map_err(|e| Error::Io("creating temp dir for soroban-examples".to_string(), e))?;
 
             // clone the soroban-examples repo into the temp dir
             Self::clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
@@ -206,11 +198,11 @@ impl Runner {
             "target",
             "Cargo.lock",
         ];
-        for entry in read_dir(from)
-            .map_err(|e| Error::Io(format!("Error reading directory: {from:?}"), e))?
+        for entry in
+            read_dir(from).map_err(|e| Error::Io(format!("reading directory: {from:?}"), e))?
         {
-            let entry = entry
-                .map_err(|e| Error::Io(format!("Error reading entry in directory {from:?}",), e))?;
+            let entry =
+                entry.map_err(|e| Error::Io(format!("reading entry in directory {from:?}",), e))?;
             let path = entry.path();
             let entry_name = entry.file_name().to_string_lossy().to_string();
             let new_path = to.join(&entry_name);
@@ -248,7 +240,7 @@ impl Runner {
                 copy(&path, &new_path).map_err(|e| {
                     Error::Io(
                         format!(
-                            "Error copying from {:?} to {:?}",
+                            "copying from {:?} to {:?}",
                             path.to_string_lossy(),
                             new_path
                         ),
@@ -365,7 +357,7 @@ impl Runner {
             name.to_owned()
         } else {
             let current_dir = env::current_dir()
-                .map_err(|e| Error::Io("Error getting current dir from env".to_string(), e))?;
+                .map_err(|e| Error::Io("getting current dir from env".to_string(), e))?;
             let file_name = current_dir
                 .file_name()
                 .unwrap_or(OsStr::new("soroban-astro-template"))
@@ -386,20 +378,13 @@ impl Runner {
         let file_contents = Self::read_to_string(&file_path)?;
 
         let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
-            Error::Json(
-                format!("Error parsing {file_name} file in: {project_path:?}"),
-                e,
-            )
+            Error::Json(format!("parsing {file_name} file in: {project_path:?}"), e)
         })?;
 
         doc["name"] = json!(package_name.to_string_lossy());
 
-        let formatted_json = to_string_pretty(&doc).map_err(|e| {
-            Error::Json(
-                "Error calling to_string_pretty for package.json".to_string(),
-                e,
-            )
-        })?;
+        let formatted_json = to_string_pretty(&doc)
+            .map_err(|e| Error::Json("calling to_string_pretty for package.json".to_string(), e))?;
 
         Self::write(&file_path, &formatted_json)?;
 
@@ -442,16 +427,15 @@ impl Runner {
     }
 
     fn create_dir_all(path: &Path) -> Result<(), Error> {
-        create_dir_all(path)
-            .map_err(|e| Error::Io(format!("Error creating directory: {path:?}"), e))
+        create_dir_all(path).map_err(|e| Error::Io(format!("creating directory: {path:?}"), e))
     }
 
     fn write(path: &Path, contents: &str) -> Result<(), Error> {
-        write(path, contents).map_err(|e| Error::Io(format!("Error writing file: {path:?}"), e))
+        write(path, contents).map_err(|e| Error::Io(format!("writing file: {path:?}"), e))
     }
 
     fn read_to_string(path: &Path) -> Result<String, Error> {
-        read_to_string(path).map_err(|e| Error::Io(format!("Error reading file: {path:?}"), e))
+        read_to_string(path).map_err(|e| Error::Io(format!("reading file: {path:?}"), e))
     }
 }
 
