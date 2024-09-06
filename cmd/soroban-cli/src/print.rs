@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{env, fmt::Display};
 
 use soroban_env_host::xdr::{Error as XdrError, Transaction};
 
@@ -6,6 +6,8 @@ use crate::{
     config::network::Network,
     utils::{explorer_url_for_transaction, transaction_hash},
 };
+
+const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
 
 pub struct Print {
     pub quiet: bool,
@@ -34,6 +36,19 @@ impl Print {
         } else {
             eprint!("\r\x1b[2K");
         }
+    }
+
+    // Some terminals like vscode's and macOS' default terminal will not render
+    // the subsequent space if the emoji codepoints size is 2; in this case,
+    // we need an additional space.
+    pub fn compute_emoji<T: Display + Sized>(&self, emoji: T) -> String {
+        if let Ok(term_program) = env::var("TERM_PROGRAM") {
+            if TERMS.contains(&term_program.as_str()) && emoji.to_string().chars().count() == 2 {
+                return format!("{emoji} ");
+            }
+        }
+
+        emoji.to_string()
     }
 
     /// # Errors
@@ -66,14 +81,14 @@ macro_rules! create_print_functions {
             #[allow(dead_code)]
             pub fn $name<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
-                    eprint!("{} {}", $icon, message);
+                    eprint!("{} {}", self.compute_emoji($icon), message);
                 }
             }
 
             #[allow(dead_code)]
             pub fn $nameln<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
-                    eprintln!("{} {}", $icon, message);
+                    eprintln!("{} {}", self.compute_emoji($icon), message);
                 }
             }
         }
