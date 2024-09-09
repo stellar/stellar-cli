@@ -57,28 +57,29 @@ fn possible_example_values() -> ValueParser {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Io error: {0}")]
-    IoError(#[from] io::Error),
+    #[error("{0}: {1}")]
+    Io(String, io::Error),
 
-    // the gix::clone::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to clone repository: {0}")]
-    CloneError(#[from] Box<clone::Error>),
+    #[error("io error:")]
+    StdIo(#[from] io::Error),
 
-    // the gix::clone::fetch::Error is too large to include in the error enum as is, so we wrap it in a Box
-    #[error("Failed to fetch repository: {0}")]
-    FetchError(#[from] Box<clone::fetch::Error>),
+    #[error("{0}: {1}")]
+    Json(String, JsonError),
 
-    #[error("Failed to checkout repository worktree: {0}")]
-    CheckoutError(#[from] clone::checkout::main_worktree::Error),
+    #[error("failed to parse toml file: {0}")]
+    TomlParse(#[from] TomlError),
 
-    #[error("Failed to parse toml file: {0}")]
-    TomlParseError(#[from] TomlError),
+    #[error("failed to convert bytes to string: {0}")]
+    ConvertBytesToString(#[from] str::Utf8Error),
 
-    #[error("Failed to parse package.json file: {0}")]
-    JsonParseError(#[from] JsonError),
+    #[error("preparing fetch repository: {0}")]
+    PrepareFetch(Box<clone::Error>),
 
-    #[error("Failed to convert bytes to string: {0}")]
-    ConverBytesToStringErr(#[from] str::Utf8Error),
+    #[error("failed to fetch repository: {0}")]
+    Fetch(Box<clone::fetch::Error>),
+
+    #[error("failed to checkout main worktree: {0}")]
+    Checkout(#[from] clone::checkout::main_worktree::Error),
 }
 
 impl Cmd {
@@ -108,11 +109,7 @@ impl Runner {
             .infoln(format!("Initializing project at {project_path:?}"));
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
-        create_dir_all(&project_path).map_err(|e| {
-            self.print
-                .errorln("Error creating new project directory: {project_path:?}");
-            e
-        })?;
+        Self::create_dir_all(&project_path)?;
         self.copy_template_files()?;
 
         if !Self::check_internet_connection() {
@@ -122,14 +119,11 @@ impl Runner {
 
         if !self.args.frontend_template.is_empty() {
             // create a temp dir for the template repo
-            let fe_template_dir = tempfile::tempdir().map_err(|e| {
-                self.print
-                    .errorln("Error creating temp dir for frontend template");
-                e
-            })?;
+            let fe_template_dir = tempfile::tempdir()
+                .map_err(|e| Error::Io("creating temp dir for frontend template".to_string(), e))?;
 
             // clone the template repo into the temp dir
-            self.clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
+            Self::clone_repo(&self.args.frontend_template, fe_template_dir.path())?;
 
             // copy the frontend template files into the project
             self.copy_frontend_files(fe_template_dir.path(), &project_path)?;
@@ -138,14 +132,11 @@ impl Runner {
         // if there are --with-example flags, include the example contracts
         if self.include_example_contracts() {
             // create an examples temp dir
-            let examples_dir = tempfile::tempdir().map_err(|e| {
-                self.print
-                    .errorln("Error creating temp dir for soroban-examples");
-                e
-            })?;
+            let examples_dir = tempfile::tempdir()
+                .map_err(|e| Error::Io("creating temp dir for soroban-examples".to_string(), e))?;
 
             // clone the soroban-examples repo into the temp dir
-            self.clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
+            Self::clone_repo(SOROBAN_EXAMPLES_URL, examples_dir.path())?;
 
             // copy the example contracts into the project
             self.copy_example_contracts(
@@ -169,11 +160,7 @@ impl Runner {
                 continue;
             }
 
-            create_dir_all(to.parent().unwrap()).map_err(|e| {
-                self.print
-                    .errorln(format!("Error creating directory path for: {to:?}"));
-                e
-            })?;
+            Self::create_dir_all(to.parent().unwrap())?;
 
             let Some(file) = TemplateFiles::get(item.as_ref()) else {
                 self.print
@@ -181,13 +168,8 @@ impl Runner {
                 continue;
             };
 
-            let file_contents = std::str::from_utf8(file.data.as_ref()).map_err(|e| {
-                self.print.errorln(format!(
-                    "Error converting file contents in {:?} to string",
-                    item.as_ref()
-                ));
-                e
-            })?;
+            let file_contents =
+                std::str::from_utf8(file.data.as_ref()).map_err(Error::ConvertBytesToString)?;
 
             // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
             let item_path = Path::new(item.as_ref());
@@ -202,10 +184,7 @@ impl Runner {
             } else {
                 self.print.plusln(format!("Writing {to:?}"));
             }
-            write(&to, file_contents).map_err(|e| {
-                self.print.errorln(format!("Error writing file: {to:?}"));
-                e
-            })?;
+            Self::write(&to, file_contents)?;
         }
         Ok(())
     }
@@ -219,16 +198,11 @@ impl Runner {
             "target",
             "Cargo.lock",
         ];
-        for entry in read_dir(from).map_err(|e| {
-            self.print
-                .errorln(format!("Error reading directory: {from:?}"));
-            e
-        })? {
-            let entry = entry.map_err(|e| {
-                self.print
-                    .errorln(format!("Error reading entry in directory: {from:?}"));
-                e
-            })?;
+        for entry in
+            read_dir(from).map_err(|e| Error::Io(format!("reading directory: {from:?}"), e))?
+        {
+            let entry =
+                entry.map_err(|e| Error::Io(format!("reading entry in directory {from:?}",), e))?;
             let path = entry.path();
             let entry_name = entry.file_name().to_string_lossy().to_string();
             let new_path = to.join(&entry_name);
@@ -238,11 +212,7 @@ impl Runner {
             }
 
             if path.is_dir() {
-                create_dir_all(&new_path).map_err(|e| {
-                    self.print
-                        .errorln(format!("Error creating directory: {new_path:?}"));
-                    e
-                })?;
+                Self::create_dir_all(&new_path)?;
                 self.copy_contents(&path, &new_path)?;
             } else {
                 let exists = Self::file_exists(&new_path);
@@ -268,12 +238,14 @@ impl Runner {
                     self.print.plus(format!("Writing {new_path_str}"));
                 }
                 copy(&path, &new_path).map_err(|e| {
-                    self.print.errorln(format!(
-                        "Error copying from {:?} to {:?}",
-                        path.to_string_lossy(),
-                        new_path
-                    ));
-                    e
+                    Error::Io(
+                        format!(
+                            "copying from {:?} to {:?}",
+                            path.to_string_lossy(),
+                            new_path
+                        ),
+                        e,
+                    )
                 })?;
             }
         }
@@ -300,7 +272,7 @@ impl Runner {
         !self.args.with_example.is_empty()
     }
 
-    fn clone_repo(&self, from_url: &str, to_path: &Path) -> Result<(), Error> {
+    fn clone_repo(from_url: &str, to_path: &Path) -> Result<(), Error> {
         let mut prepare = clone::PrepareFetch::new(
             from_url,
             to_path,
@@ -311,31 +283,17 @@ impl Runner {
             },
             open::Options::isolated(),
         )
-        .map_err(|e| {
-            self.print
-                .errorln(format!("Error preparing fetch for {from_url:?}"));
-            Box::new(e)
-        })?
+        .map_err(|e| Error::PrepareFetch(Box::new(e)))?
         .with_shallow(remote::fetch::Shallow::DepthAtRemote(
             NonZeroU32::new(1).unwrap(),
         ));
 
         let (mut checkout, _outcome) = prepare
             .fetch_then_checkout(progress::Discard, &AtomicBool::new(false))
-            .map_err(|e| {
-                self.print.errorln(format!(
-                    "Error calling fetch_then_checkout with {from_url:?}"
-                ));
-                Box::new(e)
-            })?;
-
+            .map_err(|e| Error::Fetch(Box::new(e)))?;
         let (_repo, _outcome) = checkout
             .main_worktree(progress::Discard, &AtomicBool::new(false))
-            .map_err(|e| {
-                self.print
-                    .errorln(format!("Error calling main_worktree for {from_url:?}"));
-                e
-            })?;
+            .map_err(Error::Checkout)?;
 
         Ok(())
     }
@@ -354,28 +312,19 @@ impl Runner {
             let contract_path = Path::new(&contract_as_string);
             let from_contract_path = from.join(contract_path);
             let to_contract_path = project_contracts_path.join(contract_path);
-            create_dir_all(&to_contract_path).map_err(|e| {
-                self.print
-                    .errorln(format!("Error creating directory: {contract_path:?}"));
-                e
-            })?;
+            Self::create_dir_all(&to_contract_path)?;
 
             self.copy_contents(&from_contract_path, &to_contract_path)?;
-            self.edit_contract_cargo_file(&to_contract_path)?;
+            Self::edit_contract_cargo_file(&to_contract_path)?;
         }
 
         Ok(())
     }
 
-    fn edit_contract_cargo_file(&self, contract_path: &Path) -> Result<(), Error> {
+    fn edit_contract_cargo_file(contract_path: &Path) -> Result<(), Error> {
         let cargo_path = contract_path.join("Cargo.toml");
-        let cargo_toml_str = read_to_string(&cargo_path).map_err(|e| {
-            self.print.errorln(format!(
-                "Error reading Cargo.toml file in: {contract_path:?}"
-            ));
-            e
-        })?;
 
+        let cargo_toml_str = Self::read_to_string(&cargo_path)?;
         let cargo_toml_str = regex::Regex::new(r#"soroban-sdk = "[^\"]+""#)
             .unwrap()
             .replace_all(
@@ -387,35 +336,28 @@ impl Runner {
             .unwrap()
             .replace_all(&cargo_toml_str, "soroban-sdk = {$1 workspace = true$2}");
 
-        let mut doc = cargo_toml_str.parse::<Document>().map_err(|e| {
-            self.print.errorln(format!(
-                "Error parsing Cargo.toml file in: {contract_path:?}"
-            ));
-            e
-        })?;
+        let mut doc = cargo_toml_str
+            .parse::<Document>()
+            .map_err(Error::TomlParse)?;
         doc.remove("profile");
 
-        write(&cargo_path, doc.to_string()).map_err(|e| {
-            self.print.errorln(format!(
-                "Error writing to Cargo.toml file in: {contract_path:?}"
-            ));
-            e
-        })?;
+        Self::write(&cargo_path, &doc.to_string())?;
 
         Ok(())
     }
 
     fn copy_frontend_files(&self, from: &Path, to: &Path) -> Result<(), Error> {
-        self.print.infoln("ℹ️  Initializing with frontend template");
+        self.print.infoln("Initializing with frontend template");
         self.copy_contents(from, to)?;
-        self.edit_package_json_files(to)
+        Self::edit_package_json_files(to)
     }
 
-    fn edit_package_json_files(&self, project_path: &Path) -> Result<(), Error> {
+    fn edit_package_json_files(project_path: &Path) -> Result<(), Error> {
         let package_name = if let Some(name) = project_path.file_name() {
             name.to_owned()
         } else {
-            let current_dir = env::current_dir()?;
+            let current_dir = env::current_dir()
+                .map_err(|e| Error::Io("getting current dir from env".to_string(), e))?;
             let file_name = current_dir
                 .file_name()
                 .unwrap_or(OsStr::new("soroban-astro-template"))
@@ -423,37 +365,28 @@ impl Runner {
             file_name
         };
 
-        self.edit_package_name(project_path, &package_name, "package.json")
-            .map_err(|e| {
-                self.print.errorln(format!(
-                    "Error editing package.json file in: {project_path:?}"
-                ));
-                e
-            })?;
-        self.edit_package_name(project_path, &package_name, "package-lock.json")
+        Self::edit_package_name(project_path, &package_name, "package.json")?;
+        Self::edit_package_name(project_path, &package_name, "package-lock.json")
     }
 
     fn edit_package_name(
-        &self,
         project_path: &Path,
         package_name: &OsStr,
         file_name: &str,
     ) -> Result<(), Error> {
         let file_path = project_path.join(file_name);
-        let file_contents = read_to_string(&file_path)?;
+        let file_contents = Self::read_to_string(&file_path)?;
 
         let mut doc: JsonValue = from_str(&file_contents).map_err(|e| {
-            self.print.errorln(format!(
-                "Error parsing {file_name} file in: {project_path:?}"
-            ));
-            e
+            Error::Json(format!("parsing {file_name} file in: {project_path:?}"), e)
         })?;
 
         doc["name"] = json!(package_name.to_string_lossy());
 
-        let formatted_json = to_string_pretty(&doc)?;
+        let formatted_json = to_string_pretty(&doc)
+            .map_err(|e| Error::Json("calling to_string_pretty for package.json".to_string(), e))?;
 
-        write(&file_path, formatted_json)?;
+        Self::write(&file_path, &formatted_json)?;
 
         Ok(())
     }
@@ -491,6 +424,18 @@ impl Runner {
         };
 
         format!("\n\n{comment}\n\n").to_string()
+    }
+
+    fn create_dir_all(path: &Path) -> Result<(), Error> {
+        create_dir_all(path).map_err(|e| Error::Io(format!("creating directory: {path:?}"), e))
+    }
+
+    fn write(path: &Path, contents: &str) -> Result<(), Error> {
+        write(path, contents).map_err(|e| Error::Io(format!("writing file: {path:?}"), e))
+    }
+
+    fn read_to_string(path: &Path) -> Result<String, Error> {
+        read_to_string(path).map_err(|e| Error::Io(format!("reading file: {path:?}"), e))
     }
 }
 
