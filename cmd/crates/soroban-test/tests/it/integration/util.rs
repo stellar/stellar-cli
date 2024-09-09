@@ -101,7 +101,7 @@ pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
         "--durability",
         "persistent",
         "--ledgers-to-extend",
-        "100000",
+        "100001",
     ];
     if let Some(value) = value {
         args.push("--key");
