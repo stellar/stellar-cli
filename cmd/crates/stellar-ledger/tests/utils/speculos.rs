@@ -1,5 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
-use testcontainers::{core::WaitFor, Image, ImageArgs};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use testcontainers::{
+    core::{Mount, WaitFor},
+    Image,
+};
 
 const NAME: &str = "docker.io/zondax/builder-zemu";
 const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
@@ -24,72 +27,69 @@ impl From<&Map> for HashMap<String, String> {
 }
 
 #[derive(Debug, Default)]
-pub struct Speculos(HashMap<String, String>, HashMap<String, String>);
+pub struct Speculos {
+    env: HashMap<String, String>,
+    volumes: Vec<Mount>,
+    cmd: String,
+}
+
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new(ledger_device_model: String) -> Self {
         #[allow(unused_mut)]
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("test_fixtures")
             .join("apps");
-        let mut volumes = HashMap::new();
-        volumes.insert(
-            apps_dir.to_str().unwrap().to_string(),
-            DEFAULT_APP_PATH.to_string(),
-        );
-        Speculos(ENV.into(), volumes)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Args {
-    pub ledger_device_model: String,
-}
-
-impl Default for Args {
-    fn default() -> Self {
-        Self {
-            ledger_device_model: "nanos".to_string(),
+        let volumes = vec![Mount::bind_mount(
+            apps_dir.to_str().unwrap(),
+            DEFAULT_APP_PATH,
+        )];
+        let cmd = Self::get_cmd(ledger_device_model);
+        Speculos {
+            env: ENV.into(),
+            volumes,
+            cmd,
         }
     }
-}
 
-impl ImageArgs for Args {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        let device_model = self.ledger_device_model.clone();
+    fn get_cmd(ledger_device_model: String) -> String {
+        let device_model = ledger_device_model.clone();
         let container_elf_path = match device_model.as_str() {
             "nanos" => format!("{DEFAULT_APP_PATH}/stellarNanoSApp.elf"),
             "nanosp" => format!("{DEFAULT_APP_PATH}/stellarNanoSPApp.elf"),
             "nanox" => format!("{DEFAULT_APP_PATH}/stellarNanoXApp.elf"),
             _ => panic!("Unsupported device model"),
         };
-        let command_string = format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m {device_model}  {container_elf_path}");
-        Box::new(vec![command_string].into_iter())
+        format!("/home/zondax/speculos/speculos.py --log-level speculos:DEBUG --color JADE_GREEN --display headless -s {TEST_SEED_PHRASE} -m {device_model}  {container_elf_path}")
     }
 }
 
 impl Image for Speculos {
-    type Args = Args;
-
-    fn name(&self) -> String {
-        NAME.to_owned()
+    fn name(&self) -> &str {
+        NAME
     }
 
-    fn tag(&self) -> String {
-        TAG.to_owned()
+    fn tag(&self) -> &str {
+        TAG
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("HTTP proxy started...")]
     }
 
-    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.0.iter())
+    fn env_vars(
+        &self,
+    ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
+        self.env.clone().into_iter().collect::<Vec<_>>()
     }
 
-    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.1.iter())
+    fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
+        self.volumes.iter()
+    }
+
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<std::borrow::Cow<'_, str>>> {
+        vec![self.cmd.clone()].into_iter()
     }
 }
