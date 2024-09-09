@@ -1,6 +1,7 @@
 use crate::commands::global;
 
 pub mod add;
+pub mod ls;
 pub mod remove;
 pub mod show;
 
@@ -14,6 +15,9 @@ pub enum Cmd {
 
     /// Show the contract id associated with a given alias
     Show(show::Cmd),
+
+    /// List all aliases
+    Ls(ls::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -26,6 +30,9 @@ pub enum Error {
 
     #[error(transparent)]
     Show(#[from] show::Error),
+
+    #[error(transparent)]
+    Ls(#[from] ls::Error),
 }
 
 impl Cmd {
@@ -34,6 +41,7 @@ impl Cmd {
             Cmd::Remove(remove) => remove.run(global_args)?,
             Cmd::Add(add) => add.run(global_args)?,
             Cmd::Show(show) => show.run(global_args)?,
+            Cmd::Ls(ls) => ls.run()?,
         }
         Ok(())
     }

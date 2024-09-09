@@ -1,8 +1,10 @@
 use clap::CommandFactory;
 use dotenvy::dotenv;
+use std::thread;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::{commands, Root};
+use crate::upgrade_check::upgrade_check;
+use crate::{commands, print, Root};
 
 #[tokio::main]
 pub async fn main() {
@@ -70,8 +72,16 @@ pub async fn main() {
             .expect("Failed to set the global tracing subscriber");
     }
 
+    // Spawn a thread to check if a new version exists.
+    // It depends on logger, so we need to place it after
+    // the code block that initializes the logger.
+    thread::spawn(move || {
+        upgrade_check(root.global_args.quiet);
+    });
+
+    let printer = print::Print::new(root.global_args.quiet);
     if let Err(e) = root.run().await {
-        eprintln!("error: {e}");
+        printer.errorln(format!("error: {e}"));
         std::process::exit(1);
     }
 }
