@@ -1,5 +1,5 @@
 use soroban_cli::tx::ONE_XLM;
-use soroban_sdk::xdr::SequenceNumber;
+use soroban_sdk::xdr::{self, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
@@ -198,31 +198,67 @@ async fn set_options_add_signer() {
     assert_eq!(before.signers.len(), after.signers.len());
 }
 
-// #[tokio::test]
-// async fn set_options() {
-//     let sandbox = &TestEnv::new();
-//     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-//     let test = sandbox
-//         .new_assert_cmd("keys")
-//         .arg("address")
-//         .arg("test")
-//         .assert()
-//         .success()
-//         .stdout_as_str();
-//     let before = client.get_account(&test).await.unwrap();
-//     sandbox
-//         .new_assert_cmd("tx")
-//         .args([
-//             "new",
-//             "set-options",
-//             "--inflation-destination",
-//             test.as_str(),
-//             "--home-domain",
-//             "test.com",
-//         ])
-//         .assert()
-//         .success();
-//     let after = client.get_account(&test).await.unwrap();
-//     assert_eq!(test, after.inflation_destination.unwrap());
-//     assert_eq!("test.com", after.home_domain.unwrap());
-// }
+#[tokio::test]
+async fn set_options() {
+    let sandbox = &TestEnv::new();
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let test = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .assert()
+        .success()
+        .stdout_as_str();
+    let before = client.get_account(&test).await.unwrap();
+    assert!(before.inflation_dest.is_none());
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-options",
+            "--inflation-destination",
+            test.as_str(),
+            "--home-domain",
+            "test.com",
+        ])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    let xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(key)) = after.inflation_dest.unwrap().0;
+
+    assert_eq!(test, stellar_strkey::ed25519::PublicKey(key).to_string());
+    assert_eq!("test.com", after.home_domain.to_string());
+}
+
+// Test for change trust operation
+#[tokio::test]
+async fn change_trust() {
+    let sandbox = &TestEnv::new();
+    let (test, _) = setup_accounts(sandbox);
+
+    let asset = format!("native:{test}");
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("asset")
+        .arg("deploy")
+        .arg("--source=test")
+        .arg("--asset")
+        .arg(&asset)
+        .assert()
+        .success();
+    let limit = 100;
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "change-trust",
+            "--asset",
+            &asset,
+            "--limit",
+            limit.to_string().as_str(),
+            "--source",
+            test.as_str(),
+        ])
+        .assert()
+        .success();
+}
