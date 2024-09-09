@@ -21,6 +21,7 @@ pub mod print;
 pub mod signer;
 pub mod toid;
 pub mod tx;
+pub mod upgrade_check;
 pub mod utils;
 pub mod wasm;
 

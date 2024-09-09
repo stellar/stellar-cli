@@ -42,7 +42,7 @@ async fn current_env_not_overwritten() {
         .arg("--world=world")
         .assert()
         .stderr(
-            "error: Contract not found: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4\n",
+            "❌ error: Contract not found: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4\n",
         );
 }
 
