@@ -1,5 +1,5 @@
-use soroban_cli::tx::ONE_XLM;
-use soroban_sdk::xdr::{self, SequenceNumber};
+use soroban_cli::tx::{builder::String64, ONE_XLM};
+use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
@@ -216,7 +216,7 @@ async fn set_options() {
         .args([
             "new",
             "set-options",
-            "--inflation-destination",
+            "--inflation-dest",
             test.as_str(),
             "--home-domain",
             "test.com",
@@ -252,7 +252,7 @@ async fn change_trust() {
         .args([
             "new",
             "change-trust",
-            "--asset",
+            "--line",
             &asset,
             "--limit",
             limit.to_string().as_str(),
@@ -261,4 +261,47 @@ async fn change_trust() {
         ])
         .assert()
         .success();
+}
+
+// Test for manage data operation
+#[tokio::test]
+async fn manage_data() {
+    let sandbox = &TestEnv::new();
+    let (test, _) = setup_accounts(sandbox);
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let key = "test";
+    let value = "test";
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "manage-data",
+            "--key",
+            key,
+            "--value",
+            value,
+            "--source",
+            test.as_str(),
+        ])
+        .assert()
+        .success();
+    let account_id = xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(
+        stellar_strkey::ed25519::PublicKey::from_string(&test)
+            .unwrap()
+            .0,
+    )));
+    let s: String64 = key.parse().unwrap();
+    let res = client
+        .get_ledger_entries(&[xdr::LedgerKey::Data(xdr::LedgerKeyData {
+            account_id,
+            data_name: s.into(),
+        })])
+        .await
+        .unwrap();
+    let value_res = res.entries.as_ref().unwrap().first().unwrap();
+    let orig_value: xdr::String64 = value.parse::<String64>().unwrap().into();
+    assert_eq!(
+        xdr::String64::from_xdr_base64(&value_res.xdr, xdr::Limits::none()).unwrap(),
+        orig_value
+    );
 }
