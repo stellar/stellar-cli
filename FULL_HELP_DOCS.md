@@ -1336,7 +1336,6 @@ Create a new transaction
 ###### **Subcommands:**
 
 * `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger Threshold: High
-* `begin-sponsoring-future-reserves` — Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
 * `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number Threshold: Low
 * `change-trust` — Creates, updates, or deletes a trustline Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/) Threshold: Medium
 * `create-account` — Creates and funds a new account with the specified starting balance Threshold: Medium
@@ -1370,32 +1369,6 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--account <ACCOUNT>` — Account to merge with
-
-
-
-## `stellar tx new begin-sponsoring-future-reserves`
-
-Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship There must also be an end sponsoring future reserves operation in the same transaction Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
-
-**Usage:** `stellar tx new begin-sponsoring-future-reserves [OPTIONS] --source-account <SOURCE_ACCOUNT> --sponsorship-id <SPONSORSHIP_ID>`
-
-###### **Options:**
-
-* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-
-  Default value: `100`
-* `--cost` — Output the cost execution to stderr
-* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-* `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--sponsorship-id <SPONSORSHIP_ID>` — Sequence number to bump to
 
 
 

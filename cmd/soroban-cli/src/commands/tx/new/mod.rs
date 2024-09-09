@@ -3,7 +3,6 @@ use clap::Parser;
 use super::global;
 
 mod account_merge;
-mod begin_sponsoring_future_reserves;
 mod bump_sequence;
 mod change_trust;
 mod create_account;
@@ -17,10 +16,6 @@ pub enum Cmd {
     /// Transfers the XLM balance of an account to another account and removes the source account from the ledger
     /// Threshold: High
     AccountMerge(account_merge::Cmd),
-    /// Allows an account to pay the base reserves for another account; sponsoring account establishes the is-sponsoring-future-reserves relationship
-    /// There must also be an end sponsoring future reserves operation in the same transaction
-    /// Learn more about sponsored reserves: [Sponsored Reserves Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/sponsored-reserves/)
-    BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd),
     /// Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
     /// Threshold: Low
     BumpSequence(bump_sequence::Cmd),
@@ -57,8 +52,6 @@ pub enum Error {
     #[error(transparent)]
     AccountMerge(#[from] account_merge::Error),
     #[error(transparent)]
-    BeginSponsoringFutureReserves(#[from] begin_sponsoring_future_reserves::Error),
-    #[error(transparent)]
     BumpSequence(#[from] bump_sequence::Error),
     #[error(transparent)]
     ChangeTrust(#[from] change_trust::Error),
@@ -78,7 +71,6 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::AccountMerge(cmd) => cmd.run(global_args).await?,
-            Cmd::BeginSponsoringFutureReserves(cmd) => cmd.run(global_args).await?,
             Cmd::BumpSequence(cmd) => cmd.run(global_args).await?,
             Cmd::ChangeTrust(cmd) => cmd.run(global_args).await?,
             Cmd::CreateAccount(cmd) => cmd.run(global_args).await?,
