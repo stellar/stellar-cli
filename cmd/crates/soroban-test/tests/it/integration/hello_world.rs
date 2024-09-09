@@ -244,7 +244,7 @@ fn contract_data_read_failure(sandbox: &TestEnv, id: &str) {
         .assert()
         .failure()
         .stderr(
-            "error: no matching contract data entries were found for the specified contract id\n",
+            "❌ error: no matching contract data entries were found for the specified contract id\n",
         );
 }
 
