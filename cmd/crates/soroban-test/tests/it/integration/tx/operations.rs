@@ -172,7 +172,7 @@ async fn set_trustline_flags() {
             &asset,
             "--trustor",
             &test,
-            "--set-authorized"
+            "--set-authorize"
         ])
         .assert()
         .success();
