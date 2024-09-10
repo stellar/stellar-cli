@@ -1,13 +1,17 @@
 use hex;
 
-use crate::{commands::global, config::network, utils::transaction_hash};
+use crate::{
+    commands::global,
+    config::network,
+    signer::{self, transaction_hash},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     TxEnvelopeFromStdin(#[from] super::xdr::Error),
     #[error(transparent)]
-    XdrToBase64(#[from] soroban_env_host::xdr::Error),
+    Signer(#[from] signer::Error),
     #[error(transparent)]
     Config(#[from] network::Error),
 }

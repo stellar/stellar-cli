@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
-use crate::utils;
+use crate::{
+    signer::{self, LocalKey, Stellar},
+    utils,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,6 +24,8 @@ pub enum Error {
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Invalid address {0}")]
     InvalidAddress(String),
+    #[error(transparent)]
+    Stellar(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -36,7 +41,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn read_secret(&self) -> Result<Secret, Error> {
+    pub fn kind(&self) -> Result<Secret, Error> {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
         } else if self.secret_key {
@@ -113,11 +118,17 @@ impl Secret {
         })
     }
 
-    pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        let key = self.key_pair(index)?;
-        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            key.verifying_key().as_bytes(),
-        )?)
+    pub async fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
+        let key = self.signer(index, true)?;
+        Ok(key.get_public_key().await?)
+    }
+
+    pub fn signer(&self, index: Option<usize>, prompt: bool) -> Result<StellarSigner, Error> {
+        match self {
+            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => Ok(StellarSigner::Local(
+                LocalKey::new(self.key_pair(index)?, prompt),
+            )),
+        }
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -137,6 +148,25 @@ impl Secret {
 
     pub fn test_seed_phrase() -> Result<Self, Error> {
         Self::from_seed(Some("0000000000000000"))
+    }
+}
+
+pub enum StellarSigner {
+    Local(LocalKey),
+}
+
+#[async_trait::async_trait]
+impl Stellar for StellarSigner {
+    async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, signer::Error> {
+        match self {
+            StellarSigner::Local(signer) => signer.get_public_key().await,
+        }
+    }
+
+    async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, signer::Error> {
+        match self {
+            StellarSigner::Local(signer) => signer.sign_blob(blob).await,
+        }
     }
 }
 

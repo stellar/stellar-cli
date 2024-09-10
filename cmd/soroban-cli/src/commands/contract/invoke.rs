@@ -28,6 +28,8 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
+use crate::signer::{self, auth::sign_soroban_authorizations};
+// use crate::signer;
 use crate::{
     commands::global,
     config::{self, data, locator, network},
@@ -55,6 +57,8 @@ pub struct Cmd {
     pub config: config::Args,
     #[command(flatten)]
     pub fee: crate::fee::Args,
+    #[command(flatten)]
+    pub auth: crate::commands::tx::auth::Args,
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
@@ -126,6 +130,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
 }
@@ -201,13 +207,15 @@ impl NetworkRunnable for Cmd {
         tracing::trace!(?network);
         let contract_id = self
             .config
+            .sign_with
             .locator
             .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)
+                .await?;
         }
         let client = rpc::Client::new(&network.rpc_url)?;
         let account_details = if self.is_view {
@@ -216,20 +224,18 @@ impl NetworkRunnable for Cmd {
             client
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
-            let key = config.key_pair()?;
+            let key = config.source_account().await?;
 
             // Get the account sequence number
-            let public_strkey =
-                stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-            client.get_account(&public_strkey).await?
+            client.get_account(&key.to_string()).await?
         };
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
-            &config.locator,
-            &config.network,
+            &config.sign_with.locator,
+            &config.sign_with.network,
             global_args,
             Some(config),
         )
@@ -238,7 +244,7 @@ impl NetworkRunnable for Cmd {
 
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -263,11 +269,17 @@ impl NetworkRunnable for Cmd {
                 let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
                 // Need to sign all auth entries
                 let mut txn = txn.transaction().clone();
-                if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-                    txn = tx;
+                let expriation_ledger = self.auth.expiration_ledger(&client).await?;
+                for signer in &signers {
+                    if let Some(tx) =
+                        sign_soroban_authorizations(signer, &txn, &network, expriation_ledger)
+                            .await?
+                    {
+                        txn = tx;
+                    }
                 }
                 let res = client
-                    .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+                    .send_transaction_polling(&config.sign(txn).await?)
                     .await?;
                 if !no_cache {
                     data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

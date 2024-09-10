@@ -62,7 +62,7 @@ impl Cmd {
         };
         self.config_locator.write_identity(&self.name, &secret)?;
         if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
+            let addr = secret.public_key(self.hd_path).await?;
             let network = self.network.get(&self.config_locator)?;
             network
                 .fund_address(&addr)

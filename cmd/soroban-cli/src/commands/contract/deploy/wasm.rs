@@ -123,19 +123,12 @@ impl Cmd {
             .run_against_rpc_server(Some(global_args), None)
             .await?
             .to_envelope();
-        match res {
+        match &res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
-
-                if let Some(alias) = self.alias.clone() {
-                    self.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
+                if let Some(alias) = self.alias.as_deref() {
+                    self.config.save_contract_id(contract, alias)?;
                 }
-
                 println!("{contract}");
             }
         }
@@ -212,13 +205,9 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.key_pair()?;
-
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-
-        let account_details = client.get_account(&public_strkey).await?;
+        let public_strkey = config.source_account().await?;
+        let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
         let (txn, contract_id) = build_create_contract_tx(
             wasm_hash,
@@ -226,7 +215,7 @@ impl NetworkRunnable for Cmd {
             self.fee.fee,
             &network.network_passphrase,
             salt,
-            &key,
+            &public_strkey,
         )?;
 
         if self.fee.build_only {
@@ -248,7 +237,7 @@ impl NetworkRunnable for Cmd {
         print.log_transaction(&txn, &network, true)?;
 
         let get_txn_resp = client
-            .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&config.sign(txn).await?)
             .await?
             .try_into()?;
 
@@ -274,11 +263,9 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     salt: [u8; 32],
-    key: &ed25519_dalek::SigningKey,
+    key: &stellar_strkey::ed25519::PublicKey,
 ) -> Result<(Transaction, Hash), Error> {
-    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-        key.verifying_key().to_bytes().into(),
-    ));
+    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
 
     let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
         address: ScAddress::Account(source_account),
@@ -297,7 +284,7 @@ fn build_create_contract_tx(
         }),
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -311,6 +298,7 @@ fn build_create_contract_tx(
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -325,8 +313,12 @@ mod tests {
             1,
             "Public Global Stellar Network ; September 2015",
             [0u8; 32],
-            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
-                .unwrap(),
+            &stellar_strkey::ed25519::PublicKey(
+                utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                    .unwrap()
+                    .verifying_key()
+                    .to_bytes(),
+            ),
         );
 
         assert!(result.is_ok());

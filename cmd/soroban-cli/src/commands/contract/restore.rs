@@ -133,18 +133,16 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let entry_keys = self.key.parse_keys(&config.locator, &network)?;
+        let entry_keys = self.key.parse_keys(&config.sign_with.locator, &network)?;
         let client = Client::new(&network.rpc_url)?;
-        let key = config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let public_strkey = config.source_account().await?;
+        let account_details = client.get_account(&public_strkey.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+            source_account: MuxedAccount::Ed25519(Uint256(public_strkey.0)),
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
@@ -174,7 +172,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(tx));
         }
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
         if args.map_or(true, |a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
