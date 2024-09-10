@@ -9,7 +9,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network, secret},
-    rpc::{self},
+    rpc,
     tx::builder,
 };
 
