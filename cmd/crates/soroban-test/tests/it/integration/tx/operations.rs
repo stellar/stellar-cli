@@ -235,17 +235,7 @@ async fn change_trust() {
     let sandbox = &TestEnv::new();
     let (test, _) = setup_accounts(sandbox);
 
-    let asset = format!("native:{test}");
-    let asset = sandbox
-        .new_assert_cmd("contract")
-        .arg("asset")
-        .arg("deploy")
-        .arg("--source=test")
-        .arg("--asset")
-        .arg(&asset)
-        .assert()
-        .success()
-        .stdout_as_str();
+    let asset = "native";
     let limit = 100;
     sandbox
         .new_assert_cmd("tx")
@@ -253,7 +243,7 @@ async fn change_trust() {
             "new",
             "change-trust",
             "--line",
-            &asset,
+            asset,
             "--limit",
             limit.to_string().as_str(),
             "--source",
@@ -269,7 +259,7 @@ async fn manage_data() {
     let (test, _) = setup_accounts(sandbox);
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let key = "test";
-    let value = "test";
+    let value = "beefface";
     sandbox
         .new_assert_cmd("tx")
         .args([
