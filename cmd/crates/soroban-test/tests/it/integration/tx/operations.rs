@@ -298,5 +298,5 @@ async fn manage_data() {
         panic!("Expected DataEntry");
     };
     assert_eq!(data_name, orig_data_name.into());
-    assert_eq!(hex::encode(data_value.0), value);
+    assert_eq!(hex::encode(data_value.0.to_vec()), value);
 }
