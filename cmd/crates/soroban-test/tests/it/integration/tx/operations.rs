@@ -1,4 +1,4 @@
-use soroban_cli::tx::{builder::String64, ONE_XLM};
+use soroban_cli::{print, tx::{builder::String64, ONE_XLM}};
 use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
 
@@ -159,6 +159,26 @@ async fn set_trustline_flags() {
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test = test_address(sandbox);
     let _ = client.get_account(&test).await.unwrap();
+    let (test, _) = setup_accounts(sandbox);
+    let before = client.get_account(&test).await.unwrap();
+    let asset = format!("usdc:{test}");
+    // set trustline flags tx new
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-trustline-flags",
+            "--asset",
+            &asset,
+            "--trustor",
+            &test,
+            "--set-authorized"
+        ])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    println!("{before:?}\n{after:?}");
+    unreachable!();
 }
 
 #[tokio::test]
