@@ -70,19 +70,14 @@ async fn send() {
         tx_env.to_xdr_base64(Limits::none()).unwrap()
     );
 
-    let tx_env = super::xdr::tx_envelope_from_stdin()?;
     let rpc_result = send_manually(sandbox, &tx_env).await;
 
     println!("Transaction sent: {rpc_result}");
 }
 
 async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> String {
-    let client = crate::rpc::Client::new(&network.rpc_url).unwrap();
-    let res = client
-        .send_transaction_polling(tx_env)
-        .await
-        .unwrap()
-        .to_string();
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let res = client.send_transaction_polling(tx_env).await.unwrap();
     serde_json::to_string_pretty(&res).unwrap()
 }
 
