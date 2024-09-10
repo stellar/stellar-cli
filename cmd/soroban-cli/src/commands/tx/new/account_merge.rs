@@ -66,24 +66,23 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<()>;
+    type Result = TxnResult<rpc::GetTransactionResponse>;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         _: Option<&config::Args>,
-    ) -> Result<TxnResult<()>, Error> {
+    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
         let tx_build = self.tx.tx_builder().await?;
         let account = stellar_strkey::ed25519::PublicKey::from_str(&self.account)?;
         let op = builder::ops::AccountMerge::new(account);
 
-        self.tx
+        Ok(self
+            .tx
             .handle_tx(
                 tx_build.add_operation_builder(op, None),
                 &args.cloned().unwrap_or_default(),
             )
-            .await?;
-
-        Ok(TxnResult::Res(()))
+            .await?)
     }
 }

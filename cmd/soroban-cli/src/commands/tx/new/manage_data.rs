@@ -67,26 +67,25 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<()>;
+    type Result = TxnResult<rpc::GetTransactionResponse>;
 
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         _: Option<&config::Args>,
-    ) -> Result<TxnResult<()>, Error> {
+    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
         let tx_build = self.tx.tx_builder().await?;
         let mut op = builder::ops::ManageData::new(self.data_name.clone())?;
         if let Some(data_value) = self.data_value.as_ref() {
             op = op.set_data_value(data_value.clone());
         };
 
-        self.tx
+        Ok(self
+            .tx
             .handle_tx(
                 tx_build.add_operation_builder(op, None),
                 &args.cloned().unwrap_or_default(),
             )
-            .await?;
-
-        Ok(TxnResult::Res(()))
+            .await?)
     }
 }
