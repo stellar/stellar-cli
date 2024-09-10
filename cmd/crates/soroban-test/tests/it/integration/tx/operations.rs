@@ -282,6 +282,7 @@ async fn manage_data() {
         .await
         .unwrap();
     let value_res = res.entries.as_ref().unwrap().first().unwrap();
+    println!("{:?}", value_res);
     let orig_value: xdr::String64 = value.parse::<String64>().unwrap().into();
     assert_eq!(
         xdr::String64::from_xdr_base64(&value_res.xdr, xdr::Limits::none()).unwrap(),
