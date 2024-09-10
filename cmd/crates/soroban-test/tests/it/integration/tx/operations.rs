@@ -230,14 +230,13 @@ async fn set_options() {
     assert_eq!("test.com", after.home_domain.to_string());
 }
 
-// Test for change trust operation
 #[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
     let (test, _) = setup_accounts(sandbox);
 
     let asset = format!("native:{test}");
-    sandbox
+    let asset = sandbox
         .new_assert_cmd("contract")
         .arg("asset")
         .arg("deploy")
@@ -245,7 +244,8 @@ async fn change_trust() {
         .arg("--asset")
         .arg(&asset)
         .assert()
-        .success();
+        .success()
+        .stdout_as_str();
     let limit = 100;
     sandbox
         .new_assert_cmd("tx")
@@ -263,7 +263,6 @@ async fn change_trust() {
         .success();
 }
 
-// Test for manage data operation
 #[tokio::test]
 async fn manage_data() {
     let sandbox = &TestEnv::new();
@@ -276,9 +275,9 @@ async fn manage_data() {
         .args([
             "new",
             "manage-data",
-            "--key",
+            "--data-name",
             key,
-            "--value",
+            "--data-value",
             value,
             "--source",
             test.as_str(),
