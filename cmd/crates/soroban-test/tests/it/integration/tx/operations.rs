@@ -235,18 +235,23 @@ async fn change_trust() {
     let sandbox = &TestEnv::new();
     let asset = "native";
     let limit = 100;
-    sandbox
-        .new_assert_cmd("tx")
-        .args([
-            "new",
-            "change-trust",
-            "--line",
-            asset,
-            "--limit",
-            limit.to_string().as_str(),
-        ])
-        .assert()
-        .success();
+    println!(
+        "{}",
+        sandbox
+            .new_assert_cmd("tx")
+            .args([
+                "new",
+                "change-trust",
+                "--line",
+                asset,
+                "--limit",
+                limit.to_string().as_str(),
+                "--build-only",
+            ])
+            .assert()
+            .success()
+            .stdout_as_str()
+    );
 }
 
 #[tokio::test]
@@ -273,19 +278,25 @@ async fn manage_data() {
             .unwrap()
             .0,
     )));
-    let s: String64 = key.parse().unwrap();
+    let orig_data_name: String64 = key.parse().unwrap();
     let res = client
         .get_ledger_entries(&[xdr::LedgerKey::Data(xdr::LedgerKeyData {
             account_id,
-            data_name: s.into(),
+            data_name: orig_data_name.clone().into(),
         })])
         .await
         .unwrap();
     let value_res = res.entries.as_ref().unwrap().first().unwrap();
-    println!("{:?}", value_res);
-    let orig_value: xdr::String64 = value.parse::<String64>().unwrap().into();
-    assert_eq!(
-        xdr::String64::from_xdr_base64(&value_res.xdr, xdr::Limits::none()).unwrap(),
-        orig_value
-    );
+    let ledeger_entry_data =
+        xdr::LedgerEntryData::from_xdr_base64(&value_res.xdr, xdr::Limits::none()).unwrap();
+    let xdr::LedgerEntryData::Data(xdr::DataEntry {
+        data_value,
+        data_name,
+        ..
+    }) = ledeger_entry_data
+    else {
+        panic!("Expected DataEntry");
+    };
+    assert_eq!(data_name, orig_data_name.into());
+    assert_eq!(hex::encode(data_value.0), value);
 }

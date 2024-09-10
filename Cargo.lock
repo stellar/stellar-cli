@@ -4992,6 +4992,7 @@ dependencies = [
  "assert_fs",
  "ed25519-dalek 2.1.1",
  "fs_extra",
+ "hex",
  "predicates 2.1.5",
  "sep5",
  "serde_json",
