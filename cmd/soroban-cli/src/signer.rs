@@ -5,10 +5,13 @@ use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
+    SorobanAuthorizedFunction, SorobanCredentials, TransactionEnvelope,
     TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
     TransactionV1Envelope, Uint256, WriteXdr,
 };
+
+pub mod types;
+pub use types::{Blob, LocalKey, Transaction, TransactionHash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -26,7 +29,7 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
+fn requires_auth(txn: &xdr::Transaction) -> Option<xdr::Operation> {
     let [op @ Operation {
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
         ..
@@ -44,12 +47,12 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
-    raw: &Transaction,
+    raw: &xdr::Transaction,
     source_key: &ed25519_dalek::SigningKey,
     signers: &[ed25519_dalek::SigningKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
-) -> Result<Option<Transaction>, Error> {
+) -> Result<Option<xdr::Transaction>, Error> {
     let mut tx = raw.clone();
     let Some(mut op) = requires_auth(&tx) else {
         return Ok(None);
@@ -191,7 +194,7 @@ fn sign_soroban_authorization_entry(
 
 pub fn sign_tx(
     key: &ed25519_dalek::SigningKey,
-    tx: &Transaction,
+    tx: &xdr::Transaction,
     network_passphrase: &str,
 ) -> Result<TransactionEnvelope, Error> {
     let tx_hash = hash(tx, network_passphrase)?;
@@ -208,7 +211,7 @@ pub fn sign_tx(
     }))
 }
 
-pub fn hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
+pub fn hash(tx: &xdr::Transaction, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
     let signature_payload = TransactionSignaturePayload {
         network_id: Hash(Sha256::digest(network_passphrase).into()),
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),

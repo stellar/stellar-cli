@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
-use crate::utils;
+use crate::{
+    signer::{self, LocalKey},
+    utils,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,6 +24,8 @@ pub enum Error {
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Invalid address {0}")]
     InvalidAddress(String),
+    #[error(transparent)]
+    Stellar(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -120,6 +125,14 @@ impl Secret {
         )?)
     }
 
+    pub fn signer(&self, index: Option<usize>, prompt: bool) -> Result<StellarSigner, Error> {
+        match self {
+            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => Ok(StellarSigner::Local(
+                LocalKey::new(self.key_pair(index)?, prompt),
+            )),
+        }
+    }
+
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
         Ok(utils::into_signing_key(&self.private_key(index)?))
     }
@@ -137,6 +150,19 @@ impl Secret {
 
     pub fn test_seed_phrase() -> Result<Self, Error> {
         Self::from_seed(Some("0000000000000000"))
+    }
+}
+
+pub enum StellarSigner {
+    Local(LocalKey),
+}
+
+#[async_trait::async_trait]
+impl signer::Blob for StellarSigner {
+    async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, signer::types::Error> {
+        match self {
+            StellarSigner::Local(signer) => signer.sign_blob(blob).await,
+        }
     }
 }
 

@@ -1,10 +1,10 @@
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, deploy_hello, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
-async fn txn_simulate() {
+async fn simulate() {
     let sandbox = &TestEnv::new();
     let xdr_base64_build_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::BuildOnly).await;
     let xdr_base64_sim_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
@@ -48,4 +48,56 @@ async fn txn_hash() {
         .stdout_as_str();
 
     assert_eq!(hash.trim(), expected_hash);
+}
+
+#[tokio::test]
+async fn send() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args(["--wasm", HELLO_WORLD.path().as_os_str().to_str().unwrap()])
+        .assert()
+        .success();
+
+    let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    println!("{xdr_base64}");
+    let tx_env = TransactionEnvelope::from_xdr_base64(&xdr_base64, Limits::none()).unwrap();
+    let tx_env = sign_manually(sandbox, &tx_env);
+
+    println!(
+        "Transaction to send:\n{}",
+        tx_env.to_xdr_base64(Limits::none()).unwrap()
+    );
+
+    let tx_env = super::xdr::tx_envelope_from_stdin()?;
+    let rpc_result = send_manually(sandbox, &tx_env).await;
+
+    println!("Transaction sent: {rpc_result}");
+}
+
+async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> String {
+    let client = crate::rpc::Client::new(&network.rpc_url).unwrap();
+    let res = client
+        .send_transaction_polling(tx_env)
+        .await
+        .unwrap()
+        .to_string();
+    serde_json::to_string_pretty(&res).unwrap()
+}
+
+fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> TransactionEnvelope {
+    TransactionEnvelope::from_xdr_base64(
+        sandbox
+            .new_assert_cmd("tx")
+            .arg("sign")
+            .arg("--sign-with-key=test")
+            .arg("--yes")
+            .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
+            .assert()
+            .success()
+            .stdout_as_str(),
+        Limits::none(),
+    )
+    .unwrap()
 }

@@ -217,6 +217,14 @@ impl Args {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
+    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
+        if let Ok(signer) = account_str.parse::<Secret>() {
+            Ok(signer)
+        } else {
+            self.read_identity(account_str)
+        }
+    }
+
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         let res = KeyType::Network.read_with_global(name, &self.local_config()?);
         if let Err(Error::ConfigMissing(_, _)) = &res {
