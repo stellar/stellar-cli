@@ -233,8 +233,6 @@ async fn set_options() {
 #[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
-    let (test, _) = setup_accounts(sandbox);
-
     let asset = "native";
     let limit = 100;
     sandbox
@@ -246,8 +244,6 @@ async fn change_trust() {
             asset,
             "--limit",
             limit.to_string().as_str(),
-            "--source",
-            test.as_str(),
         ])
         .assert()
         .success();
@@ -269,8 +265,6 @@ async fn manage_data() {
             key,
             "--data-value",
             value,
-            "--source",
-            test.as_str(),
         ])
         .assert()
         .success();
