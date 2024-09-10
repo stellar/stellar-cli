@@ -180,7 +180,7 @@ async fn set_trustline_flags() {
         ])
         .assert()
         .success()
-        .stderr_as_str();
+        .stdout_as_str();
     let after = client.get_account(&test).await.unwrap();
     println!("{before:?}\n{after:?}");
     println!("{res}");
@@ -259,7 +259,8 @@ async fn set_options() {
 #[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
-    let asset = "native";
+    let test = test_address(sandbox);
+    let asset = &format!("usdc:{test}");
     let limit = 100;
     println!(
         "{}",
@@ -278,6 +279,21 @@ async fn change_trust() {
             .success()
             .stdout_as_str()
     );
+
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "change-trust",
+            "--line",
+            asset,
+            "--limit",
+            limit.to_string().as_str(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
     unreachable!();
 }
 
