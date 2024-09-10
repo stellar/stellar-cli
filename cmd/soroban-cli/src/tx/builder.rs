@@ -21,4 +21,6 @@ pub use transaction::Transaction;
 pub enum Error {
     #[error("Transaction contains too many operations")]
     TooManyOperations,
+    #[error(transparent)]
+    BytesM(#[from] bytesm::Error),
 }
