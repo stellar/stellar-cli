@@ -107,7 +107,6 @@ async fn run_command(
         }
     }
 
-    println!("Executing command: {} {}", cmd, modified_args.join(" "));
     let result = sandbox.new_assert_cmd(&cmd).args(&modified_args).assert();
 
     if command.contains("keys generate") {
@@ -153,10 +152,8 @@ async fn test_mdx_file(
         .filter_map(|block| block.split("```").next())
         .collect();
 
-    println!("Testing commands from file: {}", file_path);
 
-    for (i, command) in commands.iter().enumerate() {
-        println!("Running command {}: {}", i + 1, command);
+    for command in commands.iter() {
         run_command(
             sandbox,
             command,
