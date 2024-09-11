@@ -1,12 +1,12 @@
-use std::path::PathBuf;
-
 use crate::{
     signer::{self, sign_txn_env, Stellar},
     xdr::TransactionEnvelope,
 };
 use clap::arg;
+use crossterm::event::{read, Event, KeyCode};
 use soroban_env_host::xdr::WriteXdr;
 use soroban_sdk::xdr::Limits;
+use std::path::PathBuf;
 use url::Url;
 
 use super::{
@@ -35,6 +35,9 @@ pub enum Error {
     Url(#[from] url::ParseError),
     #[error(transparent)]
     Open(#[from] std::io::Error),
+    #[error("User cancelled signing, perhaps need to remove --check")]
+    //todo pull this error into a common module instead of duplicating it here
+    UserCancelledSigning,
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -101,6 +104,17 @@ impl Args {
     }
 
     pub fn sign_tx_env_with_lab(&self, tx_env: &TransactionEnvelope) -> Result<(), Error> {
+        if !self.yes {
+            //todo: bring this into a common mod instead of duplicating it here
+            eprintln!("Press 'y' or 'Y' for yes, any other key for no:");
+            match read_key() {
+                'y' | 'Y' => {
+                    eprintln!("Signing now...");
+                }
+                _ => return Err(Error::UserCancelledSigning),
+            };
+        }
+
         let passphrase = self.get_network()?.network_passphrase;
         let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
 
@@ -123,5 +137,17 @@ impl Args {
 
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         Ok(self.locator.config_dir()?)
+    }
+}
+
+pub fn read_key() -> char {
+    loop {
+        if let Event::Key(key) = read().unwrap() {
+            match key.code {
+                KeyCode::Char(c) => return c,
+                KeyCode::Esc => return '\x1b', // escape key
+                _ => (),
+            }
+        }
     }
 }
