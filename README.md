@@ -1,6 +1,7 @@
 # Stellar CLI (stellar-cli)
 
 ![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)
+[![Crates.io Version](https://img.shields.io/crates/v/stellar-cli?label=version&amp;color=04ac5b)](https://crates.io/crates/stellar-cli)
 
 This repo is home to the Stellar CLI, the command-line multi-tool for running and deploying Stellar contracts on the Stellar network.
 
