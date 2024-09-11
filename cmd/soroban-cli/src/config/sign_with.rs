@@ -57,6 +57,7 @@ pub struct Args {
     /// Lab URL for `sign_with_lab`
     #[arg(
         long,
+        conflicts_with = "sign_with_key",
         env = "STELLAR_SIGN_WITH_LAB_URL",
         default_value = "https://lab.stellar.org/transaction/cli-sign"
     )]
