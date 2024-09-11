@@ -1,4 +1,4 @@
-use tracing::{debug, info, span, Level};
+use tracing::{debug, error, info, span, Level};
 
 use crate::xdr;
 
@@ -14,10 +14,16 @@ pub fn events(events: &[xdr::DiagnosticEvent]) {
 
         let _enter = span.enter();
 
-        if span.metadata().unwrap().level() == &Level::INFO {
-            info!("{i}: {event:#?}");
-        } else {
-            debug!("{i}: {event:#?}");
+        let result = serde_json::to_string(event);
+        match result {
+            Ok(json) => {
+                if span.metadata().unwrap().level() == &Level::INFO {
+                    info!("{i}: {json}");
+                } else {
+                    debug!("{i}: {json}");
+                }
+            }
+            Err(err) => error!("converting event to json: {}: ", err),
         }
     }
 }
