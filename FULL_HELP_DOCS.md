@@ -82,6 +82,7 @@ Tools for smart contract developers
 * `extend` — Extend the time to live ledger of a contract-data ledger entry
 * `deploy` — Deploy a wasm contract
 * `fetch` — Fetch a contract's Wasm binary
+* `fetch-all` — Fetch all contract Wasms
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban project with an example contract
@@ -424,6 +425,24 @@ Fetch a contract's Wasm binary
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar contract fetch-all`
+
+Fetch all contract Wasms
+
+**Usage:** `stellar contract fetch-all [OPTIONS]`
+
+###### **Options:**
+
+* `--ledger <LEDGER>` — The ledger sequence number to download from. Defaults to latest history archived ledger
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 
 
 
