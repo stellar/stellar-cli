@@ -30,7 +30,7 @@ function fund_all() {
   exe eval "./soroban keys fund root"
 }
 function deploy() {
-  exe eval "./soroban contract deploy --source root --wasm $1 --ignore-checks --alias $2"
+  exe eval "./soroban contract deploy --very-verbose --source root --wasm $1 --ignore-checks --alias $2"
 }
 function deploy_all() {
   deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types
