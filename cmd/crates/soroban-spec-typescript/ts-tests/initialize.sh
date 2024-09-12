@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # read .env file, but prefer explicitly set environment variables
 IFS=$'\n'
@@ -30,16 +30,16 @@ function fund_all() {
   exe eval "./soroban keys fund root"
 }
 function deploy() {
-  exe eval "(./soroban contract deploy --quiet --source root --wasm $1 --ignore-checks) > $2"
+  exe eval "./soroban contract deploy --source root --wasm $1 --ignore-checks --alias $2"
 }
 function deploy_all() {
-  deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
+  deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types
 }
 function bind() {
-  exe eval "./soroban contract bindings typescript --contract-id $(cat $1) --output-dir ./node_modules/$2 --overwrite"
+  exe eval "./soroban contract bindings typescript --contract-id $1 --output-dir ./node_modules/$2 --overwrite"
 }
 function bind_all() {
-  bind contract-id-custom-types.txt test-custom-types
+  bind contract-id-custom-types test-custom-types
 }
 
 fund_all
