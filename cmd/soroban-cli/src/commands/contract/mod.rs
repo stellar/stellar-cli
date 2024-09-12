@@ -6,6 +6,7 @@ pub mod build;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
+pub mod fetch_all;
 pub mod id;
 pub mod info;
 pub mod init;
@@ -44,6 +45,9 @@ pub enum Cmd {
 
     /// Fetch a contract's Wasm binary
     Fetch(fetch::Cmd),
+
+    /// Fetch all contract Wasms
+    FetchAll(fetch_all::Cmd),
 
     /// Generate the contract id for a given contract or asset
     #[command(subcommand)]
@@ -108,6 +112,9 @@ pub enum Error {
     Fetch(#[from] fetch::Error),
 
     #[error(transparent)]
+    FetchAll(#[from] fetch_all::Error),
+
+    #[error(transparent)]
     Init(#[from] init::Error),
 
     #[error(transparent)]
@@ -152,6 +159,7 @@ impl Cmd {
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
+            Cmd::FetchAll(fetch_all) => fetch_all.run(global_args).await?,
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,
         }
