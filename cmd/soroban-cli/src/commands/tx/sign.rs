@@ -1,5 +1,5 @@
 use crate::{
-    config::sign_with,
+    config::{locator, network, sign_with},
     xdr::{self, Limits, TransactionEnvelope, WriteXdr},
 };
 
@@ -7,6 +7,10 @@ use crate::{
 pub enum Error {
     #[error(transparent)]
     XdrArgs(#[from] super::xdr::Error),
+    #[error(transparent)]
+    Network(#[from] network::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
     #[error(transparent)]
     SignWith(#[from] sign_with::Error),
     #[error(transparent)]
@@ -18,6 +22,10 @@ pub enum Error {
 pub struct Cmd {
     #[command(flatten)]
     pub sign_with: sign_with::Args,
+    #[command(flatten)]
+    pub network: network::Args,
+    #[command(flatten)]
+    pub locator: locator::Args,
 }
 
 impl Cmd {
@@ -30,6 +38,9 @@ impl Cmd {
     }
 
     pub async fn sign_tx_env(&self, tx: TransactionEnvelope) -> Result<TransactionEnvelope, Error> {
-        Ok(self.sign_with.sign_txn_env(tx).await?)
+        Ok(self
+            .sign_with
+            .sign_txn_env(tx, &self.locator, &self.network.get(&self.locator)?)
+            .await?)
     }
 }

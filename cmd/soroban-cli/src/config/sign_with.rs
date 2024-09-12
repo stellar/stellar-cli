@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use crate::{
     signer::{
         self,
@@ -61,36 +59,30 @@ pub struct Args {
     #[arg(long)]
     pub yes: bool,
 
-    #[command(flatten)]
-    pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
-
-    /// Source account of the transaction. By default will be the account that signs the transaction.
-    #[arg(long, visible_alias = "source")]
-    pub source_account: Option<String>,
+    /// Account that signs the transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    pub source_account: String,
 }
 
 impl Args {
-    pub fn secret(&self) -> Result<Secret, Error> {
-        let account = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-        Ok(self.locator.account(account)?)
+    pub fn secret(&self, locator: &locator::Args) -> Result<Secret, Error> {
+        let account = self
+            .sign_with_key
+            .as_deref()
+            .unwrap_or(&self.source_account);
+        Ok(locator.account(account)?)
     }
 
     pub async fn sign_txn_env(
         &self,
         tx: TransactionEnvelope,
+        locator: &locator::Args,
+        network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        let secret = self.secret()?;
+        let secret = self.secret(locator)?;
         let signer = secret.signer(self.hd_path, !self.yes)?;
-        let source_account = if let Some(source_account) = self.source_account.as_deref() {
-            stellar_strkey::ed25519::PublicKey::from_string(source_account)?
-        } else {
-            secret.public_key(self.hd_path)?
-        };
-
-        self.sign_tx_env_with_signer(&signer, &source_account, tx)
+        let source_account = self.source_account(locator)?;
+        self.sign_tx_env_with_signer(&signer, &source_account, tx, network)
             .await
     }
 
@@ -99,16 +91,14 @@ impl Args {
         signer: &(impl Transaction + std::marker::Sync),
         source_account: &PublicKey,
         tx_env: TransactionEnvelope,
+        network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        let network = self.get_network()?;
         Ok(sign_txn_env(signer, source_account, tx_env, &network).await?)
     }
 
-    pub fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network.get(&self.locator)?)
-    }
-
-    pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        Ok(self.locator.config_dir()?)
+    pub fn source_account(&self, locator: &locator::Args) -> Result<PublicKey, Error> {
+        Ok(locator
+            .account(&self.source_account)?
+            .public_key(self.hd_path)?)
     }
 }
