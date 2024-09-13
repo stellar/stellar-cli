@@ -1355,7 +1355,7 @@ Sign, Simulate, and Send transactions
 
 * `simulate` — Simulate a transaction envelope from stdin
 * `hash` — Calculate the hash of a transaction envelope from stdin
-* `sign` — Sign a transaction envolope appending the signature to the envelope
+* `sign` — Sign a transaction envelope appending the signature to the envelope
 * `send` — Send a transaction envelope to the network
 
 
@@ -1400,7 +1400,7 @@ Calculate the hash of a transaction envelope from stdin
 
 ## `stellar tx sign`
 
-Sign a transaction envolope appending the signature to the envelope
+Sign a transaction envelope appending the signature to the envelope
 
 **Usage:** `stellar tx sign [OPTIONS]`
 
