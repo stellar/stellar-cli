@@ -1,6 +1,6 @@
 [package]
 name = "stellar-ledger"
-description = ""
+description = "Handle Stellar signing with Ledger device"
 homepage = "https://github.com/stellar/soroban-tools"
 repository = "https://github.com/stellar/soroban-tools"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
