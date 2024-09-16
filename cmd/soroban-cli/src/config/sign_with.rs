@@ -39,14 +39,14 @@ pub struct Args {
     #[arg(
         long,
         conflicts_with = "sign_with_lab",
-        env = "STELLAR_SIGN_WITH_SECRET"
+        env = "STELLAR_SIGN_WITH_KEY"
     )]
     pub sign_with_key: Option<String>,
     /// Sign with labratory
     #[arg(
         long,
         conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LABRATORY",
+        env = "STELLAR_SIGN_WITH_LAB",
         hide = true
     )]
     pub sign_with_lab: bool,
