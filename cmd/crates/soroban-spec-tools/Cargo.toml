@@ -20,7 +20,6 @@ crate-type = ["rlib"]
 soroban-spec = { workspace = true }
 stellar-strkey = { workspace = true }
 stellar-xdr = { workspace = true, features = ["curr", "std", "serde"] }
-soroban-env-host = { workspace = true }
 
 serde_json = { workspace = true }
 itertools = { workspace = true }

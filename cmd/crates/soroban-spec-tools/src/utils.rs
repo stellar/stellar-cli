@@ -104,7 +104,11 @@ impl Display for ContractSpec {
             for env_meta_entry in &self.env_meta {
                 match env_meta_entry {
                     ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                        writeln!(f, " • Interface Version: {v}")?;
+                        writeln!(
+                            f,
+                            " • Interface Prerelaes: {} version {}",
+                            v.pre_release, v.protocol
+                        )?;
                     }
                 }
             }

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use clap::{command, Parser};
-use stellar_xdr::curr::ScEnvMetaEntry;
 
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
@@ -9,6 +8,7 @@ use soroban_spec_tools::contract::Spec;
 use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
 use crate::commands::contract::info::shared;
 use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
+use crate::xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -54,10 +54,16 @@ impl Cmd {
                 let mut meta_str = "Contract env-meta:\n".to_string();
                 for env_meta_entry in &spec.env_meta {
                     match env_meta_entry {
-                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
+                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
+                            ScEnvMetaEntryInterfaceVersion {
+                                protocol: v,
+                                pre_release,
+                            },
+                        ) => {
                             let protocol = v >> 32;
                             let interface = v & 0xffff_ffff;
                             meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
+                            meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
                             meta_str.push_str(&format!(" • Interface: v{interface}\n"));
                             meta_str.push_str(&format!(" • Interface Version: {v}\n"));
                         }
