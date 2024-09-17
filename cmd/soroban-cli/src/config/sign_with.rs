@@ -7,7 +7,7 @@ use crate::{
 };
 use clap::arg;
 use soroban_env_host::xdr::WriteXdr;
-use soroban_sdk::xdr::{self, Limits};
+use soroban_sdk::xdr::Limits;
 use stellar_strkey::ed25519::PublicKey;
 use url::Url;
 
@@ -105,7 +105,7 @@ impl Args {
         tx_env: TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        Ok(sign_txn_env(signer, source_account, tx_env, &network).await?)
+        Ok(sign_txn_env(signer, source_account, tx_env, network).await?)
     }
 
     pub fn source_account(&self, locator: &locator::Args) -> Result<PublicKey, Error> {
