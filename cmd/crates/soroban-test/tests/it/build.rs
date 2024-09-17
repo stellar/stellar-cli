@@ -72,7 +72,7 @@ fn build_no_package_found() {
         .failure()
         .stderr(predicate::eq(
             "\
-error: package nopkgwiththisname not found
+❌ error: package nopkgwiththisname not found
 ",
         ));
 }
