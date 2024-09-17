@@ -34,7 +34,7 @@ impl Cmd {
         match self {
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
-            Cmd::Sign(cmd) => cmd.run().await?,
+            Cmd::Sign(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }
