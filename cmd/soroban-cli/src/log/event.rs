@@ -1,6 +1,7 @@
 use tracing::{debug, info, span, Level};
 
 use crate::xdr;
+use xdr::WriteXdr;
 
 pub fn events(events: &[xdr::DiagnosticEvent]) {
     for (i, event) in events.iter().enumerate() {
@@ -14,10 +15,12 @@ pub fn events(events: &[xdr::DiagnosticEvent]) {
 
         let _enter = span.enter();
 
+        let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
+        let json = serde_json::to_string(event).unwrap();
         if span.metadata().unwrap().level() == &Level::INFO {
-            info!("{i}: {event:#?}");
+            info!("{i}: {xdr} {json}");
         } else {
-            debug!("{i}: {event:#?}");
+            debug!("{i}: {xdr} {json}");
         }
     }
 }
