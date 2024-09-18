@@ -5,7 +5,7 @@ use soroban_test::{AssertExt, TestEnv};
 #[test]
 #[allow(clippy::too_many_lines)]
 fn snapshot() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     // Create a couple accounts and a couple contracts, which we'll filter on to
     // make sure we only get the account and contract requested.
     sandbox

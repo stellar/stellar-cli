@@ -1,3 +1,4 @@
+use crate::commands::HEADING_RPC;
 use crate::config::{locator, network, secret};
 use clap::command;
 
@@ -16,8 +17,21 @@ pub struct Cmd {
     /// Name of network
     pub name: String,
 
-    #[command(flatten)]
-    pub network: network::Network,
+    /// RPC server endpoint
+    #[arg(
+        long = "rpc-url",
+        env = "STELLAR_RPC_URL",
+        help_heading = HEADING_RPC,
+    )]
+    pub rpc_url: String,
+
+    /// Network passphrase to sign the transaction sent to the rpc server
+    #[arg(
+            long,
+            env = "STELLAR_NETWORK_PASSPHRASE",
+            help_heading = HEADING_RPC,
+        )]
+    pub network_passphrase: String,
 
     #[command(flatten)]
     pub config_locator: locator::Args,
@@ -25,8 +39,12 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        Ok(self
-            .config_locator
-            .write_network(&self.name, &self.network)?)
+        let network = network::Network {
+            rpc_url: self.rpc_url.clone(),
+            network_passphrase: self.network_passphrase.clone(),
+            name: self.name.clone(),
+        };
+
+        Ok(self.config_locator.write_network(&self.name, &network)?)
     }
 }

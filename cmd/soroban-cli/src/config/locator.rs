@@ -192,7 +192,11 @@ impl Args {
             .flatten()
             .map(|x| x.0);
         let default_networks = network::DEFAULTS.keys().map(ToString::to_string);
-        Ok(saved_networks.chain(default_networks).unique().collect())
+        Ok(saved_networks
+            .chain(default_networks)
+            .unique()
+            .sorted_by(Ord::cmp)
+            .collect())
     }
 
     pub fn list_networks_long(&self) -> Result<Vec<(String, Network, String)>, Error> {
@@ -210,7 +214,10 @@ impl Args {
         let default_networks = network::DEFAULTS
             .into_iter()
             .map(|(name, network)| ((*name).to_string(), network.into(), "Default".to_owned()));
-        Ok(saved_networks.chain(default_networks).collect())
+        Ok(saved_networks
+            .chain(default_networks)
+            .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
+            .collect())
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {

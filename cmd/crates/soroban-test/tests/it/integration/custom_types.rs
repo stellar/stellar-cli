@@ -15,7 +15,7 @@ fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
 
 #[tokio::test]
 async fn parse() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let id = &deploy_custom(sandbox).await;
     extend_contract(sandbox, id).await;
     symbol(sandbox, id);

@@ -4,8 +4,7 @@ use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 #[tokio::test]
 #[ignore]
 async fn burn() {
-    let sandbox = &TestEnv::new();
-    let network_passphrase = LOCAL_NETWORK_PASSPHRASE.to_string();
+    let sandbox = &TestEnv::default();
     let address = sandbox
         .new_assert_cmd("keys")
         .arg("address")
@@ -22,11 +21,11 @@ async fn burn() {
         .arg(&asset)
         .assert()
         .success();
-    // wrap_cmd(&asset).run().await.unwrap();
+
     let asset = soroban_cli::utils::parsing::parse_asset(&asset).unwrap();
-    let hash = contract_id_hash_from_asset(&asset, &network_passphrase);
+    let hash = contract_id_hash_from_asset(&asset, &LOCAL_NETWORK_PASSPHRASE);
     let id = stellar_strkey::Contract(hash.0).to_string();
-    println!("{id}, {address}");
+
     sandbox
         .new_assert_cmd("contract")
         .args([
@@ -40,6 +39,7 @@ async fn burn() {
         ])
         .assert()
         .stdout("\"9223372036854775807\"\n");
+
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
@@ -53,6 +53,7 @@ async fn burn() {
         ])
         .assert()
         .stdout("true\n");
+
     sandbox
         .new_assert_cmd("contract")
         .args([
@@ -66,6 +67,7 @@ async fn burn() {
         ])
         .assert()
         .stdout("\"9223372036854775807\"\n");
+
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
@@ -84,7 +86,6 @@ async fn burn() {
         .stdout("")
         .stderr("");
 
-    println!("hi");
     sandbox
         .new_assert_cmd("contract")
         .args([

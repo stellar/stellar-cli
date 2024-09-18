@@ -64,10 +64,15 @@ pub struct TestEnv {
 impl Default for TestEnv {
     fn default() -> Self {
         let temp_dir = TempDir::new().unwrap();
-        Self {
+
+        let env = Self {
             temp_dir,
-            rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
-        }
+            rpc_url: "http://localhost:8000/soroban/rpc".to_string(),
+        };
+
+        env.generate_account("test", None).assert().success();
+
+        env
     }
 }
 
@@ -90,43 +95,13 @@ impl TestEnv {
         f(&test_env);
     }
 
-    pub fn with_default_network<F: FnOnce(&TestEnv)>(f: F) {
-        let test_env = TestEnv::new();
-        f(&test_env);
-    }
-
-    pub fn with_port(host_port: u16) -> TestEnv {
-        Self::with_rpc_url(&format!("http://localhost:{host_port}/soroban/rpc"))
-    }
-
-    pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
-        let env = TestEnv {
-            rpc_url: rpc_url.to_string(),
-            ..Default::default()
-        };
-        env.generate_account("test", None).assert().success();
-        env
-    }
-
-    pub fn new() -> TestEnv {
-        if let Ok(rpc_url) = std::env::var("SOROBAN_RPC_URL") {
-            return Self::with_rpc_url(&rpc_url);
-        }
-        let host_port = std::env::var("SOROBAN_PORT")
-            .as_deref()
-            .ok()
-            .and_then(|n| n.parse().ok())
-            .unwrap_or(8000);
-        Self::with_port(host_port)
-    }
     /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
         let mut cmd: Command = self.bin();
         cmd.arg(subcommand)
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
-            .env("SOROBAN_RPC_URL", &self.rpc_url)
-            .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
+            .env("SOROBAN_NETWORK", "local")
             .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
             .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
             .current_dir(&self.temp_dir);
@@ -134,15 +109,18 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"))
+        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
         let mut cmd = self.new_assert_cmd("keys");
+
         cmd.arg("generate").arg(account);
+
         if let Some(seed) = seed {
             cmd.arg(format!("--seed={seed}"));
         }
+
         cmd
     }
 
@@ -204,12 +182,7 @@ impl TestEnv {
         &self,
         command_str: &[I],
     ) -> T {
-        let mut arg = vec![
-            "--network=local",
-            "--rpc-url=http",
-            "--network-passphrase=AA",
-            "--source-account=test",
-        ];
+        let mut arg = vec!["--network=local", "--source-account=test"];
         let input = command_str
             .iter()
             .map(AsRef::as_ref)
@@ -223,9 +196,7 @@ impl TestEnv {
         let config_dir = Some(self.dir().to_path_buf());
         config::Args {
             network: network::Args {
-                rpc_url: Some(self.rpc_url.clone()),
-                network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
-                network: None,
+                network: Some("local".to_string()),
             },
             source_account: account.to_string(),
             locator: config::locator::Args {
@@ -277,13 +248,6 @@ impl TestEnv {
             .private_key()
             .unwrap()
             .to_string()
-    }
-
-    /// Copy the contents of the current `TestEnv` to another `TestEnv`
-    pub fn fork(&self) -> Result<TestEnv, Error> {
-        let this = TestEnv::new();
-        self.save(&this.temp_dir)?;
-        Ok(this)
     }
 
     /// Save the current state of the `TestEnv` to the given directory.
