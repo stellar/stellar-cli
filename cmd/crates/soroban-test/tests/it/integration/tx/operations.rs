@@ -1,6 +1,7 @@
+use assert_cmd::assert;
 use soroban_cli::{
-    print,
     tx::{builder::String64, ONE_XLM},
+    utils::contract_id_hash_from_asset,
 };
 use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
@@ -160,11 +161,11 @@ async fn account_merge() {
 async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let test = test_address(sandbox);
-    let _ = client.get_account(&test).await.unwrap();
-    let (test, _) = setup_accounts(sandbox);
+    let (test, issuer) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
-    let asset = format!("usdc:{test}");
+    let asset = format!("usdc:{issuer}");
+    issue_asset(sandbox, &test, &issuer, &asset, 100_000, 100).await;
+    let after_issue = client.get_account(&test).await.unwrap();
     // set trustline flags tx new
     let res = sandbox
         .new_assert_cmd("tx")
@@ -176,15 +177,15 @@ async fn set_trustline_flags() {
             "--trustor",
             &test,
             "--set-authorize",
-            "--build-only",
+            "--source",
+            "test1",
         ])
         .assert()
         .success()
         .stdout_as_str();
     let after = client.get_account(&test).await.unwrap();
-    println!("{before:?}\n{after:?}");
+    println!("{before:#?}\n{after_issue:#?}\n{after:#?}");
     println!("{res}");
-    unreachable!();
 }
 
 #[tokio::test]
@@ -228,13 +229,7 @@ async fn set_options_add_signer() {
 async fn set_options() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let test = sandbox
-        .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test")
-        .assert()
-        .success()
-        .stdout_as_str();
+    let (test, alice) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
     sandbox
@@ -246,62 +241,83 @@ async fn set_options() {
             test.as_str(),
             "--home-domain",
             "test.com",
+            "--master-weight=100",
+            "--med-threshold=100",
+            "--low-threshold=100",
+            "--high-threshold=100",
+            "--signer",
+            alice.as_str(),
+            "--signer-weight=100",
+            "--set-required",
+            "--set-revocable",
+            "--set-clawback-enabled",
+            "--set-immutable",
         ])
         .assert()
         .success();
     let after = client.get_account(&test).await.unwrap();
+    println!("{before:#?}\n{after:#?}");
+    assert_eq!(
+        after.flags,
+        xdr::AccountFlags::ClawbackEnabledFlag as u32
+            | xdr::AccountFlags::ImmutableFlag as u32
+            | xdr::AccountFlags::RevocableFlag as u32
+            | xdr::AccountFlags::RequiredFlag as u32
+    );
+    assert_eq!([100, 100, 100, 100], after.thresholds.0);
+    assert_eq!(100, after.signers[0].weight);
+    assert_eq!(alice, after.signers[0].key.to_string());
     let xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(key)) = after.inflation_dest.unwrap().0;
-
     assert_eq!(test, stellar_strkey::ed25519::PublicKey(key).to_string());
     assert_eq!("test.com", after.home_domain.to_string());
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-options",
+            "--inflation-dest",
+            test.as_str(),
+            "--home-domain",
+            "test.com",
+            "--master-weight=100",
+            "--med-threshold=100",
+            "--low-threshold=100",
+            "--high-threshold=100",
+            "--signer",
+            alice.as_str(),
+            "--signer-weight=100",
+            "--set-required",
+            "--set-revocable",
+            "--set-clawback-enabled",
+        ])
+        .assert()
+        .failure();
 }
 
 #[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, issuer) = setup_accounts(sandbox);
     let asset = &format!("usdc:{issuer}");
-    let test_before = client.get_account(&test).await.unwrap();
-    let issuer_before = client.get_account(&issuer).await.unwrap();
     let limit = 100_000_000;
-    println!(
-        "{}",
-        sandbox
-            .new_assert_cmd("tx")
-            .args([
-                "new",
-                "change-trust",
-                "--line",
-                asset,
-                "--limit",
-                limit.to_string().as_str(),
-            ])
-            .assert()
-            .success()
-            .stdout_as_str()
-    );
-    let after = client.get_account(&test).await.unwrap();
-    let after1 = client.get_account(&issuer).await.unwrap();
-
-    println!("{test_before:?}\n{after:?}");
-    println!("{issuer_before:?}\n{after1:?}");
-
-    // sandbox
-    //     .new_assert_cmd("tx")
-    //     .args([
-    //         "new",
-    //         "change-trust",
-    //         "--line",
-    //         asset,
-    //         "--limit",
-    //         limit.to_string().as_str(),
-    //         "--build-only",
-    //     ])
-    //     .assert()
-    //     .success()
-    //     .stdout_as_str();
-    unreachable!();
+    issue_asset(sandbox, &test, &issuer, asset, limit, 100).await;
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("asset")
+        .arg("deploy")
+        .arg("--asset")
+        .arg(asset)
+        .assert()
+        .success();
+    // wrap_cmd(&asset).run().await.unwrap();
+    let asset = soroban_cli::utils::parsing::parse_asset(asset).unwrap();
+    let hash = contract_id_hash_from_asset(&asset, &sandbox.network_passphrase);
+    let id = stellar_strkey::Contract(hash.0).to_string();
+    sandbox
+        .new_assert_cmd("contract")
+        .args(["invoke", "--id", &id, "--", "balance", "--id", &test])
+        .assert()
+        .stdout("\"100\"\n");
 }
 
 #[tokio::test]
@@ -349,4 +365,50 @@ async fn manage_data() {
     };
     assert_eq!(data_name, orig_data_name.into());
     assert_eq!(hex::encode(data_value.0.to_vec()), value);
+}
+
+async fn issue_asset(
+    sandbox: &TestEnv,
+    test: &str,
+    issuer: &str,
+    asset: &str,
+    limit: u64,
+    initial_balance: u64,
+) {
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let test_before = client.get_account(test).await.unwrap();
+    let issuer_before = client.get_account(issuer).await.unwrap();
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "change-trust",
+            "--line",
+            asset,
+            "--limit",
+            limit.to_string().as_str(),
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let after = client.get_account(test).await.unwrap();
+    assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
+    // Send a payment to the issuer
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            test,
+            "--asset",
+            asset,
+            "--amount",
+            initial_balance.to_string().as_str(),
+            "--source=test1",
+        ])
+        .assert()
+        .success();
+    let issuer_after = client.get_account(issuer).await.unwrap();
+    println!("{issuer_after:#?}, {issuer_before:#?}");
 }
