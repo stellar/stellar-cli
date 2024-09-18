@@ -1480,7 +1480,7 @@ Encode XDR
 
   Default value: `single-base64`
 
-  Possible values: `single`, `single-base64`
+  Possible values: `single`, `single-base64`, `stream`
 
 
 

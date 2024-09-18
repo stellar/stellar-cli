@@ -14,7 +14,7 @@ use soroban_env_host::{
     },
     HostError,
 };
-use soroban_sdk::xdr::InvokeContractArgs;
+use soroban_sdk::xdr::{CreateContractArgsV2, InvokeContractArgs};
 use soroban_spec_tools::contract as contract_spec;
 
 use crate::commands::contract::arg_parsing;
@@ -324,18 +324,29 @@ fn build_create_contract_tx(
     contract_id_preimage: ContractIdPreimage,
     constructor_params: Option<&InvokeContractArgs>,
 ) -> Result<Transaction, Error> {
-    if let Some(constructor_args) = constructor_params {
-        eprintln!("Deploying with constructor arguments {constructor_args:#?}");
-    }
-    let op = Operation {
-        source_account: None,
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            host_function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id_preimage,
-                executable: ContractExecutable::Wasm(wasm_hash),
+    let op = if let Some(InvokeContractArgs { args, .. }) = constructor_params {
+        Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                host_function: HostFunction::CreateContractV2(CreateContractArgsV2 {
+                    contract_id_preimage,
+                    executable: ContractExecutable::Wasm(wasm_hash),
+                    constructor_args: args.clone(),
+                }),
+                auth: VecM::default(),
             }),
-            auth: VecM::default(),
-        }),
+        }
+    } else {
+        Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                host_function: HostFunction::CreateContract(CreateContractArgs {
+                    contract_id_preimage,
+                    executable: ContractExecutable::Wasm(wasm_hash),
+                }),
+                auth: VecM::default(),
+            }),
+        }
     };
     let tx = Transaction {
         source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
