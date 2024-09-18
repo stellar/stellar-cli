@@ -9,6 +9,7 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 ## Table of Contents
 
 - [Documentation](#documentation)
+- [Cookbook](#cookbook)
 - [Installation](#installation)
 - [Installation with Experimental Features](#installation-with-experimental-features)
 - [Autocomplete](#autocomplete)
@@ -22,6 +23,9 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 ## Documentation
 
 For installation options see below, for usage instructions [see the full help docs](FULL_HELP_DOCS.md).
+
+## Cookbook
+To understand how to get the most of the Stellar CLI, see the [Stellar CLI Cookbook](https://github.com/stellar/stellar-cli/tree/main/cookbook) for recipes and a collection of resources to teach you how to use the CLI. Examples of recipes included in the CLI cookbook include: send payments, manage contract lifecycle, extend contract instance/storage/wasm, and more.
 
 ## Installation
 Install the latest version from source:
@@ -76,4 +80,5 @@ Find issues to contribute to [here](https://github.com/stellar/stellar-cli/contr
 
 ## Additional Developer Resources
 - Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
-- Video Tutorial: https://developers.stellar.org/meetings/2024/06/27
+- Video Tutorial on `network container`, `keys`, and `contract init`: https://developers.stellar.org/meetings/2024/06/27
+- Video Tutorial on `alias` and `snapshot`: https://developers.stellar.org/meetings/2024/09/12
