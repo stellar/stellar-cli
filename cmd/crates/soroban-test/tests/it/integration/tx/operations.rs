@@ -259,9 +259,12 @@ async fn set_options() {
 #[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
-    let test = test_address(sandbox);
-    let asset = &format!("usdc:{test}");
-    let limit = 100;
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let (test, issuer) = setup_accounts(sandbox);
+    let asset = &format!("usdc:{issuer}");
+    let test_before = client.get_account(&test).await.unwrap();
+    let issuer_before = client.get_account(&issuer).await.unwrap();
+    let limit = 100_000_000;
     println!(
         "{}",
         sandbox
@@ -273,27 +276,31 @@ async fn change_trust() {
                 asset,
                 "--limit",
                 limit.to_string().as_str(),
-                "--build-only",
             ])
             .assert()
             .success()
             .stdout_as_str()
     );
+    let after = client.get_account(&test).await.unwrap();
+    let after1 = client.get_account(&issuer).await.unwrap();
 
-    sandbox
-        .new_assert_cmd("tx")
-        .args([
-            "new",
-            "change-trust",
-            "--line",
-            asset,
-            "--limit",
-            limit.to_string().as_str(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    println!("{test_before:?}\n{after:?}");
+    println!("{issuer_before:?}\n{after1:?}");
+
+    // sandbox
+    //     .new_assert_cmd("tx")
+    //     .args([
+    //         "new",
+    //         "change-trust",
+    //         "--line",
+    //         asset,
+    //         "--limit",
+    //         limit.to_string().as_str(),
+    //         "--build-only",
+    //     ])
+    //     .assert()
+    //     .success()
+    //     .stdout_as_str();
     unreachable!();
 }
 
