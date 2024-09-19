@@ -191,7 +191,9 @@ impl Args {
             .into_iter()
             .flatten()
             .map(|x| x.0);
-        let default_networks = network::DEFAULTS.keys().map(ToString::to_string);
+        let list = network::default_networks();
+        let default_networks = list.keys().map(ToString::to_string);
+
         Ok(saved_networks
             .chain(default_networks)
             .unique()
@@ -211,9 +213,13 @@ impl Args {
                     location.to_string(),
                 ))
             });
-        let default_networks = network::DEFAULTS
-            .into_iter()
-            .map(|(name, network)| ((*name).to_string(), network.into(), "Default".to_owned()));
+        let default_networks = network::default_networks().iter().map(|(name, network)| {
+            (
+                (*name).to_string(),
+                network.to_owned(),
+                "Default".to_owned(),
+            )
+        });
         Ok(saved_networks
             .chain(default_networks)
             .sorted_by(|a, b| Ord::cmp(&a.0, &b.0))
@@ -235,10 +241,12 @@ impl Args {
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         let res = KeyType::Network.read_with_global(name, &self.local_config()?);
         if let Err(Error::ConfigMissing(_, _)) = &res {
-            let Some(network) = network::DEFAULTS.get(name) else {
+            let list = network::default_networks();
+
+            let Some(network) = list.get(name) else {
                 return res;
             };
-            return Ok(network.into());
+            return Ok(network.to_owned());
         }
         res
     }

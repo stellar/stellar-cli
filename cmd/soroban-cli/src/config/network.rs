@@ -1,7 +1,6 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr, sync::OnceLock};
 
 use clap::arg;
-use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use stellar_strkey::ed25519::PublicKey;
@@ -144,36 +143,50 @@ impl Network {
     }
 }
 
-pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str, &'static str)> = phf_map! {
-    "local" => (
-        "local",
-        "http://localhost:8000/rpc",
-        passphrase::LOCAL,
-    ),
-    "futurenet" => (
-        "futurenet",
-        "https://rpc-futurenet.stellar.org:443",
-        passphrase::FUTURENET,
-    ),
-    "testnet" => (
-        "testnet",
-        "https://soroban-testnet.stellar.org",
-        passphrase::TESTNET,
-    ),
-    "mainnet" => (
-        "mainnet",
-        "Bring Your Own: https://developers.stellar.org/docs/data/rpc/rpc-providers",
-        passphrase::MAINNET,
-    ),
-};
+pub fn default_networks() -> &'static HashMap<String, Network> {
+    static HASHMAP: OnceLock<HashMap<String, Network>> = OnceLock::new();
 
-impl From<&(&str, &str, &str)> for Network {
-    /// Convert the return value of `DEFAULTS.get()` into a Network
-    fn from(n: &(&str, &str, &str)) -> Self {
-        Self {
-            name: n.0.to_string(),
-            rpc_url: n.1.to_string(),
-            network_passphrase: n.2.to_string(),
-        }
-    }
+    HASHMAP.get_or_init(|| {
+        let mut map = HashMap::new();
+
+        map.insert(
+            "local".to_string(),
+            Network {
+                name: "local".to_string(),
+                rpc_url: "http://localhost:8000/rpc".to_string(),
+                network_passphrase: passphrase::LOCAL.to_string(),
+            },
+        );
+
+        map.insert(
+            "futurenet".to_string(),
+            Network {
+                name: "futurenet".to_string(),
+                rpc_url: "https://rpc-futurenet.stellar.org:443".to_string(),
+                network_passphrase: passphrase::FUTURENET.to_string(),
+            },
+        );
+
+        map.insert(
+            "testnet".to_string(),
+            Network {
+                name: "testnet".to_string(),
+                rpc_url: "https://soroban-testnet.stellar.org".to_string(),
+                network_passphrase: passphrase::TESTNET.to_string(),
+            },
+        );
+
+        map.insert(
+            "mainnet".to_string(),
+            Network {
+                name: "mainnet".to_string(),
+                rpc_url:
+                    "Bring Your Own: https://developers.stellar.org/docs/data/rpc/rpc-providers"
+                        .to_string(),
+                network_passphrase: passphrase::MAINNET.to_string(),
+            },
+        );
+
+        map
+    })
 }
