@@ -111,7 +111,7 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 
-**Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -128,7 +128,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -167,7 +167,7 @@ Utilities to manage contract aliases
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias remove [OPTIONS] --network <NETWORK> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -185,7 +185,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --network <NETWORK> --id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -205,7 +205,7 @@ Add contract alias
 
 Show the contract id associated with a given alias
 
-**Usage:** `stellar contract alias show [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias show [OPTIONS] --network <NETWORK> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -274,7 +274,7 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -327,7 +327,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -367,7 +367,7 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `stellar contract deploy [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
 
 ###### **Options:**
 
@@ -397,7 +397,7 @@ Deploy a wasm contract
 
 Fetch a contract's Wasm binary
 
-**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -426,7 +426,7 @@ Generate the contract id for a given contract or asset
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -443,7 +443,7 @@ Deploy builtin Soroban Asset Contract
 
 Deploy normal Wasm Contract
 
-**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -480,7 +480,7 @@ The data outputted by this command is a stream of `SCSpecEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info interface [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
@@ -517,7 +517,7 @@ The data outputted by this command is a stream of `SCMetaEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info meta [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
@@ -554,7 +554,7 @@ The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. S
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info env-meta [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
@@ -634,7 +634,7 @@ Inspect a WASM file listing contract functions, meta, etc
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract install [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
@@ -665,7 +665,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --network <NETWORK> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -719,7 +719,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `stellar contract read [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -764,7 +764,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `stellar contract restore [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -804,7 +804,7 @@ If no keys are specificed the contract itself is restored.
 
 Watch the network for contract events
 
-**Usage:** `stellar events [OPTIONS]`
+**Usage:** `stellar events [OPTIONS] --network <NETWORK>`
 
 ###### **Options:**
 
@@ -906,7 +906,7 @@ Given an identity return its address (public key)
 
 Fund an identity on a test network
 
-**Usage:** `stellar keys fund [OPTIONS] <NAME>`
+**Usage:** `stellar keys fund [OPTIONS] --network <NETWORK> <NAME>`
 
 ###### **Arguments:**
 
@@ -925,7 +925,7 @@ Fund an identity on a test network
 
 Generate a new identity with a seed phrase, currently 12 words
 
-**Usage:** `stellar keys generate [OPTIONS] <NAME>`
+**Usage:** `stellar keys generate [OPTIONS] --network <NETWORK> <NAME>`
 
 ###### **Arguments:**
 
@@ -1216,7 +1216,7 @@ Contract addresses include the related wasm, contract data.
 
 If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
 
-**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -1256,7 +1256,7 @@ Sign, Simulate, and Send transactions
 
 Simulate a transaction envelope from stdin
 
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx simulate [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -1272,7 +1272,7 @@ Simulate a transaction envelope from stdin
 
 Calculate the hash of a transaction envelope from stdin
 
-**Usage:** `stellar tx hash [OPTIONS]`
+**Usage:** `stellar tx hash --network <NETWORK>`
 
 ###### **Options:**
 

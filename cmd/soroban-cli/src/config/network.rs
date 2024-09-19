@@ -42,17 +42,14 @@ pub struct Args {
         long,
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
-        global = true,
     )]
-    pub network: Option<String>,
+    pub network: String,
 }
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
-        if let Some(network) = &self.network {
-            if let Ok(network) = locator.read_network(network.as_str()) {
-                return Ok(network);
-            }
+        if let Ok(network) = locator.read_network(self.network.as_str()) {
+            return Ok(network);
         }
 
         Err(Error::Network)

@@ -196,7 +196,7 @@ impl TestEnv {
         let config_dir = Some(self.dir().to_path_buf());
         config::Args {
             network: network::Args {
-                network: Some("local".to_string()),
+                network: "local".to_string(),
             },
             source_account: account.to_string(),
             locator: config::locator::Args {
