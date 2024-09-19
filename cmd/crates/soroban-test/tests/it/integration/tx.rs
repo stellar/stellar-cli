@@ -1,3 +1,4 @@
+use soroban_rpc::GetTransactionResponse;
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
@@ -71,14 +72,12 @@ async fn send() {
     );
 
     let rpc_result = send_manually(sandbox, &tx_env).await;
-
-    println!("Transaction sent: {rpc_result}");
+    assert_eq!(rpc_result.status, "SUCCESS");
 }
 
-async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> String {
+async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> GetTransactionResponse {
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let res = client.send_transaction_polling(tx_env).await.unwrap();
-    serde_json::to_string_pretty(&res).unwrap()
+    client.send_transaction_polling(tx_env).await.unwrap()
 }
 
 fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> TransactionEnvelope {
@@ -87,7 +86,6 @@ fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> Transaction
             .new_assert_cmd("tx")
             .arg("sign")
             .arg("--sign-with-key=test")
-            .arg("--yes")
             .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
             .assert()
             .success()

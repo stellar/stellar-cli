@@ -3,10 +3,15 @@ use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
+use crate::print::Print;
+use crate::signer::types::transaction_hash;
+use crate::xdr::{self, DecoratedSignature};
 use crate::{
     signer::{self, LocalKey},
     utils,
 };
+
+use super::network::Network;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -125,12 +130,21 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(&self, index: Option<usize>, prompt: bool) -> Result<StellarSigner, Error> {
-        match self {
-            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => Ok(StellarSigner::Local(
-                LocalKey::new(self.key_pair(index)?, prompt),
-            )),
-        }
+    pub fn signer(
+        &self,
+        index: Option<usize>,
+        prompt: bool,
+        quiet: bool,
+    ) -> Result<StellarSigner, Error> {
+        let kind = match self {
+            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
+                SignerKind::Local(LocalKey::new(self.key_pair(index)?, prompt))
+            }
+        };
+        Ok(StellarSigner {
+            kind,
+            printer: Print::new(quiet),
+        })
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -153,15 +167,28 @@ impl Secret {
     }
 }
 
-pub enum StellarSigner {
+pub struct StellarSigner {
+    kind: SignerKind,
+    printer: Print,
+}
+
+pub enum SignerKind {
     Local(LocalKey),
 }
 
 #[async_trait::async_trait]
-impl signer::Blob for StellarSigner {
-    async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, signer::types::Error> {
-        match self {
-            StellarSigner::Local(signer) => signer.sign_blob(blob).await,
+impl signer::Transaction for StellarSigner {
+    async fn sign_txn(
+        &self,
+        txn: &xdr::Transaction,
+        network: &Network,
+    ) -> Result<DecoratedSignature, signer::types::Error> {
+        let tx_hash = transaction_hash(txn, &network.network_passphrase)?;
+        let hex_hash = hex::encode(tx_hash);
+        self.printer
+            .infoln(format!("Signing transaction with hash: {hex_hash}"));
+        match &self.kind {
+            SignerKind::Local(key) => key.sign_txn(txn, network).await,
         }
     }
 }

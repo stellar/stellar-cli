@@ -11,7 +11,7 @@ use soroban_env_host::xdr::{
 };
 
 pub mod types;
-pub use types::{Blob, LocalKey, Transaction, TransactionHash};
+pub use types::{LocalKey, Transaction, TransactionHash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

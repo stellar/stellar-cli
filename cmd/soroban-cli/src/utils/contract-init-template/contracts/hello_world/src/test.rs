@@ -6,8 +6,8 @@ use soroban_sdk::{vec, Env, String};
 #[test]
 fn test() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, HelloContract);
-    let client = HelloContractClient::new(&env, &contract_id);
+    let contract_id = env.register_contract(None, Contract);
+    let client = ContractClient::new(&env, &contract_id);
 
     let words = client.hello(&String::from_str(&env, "Dev"));
     assert_eq!(

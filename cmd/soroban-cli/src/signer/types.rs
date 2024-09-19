@@ -1,4 +1,3 @@
-use crossterm::event::{read, Event, KeyCode};
 use ed25519_dalek::ed25519::signature::Signer;
 use sha2::{Digest, Sha256};
 
@@ -33,7 +32,7 @@ pub enum Error {
 pub fn transaction_hash(
     txn: &xdr::Transaction,
     network_passphrase: &str,
-) -> Result<[u8; 32], Error> {
+) -> Result<[u8; 32], xdr::Error> {
     let signature_payload = TransactionSignaturePayload {
         network_id: hash(network_passphrase),
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
@@ -42,46 +41,15 @@ pub fn transaction_hash(
     Ok(hash)
 }
 
-/// A trait for signing arbitrary byte arrays
-#[async_trait::async_trait]
-pub trait Blob {
-    /// Sign an abritatry byte array
-    async fn sign_blob(&self, blob: &[u8]) -> Result<Vec<u8>, Error>;
-}
-
 #[async_trait::async_trait]
 pub trait TransactionHash {
-    /// Sign a transaction hash with the given source account
+    /// Sign a transaction hash with the given signer
     /// # Errors
     /// Returns an error if the source account is not found
-    async fn sign_txn_hash(
-        &self,
-        source_account: &stellar_strkey::ed25519::PublicKey,
-        txn: [u8; 32],
-    ) -> Result<DecoratedSignature, Error>;
-}
-#[async_trait::async_trait]
-impl<T> TransactionHash for T
-where
-    T: Blob + Send + Sync,
-{
-    async fn sign_txn_hash(
-        &self,
-        source_account: &stellar_strkey::ed25519::PublicKey,
-        txn: [u8; 32],
-    ) -> Result<DecoratedSignature, Error> {
-        eprintln!(
-            "{} about to sign hash: {}",
-            source_account.to_string(),
-            hex::encode(txn)
-        );
-        let tx_signature = self.sign_blob(&txn).await?;
-        Ok(DecoratedSignature {
-            // TODO: remove this unwrap. It's safe because we know the length of the array
-            hint: SignatureHint(source_account.0[28..].try_into().unwrap()),
-            signature: Signature(tx_signature.try_into()?),
-        })
-    }
+    async fn sign_txn_hash(&self, txn: [u8; 32]) -> Result<Signature, Error>;
+
+    /// Return the signature hint required for a `DecoratedSignature``
+    fn hint(&self) -> SignatureHint;
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries
@@ -95,7 +63,6 @@ pub trait Transaction {
     /// Returns an error if the source account is not found
     async fn sign_txn(
         &self,
-        source_account: &stellar_strkey::ed25519::PublicKey,
         txn: &xdr::Transaction,
         network: &Network,
     ) -> Result<DecoratedSignature, Error>;
@@ -108,25 +75,25 @@ where
 {
     async fn sign_txn(
         &self,
-        source_account: &stellar_strkey::ed25519::PublicKey,
         txn: &xdr::Transaction,
         Network {
             network_passphrase, ..
         }: &Network,
     ) -> Result<DecoratedSignature, Error> {
         let hash = transaction_hash(txn, network_passphrase)?;
-        self.sign_txn_hash(source_account, hash).await
+        let hint = self.hint();
+        let signature = self.sign_txn_hash(hash).await?;
+        Ok(DecoratedSignature { hint, signature })
     }
 }
 pub async fn sign_txn_env(
     signer: &(impl Transaction + std::marker::Sync),
-    source_account: &stellar_strkey::ed25519::PublicKey,
     txn_env: TransactionEnvelope,
     network: &Network,
 ) -> Result<TransactionEnvelope, Error> {
     match txn_env {
         TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-            let decorated_signature = signer.sign_txn(source_account, &tx, network).await?;
+            let decorated_signature = signer.sign_txn(&tx, network).await?;
             let mut sigs = signatures.to_vec();
             sigs.push(decorated_signature);
             Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -144,6 +111,7 @@ pub(crate) fn hash(network_passphrase: &str) -> xdr::Hash {
 
 pub struct LocalKey {
     key: ed25519_dalek::SigningKey,
+    #[allow(dead_code)]
     prompt: bool,
 }
 
@@ -154,30 +122,17 @@ impl LocalKey {
 }
 
 #[async_trait::async_trait]
-impl Blob for LocalKey {
-    async fn sign_blob(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
-        if self.prompt {
-            eprintln!("Press 'y' or 'Y' for yes, any other key for no:");
-            match read_key() {
-                'y' | 'Y' => {
-                    eprintln!("Signing now...");
-                }
-                _ => return Err(Error::UserCancelledSigning),
-            };
-        }
-        let sig = self.key.sign(data);
-        Ok(sig.to_bytes().to_vec())
+impl TransactionHash for LocalKey {
+    async fn sign_txn_hash(&self, txn: [u8; 32]) -> Result<Signature, Error> {
+        let sig = self.key.sign(&txn);
+        Ok(Signature(sig.to_bytes().to_vec().try_into()?))
     }
-}
 
-pub fn read_key() -> char {
-    loop {
-        if let Event::Key(key) = read().unwrap() {
-            match key.code {
-                KeyCode::Char(c) => return c,
-                KeyCode::Esc => return '\x1b', // escape key
-                _ => (),
-            }
-        }
+    fn hint(&self) -> SignatureHint {
+        SignatureHint(
+            self.key.verifying_key().to_bytes()[28..]
+                .try_into()
+                .unwrap(),
+        )
     }
 }

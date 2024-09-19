@@ -1,4 +1,5 @@
 use crate::{
+    commands::global,
     config::{locator, network, sign_with},
     xdr::{self, Limits, WriteXdr},
 };
@@ -30,7 +31,7 @@ pub struct Cmd {
 
 impl Cmd {
     #[allow(clippy::unused_async)]
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let txn_env = super::xdr::tx_envelope_from_stdin()?;
         if self.sign_with.sign_with_lab {
             return Ok(self
@@ -40,7 +41,12 @@ impl Cmd {
 
         let envelope = self
             .sign_with
-            .sign_txn_env(txn_env, &self.locator, &self.network.get(&self.locator)?)
+            .sign_txn_env(
+                txn_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                global_args.quiet,
+            )
             .await?;
         println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
         Ok(())
