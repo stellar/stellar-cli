@@ -8,7 +8,6 @@ use crate::{
 use clap::arg;
 use soroban_env_host::xdr::WriteXdr;
 use soroban_sdk::xdr::Limits;
-use stellar_strkey::ed25519::PublicKey;
 use url::Url;
 
 use super::{
