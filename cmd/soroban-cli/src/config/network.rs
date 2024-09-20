@@ -79,6 +79,7 @@ impl Args {
         {
             Ok(Network {
                 rpc_url,
+                rpc_header: None, //todo: fix me
                 network_passphrase,
             })
         } else {
@@ -97,6 +98,13 @@ pub struct Network {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
+    /// Optional RPC provider api key header
+    #[arg(
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADER",
+        help_heading = HEADING_RPC,
+    )]
+    pub rpc_header: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
             long,
@@ -202,6 +210,7 @@ impl From<&(&str, &str)> for Network {
     fn from(n: &(&str, &str)) -> Self {
         Self {
             rpc_url: n.0.to_string(),
+            rpc_header: None,
             network_passphrase: n.1.to_string(),
         }
     }
