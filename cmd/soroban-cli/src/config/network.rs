@@ -47,6 +47,14 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
+    /// Optional RPC provider api key headers
+    #[arg(
+            long = "rpc-header",
+            requires = "rpc_url",
+            env = "STELLAR_RPC_HEADER",
+            help_heading = HEADING_RPC,
+        )]
+    pub rpc_header: Option<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -79,7 +87,7 @@ impl Args {
         {
             Ok(Network {
                 rpc_url,
-                rpc_header: None, //todo: fix me
+                rpc_header: self.rpc_header.clone(),
                 network_passphrase,
             })
         } else {
