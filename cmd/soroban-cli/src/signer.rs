@@ -11,7 +11,7 @@ use soroban_env_host::xdr::{
 
 pub mod types;
 use crate::utils::transaction_hash;
-pub use types::{LocalKey, SignTx};
+pub use types::{LocalKey, SignerKind, StellarSigner};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

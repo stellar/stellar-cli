@@ -2,6 +2,8 @@ use ed25519_dalek::ed25519::signature::Signer;
 
 use crate::{
     config::network::Network,
+    print::Print,
+    utils::transaction_hash,
     xdr::{
         self, DecoratedSignature, Signature, SignatureHint, TransactionEnvelope,
         TransactionV1Envelope,
@@ -26,14 +28,39 @@ pub enum Error {
     UnsupportedTransactionEnvelopeType,
 }
 
+pub struct StellarSigner {
+    pub kind: SignerKind,
+    pub printer: Print,
+}
+
+pub enum SignerKind {
+    Local(LocalKey),
+}
+
+impl StellarSigner {
+    pub fn sign_tx(
+        &self,
+        txn: &xdr::Transaction,
+        network: &Network,
+    ) -> Result<DecoratedSignature, Error> {
+        let tx_hash = transaction_hash(txn, &network.network_passphrase)?;
+        let hex_hash = hex::encode(tx_hash);
+        self.printer
+            .infoln(format!("Signing transaction with hash: {hex_hash}"));
+        match &self.kind {
+            SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
+        }
+    }
+}
+
 pub async fn sign_tx_env(
-    signer: &(impl SignTx + std::marker::Sync),
+    signer: &StellarSigner,
     txn_env: TransactionEnvelope,
     network: &Network,
 ) -> Result<TransactionEnvelope, Error> {
     match txn_env {
         TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-            let decorated_signature = signer.sign_tx(&tx, network).await?;
+            let decorated_signature = signer.sign_tx(&tx, network)?;
             let mut sigs = signatures.to_vec();
             sigs.push(decorated_signature);
             Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -43,22 +70,6 @@ pub async fn sign_tx_env(
         }
         _ => Err(Error::UnsupportedTransactionEnvelopeType),
     }
-}
-
-/// A trait for signing Stellar transactions and Soroban authorization entries
-#[async_trait::async_trait]
-pub trait SignTx {
-    /// Sign a Stellar transaction with the given source account
-    /// This is a default implementation that signs the transaction hash and returns a decorated signature
-    ///
-    /// Todo: support signing the transaction directly.
-    /// # Errors
-    /// Returns an error if the source account is not found
-    async fn sign_tx(
-        &self,
-        txn: &xdr::Transaction,
-        network: &Network,
-    ) -> Result<DecoratedSignature, Error>;
 }
 
 pub struct LocalKey {
