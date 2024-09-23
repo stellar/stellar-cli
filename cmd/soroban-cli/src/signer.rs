@@ -5,8 +5,8 @@ use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, TransactionEnvelope, TransactionV1Envelope,
-    Uint256, WriteXdr,
+    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
+    TransactionV1Envelope, Uint256, WriteXdr,
 };
 
 pub mod types;
@@ -29,7 +29,7 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-fn requires_auth(txn: &xdr::Transaction) -> Option<xdr::Operation> {
+fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
     let [op @ Operation {
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
         ..
@@ -47,12 +47,12 @@ fn requires_auth(txn: &xdr::Transaction) -> Option<xdr::Operation> {
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
-    raw: &xdr::Transaction,
+    raw: &Transaction,
     source_key: &ed25519_dalek::SigningKey,
     signers: &[ed25519_dalek::SigningKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
-) -> Result<Option<xdr::Transaction>, Error> {
+) -> Result<Option<Transaction>, Error> {
     let mut tx = raw.clone();
     let Some(mut op) = requires_auth(&tx) else {
         return Ok(None);
@@ -194,7 +194,7 @@ fn sign_soroban_authorization_entry(
 
 pub fn sign_tx(
     key: &ed25519_dalek::SigningKey,
-    tx: &xdr::Transaction,
+    tx: &Transaction,
     network_passphrase: &str,
 ) -> Result<TransactionEnvelope, Error> {
     let tx_hash = transaction_hash(tx, network_passphrase)?;
