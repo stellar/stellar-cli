@@ -86,11 +86,7 @@ impl LocalKey {
 
 impl LocalKey {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let hint = SignatureHint(
-            self.key.verifying_key().to_bytes()[28..]
-                .try_into()
-                .unwrap(),
-        );
+        let hint = SignatureHint(self.key.verifying_key().to_bytes()[28..].try_into()?);
         let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
