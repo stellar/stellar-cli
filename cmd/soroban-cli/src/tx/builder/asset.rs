@@ -25,3 +25,9 @@ impl From<Asset> for xdr::Asset {
         builder.0
     }
 }
+
+impl From<&Asset> for Asset {
+    fn from(builder: &Asset) -> Self {
+        builder.clone()
+    }
+}

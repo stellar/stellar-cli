@@ -1368,7 +1368,8 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--account <ACCOUNT>` — Account to merge with
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
+* `--account <ACCOUNT>` — Account to merge with, e.g. `GBX...`
 
 
 
@@ -1394,6 +1395,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
 * `--bump-to <BUMP_TO>` — Sequence number to bump to
 
 
@@ -1420,6 +1422,7 @@ Creates, updates, or deletes a trustline Learn more about trustlines: [Trustline
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
 * `--line <LINE>`
 * `--limit <LIMIT>` — Limit for the trust line
 
@@ -1447,8 +1450,9 @@ Creates and funds a new account with the specified starting balance Threshold: M
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--destination <DESTINATION>` — Account to create
-* `--starting-balance <STARTING_BALANCE>` — Initial balance of the account, default 1 XLM
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
+* `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
+* `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
 
 
@@ -1474,6 +1478,7 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
 * `--data-name <DATA_NAME>` — Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
 
@@ -1501,7 +1506,8 @@ Sends an amount in a specific asset to a destination account Threshold: Medium
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--destination <DESTINATION>` — Account to send to
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
+* `--destination <DESTINATION>` — Account to send to, e.g. `GBX...`
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
@@ -1531,6 +1537,7 @@ Set option for an account such as flags, inflation destination, signers, home do
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
 * `--inflation-dest <INFLATION_DEST>` — Account of the inflation destination
 * `--master-weight <MASTER_WEIGHT>` — A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled
 * `--low-threshold <LOW_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a low threshold](../../encyclopedia/security/signatures-multisig.mdx)
@@ -1572,6 +1579,7 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--with-source-account <WITH_SOURCE_ACCOUNT>` — e.g. `GA3D5...` or `MA3D5...`
 * `--trustor <TRUSTOR>` — Account to set trustline flags for
 * `--asset <ASSET>` — Asset to set trustline flags for
 * `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders

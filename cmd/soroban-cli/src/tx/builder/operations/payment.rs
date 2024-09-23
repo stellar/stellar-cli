@@ -8,16 +8,12 @@ use super::Operation;
 pub struct Payment(pub PaymentOp);
 
 impl Payment {
-    pub fn new(
-        destination: impl Into<MuxedAccount>,
-        asset: Asset,
-        amount: i64,
-    ) -> Result<Self, super::super::asset::Error> {
-        Ok(Self(PaymentOp {
+    pub fn new(destination: impl Into<MuxedAccount>, asset: Asset, amount: i64) -> Self {
+        Self(PaymentOp {
             destination: destination.into().into(),
             asset: asset.into(),
             amount,
-        }))
+        })
     }
 }
 impl Operation for Payment {

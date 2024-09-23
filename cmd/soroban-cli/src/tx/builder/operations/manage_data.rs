@@ -7,11 +7,11 @@ pub struct ManageData(xdr::ManageDataOp);
 impl ManageData {
     /// Creates a new `ManageDataOp` builder with the given asset.
     /// if limit is set to 0, deletes the trust line
-    pub fn new(data_name: builder::String64) -> Result<Self, xdr::Error> {
-        Ok(Self(xdr::ManageDataOp {
+    pub fn new(data_name: builder::String64) -> Self {
+        Self(xdr::ManageDataOp {
             data_name: data_name.into(),
             data_value: None,
-        }))
+        })
     }
 
     #[must_use]

@@ -1,5 +1,3 @@
-use std::{fmt::Debug, str::FromStr};
-
 use clap::{command, Parser};
 
 use soroban_sdk::xdr::{self, Limits, WriteXdr};
@@ -10,9 +8,9 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    config::{self, data, network, secret},
+    config::{self, address},
     rpc,
-    tx::builder,
+    tx::builder::ops,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -20,33 +18,20 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::args::Args,
-    /// Account to merge with
+    /// Account to merge with, e.g. `GBX...`
     #[arg(long)]
-    pub account: String,
+    pub account: address::Address,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-    #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    TxBuilder(#[from] builder::Error),
-    #[error(transparent)]
-    Data(#[from] data::Error),
+
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
-    Asset(#[from] builder::asset::Error),
+    Address(#[from] address::Error),
 }
 
 impl Cmd {
@@ -61,6 +46,10 @@ impl Cmd {
         };
         Ok(())
     }
+
+    pub fn op(&self) -> ops::AccountMerge {
+        ops::AccountMerge::new(self.account)
+    }
 }
 
 #[async_trait::async_trait]
@@ -74,13 +63,10 @@ impl NetworkRunnable for Cmd {
         _: Option<&config::Args>,
     ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
         let tx_build = self.tx.tx_builder().await?;
-        let account = stellar_strkey::ed25519::PublicKey::from_str(&self.account)?;
-        let op = builder::ops::AccountMerge::new(account);
-
         Ok(self
             .tx
             .handle_tx(
-                tx_build.add_operation_builder(op, None),
+                tx_build.add_operation_builder(self.op(), self.tx.with_source_account),
                 &args.cloned().unwrap_or_default(),
             )
             .await?)

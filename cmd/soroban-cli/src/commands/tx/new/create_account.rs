@@ -1,5 +1,3 @@
-use std::{fmt::Debug, str::FromStr};
-
 use clap::{command, Parser};
 
 use soroban_sdk::xdr::{self, Limits, WriteXdr};
@@ -10,7 +8,7 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    config::{self, data, network, secret},
+    config::{self},
     rpc,
     tx::builder,
 };
@@ -20,10 +18,10 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::args::Args,
-    /// Account to create
+    /// Account Id to create, e.g. `GBX...`
     #[arg(long)]
-    pub destination: String,
-    /// Initial balance of the account, default 1 XLM
+    pub destination: builder::AccountId,
+    /// Initial balance in stroops of the account, default 1 XLM
     #[arg(long)]
     pub starting_balance: Option<i64>,
 }
@@ -31,21 +29,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-    #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    TxBuilder(#[from] builder::Error),
-    #[error(transparent)]
-    Data(#[from] data::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
 }
@@ -62,6 +46,10 @@ impl Cmd {
         };
         Ok(())
     }
+
+    pub fn op(&self) -> builder::ops::CreateAccount {
+        builder::ops::CreateAccount::new(&self.destination, self.starting_balance)
+    }
 }
 
 #[async_trait::async_trait]
@@ -75,13 +63,10 @@ impl NetworkRunnable for Cmd {
         _: Option<&config::Args>,
     ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
         let tx_build = self.tx.tx_builder().await?;
-        let destination = stellar_strkey::ed25519::PublicKey::from_str(&self.destination)?;
-        let op = builder::ops::CreateAccount::new(destination, self.starting_balance);
-
         Ok(self
             .tx
             .handle_tx(
-                tx_build.add_operation_builder(op, None),
+                tx_build.add_operation_builder(self.op(), self.tx.with_source_account),
                 &args.cloned().unwrap_or_default(),
             )
             .await?)

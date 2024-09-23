@@ -11,8 +11,21 @@ impl From<AccountId> for xdr::AccountId {
     }
 }
 
+impl From<&AccountId> for AccountId {
+    fn from(account_id: &AccountId) -> Self {
+        Self(account_id.0.clone())
+    }
+}
+
 impl From<stellar_strkey::ed25519::PublicKey> for AccountId {
     fn from(key: stellar_strkey::ed25519::PublicKey) -> Self {
+        AccountId(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
+            xdr::Uint256(key.0),
+        )))
+    }
+}
+impl From<&stellar_strkey::ed25519::PublicKey> for AccountId {
+    fn from(key: &stellar_strkey::ed25519::PublicKey) -> Self {
         AccountId(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
             xdr::Uint256(key.0),
         )))

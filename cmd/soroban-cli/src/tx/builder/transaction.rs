@@ -36,7 +36,7 @@ impl Transaction {
     pub fn add_operation_builder(
         mut self,
         operation: impl Operation,
-        source_account: Option<xdr::MuxedAccount>,
+        source_account: Option<impl Into<MuxedAccount>>,
     ) -> Self {
         self.operations.push(operation.build_op(source_account));
         self

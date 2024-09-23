@@ -1,3 +1,5 @@
+use soroban_sdk::xdr::MuxedAccountMed25519;
+
 use crate::xdr::{self, Uint256};
 
 pub struct MuxedAccount(pub xdr::MuxedAccount);
@@ -35,6 +37,23 @@ impl From<stellar_strkey::ed25519::PublicKey> for MuxedAccount {
 impl From<&stellar_strkey::ed25519::PublicKey> for MuxedAccount {
     fn from(key: &stellar_strkey::ed25519::PublicKey) -> Self {
         MuxedAccount(xdr::MuxedAccount::Ed25519(Uint256(key.0)))
+    }
+}
+impl From<stellar_strkey::ed25519::MuxedAccount> for MuxedAccount {
+    fn from(key: stellar_strkey::ed25519::MuxedAccount) -> Self {
+        MuxedAccount(xdr::MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
+            id: key.id,
+            ed25519: Uint256(key.ed25519),
+        }))
+    }
+}
+
+impl From<&stellar_strkey::ed25519::MuxedAccount> for MuxedAccount {
+    fn from(key: &stellar_strkey::ed25519::MuxedAccount) -> Self {
+        MuxedAccount(xdr::MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
+            id: key.id,
+            ed25519: Uint256(key.ed25519),
+        }))
     }
 }
 

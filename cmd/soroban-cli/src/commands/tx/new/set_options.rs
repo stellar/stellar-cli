@@ -8,7 +8,7 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    config::{self, data, network, secret},
+    config::{self},
     rpc,
     tx::builder,
 };
@@ -72,21 +72,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-    #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    TxBuilder(#[from] builder::Error),
-    #[error(transparent)]
-    Data(#[from] data::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
@@ -105,19 +91,8 @@ impl Cmd {
         };
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<rpc::GetTransactionResponse>;
-
-    async fn run_against_rpc_server(
-        &self,
-        args: Option<&global::Args>,
-        _: Option<&config::Args>,
-    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
-        let tx_build = self.tx.tx_builder().await?;
+    pub fn op(&self) -> Result<builder::ops::SetOptions, Error> {
         let mut op = builder::ops::SetOptions::new();
 
         if let Some(inflation_dest) = self.inflation_dest.as_ref() {
@@ -178,11 +153,25 @@ impl NetworkRunnable for Cmd {
         if self.clear_clawback_enabled {
             op = op.clear_clawback_enabled_flag();
         };
+        Ok(op)
+    }
+}
 
+#[async_trait::async_trait]
+impl NetworkRunnable for Cmd {
+    type Error = Error;
+    type Result = TxnResult<rpc::GetTransactionResponse>;
+
+    async fn run_against_rpc_server(
+        &self,
+        args: Option<&global::Args>,
+        _: Option<&config::Args>,
+    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
+        let tx_build = self.tx.tx_builder().await?;
         Ok(self
             .tx
             .handle_tx(
-                tx_build.add_operation_builder(op, None),
+                tx_build.add_operation_builder(self.op()?, self.tx.with_source_account),
                 &args.cloned().unwrap_or_default(),
             )
             .await?)

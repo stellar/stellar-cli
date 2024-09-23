@@ -13,6 +13,7 @@ use crate::{
 
 use self::{network::Network, secret::Secret};
 
+pub mod address;
 pub mod alias;
 pub mod data;
 pub mod locator;

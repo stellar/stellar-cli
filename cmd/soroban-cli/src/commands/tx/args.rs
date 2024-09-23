@@ -2,11 +2,10 @@ use soroban_rpc::GetTransactionResponse;
 
 use crate::{
     commands::{global, txn_result::TxnResult},
-    config::{self, data, network, secret},
+    config::{self, address, data, network, secret},
     fee,
     rpc::{self, Client},
     tx::builder,
-    xdr,
 };
 
 #[derive(Debug, clap::Args, Clone)]
@@ -16,6 +15,14 @@ pub struct Args {
     pub fee: fee::Args,
     #[clap(flatten)]
     pub config: config::Args,
+    //// The source account for the operation, Public key or Muxxed Account
+    /// e.g. `GA3D5...` or `MA3D5...`
+    #[arg(
+        long,
+        visible_alias = "with_source",
+        env = "STELLAR_WITH_SOURCE_ACCOUNT"
+    )]
+    pub with_source_account: Option<address::Address>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -27,15 +34,11 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Tx(#[from] builder::Error),
     #[error(transparent)]
     Data(#[from] data::Error),
-    #[error(transparent)]
-    Xdr(#[from] xdr::Error),
 }
 
 impl Args {

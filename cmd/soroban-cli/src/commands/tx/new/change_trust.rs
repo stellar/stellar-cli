@@ -8,7 +8,7 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
-    config::{self, data, network, secret},
+    config::{self},
     rpc,
     tx::builder,
 };
@@ -28,25 +28,9 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-    #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     Tx(#[from] tx::args::Error),
     #[error(transparent)]
-    TxBuilder(#[from] builder::Error),
-    #[error(transparent)]
-    Data(#[from] data::Error),
-    #[error(transparent)]
     Xdr(#[from] xdr::Error),
-    #[error(transparent)]
-    AssetCode(#[from] builder::asset_code::Error),
 }
 
 impl Cmd {
@@ -61,6 +45,15 @@ impl Cmd {
         };
         Ok(())
     }
+
+    pub fn op(&self) -> builder::ops::ChangeTrust {
+        let line = match self.line.0.clone() {
+            xdr::Asset::CreditAlphanum4(asset) => xdr::ChangeTrustAsset::CreditAlphanum4(asset),
+            xdr::Asset::CreditAlphanum12(asset) => xdr::ChangeTrustAsset::CreditAlphanum12(asset),
+            xdr::Asset::Native => xdr::ChangeTrustAsset::Native,
+        };
+        builder::ops::ChangeTrust::new(line, self.limit)
+    }
 }
 
 #[async_trait::async_trait]
@@ -74,18 +67,11 @@ impl NetworkRunnable for Cmd {
         _: Option<&config::Args>,
     ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
         let tx_build = self.tx.tx_builder().await?;
-        // TODO add Pool Share
-        let line = match self.line.0.clone() {
-            xdr::Asset::CreditAlphanum4(asset) => xdr::ChangeTrustAsset::CreditAlphanum4(asset),
-            xdr::Asset::CreditAlphanum12(asset) => xdr::ChangeTrustAsset::CreditAlphanum12(asset),
-            xdr::Asset::Native => xdr::ChangeTrustAsset::Native,
-        };
-        let op = builder::ops::ChangeTrust::new(line, self.limit);
 
         Ok(self
             .tx
             .handle_tx(
-                tx_build.add_operation_builder(op, None),
+                tx_build.add_operation_builder(self.op(), self.tx.with_source_account),
                 &args.cloned().unwrap_or_default(),
             )
             .await?)
