@@ -1,4 +1,4 @@
-use ed25519_dalek::ed25519::signature::Signer;
+use ed25519_dalek::ed25519::signature::Signer as _;
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{
@@ -192,16 +192,17 @@ fn sign_soroban_authorization_entry(
     Ok(auth)
 }
 
-pub struct StellarSigner {
+pub struct Signer {
     pub kind: SignerKind,
     pub printer: Print,
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub enum SignerKind {
     Local(LocalKey),
 }
 
-impl StellarSigner {
+impl Signer {
     pub fn sign_tx(
         &self,
         tx: Transaction,

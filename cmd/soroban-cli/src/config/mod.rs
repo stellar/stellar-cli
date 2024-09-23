@@ -4,11 +4,10 @@ use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
 use soroban_rpc::Client;
-use soroban_sdk::xdr::{TransactionV1Envelope, VecM};
 
 use crate::{
     print::Print,
-    signer::{self, LocalKey, SignerKind, StellarSigner},
+    signer::{self, LocalKey, Signer, SignerKind},
     xdr::{Transaction, TransactionEnvelope},
     Pwd,
 };
@@ -69,7 +68,7 @@ impl Args {
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.key_pair()?;
         let network = &self.get_network()?;
-        let signer = StellarSigner {
+        let signer = Signer {
             kind: SignerKind::Local(LocalKey::new(key, false)),
             printer: Print::new(false),
         };

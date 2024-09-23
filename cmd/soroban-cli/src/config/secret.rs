@@ -5,7 +5,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::print::Print;
 use crate::{
-    signer::{self, LocalKey, SignerKind, StellarSigner},
+    signer::{self, LocalKey, Signer, SignerKind},
     utils,
 };
 
@@ -126,18 +126,13 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(
-        &self,
-        index: Option<usize>,
-        prompt: bool,
-        quiet: bool,
-    ) -> Result<StellarSigner, Error> {
+    pub fn signer(&self, index: Option<usize>, prompt: bool, quiet: bool) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 SignerKind::Local(LocalKey::new(self.key_pair(index)?, prompt))
             }
         };
-        Ok(StellarSigner {
+        Ok(Signer {
             kind,
             printer: Print::new(quiet),
         })
