@@ -31,7 +31,7 @@ pub struct Args {
     /// Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(long, conflicts_with = "sign_with_lab", env = "STELLAR_SIGN_WITH_KEY")]
     pub sign_with_key: Option<String>,
-    /// Sign with https://lab.stellar.org
+    /// Sign with <https://lab.stellar.org>
     #[arg(
         long,
         conflicts_with = "sign_with_key",
