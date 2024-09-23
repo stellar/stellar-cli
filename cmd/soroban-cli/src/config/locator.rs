@@ -217,11 +217,11 @@ impl Args {
         KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
-    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
-        if let Ok(signer) = account_str.parse::<Secret>() {
+    pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {
+        if let Ok(signer) = key_or_name.parse::<Secret>() {
             Ok(signer)
         } else {
-            self.read_identity(account_str)
+            self.read_identity(key_or_name)
         }
     }
 

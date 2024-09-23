@@ -1,10 +1,4 @@
-use crate::{
-    signer::{
-        self,
-        types::{sign_txn_env, Transaction},
-    },
-    xdr::TransactionEnvelope,
-};
+use crate::{signer, xdr::TransactionEnvelope};
 use clap::arg;
 use soroban_env_host::xdr::WriteXdr;
 use soroban_sdk::xdr::Limits;
@@ -13,7 +7,7 @@ use url::Url;
 use super::{
     locator,
     network::{self, Network},
-    secret::{self, Secret},
+    secret,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -21,7 +15,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Signer(#[from] signer::types::Error),
+    Signer(#[from] signer::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
@@ -46,7 +40,7 @@ pub struct Args {
     /// Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(long, conflicts_with = "sign_with_lab", env = "STELLAR_SIGN_WITH_KEY")]
     pub sign_with_key: Option<String>,
-    /// Sign with laboratory
+    /// Sign with <https://lab.stellar.org>
     #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
     pub sign_with_lab: bool,
     /// Lab URL for `sign_with_lab`
@@ -64,32 +58,18 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn secret(&self, locator: &locator::Args) -> Result<Secret, Error> {
-        let account = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-        Ok(locator.account(account)?)
-    }
-
-    pub async fn sign_txn_env(
+    pub fn sign_tx_env(
         &self,
         tx: TransactionEnvelope,
         locator: &locator::Args,
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
-        let secret = self.secret(locator)?;
+        let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+        let secret = locator.key(key_or_name)?;
         let signer = secret.signer(self.hd_path, false, quiet)?;
-        self.sign_tx_env_with_signer(&signer, tx, network).await
+        Ok(signer.sign_tx_env(tx, network)?)
     }
-
-    pub async fn sign_tx_env_with_signer(
-        &self,
-        signer: &(impl Transaction + std::marker::Sync),
-        tx_env: TransactionEnvelope,
-        network: &Network,
-    ) -> Result<TransactionEnvelope, Error> {
-        Ok(sign_txn_env(signer, tx_env, network).await?)
-    }
-
     pub fn sign_tx_env_with_lab(
         &self,
         network: &Network,

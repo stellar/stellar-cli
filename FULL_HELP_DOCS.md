@@ -1336,7 +1336,7 @@ Sign a transaction envelope appending the signature to the envelope
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
-* `--sign-with-lab` — Sign with laboratory
+* `--sign-with-lab` — Sign with <https://lab.stellar.org>
 * `--lab-url <LAB_URL>` — Lab URL for `sign_with_lab`
 
   Default value: `https://lab.stellar.org/transaction/cli-sign`

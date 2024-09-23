@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use soroban_rpc::Client;
 
 use crate::{
-    signer,
+    print::Print,
+    signer::{self, LocalKey, Signer, SignerKind},
     xdr::{Transaction, TransactionEnvelope},
     Pwd,
 };
@@ -66,10 +67,12 @@ impl Args {
     #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.key_pair()?;
-        let Network {
-            network_passphrase, ..
-        } = &self.get_network()?;
-        Ok(signer::sign_tx(&key, &tx, network_passphrase)?)
+        let network = &self.get_network()?;
+        let signer = Signer {
+            kind: SignerKind::Local(LocalKey::new(key, false)),
+            printer: Print::new(false),
+        };
+        Ok(signer.sign_tx(tx, network)?)
     }
 
     pub async fn sign_soroban_authorizations(

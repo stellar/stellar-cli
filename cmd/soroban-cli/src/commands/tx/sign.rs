@@ -32,23 +32,19 @@ pub struct Cmd {
 impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let txn_env = super::xdr::tx_envelope_from_stdin()?;
+        let tx_env = super::xdr::tx_envelope_from_stdin()?;
         if self.sign_with.sign_with_lab {
             return Ok(self
                 .sign_with
-                .sign_tx_env_with_lab(&self.network.get(&self.locator)?, &txn_env)?);
+                .sign_tx_env_with_lab(&self.network.get(&self.locator)?, &tx_env)?);
         }
-
-        let envelope = self
-            .sign_with
-            .sign_txn_env(
-                txn_env,
-                &self.locator,
-                &self.network.get(&self.locator)?,
-                global_args.quiet,
-            )
-            .await?;
-        println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
+        let tx_env_signed = self.sign_with.sign_tx_env(
+            tx_env,
+            &self.locator,
+            &self.network.get(&self.locator)?,
+            global_args.quiet,
+        )?;
+        println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?.trim());
         Ok(())
     }
 }

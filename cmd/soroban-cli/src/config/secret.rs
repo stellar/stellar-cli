@@ -4,14 +4,10 @@ use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::print::Print;
-use crate::signer::types::transaction_hash;
-use crate::xdr::{self, DecoratedSignature};
 use crate::{
-    signer::{self, LocalKey},
+    signer::{self, LocalKey, Signer, SignerKind},
     utils,
 };
-
-use super::network::Network;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,7 +26,7 @@ pub enum Error {
     #[error("Invalid address {0}")]
     InvalidAddress(String),
     #[error(transparent)]
-    Stellar(#[from] signer::Error),
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -130,18 +126,13 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(
-        &self,
-        index: Option<usize>,
-        prompt: bool,
-        quiet: bool,
-    ) -> Result<StellarSigner, Error> {
+    pub fn signer(&self, index: Option<usize>, prompt: bool, quiet: bool) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 SignerKind::Local(LocalKey::new(self.key_pair(index)?, prompt))
             }
         };
-        Ok(StellarSigner {
+        Ok(Signer {
             kind,
             printer: Print::new(quiet),
         })
@@ -164,32 +155,6 @@ impl Secret {
 
     pub fn test_seed_phrase() -> Result<Self, Error> {
         Self::from_seed(Some("0000000000000000"))
-    }
-}
-
-pub struct StellarSigner {
-    kind: SignerKind,
-    printer: Print,
-}
-
-pub enum SignerKind {
-    Local(LocalKey),
-}
-
-#[async_trait::async_trait]
-impl signer::Transaction for StellarSigner {
-    async fn sign_txn(
-        &self,
-        txn: &xdr::Transaction,
-        network: &Network,
-    ) -> Result<DecoratedSignature, signer::types::Error> {
-        let tx_hash = transaction_hash(txn, &network.network_passphrase)?;
-        let hex_hash = hex::encode(tx_hash);
-        self.printer
-            .infoln(format!("Signing transaction with hash: {hex_hash}"));
-        match &self.kind {
-            SignerKind::Local(key) => key.sign_txn(txn, network).await,
-        }
     }
 }
 

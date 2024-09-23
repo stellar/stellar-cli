@@ -3,7 +3,7 @@ use std::{env, fmt::Display};
 use soroban_env_host::xdr::{Error as XdrError, Transaction};
 
 use crate::{
-    config::network::Network, signer::types::transaction_hash, utils::explorer_url_for_transaction,
+    config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
 };
 
 const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
