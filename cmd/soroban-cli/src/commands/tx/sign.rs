@@ -45,7 +45,7 @@ impl Cmd {
     ) -> Result<TransactionEnvelope, Error> {
         Ok(self
             .sign_with
-            .sign_txn_env(tx, &self.locator, &self.network.get(&self.locator)?, quiet)
+            .sign_tx_env(tx, &self.locator, &self.network.get(&self.locator)?, quiet)
             .await?)
     }
 }

@@ -177,8 +177,8 @@ pub enum SignerKind {
 }
 
 #[async_trait::async_trait]
-impl signer::Transaction for StellarSigner {
-    async fn sign_txn(
+impl signer::SignTx for StellarSigner {
+    async fn sign_tx(
         &self,
         txn: &xdr::Transaction,
         network: &Network,
@@ -188,7 +188,7 @@ impl signer::Transaction for StellarSigner {
         self.printer
             .infoln(format!("Signing transaction with hash: {hex_hash}"));
         match &self.kind {
-            SignerKind::Local(key) => key.sign_txn(txn, network).await,
+            SignerKind::Local(key) => key.sign_tx(txn, network).await,
         }
     }
 }

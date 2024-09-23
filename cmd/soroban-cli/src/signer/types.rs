@@ -41,59 +41,14 @@ pub fn transaction_hash(
     Ok(hash)
 }
 
-#[async_trait::async_trait]
-pub trait TransactionHash {
-    /// Sign a transaction hash with the given signer
-    /// # Errors
-    /// Returns an error if the source account is not found
-    async fn sign_txn_hash(&self, txn: [u8; 32]) -> Result<Signature, Error>;
-
-    /// Return the signature hint required for a `DecoratedSignature``
-    fn hint(&self) -> SignatureHint;
-}
-
-/// A trait for signing Stellar transactions and Soroban authorization entries
-#[async_trait::async_trait]
-pub trait Transaction {
-    /// Sign a Stellar transaction with the given source account
-    /// This is a default implementation that signs the transaction hash and returns a decorated signature
-    ///
-    /// Todo: support signing the transaction directly.
-    /// # Errors
-    /// Returns an error if the source account is not found
-    async fn sign_txn(
-        &self,
-        txn: &xdr::Transaction,
-        network: &Network,
-    ) -> Result<DecoratedSignature, Error>;
-}
-
-#[async_trait::async_trait]
-impl<T> Transaction for T
-where
-    T: TransactionHash + Send + Sync,
-{
-    async fn sign_txn(
-        &self,
-        txn: &xdr::Transaction,
-        Network {
-            network_passphrase, ..
-        }: &Network,
-    ) -> Result<DecoratedSignature, Error> {
-        let hash = transaction_hash(txn, network_passphrase)?;
-        let hint = self.hint();
-        let signature = self.sign_txn_hash(hash).await?;
-        Ok(DecoratedSignature { hint, signature })
-    }
-}
-pub async fn sign_txn_env(
-    signer: &(impl Transaction + std::marker::Sync),
+pub async fn sign_tx_env(
+    signer: &(impl SignTx + std::marker::Sync),
     txn_env: TransactionEnvelope,
     network: &Network,
 ) -> Result<TransactionEnvelope, Error> {
     match txn_env {
         TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-            let decorated_signature = signer.sign_txn(&tx, network).await?;
+            let decorated_signature = signer.sign_tx(&tx, network).await?;
             let mut sigs = signatures.to_vec();
             sigs.push(decorated_signature);
             Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -105,8 +60,24 @@ pub async fn sign_txn_env(
     }
 }
 
-pub(crate) fn hash(network_passphrase: &str) -> xdr::Hash {
+fn hash(network_passphrase: &str) -> xdr::Hash {
     xdr::Hash(Sha256::digest(network_passphrase.as_bytes()).into())
+}
+
+/// A trait for signing Stellar transactions and Soroban authorization entries
+#[async_trait::async_trait]
+pub trait SignTx {
+    /// Sign a Stellar transaction with the given source account
+    /// This is a default implementation that signs the transaction hash and returns a decorated signature
+    ///
+    /// Todo: support signing the transaction directly.
+    /// # Errors
+    /// Returns an error if the source account is not found
+    async fn sign_tx(
+        &self,
+        txn: &xdr::Transaction,
+        network: &Network,
+    ) -> Result<DecoratedSignature, Error>;
 }
 
 pub struct LocalKey {
@@ -122,17 +93,21 @@ impl LocalKey {
 }
 
 #[async_trait::async_trait]
-impl TransactionHash for LocalKey {
-    async fn sign_txn_hash(&self, txn: [u8; 32]) -> Result<Signature, Error> {
-        let sig = self.key.sign(&txn);
-        Ok(Signature(sig.to_bytes().to_vec().try_into()?))
-    }
-
-    fn hint(&self) -> SignatureHint {
-        SignatureHint(
+impl SignTx for LocalKey {
+    async fn sign_tx(
+        &self,
+        txn: &xdr::Transaction,
+        Network {
+            network_passphrase, ..
+        }: &Network,
+    ) -> Result<DecoratedSignature, Error> {
+        let hash = transaction_hash(txn, network_passphrase)?;
+        let hint = SignatureHint(
             self.key.verifying_key().to_bytes()[28..]
                 .try_into()
                 .unwrap(),
-        )
+        );
+        let signature = Signature(self.key.sign(&hash).to_bytes().to_vec().try_into()?);
+        Ok(DecoratedSignature { hint, signature })
     }
 }

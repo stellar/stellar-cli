@@ -1,8 +1,5 @@
 use crate::{
-    signer::{
-        self,
-        types::{sign_txn_env, Transaction},
-    },
+    signer::{self, types::sign_tx_env},
     xdr::TransactionEnvelope,
 };
 use clap::arg;
@@ -57,7 +54,7 @@ impl Args {
         Ok(locator.account(account)?)
     }
 
-    pub async fn sign_txn_env(
+    pub async fn sign_tx_env(
         &self,
         tx: TransactionEnvelope,
         locator: &locator::Args,
@@ -66,15 +63,6 @@ impl Args {
     ) -> Result<TransactionEnvelope, Error> {
         let secret = self.secret(locator)?;
         let signer = secret.signer(self.hd_path, false, quiet)?;
-        self.sign_tx_env_with_signer(&signer, tx, network).await
-    }
-
-    pub async fn sign_tx_env_with_signer(
-        &self,
-        signer: &(impl Transaction + std::marker::Sync),
-        tx_env: TransactionEnvelope,
-        network: &Network,
-    ) -> Result<TransactionEnvelope, Error> {
-        Ok(sign_txn_env(signer, tx_env, network).await?)
+        Ok(sign_tx_env(&signer, tx, network).await?)
     }
 }
