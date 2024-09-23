@@ -11,8 +11,6 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Locator(#[from] locator::Error),
-    #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
     Rpc(#[from] crate::rpc::Error),
