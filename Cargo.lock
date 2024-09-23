@@ -4935,9 +4935,9 @@ version = "21.5.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.6.0"
+version = "21.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07a2c3aeb3dba21530133f7f1dc533f53d96abff0df6497a5a2fad8f0fbda200"
+checksum = "5e5b44cbe7441c311b42d2136571599be30f304e0661fb357757f1b28c0ac803"
 dependencies = [
  "serde",
  "serde_json",
@@ -4949,9 +4949,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.6.0"
+version = "21.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab66a39d18a5d8ed60df8cb77fc51067ef45a69af3c8fec52b6bc3bf7190351"
+checksum = "d4da76db015bd975ec14ae3b4e0c280ff1e5f79efa72f84d58173cc2f4d944dd"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -4969,9 +4969,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.6.0"
+version = "21.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d92e9fb43bc3ca5180ff7f115156e732817fe27f8328787991c5eb38b30c26c"
+checksum = "36d58f5ee01b6818e0c60c550e4748bc05229a6da164bea86d31756539db98cd"
 dependencies = [
  "crate-git-revision 0.0.6",
  "darling",
@@ -4989,9 +4989,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.6.0"
+version = "21.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f92a657578b121b06a29ab630bf24f02a32327cf9858c474157f0a8c25bfdb2"
+checksum = "bc4a9a81980971280c573f073167b31dd944d2d09078f1df30e8d7eb254aa919"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr",
@@ -5015,9 +5015,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.6.0"
+version = "21.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d95644321515640288dae87e71264ed070454c22b6bdf3527423dcaccdfff0"
+checksum = "bfe44509288f39fb02ec613963a4c2925323cda66286e99dbc5f730b36c1c185"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5099,9 +5099,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-token-sdk"
-version = "21.6.0"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e879bfcb7d00ac9c0f91ba65babd6dde713037181df13b2163fafd1e3edf271"
+checksum = "54a758c3af83d174cd5f512d28a1c03983fc10888f75ebcc884ce303e782d409"
 dependencies = [
  "soroban-sdk",
 ]
