@@ -7,7 +7,7 @@ use clap::arg;
 use super::{
     locator,
     network::{self, Network},
-    secret::{self, Secret},
+    secret,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -49,11 +49,6 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn secret(&self, locator: &locator::Args) -> Result<Secret, Error> {
-        let account = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-        Ok(locator.account(account)?)
-    }
-
     pub async fn sign_tx_env(
         &self,
         tx: TransactionEnvelope,
@@ -61,7 +56,8 @@ impl Args {
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
-        let secret = self.secret(locator)?;
+        let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+        let secret = locator.key(key_or_name)?;
         let signer = secret.signer(self.hd_path, false, quiet)?;
         Ok(sign_tx_env(&signer, tx, network).await?)
     }
