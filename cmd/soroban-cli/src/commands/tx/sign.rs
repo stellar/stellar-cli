@@ -1,7 +1,7 @@
 use crate::{
     commands::global,
     config::{locator, network, sign_with},
-    xdr::{self, Limits, TransactionEnvelope, WriteXdr},
+    xdr::{self, Limits, WriteXdr},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -32,20 +32,17 @@ pub struct Cmd {
 impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let txn_env = super::xdr::tx_envelope_from_stdin()?;
-        let envelope = self.sign_tx_env(txn_env, global_args.quiet).await?;
-        println!("{}", envelope.to_xdr_base64(Limits::none())?.trim());
-        Ok(())
-    }
-
-    pub async fn sign_tx_env(
-        &self,
-        tx: TransactionEnvelope,
-        quiet: bool,
-    ) -> Result<TransactionEnvelope, Error> {
-        Ok(self
+        let tx_env = super::xdr::tx_envelope_from_stdin()?;
+        let tx_env_signed = self
             .sign_with
-            .sign_tx_env(tx, &self.locator, &self.network.get(&self.locator)?, quiet)
-            .await?)
+            .sign_tx_env(
+                tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                global_args.quiet,
+            )
+            .await?;
+        println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?.trim());
+        Ok(())
     }
 }
