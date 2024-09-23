@@ -10,6 +10,8 @@ use super::{
     secret,
 };
 
+pub const LAB_URL: &str = "https://lab.stellar.org/transaction/cli-sign";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -43,15 +45,6 @@ pub struct Args {
     /// Sign with <https://lab.stellar.org>
     #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
     pub sign_with_lab: bool,
-    /// Lab URL for `sign_with_lab`
-    #[arg(
-        long,
-        conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LAB_URL",
-        default_value = "https://lab.stellar.org/transaction/cli-sign"
-    )]
-    pub lab_url: String,
-
     #[arg(long, conflicts_with = "sign_with_lab")]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
@@ -74,18 +67,20 @@ impl Args {
         &self,
         network: &Network,
         tx_env: &TransactionEnvelope,
+        quiet: bool,
     ) -> Result<(), Error> {
         let passphrase = network.network_passphrase.clone();
         let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
+        let printer = crate::print::Print::new(quiet);
 
-        let mut url = Url::parse(&self.lab_url)?;
+        let mut url = Url::parse(LAB_URL)?;
         url.query_pairs_mut()
             .append_pair("networkPassphrase", &passphrase)
             .append_pair("xdr", &xdr_buffer);
 
         let txn_sign_url = url.to_string();
 
-        println!("Opening lab to sign transaction: {}", &txn_sign_url);
+        printer.println(format!("Opening lab to sign transaction: {txn_sign_url}"));
         open::that(txn_sign_url)?;
 
         Ok(())
