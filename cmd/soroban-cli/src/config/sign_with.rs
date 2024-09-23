@@ -1,7 +1,4 @@
-use crate::{
-    signer::{self, types::sign_tx_env},
-    xdr::TransactionEnvelope,
-};
+use crate::{signer, xdr::TransactionEnvelope};
 use clap::arg;
 
 use super::{
@@ -15,7 +12,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Signer(#[from] signer::types::Error),
+    Signer(#[from] signer::Error),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
@@ -49,7 +46,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn sign_tx_env(
+    pub fn sign_tx_env(
         &self,
         tx: TransactionEnvelope,
         locator: &locator::Args,
@@ -59,6 +56,6 @@ impl Args {
         let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
         let secret = locator.key(key_or_name)?;
         let signer = secret.signer(self.hd_path, false, quiet)?;
-        Ok(sign_tx_env(&signer, tx, network).await?)
+        Ok(signer.sign_tx_env(tx, network)?)
     }
 }
