@@ -30,7 +30,7 @@ pub enum Error {
     #[error("Invalid address {0}")]
     InvalidAddress(String),
     #[error(transparent)]
-    Stellar(#[from] signer::Error),
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
