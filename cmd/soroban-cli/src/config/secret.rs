@@ -4,7 +4,7 @@ use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::print::Print;
-use crate::signer::types::transaction_hash;
+use crate::utils::transaction_hash;
 use crate::xdr::{self, DecoratedSignature};
 use crate::{
     signer::{self, LocalKey},
@@ -188,7 +188,7 @@ impl signer::SignTx for StellarSigner {
         self.printer
             .infoln(format!("Signing transaction with hash: {hex_hash}"));
         match &self.kind {
-            SignerKind::Local(key) => key.sign_tx(txn, network).await,
+            SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
         }
     }
 }

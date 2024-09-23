@@ -1,6 +1,6 @@
 use hex;
 
-use crate::{commands::global, config::network, signer::types::transaction_hash};
+use crate::{commands::global, config::network, utils::transaction_hash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

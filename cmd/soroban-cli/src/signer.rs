@@ -5,12 +5,12 @@ use soroban_env_host::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, WriteXdr,
+    SorobanAuthorizedFunction, SorobanCredentials, TransactionEnvelope, TransactionV1Envelope,
+    Uint256, WriteXdr,
 };
 
 pub mod types;
+use crate::utils::transaction_hash;
 pub use types::{LocalKey, SignTx};
 
 #[derive(thiserror::Error, Debug)]
@@ -197,7 +197,7 @@ pub fn sign_tx(
     tx: &xdr::Transaction,
     network_passphrase: &str,
 ) -> Result<TransactionEnvelope, Error> {
-    let tx_hash = hash(tx, network_passphrase)?;
+    let tx_hash = transaction_hash(tx, network_passphrase)?;
     let tx_signature = key.sign(&tx_hash);
 
     let decorated_signature = DecoratedSignature {
@@ -209,12 +209,4 @@ pub fn sign_tx(
         tx: tx.clone(),
         signatures: [decorated_signature].try_into()?,
     }))
-}
-
-pub fn hash(tx: &xdr::Transaction, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
-    let signature_payload = TransactionSignaturePayload {
-        network_id: Hash(Sha256::digest(network_passphrase).into()),
-        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
-    };
-    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
 }

@@ -1,12 +1,10 @@
 use ed25519_dalek::ed25519::signature::Signer;
-use sha2::{Digest, Sha256};
 
 use crate::{
     config::network::Network,
     xdr::{
-        self, DecoratedSignature, Limits, Signature, SignatureHint, TransactionEnvelope,
-        TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-        TransactionV1Envelope, WriteXdr,
+        self, DecoratedSignature, Signature, SignatureHint, TransactionEnvelope,
+        TransactionV1Envelope,
     },
 };
 
@@ -28,19 +26,6 @@ pub enum Error {
     UnsupportedTransactionEnvelopeType,
 }
 
-/// Calculate the hash of a Transaction
-pub fn transaction_hash(
-    txn: &xdr::Transaction,
-    network_passphrase: &str,
-) -> Result<[u8; 32], xdr::Error> {
-    let signature_payload = TransactionSignaturePayload {
-        network_id: hash(network_passphrase),
-        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(txn.clone()),
-    };
-    let hash = Sha256::digest(signature_payload.to_xdr(Limits::none())?).into();
-    Ok(hash)
-}
-
 pub async fn sign_tx_env(
     signer: &(impl SignTx + std::marker::Sync),
     txn_env: TransactionEnvelope,
@@ -58,10 +43,6 @@ pub async fn sign_tx_env(
         }
         _ => Err(Error::UnsupportedTransactionEnvelopeType),
     }
-}
-
-fn hash(network_passphrase: &str) -> xdr::Hash {
-    xdr::Hash(Sha256::digest(network_passphrase.as_bytes()).into())
 }
 
 /// A trait for signing Stellar transactions and Soroban authorization entries
@@ -92,22 +73,14 @@ impl LocalKey {
     }
 }
 
-#[async_trait::async_trait]
-impl SignTx for LocalKey {
-    async fn sign_tx(
-        &self,
-        txn: &xdr::Transaction,
-        Network {
-            network_passphrase, ..
-        }: &Network,
-    ) -> Result<DecoratedSignature, Error> {
-        let hash = transaction_hash(txn, network_passphrase)?;
+impl LocalKey {
+    pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let hint = SignatureHint(
             self.key.verifying_key().to_bytes()[28..]
                 .try_into()
                 .unwrap(),
         );
-        let signature = Signature(self.key.sign(&hash).to_bytes().to_vec().try_into()?);
+        let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
 }
