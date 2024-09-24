@@ -39,7 +39,7 @@ impl Cmd {
             &self.network.get(&self.locator)?,
             global_args.quiet,
         )?;
-        println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?.trim());
+        println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?);
         Ok(())
     }
 }
