@@ -65,7 +65,7 @@ async fn build_simulate_sign_send() {
         .assert()
         .success();
 
-    let tx_simulated = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    let tx_simulated = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly, None).await;
     dbg!("{tx_simulated}");
 
     let tx_signed = sandbox
