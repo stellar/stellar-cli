@@ -4721,7 +4721,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cec6914e06f503f83e431e1762c82003c5233b1dffb6185e51e4c40dd1c26eaa"
 dependencies = [
  "slipped10",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "thiserror",
  "tiny-bip39",
 ]
@@ -5128,7 +5128,7 @@ dependencies = [
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-rpc-client",
- "stellar-strkey",
+ "stellar-strkey 0.0.11",
  "stellar-xdr",
  "strsim 0.10.0",
  "strum 0.17.1",
@@ -5210,7 +5210,7 @@ dependencies = [
  "soroban-env-common",
  "soroban-wasmi",
  "static_assertions",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "wasmparser 0.116.1",
 ]
 
@@ -5264,7 +5264,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk-macros",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
 ]
 
 [[package]]
@@ -5340,7 +5340,7 @@ dependencies = [
  "serde_json",
  "soroban-env-host",
  "soroban-spec",
- "stellar-strkey",
+ "stellar-strkey 0.0.11",
  "stellar-xdr",
  "thiserror",
  "tokio",
@@ -5388,7 +5388,7 @@ dependencies = [
  "soroban-spec",
  "soroban-spec-tools",
  "stellar-rpc-client",
- "stellar-strkey",
+ "stellar-strkey 0.0.11",
  "thiserror",
  "tokio",
  "toml 0.8.19",
@@ -5399,9 +5399,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-token-sdk"
-version = "21.2.0"
+version = "21.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54a758c3af83d174cd5f512d28a1c03983fc10888f75ebcc884ce303e782d409"
+checksum = "0c6ede0da76646037f3ea5db9ccd37830865444bb24f137cb8f0af8282c784f5"
 dependencies = [
  "soroban-sdk",
 ]
@@ -5478,7 +5478,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-spec",
  "stellar-rpc-client",
- "stellar-strkey",
+ "stellar-strkey 0.0.11",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5503,7 +5503,7 @@ dependencies = [
  "serde-aux",
  "serde_json",
  "sha2 0.10.8",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "stellar-xdr",
  "termcolor",
  "termcolor_output",
@@ -5524,6 +5524,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellar-strkey"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0989c9a05eccbd08b60e603a1c7e3ed3ec92c0de73b8681fc964d272ab2b2697"
+dependencies = [
+ "crate-git-revision 0.0.6",
+ "data-encoding",
+]
+
+[[package]]
 name = "stellar-xdr"
 version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5539,7 +5549,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "thiserror",
 ]
 
