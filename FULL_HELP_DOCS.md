@@ -1291,6 +1291,7 @@ Sign, Simulate, and Send transactions
 
 * `simulate` — Simulate a transaction envelope from stdin
 * `hash` — Calculate the hash of a transaction envelope from stdin
+* `sign` — Sign a transaction envelope appending the signature to the envelope
 
 
 
@@ -1323,6 +1324,24 @@ Calculate the hash of a transaction envelope from stdin
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar tx sign`
+
+Sign a transaction envelope appending the signature to the envelope
+
+**Usage:** `stellar tx sign [OPTIONS]`
+
+###### **Options:**
+
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
