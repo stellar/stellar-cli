@@ -52,7 +52,7 @@ async fn txn_hash() {
 }
 
 #[tokio::test]
-async fn send() {
+async fn build_simulate_sign_send() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("contract")
@@ -61,41 +61,25 @@ async fn send() {
         .assert()
         .success();
 
-    let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
-    println!("{xdr_base64}");
-    let tx_env = TransactionEnvelope::from_xdr_base64(&xdr_base64, Limits::none()).unwrap();
-    let tx_env = sign_manually(sandbox, &tx_env);
+    let tx_simulated = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    dbg!("{tx_simulated}");
 
-    println!(
-        "Transaction to send:\n{}",
-        tx_env.to_xdr_base64(Limits::none()).unwrap()
-    );
-
-    let rpc_result = send_manually(sandbox, &tx_env).await;
-    assert_eq!(rpc_result.status, "SUCCESS");
-}
-
-async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> String {
-    sandbox
+    let tx_signed = sandbox
         .new_assert_cmd("tx")
-        .arg("send")
-        .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap())
+        .arg("sign")
+        .arg("--sign-with-key=test")
+        .write_stdin(tx_simulated.as_bytes())
         .assert()
         .success()
-        .stdout_as_str()
-}
+        .stdout_as_str();
+    dbg!("{tx_signed}");
 
-fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> TransactionEnvelope {
-    TransactionEnvelope::from_xdr_base64(
-        sandbox
-            .new_assert_cmd("tx")
-            .arg("sign")
-            .arg("--sign-with-key=test")
-            .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
-            .assert()
-            .success()
-            .stdout_as_str(),
-        Limits::none(),
-    )
-    .unwrap()
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(tx_signed.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    assert_eq!(output, "SUCCESS");
 }
