@@ -69,7 +69,7 @@ impl Args {
         let key = self.key_pair()?;
         let network = &self.get_network()?;
         let signer = Signer {
-            kind: SignerKind::Local(LocalKey::new(key, false)),
+            kind: SignerKind::Local(LocalKey { key }),
             printer: Print::new(false),
         };
         Ok(signer.sign_tx(tx, network)?)
