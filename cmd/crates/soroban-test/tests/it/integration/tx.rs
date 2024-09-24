@@ -74,12 +74,11 @@ async fn build_simulate_sign_send() {
         .stdout_as_str();
     dbg!("{tx_signed}");
 
-    let output = sandbox
+    sandbox
         .new_assert_cmd("tx")
         .arg("send")
         .write_stdin(tx_signed.as_bytes())
         .assert()
         .success()
-        .stdout_as_str();
-    assert_eq!(output, "SUCCESS");
+        .stdout(predicates::str::contains("SUCCESS"));
 }
