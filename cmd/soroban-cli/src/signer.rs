@@ -27,6 +27,12 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error("Only Transaction envelope V1 type is supported")]
     UnsupportedTransactionEnvelopeType,
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+    #[error(transparent)]
+    Open(#[from] std::io::Error),
+    #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
+    ReturningSignatureFromLab,
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -197,12 +203,20 @@ pub struct Signer {
     pub printer: Print,
 }
 
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
 pub enum SignerKind {
     Local(LocalKey),
+    Lab,
 }
 
 impl Signer {
+    pub fn new(kind: SignerKind, quiet: bool) -> Self {
+        Self {
+            kind,
+            printer: crate::print::Print::new(quiet),
+        }
+    }
+
     pub fn sign_tx(
         &self,
         tx: Transaction,
@@ -220,18 +234,19 @@ impl Signer {
         tx_env: TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        match tx_env {
+        match &tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-                let tx_hash = transaction_hash(&tx, &network.network_passphrase)?;
+                let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
                 self.printer
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
+                    SignerKind::Lab => Lab::sign_tx_env_with_lab(network, &tx_env, &self.printer)?,
                 };
-                let mut sigs = signatures.into_vec();
+                let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-                    tx,
+                    tx: tx.clone(),
                     signatures: sigs.try_into()?,
                 }))
             }
@@ -249,5 +264,31 @@ impl LocalKey {
         let hint = SignatureHint(self.key.verifying_key().to_bytes()[28..].try_into()?);
         let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
         Ok(DecoratedSignature { hint, signature })
+    }
+}
+
+pub struct Lab;
+
+impl Lab {
+    pub const URL: &str = "https://lab.stellar.org/transaction/cli-sign";
+
+    pub fn sign_tx_env_with_lab(
+        network: &Network,
+        tx_env: &TransactionEnvelope,
+        printer: &crate::print::Print,
+    ) -> Result<DecoratedSignature, Error> {
+        let passphrase = network.network_passphrase.clone();
+        let xdr_buffer: String = tx_env.to_xdr_base64(Limits::none())?;
+        let mut url = url::Url::parse(Self::URL)?;
+        url.query_pairs_mut()
+            .append_pair("networkPassphrase", &passphrase)
+            .append_pair("xdr", &xdr_buffer);
+
+        let txn_sign_url = url.to_string();
+
+        printer.globeln(format!("Opening lab to sign transaction: {txn_sign_url}"));
+        open::that(txn_sign_url)?;
+
+        Err(Error::ReturningSignatureFromLab)
     }
 }

@@ -1,16 +1,14 @@
-use crate::{signer, xdr::TransactionEnvelope};
+use crate::{
+    signer::{self, Signer},
+    xdr::TransactionEnvelope,
+};
 use clap::arg;
-use soroban_env_host::xdr::WriteXdr;
-use soroban_sdk::xdr::Limits;
-use url::Url;
 
 use super::{
     locator,
     network::{self, Network},
     secret,
 };
-
-pub const LAB_URL: &str = "https://lab.stellar.org/transaction/cli-sign";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,10 +28,6 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Xdr(#[from] soroban_env_host::xdr::Error),
-    #[error(transparent)]
-    Url(#[from] url::ParseError),
-    #[error(transparent)]
-    Open(#[from] std::io::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -60,31 +54,13 @@ impl Args {
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
-        let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-        let secret = locator.key(key_or_name)?;
-        let signer = secret.signer(self.hd_path, quiet)?;
+        let signer = if self.sign_with_lab {
+            Signer::new(signer::SignerKind::Lab, quiet)
+        } else {
+            let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+            let secret = locator.key(key_or_name)?;
+            secret.signer(self.hd_path, quiet)?
+        };
         Ok(signer.sign_tx_env(tx, network)?)
-    }
-    pub fn sign_tx_env_with_lab(
-        &self,
-        network: &Network,
-        tx_env: &TransactionEnvelope,
-        quiet: bool,
-    ) -> Result<(), Error> {
-        let passphrase = network.network_passphrase.clone();
-        let xdr_buffer = tx_env.to_xdr_base64(Limits::none())?;
-        let printer = crate::print::Print::new(quiet);
-
-        let mut url = Url::parse(LAB_URL)?;
-        url.query_pairs_mut()
-            .append_pair("networkPassphrase", &passphrase)
-            .append_pair("xdr", &xdr_buffer);
-
-        let txn_sign_url = url.to_string();
-
-        printer.globeln(format!("Opening lab to sign transaction: {txn_sign_url}"));
-        open::that(txn_sign_url)?;
-
-        Ok(())
     }
 }

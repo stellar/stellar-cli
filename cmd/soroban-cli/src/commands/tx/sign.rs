@@ -33,13 +33,6 @@ impl Cmd {
     #[allow(clippy::unused_async)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
-        if self.sign_with.sign_with_lab {
-            return Ok(self.sign_with.sign_tx_env_with_lab(
-                &self.network.get(&self.locator)?,
-                &tx_env,
-                global_args.quiet,
-            )?);
-        }
         let tx_env_signed = self.sign_with.sign_tx_env(
             tx_env,
             &self.locator,

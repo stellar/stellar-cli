@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
-use crate::print::Print;
 use crate::{
     signer::{self, LocalKey, Signer, SignerKind},
     utils,
@@ -133,10 +132,7 @@ impl Secret {
                 SignerKind::Local(LocalKey { key })
             }
         };
-        Ok(Signer {
-            kind,
-            printer: Print::new(quiet),
-        })
+        Ok(Signer::new(kind, quiet))
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
