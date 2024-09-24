@@ -241,7 +241,7 @@ impl Signer {
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
-                    SignerKind::Lab => Lab::sign_tx_env_with_lab(network, &tx_env, &self.printer)?,
+                    SignerKind::Lab => Lab::sign_tx_env(&tx_env, network, &self.printer)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -272,9 +272,9 @@ pub struct Lab;
 impl Lab {
     pub const URL: &str = "https://lab.stellar.org/transaction/cli-sign";
 
-    pub fn sign_tx_env_with_lab(
-        network: &Network,
+    pub fn sign_tx_env(
         tx_env: &TransactionEnvelope,
+        network: &Network,
         printer: &crate::print::Print,
     ) -> Result<DecoratedSignature, Error> {
         let passphrase = network.network_passphrase.clone();
