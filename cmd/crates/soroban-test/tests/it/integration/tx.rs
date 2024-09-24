@@ -1,8 +1,7 @@
-use soroban_rpc::GetTransactionResponse;
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, deploy_hello, DeployKind, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
 async fn simulate() {
@@ -52,7 +51,7 @@ async fn txn_hash() {
 }
 
 #[tokio::test]
-async fn send() {
+async fn build_simulate_sign_send() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("contract")
@@ -61,36 +60,22 @@ async fn send() {
         .assert()
         .success();
 
-    let xdr_base64 = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
-    println!("{xdr_base64}");
-    let tx_env = TransactionEnvelope::from_xdr_base64(&xdr_base64, Limits::none()).unwrap();
-    let tx_env = sign_manually(sandbox, &tx_env);
+    let tx_simulated = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    dbg!("{tx_simulated}");
 
-    println!(
-        "Transaction to send:\n{}",
-        tx_env.to_xdr_base64(Limits::none()).unwrap()
-    );
+    let tx_signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg("--sign-with-key=test")
+        .write_stdin(tx_simulated.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    dbg!("{tx_signed}");
 
-    let rpc_result = send_manually(sandbox, &tx_env).await;
-    assert_eq!(rpc_result.status, "SUCCESS");
-}
-
-async fn send_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> GetTransactionResponse {
+    // TODO: Replace with calling tx send when that command is added.
+    let tx_signed = TransactionEnvelope::from_xdr_base64(tx_signed, Limits::none()).unwrap();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    client.send_transaction_polling(tx_env).await.unwrap()
-}
-
-fn sign_manually(sandbox: &TestEnv, tx_env: &TransactionEnvelope) -> TransactionEnvelope {
-    TransactionEnvelope::from_xdr_base64(
-        sandbox
-            .new_assert_cmd("tx")
-            .arg("sign")
-            .arg("--sign-with-key=test")
-            .write_stdin(tx_env.to_xdr_base64(Limits::none()).unwrap().as_bytes())
-            .assert()
-            .success()
-            .stdout_as_str(),
-        Limits::none(),
-    )
-    .unwrap()
+    let rpc_result = client.send_transaction_polling(&tx_signed).await.unwrap();
+    assert_eq!(rpc_result.status, "SUCCESS");
 }
