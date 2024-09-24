@@ -4,7 +4,7 @@ use soroban_test::{AssertExt, TestEnv};
 use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
-async fn txn_simulate() {
+async fn simulate() {
     let sandbox = &TestEnv::new();
     let xdr_base64_build_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::BuildOnly).await;
     let xdr_base64_sim_only = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
@@ -48,4 +48,34 @@ async fn txn_hash() {
         .stdout_as_str();
 
     assert_eq!(hash.trim(), expected_hash);
+}
+
+#[tokio::test]
+async fn build_simulate_sign_send() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args(["--wasm", HELLO_WORLD.path().as_os_str().to_str().unwrap()])
+        .assert()
+        .success();
+
+    let tx_simulated = deploy_contract(sandbox, HELLO_WORLD, DeployKind::SimOnly).await;
+    dbg!("{tx_simulated}");
+
+    let tx_signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg("--sign-with-key=test")
+        .write_stdin(tx_simulated.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    dbg!("{tx_signed}");
+
+    // TODO: Replace with calling tx send when that command is added.
+    let tx_signed = TransactionEnvelope::from_xdr_base64(tx_signed, Limits::none()).unwrap();
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let rpc_result = client.send_transaction_polling(&tx_signed).await.unwrap();
+    assert_eq!(rpc_result.status, "SUCCESS");
 }

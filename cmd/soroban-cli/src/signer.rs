@@ -1,4 +1,4 @@
-use ed25519_dalek::ed25519::signature::Signer;
+use ed25519_dalek::ed25519::signature::Signer as _;
 use sha2::{Digest, Sha256};
 
 use soroban_env_host::xdr::{
@@ -6,9 +6,10 @@ use soroban_env_host::xdr::{
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, Uint256, WriteXdr,
+    TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
+
+use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -24,6 +25,8 @@ pub enum Error {
     UserCancelledSigning,
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error("Only Transaction envelope V1 type is supported")]
+    UnsupportedTransactionEnvelopeType,
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -189,29 +192,62 @@ fn sign_soroban_authorization_entry(
     Ok(auth)
 }
 
-pub fn sign_tx(
-    key: &ed25519_dalek::SigningKey,
-    tx: &Transaction,
-    network_passphrase: &str,
-) -> Result<TransactionEnvelope, Error> {
-    let tx_hash = hash(tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.verifying_key().to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx: tx.clone(),
-        signatures: [decorated_signature].try_into()?,
-    }))
+pub struct Signer {
+    pub kind: SignerKind,
+    pub printer: Print,
 }
 
-pub fn hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], xdr::Error> {
-    let signature_payload = TransactionSignaturePayload {
-        network_id: Hash(Sha256::digest(network_passphrase).into()),
-        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
-    };
-    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+#[allow(clippy::module_name_repetitions)]
+pub enum SignerKind {
+    Local(LocalKey),
+}
+
+impl Signer {
+    pub fn sign_tx(
+        &self,
+        tx: Transaction,
+        network: &Network,
+    ) -> Result<TransactionEnvelope, Error> {
+        let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        self.sign_tx_env(tx_env, network)
+    }
+
+    pub fn sign_tx_env(
+        &self,
+        tx_env: TransactionEnvelope,
+        network: &Network,
+    ) -> Result<TransactionEnvelope, Error> {
+        match tx_env {
+            TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
+                let tx_hash = transaction_hash(&tx, &network.network_passphrase)?;
+                self.printer
+                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
+                let decorated_signature = match &self.kind {
+                    SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
+                };
+                let mut sigs = signatures.into_vec();
+                sigs.push(decorated_signature);
+                Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+                    tx,
+                    signatures: sigs.try_into()?,
+                }))
+            }
+            _ => Err(Error::UnsupportedTransactionEnvelopeType),
+        }
+    }
+}
+
+pub struct LocalKey {
+    pub key: ed25519_dalek::SigningKey,
+}
+
+impl LocalKey {
+    pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+        let hint = SignatureHint(self.key.verifying_key().to_bytes()[28..].try_into()?);
+        let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
+        Ok(DecoratedSignature { hint, signature })
+    }
 }

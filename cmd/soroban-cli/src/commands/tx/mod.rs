@@ -3,6 +3,7 @@ use clap::Parser;
 use super::global;
 
 pub mod hash;
+pub mod sign;
 pub mod simulate;
 pub mod xdr;
 
@@ -12,6 +13,8 @@ pub enum Cmd {
     Simulate(simulate::Cmd),
     /// Calculate the hash of a transaction envelope from stdin
     Hash(hash::Cmd),
+    /// Sign a transaction envelope appending the signature to the envelope
+    Sign(sign::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -22,6 +25,8 @@ pub enum Error {
     /// An error during hash calculation
     #[error(transparent)]
     Hash(#[from] hash::Error),
+    #[error(transparent)]
+    Sign(#[from] sign::Error),
 }
 
 impl Cmd {
@@ -29,6 +34,7 @@ impl Cmd {
         match self {
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
+            Cmd::Sign(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }

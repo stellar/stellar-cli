@@ -3,7 +3,11 @@ use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
-use crate::utils;
+use crate::print::Print;
+use crate::{
+    signer::{self, LocalKey, Signer, SignerKind},
+    utils,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,6 +25,8 @@ pub enum Error {
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Invalid address {0}")]
     InvalidAddress(String),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -118,6 +124,19 @@ impl Secret {
         Ok(stellar_strkey::ed25519::PublicKey::from_payload(
             key.verifying_key().as_bytes(),
         )?)
+    }
+
+    pub fn signer(&self, index: Option<usize>, quiet: bool) -> Result<Signer, Error> {
+        let kind = match self {
+            Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
+                let key = self.key_pair(index)?;
+                SignerKind::Local(LocalKey { key })
+            }
+        };
+        Ok(Signer {
+            kind,
+            printer: Print::new(quiet),
+        })
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
