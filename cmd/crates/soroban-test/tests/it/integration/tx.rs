@@ -1,7 +1,8 @@
+use soroban_rpc::GetTransactionResponse;
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, deploy_hello, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
 async fn simulate() {
@@ -73,9 +74,12 @@ async fn build_simulate_sign_send() {
         .stdout_as_str();
     dbg!("{tx_signed}");
 
-    // TODO: Replace with calling tx send when that command is added.
-    let tx_signed = TransactionEnvelope::from_xdr_base64(tx_signed, Limits::none()).unwrap();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let rpc_result = client.send_transaction_polling(&tx_signed).await.unwrap();
-    assert_eq!(rpc_result.status, "SUCCESS");
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(tx_signed.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    assert_eq!(output, "SUCCESS");
 }
