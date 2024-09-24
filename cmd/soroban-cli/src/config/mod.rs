@@ -34,6 +34,8 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    StellarStrkey(#[from] stellar_strkey::DecodeError),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -55,6 +57,18 @@ pub struct Args {
 }
 
 impl Args {
+    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        if let Ok(secret) = self.locator.read_identity(&self.source_account) {
+            Ok(stellar_strkey::ed25519::PublicKey(
+                secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
+            ))
+        } else {
+            Ok(stellar_strkey::ed25519::PublicKey::from_string(
+                &self.source_account,
+            )?)
+        }
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)

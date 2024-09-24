@@ -216,12 +216,10 @@ impl NetworkRunnable for Cmd {
             client
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
-            let key = config.key_pair()?;
 
-            // Get the account sequence number
-            let public_strkey =
-                stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-            client.get_account(&public_strkey).await?
+            client
+                .get_account(&config.source_account()?.to_string())
+                .await?
         };
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
