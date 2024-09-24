@@ -82,7 +82,7 @@ impl Args {
 
         let txn_sign_url = url.to_string();
 
-        printer.println(format!("Opening lab to sign transaction: {txn_sign_url}"));
+        printer.globeln(format!("Opening lab to sign transaction: {txn_sign_url}"));
         open::that(txn_sign_url)?;
 
         Ok(())
