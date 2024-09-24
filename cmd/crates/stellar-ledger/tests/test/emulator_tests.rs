@@ -17,8 +17,7 @@ use std::{collections::HashMap, time::Duration};
 use stellar_xdr::curr::{
     Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
 };
-
-use testcontainers::{clients, core::Port, RunnableImage};
+use testcontainers::{core::ContainerPort, runners::AsyncRunner, ContainerAsync, ImageExt};
 use tokio::time::sleep;
 
 static PORT_RANGE: Lazy<Mutex<Range<u16>>> = Lazy::new(|| Mutex::new(40000..50000));
@@ -40,21 +39,16 @@ mod test_helpers {
 }
 
 use test_case::test_case;
-use test_helpers::test::{
-    emulator_http_transport::EmulatorHttpTransport,
-    speculos::{Args, Speculos},
-};
+use test_helpers::test::{emulator_http_transport::EmulatorHttpTransport, speculos::Speculos};
 
 #[test_case("nanos".to_string() ; "when the device is NanoS")]
 #[test_case("nanox".to_string() ; "when the device is NanoX")]
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_get_public_key(ledger_device_model: String) {
-    let runnable_image = get_runnable_image(ledger_device_model.clone());
-    let docker = clients::Cli::default();
-    let node = docker.run(runnable_image);
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let container = get_container(ledger_device_model.clone()).await;
+    let host_port = container.get_host_port_ipv4(9998).await.unwrap();
+    let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port).await;
@@ -68,13 +62,10 @@ async fn test_get_public_key(ledger_device_model: String) {
             assert_eq!(public_key_string, expected_public_key);
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     }
-
-    node.stop();
 }
 
 #[test_case("nanos".to_string() ; "when the device is NanoS")]
@@ -82,11 +73,9 @@ async fn test_get_public_key(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_get_app_configuration(ledger_device_model: String) {
-    let runnable_image = get_runnable_image(ledger_device_model.clone());
-    let docker = clients::Cli::default();
-    let node = docker.run(runnable_image);
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let container = get_container(ledger_device_model.clone()).await;
+    let host_port = container.get_host_port_ipv4(9998).await.unwrap();
+    let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port).await;
@@ -96,13 +85,10 @@ async fn test_get_app_configuration(ledger_device_model: String) {
             assert_eq!(config, vec![0, 5, 0, 3]);
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     };
-
-    node.stop();
 }
 
 #[test_case("nanos".to_string() ; "when the device is NanoS")]
@@ -110,11 +96,9 @@ async fn test_get_app_configuration(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx(ledger_device_model: String) {
-    let runnable_image = get_runnable_image(ledger_device_model.clone());
-    let docker = clients::Cli::default();
-    let node = docker.run(runnable_image);
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let container = get_container(ledger_device_model.clone()).await;
+    let host_port = container.get_host_port_ipv4(9998).await.unwrap();
+    let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = Arc::new(ledger(host_port).await);
@@ -185,13 +169,10 @@ async fn test_sign_tx(ledger_device_model: String) {
             assert_eq!( hex::encode(response), "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e");
         }
         Err(e) => {
-            node.stop();
             println!("{e}");
             assert!(false);
         }
     };
-
-    node.stop();
 }
 
 #[test_case("nanos".to_string() ; "when the device is NanoS")]
@@ -199,11 +180,9 @@ async fn test_sign_tx(ledger_device_model: String) {
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model: String) {
-    let runnable_image = get_runnable_image(ledger_device_model.clone());
-    let docker = clients::Cli::default();
-    let node = docker.run(runnable_image);
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let container = get_container(ledger_device_model.clone()).await;
+    let host_port = container.get_host_port_ipv4(9998).await.unwrap();
+    let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
 
     let ledger = ledger(host_port).await;
@@ -216,11 +195,8 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
         assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
     } else {
-        node.stop();
         panic!("Unexpected result: {:?}", result);
     }
-
-    node.stop();
 }
 
 #[test_case("nanos".to_string() ; "when the device is NanoS")]
@@ -228,11 +204,9 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
 #[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
 #[tokio::test]
 async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: String) {
-    let runnable_image = get_runnable_image(ledger_device_model.clone());
-    let docker = clients::Cli::default();
-    let node = docker.run(runnable_image);
-    let host_port = node.get_host_port_ipv4(9998);
-    let ui_host_port: u16 = node.get_host_port_ipv4(5000);
+    let container = get_container(ledger_device_model.clone()).await;
+    let host_port = container.get_host_port_ipv4(9998).await.unwrap();
+    let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
 
     wait_for_emulator_start_text(ui_host_port).await;
     enable_hash_signing(ui_host_port).await;
@@ -248,7 +222,6 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: Str
     ) {
         Ok(()) => {}
         Err(e) => {
-            node.stop();
             panic!("Unexpected result: {e}");
         }
     }
@@ -267,12 +240,9 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: Str
             assert_eq!( hex::encode(response), "e0fa9d19f34ddd494bbb794645fc82eb5ebab29e74160f1b1d5697e749aada7c6b367236df87326b0fdc921ed39702242fc8b14414f4e0ee3e775f1fd0208101");
         }
         Err(e) => {
-            node.stop();
             panic!("Unexpected result: {e}");
         }
     }
-
-    node.stop();
 }
 
 async fn click(ui_host_port: u16, url: &str) {
@@ -330,23 +300,14 @@ struct EventsResponse {
     events: Vec<EmulatorEvent>,
 }
 
-fn get_runnable_image(ledger_device_model: String) -> RunnableImage<Speculos> {
-    let args = Args {
-        ledger_device_model,
-    };
-    let runnable_image: RunnableImage<Speculos> = (Speculos::new(), args).into();
-
-    // doing this to randomize the ports on the host so that parallel tests don't clobber each other
+async fn get_container(ledger_device_model: String) -> ContainerAsync<Speculos> {
     let (tcp_port_1, tcp_port_2) = get_available_ports(2);
-    runnable_image
-        .with_mapped_port(Port {
-            local: tcp_port_1,
-            internal: 9998,
-        })
-        .with_mapped_port(Port {
-            local: tcp_port_2,
-            internal: 5000,
-        })
+    Speculos::new(ledger_device_model)
+        .with_mapped_port(tcp_port_1, ContainerPort::Tcp(9998))
+        .with_mapped_port(tcp_port_2, ContainerPort::Tcp(5000))
+        .start()
+        .await
+        .unwrap()
 }
 
 fn get_available_ports(n: usize) -> (u16, u16) {
