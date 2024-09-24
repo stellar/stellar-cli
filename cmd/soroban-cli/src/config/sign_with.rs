@@ -43,7 +43,7 @@ pub struct Args {
     #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
     pub sign_with_key: Option<String>,
 
-    #[arg(long, conflicts_with = "sign_with_lab")]
+    #[arg(long, requires = "sign_with_key")]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
