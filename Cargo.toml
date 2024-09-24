@@ -20,7 +20,7 @@ git = "https://github.com/stellar/rs-soroban-env"
 rev = "75b782119942a4c8be8003f2901db38b30b6db2d"
 
 [workspace.dependencies.soroban-simulation]
-version = "21.2.0"
+version = "=21.2.1"
 
 [workspace.dependencies.soroban-spec]
 version = "22.0.0"
@@ -77,7 +77,7 @@ git = "https://github.com/stellar/rs-stellar-xdr"
 rev = "39d7dbb0c12bd422ee43a6e2e3277789da4eaac8"
 
 [workspace.dependencies]
-stellar-strkey = "0.0.8"
+stellar-strkey = "0.0.11"
 sep5 = "0.0.4"
 base64 = "0.21.2"
 thiserror = "1.0.46"

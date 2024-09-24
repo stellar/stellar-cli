@@ -15,6 +15,8 @@ endif
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
 
+SOROBAN_PORT?=8000
+
 # The following works around incompatibility between the rust and the go linkers -
 # the rust would generate an object file with min-version of 13.0 where-as the go
 # compiler would generate a binary compatible with 12.3 and up. To align these
@@ -53,7 +55,7 @@ test: build-test
 	cargo test
 
 e2e-test:
-	cargo test --test it -- --ignored
+	cargo test --features it --test it -- integration
 
 check:
 	cargo clippy --all-targets
