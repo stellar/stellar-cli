@@ -5127,6 +5127,7 @@ dependencies = [
  "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
+ "stellar-ledger",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
  "stellar-xdr",

@@ -8,6 +8,7 @@ use soroban_env_host::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
+use stellar_ledger::{Exchange, LedgerSigner, TransportNativeHID};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
@@ -23,6 +24,8 @@ pub enum Error {
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("User cancelled signing, perhaps need to add -y")]
     UserCancelledSigning,
+    #[error(transparent)]
+    Ledger(#[from] stellar_ledger::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("Only Transaction envelope V1 type is supported")]
@@ -200,6 +203,7 @@ pub struct Signer {
 #[allow(clippy::module_name_repetitions)]
 pub enum SignerKind {
     Local(LocalKey),
+    Ledger(Ledger<TransportNativeHID>),
 }
 
 impl Signer {
@@ -227,6 +231,7 @@ impl Signer {
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
+                    SignerKind::Ledger(ledger) => todo!("ledger signing"),
                 };
                 let mut sigs = signatures.into_vec();
                 sigs.push(decorated_signature);
@@ -242,6 +247,18 @@ impl Signer {
 
 pub struct LocalKey {
     pub key: ed25519_dalek::SigningKey,
+}
+
+pub struct Ledger<T: Exchange> {
+    index: u32,
+    signer: LedgerSigner<T>,
+}
+pub fn native_ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
+    let signer = stellar_ledger::native()?;
+    Ok(Ledger {
+        index: hd_path,
+        signer,
+    })
 }
 
 impl LocalKey {

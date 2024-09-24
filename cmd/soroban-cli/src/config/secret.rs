@@ -1,9 +1,11 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
+
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::print::Print;
+use crate::signer::native_ledger;
 use crate::{
     signer::{self, LocalKey, Signer, SignerKind},
     utils,
@@ -27,6 +29,8 @@ pub enum Error {
     InvalidAddress(String),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error("Ledger does not reveal secret key")]
+    LedgerDoesNotRevealSecretKey,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -78,6 +82,7 @@ impl Args {
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
+    Ledger,
 }
 
 impl FromStr for Secret {
@@ -92,6 +97,8 @@ impl FromStr for Secret {
             Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
             })
+        } else if s == "ledger" {
+            Ok(Secret::Ledger)
         } else {
             Err(Error::InvalidAddress(s.to_string()))
         }
@@ -116,6 +123,7 @@ impl Secret {
                     .private()
                     .0,
             )?,
+            Secret::Ledger => panic!("Ledger does not reveal secret key"),
         })
     }
 
@@ -131,6 +139,13 @@ impl Secret {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
+            }
+            Secret::Ledger => {
+                let hd_path: u32 = index
+                    .unwrap_or_default()
+                    .try_into()
+                    .expect("uszie bigger than u32");
+                SignerKind::Ledger(native_ledger(hd_path)?)
             }
         };
         Ok(Signer {
