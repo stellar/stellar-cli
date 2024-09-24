@@ -1,9 +1,13 @@
 use hd_path::HdPath;
-use ledger_transport::{APDUCommand, Exchange};
+use ledger_transport::APDUCommand;
+pub use ledger_transport::Exchange;
+
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
-    LedgerHIDError, TransportNativeHID,
+    LedgerHIDError,
 };
+
+pub use ledger_transport_hid::TransportNativeHID;
 
 use soroban_env_host::xdr::{Hash, Transaction};
 use std::vec;
