@@ -223,10 +223,8 @@ impl Signer {
         match tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
                 let tx_hash = transaction_hash(&tx, &network.network_passphrase)?;
-                self.printer.infoln(format!(
-                    "Signing transaction with hash: {}",
-                    hex::encode(tx_hash)
-                ));
+                self.printer
+                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                 };
@@ -243,15 +241,7 @@ impl Signer {
 }
 
 pub struct LocalKey {
-    key: ed25519_dalek::SigningKey,
-    #[allow(dead_code)]
-    prompt: bool,
-}
-
-impl LocalKey {
-    pub fn new(key: ed25519_dalek::SigningKey, prompt: bool) -> Self {
-        Self { key, prompt }
-    }
+    pub key: ed25519_dalek::SigningKey,
 }
 
 impl LocalKey {

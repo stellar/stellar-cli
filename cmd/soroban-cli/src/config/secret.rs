@@ -126,10 +126,11 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(&self, index: Option<usize>, prompt: bool, quiet: bool) -> Result<Signer, Error> {
+    pub fn signer(&self, index: Option<usize>, quiet: bool) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
-                SignerKind::Local(LocalKey::new(self.key_pair(index)?, prompt))
+                let key = self.key_pair(index)?;
+                SignerKind::Local(LocalKey { key })
             }
         };
         Ok(Signer {

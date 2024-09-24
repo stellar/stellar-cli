@@ -55,7 +55,7 @@ impl Args {
     ) -> Result<TransactionEnvelope, Error> {
         let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
         let secret = locator.key(key_or_name)?;
-        let signer = secret.signer(self.hd_path, false, quiet)?;
+        let signer = secret.signer(self.hd_path, quiet)?;
         Ok(signer.sign_tx_env(tx, network)?)
     }
 }
