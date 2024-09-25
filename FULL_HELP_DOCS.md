@@ -621,13 +621,8 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
-* `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
-
-  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `other_custom_types`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
-
-* `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
-
-  Default value: ``
+* `-w`, `--with-example` — This argument has been removed and will be not be recognized by the future versions of CLI. You can still clone examples from the repo https://github.com/stellar/soroban-examples
+* `--frontend-template` — This argument has been removed and will be not be recognized by the future versions of CLI. You can search for frontend templates using github tags, such as soroban-template or soroban-frontend-template
 * `--overwrite` — Overwrite all existing files.
 
 
