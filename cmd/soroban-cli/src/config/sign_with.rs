@@ -1,5 +1,6 @@
 use crate::{
-    signer::{self, Signer},
+    print::Print,
+    signer::{self, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
 };
 use clap::arg;
@@ -54,12 +55,16 @@ impl Args {
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
+        let print = Print::new(quiet);
         let signer = if self.sign_with_lab {
-            Signer::new(signer::SignerKind::Lab, quiet)
+            Signer {
+                kind: SignerKind::Lab,
+                print,
+            }
         } else {
             let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
             let secret = locator.key(key_or_name)?;
-            secret.signer(self.hd_path, quiet)?
+            secret.signer(self.hd_path, print)?
         };
         Ok(signer.sign_tx_env(tx, network)?)
     }

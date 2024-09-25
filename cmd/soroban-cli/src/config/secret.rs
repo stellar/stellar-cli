@@ -4,6 +4,7 @@ use std::{io::Write, str::FromStr};
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
+    print::Print,
     signer::{self, LocalKey, Signer, SignerKind},
     utils,
 };
@@ -125,14 +126,14 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(&self, index: Option<usize>, quiet: bool) -> Result<Signer, Error> {
+    pub fn signer(&self, index: Option<usize>, print: Print) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
             }
         };
-        Ok(Signer::new(kind, quiet))
+        Ok(Signer { kind, print })
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {

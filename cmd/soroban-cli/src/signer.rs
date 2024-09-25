@@ -200,7 +200,7 @@ fn sign_soroban_authorization_entry(
 
 pub struct Signer {
     pub kind: SignerKind,
-    pub printer: Print,
+    pub print: Print,
 }
 
 #[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
@@ -210,13 +210,6 @@ pub enum SignerKind {
 }
 
 impl Signer {
-    pub fn new(kind: SignerKind, quiet: bool) -> Self {
-        Self {
-            kind,
-            printer: crate::print::Print::new(quiet),
-        }
-    }
-
     pub fn sign_tx(
         &self,
         tx: Transaction,
@@ -237,11 +230,11 @@ impl Signer {
         match &tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
                 let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
-                self.printer
+                self.print
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
-                    SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.printer)?,
+                    SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
