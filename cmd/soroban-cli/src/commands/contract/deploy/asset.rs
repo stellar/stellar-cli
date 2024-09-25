@@ -97,11 +97,10 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.key_pair()?;
+        let key = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
+        let public_strkey = key.to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
@@ -141,7 +140,7 @@ fn build_wrap_token_tx(
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &ed25519_dalek::SigningKey,
+    key: &stellar_strkey::ed25519::PublicKey,
 ) -> Result<Transaction, Error> {
     let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
@@ -180,7 +179,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
