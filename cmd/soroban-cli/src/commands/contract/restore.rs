@@ -135,16 +135,15 @@ impl NetworkRunnable for Cmd {
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
         let client = Client::new(&network.rpc_url)?;
-        let key = config.key_pair()?;
+        let key = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
+        let public_strkey = key.to_string();
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+            source_account: MuxedAccount::Ed25519(Uint256(key.0)),
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
