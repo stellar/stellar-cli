@@ -57,6 +57,7 @@ pub struct Args {
 }
 
 impl Args {
+    // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
     pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         if let Ok(secret) = self.locator.read_identity(&self.source_account) {
             Ok(stellar_strkey::ed25519::PublicKey(
