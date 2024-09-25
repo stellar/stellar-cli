@@ -20,14 +20,14 @@ impl From<&AccountId> for AccountId {
 impl From<stellar_strkey::ed25519::PublicKey> for AccountId {
     fn from(key: stellar_strkey::ed25519::PublicKey) -> Self {
         AccountId(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
-            xdr::Uint256(key.0),
+            key.0.into(),
         )))
     }
 }
 impl From<&stellar_strkey::ed25519::PublicKey> for AccountId {
     fn from(key: &stellar_strkey::ed25519::PublicKey) -> Self {
         AccountId(xdr::AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
-            xdr::Uint256(key.0),
+            key.0.into(),
         )))
     }
 }

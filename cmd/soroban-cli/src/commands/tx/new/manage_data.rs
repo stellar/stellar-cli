@@ -1,16 +1,10 @@
 use clap::{command, Parser};
 
-use soroban_sdk::xdr::{self, Limits, WriteXdr};
 
 use crate::{
-    commands::{
-        global, tx,
-        txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
-    },
-    config::{self},
-    rpc,
+    commands::{global, tx},
     tx::builder,
+    xdr,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -20,61 +14,33 @@ pub struct Cmd {
     pub tx: tx::args::Args,
     /// Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
     #[arg(long)]
-    pub data_name: builder::String64,
+    pub data_name: xdr::StringM<64>,
     /// Up to 64 bytes long hex string
     /// If not present then the existing Name will be deleted.
     /// If present then this value will be set in the `DataEntry`.
     #[arg(long)]
-    pub data_value: Option<builder::Bytes64>,
+    pub data_value: Option<xdr::BytesM<64>>,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    Xdr(#[from] xdr::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
-            .await?
-            .to_envelope();
-        if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
-            println!("{}", tx.to_xdr_base64(Limits::none())?);
-        };
+        self.tx.handle_and_print(self, global_args).await?;
         Ok(())
     }
-
-    pub fn op(&self) -> builder::ops::ManageData {
-        let mut op = builder::ops::ManageData::new(self.data_name.clone());
-        if let Some(data_value) = self.data_value.as_ref() {
-            op = op.set_data_value(data_value.clone());
-        };
-        op
-    }
 }
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<rpc::GetTransactionResponse>;
-
-    async fn run_against_rpc_server(
-        &self,
-        args: Option<&global::Args>,
-        _: Option<&config::Args>,
-    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
-        let tx_build = self.tx.tx_builder().await?;
-        Ok(self
-            .tx
-            .handle_tx(
-                tx_build.add_operation_builder(self.op(), self.tx.with_source_account),
-                &args.cloned().unwrap_or_default(),
-            )
-            .await?)
+impl builder::Operation for Cmd {
+    fn build_body(&self) -> xdr::OperationBody {
+        let data_value = self.data_value.clone().map(Into::into);
+        xdr::OperationBody::ManageData(xdr::ManageDataOp {
+            data_name: self.data_name.clone().into(),
+            data_value,
+        })
     }
 }

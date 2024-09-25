@@ -88,7 +88,7 @@ async fn invoke() {
     sandbox
         .new_assert_cmd("events")
         .arg("--start-ledger")
-        .arg(&sequence.to_string())
+        .arg(sequence.to_string())
         .arg("--id")
         .arg(id)
         .assert()
@@ -317,7 +317,7 @@ async fn half_max_instructions() {
         .arg("--fee")
         .arg("1000000")
         .arg("--instructions")
-        .arg(&(u32::MAX / 2).to_string())
+        .arg((u32::MAX / 2).to_string())
         .arg("--wasm")
         .arg(wasm.path())
         .arg("--ignore-checks")

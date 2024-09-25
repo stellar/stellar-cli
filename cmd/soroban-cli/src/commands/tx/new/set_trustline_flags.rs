@@ -1,15 +1,9 @@
 use clap::{command, Parser};
 
-use soroban_sdk::xdr::{self, Limits, WriteXdr};
+use soroban_sdk::xdr::{self};
 
 use crate::{
-    commands::{
-        global, tx,
-        txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
-    },
-    config::{self},
-    rpc,
+    commands::{global, tx},
     tx::builder,
 };
 
@@ -46,64 +40,48 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    Xdr(#[from] xdr::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
-            .await?
-            .to_envelope();
-        if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
-            println!("{}", tx.to_xdr_base64(Limits::none())?);
-        };
+        self.tx.handle_and_print(self, global_args).await?;
         Ok(())
-    }
-
-    pub fn op(&self) -> builder::ops::SetTrustLineFlags {
-        let mut op = builder::ops::SetTrustLineFlags::new(&self.trustor, &self.asset);
-        if self.set_authorize {
-            op = op.set_authorized();
-        }
-        if self.set_authorize_to_maintain_liabilities {
-            op = op.set_authorized_to_maintain_liabilities();
-        }
-        if self.set_trustline_clawback_enabled {
-            op = op.set_trustline_clawback_enabled();
-        }
-        if self.clear_authorize {
-            op = op.clear_authorized();
-        }
-        if self.clear_authorize_to_maintain_liabilities {
-            op = op.clear_authorized_to_maintain_liabilities();
-        }
-        if self.clear_trustline_clawback_enabled {
-            op = op.clear_trustline_clawback_enabled();
-        }
-        op
     }
 }
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<rpc::GetTransactionResponse>;
+impl builder::Operation for Cmd {
+    fn build_body(&self) -> stellar_xdr::curr::OperationBody {
+        let mut set_flags = 0u32;
+        let mut set_flag = |flag: xdr::TrustLineFlags| set_flags |= flag as u32;
 
-    async fn run_against_rpc_server(
-        &self,
-        args: Option<&global::Args>,
-        _: Option<&config::Args>,
-    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
-        let tx_build = self.tx.tx_builder().await?;
-        Ok(self
-            .tx
-            .handle_tx(
-                tx_build.add_operation_builder(self.op(), self.tx.with_source_account),
-                &args.cloned().unwrap_or_default(),
-            )
-            .await?)
+        if self.set_authorize {
+            set_flag(xdr::TrustLineFlags::AuthorizedFlag);
+        };
+        if self.set_authorize_to_maintain_liabilities {
+            set_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
+        };
+        if self.set_trustline_clawback_enabled {
+            set_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
+        };
+
+        let mut clear_flags: u32 = 0;
+        let mut clear_flag = |flag: xdr::TrustLineFlags| clear_flags |= flag as u32;
+        if self.clear_authorize {
+            clear_flag(xdr::TrustLineFlags::AuthorizedFlag);
+        };
+        if self.clear_authorize_to_maintain_liabilities {
+            clear_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
+        };
+        if self.clear_trustline_clawback_enabled {
+            clear_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
+        };
+
+        xdr::OperationBody::SetTrustLineFlags(xdr::SetTrustLineFlagsOp {
+            trustor: self.trustor.clone().into(),
+            asset: self.asset.clone().into(),
+            clear_flags,
+            set_flags,
+        })
     }
 }

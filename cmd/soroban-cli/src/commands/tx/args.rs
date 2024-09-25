@@ -1,11 +1,10 @@
-use soroban_rpc::GetTransactionResponse;
-
 use crate::{
-    commands::{global, txn_result::TxnResult},
+    commands::{global, txn_result::TxnEnvelopeResult},
     config::{self, address, data, network, secret},
     fee,
-    rpc::{self, Client},
-    tx::builder,
+    rpc::{self, Client, GetTransactionResponse},
+    tx::builder::{self, TxExt},
+    xdr::{self, Limits, WriteXdr},
 };
 
 #[derive(Debug, clap::Args, Clone)]
@@ -39,19 +38,26 @@ pub enum Error {
     Tx(#[from] builder::Error),
     #[error(transparent)]
     Data(#[from] data::Error),
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
 }
 
 impl Args {
-    pub async fn tx_builder(&self) -> Result<builder::Transaction, Error> {
+    pub async fn tx(&self, body: xdr::OperationBody) -> Result<xdr::Transaction, Error> {
         let source_account = self.source_account()?;
         let seq_num = self
             .config
             .next_sequence_number(&source_account.to_string())
             .await?;
-        Ok(builder::Transaction::new(
+        let operation = xdr::Operation {
+            source_account: self.with_source_account.map(Into::into),
+            body,
+        };
+        Ok(xdr::Transaction::new_tx(
             source_account,
             self.fee.fee,
             seq_num,
+            operation,
         ))
     }
 
@@ -60,16 +66,35 @@ impl Args {
         Ok(Client::new(&network.rpc_url)?)
     }
 
+    pub async fn handle<T: builder::Operation>(
+        &self,
+        op: &T,
+        global_args: &global::Args,
+    ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
+        let tx = self.tx(op.build_body()).await?;
+        self.handle_tx(tx, global_args).await
+    }
+    pub async fn handle_and_print<T: builder::Operation>(
+        &self,
+        op: &T,
+        global_args: &global::Args,
+    ) -> Result<(), Error> {
+        let res = self.handle(op, global_args).await?;
+        if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
+            println!("{}", tx.to_xdr_base64(Limits::none())?);
+        };
+        Ok(())
+    }
+
     pub async fn handle_tx(
         &self,
-        tx: builder::Transaction,
+        tx: xdr::Transaction,
         args: &global::Args,
-    ) -> Result<TxnResult<GetTransactionResponse>, Error> {
+    ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        let tx = tx.build()?;
         if self.fee.build_only {
-            return Ok(TxnResult::Txn(tx));
+            return Ok(TxnEnvelopeResult::TxnEnvelope(tx.into()));
         }
 
         let txn_resp = client
@@ -80,13 +105,10 @@ impl Args {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
         }
 
-        Ok(TxnResult::Res(txn_resp))
+        Ok(TxnEnvelopeResult::Res(txn_resp))
     }
 
     pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self
-            .config
-            .account(&self.config.source_account)?
-            .public_key(self.config.hd_path)?)
+        Ok(self.config.source_account()?)
     }
 }

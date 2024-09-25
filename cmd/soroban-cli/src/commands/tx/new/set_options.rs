@@ -1,15 +1,10 @@
 use clap::{command, Parser};
 
-use soroban_sdk::xdr::{self, Limits, WriteXdr};
+use soroban_sdk::xdr::{self};
 
 use crate::{
-    commands::{
-        global, tx,
-        txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
-    },
-    config::{self},
-    rpc,
+    commands::{global, tx},
+    config::signer_key,
     tx::builder,
 };
 
@@ -36,11 +31,11 @@ pub struct Cmd {
     pub high_threshold: Option<u8>,
     #[arg(long)]
     /// Sets the home domain of an account. See [Federation](../../encyclopedia/network-configuration/federation.mdx).
-    pub home_domain: Option<String>,
-    #[arg(long)]
+    pub home_domain: Option<xdr::StringM<32>>,
+    #[arg(long, requires = "signer-weight")]
     /// Add, update, or remove a signer from an account.
-    pub signer: Option<String>,
-    #[arg(long, requires = "signer")]
+    pub signer: Option<signer_key::SignerKey>,
+    #[arg(long = "signer-weight", requires = "signer")]
     /// Signer weight is a number from 0-255 (inclusive). The signer is deleted if the weight is 0.
     pub signer_weight: Option<u8>,
     #[arg(long, conflicts_with = "clear_required")]
@@ -73,107 +68,68 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Tx(#[from] tx::args::Error),
-    #[error(transparent)]
-    Xdr(#[from] xdr::Error),
-    #[error(transparent)]
-    Fqdn(#[from] fqdn::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
-            .await?
-            .to_envelope();
-        if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
-            println!("{}", tx.to_xdr_base64(Limits::none())?);
-        };
+        self.tx.handle_and_print(self, global_args).await?;
         Ok(())
-    }
-
-    pub fn op(&self) -> Result<builder::ops::SetOptions, Error> {
-        let mut op = builder::ops::SetOptions::new();
-
-        if let Some(inflation_dest) = self.inflation_dest.as_ref() {
-            op = op.set_inflation_dest(inflation_dest.clone());
-        };
-
-        if let Some(master_weight) = self.master_weight {
-            op = op.set_master_weight(master_weight);
-        };
-
-        if let Some(low_threshold) = self.low_threshold {
-            op = op.set_low_threshold(low_threshold);
-        };
-
-        if let Some(med_threshold) = self.med_threshold {
-            op = op.set_med_threshold(med_threshold);
-        };
-
-        if let Some(high_threshold) = self.high_threshold {
-            op = op.set_high_threshold(high_threshold);
-        };
-
-        if let Some(home_domain) = self.home_domain.as_ref() {
-            op = op.set_home_domain(&home_domain.parse()?)?;
-        };
-
-        if let (Some(signer), Some(signer_weight)) =
-            (self.signer.as_ref(), self.signer_weight.as_ref())
-        {
-            let signer = xdr::Signer {
-                key: signer.parse()?,
-                weight: u32::from(*signer_weight),
-            };
-            op = op.set_signer(signer);
-        }
-
-        if self.set_required {
-            op = op.set_required_flag();
-        };
-        if self.set_revocable {
-            op = op.set_revocable_flag();
-        };
-        if self.set_immutable {
-            op = op.set_immutable_flag();
-        };
-        if self.set_clawback_enabled {
-            op = op.set_clawback_enabled_flag();
-        };
-        if self.clear_required {
-            op = op.clear_required_flag();
-        };
-        if self.clear_revocable {
-            op = op.clear_revocable_flag();
-        };
-        if self.clear_immutable {
-            op = op.clear_immutable_flag();
-        };
-        if self.clear_clawback_enabled {
-            op = op.clear_clawback_enabled_flag();
-        };
-        Ok(op)
     }
 }
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<rpc::GetTransactionResponse>;
+impl builder::Operation for Cmd {
+    fn build_body(&self) -> stellar_xdr::curr::OperationBody {
+        let mut set_flags = 0u32;
+        let mut set_flag = |flag: xdr::AccountFlags| set_flags |= flag as u32;
 
-    async fn run_against_rpc_server(
-        &self,
-        args: Option<&global::Args>,
-        _: Option<&config::Args>,
-    ) -> Result<TxnResult<rpc::GetTransactionResponse>, Error> {
-        let tx_build = self.tx.tx_builder().await?;
-        Ok(self
-            .tx
-            .handle_tx(
-                tx_build.add_operation_builder(self.op()?, self.tx.with_source_account),
-                &args.cloned().unwrap_or_default(),
-            )
-            .await?)
+        if self.set_required {
+            set_flag(xdr::AccountFlags::RequiredFlag);
+        };
+        if self.set_revocable {
+            set_flag(xdr::AccountFlags::RevocableFlag);
+        };
+        if self.set_immutable {
+            set_flag(xdr::AccountFlags::ImmutableFlag);
+        };
+        if self.set_clawback_enabled {
+            set_flag(xdr::AccountFlags::ClawbackEnabledFlag);
+        };
+        let mut clear_flags: u32 = 0;
+        let mut clear_flag = |flag: xdr::AccountFlags| clear_flags |= flag as u32;
+        if self.clear_required {
+            clear_flag(xdr::AccountFlags::RequiredFlag);
+        };
+        if self.clear_revocable {
+            clear_flag(xdr::AccountFlags::RevocableFlag);
+        };
+        if self.clear_immutable {
+            clear_flag(xdr::AccountFlags::ImmutableFlag);
+        };
+        if self.clear_clawback_enabled {
+            clear_flag(xdr::AccountFlags::ClawbackEnabledFlag);
+        };
+
+        let signer = if let (Some(signer), Some(signer_weight)) =
+            (self.signer.clone(), self.signer_weight.as_ref())
+        {
+            Some(xdr::Signer {
+                key: signer.into(),
+                weight: u32::from(*signer_weight),
+            })
+        } else {
+            None
+        };
+        xdr::OperationBody::SetOptions(xdr::SetOptionsOp {
+            inflation_dest: self.inflation_dest.clone().map(Into::into),
+            clear_flags: clear_flags.eq(&0).then_some(clear_flags),
+            set_flags: set_flags.eq(&0).then_some(set_flags),
+            master_weight: self.master_weight.map(Into::into),
+            low_threshold: self.low_threshold.map(Into::into),
+            med_threshold: self.med_threshold.map(Into::into),
+            high_threshold: self.high_threshold.map(Into::into),
+            home_domain: self.home_domain.clone().map(Into::into),
+            signer,
+        })
     }
 }

@@ -1,8 +1,4 @@
-use assert_cmd::assert;
-use soroban_cli::{
-    tx::{builder::String64, ONE_XLM},
-    utils::contract_id_hash_from_asset,
-};
+use soroban_cli::{tx::ONE_XLM, utils::contract_id_hash_from_asset};
 use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
 
@@ -344,7 +340,7 @@ async fn manage_data() {
             .unwrap()
             .0,
     )));
-    let orig_data_name: String64 = key.parse().unwrap();
+    let orig_data_name: xdr::StringM<64> = key.parse().unwrap();
     let res = client
         .get_ledger_entries(&[xdr::LedgerKey::Data(xdr::LedgerKeyData {
             account_id,

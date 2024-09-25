@@ -16,8 +16,7 @@ use crate::config::{self, data, network};
 use crate::key;
 use crate::print::Print;
 use crate::rpc::{self, Client};
-use crate::tx::builder;
-use crate::tx::builder::ops::operation;
+use crate::tx::builder::{self, TxExt};
 use crate::{utils, wasm};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -256,20 +255,18 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: &[u8],
     sequence: i64,
     fee: u32,
-    key: &stellar_strkey::ed25519::PublicKey,
-) -> Result<(Transaction, Hash), XdrError> {
+    source: &stellar_strkey::ed25519::PublicKey,
+) -> Result<(Transaction, Hash), Error> {
     let hash = utils::contract_hash(source_code)?;
 
-    let op = operation(
-        Some(key),
-        OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+    let op = xdr::Operation {
+        source_account: None,
+        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
         }),
-    );
-    let tx = builder::Transaction::new(key, fee, sequence)
-        .add_operation(op)
-        .build()?;
+    };
+    let tx = Transaction::new_tx(source, fee, sequence, op);
 
     Ok((tx, hash))
 }

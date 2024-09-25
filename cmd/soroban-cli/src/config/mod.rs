@@ -21,6 +21,7 @@ pub mod locator;
 pub mod network;
 pub mod secret;
 pub mod sign_with;
+pub mod signer_key;
 pub mod upgrade_check;
 
 #[derive(thiserror::Error, Debug)]

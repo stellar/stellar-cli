@@ -1,66 +1,55 @@
-use soroban_env_host::xdr::{self, Memo, SequenceNumber, TransactionExt};
+use crate::xdr::{self, Memo, SequenceNumber, TransactionExt};
 
-use super::{Error, MuxedAccount, Operation};
+use super::{Error, MuxedAccount};
 
-#[derive(Debug, Clone)]
-pub struct Transaction {
-    source_account: xdr::MuxedAccount,
-    fee: u32,
-    seq_num: SequenceNumber,
-    memo: Option<Memo>,
-    operations: Vec<xdr::Operation>,
+pub trait TxExt {
+    fn new_tx(
+        source: impl Into<MuxedAccount>,
+        fee: u32,
+        seq_num: impl Into<SequenceNumber>,
+        operation: xdr::Operation,
+    ) -> xdr::Transaction;
+
+    fn add_operation(self, operation: xdr::Operation) -> Result<xdr::Transaction, Error>;
+
+    fn add_memo(self, memo: Memo) -> xdr::Transaction;
+
+    fn add_cond(self, cond: xdr::Preconditions) -> xdr::Transaction;
 }
 
-impl Transaction {
-    pub fn new(
+impl TxExt for xdr::Transaction {
+    fn new_tx(
         source_account: impl Into<MuxedAccount>,
         fee: u32,
         seq_num: impl Into<SequenceNumber>,
-    ) -> Self {
-        Transaction {
+        operation: xdr::Operation,
+    ) -> xdr::Transaction {
+        xdr::Transaction {
             source_account: source_account.into().into(),
             fee,
             seq_num: seq_num.into(),
-            memo: None,
-            operations: Vec::new(),
+            cond: soroban_env_host::xdr::Preconditions::None,
+            memo: Memo::None,
+            // Safe because we know we have only one operation
+            operations: unsafe { vec![operation].try_into().unwrap_unchecked() },
+            ext: TransactionExt::V0,
         }
     }
 
-    #[must_use]
-    pub fn set_memo(mut self, memo: Memo) -> Self {
-        self.memo = Some(memo);
+    fn add_operation(mut self, operation: xdr::Operation) -> Result<Self, Error> {
+        let mut ops = self.operations.to_vec();
+        ops.push(operation);
+        self.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
+        Ok(self)
+    }
+
+    fn add_memo(mut self, memo: Memo) -> Self {
+        self.memo = memo;
         self
     }
 
-    #[must_use]
-    pub fn add_operation_builder(
-        mut self,
-        operation: impl Operation,
-        source_account: Option<impl Into<MuxedAccount>>,
-    ) -> Self {
-        self.operations.push(operation.build_op(source_account));
-        self
-    }
-
-    #[must_use]
-    pub fn add_operation(mut self, operation: xdr::Operation) -> Self {
-        self.operations.push(operation);
-        self
-    }
-
-    pub fn build(self) -> Result<xdr::Transaction, Error> {
-        Ok(xdr::Transaction {
-            source_account: self.source_account.clone(),
-            fee: self.fee,
-            seq_num: self.seq_num,
-            cond: soroban_env_host::xdr::Preconditions::None,
-            memo: self.memo.clone().unwrap_or(Memo::None),
-            operations: self
-                .operations
-                .clone()
-                .try_into()
-                .map_err(|_| Error::TooManyOperations)?,
-            ext: TransactionExt::V0,
-        })
+    fn add_cond(self, cond: xdr::Preconditions) -> xdr::Transaction {
+        xdr::Transaction { cond, ..self }
     }
 }
+
