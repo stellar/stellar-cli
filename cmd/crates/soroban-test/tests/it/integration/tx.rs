@@ -1,8 +1,7 @@
-use soroban_rpc::GetTransactionResponse;
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, deploy_hello, DeployKind, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
 async fn simulate() {
