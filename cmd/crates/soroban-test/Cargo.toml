@@ -43,7 +43,7 @@ tokio = "1.28.1"
 walkdir = "2.4.0"
 ulid.workspace = true
 ed25519-dalek = { workspace = true }
-hex ={ workspace = true }
+hex = { workspace = true }
 
 [features]
 it = []
