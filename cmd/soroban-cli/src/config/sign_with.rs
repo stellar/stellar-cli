@@ -1,6 +1,6 @@
 use crate::{
     signer::{self, Signer},
-    xdr::TransactionEnvelope,
+    xdr::{self, TransactionEnvelope},
 };
 use clap::arg;
 
@@ -27,7 +27,7 @@ pub enum Error {
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
-    Xdr(#[from] soroban_env_host::xdr::Error),
+    Xdr(#[from] xdr::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
