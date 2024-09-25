@@ -47,7 +47,7 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
-    /// Optional RPC provider api key headers
+    /// Optional header (e.g. API Key) to include in requests to the RPC
     #[arg(
             long = "rpc-header",
             requires = "rpc_url",
@@ -106,7 +106,7 @@ pub struct Network {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
-    /// Optional RPC provider api key header
+    /// Optional header (e.g. API Key) to include in requests to the RPC
     #[arg(
         long = "rpc-header",
         env = "STELLAR_RPC_HEADER",
