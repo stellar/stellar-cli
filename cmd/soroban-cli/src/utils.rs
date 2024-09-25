@@ -148,6 +148,26 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
     }
 }
 
+pub mod args {
+    #[derive(thiserror::Error, Debug)]
+    pub enum DeprecatedError<'a> {
+        #[error("This argument has been removed and will be not be recognized by the future versions of CLI: {0}"
+        )]
+        RemovedArgument(&'a str),
+    }
+
+    #[macro_export]
+    macro_rules! deprecated_arg {
+        ($_type:ident, $message: expr) => {
+            |a: &str| {
+                Err::<$_type, utils::args::DeprecatedError>(
+                    utils::args::DeprecatedError::RemovedArgument($message),
+                )
+            }
+        };
+    }
+}
+
 pub mod rpc {
     use soroban_env_host::xdr;
     use soroban_rpc::{Client, Error};
@@ -172,7 +192,6 @@ pub mod rpc {
 }
 
 pub mod parsing {
-
     use regex::Regex;
     use soroban_env_host::xdr::{
         AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, PublicKey,
