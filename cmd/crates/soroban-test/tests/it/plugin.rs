@@ -37,7 +37,7 @@ fn has_no_path() {
     assert_cmd::Command::cargo_bin("soroban")
         .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
-        .env("PATH", &target_bin())
+        .env("PATH", target_bin())
         .assert()
         .stdout("Hello, world!\n");
 }
