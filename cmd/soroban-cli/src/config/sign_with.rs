@@ -42,7 +42,8 @@ pub struct Args {
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
-    /// Sign with <https://lab.stellar.org>
+    #[allow(clippy::doc_markdown)]
+    /// Sign with https://lab.stellar.org
     #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
     pub sign_with_lab: bool,
 }
