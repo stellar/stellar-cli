@@ -84,7 +84,7 @@ Tools for smart contract developers
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
-* `init` — Initialize a Soroban project with an example contract
+* `init` — Initialize a Soroban contract
 * `inspect` — Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -611,7 +611,9 @@ Outputs no data when no data is present in the contract.
 
 ## `stellar contract init`
 
-Initialize a Soroban project with an example contract
+Initialize a Soroban contract.
+
+When running with empty or non-existent `--project-path`, this command will generate a template Cargo workspace project and add a sample contract package. When running in the existing Cargo project, it will add a new package for a sample contract with a given `--name`.
 
 **Usage:** `stellar contract init [OPTIONS] <PROJECT_PATH>`
 
@@ -621,9 +623,15 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
-* `-w`, `--with-example` — This argument has been removed and will be not be recognized by the future versions of CLI. You can still clone examples from the repo https://github.com/stellar/soroban-examples
-* `--frontend-template` — This argument has been removed and will be not be recognized by the future versions of CLI. You can search for frontend templates using github tags, such as soroban-template or soroban-frontend-template
-* `--overwrite` — Overwrite all existing files.
+* `--name <NAME>` — An optional flag to specify a new contract's name.
+
+  Default value: `hello-world`
+* `-w`, `--with-example` — This argument has been deprecated and will be removed in the future versions of CLI. You can still clone examples from the repo https://github.com/stellar/soroban-examples
+* `--frontend-template` — This argument has been deprecated and will be removed in the future versions of CLI. You can search for frontend templates using github tags, such as soroban-template or soroban-frontend-template
+* `--overwrite` — This argument has been deprecated and will be removed in the future versions of CLI. init command no longer overwrites existing files.
+
+  Possible values: `true`, `false`
+
 
 
 
