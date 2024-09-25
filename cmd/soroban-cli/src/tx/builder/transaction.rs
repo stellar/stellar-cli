@@ -52,4 +52,3 @@ impl TxExt for xdr::Transaction {
         xdr::Transaction { cond, ..self }
     }
 }
-

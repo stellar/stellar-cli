@@ -1,6 +1,5 @@
 use clap::{command, Parser};
 
-
 use crate::{
     commands::{global, tx},
     tx::builder,
