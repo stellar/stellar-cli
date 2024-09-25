@@ -34,7 +34,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
         let tx_env_signed = self.sign_with.sign_tx_env(
-            tx_env,
+            &tx_env,
             &self.locator,
             &self.network.get(&self.locator)?,
             global_args.quiet,

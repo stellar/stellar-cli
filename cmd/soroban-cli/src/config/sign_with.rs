@@ -49,7 +49,7 @@ pub struct Args {
 impl Args {
     pub fn sign_tx_env(
         &self,
-        tx: TransactionEnvelope,
+        tx: &TransactionEnvelope,
         locator: &locator::Args,
         network: &Network,
         quiet: bool,

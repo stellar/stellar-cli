@@ -226,12 +226,12 @@ impl Signer {
             tx,
             signatures: VecM::default(),
         });
-        self.sign_tx_env(tx_env, network)
+        self.sign_tx_env(&tx_env, network)
     }
 
     pub fn sign_tx_env(
         &self,
-        tx_env: TransactionEnvelope,
+        tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
         match &tx_env {
@@ -241,7 +241,7 @@ impl Signer {
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
-                    SignerKind::Lab => Lab::sign_tx_env(&tx_env, network, &self.printer)?,
+                    SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.printer)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
