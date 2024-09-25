@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use soroban_rpc::Client;
 
 use crate::{
-    signer,
+    print::Print,
+    signer::{self, LocalKey, Signer, SignerKind},
     xdr::{Transaction, TransactionEnvelope},
     Pwd,
 };
@@ -18,6 +19,7 @@ pub mod data;
 pub mod locator;
 pub mod network;
 pub mod secret;
+pub mod sign_with;
 pub mod upgrade_check;
 
 #[derive(thiserror::Error, Debug)]
@@ -32,6 +34,8 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    StellarStrkey(#[from] stellar_strkey::DecodeError),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -53,6 +57,19 @@ pub struct Args {
 }
 
 impl Args {
+    // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
+    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        if let Ok(secret) = self.locator.read_identity(&self.source_account) {
+            Ok(stellar_strkey::ed25519::PublicKey(
+                secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
+            ))
+        } else {
+            Ok(stellar_strkey::ed25519::PublicKey::from_string(
+                &self.source_account,
+            )?)
+        }
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
@@ -65,10 +82,12 @@ impl Args {
     #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = self.key_pair()?;
-        let Network {
-            network_passphrase, ..
-        } = &self.get_network()?;
-        Ok(signer::sign_tx(&key, &tx, network_passphrase)?)
+        let network = &self.get_network()?;
+        let signer = Signer {
+            kind: SignerKind::Local(LocalKey { key }),
+            print: Print::new(false),
+        };
+        Ok(signer.sign_tx(tx, network)?)
     }
 
     pub async fn sign_soroban_authorizations(

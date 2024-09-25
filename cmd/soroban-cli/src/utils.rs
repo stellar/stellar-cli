@@ -1,13 +1,11 @@
-use ed25519_dalek::Signer;
 use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
-    Asset, ContractIdPreimage, DecoratedSignature, Error as XdrError, Hash, HashIdPreimage,
-    HashIdPreimageContractId, Limits, ScMap, ScMapEntry, ScVal, Signature, SignatureHint,
-    Transaction, TransactionEnvelope, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, WriteXdr,
+    Asset, ContractIdPreimage, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
+    Limits, ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
@@ -47,28 +45,6 @@ pub fn explorer_url_for_contract(network: &Network, contract_id: &str) -> Option
     EXPLORERS
         .get(&network.network_passphrase)
         .map(|base_url| format!("{base_url}/contract/{contract_id}"))
-}
-
-/// # Errors
-///
-/// Might return an error
-pub fn sign_transaction(
-    key: &ed25519_dalek::SigningKey,
-    tx: &Transaction,
-    network_passphrase: &str,
-) -> Result<TransactionEnvelope, XdrError> {
-    let tx_hash = transaction_hash(tx, network_passphrase)?;
-    let tx_signature = key.sign(&tx_hash);
-
-    let decorated_signature = DecoratedSignature {
-        hint: SignatureHint(key.verifying_key().to_bytes()[28..].try_into()?),
-        signature: Signature(tx_signature.to_bytes().try_into()?),
-    };
-
-    Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-        tx: tx.clone(),
-        signatures: vec![decorated_signature].try_into()?,
-    }))
 }
 
 /// # Errors
