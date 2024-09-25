@@ -270,24 +270,23 @@ impl LocalKey {
 pub struct Lab;
 
 impl Lab {
-    pub const URL: &str = "https://lab.stellar.org/transaction/cli-sign";
+    const URL: &str = "https://lab.stellar.org/transaction/cli-sign";
 
     pub fn sign_tx_env(
         tx_env: &TransactionEnvelope,
         network: &Network,
-        printer: &crate::print::Print,
+        printer: &Print,
     ) -> Result<DecoratedSignature, Error> {
-        let passphrase = network.network_passphrase.clone();
-        let xdr_buffer: String = tx_env.to_xdr_base64(Limits::none())?;
+        let xdr = tx_env.to_xdr_base64(Limits::none())?;
+
         let mut url = url::Url::parse(Self::URL)?;
         url.query_pairs_mut()
-            .append_pair("networkPassphrase", &passphrase)
-            .append_pair("xdr", &xdr_buffer);
+            .append_pair("networkPassphrase", &network.network_passphrase)
+            .append_pair("xdr", &xdr);
+        let url = url.to_string();
 
-        let txn_sign_url = url.to_string();
-
-        printer.globeln(format!("Opening lab to sign transaction: {txn_sign_url}"));
-        open::that(txn_sign_url)?;
+        printer.globeln(format!("Opening lab to sign transaction: {url}"));
+        open::that(url)?;
 
         Err(Error::ReturningSignatureFromLab)
     }
