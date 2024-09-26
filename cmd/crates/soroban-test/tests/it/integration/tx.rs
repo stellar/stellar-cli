@@ -52,7 +52,7 @@ async fn txn_hash() {
 
 #[tokio::test]
 async fn build_simulate_sign_send() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
