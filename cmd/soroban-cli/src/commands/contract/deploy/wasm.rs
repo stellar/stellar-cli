@@ -18,7 +18,8 @@ use soroban_env_host::{
 use crate::{
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
-    rpc::{self, Client},
+    rpc,
+    rpc_client::{Error as RpcClientError, RpcClient},
     utils, wasm,
 };
 use crate::{
@@ -115,6 +116,8 @@ pub enum Error {
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 impl Cmd {
@@ -208,7 +211,7 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
