@@ -1,5 +1,4 @@
 use clap::{arg, command, Parser};
-use http::{HeaderMap, HeaderName, HeaderValue};
 use std::io;
 
 use soroban_env_host::xdr::{self, Limits, ReadXdr};
@@ -7,6 +6,7 @@ use soroban_env_host::xdr::{self, Limits, ReadXdr};
 use super::{global, NetworkRunnable};
 use crate::config::{self, locator, network};
 use crate::rpc;
+use crate::rpc_client::{Error as RpcClientError, RpcClient};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -120,6 +120,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
@@ -208,27 +210,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        // todo:
-        // allow the user to pass in multiple headers
-        // make sure that this will work if the header is all lowercase, etc
-        // move the creation of the HeaderMap into the rpc client fn instead?
-        // make sure that there are 2 header components before continuing
-        // refactor all the things to use a wrapped rpc client so that i just have to make this change once
-
-        let mut additional_headers = HeaderMap::new();
-        if let Some(rpc_header) = network.rpc_header {
-            let header_components = rpc_header.split(":").collect::<Vec<&str>>();
-            let key = header_components[0];
-            let value = header_components[1];
-
-            let header_name = HeaderName::from_bytes(key.as_bytes()).expect("Invalid header name");
-            let header_value = HeaderValue::from_str(value).expect("Invalid header value");
-
-            additional_headers.insert(header_name, header_value);
-        }
-
-        let client = rpc::Client::new_with_headers(&network.rpc_url, additional_headers)?;
-
+        let client = RpcClient::new(network.clone())?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
