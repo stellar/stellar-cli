@@ -3,6 +3,7 @@ use soroban_rpc::GetTransactionResponse;
 
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{self, locator, network};
+use crate::rpc_client::{Error as RpcClientError, RpcClient};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,6 +17,8 @@ pub enum Error {
     Rpc(#[from] crate::rpc::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -52,7 +55,7 @@ impl NetworkRunnable for Cmd {
         } else {
             self.network.get(&self.locator)?
         };
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
         Ok(client.send_transaction_polling(&tx_env).await?)
     }
