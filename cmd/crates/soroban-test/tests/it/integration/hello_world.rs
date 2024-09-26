@@ -4,7 +4,7 @@ use soroban_cli::{
         contract::{self, fetch},
         txn_result::TxnResult,
     },
-    config::{locator, secret},
+    config::{address::Address, locator, secret},
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -20,7 +20,7 @@ async fn invoke_view_with_non_existent_source_account() {
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let mut cmd = hello_world_cmd(&id, world);
-    cmd.config.source_account = String::new();
+    cmd.config.source_account = Address::default();
     cmd.is_view = true;
     let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));

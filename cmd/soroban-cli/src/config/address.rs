@@ -2,18 +2,26 @@ use std::str::FromStr;
 
 use crate::xdr;
 
+use super::locator;
+
 /// Address can be either a public key or eventually an alias of a address.
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug)]
 pub enum Address {
-    Ed25519(stellar_strkey::ed25519::PublicKey),
-    MuxedEd25519(stellar_strkey::ed25519::MuxedAccount),
+    MuxedAccount(xdr::MuxedAccount),
+    AliasOrSecret(String),
+}
+
+impl Default for Address {
+    fn default() -> Self {
+        Address::AliasOrSecret(String::default())
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Strkey(#[from] stellar_strkey::DecodeError),
-    #[error("Only Ed25519 and MuxedEd25519 addresses are supported")]
+    #[error("Only Ed25519 and MuxedEd25519 addresses or aliases are supported")]
     InvalidAddress,
 }
 
@@ -21,33 +29,24 @@ impl FromStr for Address {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match stellar_strkey::Strkey::from_string(value)? {
-            stellar_strkey::Strkey::PublicKeyEd25519(public_key) => {
-                Ok(Address::Ed25519(public_key))
-            }
-            stellar_strkey::Strkey::MuxedAccountEd25519(muxed_account) => {
-                Ok(Address::MuxedEd25519(muxed_account))
-            }
-            _ => Err(Error::InvalidAddress),
-        }
+        Ok(xdr::MuxedAccount::from_str(value).map_or_else(
+            |_| Address::AliasOrSecret(value.to_string()),
+            Address::MuxedAccount,
+        ))
     }
 }
 
-impl From<Address> for xdr::MuxedAccount {
-    fn from(address: Address) -> Self {
-        match address {
-            Address::Ed25519(key) => xdr::MuxedAccount::Ed25519(key.0.into()),
-            Address::MuxedEd25519(stellar_strkey::ed25519::MuxedAccount { ed25519, id }) => {
-                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 {
-                    id,
-                    ed25519: ed25519.into(),
-                })
-            }
+impl Address {
+    pub fn resolve(
+        &self,
+        locator: &locator::Args,
+        hd_path: Option<usize>,
+    ) -> Result<xdr::MuxedAccount, locator::Error> {
+        match self {
+            Address::MuxedAccount(muxed_account) => Ok(muxed_account.clone()),
+            Address::AliasOrSecret(alias) => Ok(xdr::MuxedAccount::Ed25519(
+                locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
+            )),
         }
-    }
-}
-impl From<&Address> for xdr::MuxedAccount {
-    fn from(address: &Address) -> Self {
-        (*address).into()
     }
 }

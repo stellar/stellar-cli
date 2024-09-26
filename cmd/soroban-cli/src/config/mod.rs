@@ -8,7 +8,7 @@ use soroban_rpc::Client;
 use crate::{
     print::Print,
     signer::{self, LocalKey, Signer, SignerKind},
-    xdr::{SequenceNumber, Transaction, TransactionEnvelope},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
 
@@ -48,7 +48,7 @@ pub struct Args {
 
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
-    pub source_account: String,
+    pub source_account: address::Address,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -60,20 +60,12 @@ pub struct Args {
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        if let Ok(secret) = self.locator.read_identity(&self.source_account) {
-            Ok(stellar_strkey::ed25519::PublicKey(
-                secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
-            ))
-        } else {
-            Ok(stellar_strkey::ed25519::PublicKey::from_string(
-                &self.source_account,
-            )?)
-        }
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.source_account.resolve(&self.locator, self.hd_path)?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.account(&self.source_account)?;
+        let key = self.account(&self.source_account()?.to_string())?;
         Ok(key.key_pair(self.hd_path)?)
     }
 

@@ -255,7 +255,7 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: &[u8],
     sequence: i64,
     fee: u32,
-    source: &stellar_strkey::ed25519::PublicKey,
+    source: &xdr::MuxedAccount,
 ) -> Result<(Transaction, Hash), Error> {
     let hash = utils::contract_hash(source_code)?;
 
@@ -266,7 +266,7 @@ pub(crate) fn build_install_contract_code_tx(
             auth: VecM::default(),
         }),
     };
-    let tx = Transaction::new_tx(source, fee, sequence, op);
+    let tx = Transaction::new_tx(source.clone(), fee, sequence, op);
 
     Ok((tx, hash))
 }
@@ -287,6 +287,9 @@ mod tests {
                     .verifying_key()
                     .as_bytes(),
             )
+            .unwrap()
+            .to_string()
+            .parse()
             .unwrap(),
         );
 

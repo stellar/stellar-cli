@@ -238,7 +238,7 @@ impl TestEnv {
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
             },
-            source_account: account.to_string(),
+            source_account: account.parse().unwrap(),
             locator: config::locator::Args {
                 global: false,
                 config_dir,

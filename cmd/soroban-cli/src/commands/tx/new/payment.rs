@@ -1,11 +1,9 @@
 use clap::{command, Parser};
 
-use soroban_sdk::xdr::{self};
-
 use crate::{
     commands::{global, tx},
-    config::address,
     tx::builder,
+    xdr,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -15,7 +13,7 @@ pub struct Cmd {
     pub tx: tx::args::Args,
     /// Account to send to, e.g. `GBX...`
     #[arg(long)]
-    pub destination: address::Address,
+    pub destination: xdr::MuxedAccount,
     /// Asset to send, default native, e.i. XLM
     #[arg(long, default_value = "native")]
     pub asset: builder::Asset,
@@ -41,7 +39,7 @@ impl Cmd {
 impl builder::Operation for Cmd {
     fn build_body(&self) -> xdr::OperationBody {
         xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: self.destination.into(),
+            destination: self.destination.clone(),
             asset: self.asset.clone().into(),
             amount: self.amount,
         })

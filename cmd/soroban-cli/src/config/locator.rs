@@ -214,7 +214,9 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        KeyType::Identity.read_with_global(name, &self.local_config()?)
+        Ok(KeyType::Identity
+            .read_with_global(name, &self.local_config()?)
+            .or_else(|_| name.parse())?)
     }
 
     pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {

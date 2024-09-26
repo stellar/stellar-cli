@@ -1,6 +1,6 @@
 use crate::{
     commands::{global, txn_result::TxnEnvelopeResult},
-    config::{self, address, data, network, secret},
+    config::{self, data, network, secret},
     fee,
     rpc::{self, Client, GetTransactionResponse},
     tx::builder::{self, TxExt},
@@ -14,14 +14,6 @@ pub struct Args {
     pub fee: fee::Args,
     #[clap(flatten)]
     pub config: config::Args,
-    //// The source account for the operation, Public key or Muxxed Account
-    /// e.g. `GA3D5...` or `MA3D5...`
-    #[arg(
-        long,
-        visible_alias = "with_source",
-        env = "STELLAR_WITH_SOURCE_ACCOUNT"
-    )]
-    pub with_source_account: Option<address::Address>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -49,8 +41,9 @@ impl Args {
             .config
             .next_sequence_number(&source_account.to_string())
             .await?;
+        // Once we have a way to add operations this will be updated to allow for a different source account
         let operation = xdr::Operation {
-            source_account: self.with_source_account.map(Into::into),
+            source_account: None,
             body,
         };
         Ok(xdr::Transaction::new_tx(
@@ -108,7 +101,7 @@ impl Args {
         Ok(TxnEnvelopeResult::Res(txn_resp))
     }
 
-    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self.config.source_account()?)
     }
 }

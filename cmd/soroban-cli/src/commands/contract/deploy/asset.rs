@@ -4,7 +4,7 @@ use soroban_env_host::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
         LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
     },
     HostError,
 };
@@ -97,10 +97,10 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.source_account()?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey = key.to_string();
+        let public_strkey = source_account.to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
@@ -112,7 +112,7 @@ impl NetworkRunnable for Cmd {
             sequence + 1,
             self.fee.fee,
             network_passphrase,
-            &key,
+            source_account,
         )?;
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
@@ -140,7 +140,7 @@ fn build_wrap_token_tx(
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &stellar_strkey::ed25519::PublicKey,
+    source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
     let contract = ScAddress::Contract(contract_id.clone());
     let mut read_write = vec![
@@ -179,7 +179,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
+        source_account,
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

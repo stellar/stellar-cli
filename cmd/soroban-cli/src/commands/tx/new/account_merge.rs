@@ -13,9 +13,9 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::args::Args,
-    /// Account to merge with, e.g. `GBX...`
+    /// Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
     #[arg(long)]
-    pub account: address::Address,
+    pub account: xdr::MuxedAccount,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -38,6 +38,6 @@ impl Cmd {
 
 impl builder::Operation for Cmd {
     fn build_body(&self) -> stellar_xdr::curr::OperationBody {
-        xdr::OperationBody::AccountMerge(self.account.into())
+        xdr::OperationBody::AccountMerge(self.account.clone())
     }
 }

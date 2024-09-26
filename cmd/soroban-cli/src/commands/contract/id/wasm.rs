@@ -27,6 +27,8 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error("cannot parse salt {0}")]
     CannotParseSalt(String),
+    #[error("only Ed25519 accounts are allowed")]
+    OnlyEd25519AccountsAllowed,
 }
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
@@ -34,8 +36,11 @@ impl Cmd {
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?
             .try_into()
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?;
-        let contract_id_preimage =
-            contract_preimage(&self.config.key_pair()?.verifying_key(), salt);
+        let source_account = match self.config.source_account()? {
+            xdr::MuxedAccount::Ed25519(uint256) => stellar_strkey::ed25519::PublicKey(uint256.0),
+            xdr::MuxedAccount::MuxedEd25519(_) => return Err(Error::OnlyEd25519AccountsAllowed),
+        };
+        let contract_id_preimage = contract_preimage(&source_account, salt);
         let contract_id = get_contract_id(
             contract_id_preimage.clone(),
             &self.config.get_network()?.network_passphrase,
@@ -46,8 +51,11 @@ impl Cmd {
     }
 }
 
-pub fn contract_preimage(key: &ed25519_dalek::VerifyingKey, salt: [u8; 32]) -> ContractIdPreimage {
-    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.to_bytes().into()));
+pub fn contract_preimage(
+    key: &stellar_strkey::ed25519::PublicKey,
+    salt: [u8; 32],
+) -> ContractIdPreimage {
+    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
     ContractIdPreimage::Address(ContractIdPreimageFromAddress {
         address: ScAddress::Account(source_account),
         salt: Uint256(salt),

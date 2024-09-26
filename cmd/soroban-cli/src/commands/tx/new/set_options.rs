@@ -32,7 +32,7 @@ pub struct Cmd {
     #[arg(long)]
     /// Sets the home domain of an account. See [Federation](../../encyclopedia/network-configuration/federation.mdx).
     pub home_domain: Option<xdr::StringM<32>>,
-    #[arg(long, requires = "signer-weight")]
+    #[arg(long, requires = "signer_weight")]
     /// Add, update, or remove a signer from an account.
     pub signer: Option<signer_key::SignerKey>,
     #[arg(long = "signer-weight", requires = "signer")]

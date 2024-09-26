@@ -1,10 +1,10 @@
 use crate::xdr::{self, Memo, SequenceNumber, TransactionExt};
 
-use super::{Error, MuxedAccount};
+use super::Error;
 
 pub trait TxExt {
     fn new_tx(
-        source: impl Into<MuxedAccount>,
+        source: xdr::MuxedAccount,
         fee: u32,
         seq_num: impl Into<SequenceNumber>,
         operation: xdr::Operation,
@@ -19,13 +19,13 @@ pub trait TxExt {
 
 impl TxExt for xdr::Transaction {
     fn new_tx(
-        source_account: impl Into<MuxedAccount>,
+        source_account: xdr::MuxedAccount,
         fee: u32,
         seq_num: impl Into<SequenceNumber>,
         operation: xdr::Operation,
     ) -> xdr::Transaction {
         xdr::Transaction {
-            source_account: source_account.into().into(),
+            source_account,
             fee,
             seq_num: seq_num.into(),
             cond: soroban_env_host::xdr::Preconditions::None,

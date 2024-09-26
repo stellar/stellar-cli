@@ -115,6 +115,8 @@ pub enum Error {
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error("Only ed25519 accounts are allowed")]
+    OnlyEd25519AccountsAllowed,
 }
 
 impl Cmd {
@@ -212,11 +214,13 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.source_account()?;
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
+            return Err(Error::OnlyEd25519AccountsAllowed);
+        };
 
+        let key = stellar_strkey::ed25519::PublicKey(bytes.into());
         // Get the account sequence number
-        let public_strkey = key.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client.get_account(&key.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
         let (txn, contract_id) = build_create_contract_tx(
             wasm_hash,
@@ -224,7 +228,7 @@ impl NetworkRunnable for Cmd {
             self.fee.fee,
             &network.network_passphrase,
             salt,
-            &key,
+            key,
         )?;
 
         if self.fee.build_only {
@@ -272,7 +276,7 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     salt: [u8; 32],
-    key: &stellar_strkey::ed25519::PublicKey,
+    key: stellar_strkey::ed25519::PublicKey,
 ) -> Result<(Transaction, Hash), Error> {
     let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
 
@@ -293,7 +297,7 @@ fn build_create_contract_tx(
         }),
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
+        source_account: MuxedAccount::Ed25519(key.0.into()),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -321,7 +325,7 @@ mod tests {
             1,
             "Public Global Stellar Network ; September 2015",
             [0u8; 32],
-            &stellar_strkey::ed25519::PublicKey(
+            stellar_strkey::ed25519::PublicKey(
                 utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                     .unwrap()
                     .verifying_key()
