@@ -16,7 +16,8 @@ use crate::{
     commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
-    rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
+    rpc::{self, FullLedgerEntries, FullLedgerEntry},
+    rpc_client::{Error as RpcClientError, RpcClient},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -89,6 +90,8 @@ pub enum Error {
     OnlyDataAllowed,
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 impl Cmd {
@@ -185,7 +188,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
-        let client = Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         let keys = self.key.parse_keys(&config.locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
