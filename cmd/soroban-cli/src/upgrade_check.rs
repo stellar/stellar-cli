@@ -26,16 +26,29 @@ struct Crate {
 }
 
 /// Fetch the latest stable version of the crate from crates.io
-fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
+async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
     let crate_name = env!("CARGO_PKG_NAME");
     let url = format!("{CRATES_IO_API_URL}{crate_name}");
-    let response = ureq::get(&url).timeout(REQUEST_TIMEOUT).call()?;
-    let crate_data: CrateResponse = response.into_json()?;
-    Ok(crate_data.crate_)
+    let client = reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .default_headers({
+            // crates.io requires a User-Agent header
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert("User-Agent", reqwest::header::HeaderValue::from_static(crate_name));
+            headers
+        })
+        .build()?;
+    let resp = client
+        .get(url)
+        .send()
+        .await?
+        .json::<CrateResponse>()
+        .await?;
+    Ok(resp.crate_)
 }
 
 /// Print a warning if a new version of the CLI is available
-pub fn upgrade_check(quiet: bool) {
+pub async fn upgrade_check(quiet: bool) {
     // We should skip the upgrade check if we're not in a tty environment.
     if !std::io::stderr().is_terminal() {
         return;
@@ -59,7 +72,7 @@ pub fn upgrade_check(quiet: bool) {
     let now = chrono::Utc::now();
     // Skip fetch from crates.io if we've checked recently
     if now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
-        match fetch_latest_crate_info() {
+        match fetch_latest_crate_info().await {
             Ok(c) => {
                 stats = UpgradeCheck {
                     latest_check_time: now,
@@ -112,9 +125,9 @@ fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) ->
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_fetch_latest_stable_version() {
-        let _ = fetch_latest_crate_info().unwrap();
+    #[tokio::test]
+    async fn test_fetch_latest_stable_version() {
+        let _ = fetch_latest_crate_info().await.unwrap();
     }
 
     #[test]

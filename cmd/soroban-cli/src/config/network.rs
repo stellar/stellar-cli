@@ -18,7 +18,6 @@ pub mod passphrase;
 pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
-
     #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
     #[error(transparent)]
@@ -26,7 +25,7 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
-    Hyper(#[from] hyper::Error),
+    HttpClient(#[from] reqwest::Error),
     #[error("Failed to parse JSON from {0}, {1}")]
     FailedToParseJSON(String, serde_json::Error),
     #[error("Invalid URL {0}")]
@@ -137,21 +136,10 @@ impl Network {
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
         let uri = self.helper_url(&addr.to_string()).await?;
         tracing::debug!("URL {uri:?}");
-        let response = match uri.scheme_str() {
-            Some("http") => hyper::Client::new().get(uri.clone()).await?,
-            Some("https") => {
-                let https = hyper_tls::HttpsConnector::new();
-                hyper::Client::builder()
-                    .build::<_, hyper::Body>(https)
-                    .get(uri.clone())
-                    .await?
-            }
-            _ => {
-                return Err(Error::InvalidUrl(uri.to_string()));
-            }
-        };
+        let response = reqwest::get(uri.to_string()).await?;
+
         let request_successful = response.status().is_success();
-        let body = hyper::body::to_bytes(response.into_body()).await?;
+        let body = response.bytes().await?;
         let res = serde_json::from_slice::<serde_json::Value>(&body)
             .map_err(|e| Error::FailedToParseJSON(uri.to_string(), e))?;
         tracing::debug!("{res:#?}");

@@ -71,7 +71,7 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
-    Hyper(#[from] hyper::Error),
+    HttpClient(#[from] reqwest::Error),
     #[error("Failed to parse JSON from {0}, {1}")]
     FailedToParseJSON(String, serde_json::Error),
     #[error("Invalid URL {0}")]

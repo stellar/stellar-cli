@@ -19,7 +19,6 @@ use std::{
     sync::atomic::AtomicBool,
 };
 use toml_edit::{Document, TomlError};
-use ureq::get;
 
 use crate::{commands::global, print};
 
@@ -261,7 +260,7 @@ impl Runner {
     }
 
     fn check_internet_connection() -> bool {
-        if let Ok(_req) = get(GITHUB_URL).call() {
+        if let Ok(_req) = reqwest::blocking::get(GITHUB_URL) {
             return true;
         }
 
