@@ -18,7 +18,8 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
+    rpc::Error as SorobanRpcError,
+    rpc_client::{Error as RpcClientError, RpcClient},
     utils::{contract_id_hash_from_asset, parsing::parse_asset},
 };
 
@@ -44,6 +45,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 impl From<Infallible> for Error {
@@ -93,7 +96,7 @@ impl NetworkRunnable for Cmd {
         let asset = parse_asset(&self.asset)?;
 
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
