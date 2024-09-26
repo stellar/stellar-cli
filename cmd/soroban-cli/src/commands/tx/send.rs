@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
 
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{self, locator, network};
-use crate::rpc_client::{Error as RpcClientError, RpcClient};
+use crate::{
+    commands::{global, NetworkRunnable},
+    config::{self, locator, network},
+    rpc_client::{Error as RpcClientError, RpcClient},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

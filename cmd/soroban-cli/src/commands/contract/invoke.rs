@@ -23,16 +23,18 @@ use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
-use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
-use crate::commands::NetworkRunnable;
-use crate::get_spec::{self, get_remote_contract_spec};
-use crate::print;
-use crate::rpc_client::{Error as RpcClientError, RpcClient};
 use crate::{
-    commands::global,
+    commands::{
+        contract::arg_parsing::{build_host_function_parameters, output_to_string},
+        global,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
+    },
     config::{self, data, locator, network},
-    rpc, Pwd,
+    get_spec::{self, get_remote_contract_spec},
+    print, rpc,
+    rpc_client::{Error as RpcClientError, RpcClient},
+    Pwd,
 };
 use soroban_spec_tools::contract;
 
