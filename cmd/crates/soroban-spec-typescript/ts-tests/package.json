@@ -14,7 +14,7 @@
     "ava": "^5.3.1",
     "dotenv": "^16.3.1",
     "eslint": "^8.53.0",
-    "@stellar/stellar-sdk": "12.2.0",
+    "@stellar/stellar-sdk": "12.3.0",
     "typescript": "^5.3.3"
   },
   "ava": {
