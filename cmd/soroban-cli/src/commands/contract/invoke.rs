@@ -28,6 +28,7 @@ use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
 use crate::get_spec::{self, get_remote_contract_spec};
 use crate::print;
+use crate::rpc_client::{Error as RpcClientError, RpcClient};
 use crate::{
     commands::global,
     config::{self, data, locator, network},
@@ -128,6 +129,8 @@ pub enum Error {
     GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 impl From<Infallible> for Error {
@@ -209,7 +212,7 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = rpc::Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         let account_details = if self.is_view {
             default_account_entry()
         } else {
