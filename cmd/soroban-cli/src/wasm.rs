@@ -1,9 +1,6 @@
-use crate::config::locator;
-use crate::config::network::Network;
 use clap::arg;
 use sha2::{Digest, Sha256};
 use soroban_env_host::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
-use soroban_rpc::Client;
 use soroban_spec_tools::contract::{self, Spec};
 use std::{
     fs, io,
@@ -11,10 +8,12 @@ use std::{
 };
 use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
-use crate::utils::rpc::get_remote_wasm_from_hash;
-use crate::utils::{self};
-
-use crate::wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken};
+use crate::{
+    config::{locator, network::Network},
+    rpc_client::{Error as RpcClientError, RpcClient},
+    utils::{self, rpc::get_remote_wasm_from_hash},
+    wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -47,6 +46,8 @@ pub enum Error {
     a network built-in asset contract that does not have a downloadable code binary"
     )]
     ContractIsStellarAsset,
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -128,7 +129,7 @@ pub async fn fetch_from_contract(
         .resolve_contract_id(contract_id, &network.network_passphrase)?
         .0;
 
-    let client = Client::new(&network.rpc_url)?;
+    let client = RpcClient::new(network.clone())?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
         .await?;

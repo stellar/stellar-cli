@@ -18,8 +18,6 @@ pub enum Error {
 // make sure that there are 2 header components before continuing
 // refactor all the things to use a wrapped rpc client so that i just have to make this change once
 
-// this can be a wrap around the stellar-rpc-client
-// is there a way to delegate all the calls to the stellar-rpc-client?
 pub struct RpcClient {
     client: rpc::Client,
 }
