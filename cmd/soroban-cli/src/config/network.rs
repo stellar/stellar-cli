@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use clap::arg;
+use http::{HeaderName, HeaderValue};
 use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -33,6 +34,12 @@ pub enum Error {
     InvalidUrl(String),
     #[error("funding failed: {0}")]
     FundingFailed(String),
+    #[error(transparent)]
+    InvalidHeaderName(#[from] http::header::InvalidHeaderName),
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] http::header::InvalidHeaderValue),
+    #[error("Invalid header: {0}")]
+    InvalidHeader(String),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -47,14 +54,17 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
-    /// Optional header (e.g. API Key) to include in requests to the RPC
+    /// RPC Header(s) to include in requests to the RPC provider
     #[arg(
-            long = "rpc-header",
-            requires = "rpc_url",
-            env = "STELLAR_RPC_HEADER",
-            help_heading = HEADING_RPC,
-        )]
-    pub rpc_header: Option<String>,
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADER",
+        help_heading = HEADING_RPC,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = ',',
+        value_parser = parse_http_header,
+    )]
+    pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -87,7 +97,7 @@ impl Args {
         {
             Ok(Network {
                 rpc_url,
-                rpc_header: self.rpc_header.clone(),
+                rpc_headers: self.rpc_headers.clone(),
                 network_passphrase,
             })
         } else {
@@ -111,8 +121,12 @@ pub struct Network {
         long = "rpc-header",
         env = "STELLAR_RPC_HEADER",
         help_heading = HEADING_RPC,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = ',',
+        value_parser = parse_http_header,
     )]
-    pub rpc_header: Option<String>,
+    pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
             long,
@@ -120,6 +134,24 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
+}
+
+fn parse_http_header(header: &str) -> Result<(String, String), Error> {
+    let header_components = header.split(':').collect::<Vec<&str>>();
+    if header_components.len() != 2 {
+        return Err(Error::InvalidHeader(format!(
+            "Missing a header name and/or value: {header}"
+        )));
+    }
+
+    let key = header_components[0].trim().to_string();
+    let value = header_components[1].trim().to_string();
+
+    // Check that the headers are properly formatted
+    HeaderName::from_str(&key)?;
+    HeaderValue::from_str(&value)?;
+
+    Ok((key, value))
 }
 
 impl Network {
@@ -218,7 +250,7 @@ impl From<&(&str, &str)> for Network {
     fn from(n: &(&str, &str)) -> Self {
         Self {
             rpc_url: n.0.to_string(),
-            rpc_header: None,
+            rpc_headers: Vec::new(),
             network_passphrase: n.1.to_string(),
         }
     }
