@@ -148,6 +148,26 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
     }
 }
 
+pub mod args {
+    /// Mark argument as deprecated with warning to be printed when it's used. Note: marco is only
+    /// supported for `bool` and `String` and is required to add
+    /// ```
+    /// use clap::builder::TypedValueParser;
+    /// ```
+    /// When using the marco
+    #[macro_export]
+    macro_rules! deprecated_arg {
+        (bool, $message: expr) => {
+            clap::builder::BoolValueParser::new().map(|x| {
+                if (x) {
+                    $crate::print::Print::new(false).warnln($message);
+                }
+                x
+            })
+        };
+    }
+}
+
 pub mod rpc {
     use soroban_env_host::xdr;
     use soroban_rpc::{Client, Error};

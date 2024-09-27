@@ -148,7 +148,7 @@ Deploy builtin Soroban Asset Contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -373,7 +373,7 @@ If no keys are specified the contract itself is extended.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -401,7 +401,7 @@ Deploy a wasm contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -679,7 +679,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -718,7 +718,7 @@ stellar contract invoke ... -- --help
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
   Default value: `default`
@@ -832,7 +832,7 @@ If no keys are specificed the contract itself is restored.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — Simulate the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
