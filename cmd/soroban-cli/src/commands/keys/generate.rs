@@ -1,3 +1,5 @@
+use crate::commands::global;
+use crate::print::Print;
 use clap::{arg, command};
 
 use super::super::config::{
@@ -46,10 +48,22 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: network::Args,
+
+    /// Fund generated key pair
+    #[arg(long, default_value = "false")]
+    pub fund: bool,
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        if !self.fund {
+            Print::new(global_args.quiet).warnln(
+                "Behavior of `generate` will change in the \
+            future, and it will no longer fund by default. If you want to fund please \
+            provide `--fund` flag. If you don't need to fund your keys in the future, ignore this \
+            warning. It can be suppressed with -q flag.",
+            )
+        }
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
         } else {
