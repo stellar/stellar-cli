@@ -226,7 +226,7 @@ mod tests {
                         "id": id,
                         "result": {
                             "friendbotUrl": "https://friendbot.stellar.org/",
-                            "passphrase": "Public Global Stellar Network ; September 2015",
+                            "passphrase": passphrase::TESTNET.to_string(),
                             "protocolVersion": 21
                     }
                 })
@@ -259,7 +259,7 @@ mod tests {
                         "id": id,
                         "result": {
                             "friendbotUrl": "https://friendbot.stellar.org/secret?api_key=123456&user=demo",
-                            "passphrase": "Public Global Stellar Network ; September 2015",
+                            "passphrase": passphrase::TESTNET.to_string(),
                             "protocolVersion": 21
                     }
                 }).to_string().into()
