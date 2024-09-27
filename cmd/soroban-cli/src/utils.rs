@@ -154,7 +154,7 @@ pub mod http {
         format!("{}/{}", env!("CARGO_PKG_NAME"), version::pkg())
     }
 
-    /// Creates and returns a configured reqwest::Client.
+    /// Creates and returns a configured `reqwest::Client`.
     ///
     /// # Panics
     ///
@@ -170,7 +170,7 @@ pub mod http {
             .expect("Failed to build reqwest client")
     }
 
-    /// Creates and returns a configured reqwest::blocking::Client.
+    /// Creates and returns a configured `reqwest::blocking::Client`.
     ///
     /// # Panics
     ///
