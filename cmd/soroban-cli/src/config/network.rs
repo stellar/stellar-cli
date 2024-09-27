@@ -99,7 +99,7 @@ pub struct Network {
             long,
             env = "STELLAR_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
-    )]
+        )]
     pub network_passphrase: String,
 }
 
