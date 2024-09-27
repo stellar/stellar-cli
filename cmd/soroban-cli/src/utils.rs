@@ -157,7 +157,7 @@ pub mod args {
     }
 
     #[macro_export]
-    macro_rules! deprecated_arg {
+    macro_rules! removed_arg {
         ($_type:ident, $message: expr) => {
             |a: &str| {
                 Err::<$_type, utils::args::DeprecatedError>(

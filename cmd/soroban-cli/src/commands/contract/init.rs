@@ -8,7 +8,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, deprecated_arg, print, utils};
+use crate::{commands::global, print, removed_arg, utils};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -20,7 +20,7 @@ pub struct Cmd {
         short,
         long,
         hide = true,
-        value_parser = deprecated_arg!(String, "Adding examples via cli is no longer supported. You can still clone examples from the repo https://github.com/stellar/soroban-examples")
+        value_parser = removed_arg!(String, "Adding examples via cli is no longer supported. You can still clone examples from the repo https://github.com/stellar/soroban-examples")
     )]
     pub with_example: Option<String>,
 
@@ -28,7 +28,7 @@ pub struct Cmd {
     #[arg(
         long,
         hide = true,
-        value_parser = deprecated_arg!(String, "Using frontend template via cli is no longer supported. You can search for frontend templates using github tags, such as `soroban-template` or `soroban-frontend-template`"),
+        value_parser = removed_arg!(String, "Using frontend template via cli is no longer supported. You can search for frontend templates using github tags, such as `soroban-template` or `soroban-frontend-template`"),
     )]
     pub frontend_template: Option<String>,
 
