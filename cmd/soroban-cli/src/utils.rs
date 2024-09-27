@@ -148,6 +148,41 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
     }
 }
 
+pub mod http {
+    use crate::commands::version;
+    fn user_agent() -> String {
+        format!("{}/{}", env!("CARGO_PKG_NAME"), version::pkg())
+    }
+
+    /// Creates and returns a configured reqwest::Client.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the Client initialization fails.
+    pub fn client() -> reqwest::Client {
+        // Why we panic here:
+        // 1. Client initialization failures are rare and usually indicate serious issues.
+        // 2. The application cannot function properly without a working HTTP client.
+        // 3. This simplifies error handling for callers, as they can assume a valid client.
+        reqwest::Client::builder()
+            .user_agent(user_agent())
+            .build()
+            .expect("Failed to build reqwest client")
+    }
+
+    /// Creates and returns a configured reqwest::blocking::Client.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the Client initialization fails.
+    pub fn blocking_client() -> reqwest::blocking::Client {
+        reqwest::blocking::Client::builder()
+            .user_agent(user_agent())
+            .build()
+            .expect("Failed to build reqwest blocking client")
+    }
+}
+
 pub mod rpc {
     use soroban_env_host::xdr;
     use soroban_rpc::{Client, Error};

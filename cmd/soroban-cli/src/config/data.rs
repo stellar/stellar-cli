@@ -1,8 +1,8 @@
 use crate::rpc::{GetTransactionResponse, GetTransactionResponseRaw, SimulateTransactionResponse};
 use directories::ProjectDirs;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use url::Url;
 
 use crate::xdr::{self, WriteXdr};
 

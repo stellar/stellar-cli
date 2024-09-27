@@ -4,7 +4,6 @@ use clap::{arg, Parser, ValueEnum};
 use futures::StreamExt;
 use humantime::format_duration;
 use itertools::{Either, Itertools};
-use reqwest::Url;
 use sha2::{Digest, Sha256};
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
@@ -26,7 +25,9 @@ use stellar_xdr::curr::{
 use tokio::fs::OpenOptions;
 use tokio::io::BufReader;
 use tokio_util::io::StreamReader;
+use url::Url;
 
+use crate::utils::http;
 use crate::{
     commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
@@ -411,7 +412,9 @@ async fn get_history(
 
     print.globe(format!("Downloading history {history_url}"));
 
-    let response = reqwest::get(history_url.as_str())
+    let response = http::client()
+        .get(history_url.as_str())
+        .send()
         .await
         .map_err(Error::DownloadingHistory)?;
 
@@ -462,7 +465,9 @@ async fn cache_bucket(
 
         let bucket_url = Url::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
 
-        let response = reqwest::get(bucket_url.as_str())
+        let response = http::client()
+            .get(bucket_url.as_str())
+            .send()
             .await
             .map_err(Error::GettingBucket)?;
 

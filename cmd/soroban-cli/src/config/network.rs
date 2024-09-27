@@ -1,17 +1,17 @@
 use clap::arg;
 use phf::phf_map;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str::FromStr;
 use stellar_strkey::ed25519::PublicKey;
+use url::Url;
 
+use super::locator;
+use crate::utils::http;
 use crate::{
     commands::HEADING_RPC,
     rpc::{self, Client},
 };
-
-use super::locator;
 pub mod passphrase;
 
 #[derive(thiserror::Error, Debug)]
@@ -130,7 +130,7 @@ impl Network {
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
         let uri = self.helper_url(&addr.to_string()).await?;
         tracing::debug!("URL {uri:?}");
-        let response = reqwest::get(uri.as_str()).await?;
+        let response = http::client().get(uri.as_str()).send().await?;
 
         let request_successful = response.status().is_success();
         let body = response.bytes().await?;

@@ -20,6 +20,7 @@ use std::{
 };
 use toml_edit::{Document, TomlError};
 
+use crate::utils::http;
 use crate::{commands::global, print};
 
 const SOROBAN_EXAMPLES_URL: &str = "https://github.com/stellar/soroban-examples.git";
@@ -260,7 +261,7 @@ impl Runner {
     }
 
     fn check_internet_connection() -> bool {
-        if let Ok(_req) = reqwest::blocking::get(GITHUB_URL) {
+        if let Ok(_req) = http::blocking_client().get(GITHUB_URL).send() {
             return true;
         }
 

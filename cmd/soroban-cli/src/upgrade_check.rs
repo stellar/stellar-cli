@@ -1,5 +1,6 @@
 use crate::config::upgrade_check::UpgradeCheck;
 use crate::print::Print;
+use crate::utils::http;
 use semver::Version;
 use serde::Deserialize;
 use std::error::Error;
@@ -8,7 +9,6 @@ use std::time::Duration;
 
 const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
 const CRATES_IO_API_URL: &str = "https://crates.io/api/v1/crates/";
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const NO_UPDATE_CHECK_ENV_VAR: &str = "STELLAR_NO_UPDATE_CHECK";
 
 #[derive(Deserialize)]
@@ -29,19 +29,7 @@ struct Crate {
 async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
     let crate_name = env!("CARGO_PKG_NAME");
     let url = format!("{CRATES_IO_API_URL}{crate_name}");
-    let client = reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
-        .default_headers({
-            // crates.io requires a User-Agent header
-            let mut headers = reqwest::header::HeaderMap::new();
-            headers.insert(
-                "User-Agent",
-                reqwest::header::HeaderValue::from_static(crate_name),
-            );
-            headers
-        })
-        .build()?;
-    let resp = client
+    let resp = http::client()
         .get(url)
         .send()
         .await?
