@@ -74,7 +74,13 @@ wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
 ed25519-dalek = { workspace = true }
-reqwest = { version = "0.12.7", features = ["json", "blocking", "stream"] }
+reqwest = { version = "0.12.7", default-features = false, features = [
+    "rustls-tls",
+    "http2",
+    "json",
+    "blocking",
+    "stream",
+] }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 regex = "1.6.0"
@@ -122,14 +128,6 @@ semver = "1.0.0"
 glob = "0.3.1"
 open = "5.3.0"
 url = "2.5.2"
-
-[target.'cfg(unix)'.dependencies]
-reqwest = { version = "0.12.7", features = [
-    "json",
-    "blocking",
-    "stream",
-    "native-tls-vendored",
-] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
