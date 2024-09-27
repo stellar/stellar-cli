@@ -2,13 +2,14 @@ use std::path::PathBuf;
 
 use clap::arg;
 use soroban_env_host::xdr;
-use soroban_rpc::Client;
 
-use crate::commands::contract::info::shared::Error::InvalidWasmHash;
-use crate::config::{locator, network};
-use crate::utils::rpc::get_remote_wasm_from_hash;
-use crate::wasm;
-use crate::wasm::Error::ContractIsStellarAsset;
+use crate::{
+    commands::contract::info::shared::Error::InvalidWasmHash,
+    config::{locator, network},
+    rpc_client::{Error as RpcClientError, RpcClient},
+    utils::rpc::get_remote_wasm_from_hash,
+    wasm::{self, Error::ContractIsStellarAsset},
+};
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[command(group(
@@ -56,6 +57,8 @@ pub enum Error {
     InvalidWasmHash(String),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
@@ -71,7 +74,8 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         let hash = xdr::Hash(hash);
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
+
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
