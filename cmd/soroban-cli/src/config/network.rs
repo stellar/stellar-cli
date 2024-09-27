@@ -99,7 +99,7 @@ pub struct Network {
             long,
             env = "STELLAR_NETWORK_PASSPHRASE",
             help_heading = HEADING_RPC,
-        )]
+    )]
     pub network_passphrase: String,
 }
 
@@ -119,10 +119,12 @@ impl Network {
             tracing::debug!("network {network:?}");
             let url = client.friendbot_url().await?;
             tracing::debug!("URL {url:?}");
-            Url::from_str(&format!("{url}?addr={addr}")).map_err(|e| {
+            let mut url = Url::from_str(&url).map_err(|e| {
                 tracing::error!("{e}");
                 Error::InvalidUrl(url.to_string())
-            })
+            })?;
+            url.query_pairs_mut().append_pair("addr", addr);
+            Ok(url)
         }
     }
 
@@ -192,6 +194,8 @@ impl From<&(&str, &str)> for Network {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockito::Server;
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_helper_url_local_network() {
@@ -211,10 +215,65 @@ mod tests {
 
     #[tokio::test]
     async fn test_helper_url_test_network() {
-        // It might be a bit difficult to conduct client mock here.
-        let friendbot_url = "https://friendbot.stellar.org/secret_key";
-        let addr = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
-        let url = Url::from_str(&format!("{friendbot_url}?addr={addr}")).unwrap();
-        assert_eq!(url.as_str(), "https://friendbot.stellar.org/secret_key?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+        let mut server = Server::new_async().await;
+        let _mock = server
+            .mock("POST", "/")
+            .with_body_from_request(|req| {
+                let body: Value = serde_json::from_slice(req.body().unwrap()).unwrap();
+                let id = body["id"].clone();
+                json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "friendbotUrl": "https://friendbot.stellar.org/",
+                            "passphrase": "Public Global Stellar Network ; September 2015",
+                            "protocolVersion": 21
+                    }
+                })
+                .to_string()
+                .into()
+            })
+            .create_async()
+            .await;
+
+        let network = Network {
+            rpc_url: server.url(),
+            network_passphrase: passphrase::TESTNET.to_string(),
+        };
+        let url = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await
+            .unwrap();
+        assert_eq!(url.as_str(), "https://friendbot.stellar.org/?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+    }
+
+    #[tokio::test]
+    async fn test_helper_url_test_network_with_path_and_params() {
+        let mut server = Server::new_async().await;
+        let _mock = server.mock("POST", "/")
+            .with_body_from_request(|req| {
+                let body: Value = serde_json::from_slice(req.body().unwrap()).unwrap();
+                let id = body["id"].clone();
+                json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "friendbotUrl": "https://friendbot.stellar.org/secret?api_key=123456&user=demo",
+                            "passphrase": "Public Global Stellar Network ; September 2015",
+                            "protocolVersion": 21
+                    }
+                }).to_string().into()
+            })
+            .create_async().await;
+
+        let network = Network {
+            rpc_url: server.url(),
+            network_passphrase: passphrase::TESTNET.to_string(),
+        };
+        let url = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await
+            .unwrap();
+        assert_eq!(url.as_str(), "https://friendbot.stellar.org/secret?api_key=123456&user=demo&addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
     }
 }
