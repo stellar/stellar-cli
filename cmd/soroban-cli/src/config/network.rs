@@ -1,9 +1,9 @@
-use std::str::FromStr;
-
 use clap::arg;
 use phf::phf_map;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 use stellar_strkey::ed25519::PublicKey;
 
 use crate::{
@@ -20,8 +20,6 @@ pub enum Error {
     Config(#[from] locator::Error),
     #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
-    #[error(transparent)]
-    Http(#[from] http::Error),
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -106,28 +104,24 @@ pub struct Network {
 }
 
 impl Network {
-    pub async fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
-        use http::Uri;
+    pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_uri = Uri::from_str(&self.rpc_url)
+        let rpc_url = Url::from_str(&self.rpc_url)
             .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
-            let auth = rpc_uri.authority().unwrap().clone();
-            let scheme = rpc_uri.scheme_str().unwrap();
-            Ok(Uri::builder()
-                .authority(auth)
-                .scheme(scheme)
-                .path_and_query(format!("/friendbot?addr={addr}"))
-                .build()?)
+            let mut local_url = rpc_url;
+            local_url.set_path("/friendbot");
+            local_url.set_query(Some(&format!("addr={addr}")));
+            Ok(local_url)
         } else {
             let client = Client::new(&self.rpc_url)?;
             let network = client.get_network().await?;
             tracing::debug!("network {network:?}");
-            let uri = client.friendbot_url().await?;
-            tracing::debug!("URI {uri:?}");
-            Uri::from_str(&format!("{uri}?addr={addr}")).map_err(|e| {
+            let url = client.friendbot_url().await?;
+            tracing::debug!("URL {url:?}");
+            Url::from_str(&format!("{url}?addr={addr}")).map_err(|e| {
                 tracing::error!("{e}");
-                Error::InvalidUrl(uri.to_string())
+                Error::InvalidUrl(url.to_string())
             })
         }
     }
@@ -136,7 +130,7 @@ impl Network {
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
         let uri = self.helper_url(&addr.to_string()).await?;
         tracing::debug!("URL {uri:?}");
-        let response = reqwest::get(uri.to_string()).await?;
+        let response = reqwest::get(uri.as_str()).await?;
 
         let request_successful = response.status().is_success();
         let body = response.bytes().await?;
@@ -161,8 +155,8 @@ impl Network {
         Ok(())
     }
 
-    pub fn rpc_uri(&self) -> Result<http::Uri, Error> {
-        http::Uri::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
+    pub fn rpc_uri(&self) -> Result<Url, Error> {
+        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
     }
 }
 
@@ -192,5 +186,35 @@ impl From<&(&str, &str)> for Network {
             rpc_url: n.0.to_string(),
             network_passphrase: n.1.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_helper_url_local_network() {
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+        };
+
+        let result = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await;
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "http://localhost:8000/friendbot?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+    }
+
+    #[tokio::test]
+    async fn test_helper_url_test_network() {
+        // It might be a bit difficult to conduct client mock here.
+        let friendbot_url = "https://friendbot.stellar.org/secret_key";
+        let addr = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
+        let url = Url::from_str(&format!("{friendbot_url}?addr={addr}")).unwrap();
+        assert_eq!(url.as_str(), "https://friendbot.stellar.org/secret_key?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
     }
 }

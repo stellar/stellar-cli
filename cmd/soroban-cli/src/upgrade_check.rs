@@ -34,7 +34,10 @@ async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
         .default_headers({
             // crates.io requires a User-Agent header
             let mut headers = reqwest::header::HeaderMap::new();
-            headers.insert("User-Agent", reqwest::header::HeaderValue::from_static(crate_name));
+            headers.insert(
+                "User-Agent",
+                reqwest::header::HeaderValue::from_static(crate_name),
+            );
             headers
         })
         .build()?;

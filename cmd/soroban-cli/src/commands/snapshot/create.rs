@@ -2,9 +2,9 @@ use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use clap::{arg, Parser, ValueEnum};
 use futures::StreamExt;
-use http::Uri;
 use humantime::format_duration;
 use itertools::{Either, Itertools};
+use reqwest::Url;
 use sha2::{Digest, Sha256};
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{
@@ -86,7 +86,7 @@ pub struct Cmd {
     network: config::network::Args,
     /// Archive URL
     #[arg(long, help_heading = HEADING_RPC, env = "STELLAR_ARCHIVE_URL")]
-    archive_url: Option<Uri>,
+    archive_url: Option<Url>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -102,7 +102,7 @@ pub enum Error {
     #[error("opening cached bucket to read: {0}")]
     ReadOpeningCachedBucket(io::Error),
     #[error("parsing bucket url: {0}")]
-    ParsingBucketUrl(http::uri::InvalidUri),
+    ParsingBucketUrl(url::ParseError),
     #[error("getting bucket: {0}")]
     GettingBucket(reqwest::Error),
     #[error("getting bucket: got status code {0}")]
@@ -366,7 +366,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn archive_url(&self) -> Result<http::Uri, Error> {
+    fn archive_url(&self) -> Result<Url, Error> {
         // Return the configured archive URL, or if one is not configured, guess
         // at an appropriate archive URL given the network passphrase.
         self.archive_url
@@ -384,7 +384,7 @@ impl Cmd {
                         passphrase::LOCAL => Some("http://localhost:8000/archive"),
                         _ => None,
                     }
-                    .map(|s| Uri::from_str(s).expect("archive url valid"))
+                    .map(|s| Url::from_str(s).expect("archive url valid"))
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
@@ -393,7 +393,7 @@ impl Cmd {
 
 async fn get_history(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     ledger: Option<u32>,
 ) -> Result<History, Error> {
     let archive_url = archive_url.to_string();
@@ -407,11 +407,11 @@ async fn get_history(
     } else {
         format!("{archive_url}/.well-known/stellar-history.json")
     };
-    let history_url = Uri::from_str(&history_url).unwrap();
+    let history_url = Url::from_str(&history_url).unwrap();
 
     print.globe(format!("Downloading history {history_url}"));
 
-    let response = reqwest::get(&history_url.to_string())
+    let response = reqwest::get(history_url.as_str())
         .await
         .map_err(Error::DownloadingHistory)?;
 
@@ -445,7 +445,7 @@ async fn get_history(
 
 async fn cache_bucket(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     bucket_index: usize,
     bucket: &str,
 ) -> Result<PathBuf, Error> {
@@ -460,9 +460,9 @@ async fn cache_bucket(
 
         print.globe(format!("Downloading bucket {bucket_index} {bucket}…"));
 
-        let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
+        let bucket_url = Url::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
 
-        let response = reqwest::get(&bucket_url.to_string())
+        let response = reqwest::get(bucket_url.as_str())
             .await
             .map_err(Error::GettingBucket)?;
 
