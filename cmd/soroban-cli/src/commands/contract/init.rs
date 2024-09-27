@@ -10,25 +10,33 @@ use rust_embed::RustEmbed;
 
 use crate::{commands::global, print, removed_arg, utils};
 
+const EXAMPLE_REMOVAL_NOTICE: &str = "Adding examples via cli is no longer supported. \
+You can still clone examples from the repo https://github.com/stellar/soroban-examples";
+const FRONTEND_EXAMPLE_REMOVAL_NOTICE: &str = "Using frontend template via cli is no longer \
+supported. You can search for frontend templates using github tags, \
+such as `soroban-template` or `soroban-frontend-template`";
+
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     pub project_path: String,
 
-    // TODO: remove in 23.0
+    // TODO: remove in future version https://github.com/stellar/stellar-cli/issues/1586
     #[arg(
         short,
         long,
         hide = true,
-        value_parser = removed_arg!(String, "Adding examples via cli is no longer supported. You can still clone examples from the repo https://github.com/stellar/soroban-examples")
+    display_order = 100,
+        value_parser = removed_arg!(String, EXAMPLE_REMOVAL_NOTICE)
     )]
     pub with_example: Option<String>,
 
-    // TODO: remove in 23.0
+    // TODO: remove in future version https://github.com/stellar/stellar-cli/issues/1586
     #[arg(
         long,
         hide = true,
-        value_parser = removed_arg!(String, "Using frontend template via cli is no longer supported. You can search for frontend templates using github tags, such as `soroban-template` or `soroban-frontend-template`"),
+        display_order = 100,
+        value_parser = removed_arg!(String, FRONTEND_EXAMPLE_REMOVAL_NOTICE),
     )]
     pub frontend_template: Option<String>,
 
