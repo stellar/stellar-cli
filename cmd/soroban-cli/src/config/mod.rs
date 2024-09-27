@@ -3,10 +3,9 @@ use std::path::PathBuf;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
-use soroban_rpc::Client;
-
 use crate::{
     print::Print,
+    rpc_client::{Error as RpcClientError, RpcClient},
     signer::{self, LocalKey, Signer, SignerKind},
     xdr::{Transaction, TransactionEnvelope},
     Pwd,
@@ -36,6 +35,8 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -101,7 +102,7 @@ impl Args {
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_key = self.key_pair()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = RpcClient::new(network.clone())?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
