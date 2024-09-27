@@ -30,6 +30,7 @@ pub struct Args {
         long,
         help_heading = HEADING_RPC,
         conflicts_with = "build_only",
+        display_order = 100,
         value_parser = deprecated_arg!(bool, DEPRECATION_MESSAGE))
     ]
     pub sim_only: bool,
