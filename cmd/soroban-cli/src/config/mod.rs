@@ -45,7 +45,11 @@ pub struct Args {
     pub network: network::Args,
 
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// Account that where transaction originates from. Alias `source`.
+    /// Can be an identity (--source alice), a public key (--source GDKW...),
+    /// a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
+    /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: String,
 
     #[arg(long)]
@@ -59,7 +63,7 @@ pub struct Args {
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
     pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        if let Ok(secret) = self.locator.read_identity(&self.source_account) {
+        if let Ok(secret) = self.account(&self.source_account) {
             Ok(stellar_strkey::ed25519::PublicKey(
                 secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
             ))
