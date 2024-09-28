@@ -26,17 +26,17 @@ fi
 exe() { echo"${@/eval/}" ; "$@" ; }
 
 function fund_all() {
-  exe eval "./soroban keys generate root"
-  exe eval "./soroban keys fund root"
+  exe eval "./stellar keys generate root"
+  exe eval "./stellar keys fund root"
 }
 function deploy() {
-  exe eval "(./soroban contract deploy --quiet --source root --wasm $1 --ignore-checks) > $2"
+  exe eval "(./stellar contract deploy --quiet --source root --wasm $1 --ignore-checks) > $2"
 }
 function deploy_all() {
   deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
 }
 function bind() {
-  exe eval "./soroban contract bindings typescript --contract-id $(cat $1) --output-dir ./node_modules/$2 --overwrite"
+  exe eval "./stellar contract bindings typescript --contract-id $(cat $1) --output-dir ./node_modules/$2 --overwrite"
 }
 function bind_all() {
   bind contract-id-custom-types.txt test-custom-types

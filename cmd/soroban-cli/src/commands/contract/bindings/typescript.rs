@@ -124,10 +124,10 @@ impl NetworkRunnable for Cmd {
             network_passphrase,
             ..
         } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
-            network::DEFAULTS
+            network::default_networks()
                 .get("futurenet")
                 .expect("why did we remove the default futurenet network?")
-                .into()
+                .to_owned()
         });
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path

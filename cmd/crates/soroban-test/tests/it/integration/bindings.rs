@@ -1,19 +1,17 @@
 use super::util::deploy_custom_account;
 use super::util::deploy_swap;
-use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
+use soroban_test::TestEnv;
 
 const OUTPUT_DIR: &str = "./bindings-output";
 
 #[tokio::test]
 async fn invoke_test_generate_typescript_bindings() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let contract_id = deploy_swap(sandbox).await;
     let outdir = sandbox.dir().join(OUTPUT_DIR);
     let cmd = sandbox.cmd_arr::<soroban_cli::commands::contract::bindings::typescript::Cmd>(&[
-        "--network-passphrase",
-        LOCAL_NETWORK_PASSPHRASE,
-        "--rpc-url",
-        &sandbox.rpc_url,
+        "--network",
+        "local",
         "--output-dir",
         &outdir.display().to_string(),
         "--overwrite",
@@ -36,14 +34,12 @@ async fn invoke_test_generate_typescript_bindings() {
 
 #[tokio::test]
 async fn invoke_test_bindings_context_failure() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let contract_id = deploy_custom_account(sandbox).await;
     let outdir = sandbox.dir().join(OUTPUT_DIR);
     let cmd = sandbox.cmd_arr::<soroban_cli::commands::contract::bindings::typescript::Cmd>(&[
-        "--network-passphrase",
-        LOCAL_NETWORK_PASSPHRASE,
-        "--rpc-url",
-        &sandbox.rpc_url,
+        "--network",
+        "local",
         "--output-dir",
         &outdir.display().to_string(),
         "--overwrite",

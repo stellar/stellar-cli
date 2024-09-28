@@ -25,9 +25,13 @@ fn set_and_remove_network() {
         let dir = sandbox.dir().join(".soroban").join("network");
         let mut read_dir = std::fs::read_dir(dir).unwrap();
         let file = read_dir.next().unwrap().unwrap();
+
         assert_eq!(file.file_name().to_str().unwrap(), "local.toml");
+
         let res = ls(sandbox);
-        assert_eq!(res[0], "local");
+
+        assert_eq!(res[1], "local");
+
         sandbox
             .new_assert_cmd("network")
             .arg("rm")
@@ -117,7 +121,7 @@ fn set_and_remove_global_network() {
         .arg("ls")
         .arg("--global")
         .assert()
-        .stdout("global\n");
+        .stdout("futurenet\nglobal\nlocal\nmainnet\ntestnet\n");
 
     sandbox
         .new_assert_cmd("network")
@@ -133,7 +137,7 @@ fn set_and_remove_global_network() {
         .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
         .arg("ls")
         .assert()
-        .stdout("\n");
+        .stdout("futurenet\nlocal\nmainnet\ntestnet\n");
 }
 
 #[test]
@@ -221,7 +225,7 @@ fn generate_key_on_testnet() {
         .new_assert_cmd("keys")
         .arg("generate")
         .arg("--rpc-url=https://soroban-testnet.stellar.org:443")
-        .arg("--network-passphrase=Test SDF Network ; September 2015")
+        .arg("--network=local")
         .arg("test_2")
         .assert()
         .stdout("")

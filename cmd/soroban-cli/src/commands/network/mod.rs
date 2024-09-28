@@ -64,7 +64,7 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
 
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
+    #[error("please provide a network; use --network or set SOROBAN_NETWORK env var")]
     Network,
     #[error(transparent)]
     Http(#[from] http::Error),

@@ -7,7 +7,7 @@ use soroban_cli::{
     config::{locator, secret},
 };
 use soroban_rpc::GetLatestLedgerResponse;
-use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
+use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::extend_contract;
 
@@ -16,7 +16,7 @@ use super::util::{deploy_hello, extend, HELLO_WORLD};
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
 async fn invoke_view_with_non_existent_source_account() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let mut cmd = hello_world_cmd(&id, world);
@@ -29,7 +29,7 @@ async fn invoke_view_with_non_existent_source_account() {
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn invoke() {
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
     sandbox
@@ -257,7 +257,7 @@ fn contract_data_read_failure(sandbox: &TestEnv, id: &str) {
 #[tokio::test]
 async fn contract_data_read() {
     const KEY: &str = "COUNTER";
-    let sandbox = &TestEnv::new();
+    let sandbox = &TestEnv::default();
     let id = &deploy_hello(sandbox).await;
     let res = sandbox
         .invoke_with_test(&["--id", id, "--", "inc"])
@@ -316,7 +316,7 @@ async fn contract_data_read() {
 #[tokio::test]
 #[ignore]
 async fn half_max_instructions() {
-    let sandbox = TestEnv::new();
+    let sandbox = TestEnv::default();
     let wasm = HELLO_WORLD;
     sandbox
         .new_assert_cmd("contract")
@@ -367,10 +367,8 @@ async fn handles_kebab_case(e: &TestEnv, id: &str) {
 async fn fetch(sandbox: &TestEnv, id: &str) {
     let f = sandbox.dir().join("contract.wasm");
     let cmd = sandbox.cmd_arr::<fetch::Cmd>(&[
-        "--rpc-url",
-        &sandbox.rpc_url,
-        "--network-passphrase",
-        LOCAL_NETWORK_PASSPHRASE,
+        "--network",
+        "local",
         "--id",
         id,
         "--out-file",

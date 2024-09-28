@@ -1,6 +1,6 @@
 use predicates::prelude::*;
 use soroban_cli::config::network::passphrase::LOCAL;
-use soroban_test::TestEnv;
+use soroban_test::{AssertExt, TestEnv};
 use std::fs;
 use std::path::PathBuf;
 
@@ -185,15 +185,13 @@ fn get_repo_root() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use soroban_test::AssertExt;
-
     use crate::integration::util::{deploy_hello, HELLO_WORLD};
 
     use super::*;
 
     #[tokio::test]
     async fn test_all_mdx_files() {
-        let sandbox = TestEnv::new();
+        let sandbox = TestEnv::default();
         let wasm = HELLO_WORLD;
         let wasm_path = wasm.path();
         let wasm_hash = wasm.hash().expect("should exist").to_string();

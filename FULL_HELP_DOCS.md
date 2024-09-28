@@ -111,13 +111,11 @@ Utilities to deploy a Stellar Asset Contract or get its id
 
 Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id asset` instead
 
-**Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset id [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -130,13 +128,11 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -171,7 +167,7 @@ Utilities to manage contract aliases
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias remove [OPTIONS] --network <NETWORK> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -181,8 +177,6 @@ Remove contract alias
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -191,7 +185,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --network <NETWORK> --id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -201,8 +195,6 @@ Add contract alias
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--overwrite` — Overwrite the contract alias if it already exists
 * `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
@@ -213,7 +205,7 @@ Add contract alias
 
 Show the contract id associated with a given alias
 
-**Usage:** `stellar contract alias show [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias show [OPTIONS] --network <NETWORK> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -223,8 +215,6 @@ Show the contract id associated with a given alias
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -284,7 +274,7 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -294,8 +284,6 @@ Generate a TypeScript / JavaScript package
 * `--contract-id <CONTRACT_ID>` — The contract ID/address on the network
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -339,7 +327,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -360,8 +348,6 @@ If no keys are specified the contract itself is extended.
   - `temporary`:
     Temporary
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -381,15 +367,13 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `stellar contract deploy [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — WASM file to deploy
 * `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 * `--salt <SALT>` — Custom salt 32-byte salt for the token id
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -413,7 +397,7 @@ Deploy a wasm contract
 
 Fetch a contract's Wasm binary
 
-**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -421,8 +405,6 @@ Fetch a contract's Wasm binary
 * `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -444,13 +426,11 @@ Generate the contract id for a given contract or asset
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
 * `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -463,13 +443,11 @@ Deploy builtin Soroban Asset Contract
 
 Deploy normal Wasm Contract
 
-**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
 * `--salt <SALT>` — ID of the Soroban contract
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -502,15 +480,13 @@ The data outputted by this command is a stream of `SCSpecEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info interface [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
 * `--id <CONTRACT_ID>` — Contract id to get the data for
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -541,15 +517,13 @@ The data outputted by this command is a stream of `SCMetaEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info meta [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
 * `--id <CONTRACT_ID>` — Contract id to get the data for
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -580,15 +554,13 @@ The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. S
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info env-meta [OPTIONS] --network <NETWORK> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
 
 ###### **Options:**
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
 * `--id <CONTRACT_ID>` — Contract id to get the data for
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -662,12 +634,10 @@ Inspect a WASM file listing contract functions, meta, etc
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract install [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -695,7 +665,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --network <NETWORK> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -705,8 +675,6 @@ stellar contract invoke ... -- --help
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
 * `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -751,7 +719,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `stellar contract read [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -782,8 +750,6 @@ Print the current value of a contract-data ledger entry
   - `temporary`:
     Temporary
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -798,7 +764,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `stellar contract restore [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
@@ -819,8 +785,6 @@ If no keys are specificed the contract itself is restored.
 
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -840,7 +804,7 @@ If no keys are specificed the contract itself is restored.
 
 Watch the network for contract events
 
-**Usage:** `stellar events [OPTIONS]`
+**Usage:** `stellar events [OPTIONS] --network <NETWORK>`
 
 ###### **Options:**
 
@@ -879,8 +843,6 @@ Watch the network for contract events
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -944,7 +906,7 @@ Given an identity return its address (public key)
 
 Fund an identity on a test network
 
-**Usage:** `stellar keys fund [OPTIONS] <NAME>`
+**Usage:** `stellar keys fund [OPTIONS] --network <NETWORK> <NAME>`
 
 ###### **Arguments:**
 
@@ -952,8 +914,6 @@ Fund an identity on a test network
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
@@ -965,7 +925,7 @@ Fund an identity on a test network
 
 Generate a new identity with a seed phrase, currently 12 words
 
-**Usage:** `stellar keys generate [OPTIONS] <NAME>`
+**Usage:** `stellar keys generate [OPTIONS] --network <NETWORK> <NAME>`
 
 ###### **Arguments:**
 
@@ -980,8 +940,6 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
 * `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -1258,7 +1216,7 @@ Contract addresses include the related wasm, contract data.
 
 If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
 
-**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT> --network <NETWORK>`
 
 ###### **Options:**
 
@@ -1274,8 +1232,6 @@ If a contract is a Stellar asset contract, it includes the asset issuer's accoun
   Default value: `snapshot.json`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--archive-url <ARCHIVE_URL>` — Archive URL
 
@@ -1300,12 +1256,10 @@ Sign, Simulate, and Send transactions
 
 Simulate a transaction envelope from stdin
 
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx simulate [OPTIONS] --network <NETWORK> --source-account <SOURCE_ACCOUNT>`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -1318,12 +1272,10 @@ Simulate a transaction envelope from stdin
 
 Calculate the hash of a transaction envelope from stdin
 
-**Usage:** `stellar tx hash [OPTIONS]`
+**Usage:** `stellar tx hash --network <NETWORK>`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 
 
@@ -1332,15 +1284,13 @@ Calculate the hash of a transaction envelope from stdin
 
 Sign a transaction envelope appending the signature to the envelope
 
-**Usage:** `stellar tx sign [OPTIONS]`
+**Usage:** `stellar tx sign [OPTIONS] --network <NETWORK>`
 
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--sign-with-lab` — Sign with https://lab.stellar.org
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1351,12 +1301,10 @@ Sign a transaction envelope appending the signature to the envelope
 
 Send a transaction envelope to the network
 
-**Usage:** `stellar tx send [OPTIONS]`
+**Usage:** `stellar tx send [OPTIONS] --network <NETWORK>`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
