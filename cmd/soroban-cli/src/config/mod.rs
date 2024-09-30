@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ use crate::{
     Pwd,
 };
 
-use self::{network::Network, secret::Secret};
+use network::Network;
 
 pub mod address;
 pub mod alias;
@@ -47,8 +48,13 @@ pub struct Args {
     pub network: network::Args,
 
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
-    pub source_account: address::Address,
+    /// Account that where transaction originates from. Alias `source`.
+    /// Can be an identity (--source alice), a public key (--source GDKW...),
+    /// a muxed account (--source MDA…), a secret key (--source SC36…),
+    /// or a seed phrase (--source "kite urban…").
+    /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
+    /// sign the final transaction. In that case, trying to sign with public key will fail.
+    pub source_account: Address,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -65,7 +71,9 @@ impl Args {
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.account(&self.source_account()?.to_string())?;
+        let key = self
+            .locator
+            .read_identity(&self.source_account()?.to_string())?;
         Ok(key.key_pair(self.hd_path)?)
     }
 
@@ -103,20 +111,8 @@ impl Args {
         )?)
     }
 
-    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
-        if let Ok(secret) = self.locator.read_identity(account_str) {
-            Ok(secret)
-        } else {
-            Ok(account_str.parse::<Secret>()?)
-        }
-    }
-
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
-    }
-
-    pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        Ok(self.locator.config_dir()?)
     }
 
     pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
