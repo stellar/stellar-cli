@@ -91,8 +91,8 @@ pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
     let mut args = vec![
         "--id",
         id,
-        "--durability",
-        "persistent",
+        // "--durability",
+        // "persistent",
         "--ledgers-to-extend",
         "100001",
     ];

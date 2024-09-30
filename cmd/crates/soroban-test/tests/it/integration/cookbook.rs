@@ -82,10 +82,10 @@ async fn run_command(
                 modified_args.push(key_xdr.to_string());
                 skip_next = true;
             }
-            "<DURABILITY>" => {
-                modified_args.push("persistent".to_string());
-                skip_next = false;
-            }
+            // "<DURABILITY>" => {
+            //     modified_args.push("persistent".to_string());
+            //     skip_next = false;
+            // }
             "<KEY>" => {
                 modified_args.push("COUNTER".to_string());
                 skip_next = false;

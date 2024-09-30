@@ -208,7 +208,6 @@ impl NetworkRunnable for Cmd {
                     key_xdr: None,
                     wasm: Some(self.wasm.wasm.clone()),
                     wasm_hash: None,
-                    durability: super::Durability::Persistent,
                 },
                 config: config.clone(),
                 fee: self.fee.clone(),

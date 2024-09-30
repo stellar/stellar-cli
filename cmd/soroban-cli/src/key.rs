@@ -58,10 +58,7 @@ pub struct Args {
         conflicts_with = "key_xdr",
         conflicts_with = "wasm"
     )]
-    pub wasm_hash: Option<String>,
-    /// Storage entry durability
-    #[arg(long, value_enum, default_value = "persistent")]
-    pub durability: Durability,
+    pub wasm_hash: Option<String>,  
 }
 
 impl Args {
@@ -105,7 +102,7 @@ impl Args {
             .map(|key| {
                 LedgerKey::ContractData(LedgerKeyContractData {
                     contract: ScAddress::Contract(xdr::Hash(contract.0)),
-                    durability: (&self.durability).into(),
+                    durability: xdr::ContractDataDurability::Persistent, // Always use Persistent
                     key,
                 })
             })
