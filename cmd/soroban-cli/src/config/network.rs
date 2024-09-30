@@ -56,8 +56,8 @@ pub struct Args {
     pub rpc_url: Option<String>,
     /// RPC Header(s) to include in requests to the RPC provider
     #[arg(
-        long = "rpc-header",
-        env = "STELLAR_RPC_HEADER",
+        long = "rpc-headers",
+        env = "STELLAR_RPC_HEADERS",
         help_heading = HEADING_RPC,
         num_args = 1,
         action = clap::ArgAction::Append,
@@ -118,8 +118,8 @@ pub struct Network {
     pub rpc_url: String,
     /// Optional header (e.g. API Key) to include in requests to the RPC
     #[arg(
-        long = "rpc-header",
-        env = "STELLAR_RPC_HEADER",
+        long = "rpc-headers",
+        env = "STELLAR_RPC_HEADERS",
         help_heading = HEADING_RPC,
         num_args = 1,
         action = clap::ArgAction::Append,
