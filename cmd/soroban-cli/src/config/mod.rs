@@ -102,7 +102,7 @@ impl Args {
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_key = self.key_pair()?;
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(

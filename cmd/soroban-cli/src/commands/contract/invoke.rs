@@ -214,7 +214,7 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         let account_details = if self.is_view {
             default_account_entry()
         } else {

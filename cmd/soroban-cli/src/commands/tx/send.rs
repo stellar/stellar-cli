@@ -57,7 +57,7 @@ impl NetworkRunnable for Cmd {
         } else {
             self.network.get(&self.locator)?
         };
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
         Ok(client.send_transaction_polling(&tx_env).await?)
     }

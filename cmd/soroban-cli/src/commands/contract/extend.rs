@@ -133,7 +133,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         let key = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 

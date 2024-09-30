@@ -96,7 +96,7 @@ impl NetworkRunnable for Cmd {
         let asset = parse_asset(&self.asset)?;
 
         let network = config.get_network()?;
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

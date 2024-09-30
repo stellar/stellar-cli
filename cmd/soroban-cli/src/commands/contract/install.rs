@@ -108,7 +108,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

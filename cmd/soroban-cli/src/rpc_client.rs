@@ -21,9 +21,9 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    pub fn new(network: Network) -> Result<Self, Error> {
+    pub fn new(network: &Network) -> Result<Self, Error> {
         let mut additional_headers = HeaderMap::new();
-        for header in network.rpc_headers.iter() {
+        for header in &network.rpc_headers {
             let header_name = HeaderName::from_bytes(header.0.as_bytes())?;
             let header_value = HeaderValue::from_str(&header.1)?;
 
@@ -64,7 +64,7 @@ mod tests {
             rpc_headers: [("api key".to_string(), "Bearer".to_string())].to_vec(),
         };
 
-        let result = RpcClient::new(network);
+        let result = RpcClient::new(&network);
 
         assert!(result.is_err());
         assert_eq!(
@@ -81,7 +81,7 @@ mod tests {
             rpc_headers: [("Authorization".to_string(), "Bearer 1234".to_string())].to_vec(),
         };
 
-        let result = RpcClient::new(network);
+        let result = RpcClient::new(&network);
 
         assert!(result.is_ok());
     }
@@ -94,7 +94,7 @@ mod tests {
             rpc_headers: [("authorization".to_string(), "bearer 1234".to_string())].to_vec(),
         };
 
-        let result = RpcClient::new(network);
+        let result = RpcClient::new(&network);
 
         assert!(result.is_ok());
     }
@@ -107,7 +107,7 @@ mod tests {
             rpc_headers: [].to_vec(),
         };
 
-        let result = RpcClient::new(network);
+        let result = RpcClient::new(&network);
 
         assert!(result.is_ok());
     }
@@ -124,7 +124,7 @@ mod tests {
             .to_vec(),
         };
 
-        let result = RpcClient::new(network);
+        let result = RpcClient::new(&network);
 
         assert!(result.is_ok());
     }

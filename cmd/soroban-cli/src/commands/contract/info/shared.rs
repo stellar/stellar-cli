@@ -74,7 +74,7 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         let hash = xdr::Hash(hash);
 
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(network)?;
 
         client
             .verify_network_passphrase(Some(&network.network_passphrase))

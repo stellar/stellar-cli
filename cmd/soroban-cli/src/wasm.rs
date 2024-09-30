@@ -129,7 +129,7 @@ pub async fn fetch_from_contract(
         .resolve_contract_id(contract_id, &network.network_passphrase)?
         .0;
 
-    let client = RpcClient::new(network.clone())?;
+    let client = RpcClient::new(network)?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
         .await?;

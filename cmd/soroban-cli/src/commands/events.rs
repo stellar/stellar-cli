@@ -212,7 +212,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        let client = RpcClient::new(network.clone())?;
+        let client = RpcClient::new(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
