@@ -6,6 +6,8 @@ use clap::ValueEnum;
 // Need to add this for windows, since we are only using this crate for the unix fn try_docker_desktop_socket
 use home::home_dir;
 
+use crate::print;
+
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
 // DEFAULT_DOCKER_HOST is from the bollard crate on the main branch, which has not been released yet: https://github.com/fussybeaver/bollard/blob/0972b1aac0ad5c08798e100319ddd0d2ee010365/src/docker.rs#L64
@@ -46,7 +48,7 @@ impl Args {
             .unwrap_or_default()
     }
 
-    pub(crate) async fn connect_to_docker(&self) -> Result<Docker, Error> {
+    pub(crate) async fn connect_to_docker(&self, printer: &print::Print) -> Result<Docker, Error> {
         // if no docker_host is provided, use the default docker host:
         // "unix:///var/run/docker.sock" on unix machines
         // "npipe:////./pipe/docker_engine" on windows machines
@@ -80,7 +82,7 @@ impl Args {
             }
         }?;
 
-        match check_docker_connection(&connection).await {
+        match check_docker_connection(&connection, printer).await {
             Ok(()) => Ok(connection),
             // If we aren't able to connect with the defaults, or with the provided docker_host
             // try to connect with the default docker desktop socket since that is a common use case for devs
@@ -89,8 +91,8 @@ impl Args {
                 // if on unix, try to connect to the default docker desktop socket
                 #[cfg(unix)]
                 {
-                    let docker_desktop_connection = try_docker_desktop_socket(&host)?;
-                    match check_docker_connection(&docker_desktop_connection).await {
+                    let docker_desktop_connection = try_docker_desktop_socket(&host, printer)?;
+                    match check_docker_connection(&docker_desktop_connection, printer).await {
                         Ok(()) => Ok(docker_desktop_connection),
                         Err(err) => Err(err)?,
                     }
@@ -138,10 +140,15 @@ impl Name {
 }
 
 #[cfg(unix)]
-fn try_docker_desktop_socket(host: &str) -> Result<Docker, bollard::errors::Error> {
+fn try_docker_desktop_socket(
+    host: &str,
+    printer: &print::Print,
+) -> Result<Docker, bollard::errors::Error> {
     let default_docker_desktop_host =
         format!("{}/.docker/run/docker.sock", home_dir().unwrap().display());
-    println!("Failed to connect to DOCKER_HOST: {host}.\nTrying to connect to the default Docker Desktop socket at {default_docker_desktop_host}.");
+    printer.errorln(
+        format!("Failed to connect to DOCKER_HOST: {host}.\nTrying to connect to the default Docker Desktop socket at {default_docker_desktop_host}.")
+    );
 
     Docker::connect_with_unix(
         &default_docker_desktop_host,
@@ -152,7 +159,10 @@ fn try_docker_desktop_socket(host: &str) -> Result<Docker, bollard::errors::Erro
 
 // When bollard is not able to connect to the docker daemon, it returns a generic ConnectionRefused error
 // This method attempts to connect to the docker daemon and returns a more specific error message
-async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors::Error> {
+async fn check_docker_connection(
+    docker: &Docker,
+    printer: &print::Print,
+) -> Result<(), bollard::errors::Error> {
     // This is a bit hacky, but the `client_addr` field is not directly accessible from the `Docker` struct, but we can access it from the debug string representation of the `Docker` struct
     let docker_debug_string = format!("{docker:#?}");
     let start_of_client_addr = docker_debug_string.find("client_addr: ").unwrap();
@@ -168,9 +178,9 @@ async fn check_docker_connection(docker: &Docker) -> Result<(), bollard::errors:
     match docker.version().await {
         Ok(_version) => Ok(()),
         Err(err) => {
-            println!(
+            printer.errorln(format!(
                 "⛔️ Failed to connect to the Docker daemon at {client_addr:?}. Is the docker daemon running?\nℹ️  Running a local Stellar network requires a Docker-compatible container runtime.\nℹ️  Please note that if you are using Docker Desktop, you may need to utilize the `--docker-host` flag to pass in the location of the docker socket on your machine.\n"
-            );
+            ));
             Err(err)
         }
     }
