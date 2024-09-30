@@ -9,7 +9,7 @@ use crate::{commands::tx, tx::builder};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     /// Account to set trustline flags for
     #[arg(long)]
     pub trustor: xdr::AccountId,

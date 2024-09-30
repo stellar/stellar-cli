@@ -7,7 +7,7 @@ use crate::{commands::tx, xdr};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     #[arg(long)]
     /// Account of the inflation destination.
     pub inflation_dest: Option<xdr::AccountId>,

@@ -8,6 +8,8 @@ pub mod sign;
 pub mod simulate;
 pub mod xdr;
 
+pub use args::Args;
+
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
     /// Simulate a transaction envelope from stdin

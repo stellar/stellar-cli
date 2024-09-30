@@ -6,7 +6,7 @@ use crate::{commands::tx, xdr};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     /// Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
     #[arg(long)]
     pub data_name: xdr::StringM<64>,

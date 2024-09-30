@@ -6,7 +6,7 @@ use crate::{commands::tx, xdr};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     /// Sequence number to bump to
     #[arg(long)]
     pub bump_to: i64,

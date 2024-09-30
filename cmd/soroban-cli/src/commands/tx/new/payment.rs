@@ -6,7 +6,7 @@ use crate::{commands::tx, tx::builder, xdr};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     /// Account to send to, e.g. `GBX...`
     #[arg(long)]
     pub destination: xdr::MuxedAccount,

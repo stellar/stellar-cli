@@ -30,8 +30,7 @@ impl TxExt for xdr::Transaction {
             seq_num: seq_num.into(),
             cond: soroban_env_host::xdr::Preconditions::None,
             memo: Memo::None,
-            // Safe because we know we have only one operation
-            operations: unsafe { vec![operation].try_into().unwrap_unchecked() },
+           operations: [operation].try_into().unwrap(),
             ext: TransactionExt::V0,
         }
     }

@@ -6,7 +6,7 @@ use crate::{commands::tx, tx::builder, xdr};
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub tx: tx::args::Args,
+    pub tx: tx::Args,
     #[arg(long)]
     pub line: builder::Asset,
     /// Limit for the trust line, 0 to remove the trust line
