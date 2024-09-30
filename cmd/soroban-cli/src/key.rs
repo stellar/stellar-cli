@@ -1,5 +1,4 @@
 use crate::{
-    commands::contract::Durability,
     config::{locator, network::Network},
     wasm,
 };
@@ -58,7 +57,7 @@ pub struct Args {
         conflicts_with = "key_xdr",
         conflicts_with = "wasm"
     )]
-    pub wasm_hash: Option<String>,  
+    pub wasm_hash: Option<String>,
 }
 
 impl Args {
@@ -102,7 +101,7 @@ impl Args {
             .map(|key| {
                 LedgerKey::ContractData(LedgerKeyContractData {
                     contract: ScAddress::Contract(xdr::Hash(contract.0)),
-                    durability: xdr::ContractDataDurability::Persistent, // Always use Persistent
+                    durability: xdr::ContractDataDurability::Persistent,
                     key,
                 })
             })
