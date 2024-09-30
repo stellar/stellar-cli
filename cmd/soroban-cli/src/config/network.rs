@@ -61,7 +61,7 @@ pub struct Args {
         help_heading = HEADING_RPC,
         num_args = 1,
         action = clap::ArgAction::Append,
-        value_delimiter = ',',
+        value_delimiter = '\n',
         value_parser = parse_http_header,
     )]
     pub rpc_headers: Vec<(String, String)>,
@@ -123,7 +123,7 @@ pub struct Network {
         help_heading = HEADING_RPC,
         num_args = 1,
         action = clap::ArgAction::Append,
-        value_delimiter = ',',
+        value_delimiter = '\n',
         value_parser = parse_http_header,
     )]
     pub rpc_headers: Vec<(String, String)>,
