@@ -160,14 +160,43 @@ async fn account_merge() {
 #[tokio::test]
 async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, issuer) = setup_accounts(sandbox);
-    let before = client.get_account(&test).await.unwrap();
     let asset = format!("usdc:{issuer}");
-    issue_asset(sandbox, &test, &issuer, &asset, 100_000, 100).await;
-    let after_issue = client.get_account(&test).await.unwrap();
+    issue_asset(sandbox, &test, &asset, 100_000, 100).await;
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("asset")
+        .arg("deploy")
+        .arg("--asset")
+        .arg(&asset)
+        .assert()
+        .success();
+    let id = contract_id_hash_from_asset(
+        asset.parse::<builder::Asset>().unwrap(),
+        &sandbox.network_passphrase,
+    );
+    sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--id",
+            &id.to_string(),
+            "--",
+            "authorized",
+            "--id",
+            &test,
+        ])
+        .assert()
+        .success()
+        .stdout("true\n");
+    // set revocable to test account
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--set-revocable"])
+        .assert()
+        .success();
     // set trustline flags tx new
-    let res = sandbox
+    sandbox
         .new_assert_cmd("tx")
         .args([
             "new",
@@ -176,16 +205,26 @@ async fn set_trustline_flags() {
             &asset,
             "--trustor",
             &test,
-            "--set-authorize",
+            "--clear-authorize",
             "--source",
             "test1",
         ])
         .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--id",
+            &id.to_string(),
+            "--",
+            "authorized",
+            "--id",
+            &test,
+        ])
+        .assert()
         .success()
-        .stdout_as_str();
-    let after = client.get_account(&test).await.unwrap();
-    println!("{before:#?}\n{after_issue:#?}\n{after:#?}");
-    println!("{res}");
+        .stdout("false\n");
 }
 
 #[tokio::test]
@@ -252,6 +291,8 @@ async fn set_options() {
         &[
             "new",
             "set-options",
+            "--inflation-dest",
+            alice.as_str(),
             "--home-domain",
             "test.com",
             "--master-weight=100",
@@ -281,7 +322,7 @@ async fn set_options() {
     assert_eq!(100, after.signers[0].weight);
     assert_eq!(alice, after.signers[0].key.to_string());
     let xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(key)) = after.inflation_dest.unwrap().0;
-    assert_eq!(test, stellar_strkey::ed25519::PublicKey(key).to_string());
+    assert_eq!(alice, stellar_strkey::ed25519::PublicKey(key).to_string());
     assert_eq!("test.com", after.home_domain.to_string());
     sandbox
         .new_assert_cmd("tx")
@@ -308,12 +349,77 @@ async fn set_options() {
 }
 
 #[tokio::test]
+async fn set_some_options() {
+    let sandbox = &TestEnv::new();
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let test = test_address(sandbox);
+    let before = client.get_account(&test).await.unwrap();
+    assert!(before.inflation_dest.is_none());
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-options",
+            "--set-clawback-enabled",
+            "--master-weight=100",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("AuthRevocableRequired"));
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-options",
+            "--set-revocable",
+            "--master-weight=100",
+        ])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(after.flags, xdr::AccountFlags::RevocableFlag as u32);
+    assert_eq!([100, 0, 0, 0], after.thresholds.0);
+    assert!(after.inflation_dest.is_none());
+    assert_eq!(
+        after.home_domain,
+        "".parse::<xdr::StringM<32>>().unwrap().into()
+    );
+    assert!(after.signers.is_empty());
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--set-clawback-enabled"])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(
+        after.flags,
+        xdr::AccountFlags::RevocableFlag as u32 | xdr::AccountFlags::ClawbackEnabledFlag as u32
+    );
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--clear-clawback-enabled"])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(after.flags, xdr::AccountFlags::RevocableFlag as u32);
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--clear-revocable"])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(after.flags, 0);
+}
+
+#[tokio::test]
 async fn change_trust() {
     let sandbox = &TestEnv::new();
     let (test, issuer) = setup_accounts(sandbox);
     let asset = &format!("usdc:{issuer}");
+
     let limit = 100_000_000;
-    issue_asset(sandbox, &test, &issuer, asset, limit, 100).await;
+    let half_limit = limit / 2;
+    issue_asset(sandbox, &test, asset, limit, half_limit).await;
     sandbox
         .new_assert_cmd("contract")
         .arg("asset")
@@ -340,8 +446,10 @@ async fn change_trust() {
             &test,
         ])
         .assert()
-        .stdout("\"100\"\n");
+        .stdout(format!("\"{half_limit}\"\n"));
+
     let bob = new_account(sandbox, "bob");
+    let bobs_limit = half_limit / 2;
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -351,20 +459,51 @@ async fn change_trust() {
             "--line",
             asset,
             "--limit",
-            (limit - 10).to_string().as_str(),
+            bobs_limit.to_string().as_str(),
         ])
         .assert()
         .success();
-    sandbox.new_assert_cmd("tx").args([
-        "new",
-        "payment",
-        "--destination",
-        &bob,
-        "--asset",
-        asset,
-        "--amount",
-        limit.to_string().as_str(),
-    ]);
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            &bob,
+            "--asset",
+            asset,
+            "--amount",
+            half_limit.to_string().as_str(),
+        ])
+        .assert()
+        .failure();
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            &bob,
+            "--asset",
+            asset,
+            "--amount",
+            bobs_limit.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--id",
+            &id.to_string(),
+            "--",
+            "balance",
+            "--id",
+            &bob,
+        ])
+        .assert()
+        .stdout(format!("\"{bobs_limit}\"\n"));
 }
 
 #[tokio::test]
@@ -414,17 +553,9 @@ async fn manage_data() {
     assert_eq!(hex::encode(data_value.0.to_vec()), value);
 }
 
-async fn issue_asset(
-    sandbox: &TestEnv,
-    test: &str,
-    issuer: &str,
-    asset: &str,
-    limit: u64,
-    initial_balance: u64,
-) {
+async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, initial_balance: u64) {
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test_before = client.get_account(test).await.unwrap();
-    let issuer_before = client.get_account(issuer).await.unwrap();
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -455,6 +586,4 @@ async fn issue_asset(
         ])
         .assert()
         .success();
-    let issuer_after = client.get_account(issuer).await.unwrap();
-    println!("{issuer_after:#?}, {issuer_before:#?}");
 }
