@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::xdr;
 
-use super::locator;
+use super::{locator, secret};
 
 /// Address can be either a public key or eventually an alias of a address.
 #[derive(Clone, Debug)]
@@ -20,9 +20,11 @@ impl Default for Address {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Strkey(#[from] stellar_strkey::DecodeError),
-    #[error("Only Ed25519 and MuxedEd25519 addresses or aliases are supported")]
-    InvalidAddress,
+    Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Secret(#[from] secret::Error),
+    #[error("Address cannot be used to sign {0}")]
+    CannotSign(xdr::MuxedAccount),
 }
 
 impl FromStr for Address {
@@ -37,16 +39,25 @@ impl FromStr for Address {
 }
 
 impl Address {
-    pub fn resolve(
+    pub fn resolve_muxed_account(
         &self,
         locator: &locator::Args,
         hd_path: Option<usize>,
-    ) -> Result<xdr::MuxedAccount, locator::Error> {
+    ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             Address::MuxedAccount(muxed_account) => Ok(muxed_account.clone()),
-            Address::AliasOrSecret(alias) => Ok(xdr::MuxedAccount::Ed25519(
-                locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
-            )),
+            Address::AliasOrSecret(alias) => alias.parse().or_else(|_| {
+                Ok(xdr::MuxedAccount::Ed25519(
+                    locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
+                ))
+            }),
+        }
+    }
+
+    pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
+        match &self {
+            Address::MuxedAccount(muxed_account) => Err(Error::CannotSign(muxed_account.clone())),
+            Address::AliasOrSecret(alias) => Ok(locator.read_identity(alias)?),
         }
     }
 }

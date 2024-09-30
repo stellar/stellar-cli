@@ -19,7 +19,8 @@ use crate::{
     },
     config::{self, data, network},
     rpc::{Client, Error as SorobanRpcError},
-    utils::{contract_id_hash_from_asset, parsing::parse_asset},
+    tx::builder,
+    utils::contract_id_hash_from_asset,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -39,11 +40,11 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
-    ParseAssetError(#[from] crate::utils::parsing::Error),
-    #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Builder(#[from] builder::Error),
 }
 
 impl From<Infallible> for Error {
@@ -57,7 +58,7 @@ impl From<Infallible> for Error {
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
     #[arg(long)]
-    pub asset: String,
+    pub asset: builder::Asset,
 
     #[command(flatten)]
     pub config: config::Args,
@@ -90,7 +91,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
-        let asset = parse_asset(&self.asset)?;
+        let asset = &self.asset;
 
         let network = config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
@@ -105,9 +106,9 @@ impl NetworkRunnable for Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
+        let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
         let tx = build_wrap_token_tx(
-            &asset,
+            asset,
             &contract_id,
             sequence + 1,
             self.fee.fee,
@@ -135,14 +136,14 @@ impl NetworkRunnable for Cmd {
 }
 
 fn build_wrap_token_tx(
-    asset: &Asset,
-    contract_id: &Hash,
+    asset: impl Into<Asset>,
+    contract_id: &stellar_strkey::Contract,
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
     source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(contract_id.clone());
+    let contract = ScAddress::Contract(Hash(contract_id.0));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
@@ -157,7 +158,8 @@ fn build_wrap_token_tx(
             durability: ContractDataDurability::Persistent,
         }),
     ];
-    if asset != &Asset::Native {
+    let asset = asset.into();
+    if asset != Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract,
             key: ScVal::Vec(Some(
@@ -171,7 +173,7 @@ fn build_wrap_token_tx(
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+                contract_id_preimage: ContractIdPreimage::Asset(asset),
                 executable: ContractExecutable::StellarAsset,
             }),
             auth: VecM::default(),

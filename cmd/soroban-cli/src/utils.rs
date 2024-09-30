@@ -3,8 +3,8 @@ use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
 use soroban_env_host::xdr::{
-    Asset, ContractIdPreimage, Error as XdrError, Hash, HashIdPreimage, HashIdPreimageContractId,
-    Limits, ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
+    self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, ScMap,
+    ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
@@ -15,14 +15,17 @@ use crate::config::network::Network;
 /// # Errors
 ///
 /// Might return an error
-pub fn contract_hash(contract: &[u8]) -> Result<Hash, XdrError> {
+pub fn contract_hash(contract: &[u8]) -> Result<Hash, xdr::Error> {
     Ok(Hash(Sha256::digest(contract).into()))
 }
 
 /// # Errors
 ///
 /// Might return an error
-pub fn transaction_hash(tx: &Transaction, network_passphrase: &str) -> Result<[u8; 32], XdrError> {
+pub fn transaction_hash(
+    tx: &Transaction,
+    network_passphrase: &str,
+) -> Result<[u8; 32], xdr::Error> {
     let signature_payload = TransactionSignaturePayload {
         network_id: Hash(Sha256::digest(network_passphrase).into()),
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
@@ -41,7 +44,10 @@ pub fn explorer_url_for_transaction(network: &Network, tx_hash: &str) -> Option<
         .map(|base_url| format!("{base_url}/tx/{tx_hash}"))
 }
 
-pub fn explorer_url_for_contract(network: &Network, contract_id: &str) -> Option<String> {
+pub fn explorer_url_for_contract(
+    network: &Network,
+    contract_id: &stellar_strkey::Contract,
+) -> Option<String> {
     EXPLORERS
         .get(&network.network_passphrase)
         .map(|base_url| format!("{base_url}/contract/{contract_id}"))
@@ -50,16 +56,20 @@ pub fn explorer_url_for_contract(network: &Network, contract_id: &str) -> Option
 /// # Errors
 ///
 /// Might return an error
-pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strkey::DecodeError> {
+pub fn contract_id_from_str(
+    contract_id: &str,
+) -> Result<stellar_strkey::Contract, stellar_strkey::DecodeError> {
     Ok(
         if let Ok(strkey) = stellar_strkey::Contract::from_string(contract_id) {
-            strkey.0
+            strkey
         } else {
             // strkey failed, try to parse it as a hex string, for backwards compatibility.
-            soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)?
-                .try_into()
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)?
+            stellar_strkey::Contract(
+                soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
+                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?
+                    .try_into()
+                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?,
+            )
         },
     )
 }
@@ -112,16 +122,19 @@ pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }
 
-pub fn contract_id_hash_from_asset(asset: &Asset, network_passphrase: &str) -> Hash {
+pub fn contract_id_hash_from_asset(
+    asset: impl Into<Asset>,
+    network_passphrase: &str,
+) -> stellar_strkey::Contract {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
-        contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+        contract_id_preimage: ContractIdPreimage::Asset(asset.into()),
     });
     let preimage_xdr = preimage
         .to_xdr(Limits::none())
         .expect("HashIdPreimage should not fail encoding to xdr");
-    Hash(Sha256::digest(preimage_xdr).into())
+    stellar_strkey::Contract(Sha256::digest(preimage_xdr).into())
 }
 
 pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<String> {
@@ -171,81 +184,6 @@ pub mod rpc {
     }
 }
 
-pub mod parsing {
-
-    use regex::Regex;
-    use soroban_env_host::xdr::{
-        AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, PublicKey,
-    };
-    use soroban_sdk::xdr::AssetCode;
-
-    #[derive(thiserror::Error, Debug)]
-    pub enum Error {
-        #[error("invalid asset code: {asset}")]
-        InvalidAssetCode { asset: String },
-        #[error("cannot parse account id: {account_id}")]
-        CannotParseAccountId { account_id: String },
-        #[error("cannot parse asset: {asset}")]
-        CannotParseAsset { asset: String },
-        #[error(transparent)]
-        Regex(#[from] regex::Error),
-    }
-
-    pub fn parse_asset(str: &str) -> Result<Asset, Error> {
-        if str == "native" {
-            return Ok(Asset::Native);
-        }
-        let split: Vec<&str> = str.splitn(2, ':').collect();
-        if split.len() != 2 {
-            return Err(Error::CannotParseAsset {
-                asset: str.to_string(),
-            });
-        }
-        let code = split[0];
-        let issuer = split[1];
-        let issuer = parse_account_id(issuer)?;
-        Ok(match parse_asset_code(code)? {
-            AssetCode::CreditAlphanum4(asset_code) => {
-                Asset::CreditAlphanum4(AlphaNum4 { asset_code, issuer })
-            }
-            AssetCode::CreditAlphanum12(asset_code) => {
-                Asset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
-            }
-        })
-    }
-
-    pub fn parse_asset_code(code: &str) -> Result<AssetCode, Error> {
-        let re = Regex::new("^[[:alnum:]]{1,12}$")?;
-        if !re.is_match(code) {
-            return Err(Error::InvalidAssetCode {
-                asset: code.to_string(),
-            });
-        }
-        if code.len() <= 4 {
-            let mut asset_code: [u8; 4] = [0; 4];
-            for (i, b) in code.as_bytes().iter().enumerate() {
-                asset_code[i] = *b;
-            }
-            Ok(AssetCode::CreditAlphanum4(AssetCode4(asset_code)))
-        } else {
-            let mut asset_code: [u8; 12] = [0; 12];
-            for (i, b) in code.as_bytes().iter().enumerate() {
-                asset_code[i] = *b;
-            }
-            Ok(AssetCode::CreditAlphanum12(AssetCode12(asset_code)))
-        }
-    }
-
-    pub fn parse_account_id(str: &str) -> Result<AccountId, Error> {
-        let pk_bytes = stellar_strkey::ed25519::PublicKey::from_string(str)
-            .map_err(|_| Error::CannotParseAccountId {
-                account_id: str.to_string(),
-            })?
-            .0;
-        Ok(AccountId(PublicKey::PublicKeyTypeEd25519(pk_bytes.into())))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,7 +193,7 @@ mod tests {
         // strkey
         match contract_id_from_str("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE") {
             Ok(contract_id) => assert_eq!(
-                contract_id,
+                contract_id.0,
                 [
                     0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88, 0xc7,
                     0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0, 0xec, 0x9c,

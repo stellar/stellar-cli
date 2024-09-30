@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
@@ -22,7 +20,6 @@ pub mod locator;
 pub mod network;
 pub mod secret;
 pub mod sign_with;
-pub mod signer_key;
 pub mod upgrade_check;
 
 #[derive(thiserror::Error, Debug)]
@@ -39,6 +36,8 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -67,13 +66,13 @@ pub struct Args {
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
     pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self.source_account.resolve(&self.locator, self.hd_path)?)
+        Ok(self
+            .source_account
+            .resolve_muxed_account(&self.locator, self.hd_path)?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self
-            .locator
-            .read_identity(&self.source_account()?.to_string())?;
+        let key = &self.source_account.resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path)?)
     }
 

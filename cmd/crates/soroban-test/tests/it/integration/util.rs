@@ -87,7 +87,7 @@ pub async fn deploy_contract(
         },
         DeployKind::Normal => (),
     }
-    res.into_result().unwrap()
+    res.into_result().unwrap().to_string()
 }
 
 pub async fn extend_contract(sandbox: &TestEnv, id: &str) {

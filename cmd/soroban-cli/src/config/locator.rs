@@ -268,7 +268,7 @@ impl Args {
     pub fn save_contract_id(
         &self,
         network_passphrase: &str,
-        contract_id: &str,
+        contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
         let path = self.alias_path(alias)?;
@@ -286,7 +286,7 @@ impl Args {
             .open(path)?;
 
         data.ids
-            .insert(network_passphrase.into(), contract_id.into());
+            .insert(network_passphrase.into(), contract_id.to_string());
 
         let content = serde_json::to_string(&data)?;
 

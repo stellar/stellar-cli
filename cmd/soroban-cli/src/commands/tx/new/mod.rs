@@ -12,15 +12,15 @@ mod set_options;
 mod set_trustline_flags;
 
 #[derive(Debug, Parser)]
+#[allow(clippy::doc_markdown)]
 pub enum Cmd {
     /// Transfers the XLM balance of an account to another account and removes the source account from the ledger
-    /// Threshold: High
     AccountMerge(account_merge::Cmd),
     /// Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
     /// Threshold: Low
     BumpSequence(bump_sequence::Cmd),
     /// Creates, updates, or deletes a trustline
-    /// Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/)
+    /// Learn more about trustlines: https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/
     /// Threshold: Medium
     ChangeTrust(change_trust::Cmd),
     /// Creates and funds a new account with the specified starting balance
@@ -50,35 +50,21 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    AccountMerge(#[from] account_merge::Error),
-    #[error(transparent)]
-    BumpSequence(#[from] bump_sequence::Error),
-    #[error(transparent)]
-    ChangeTrust(#[from] change_trust::Error),
-    #[error(transparent)]
-    CreateAccount(#[from] create_account::Error),
-    #[error(transparent)]
-    ManageData(#[from] manage_data::Error),
-    #[error(transparent)]
-    Payment(#[from] payment::Error),
-    #[error(transparent)]
-    SetOptions(#[from] set_options::Error),
-    #[error(transparent)]
-    SetTrustlineFlags(#[from] set_trustline_flags::Error),
+    Tx(#[from] super::args::Error),
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::AccountMerge(cmd) => cmd.run(global_args).await?,
-            Cmd::BumpSequence(cmd) => cmd.run(global_args).await?,
-            Cmd::ChangeTrust(cmd) => cmd.run(global_args).await?,
-            Cmd::CreateAccount(cmd) => cmd.run(global_args).await?,
-            Cmd::ManageData(cmd) => cmd.run(global_args).await?,
-            Cmd::Payment(cmd) => cmd.run(global_args).await?,
-            Cmd::SetOptions(cmd) => cmd.run(global_args).await?,
-            Cmd::SetTrustlineFlags(cmd) => cmd.run(global_args).await?,
-        };
+            Cmd::AccountMerge(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::BumpSequence(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::ManageData(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::Payment(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+            Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(cmd, global_args).await,
+        }?;
         Ok(())
     }
 }

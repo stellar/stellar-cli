@@ -35,7 +35,7 @@ pub enum Error {
 }
 
 impl Args {
-    pub async fn tx(&self, body: xdr::OperationBody) -> Result<xdr::Transaction, Error> {
+    pub async fn tx(&self, body: impl Into<xdr::OperationBody>) -> Result<xdr::Transaction, Error> {
         let source_account = self.source_account()?;
         let seq_num = self
             .config
@@ -44,7 +44,7 @@ impl Args {
         // Once we have a way to add operations this will be updated to allow for a different source account
         let operation = xdr::Operation {
             source_account: None,
-            body,
+            body: body.into(),
         };
         Ok(xdr::Transaction::new_tx(
             source_account,
@@ -59,17 +59,17 @@ impl Args {
         Ok(Client::new(&network.rpc_url)?)
     }
 
-    pub async fn handle<T: builder::Operation>(
+    pub async fn handle(
         &self,
-        op: &T,
+        op: impl Into<xdr::OperationBody>,
         global_args: &global::Args,
     ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
-        let tx = self.tx(op.build_body()).await?;
+        let tx = self.tx(op.into()).await?;
         self.handle_tx(tx, global_args).await
     }
-    pub async fn handle_and_print<T: builder::Operation>(
+    pub async fn handle_and_print(
         &self,
-        op: &T,
+        op: impl Into<xdr::OperationBody>,
         global_args: &global::Args,
     ) -> Result<(), Error> {
         let res = self.handle(op, global_args).await?;

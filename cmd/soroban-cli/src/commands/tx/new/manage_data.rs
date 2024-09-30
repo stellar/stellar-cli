@@ -1,10 +1,6 @@
 use clap::{command, Parser};
 
-use crate::{
-    commands::{global, tx},
-    tx::builder,
-    xdr,
-};
+use crate::{commands::tx, xdr};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,24 +17,12 @@ pub struct Cmd {
     pub data_value: Option<xdr::BytesM<64>>,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Tx(#[from] tx::args::Error),
-}
-
-impl Cmd {
-    #[allow(clippy::too_many_lines)]
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        self.tx.handle_and_print(self, global_args).await?;
-        Ok(())
-    }
-}
-impl builder::Operation for Cmd {
-    fn build_body(&self) -> xdr::OperationBody {
-        let data_value = self.data_value.clone().map(Into::into);
+impl From<&Cmd> for xdr::OperationBody {
+    fn from(cmd: &Cmd) -> Self {
+        let data_value = cmd.data_value.clone().map(Into::into);
+        let data_name = cmd.data_name.clone().into();
         xdr::OperationBody::ManageData(xdr::ManageDataOp {
-            data_name: self.data_name.clone().into(),
+            data_name,
             data_value,
         })
     }

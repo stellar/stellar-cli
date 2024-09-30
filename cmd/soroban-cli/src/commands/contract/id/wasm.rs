@@ -20,8 +20,6 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    ParseError(#[from] crate::utils::parsing::Error),
-    #[error(transparent)]
     ConfigError(#[from] config::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
@@ -45,8 +43,7 @@ impl Cmd {
             contract_id_preimage.clone(),
             &self.config.get_network()?.network_passphrase,
         )?;
-        let strkey_contract_id = stellar_strkey::Contract(contract_id.0).to_string();
-        println!("{strkey_contract_id}");
+        println!("{contract_id}");
         Ok(())
     }
 }
@@ -65,12 +62,14 @@ pub fn contract_preimage(
 pub fn get_contract_id(
     contract_id_preimage: ContractIdPreimage,
     network_passphrase: &str,
-) -> Result<Hash, Error> {
+) -> Result<stellar_strkey::Contract, Error> {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage,
     });
     let preimage_xdr = preimage.to_xdr(Limits::none())?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+    Ok(stellar_strkey::Contract(
+        Sha256::digest(preimage_xdr).into(),
+    ))
 }

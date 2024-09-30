@@ -119,7 +119,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -138,7 +138,7 @@ Deploy builtin Soroban Asset Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -363,7 +363,7 @@ If no keys are specified the contract itself is extended.
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -391,7 +391,7 @@ Deploy a wasm contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -452,7 +452,7 @@ Deploy builtin Soroban Asset Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -471,7 +471,7 @@ Deploy normal Wasm Contract
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -669,7 +669,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -708,7 +708,7 @@ stellar contract invoke ... -- --help
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -785,7 +785,7 @@ Print the current value of a contract-data ledger entry
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -822,7 +822,7 @@ If no keys are specificed the contract itself is restored.
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1308,7 +1308,7 @@ Simulate a transaction envelope from stdin
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1372,9 +1372,9 @@ Create a new transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger Threshold: High
+* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
 * `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number Threshold: Low
-* `change-trust` — Creates, updates, or deletes a trustline Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/) Threshold: Medium
+* `change-trust` — Creates, updates, or deletes a trustline Learn more about trustlines: https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/ Threshold: Medium
 * `create-account` — Creates and funds a new account with the specified starting balance Threshold: Medium
 * `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: [Accounts section](../stellar-data-structures/accounts.mdx#subentries) Threshold: Medium
 * `payment` — Sends an amount in a specific asset to a destination account Threshold: Medium
@@ -1385,7 +1385,7 @@ Create a new transaction
 
 ## `stellar tx new account-merge`
 
-Transfers the XLM balance of an account to another account and removes the source account from the ledger Threshold: High
+Transfers the XLM balance of an account to another account and removes the source account from the ledger
 
 **Usage:** `stellar tx new account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
 
@@ -1401,7 +1401,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1427,7 +1427,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1437,9 +1437,9 @@ Bumps forward the sequence number of the source account to the given sequence nu
 
 ## `stellar tx new change-trust`
 
-Creates, updates, or deletes a trustline Learn more about trustlines: [Trustlines Encyclopedia Entry](https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/) Threshold: Medium
+Creates, updates, or deletes a trustline Learn more about trustlines: https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/ Threshold: Medium
 
-**Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE> --limit <LIMIT>`
+**Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
 
 ###### **Options:**
 
@@ -1453,12 +1453,14 @@ Creates, updates, or deletes a trustline Learn more about trustlines: [Trustline
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--line <LINE>`
-* `--limit <LIMIT>` — Limit for the trust line
+* `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
+
+  Default value: `18446744073709551615`
 
 
 
@@ -1480,7 +1482,7 @@ Creates and funds a new account with the specified starting balance Threshold: M
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1509,7 +1511,7 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1536,7 +1538,7 @@ Sends an amount in a specific asset to a destination account Threshold: Medium
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1566,7 +1568,7 @@ Set option for an account such as flags, inflation destination, signers, home do
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1607,7 +1609,7 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…")
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."

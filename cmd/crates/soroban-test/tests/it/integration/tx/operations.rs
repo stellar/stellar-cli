@@ -1,4 +1,7 @@
-use soroban_cli::{tx::ONE_XLM, utils::contract_id_hash_from_asset};
+use soroban_cli::{
+    tx::{builder, ONE_XLM},
+    utils::contract_id_hash_from_asset,
+};
 use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_test::{AssertExt, TestEnv};
 
@@ -17,18 +20,19 @@ fn test_address(sandbox: &TestEnv) -> String {
         .stdout_as_str()
 }
 
-// returns test and test1 addresses
-fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
-    let test = test_address(sandbox);
-    sandbox.generate_account("test1", None).assert().success();
-    let test1 = sandbox
+fn new_account(sandbox: &TestEnv, name: &str) -> String {
+    sandbox.generate_account(name, None).assert().success();
+    sandbox
         .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test1")
+        .args(["address", name])
         .assert()
         .success()
-        .stdout_as_str();
-    (test, test1)
+        .stdout_as_str()
+}
+
+// returns test and test1 addresses
+fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
+    (test_address(sandbox), new_account(sandbox, "test1"))
 }
 
 #[tokio::test]
@@ -204,6 +208,7 @@ async fn set_options_add_signer() {
         .success();
     let after = client.get_account(&test).await.unwrap();
     assert_eq!(before.signers.len() + 1, after.signers.len());
+    assert_eq!(after.signers.first().unwrap().key, test1.parse().unwrap());
     // Now remove signer with a weight of 0
     sandbox
         .new_assert_cmd("tx")
@@ -221,6 +226,19 @@ async fn set_options_add_signer() {
     assert_eq!(before.signers.len(), after.signers.len());
 }
 
+fn build_and_run(sandbox: &TestEnv, cmd: &str, args: &[&str]) -> String {
+    let mut args_2 = args.to_vec();
+    args_2.push("--build-only");
+    let res = sandbox
+        .new_assert_cmd(cmd)
+        .args(args_2)
+        .assert()
+        .success()
+        .stdout_as_str();
+    sandbox.new_assert_cmd(cmd).args(args).assert().success();
+    res
+}
+
 #[tokio::test]
 async fn set_options() {
     let sandbox = &TestEnv::new();
@@ -228,13 +246,12 @@ async fn set_options() {
     let (test, alice) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
-    sandbox
-        .new_assert_cmd("tx")
-        .args([
+    let tx_xdr = build_and_run(
+        sandbox,
+        "tx",
+        &[
             "new",
             "set-options",
-            "--inflation-dest",
-            test.as_str(),
             "--home-domain",
             "test.com",
             "--master-weight=100",
@@ -248,9 +265,9 @@ async fn set_options() {
             "--set-revocable",
             "--set-clawback-enabled",
             "--set-immutable",
-        ])
-        .assert()
-        .success();
+        ],
+    );
+    println!("{tx_xdr}");
     let after = client.get_account(&test).await.unwrap();
     println!("{before:#?}\n{after:#?}");
     assert_eq!(
@@ -305,15 +322,49 @@ async fn change_trust() {
         .arg(asset)
         .assert()
         .success();
+
     // wrap_cmd(&asset).run().await.unwrap();
-    let asset = soroban_cli::utils::parsing::parse_asset(asset).unwrap();
-    let hash = contract_id_hash_from_asset(&asset, &sandbox.network_passphrase);
-    let id = stellar_strkey::Contract(hash.0).to_string();
+    let id = contract_id_hash_from_asset(
+        asset.parse::<builder::Asset>().unwrap(),
+        &sandbox.network_passphrase,
+    );
     sandbox
         .new_assert_cmd("contract")
-        .args(["invoke", "--id", &id, "--", "balance", "--id", &test])
+        .args([
+            "invoke",
+            "--id",
+            &id.to_string(),
+            "--",
+            "balance",
+            "--id",
+            &test,
+        ])
         .assert()
         .stdout("\"100\"\n");
+    let bob = new_account(sandbox, "bob");
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "change-trust",
+            "--source=bob",
+            "--line",
+            asset,
+            "--limit",
+            (limit - 10).to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    sandbox.new_assert_cmd("tx").args([
+        "new",
+        "payment",
+        "--destination",
+        &bob,
+        "--asset",
+        asset,
+        "--amount",
+        limit.to_string().as_str(),
+    ]);
 }
 
 #[tokio::test]
@@ -385,8 +436,7 @@ async fn issue_asset(
             limit.to_string().as_str(),
         ])
         .assert()
-        .success()
-        .stdout_as_str();
+        .success();
     let after = client.get_account(test).await.unwrap();
     assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
     // Send a payment to the issuer

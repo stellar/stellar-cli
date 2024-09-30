@@ -1,10 +1,6 @@
 use clap::{command, Parser};
 
-use crate::{
-    commands::{global, tx},
-    tx::builder,
-    xdr,
-};
+use crate::{commands::tx, tx::builder, xdr};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -22,26 +18,12 @@ pub struct Cmd {
     pub amount: i64,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Tx(#[from] tx::args::Error),
-}
-
-impl Cmd {
-    #[allow(clippy::too_many_lines)]
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        self.tx.handle_and_print(self, global_args).await?;
-        Ok(())
-    }
-}
-
-impl builder::Operation for Cmd {
-    fn build_body(&self) -> xdr::OperationBody {
+impl From<&Cmd> for xdr::OperationBody {
+    fn from(cmd: &Cmd) -> Self {
         xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: self.destination.clone(),
-            asset: self.asset.clone().into(),
-            amount: self.amount,
+            destination: cmd.destination.clone(),
+            asset: cmd.asset.clone().into(),
+            amount: cmd.amount,
         })
     }
 }

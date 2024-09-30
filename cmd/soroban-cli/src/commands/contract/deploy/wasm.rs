@@ -160,13 +160,13 @@ fn alias_validator(alias: &str) -> Result<String, Error> {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<String>;
+    type Result = TxnResult<stellar_strkey::Contract>;
 
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<String>, Error> {
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
@@ -192,12 +192,14 @@ impl NetworkRunnable for Cmd {
                 .to_string()
         };
 
-        let wasm_hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
-            Error::CannotParseWasmHash {
-                wasm_hash: wasm_hash.clone(),
-                error: e,
-            }
-        })?);
+        let wasm_hash = Hash(
+            utils::contract_id_from_str(&wasm_hash)
+                .map_err(|e| Error::CannotParseWasmHash {
+                    wasm_hash: wasm_hash.clone(),
+                    error: e,
+                })?
+                .0,
+        );
 
         print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
 
@@ -258,8 +260,6 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
-        let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
-
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
@@ -277,7 +277,7 @@ fn build_create_contract_tx(
     network_passphrase: &str,
     salt: [u8; 32],
     key: stellar_strkey::ed25519::PublicKey,
-) -> Result<(Transaction, Hash), Error> {
+) -> Result<(Transaction, stellar_strkey::Contract), Error> {
     let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
 
     let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
@@ -306,7 +306,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    Ok((tx, Hash(contract_id.into())))
+    Ok((tx, contract_id))
 }
 
 #[cfg(test)]
