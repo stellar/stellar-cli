@@ -1,4 +1,8 @@
-use crate::{signer, xdr::TransactionEnvelope};
+use crate::{
+    print::Print,
+    signer::{self, Signer, SignerKind},
+    xdr::{self, TransactionEnvelope},
+};
 use clap::arg;
 
 use super::{
@@ -23,6 +27,8 @@ pub enum Error {
     NoSignWithKey,
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -35,19 +41,32 @@ pub struct Args {
     #[arg(long, requires = "sign_with_key")]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
+
+    #[allow(clippy::doc_markdown)]
+    /// Sign with https://lab.stellar.org
+    #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
+    pub sign_with_lab: bool,
 }
 
 impl Args {
     pub fn sign_tx_env(
         &self,
-        tx: TransactionEnvelope,
+        tx: &TransactionEnvelope,
         locator: &locator::Args,
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
-        let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-        let secret = locator.key(key_or_name)?;
-        let signer = secret.signer(self.hd_path, quiet)?;
+        let print = Print::new(quiet);
+        let signer = if self.sign_with_lab {
+            Signer {
+                kind: SignerKind::Lab,
+                print,
+            }
+        } else {
+            let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+            let secret = locator.key(key_or_name)?;
+            secret.signer(self.hd_path, print)?
+        };
         Ok(signer.sign_tx_env(tx, network)?)
     }
 }

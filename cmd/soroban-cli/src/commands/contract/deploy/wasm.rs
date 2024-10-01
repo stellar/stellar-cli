@@ -226,13 +226,13 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.key_pair()?;
-        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-            key.verifying_key().to_bytes().into(),
-        ));
+        let source_account = config.source_account()?;
+        let public_strkey = source_account.to_string();
 
         let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-            address: ScAddress::Account(source_account),
+            address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(
+                source_account.0.into(),
+            ))),
             salt: Uint256(salt),
         });
         let contract_id =
@@ -263,16 +263,13 @@ impl NetworkRunnable for Cmd {
         };
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let txn = build_create_contract_tx(
             wasm_hash,
             sequence + 1,
             self.fee.fee,
-            &key,
+            &source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
         )?;
@@ -320,7 +317,7 @@ fn build_create_contract_tx(
     wasm_hash: Hash,
     sequence: i64,
     fee: u32,
-    key: &ed25519_dalek::SigningKey,
+    key: &stellar_strkey::ed25519::PublicKey,
     contract_id_preimage: ContractIdPreimage,
     constructor_params: Option<&InvokeContractArgs>,
 ) -> Result<Transaction, Error> {
@@ -349,7 +346,7 @@ fn build_create_contract_tx(
         }
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -375,20 +372,23 @@ mod tests {
         let key =
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap();
-        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-            key.verifying_key().to_bytes().into(),
-        ));
+        let source_account = stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes());
 
         let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-            address: ScAddress::Account(source_account),
+            address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(
+                source_account.0.into(),
+            ))),
             salt: Uint256(salt),
         });
-        // let contract_id = get_contract_id(
-        //     contract_id_preimage.clone(),
-        //     "Public Global Stellar Network ; September 2015",
-        // )
-        // .unwrap();
-        let result = build_create_contract_tx(Hash(hash), 300, 1, key, contract_id_preimage, None);
+
+        let result = build_create_contract_tx(
+            Hash(hash),
+            300,
+            1,
+            &source_account,
+            contract_id_preimage,
+            None,
+        );
 
         assert!(result.is_ok());
     }

@@ -34,6 +34,8 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    StellarStrkey(#[from] stellar_strkey::DecodeError),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -43,7 +45,11 @@ pub struct Args {
     pub network: network::Args,
 
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    /// Account that signs the final transaction. Alias `source`. Can be an identity (--source alice), a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// Account that where transaction originates from. Alias `source`.
+    /// Can be an identity (--source alice), a public key (--source GDKW...),
+    /// a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
+    /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: String,
 
     #[arg(long)]
@@ -55,6 +61,19 @@ pub struct Args {
 }
 
 impl Args {
+    // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
+    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        if let Ok(secret) = self.account(&self.source_account) {
+            Ok(stellar_strkey::ed25519::PublicKey(
+                secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
+            ))
+        } else {
+            Ok(stellar_strkey::ed25519::PublicKey::from_string(
+                &self.source_account,
+            )?)
+        }
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = self.account(&self.source_account)?;
         Ok(key.key_pair(self.hd_path)?)
@@ -70,7 +89,7 @@ impl Args {
         let network = &self.get_network()?;
         let signer = Signer {
             kind: SignerKind::Local(LocalKey { key }),
-            printer: Print::new(false),
+            print: Print::new(false),
         };
         Ok(signer.sign_tx(tx, network)?)
     }
