@@ -17,33 +17,32 @@ pub enum Cmd {
     /// Transfers the XLM balance of an account to another account and removes the source account from the ledger
     AccountMerge(account_merge::Cmd),
     /// Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-    /// Threshold: Low
     BumpSequence(bump_sequence::Cmd),
     /// Creates, updates, or deletes a trustline
-    /// Learn more about trustlines: https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/trustlines/
-    /// Threshold: Medium
+    /// Learn more about trustlines
+    /// https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
     ChangeTrust(change_trust::Cmd),
     /// Creates and funds a new account with the specified starting balance
-    /// Threshold: Medium
     CreateAccount(create_account::Cmd),
     /// Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-    /// Learn more about entries and subentries: [Accounts section](../stellar-data-structures/accounts.mdx#subentries)
-    /// Threshold: Medium
+    /// Learn more about entries and subentries:
+    /// https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
     ManageData(manage_data::Cmd),
     /// Sends an amount in a specific asset to a destination account
-    /// Threshold: Medium
     Payment(payment::Cmd),
     /// Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-    /// Learn more about flags: [Flags Encyclopedia Entry](../../glossary.mdx#flags)  
-    /// Learn more about the home domain: [Stellar Ecosystem Proposals SEP-0001](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md)  
-    /// Learn more about signers operations and key weight: [Signature and Multisignature Encyclopedia Entry](../../encyclopedia/security/signatures-multisig.mdx)
-    /// Threshold: High
+    /// Learn more about flags:
+    /// https://developers.stellar.org/docs/learn/glossary#flags
+    /// Learn more about the home domain:
+    /// https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+    /// Learn more about signers operations and key weight:
+    /// https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
     SetOptions(set_options::Cmd),
     /// Allows issuing account to configure authorization and trustline flags to an asset
     /// The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
     /// If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-    /// Learn more about flags: [Flags Glossary Entry](../../glossary.mdx#flags)
-    /// Threshold: Low
+    /// Learn more about flags:
+    /// https://developers.stellar.org/docs/learn/glossary#flags
     SetTrustlineFlags(set_trustline_flags::Cmd),
 }
 

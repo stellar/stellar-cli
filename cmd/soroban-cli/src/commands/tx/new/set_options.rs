@@ -2,8 +2,8 @@ use clap::{command, Parser};
 
 use crate::{commands::tx, xdr};
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Debug, Clone)]
+#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
@@ -15,16 +15,19 @@ pub struct Cmd {
     /// A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled.
     pub master_weight: Option<u8>,
     #[arg(long)]
-    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a low threshold](../../encyclopedia/security/signatures-multisig.mdx).
+    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a low threshold.
+    /// https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
     pub low_threshold: Option<u8>,
     #[arg(long)]
-    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a medium threshold](../../encyclopedia/security/signatures-multisig.mdx).
+    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a medium threshold.
+    /// https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
     pub med_threshold: Option<u8>,
     #[arg(long)]
-    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have [a high threshold](../../encyclopedia/security/signatures-multisig.mdx).
+    /// A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a high threshold.
+    /// https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
     pub high_threshold: Option<u8>,
     #[arg(long)]
-    /// Sets the home domain of an account. See [Federation](../../encyclopedia/network-configuration/federation.mdx).
+    /// Sets the home domain of an account. See https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/federation.
     pub home_domain: Option<xdr::StringM<32>>,
     #[arg(long, requires = "signer_weight")]
     /// Add, update, or remove a signer from an account.
@@ -34,19 +37,19 @@ pub struct Cmd {
     pub signer_weight: Option<u8>,
     #[arg(long, conflicts_with = "clear_required")]
     /// When enabled, an issuer must approve an account before that account can hold its asset.
-    /// [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1)
+    /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1
     pub set_required: bool,
     #[arg(long, conflicts_with = "clear_revocable")]
     /// When enabled, an issuer can revoke an existing trustline’s authorization, thereby freezing the asset held by an account.
-    /// [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2)
+    /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
     pub set_revocable: bool,
     #[arg(long, conflicts_with = "clear_clawback_enabled")]
     /// Enables the issuing account to take back (burning) all of the asset.
-    /// [More info](https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8)
+    /// https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8
     pub set_clawback_enabled: bool,
     #[arg(long, conflicts_with = "clear_immutable")]
     /// With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can’t be merged.
-    /// [More info](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4)
+    /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
     pub set_immutable: bool,
     #[arg(long)]
     pub clear_required: bool,
