@@ -49,7 +49,7 @@ impl Args {
     }
 
     #[allow(unused_variables)]
-    pub(crate) async fn connect_to_docker(&self, printer: &print::Print) -> Result<Docker, Error> {
+    pub(crate) async fn connect_to_docker(&self, print: &print::Print) -> Result<Docker, Error> {
         // if no docker_host is provided, use the default docker host:
         // "unix:///var/run/docker.sock" on unix machines
         // "npipe:////./pipe/docker_engine" on windows machines
@@ -92,7 +92,7 @@ impl Args {
                 // if on unix, try to connect to the default docker desktop socket
                 #[cfg(unix)]
                 {
-                    let docker_desktop_connection = try_docker_desktop_socket(&host, printer)?;
+                    let docker_desktop_connection = try_docker_desktop_socket(&host, print)?;
                     match check_docker_connection(&docker_desktop_connection).await {
                         Ok(()) => Ok(docker_desktop_connection),
                         Err(err) => Err(err)?,
@@ -143,13 +143,13 @@ impl Name {
 #[cfg(unix)]
 fn try_docker_desktop_socket(
     host: &str,
-    printer: &print::Print,
+    print: &print::Print,
 ) -> Result<Docker, bollard::errors::Error> {
     let default_docker_desktop_host =
         format!("{}/.docker/run/docker.sock", home_dir().unwrap().display());
-    printer.warnln(format!("Failed to connect to Docker daemon at {host}."));
+    print.warnln(format!("Failed to connect to Docker daemon at {host}."));
 
-    printer.infoln(format!(
+    print.infoln(format!(
         "Attempting to connect to the default Docker Desktop socket at {default_docker_desktop_host} instead."
     ));
 
@@ -158,13 +158,13 @@ fn try_docker_desktop_socket(
         DEFAULT_TIMEOUT,
         API_DEFAULT_VERSION,
     ).map_err(|e| {
-        printer.errorln(format!(
+        print.errorln(format!(
             "Failed to connect to the Docker daemon at {host:?}. Is the docker daemon running?"
         ));
-        printer.infoln(
+        print.infoln(
             "Running a local Stellar network requires a Docker-compatible container runtime."
         );
-        printer.infoln(
+        print.infoln(
             "Please note that if you are using Docker Desktop, you may need to utilize the `--docker-host` flag to pass in the location of the docker socket on your machine."
         );
         e
