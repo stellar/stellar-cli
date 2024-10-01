@@ -4,6 +4,7 @@ use soroban_test::{TestEnv, Wasm};
 use std::fmt::Display;
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
+pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");

@@ -66,11 +66,6 @@ impl Contract {
         );
         log!(&env, "hello {}", str);
     }
-
-    /// Example constructor
-    pub fn __constructor(env: Env, world: String) {
-        log!(&env, "Initialized with {}", world);
-    }
 }
 
 #[cfg(test)]

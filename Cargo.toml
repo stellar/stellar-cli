@@ -15,22 +15,16 @@ version = "21.5.0"
 rust-version = "1.81.0"
 
 [workspace.dependencies.soroban-env-host]
-version = "=22.0.0"
-git = "https://github.com/stellar/rs-soroban-env"
-rev = "75b782119942a4c8be8003f2901db38b30b6db2d"
+version = "=22.0.0-rc.1"
 
 [workspace.dependencies.soroban-simulation]
 version = "=21.2.1"
 
 [workspace.dependencies.soroban-spec]
-version = "22.0.0"
-rev = "c0fb82342d1a71f591ebe1f952bb1ba087f22f21"
-git = "https://github.com/stellar/rs-soroban-sdk"
+version = "22.0.0-rc.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "22.0.0"
-rev = "c0fb82342d1a71f591ebe1f952bb1ba087f22f21"
-git = "https://github.com/stellar/rs-soroban-sdk"
+version = "22.0.0-rc.1"
 
 [workspace.dependencies.soroban-spec-json]
 version = "=21.5.0"
@@ -45,19 +39,13 @@ version = "21.5.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "22.0.0"
-rev = "c0fb82342d1a71f591ebe1f952bb1ba087f22f21"
-git = "https://github.com/stellar/rs-soroban-sdk"
+version = "22.0.0-rc.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "22.0.0"
-rev = "c0fb82342d1a71f591ebe1f952bb1ba087f22f21"
-git = "https://github.com/stellar/rs-soroban-sdk"
+version = "22.0.0-rc.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "22.0.0"
-rev = "c0fb82342d1a71f591ebe1f952bb1ba087f22f21"
-git = "https://github.com/stellar/rs-soroban-sdk"
+version = "22.0.0-rc.1"
 
 [workspace.dependencies.soroban-cli]
 version = "=21.5.0"
@@ -65,16 +53,14 @@ path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "22.0.0"
+version = "22.0.0-rc.1"
 git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "88d14d15dcc5a10bd89c56897c29855fb0db31cb"
+rev = "7ce2d11159202cfe67862cf83a2ef955fe0ec982"
 
 [workspace.dependencies.stellar-xdr]
-version = "=22.0.0"
+version = "=22.0.0-rc.1"
 default-features = true
 features = ["curr"]
-git = "https://github.com/stellar/rs-stellar-xdr"
-rev = "39d7dbb0c12bd422ee43a6e2e3277789da4eaac8"
 
 [workspace.dependencies]
 stellar-strkey = "0.0.11"
