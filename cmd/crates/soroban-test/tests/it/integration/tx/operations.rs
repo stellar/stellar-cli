@@ -175,6 +175,21 @@ async fn set_trustline_flags() {
         asset.parse::<builder::Asset>().unwrap(),
         &sandbox.network_passphrase,
     );
+    // sandbox
+    //     .new_assert_cmd("contract")
+    //     .args([
+    //         "invoke",
+    //         "--id",
+    //         &id.to_string(),
+    //         "--",
+    //         "authorized",
+    //         "--id",
+    //         &test,
+    //     ])
+    //     .assert()
+    //     .success()
+    //     .stdout("false\n");
+
     sandbox
         .new_assert_cmd("contract")
         .args([
@@ -189,42 +204,6 @@ async fn set_trustline_flags() {
         .assert()
         .success()
         .stdout("true\n");
-    // set revocable to test account
-    sandbox
-        .new_assert_cmd("tx")
-        .args(["new", "set-options", "--set-revocable"])
-        .assert()
-        .success();
-    // set trustline flags tx new
-    sandbox
-        .new_assert_cmd("tx")
-        .args([
-            "new",
-            "set-trustline-flags",
-            "--asset",
-            &asset,
-            "--trustor",
-            &test,
-            "--clear-authorize",
-            "--source",
-            "test1",
-        ])
-        .assert()
-        .success();
-    sandbox
-        .new_assert_cmd("contract")
-        .args([
-            "invoke",
-            "--id",
-            &id.to_string(),
-            "--",
-            "authorized",
-            "--id",
-            &test,
-        ])
-        .assert()
-        .success()
-        .stdout("false\n");
 }
 
 #[tokio::test]
@@ -248,6 +227,17 @@ async fn set_options_add_signer() {
     let after = client.get_account(&test).await.unwrap();
     assert_eq!(before.signers.len() + 1, after.signers.len());
     assert_eq!(after.signers.first().unwrap().key, test1.parse().unwrap());
+    let key = xdr::LedgerKey::Account(xdr::LedgerKeyAccount {
+        account_id: test.parse().unwrap(),
+    });
+    let res = client.get_ledger_entries(&[key]).await.unwrap();
+    let xdr_str = res.entries.unwrap().clone().first().unwrap().clone().xdr;
+    let entry = xdr::LedgerEntryData::from_xdr_base64(&xdr_str, xdr::Limits::none()).unwrap();
+    let xdr::LedgerEntryData::Account(xdr::AccountEntry { signers, .. }) = entry else {
+        panic!();
+    };
+    assert_eq!(signers.first().unwrap().key, test1.parse().unwrap());
+
     // Now remove signer with a weight of 0
     sandbox
         .new_assert_cmd("tx")
@@ -405,6 +395,20 @@ async fn set_some_options() {
     sandbox
         .new_assert_cmd("tx")
         .args(["new", "set-options", "--clear-revocable"])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(after.flags, 0);
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--set-required"])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(after.flags, xdr::AccountFlags::RequiredFlag as u32);
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--clear-required"])
         .assert()
         .success();
     let after = client.get_account(&test).await.unwrap();
@@ -568,8 +572,31 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
         ])
         .assert()
         .success();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--set-required"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-trustline-flags",
+            "--asset",
+            asset,
+            "--trustor",
+            test,
+            "--set-authorize",
+            "--source",
+            "test1",
+        ])
+        .assert()
+        .success();
+
     let after = client.get_account(test).await.unwrap();
     assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
+    println!("aa");
     // Send a payment to the issuer
     sandbox
         .new_assert_cmd("tx")
