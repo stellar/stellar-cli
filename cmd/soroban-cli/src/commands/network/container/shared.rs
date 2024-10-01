@@ -48,6 +48,7 @@ impl Args {
             .unwrap_or_default()
     }
 
+    #[allow(unused_variables)]
     pub(crate) async fn connect_to_docker(&self, printer: &print::Print) -> Result<Docker, Error> {
         // if no docker_host is provided, use the default docker host:
         // "unix:///var/run/docker.sock" on unix machines
