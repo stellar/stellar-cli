@@ -95,14 +95,7 @@ pub async fn extend_contract(sandbox: &TestEnv, id: &str) {
 }
 
 pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
-    let mut args = vec![
-        "--id",
-        id,
-        "--durability",
-        "persistent",
-        "--ledgers-to-extend",
-        "100001",
-    ];
+    let mut args = vec!["--id", id, "--ledgers-to-extend", "100001"];
     if let Some(value) = value {
         args.push("--key");
         args.push(value);
