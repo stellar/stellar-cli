@@ -27,9 +27,9 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let printer = print::Print::new(global_args.quiet);
+        let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone()).get_internal_container_name();
-        let docker = self.container_args.connect_to_docker(&printer).await?;
+        let docker = self.container_args.connect_to_docker(&print).await?;
         let logs_stream = &mut docker.logs(
             &container_name,
             Some(bollard::container::LogsOptions {
