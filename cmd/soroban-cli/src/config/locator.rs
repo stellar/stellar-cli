@@ -214,7 +214,9 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        KeyType::Identity.read_with_global(name, &self.local_config()?)
+        Ok(KeyType::Identity
+            .read_with_global(name, &self.local_config()?)
+            .or_else(|_| name.parse())?)
     }
 
     pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {
@@ -266,7 +268,7 @@ impl Args {
     pub fn save_contract_id(
         &self,
         network_passphrase: &str,
-        contract_id: &str,
+        contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
         let path = self.alias_path(alias)?;
@@ -284,7 +286,7 @@ impl Args {
             .open(path)?;
 
         data.ids
-            .insert(network_passphrase.into(), contract_id.into());
+            .insert(network_passphrase.into(), contract_id.to_string());
 
         let content = serde_json::to_string(&data)?;
 

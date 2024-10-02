@@ -40,37 +40,44 @@ impl Display for DeployKind {
 }
 
 pub async fn deploy_hello(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, HELLO_WORLD, DeployKind::Normal).await
+    deploy_contract(sandbox, HELLO_WORLD, DeployKind::Normal, None).await
 }
 
 pub async fn deploy_custom(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, CUSTOM_TYPES, DeployKind::Normal).await
+    deploy_contract(sandbox, CUSTOM_TYPES, DeployKind::Normal, None).await
 }
 
 pub async fn deploy_swap(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, SWAP, DeployKind::Normal).await
+    deploy_contract(sandbox, SWAP, DeployKind::Normal, None).await
 }
 
 pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
-    deploy_contract(sandbox, CUSTOM_ACCOUNT, DeployKind::Normal).await
+    deploy_contract(sandbox, CUSTOM_ACCOUNT, DeployKind::Normal, None).await
 }
 
 pub async fn deploy_contract(
     sandbox: &TestEnv,
     wasm: &Wasm<'static>,
     deploy: DeployKind,
+    deployer: Option<&str>,
 ) -> String {
-    let cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(&[
-        "--fee",
-        "1000000",
-        "--wasm",
-        &wasm.path().to_string_lossy(),
-        "--salt",
-        TEST_SALT,
-        "--ignore-checks",
-        deploy.to_string().as_str(),
-    ]);
-    let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
+    let cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(
+        &[
+            "--fee",
+            "1000000",
+            "--wasm",
+            &wasm.path().to_string_lossy(),
+            "--salt",
+            TEST_SALT,
+            "--ignore-checks",
+            &deploy.to_string(),
+        ],
+        None,
+    );
+    let res = sandbox
+        .run_cmd_with(cmd, deployer.unwrap_or("test"))
+        .await
+        .unwrap();
     match deploy {
         DeployKind::BuildOnly | DeployKind::SimOnly => match res.to_envelope() {
             commands::txn_result::TxnEnvelopeResult::TxnEnvelope(e) => {
@@ -80,7 +87,7 @@ pub async fn deploy_contract(
         },
         DeployKind::Normal => (),
     }
-    res.into_result().unwrap()
+    res.into_result().unwrap().to_string()
 }
 
 pub async fn extend_contract(sandbox: &TestEnv, id: &str) {
