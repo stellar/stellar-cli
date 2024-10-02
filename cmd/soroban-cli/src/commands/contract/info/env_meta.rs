@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use clap::{command, Parser};
+use soroban_sdk::xdr::ScEnvMetaEntryInterfaceVersion;
 use stellar_xdr::curr::ScEnvMetaEntry;
 
 use soroban_spec_tools::contract;
@@ -54,12 +55,16 @@ impl Cmd {
                 let mut meta_str = "Contract env-meta:\n".to_string();
                 for env_meta_entry in &spec.env_meta {
                     match env_meta_entry {
-                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                            let protocol = v >> 32;
-                            let interface = v & 0xffff_ffff;
+                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
+                            ScEnvMetaEntryInterfaceVersion {
+                                protocol,
+                                pre_release,
+                            },
+                        ) => {
                             meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
-                            meta_str.push_str(&format!(" • Interface: v{interface}\n"));
-                            meta_str.push_str(&format!(" • Interface Version: {v}\n"));
+                            if pre_release != &0 {
+                                meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
+                            }
                         }
                     }
                 }

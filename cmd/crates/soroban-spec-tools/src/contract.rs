@@ -3,6 +3,7 @@ use std::{
     fmt::Display,
     io::{self, Cursor},
 };
+use stellar_xdr::curr::ScEnvMetaEntryInterfaceVersion;
 
 use soroban_env_host::xdr::{
     self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
@@ -121,10 +122,16 @@ impl Display for Spec {
             writeln!(f, "Env Meta: {env_meta}")?;
             for env_meta_entry in &self.env_meta {
                 match env_meta_entry {
-                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                        let protocol = v >> 32;
-                        let interface = v & 0xffff_ffff;
-                        writeln!(f, " • Interface Version: {v} (protocol: {protocol}, interface: {interface})")?;
+                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
+                        ScEnvMetaEntryInterfaceVersion {
+                            protocol,
+                            pre_release,
+                        },
+                    ) => {
+                        writeln!(f, " • Protocol Version: {protocol}")?;
+                        if pre_release != &0 {
+                            writeln!(f, " • Pre-release Version: {pre_release})")?;
+                        }
                     }
                 }
             }

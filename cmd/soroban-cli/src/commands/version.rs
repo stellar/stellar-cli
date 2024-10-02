@@ -27,7 +27,18 @@ pub fn long() -> String {
     [
         format!("{} ({})", pkg(), git()),
         format!("soroban-env {} ({})", env.pkg, env.rev),
-        format!("soroban-env interface version {}", meta::INTERFACE_VERSION),
+        format!(
+            "soroban-env protocol version {}",
+            meta::INTERFACE_VERSION.protocol
+        ),
+        (if meta::INTERFACE_VERSION.pre_release == 0 {
+            "soroban-env pre-release version n/a".to_string()
+        } else {
+            format!(
+                "soroban-env pre-release version {}",
+                meta::INTERFACE_VERSION.pre_release
+            )
+        }),
         format!(
             "stellar-xdr {} ({})
 xdr curr ({})",
