@@ -4,7 +4,7 @@ use soroban_sdk::xdr::{self};
 
 use crate::{commands::tx, tx::builder};
 
-#[allow(clippy::struct_excessive_bools)]
+#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
