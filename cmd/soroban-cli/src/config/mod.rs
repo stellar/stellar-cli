@@ -63,16 +63,6 @@ pub struct Args {
     pub locator: locator::Args,
 }
 
-#[derive(Debug, clap::Args, Clone, Default)]
-#[group(skip)]
-pub struct ArgsLocatorAndNetwork {
-    #[command(flatten)]
-    pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
-}
-
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
     pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
@@ -121,7 +111,7 @@ impl Args {
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
-        HasNetwork::get_network(self)
+        Ok(self.network.get(&self.locator)?)
     }
 
     pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
@@ -140,37 +130,18 @@ impl Pwd for Args {
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {}
 
-trait HasNetwork {
-    fn network_args(&self) -> &network::Args;
-    fn locator_args(&self) -> &locator::Args;
+#[derive(Debug, clap::Args, Clone, Default)]
+#[group(skip)]
+pub struct ArgsLocatorAndNetwork {
+    #[command(flatten)]
+    pub network: network::Args,
 
-    fn get_network(&self) -> Result<Network, Error> {
-        Ok(self.network_args().get(self.locator_args())?)
-    }
-}
-
-impl HasNetwork for Args {
-    fn network_args(&self) -> &network::Args {
-        &self.network
-    }
-
-    fn locator_args(&self) -> &locator::Args {
-        &self.locator
-    }
-}
-
-impl HasNetwork for ArgsLocatorAndNetwork {
-    fn network_args(&self) -> &network::Args {
-        &self.network
-    }
-
-    fn locator_args(&self) -> &locator::Args {
-        &self.locator
-    }
+    #[command(flatten)]
+    pub locator: locator::Args,
 }
 
 impl ArgsLocatorAndNetwork {
     pub fn get_network(&self) -> Result<Network, Error> {
-        HasNetwork::get_network(self)
+        Ok(self.network.get(&self.locator)?)
     }
 }
