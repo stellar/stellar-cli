@@ -1,11 +1,21 @@
-use clap::arg;
+use clap::{
+    arg,
+    builder::styling::{AnsiColor, Styles},
+};
 use std::path::PathBuf;
 
 use super::config;
 
+const USAGE_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Red.on_default().bold())
+    .usage(AnsiColor::Red.on_default().bold())
+    .literal(AnsiColor::Blue.on_default().bold())
+    .placeholder(AnsiColor::Green.on_default());
+
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 #[allow(clippy::struct_excessive_bools)]
+#[command(styles = USAGE_STYLES)]
 pub struct Args {
     #[clap(flatten)]
     pub locator: config::locator::Args,
