@@ -1645,9 +1645,6 @@ Print version information
 **Aliases for argument `with_example`**: w
 
 
-**Aliases for argument `ignore_checks`**: i
-
-
 **Aliases for argument `count`**: c
 
 
@@ -1660,9 +1657,6 @@ Print version information
 **Aliases for argument `long`**: l
 
 
-**Aliases for argument `long`**: l
-
-
 **Aliases for argument `docker_host`**: d
 
 
@@ -1673,27 +1667,3 @@ Print version information
 
 
 **Aliases for argument `image_tag_override`**: t
-
-
-**Aliases for argument `docker_host`**: d
-
-
-**Aliases for argument `docker_host`**: d
-
-
-**Aliases for argument `docker_host`**: d
-
-
-**Aliases for argument `limits`**: l
-
-
-**Aliases for argument `ports_mapping`**: p
-
-
-**Aliases for argument `image_tag_override`**: t
-
-
-**Aliases for argument `docker_host`**: d
-
-
-**Aliases for argument `long`**: l

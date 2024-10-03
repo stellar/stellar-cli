@@ -35,9 +35,9 @@ fn generate_markdown_with_aliases<C: clap::CommandFactory>(options: &clap_markdo
 fn add_aliases_recursively(command: &clap::Command, content: &mut String, level: usize) {
     let header = "#".repeat(level);
     
-    // Add command aliases
+    // Add command aliases, if not already added
     let cmd_aliases: Vec<_> = command.get_visible_aliases().collect();
-    if !cmd_aliases.is_empty() {
+    if !cmd_aliases.is_empty() && !content.contains(&format!("Aliases for `{}`", command.get_name())) {
         content.push_str(&format!("\n\n{} Aliases for `{}`: {}\n", 
             header, command.get_name(), cmd_aliases.join(", ")));
     }
@@ -48,8 +48,9 @@ fn add_aliases_recursively(command: &clap::Command, content: &mut String, level:
             .into_iter()
             .map(|alias| alias.iter().collect::<String>()) // Convert Vec<char> to String
             .collect();
-    
-        if !arg_aliases.is_empty() {
+        
+        // Add argument aliases only if not already present
+        if !arg_aliases.is_empty() && !content.contains(&format!("Aliases for argument `{}`", arg.get_id())) {
             content.push_str(&format!(
                 "\n\n**Aliases for argument `{}`**: {}\n", 
                 arg.get_id(), 
