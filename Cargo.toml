@@ -36,13 +36,6 @@ path = "./cmd/crates/soroban-spec-tools"
 version = "=22.0.0-rc.1.1"
 default-features = true
 
-# Dependencies from the rs-soroban-env repo:
-[workspace.dependencies.soroban-env-host]
-version = "=22.0.0-rc.1.1"
-
-[workspace.dependencies.soroban-simulation]
-version = "=22.0.0-rc.1.1"
-
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
 version = "=22.0.0-rc.1.1"

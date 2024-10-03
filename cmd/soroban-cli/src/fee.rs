@@ -1,6 +1,6 @@
 use clap::arg;
 
-use soroban_env_host::xdr;
+use crate::xdr;
 use soroban_rpc::Assembled;
 
 use crate::commands::HEADING_RPC;

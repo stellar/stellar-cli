@@ -2,7 +2,7 @@ use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, ScMap,
     ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
@@ -162,7 +162,7 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
 }
 
 pub mod rpc {
-    use soroban_env_host::xdr;
+    use crate::xdr;
     use soroban_rpc::{Client, Error};
     use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 

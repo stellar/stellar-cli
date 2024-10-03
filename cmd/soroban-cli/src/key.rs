@@ -4,7 +4,7 @@ use crate::{
     wasm,
 };
 use clap::arg;
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
     ScVal,
 };

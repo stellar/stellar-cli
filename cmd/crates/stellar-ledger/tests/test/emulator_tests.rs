@@ -1,8 +1,8 @@
 use ledger_transport::Exchange;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
-use soroban_env_host::xdr::{Hash, Transaction};
+use crate::xdr::{self, Operation, OperationBody, Uint256};
+use crate::xdr::{Hash, Transaction};
 use std::ops::Range;
 use std::sync::Mutex;
 use std::vec;

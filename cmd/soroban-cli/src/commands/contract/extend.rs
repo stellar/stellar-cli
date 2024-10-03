@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
 use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
     SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,

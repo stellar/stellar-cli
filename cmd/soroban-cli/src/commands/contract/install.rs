@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::num::ParseIntError;
 
 use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
     TransactionResult, TransactionResultResult, VecM, WriteXdr,

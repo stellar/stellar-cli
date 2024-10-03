@@ -5,7 +5,7 @@ use ledger_transport_hid::{
     LedgerHIDError, TransportNativeHID,
 };
 
-use soroban_env_host::xdr::{Hash, Transaction};
+use crate::xdr::{Hash, Transaction};
 use std::vec;
 use stellar_strkey::DecodeError;
 use stellar_xdr::curr::{
@@ -312,10 +312,10 @@ mod test {
     use crate::Blob;
     use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
-    use soroban_env_host::xdr::Transaction;
+    use crate::xdr::Transaction;
     use std::vec;
 
-    use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
+    use crate::xdr::{self, Operation, OperationBody, Uint256};
 
     use crate::{test_network_hash, Error, LedgerSigner};
 

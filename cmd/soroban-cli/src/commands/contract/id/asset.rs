@@ -20,7 +20,7 @@ pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] config::Error),
     #[error(transparent)]
-    Xdr(#[from] soroban_env_host::xdr::Error),
+    Xdr(#[from] crate::xdr::Error),
 }
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {

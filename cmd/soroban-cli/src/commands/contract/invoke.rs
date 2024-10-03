@@ -7,15 +7,12 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use soroban_env_host::{
-    xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+    DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
+    Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
+    SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+    WriteXdr,
 };
 
 use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
@@ -79,10 +76,6 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
