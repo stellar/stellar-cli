@@ -1,8 +1,8 @@
+use crate::xdr::{self, Operation, OperationBody, Uint256};
+use crate::xdr::{Hash, Transaction};
 use ledger_transport::Exchange;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::xdr::{self, Operation, OperationBody, Uint256};
-use crate::xdr::{Hash, Transaction};
 use std::ops::Range;
 use std::sync::Mutex;
 use std::vec;
