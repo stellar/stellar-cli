@@ -178,9 +178,7 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating install transaction…");
 
-        let txn =
-            simulate_and_assemble_transaction(&client, &tx_without_preflight)
-                .await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx_without_preflight).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
 
         if self.fee.sim_only {

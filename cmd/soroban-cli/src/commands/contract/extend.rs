@@ -9,11 +9,16 @@ use soroban_env_host::xdr::{
 };
 
 use crate::{
-    assembled::simulate_and_assemble_transaction, commands::{
+    assembled::simulate_and_assemble_transaction,
+    commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
-    }, config::{self, data, locator, network}, key, rpc::{self, Client}, wasm, Pwd
+    },
+    config::{self, data, locator, network},
+    key,
+    rpc::{self, Client},
+    wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
