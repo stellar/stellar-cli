@@ -3,12 +3,11 @@ use std::{
     fmt::Display,
     io::{self, Cursor},
 };
-use stellar_xdr::curr::ScEnvMetaEntryInterfaceVersion;
 
 use soroban_env_host::xdr::{
-    self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
-    StringM, WriteXdr,
+    self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion, ScMetaEntry,
+    ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
+    ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
 };
 
 pub struct Spec {
