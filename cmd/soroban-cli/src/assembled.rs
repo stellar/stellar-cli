@@ -3,8 +3,8 @@ use stellar_xdr::curr::{
     self as xdr, ExtensionPoint, Hash, InvokeHostFunctionOp, LedgerFootprint, Limits, Memo,
     Operation, OperationBody, Preconditions, ReadXdr, RestoreFootprintOp,
     SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionExt, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, VecM, WriteXdr,
+    Transaction, TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
 use soroban_rpc::{Error, RestorePreamble, SimulateTransactionResponse};
@@ -231,7 +231,7 @@ fn assemble(
     }
 
     // Update transaction fees to meet the minimum resource fees.
-    let classic_tx_fee: u64 = crate::DEFAULT_TRANSACTION_FEES.into();
+    let classic_tx_fee: u64 = DEFAULT_TRANSACTION_FEES.into();
 
     // Choose larger of existing fee or inclusion + resource fee.
     tx.fee = tx.fee.max(
