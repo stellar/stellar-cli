@@ -23,6 +23,7 @@ use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
+use crate::assembled::simulate_and_assemble_transaction;
 use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::NetworkRunnable;
@@ -246,7 +247,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = crate::assembled::simulate_and_assemble_transaction(&client, &tx).await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn.transaction().clone()));

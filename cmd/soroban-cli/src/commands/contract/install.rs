@@ -10,6 +10,7 @@ use soroban_env_host::xdr::{
 };
 
 use super::restore;
+use crate::assembled::simulate_and_assemble_transaction;
 use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
 use crate::commands::{global, NetworkRunnable};
 use crate::config::{self, data, network};
@@ -178,7 +179,7 @@ impl NetworkRunnable for Cmd {
         print.infoln("Simulating install transaction…");
 
         let txn =
-            crate::assembled::simulate_and_assemble_transaction(&client, &tx_without_preflight)
+            simulate_and_assemble_transaction(&client, &tx_without_preflight)
                 .await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
 

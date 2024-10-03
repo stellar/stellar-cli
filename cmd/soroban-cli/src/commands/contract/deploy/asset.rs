@@ -12,6 +12,7 @@ use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -118,7 +119,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = crate::assembled::simulate_and_assemble_transaction(&client, &tx).await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));
