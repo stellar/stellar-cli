@@ -284,6 +284,18 @@ fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transactio
     })
 }
 
+fn diagnostic_events(events: &[impl std::fmt::Debug], level: tracing::Level) {
+    for (i, event) in events.iter().enumerate() {
+        if level == tracing::Level::TRACE {
+            tracing::trace!("{i}: {event:#?}");
+        } else if level == tracing::Level::INFO {
+            tracing::info!("{i}: {event:#?}");
+        } else if level == tracing::Level::ERROR {
+            tracing::error!("{i}: {event:#?}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,18 +536,6 @@ mod tests {
                 assert_eq!(expected, fee, "expected {expected} != {fee} actual");
             }
             r => panic!("expected LargeFee error, got: {r:#?}"),
-        }
-    }
-}
-
-fn diagnostic_events(events: &[impl std::fmt::Debug], level: tracing::Level) {
-    for (i, event) in events.iter().enumerate() {
-        if level == tracing::Level::TRACE {
-            tracing::trace!("{i}: {event:#?}");
-        } else if level == tracing::Level::INFO {
-            tracing::info!("{i}: {event:#?}");
-        } else if level == tracing::Level::ERROR {
-            tracing::error!("{i}: {event:#?}");
         }
     }
 }
