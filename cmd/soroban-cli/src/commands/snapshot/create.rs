@@ -1,8 +1,7 @@
 use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use clap::{arg, Parser, ValueEnum};
-use futures::{StreamExt, TryStreamExt};
-use http::Uri;
+use futures::StreamExt;
 use humantime::format_duration;
 use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
@@ -24,7 +23,11 @@ use stellar_xdr::curr::{
     ScVal,
 };
 use tokio::fs::OpenOptions;
+use tokio::io::BufReader;
+use tokio_util::io::StreamReader;
+use url::Url;
 
+use crate::utils::http;
 use crate::{
     commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
@@ -85,7 +88,7 @@ pub struct Cmd {
     network: config::network::Args,
     /// Archive URL
     #[arg(long, help_heading = HEADING_RPC, env = "STELLAR_ARCHIVE_URL")]
-    archive_url: Option<Uri>,
+    archive_url: Option<Url>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -93,19 +96,19 @@ pub enum Error {
     #[error("wasm hash invalid: {0}")]
     WasmHashInvalid(String),
     #[error("downloading history: {0}")]
-    DownloadingHistory(hyper::Error),
+    DownloadingHistory(reqwest::Error),
     #[error("downloading history: got status code {0}")]
-    DownloadingHistoryGotStatusCode(hyper::StatusCode),
+    DownloadingHistoryGotStatusCode(reqwest::StatusCode),
     #[error("json decoding history: {0}")]
     JsonDecodingHistory(serde_json::Error),
     #[error("opening cached bucket to read: {0}")]
     ReadOpeningCachedBucket(io::Error),
     #[error("parsing bucket url: {0}")]
-    ParsingBucketUrl(http::uri::InvalidUri),
+    ParsingBucketUrl(url::ParseError),
     #[error("getting bucket: {0}")]
-    GettingBucket(hyper::Error),
+    GettingBucket(reqwest::Error),
     #[error("getting bucket: got status code {0}")]
-    GettingBucketGotStatusCode(hyper::StatusCode),
+    GettingBucketGotStatusCode(reqwest::StatusCode),
     #[error("opening cached bucket to write: {0}")]
     WriteOpeningCachedBucket(io::Error),
     #[error("streaming bucket: {0}")]
@@ -117,7 +120,7 @@ pub enum Error {
     #[error("getting bucket directory: {0}")]
     GetBucketDir(data::Error),
     #[error("reading history http stream: {0}")]
-    ReadHistoryHttpStream(hyper::Error),
+    ReadHistoryHttpStream(reqwest::Error),
     #[error("writing ledger snapshot: {0}")]
     WriteLedgerSnapshot(soroban_ledger_snapshot::Error),
     #[error(transparent)]
@@ -362,7 +365,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn archive_url(&self) -> Result<http::Uri, Error> {
+    fn archive_url(&self) -> Result<Url, Error> {
         // Return the configured archive URL, or if one is not configured, guess
         // at an appropriate archive URL given the network passphrase.
         self.archive_url
@@ -380,7 +383,7 @@ impl Cmd {
                         passphrase::LOCAL => Some("http://localhost:8000/archive"),
                         _ => None,
                     }
-                    .map(|s| Uri::from_str(s).expect("archive url valid"))
+                    .map(|s| Url::from_str(s).expect("archive url valid"))
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
@@ -389,7 +392,7 @@ impl Cmd {
 
 async fn get_history(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     ledger: Option<u32>,
 ) -> Result<History, Error> {
     let archive_url = archive_url.to_string();
@@ -403,14 +406,13 @@ async fn get_history(
     } else {
         format!("{archive_url}/.well-known/stellar-history.json")
     };
-    let history_url = Uri::from_str(&history_url).unwrap();
+    let history_url = Url::from_str(&history_url).unwrap();
 
     print.globe(format!("Downloading history {history_url}"));
 
-    let https = hyper_tls::HttpsConnector::new();
-    let response = hyper::Client::builder()
-        .build::<_, hyper::Body>(https)
-        .get(history_url.clone())
+    let response = http::client()
+        .get(history_url.as_str())
+        .send()
         .await
         .map_err(Error::DownloadingHistory)?;
 
@@ -431,7 +433,8 @@ async fn get_history(
         return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
     }
 
-    let body = hyper::body::to_bytes(response.into_body())
+    let body = response
+        .bytes()
         .await
         .map_err(Error::ReadHistoryHttpStream)?;
 
@@ -443,7 +446,7 @@ async fn get_history(
 
 async fn cache_bucket(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     bucket_index: usize,
     bucket: &str,
 ) -> Result<PathBuf, Error> {
@@ -458,11 +461,11 @@ async fn cache_bucket(
 
         print.globe(format!("Downloading bucket {bucket_index} {bucket}…"));
 
-        let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
-        let https = hyper_tls::HttpsConnector::new();
-        let response = hyper::Client::builder()
-            .build::<_, hyper::Body>(https)
-            .get(bucket_url)
+        let bucket_url = Url::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
+
+        let response = http::client()
+            .get(bucket_url.as_str())
+            .send()
             .await
             .map_err(Error::GettingBucket)?;
 
@@ -471,26 +474,22 @@ async fn cache_bucket(
             return Err(Error::GettingBucketGotStatusCode(response.status()));
         }
 
-        if let Some(val) = response.headers().get("Content-Length") {
-            if let Ok(str) = val.to_str() {
-                if let Ok(len) = str.parse::<u64>() {
-                    print.clear_line();
-                    print.globe(format!(
-                        "Downloaded bucket {bucket_index} {bucket} ({})",
-                        ByteSize(len)
-                    ));
-                }
-            }
+        if let Some(len) = response.content_length() {
+            print.clear_line();
+            print.globe(format!(
+                "Downloaded bucket {bucket_index} {bucket} ({})",
+                ByteSize(len)
+            ));
         }
 
         print.println("");
 
-        let read = response
-            .into_body()
-            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-            .into_async_read();
-        let read = tokio_util::compat::FuturesAsyncReadCompatExt::compat(read);
-        let mut read = GzipDecoder::new(read);
+        let stream = response
+            .bytes_stream()
+            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+        let stream_reader = StreamReader::new(stream);
+        let buf_reader = BufReader::new(stream_reader);
+        let mut decoder = GzipDecoder::new(buf_reader);
         let dl_path = cache_path.with_extension("dl");
         let mut file = OpenOptions::new()
             .create(true)
@@ -499,7 +498,7 @@ async fn cache_bucket(
             .open(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut read, &mut file)
+        tokio::io::copy(&mut decoder, &mut file)
             .await
             .map_err(Error::StreamingBucket)?;
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;

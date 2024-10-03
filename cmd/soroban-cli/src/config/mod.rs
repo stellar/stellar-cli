@@ -129,3 +129,19 @@ impl Pwd for Args {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {}
+
+#[derive(Debug, clap::Args, Clone, Default)]
+#[group(skip)]
+pub struct ArgsLocatorAndNetwork {
+    #[command(flatten)]
+    pub network: network::Args,
+
+    #[command(flatten)]
+    pub locator: locator::Args,
+}
+
+impl ArgsLocatorAndNetwork {
+    pub fn get_network(&self) -> Result<Network, Error> {
+        Ok(self.network.get(&self.locator)?)
+    }
+}

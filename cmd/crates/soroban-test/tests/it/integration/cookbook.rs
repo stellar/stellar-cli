@@ -236,8 +236,6 @@ mod tests {
             .arg("asset")
             .arg("--asset")
             .arg("native")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let contract_id = deploy_hello(&sandbox).await;

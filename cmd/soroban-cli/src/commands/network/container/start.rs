@@ -79,7 +79,11 @@ impl Runner {
         self.print
             .infoln(format!("Starting {} network", &self.args.network));
 
-        let docker = self.args.container_args.connect_to_docker().await?;
+        let docker = self
+            .args
+            .container_args
+            .connect_to_docker(&self.print)
+            .await?;
 
         let image = self.get_image_name();
         let mut stream = docker.create_image(
