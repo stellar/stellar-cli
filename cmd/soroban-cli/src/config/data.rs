@@ -1,8 +1,8 @@
 use crate::rpc::{GetTransactionResponse, GetTransactionResponseRaw, SimulateTransactionResponse};
 use directories::ProjectDirs;
-use http::Uri;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use url::Url;
 
 use crate::xdr::{self, WriteXdr};
 
@@ -15,7 +15,7 @@ pub enum Error {
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
     #[error(transparent)]
-    Http(#[from] http::uri::InvalidUri),
+    InvalidUrl(#[from] url::ParseError),
     #[error(transparent)]
     Ulid(#[from] ulid::DecodeError),
     #[error(transparent)]
@@ -56,7 +56,7 @@ pub fn bucket_dir() -> Result<std::path::PathBuf, Error> {
     Ok(dir)
 }
 
-pub fn write(action: Action, rpc_url: &Uri) -> Result<ulid::Ulid, Error> {
+pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     let data = Data {
         action,
         rpc_url: rpc_url.to_string(),
@@ -67,10 +67,10 @@ pub fn write(action: Action, rpc_url: &Uri) -> Result<ulid::Ulid, Error> {
     Ok(id)
 }
 
-pub fn read(id: &ulid::Ulid) -> Result<(Action, Uri), Error> {
+pub fn read(id: &ulid::Ulid) -> Result<(Action, Url), Error> {
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
     let data: Data = serde_json::from_str(&std::fs::read_to_string(file)?)?;
-    Ok((data.action, http::Uri::from_str(&data.rpc_url)?))
+    Ok((data.action, Url::from_str(&data.rpc_url)?))
 }
 
 pub fn write_spec(hash: &str, spec_entries: &[xdr::ScSpecEntry]) -> Result<(), Error> {
@@ -117,7 +117,7 @@ pub fn list_actions() -> Result<Vec<DatedAction>, Error> {
         .collect::<Result<Vec<_>, Error>>()
 }
 
-pub struct DatedAction(ulid::Ulid, Action, Uri);
+pub struct DatedAction(ulid::Ulid, Action, Url);
 
 impl std::fmt::Display for DatedAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -200,7 +200,7 @@ mod test {
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
         std::env::set_var(XDG_DATA_HOME, t.path().to_str().unwrap());
-        let rpc_uri = http::uri::Uri::from_str("http://localhost:8000").unwrap();
+        let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
         let sim = SimulateTransactionResponse::default();
         let original_action: Action = sim.into();
 
