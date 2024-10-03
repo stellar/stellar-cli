@@ -288,7 +288,7 @@ fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transactio
 mod tests {
     use super::*;
 
-    use super::super::SimulateHostFunctionResultRaw;
+    use soroban_rpc::SimulateHostFunctionResultRaw;
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
     use stellar_xdr::curr::{
         AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
