@@ -5,9 +5,8 @@ use std::num::ParseIntError;
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
-    LedgerEntryData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, ReadXdr,
-    ScMetaEntry, ScMetaV0, SequenceNumber, Transaction, TransactionExt, TransactionResult,
-    TransactionResultResult, Uint256, VecM, WriteXdr,
+    LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
+    TransactionResult, TransactionResultResult, VecM, WriteXdr,
 };
 
 use super::restore;
@@ -20,8 +19,9 @@ use crate::{
     config::{self, data, network},
     key,
     print::Print,
-    rpc,
+    rpc::{self, Client},
     rpc_client::{Error as RpcClientError, RpcClient},
+    tx::builder::{self, TxExt},
     utils, wasm,
 };
 
@@ -78,6 +78,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
+    #[error(transparent)]
+    Builder(#[from] builder::Error),
 }
 
 impl Cmd {
@@ -261,27 +263,18 @@ pub(crate) fn build_install_contract_code_tx(
     source_code: &[u8],
     sequence: i64,
     fee: u32,
-    key: &stellar_strkey::ed25519::PublicKey,
-) -> Result<(Transaction, Hash), XdrError> {
+    source: &xdr::MuxedAccount,
+) -> Result<(Transaction, Hash), Error> {
     let hash = utils::contract_hash(source_code)?;
 
-    let op = Operation {
-        source_account: Some(MuxedAccount::Ed25519(Uint256(key.0))),
+    let op = xdr::Operation {
+        source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::UploadContractWasm(source_code.try_into()?),
             auth: VecM::default(),
         }),
     };
-
-    let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
-        fee,
-        seq_num: SequenceNumber(sequence),
-        cond: Preconditions::None,
-        memo: Memo::None,
-        operations: vec![op].try_into()?,
-        ext: TransactionExt::V0,
-    };
+    let tx = Transaction::new_tx(source.clone(), fee, sequence, op);
 
     Ok((tx, hash))
 }
@@ -302,6 +295,9 @@ mod tests {
                     .verifying_key()
                     .as_bytes(),
             )
+            .unwrap()
+            .to_string()
+            .parse()
             .unwrap(),
         );
 

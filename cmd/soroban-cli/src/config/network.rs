@@ -1,33 +1,30 @@
-use std::str::FromStr;
-
 use clap::arg;
 use http::{HeaderName, HeaderValue};
 use phf::phf_map;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 use stellar_strkey::ed25519::PublicKey;
+use url::Url;
 
+use super::locator;
+use crate::utils::http;
 use crate::{
     commands::HEADING_RPC,
     rpc::{self, Client},
 };
-
-use super::locator;
 pub mod passphrase;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
-
     #[error("network arg or rpc url and network passphrase are required if using the network")]
     Network,
     #[error(transparent)]
-    Http(#[from] http::Error),
-    #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
-    Hyper(#[from] hyper::Error),
+    HttpClient(#[from] reqwest::Error),
     #[error("Failed to parse JSON from {0}, {1}")]
     FailedToParseJSON(String, serde_json::Error),
     #[error("Invalid URL {0}")]
@@ -155,29 +152,27 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
 }
 
 impl Network {
-    pub async fn helper_url(&self, addr: &str) -> Result<http::Uri, Error> {
-        use http::Uri;
+    pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_uri = Uri::from_str(&self.rpc_url)
+        let rpc_url = Url::from_str(&self.rpc_url)
             .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
-            let auth = rpc_uri.authority().unwrap().clone();
-            let scheme = rpc_uri.scheme_str().unwrap();
-            Ok(Uri::builder()
-                .authority(auth)
-                .scheme(scheme)
-                .path_and_query(format!("/friendbot?addr={addr}"))
-                .build()?)
+            let mut local_url = rpc_url;
+            local_url.set_path("/friendbot");
+            local_url.set_query(Some(&format!("addr={addr}")));
+            Ok(local_url)
         } else {
             let client = Client::new(&self.rpc_url)?;
             let network = client.get_network().await?;
             tracing::debug!("network {network:?}");
-            let uri = client.friendbot_url().await?;
-            tracing::debug!("URI {uri:?}");
-            Uri::from_str(&format!("{uri}?addr={addr}")).map_err(|e| {
+            let url = client.friendbot_url().await?;
+            tracing::debug!("URL {url:?}");
+            let mut url = Url::from_str(&url).map_err(|e| {
                 tracing::error!("{e}");
-                Error::InvalidUrl(uri.to_string())
-            })
+                Error::InvalidUrl(url.to_string())
+            })?;
+            url.query_pairs_mut().append_pair("addr", addr);
+            Ok(url)
         }
     }
 
@@ -185,21 +180,10 @@ impl Network {
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
         let uri = self.helper_url(&addr.to_string()).await?;
         tracing::debug!("URL {uri:?}");
-        let response = match uri.scheme_str() {
-            Some("http") => hyper::Client::new().get(uri.clone()).await?,
-            Some("https") => {
-                let https = hyper_tls::HttpsConnector::new();
-                hyper::Client::builder()
-                    .build::<_, hyper::Body>(https)
-                    .get(uri.clone())
-                    .await?
-            }
-            _ => {
-                return Err(Error::InvalidUrl(uri.to_string()));
-            }
-        };
+        let response = http::client().get(uri.as_str()).send().await?;
+
         let request_successful = response.status().is_success();
-        let body = hyper::body::to_bytes(response.into_body()).await?;
+        let body = response.bytes().await?;
         let res = serde_json::from_slice::<serde_json::Value>(&body)
             .map_err(|e| Error::FailedToParseJSON(uri.to_string(), e))?;
         tracing::debug!("{res:#?}");
@@ -221,8 +205,8 @@ impl Network {
         Ok(())
     }
 
-    pub fn rpc_uri(&self) -> Result<http::Uri, Error> {
-        http::Uri::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
+    pub fn rpc_uri(&self) -> Result<Url, Error> {
+        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
     }
 }
 
@@ -253,5 +237,92 @@ impl From<&(&str, &str)> for Network {
             rpc_headers: Vec::new(),
             network_passphrase: n.1.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::Server;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_helper_url_local_network() {
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+        };
+
+        let result = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await;
+
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "http://localhost:8000/friendbot?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+    }
+
+    #[tokio::test]
+    async fn test_helper_url_test_network() {
+        let mut server = Server::new_async().await;
+        let _mock = server
+            .mock("POST", "/")
+            .with_body_from_request(|req| {
+                let body: Value = serde_json::from_slice(req.body().unwrap()).unwrap();
+                let id = body["id"].clone();
+                json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "friendbotUrl": "https://friendbot.stellar.org/",
+                            "passphrase": passphrase::TESTNET.to_string(),
+                            "protocolVersion": 21
+                    }
+                })
+                .to_string()
+                .into()
+            })
+            .create_async()
+            .await;
+
+        let network = Network {
+            rpc_url: server.url(),
+            network_passphrase: passphrase::TESTNET.to_string(),
+        };
+        let url = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await
+            .unwrap();
+        assert_eq!(url.as_str(), "https://friendbot.stellar.org/?addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+    }
+
+    #[tokio::test]
+    async fn test_helper_url_test_network_with_path_and_params() {
+        let mut server = Server::new_async().await;
+        let _mock = server.mock("POST", "/")
+            .with_body_from_request(|req| {
+                let body: Value = serde_json::from_slice(req.body().unwrap()).unwrap();
+                let id = body["id"].clone();
+                json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "friendbotUrl": "https://friendbot.stellar.org/secret?api_key=123456&user=demo",
+                            "passphrase": passphrase::TESTNET.to_string(),
+                            "protocolVersion": 21
+                    }
+                }).to_string().into()
+            })
+            .create_async().await;
+
+        let network = Network {
+            rpc_url: server.url(),
+            network_passphrase: passphrase::TESTNET.to_string(),
+        };
+        let url = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await
+            .unwrap();
+        assert_eq!(url.as_str(), "https://friendbot.stellar.org/secret?api_key=123456&user=demo&addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
     }
 }

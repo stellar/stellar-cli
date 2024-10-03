@@ -4,7 +4,7 @@ use soroban_env_host::{
         Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
         Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
         LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
     },
     HostError,
 };
@@ -18,9 +18,10 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::Error as SorobanRpcError,
+    rpc::{Client, Error as SorobanRpcError},
     rpc_client::{Error as RpcClientError, RpcClient},
-    utils::{contract_id_hash_from_asset, parsing::parse_asset},
+    tx::builder,
+    utils::contract_id_hash_from_asset,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -40,13 +41,13 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
-    ParseAssetError(#[from] crate::utils::parsing::Error),
-    #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
+    #[error(transparent)]
+    Builder(#[from] builder::Error),
 }
 
 impl From<Infallible> for Error {
@@ -60,7 +61,7 @@ impl From<Infallible> for Error {
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
     #[arg(long)]
-    pub asset: String,
+    pub asset: builder::Asset,
 
     #[command(flatten)]
     pub config: config::Args,
@@ -93,29 +94,29 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
-        let asset = parse_asset(&self.asset)?;
+        let asset = &self.asset;
 
         let network = config.get_network()?;
         let client = RpcClient::new(&network)?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.source_account()?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey = key.to_string();
+        let public_strkey = source_account.to_string();
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
+        let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
         let tx = build_wrap_token_tx(
-            &asset,
+            asset,
             &contract_id,
             sequence + 1,
             self.fee.fee,
             network_passphrase,
-            &key,
+            source_account,
         )?;
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
@@ -138,14 +139,14 @@ impl NetworkRunnable for Cmd {
 }
 
 fn build_wrap_token_tx(
-    asset: &Asset,
-    contract_id: &Hash,
+    asset: impl Into<Asset>,
+    contract_id: &stellar_strkey::Contract,
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &stellar_strkey::ed25519::PublicKey,
+    source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(contract_id.clone());
+    let contract = ScAddress::Contract(Hash(contract_id.0));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
@@ -160,7 +161,8 @@ fn build_wrap_token_tx(
             durability: ContractDataDurability::Persistent,
         }),
     ];
-    if asset != &Asset::Native {
+    let asset = asset.into();
+    if asset != Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract,
             key: ScVal::Vec(Some(
@@ -174,7 +176,7 @@ fn build_wrap_token_tx(
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+                contract_id_preimage: ContractIdPreimage::Asset(asset),
                 executable: ContractExecutable::StellarAsset,
             }),
             auth: VecM::default(),
@@ -182,7 +184,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
+        source_account,
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

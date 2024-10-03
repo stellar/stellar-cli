@@ -73,7 +73,7 @@ impl Cmd {
 
         self.config_locator.save_contract_id(
             &network.network_passphrase,
-            &self.contract_id.to_string(),
+            &self.contract_id,
             alias,
         )?;
 

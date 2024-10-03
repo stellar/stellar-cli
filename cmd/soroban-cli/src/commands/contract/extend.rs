@@ -3,9 +3,9 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 use clap::{command, Parser};
 use soroban_env_host::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
+    LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
+    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+    TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
 };
 
 use crate::{
@@ -134,15 +134,15 @@ impl NetworkRunnable for Cmd {
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = RpcClient::new(&network)?;
-        let key = config.source_account()?;
+        let source_account = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
-        let account_details = client.get_account(&key.to_string()).await?;
+        let account_details = client.get_account(&source_account.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(key.0)),
+            source_account,
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
