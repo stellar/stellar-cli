@@ -1,5 +1,5 @@
-use soroban_test::TestEnv;
 use super::util::deploy_hello;
+use soroban_test::TestEnv;
 
 fn write_env_file(e: &TestEnv, contents: &str) {
     let env_file = e.dir().join(".env");
@@ -28,15 +28,18 @@ async fn current_env_not_overwritten() {
         );
 }
 
-
 #[tokio::test]
 async fn cli_args_have_priority() {
     let e = &TestEnv::new();
     let id = deploy_hello(e).await;
     write_env_file(e, &id);
-    
-    let result = e.new_assert_cmd("contract")
-        .env("SOROBAN_CONTRACT_ID", "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")
+
+    let result = e
+        .new_assert_cmd("contract")
+        .env(
+            "SOROBAN_CONTRACT_ID",
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        )
         .arg("invoke")
         .arg("--id")
         .arg(id)
@@ -44,7 +47,6 @@ async fn cli_args_have_priority() {
         .arg("hello")
         .arg("--world=world")
         .assert();
-    
-    result.stdout("[\"Hello\",\"world\"]\n")
-        .success();
+
+    result.stdout("[\"Hello\",\"world\"]\n").success();
 }

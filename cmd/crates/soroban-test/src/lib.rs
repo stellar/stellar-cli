@@ -42,7 +42,6 @@ pub const TEST_ACCOUNT: &str = "test";
 
 pub const LOCAL_NETWORK_PASSPHRASE: &str = "Standalone Network ; February 2017";
 
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
