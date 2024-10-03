@@ -1636,6 +1636,7 @@ Decode and encode XDR
 * `guess` — Guess the XDR type
 * `decode` — Decode XDR
 * `encode` — Encode XDR
+* `compare` — Compare two XDR values with each other
 * `version` — Print version information
 
 ###### **Arguments:**
@@ -1771,6 +1772,31 @@ Encode XDR
   Possible values: `json`
 
 * `--output <OUTPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `stream`
+
+
+
+
+## `stellar xdr compare`
+
+Compare two XDR values with each other
+
+Outputs: `-1` when the left XDR value is less than the right XDR value, `0` when the left XDR value is equal to the right XDR value, `1` when the left XDR value is greater than the right XDR value
+
+**Usage:** `stellar xdr compare [OPTIONS] --type <TYPE> <LEFT> <RIGHT>`
+
+###### **Arguments:**
+
+* `<LEFT>` — XDR file to decode and compare with the right value
+* `<RIGHT>` — XDR file to decode and compare with the left value
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type of both inputs
+* `--input <INPUT>`
 
   Default value: `single-base64`
 
