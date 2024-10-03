@@ -5545,7 +5545,6 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-env-host",
  "soroban-spec",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
