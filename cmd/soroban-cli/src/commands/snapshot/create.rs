@@ -32,7 +32,8 @@ use crate::{
     commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
     print,
-    utils::{get_name_from_stellar_asset_contract_storage, parsing::parse_asset},
+    tx::builder,
+    utils::get_name_from_stellar_asset_contract_storage,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -134,6 +135,8 @@ pub enum Error {
     ArchiveUrlNotConfigured,
     #[error("parsing asset name: {0}")]
     ParseAssetName(String),
+    #[error(transparent)]
+    Asset(#[from] builder::asset::Error),
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -313,16 +316,11 @@ impl Cmd {
                                         if let Some(name) =
                                             get_name_from_stellar_asset_contract_storage(storage)
                                         {
-                                            let asset = parse_asset(&name)
-                                                .map_err(|_| Error::ParseAssetName(name))?;
-                                            if let Some(issuer) = match &asset {
+                                            let asset: builder::Asset = name.parse()?;
+                                            if let Some(issuer) = match asset.into() {
                                                 Asset::Native => None,
-                                                Asset::CreditAlphanum4(a4) => {
-                                                    Some(a4.issuer.clone())
-                                                }
-                                                Asset::CreditAlphanum12(a12) => {
-                                                    Some(a12.issuer.clone())
-                                                }
+                                                Asset::CreditAlphanum4(a4) => Some(a4.issuer),
+                                                Asset::CreditAlphanum12(a12) => Some(a12.issuer),
                                             } {
                                                 print.infoln(format!(
                                                     "Adding asset issuer {issuer} to search"
