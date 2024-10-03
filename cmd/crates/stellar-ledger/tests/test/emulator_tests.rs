@@ -1,5 +1,3 @@
-use crate::xdr::{self, Operation, OperationBody, Uint256};
-use crate::xdr::{Hash, Transaction};
 use ledger_transport::Exchange;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -15,8 +13,10 @@ use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use stellar_xdr::curr::{
-    Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
+    self as xdr, Hash, Memo, MuxedAccount, Operation, OperationBody, PaymentOp, Preconditions,
+    SequenceNumber, Transaction, TransactionExt, Uint256,
 };
+
 use testcontainers::{core::ContainerPort, runners::AsyncRunner, ContainerAsync, ImageExt};
 use tokio::time::sleep;
 
