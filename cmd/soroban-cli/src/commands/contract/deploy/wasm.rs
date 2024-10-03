@@ -16,6 +16,7 @@ use soroban_env_host::{
 };
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
     rpc::{self, Client},
@@ -240,7 +241,7 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating deploy transaction…");
 
-        let txn = client.simulate_and_assemble_transaction(&txn).await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
 
         if self.fee.sim_only {

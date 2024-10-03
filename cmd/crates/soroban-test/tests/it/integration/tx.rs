@@ -23,11 +23,10 @@ async fn simulate() {
         .success()
         .stdout_as_str();
     assert_eq!(xdr_base64_sim_only, assembled_str);
-    let assembled = sandbox
-        .client()
-        .simulate_and_assemble_transaction(&tx)
-        .await
-        .unwrap();
+    let assembled =
+        soroban_cli::assembled::simulate_and_assemble_transaction(sandbox.client(), &tx)
+            .await
+            .unwrap();
     let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
     assert_eq!(
         txn_env.to_xdr_base64(Limits::none()).unwrap(),

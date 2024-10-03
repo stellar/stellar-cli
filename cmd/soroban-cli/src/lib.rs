@@ -11,6 +11,7 @@ pub(crate) use soroban_rpc as rpc;
 mod cli;
 pub use cli::main;
 
+pub mod assembled;
 pub mod commands;
 pub mod config;
 pub mod fee;
