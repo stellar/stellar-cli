@@ -1,15 +1,17 @@
 use std::fmt::Debug;
 
 use clap::{command, Parser};
-use soroban_sdk::xdr::ScEnvMetaEntryInterfaceVersion;
-use stellar_xdr::curr::ScEnvMetaEntry;
 
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
-use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
-use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
+use crate::{
+    commands::contract::info::{
+        env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta},
+        shared::{self, fetch_wasm, MetasInfoOutput},
+    },
+    xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion},
+};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
