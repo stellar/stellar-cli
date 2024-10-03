@@ -41,7 +41,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match &self {
-            Cmd::Logs(cmd) => cmd.run().await?,
+            Cmd::Logs(cmd) => cmd.run(global_args).await?,
             Cmd::Start(cmd) => cmd.run(global_args).await?,
             Cmd::Stop(cmd) => cmd.run(global_args).await?,
         }
