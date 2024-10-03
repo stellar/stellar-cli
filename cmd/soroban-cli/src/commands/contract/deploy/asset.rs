@@ -18,7 +18,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
+    rpc::Error as SorobanRpcError,
     rpc_client::{Error as RpcClientError, RpcClient},
     tx::builder,
     utils::contract_id_hash_from_asset,

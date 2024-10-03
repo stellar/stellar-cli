@@ -19,7 +19,7 @@ use crate::{
     config::{self, data, network},
     key,
     print::Print,
-    rpc::{self, Client},
+    rpc,
     rpc_client::{Error as RpcClientError, RpcClient},
     tx::builder::{self, TxExt},
     utils, wasm,
