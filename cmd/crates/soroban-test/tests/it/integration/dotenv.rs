@@ -10,6 +10,22 @@ fn write_env_file(e: &TestEnv, contents: &str) {
 }
 
 #[tokio::test]
+async fn can_read_file() {
+    let e = &TestEnv::new();
+    let id = deploy_hello(e).await;
+    println!("{id}");
+    write_env_file(e, &id);
+    e.new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--")
+        .arg("hello")
+        .arg("--world=world")
+        .assert()
+        .stdout("[\"Hello\",\"world\"]\n")
+        .success();
+}
+
+#[tokio::test]
 async fn current_env_not_overwritten() {
     let e = TestEnv::new();
     write_env_file(&e, &deploy_hello(&e).await);

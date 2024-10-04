@@ -3335,12 +3335,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
-name = "leb128"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
-
-[[package]]
 name = "ledger-apdu"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5416,7 +5410,6 @@ dependencies = [
  "ed25519-dalek 2.1.1",
  "fs_extra",
  "predicates 2.1.5",
- "rand",
  "sep5",
  "serde_json",
  "sha2 0.10.8",
@@ -5428,14 +5421,11 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
- "tempfile",
  "thiserror",
  "tokio",
  "toml 0.8.19",
  "ulid",
  "walkdir",
- "wasm-encoder",
- "wasmparser 0.102.0",
  "which",
 ]
 
@@ -6510,15 +6500,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 
 [[package]]
-name = "wasm-encoder"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f7d56227d910901ce12dfd19acc40c12687994dfb3f57c90690f80be946ec5"
-dependencies = [
- "leb128",
-]
-
-[[package]]
 name = "wasm-opt"
 version = "0.114.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6583,16 +6564,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b62c8d843f4423efee314dc75a1049886deba3214f7e7f9ff0e4e58b4d618581"
 dependencies = [
  "indexmap 1.9.3",
-]
-
-[[package]]
-name = "wasmparser"
-version = "0.102.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48134de3d7598219ab9eaf6b91b15d8e50d31da76b8519fe4ecfcec2cf35104b"
-dependencies = [
- "indexmap 1.9.3",
- "url",
 ]
 
 [[package]]

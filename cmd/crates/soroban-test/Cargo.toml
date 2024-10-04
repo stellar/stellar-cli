@@ -26,10 +26,7 @@ soroban-sdk = { workspace = true }
 sep5 = { workspace = true }
 soroban-cli = { workspace = true }
 soroban-rpc = { workspace = true }
-rand = "0.8"
-wasm-encoder = "0.24"
-wasmparser = "0.102"
-tempfile = "3.2"
+
 
 thiserror = "1.0.31"
 sha2 = "0.10.6"
