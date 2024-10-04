@@ -1,6 +1,8 @@
-use crate::xdr::{self, TransactionEnvelope, WriteXdr};
+use crate::{
+    assembled::{simulate_and_assemble_transaction, Assembled},
+    xdr::{self, TransactionEnvelope, WriteXdr},
+};
 use async_trait::async_trait;
-use soroban_rpc::Assembled;
 
 use crate::commands::{config, global, NetworkRunnable};
 
@@ -50,6 +52,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         let client = crate::rpc::Client::new(&network.rpc_url)?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
-        Ok(client.simulate_and_assemble_transaction(&tx).await?)
+        let tx = simulate_and_assemble_transaction(&client, &tx).await?;
+        Ok(tx)
     }
 }

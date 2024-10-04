@@ -5,6 +5,7 @@ use std::{
     str,
 };
 
+use crate::utils::http;
 use clap::Parser;
 use rust_embed::RustEmbed;
 
