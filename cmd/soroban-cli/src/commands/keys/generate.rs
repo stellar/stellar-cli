@@ -19,6 +19,7 @@ pub enum Error {
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Name of identity
     pub name: String,
@@ -62,7 +63,7 @@ impl Cmd {
             future, and it will no longer fund by default. If you want to fund please \
             provide `--fund` flag. If you don't need to fund your keys in the future, ignore this \
             warning. It can be suppressed with -q flag.",
-            )
+            );
         }
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
