@@ -56,7 +56,7 @@ pub enum Cmd {
     /// Initialize a Soroban project with an example contract
     Init(init::Cmd),
 
-    /// (Deprecated) Inspect a WASM file listing contract functions, meta, etc
+    /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
     #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
