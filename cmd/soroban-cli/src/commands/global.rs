@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use super::config;
 
 const USAGE_STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Red.on_default().bold())
-    .usage(AnsiColor::Red.on_default().bold())
-    .literal(AnsiColor::Blue.on_default().bold())
+    .header(AnsiColor::Yellow.on_default())
+    .usage(AnsiColor::Green.on_default())
+    .literal(AnsiColor::Green.on_default())
     .placeholder(AnsiColor::Green.on_default());
 
 #[derive(Debug, clap::Args, Clone, Default)]
