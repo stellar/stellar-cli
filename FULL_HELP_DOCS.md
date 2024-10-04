@@ -85,7 +85,7 @@ Tools for smart contract developers
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban project with an example contract
-* `inspect` — (Deprecated) Inspect a WASM file listing contract functions, meta, etc
+* `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
@@ -630,7 +630,7 @@ Initialize a Soroban project with an example contract
 
 ## `stellar contract inspect`
 
-(Deprecated) Inspect a WASM file listing contract functions, meta, etc
+(Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
