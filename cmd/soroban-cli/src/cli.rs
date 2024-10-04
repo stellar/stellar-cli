@@ -1,6 +1,5 @@
 use clap::CommandFactory;
 use dotenvy::dotenv;
-use std::thread;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::upgrade_check::upgrade_check;
@@ -75,8 +74,8 @@ pub async fn main() {
     // Spawn a thread to check if a new version exists.
     // It depends on logger, so we need to place it after
     // the code block that initializes the logger.
-    thread::spawn(move || {
-        upgrade_check(root.global_args.quiet);
+    tokio::spawn(async move {
+        upgrade_check(root.global_args.quiet).await;
     });
 
     let printer = print::Print::new(root.global_args.quiet);
