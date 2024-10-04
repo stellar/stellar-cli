@@ -1,4 +1,4 @@
-use soroban_cli::utils::contract_id_hash_from_asset;
+use soroban_cli::{tx::builder, utils::contract_id_hash_from_asset};
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 #[tokio::test]
@@ -23,7 +23,7 @@ async fn burn() {
         .assert()
         .success();
     // wrap_cmd(&asset).run().await.unwrap();
-    let asset = soroban_cli::utils::parsing::parse_asset(&asset).unwrap();
+    let asset: builder::Asset = asset.parse().unwrap();
     let hash = contract_id_hash_from_asset(&asset, &network_passphrase);
     let id = stellar_strkey::Contract(hash.0).to_string();
     println!("{id}, {address}");

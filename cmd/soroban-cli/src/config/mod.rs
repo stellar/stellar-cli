@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-
+use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
@@ -8,12 +7,13 @@ use soroban_rpc::Client;
 use crate::{
     print::Print,
     signer::{self, LocalKey, Signer, SignerKind},
-    xdr::{Transaction, TransactionEnvelope},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
 
-use self::{network::Network, secret::Secret};
+use network::Network;
 
+pub mod address;
 pub mod alias;
 pub mod data;
 pub mod locator;
@@ -36,6 +36,8 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -47,10 +49,11 @@ pub struct Args {
     #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
-    /// a secret key (--source SC36…), or a seed phrase (--source "kite urban…").
+    /// a muxed account (--source MDA…), a secret key (--source SC36…),
+    /// or a seed phrase (--source "kite urban…").
     /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
-    pub source_account: String,
+    pub source_account: Address,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -62,20 +65,14 @@ pub struct Args {
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub fn source_account(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        if let Ok(secret) = self.account(&self.source_account) {
-            Ok(stellar_strkey::ed25519::PublicKey(
-                secret.key_pair(self.hd_path)?.verifying_key().to_bytes(),
-            ))
-        } else {
-            Ok(stellar_strkey::ed25519::PublicKey::from_string(
-                &self.source_account,
-            )?)
-        }
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self
+            .source_account
+            .resolve_muxed_account(&self.locator, self.hd_path)?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = self.account(&self.source_account)?;
+        let key = &self.source_account.resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path)?)
     }
 
@@ -113,20 +110,14 @@ impl Args {
         )?)
     }
 
-    pub fn account(&self, account_str: &str) -> Result<Secret, Error> {
-        if let Ok(secret) = self.locator.read_identity(account_str) {
-            Ok(secret)
-        } else {
-            Ok(account_str.parse::<Secret>()?)
-        }
-    }
-
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }
 
-    pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        Ok(self.locator.config_dir()?)
+    pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
+        let network = self.get_network()?;
+        let client = Client::new(&network.rpc_url)?;
+        Ok((client.get_account(account_str).await?.seq_num.0 + 1).into())
     }
 }
 
@@ -138,3 +129,19 @@ impl Pwd for Args {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Config {}
+
+#[derive(Debug, clap::Args, Clone, Default)]
+#[group(skip)]
+pub struct ArgsLocatorAndNetwork {
+    #[command(flatten)]
+    pub network: network::Args,
+
+    #[command(flatten)]
+    pub locator: locator::Args,
+}
+
+impl ArgsLocatorAndNetwork {
+    pub fn get_network(&self) -> Result<Network, Error> {
+        Ok(self.network.get(&self.locator)?)
+    }
+}
