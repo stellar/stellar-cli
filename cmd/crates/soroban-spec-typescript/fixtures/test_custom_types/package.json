@@ -5,11 +5,13 @@
   "exports": "./dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "minify": "terser dist/index.js --compress --mangle --output dist/index.min.js",
+    "build": "tsc --declaration && npm run minify"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "12.1.0",
     "buffer": "6.0.3",
-    "@stellar/stellar-sdk": "12.1.0"
+    "terser": "^5.34.1"
   },
   "devDependencies": {
     "typescript": "5.3.3"
