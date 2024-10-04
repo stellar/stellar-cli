@@ -210,20 +210,6 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = rpc::Client::new(&network.rpc_url)?;
-        let account_details = if self.is_view {
-            default_account_entry()
-        } else {
-            client
-                .verify_network_passphrase(Some(&network.network_passphrase))
-                .await?;
-
-            client
-                .get_account(&config.source_account()?.to_string())
-                .await?
-        };
-        let sequence: i64 = account_details.seq_num.into();
-        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
@@ -238,6 +224,20 @@ impl NetworkRunnable for Cmd {
         // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+        let client = rpc::Client::new(&network.rpc_url)?;
+        let account_details = if self.is_view {
+            default_account_entry()
+        } else {
+            client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await?;
+
+            client
+                .get_account(&config.source_account()?.to_string())
+                .await?
+        };
+        let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
