@@ -1,16 +1,19 @@
 use clap::{
     arg,
-    builder::styling::{AnsiColor, Styles},
+    builder::styling::{AnsiColor, Effects, Styles},
 };
 use std::path::PathBuf;
 
 use super::config;
 
 const USAGE_STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Yellow.on_default())
-    .usage(AnsiColor::Green.on_default())
-    .literal(AnsiColor::Green.on_default())
-    .placeholder(AnsiColor::Green.on_default());
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .error(AnsiColor::Red.on_default().effects(Effects::BOLD))
+    .valid(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .invalid(AnsiColor::Yellow.on_default().effects(Effects::BOLD));
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
