@@ -1,8 +1,8 @@
 use clap::arg;
 use clap::builder::TypedValueParser;
 
+use crate::assembled::Assembled;
 use soroban_env_host::xdr;
-use soroban_rpc::Assembled;
 
 use crate::{commands::HEADING_RPC, deprecated_arg};
 
