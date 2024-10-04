@@ -51,7 +51,8 @@ pub async fn invoke_custom(
     arg: &str,
     wasm: &Path,
 ) -> Result<String, contract::invoke::Error> {
-    let mut i: contract::invoke::Cmd = sandbox.cmd_with_config(&["--id", id, "--", func, arg]);
+    let mut i: contract::invoke::Cmd =
+        sandbox.cmd_with_config(&["--id", id, "--", func, arg], None);
     i.wasm = Some(wasm.to_path_buf());
     sandbox
         .run_cmd_with(i, TEST_ACCOUNT)
