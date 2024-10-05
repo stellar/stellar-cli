@@ -249,59 +249,92 @@ impl Cmd {
 /// and stellar-cli only compiles contracts in release mode, the impact is on
 /// debugging is expected to be minimal.
 ///
-/// This works by setting the `CARGO_ENCODED_RUSTFLAGS` environment variable,
+/// This works by setting the `CARGO_BUILD_RUSTFLAGS` environment variable,
 /// with appropriate `--remap-path-prefix` option. It preserves the values of an
-/// existing `CARGO_ENCODED_RUSTFLAGS` (or `RUSTFLAGS`).
+/// existing `CARGO_BUILD_RUSTFLAGS` environment variable.
 ///
-/// This must be done via `RUSTFLAGS` and not as arguments to `cargo rustc`
-/// because the latter only applies to the crate directly being compiled, while
-/// `RUSTFLAGS` applies to all crates, including dependencies.
+/// This must be done some via some variation of `RUSTFLAGS` and not as
+/// arguments to `cargo rustc` because the latter only applies to the crate
+/// directly being compiled, while `RUSTFLAGS` applies to all crates, including
+/// dependencies.
 ///
-/// Note that a consequence of setting `RUSTFLAGS` via the environment is that
-/// cargo will ignore any `build.rustflags`, etc. configuration values on
-/// the local system. It may be possible to accomodate such configurations
-/// by using the cargo API directly, but that's a heavy solution.
+/// `CARGO_BUILD_RUSTFLAGS` is an alias for the `build.rustflags` configuration
+/// variable. Cargo automatically merges the contents of the environment variable
+/// and the variables from config files; and `build.rustflags` has the lowest
+/// priority of all the variations of rustflags that Cargo accepts. And because
+/// we merge our values with an existing `CARGO_BUILD_RUSTFLAGS`,
+/// our setting of this environment variable should not interfere with the
+/// user's ability to set rustflags in any way they want, but it does mean
+/// that if the user sets a higher-priority rustflags that our path remapping
+/// will be ignored.
 ///
-/// This assumes that paths are Unicode and that any existing `RUSTFLAGS`
+/// The major downside of using `CARGO_BUILD_RUSTFLAGS` is that it is whitespace
+/// separated, which means we cannot support paths with spaces. If we encounter
+/// such paths we will emit a warning. Spaces could be accomodated by using
+/// `CARGO_ENCODED_RUSTFLAGS`, but that has high precedence over other rustflags,
+/// so we could be interfering with the user's own use of rustflags. There is
+/// no "encoded" variant of `CARGO_BUILD_RUSTFLAGS` at time of writing.
+///
+/// This assumes that paths are Unicode and that any existing `CARGO_BUILD_RUSTFLAGS`
 /// variables are Unicode. Non-Unicode paths will fail to correctly perform the
-/// the absolute path replacement. Non-Unicode `RUSTFLAGS` will result in the
-/// existing `RUSTFLAGS` being ignored, though note this is also the behavior of
-/// cargo itself.
+/// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
+/// existing rustflags being ignored, which is also the behavior of
+/// Cargo itself.
 fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let cargo_home = format!("{}", cargo_home.display());
+
+    if cargo_home.find(|c: char| c.is_whitespace()).is_some() {
+        eprintln!(
+            "⚠  Warning: Cargo home directory contains whitespace. \
+                   Dependency paths will not be remapped; builds may not be reproducible."
+        );
+        return Ok(());
+    }
+
+    if env::var("RUSTFLAGS").is_ok() {
+        eprintln!(
+            "⚠  Warning: `RUSTFLAGS` set. \
+                   Dependency paths will not be remapped; builds may not be reproducible."
+        );
+        return Ok(());
+    }
+
+    if env::var("CARGO_ENCODED_RUSTFLAGS").is_ok() {
+        eprintln!(
+            "⚠  Warning: `CARGO_ENCODED_RUSTFLAGS` set. \
+                   Dependency paths will not be remapped; builds may not be reproducible."
+        );
+        return Ok(());
+    }
+
+    if env::var("TARGET_wasm32-unknown-unknown_RUSTFLAGS").is_ok() {
+        eprintln!(
+            "⚠  Warning: `TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. \
+                   Dependency paths will not be remapped; builds may not be reproducible."
+        );
+        return Ok(());
+    }
+
     let registry_prefix = format!("{cargo_home}/registry/src/");
     let new_rustflag = format!("--remap-path-prefix={registry_prefix}=");
 
     let mut rustflags = get_rustflags().unwrap_or_default();
     rustflags.push(new_rustflag);
 
-    let rustflags = rustflags.join("\x1f");
-    cmd.env("CARGO_ENCODED_RUSTFLAGS", rustflags);
-
-    // cargo will ignore RUSTFLAGS since CARGO_ENCODED_RUSTFLAGS is set,
-    // but let's drop it anyway to reduce potential confusion.
-    cmd.env_remove("RUSTFLAGS");
+    let rustflags = rustflags.join(" ");
+    cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
 
     Ok(())
 }
 
-/// Get any existing rustflags from the environment, either from
-/// `CARGO_ENCODED_RUSTFLAGS` (preferred), or `RUSTFLAGS`. The logic here is
-/// copied directly from cargo's `rustflags_from_env`.
+/// Get any existing `CARGO_BUILD_RUSTFLAGS`, split on whitespace.
 ///
-/// This conveniently ignores non-Unicode `RUSTFLAGS`, as does cargo.
+/// This conveniently ignores non-Unicode values, as does Cargo.
 fn get_rustflags() -> Option<Vec<String>> {
-    if let Ok(a) = env::var("CARGO_ENCODED_RUSTFLAGS") {
-        if a.is_empty() {
-            return Some(Vec::new());
-        }
-        return Some(a.split('\x1f').map(str::to_string).collect());
-    }
-
-    if let Ok(a) = env::var("RUSTFLAGS") {
+    if let Ok(a) = env::var("CARGO_BUILD_RUSTFLAGS") {
         let args = a
-            .split(' ')
+            .split_whitespace()
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
