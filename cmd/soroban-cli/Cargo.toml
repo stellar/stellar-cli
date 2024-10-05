@@ -74,14 +74,18 @@ wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
 ed25519-dalek = { workspace = true }
+reqwest = { version = "0.12.7", default-features = false, features = [
+    "rustls-tls",
+    "http2",
+    "json",
+    "blocking",
+    "stream",
+] }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
-hyper = "0.14.27"
-hyper-tls = "0.5"
-http = "0.2.9"
 regex = "1.6.0"
 wasm-opt = { version = "0.114.0", optional = true }
-chrono = { version = "0.4.27", features = ["serde"]}
+chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
 dirs = "4.0.0"
 toml = "0.5.9"
@@ -107,13 +111,12 @@ gix = { version = "0.58.0", default-features = false, features = [
     "blocking-http-transport-reqwest-rust-tls",
     "worktree-mutation",
 ] }
-ureq = { version = "2.9.1", features = ["json"] }
-async-compression = { version = "0.4.12", features = [ "tokio", "gzip" ] }
+async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
 
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = { workspace=true }
+bollard = { workspace = true }
 futures-util = "0.3.30"
 futures = "0.3.30"
 home = "0.5.9"
@@ -123,18 +126,14 @@ humantime = "2.1.0"
 phf = { version = "0.11.2", features = ["macros"] }
 semver = "1.0.0"
 glob = "0.3.1"
+fqdn = "0.3.12"
 open = "5.3.0"
 url = "2.5.2"
-
-# For hyper-tls
-[target.'cfg(unix)'.dependencies]
-openssl = { version = "=0.10.55", features = ["vendored"] }
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
 serde.workspace = true
 thiserror.workspace = true
-ureq = { version = "2.9.1", features = ["json"] }
 
 
 [dev-dependencies]
@@ -142,3 +141,4 @@ assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 predicates = "2.1.5"
 walkdir = "2.5.0"
+mockito = "1.5.0"
