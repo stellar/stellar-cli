@@ -24,7 +24,9 @@ fn doc_gen() -> std::io::Result<()> {
     Ok(())
 }
 
-fn generate_markdown_with_aliases<C: clap::CommandFactory>(options: &clap_markdown::MarkdownOptions) -> String {
+fn generate_markdown_with_aliases<C: clap::CommandFactory>(
+    options: &clap_markdown::MarkdownOptions,
+) -> String {
     let command = C::command();
     let mut markdown_content = clap_markdown::help_markdown_custom::<C>(options);
     add_aliases_recursively(&command, &mut markdown_content, 2);
@@ -32,14 +34,12 @@ fn generate_markdown_with_aliases<C: clap::CommandFactory>(options: &clap_markdo
 }
 
 fn add_aliases_recursively(command: &clap::Command, content: &mut String, level: usize) {
-    let header = "#".repeat(level);
 
     for arg in command.get_arguments() {
-        // Convert the argument identifier to a kebab-case string
+
         let arg_name = format!("--{}", arg.get_id().as_str().to_kebab_case());
         let mut alias_list = vec![];
 
-        // Collect visible aliases into a Vec<String>
         let visible_aliases: Vec<String> = arg
             .get_visible_aliases()
             .into_iter()
@@ -47,11 +47,9 @@ fn add_aliases_recursively(command: &clap::Command, content: &mut String, level:
             .map(|alias| format!("--{}", alias.to_kebab_case()))
             .collect();
 
-        // Add the aliases inline with the argument
-        alias_list.push(arg_name.clone());
+            alias_list.push(arg_name.clone());
         alias_list.extend(visible_aliases);
 
-        // Join the aliases into a single string and append to the content
         content.push_str(&format!(
             "\n\n**Argument {}**: {}\n",
             arg_name,
