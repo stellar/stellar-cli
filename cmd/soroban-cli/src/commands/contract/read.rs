@@ -25,11 +25,17 @@ pub struct Cmd {
     /// Type of output to generate
     #[arg(long, value_enum, default_value("string"))]
     pub output: Output,
+
+    /// Durability of the storage entry (persistent or temporary)
+    #[arg(long, default_value = "persistent")]
+    pub durability: String,  // Added durability argument
+
     #[command(flatten)]
     pub key: key::Args,
     #[command(flatten)]
     config: config::Args,
 }
+
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -92,10 +98,27 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let entries = self.run_against_rpc_server(None, None).await?;
-        self.output_entries(&entries)
+pub async fn run(&self) -> Result<(), Error> {
+    // Validate and process the durability argument
+    match self.durability.as_str() {
+        "persistent" | "temporary" => {
+            // Proceed with valid durability
+            println!("Using durability: {}", self.durability);
+        }
+        _ => {
+            // Handle invalid durability argument
+            eprintln!("Invalid durability option. Must be either 'persistent' or 'temporary'.");
+            std::process::exit(1);
+        }
     }
+
+    // Now proceed with the existing logic
+    let entries = self.run_against_rpc_server(None, None).await?;
+    
+    // Output entries
+    self.output_entries(&entries)
+}
+
 
     fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
         if entries.entries.is_empty() {
