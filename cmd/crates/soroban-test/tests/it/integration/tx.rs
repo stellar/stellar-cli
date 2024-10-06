@@ -1,3 +1,4 @@
+use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
@@ -23,9 +24,7 @@ async fn simulate() {
         .success()
         .stdout_as_str();
     assert_eq!(xdr_base64_sim_only, assembled_str);
-    let assembled = sandbox
-        .client()
-        .simulate_and_assemble_transaction(&tx)
+    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx)
         .await
         .unwrap();
     let txn_env: TransactionEnvelope = assembled.transaction().clone().into();

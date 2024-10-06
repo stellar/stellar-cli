@@ -211,6 +211,7 @@ impl NetworkRunnable for Cmd {
             parse_operations(operations).ok_or(Error::MissingOperationResult)?,
         ))
     }
+    //
 }
 
 fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
