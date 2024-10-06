@@ -1627,43 +1627,1099 @@ Print version information
 
 
 
-**Aliases for argument `filter_logs`**: f
+**Argument --global**: --global
 
 
-**Aliases for argument `quiet`**: q
+**Argument --config-dir**: --config-dir
 
 
-**Aliases for argument `verbose`**: v
+**Argument --filter-logs**: --filter-logs
 
 
-**Aliases for argument `ignore_checks`**: i
+**Argument --quiet**: --quiet
 
 
-**Aliases for argument `out_file`**: o
+**Argument --verbose**: --verbose
 
 
-**Aliases for argument `with_example`**: w
+**Argument --very-verbose**: --very-verbose, --vv
 
 
-**Aliases for argument `count`**: c
+**Argument --list**: --list
 
 
-**Aliases for argument `as_secret`**: s
+**Argument --no-cache**: --no-cache
 
 
-**Aliases for argument `default_seed`**: d
+**Argument --asset**: --asset
 
 
-**Aliases for argument `long`**: l
+**Argument --rpc-url**: --rpc-url
 
 
-**Aliases for argument `docker_host`**: d
+**Argument --network-passphrase**: --network-passphrase
 
 
-**Aliases for argument `limits`**: l
+**Argument --network**: --network
 
 
-**Aliases for argument `ports_mapping`**: p
+**Argument --source-account**: --source-account, --source
 
 
-**Aliases for argument `image_tag_override`**: t
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --asset**: --asset
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --alias**: --alias
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --alias**: --alias
+
+
+**Argument --overwrite**: --overwrite
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --alias**: --alias
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --output-dir**: --output-dir
+
+
+**Argument --overwrite**: --overwrite
+
+
+**Argument --contract-id**: --contract-id, --id
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --manifest-path**: --manifest-path
+
+
+**Argument --package**: --package
+
+
+**Argument --profile**: --profile
+
+
+**Argument --features**: --features
+
+
+**Argument --all-features**: --all-features
+
+
+**Argument --no-default-features**: --no-default-features
+
+
+**Argument --out-dir**: --out-dir
+
+
+**Argument --print-commands-only**: --print-commands-only
+
+
+**Argument --ledgers-to-extend**: --ledgers-to-extend
+
+
+**Argument --ttl-ledger-only**: --ttl-ledger-only
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --key**: --key
+
+
+**Argument --key-xdr**: --key-xdr
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --durability**: --durability
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --salt**: --salt
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --ignore-checks**: --ignore-checks
+
+
+**Argument --alias**: --alias
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --out-file**: --out-file
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --asset**: --asset
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --salt**: --salt
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --output**: --output
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --output**: --output
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --output**: --output
+
+
+**Argument --project-path**: --project-path
+
+
+**Argument --with-example**: --with-example
+
+
+**Argument --frontend-template**: --frontend-template
+
+
+**Argument --overwrite**: --overwrite
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --output**: --output
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --ignore-checks**: --ignore-checks
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --is-view**: --is-view
+
+
+**Argument --CONTRACT-FN-AND-ARGS**: --CONTRACT-FN-AND-ARGS
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --send**: --send
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-out**: --wasm-out
+
+
+**Argument --output**: --output
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --key**: --key
+
+
+**Argument --key-xdr**: --key-xdr
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --durability**: --durability
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --contract-id**: --contract-id
+
+
+**Argument --key**: --key
+
+
+**Argument --key-xdr**: --key-xdr
+
+
+**Argument --wasm**: --wasm
+
+
+**Argument --wasm-hash**: --wasm-hash
+
+
+**Argument --durability**: --durability
+
+
+**Argument --ledgers-to-extend**: --ledgers-to-extend
+
+
+**Argument --ttl-ledger-only**: --ttl-ledger-only
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --fee**: --fee
+
+
+**Argument --cost**: --cost
+
+
+**Argument --instructions**: --instructions
+
+
+**Argument --build-only**: --build-only
+
+
+**Argument --sim-only**: --sim-only
+
+
+**Argument --start-ledger**: --start-ledger
+
+
+**Argument --cursor**: --cursor
+
+
+**Argument --output**: --output
+
+
+**Argument --count**: --count
+
+
+**Argument --contract-ids**: --contract-ids
+
+
+**Argument --topic-filters**: --topic-filters
+
+
+**Argument --event-type**: --event-type
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --name**: --name
+
+
+**Argument --secret-key**: --secret-key
+
+
+**Argument --seed-phrase**: --seed-phrase
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --name**: --name
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --name**: --name
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --name**: --name
+
+
+**Argument --no-fund**: --no-fund
+
+
+**Argument --seed**: --seed
+
+
+**Argument --as-secret**: --as-secret
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --default-seed**: --default-seed
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --long**: --long
+
+
+**Argument --name**: --name
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --name**: --name
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --name**: --name
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --name**: --name
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --long**: --long
+
+
+**Argument --docker-host**: --docker-host
+
+
+**Argument --network**: --network
+
+
+**Argument --name**: --name
+
+
+**Argument --limits**: --limits
+
+
+**Argument --ports-mapping**: --ports-mapping
+
+
+**Argument --image-tag-override**: --image-tag-override
+
+
+**Argument --protocol-version**: --protocol-version
+
+
+**Argument --docker-host**: --docker-host
+
+
+**Argument --name**: --name
+
+
+**Argument --docker-host**: --docker-host
+
+
+**Argument --name**: --name
+
+
+**Argument --docker-host**: --docker-host
+
+
+**Argument --network**: --network
+
+
+**Argument --name**: --name
+
+
+**Argument --limits**: --limits
+
+
+**Argument --ports-mapping**: --ports-mapping
+
+
+**Argument --image-tag-override**: --image-tag-override
+
+
+**Argument --protocol-version**: --protocol-version
+
+
+**Argument --docker-host**: --docker-host
+
+
+**Argument --name**: --name
+
+
+**Argument --ledger**: --ledger
+
+
+**Argument --address**: --address
+
+
+**Argument --wasm-hashes**: --wasm-hashes
+
+
+**Argument --output**: --output
+
+
+**Argument --out**: --out
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --archive-url**: --archive-url
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --source-account**: --source-account, --source
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --sign-with-key**: --sign-with-key
+
+
+**Argument --hd-path**: --hd-path
+
+
+**Argument --sign-with-lab**: --sign-with-lab
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --rpc-url**: --rpc-url
+
+
+**Argument --network-passphrase**: --network-passphrase
+
+
+**Argument --network**: --network
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --channel**: --channel
+
+
+**Argument --output**: --output
+
+
+**Argument --type**: --type
+
+
+**Argument --output**: --output
+
+
+**Argument --file**: --file
+
+
+**Argument --input**: --input
+
+
+**Argument --output**: --output
+
+
+**Argument --certainty**: --certainty
+
+
+**Argument --files**: --files
+
+
+**Argument --type**: --type
+
+
+**Argument --input**: --input
+
+
+**Argument --output**: --output
+
+
+**Argument --files**: --files
+
+
+**Argument --type**: --type
+
+
+**Argument --input**: --input
+
+
+**Argument --output**: --output
+
+
+**Argument --shell**: --shell
+
+
+**Argument --global**: --global
+
+
+**Argument --config-dir**: --config-dir
+
+
+**Argument --long**: --long
+
+
+**Argument --id**: --id
