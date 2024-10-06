@@ -115,6 +115,8 @@ pub enum Error {
     InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error("Only ed25519 accounts are allowed")]
+    OnlyEd25519AccountsAllowed,
 }
 
 impl Cmd {
@@ -158,13 +160,13 @@ fn alias_validator(alias: &str) -> Result<String, Error> {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<String>;
+    type Result = TxnResult<stellar_strkey::Contract>;
 
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<String>, Error> {
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
@@ -190,12 +192,14 @@ impl NetworkRunnable for Cmd {
                 .to_string()
         };
 
-        let wasm_hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
-            Error::CannotParseWasmHash {
-                wasm_hash: wasm_hash.clone(),
-                error: e,
-            }
-        })?);
+        let wasm_hash = Hash(
+            utils::contract_id_from_str(&wasm_hash)
+                .map_err(|e| Error::CannotParseWasmHash {
+                    wasm_hash: wasm_hash.clone(),
+                    error: e,
+                })?
+                .0,
+        );
 
         print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
 
@@ -212,11 +216,13 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.source_account()?;
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
+            return Err(Error::OnlyEd25519AccountsAllowed);
+        };
 
+        let key = stellar_strkey::ed25519::PublicKey(bytes.into());
         // Get the account sequence number
-        let public_strkey = key.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client.get_account(&key.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
         let (txn, contract_id) = build_create_contract_tx(
             wasm_hash,
@@ -224,7 +230,7 @@ impl NetworkRunnable for Cmd {
             self.fee.fee,
             &network.network_passphrase,
             salt,
-            &key,
+            key,
         )?;
 
         if self.fee.build_only {
@@ -254,8 +260,6 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
-        let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
-
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
@@ -272,8 +276,8 @@ fn build_create_contract_tx(
     fee: u32,
     network_passphrase: &str,
     salt: [u8; 32],
-    key: &stellar_strkey::ed25519::PublicKey,
-) -> Result<(Transaction, Hash), Error> {
+    key: stellar_strkey::ed25519::PublicKey,
+) -> Result<(Transaction, stellar_strkey::Contract), Error> {
     let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
 
     let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
@@ -293,7 +297,7 @@ fn build_create_contract_tx(
         }),
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.0)),
+        source_account: MuxedAccount::Ed25519(key.0.into()),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -302,7 +306,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    Ok((tx, Hash(contract_id.into())))
+    Ok((tx, contract_id))
 }
 
 #[cfg(test)]
@@ -321,7 +325,7 @@ mod tests {
             1,
             "Public Global Stellar Network ; September 2015",
             [0u8; 32],
-            &stellar_strkey::ed25519::PublicKey(
+            stellar_strkey::ed25519::PublicKey(
                 utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                     .unwrap()
                     .verifying_key()

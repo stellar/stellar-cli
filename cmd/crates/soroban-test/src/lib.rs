@@ -59,6 +59,7 @@ pub enum Error {
 pub struct TestEnv {
     pub temp_dir: TempDir,
     pub rpc_url: String,
+    pub network_passphrase: String,
 }
 
 impl Default for TestEnv {
@@ -67,6 +68,7 @@ impl Default for TestEnv {
         Self {
             temp_dir,
             rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
+            network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
         }
     }
 }
@@ -100,9 +102,12 @@ impl TestEnv {
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
-        let env = TestEnv {
+        let mut env = TestEnv {
             rpc_url: rpc_url.to_string(),
             ..Default::default()
+        };
+        if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
+            env.network_passphrase = network_passphrase;
         };
         env.generate_account("test", None).assert().success();
         env
@@ -110,6 +115,9 @@ impl TestEnv {
 
     pub fn new() -> TestEnv {
         if let Ok(rpc_url) = std::env::var("SOROBAN_RPC_URL") {
+            return Self::with_rpc_url(&rpc_url);
+        }
+        if let Ok(rpc_url) = std::env::var("STELLAR_RPC_URL") {
             return Self::with_rpc_url(&rpc_url);
         }
         let host_port = std::env::var("SOROBAN_PORT")
@@ -193,7 +201,7 @@ impl TestEnv {
         command_str: &[I],
         source: &str,
     ) -> Result<String, invoke::Error> {
-        let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str);
+        let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str, None);
         self.run_cmd_with(cmd, source)
             .await
             .map(|r| r.into_result().unwrap())
@@ -203,12 +211,15 @@ impl TestEnv {
     pub fn cmd_with_config<I: AsRef<str>, T: CommandParser<T> + NetworkRunnable>(
         &self,
         command_str: &[I],
+        source_account: Option<&str>,
     ) -> T {
+        let source = source_account.unwrap_or("test");
+        let source_str = format!("--source-account={source}");
         let mut arg = vec![
             "--network=local",
             "--rpc-url=http",
             "--network-passphrase=AA",
-            "--source-account=test",
+            source_str.as_str(),
         ];
         let input = command_str
             .iter()
@@ -227,7 +238,7 @@ impl TestEnv {
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
             },
-            source_account: account.to_string(),
+            source_account: account.parse().unwrap(),
             locator: config::locator::Args {
                 global: false,
                 config_dir,
