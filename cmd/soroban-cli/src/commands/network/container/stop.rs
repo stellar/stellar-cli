@@ -34,7 +34,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone());
-        let docker = self.container_args.connect_to_docker().await?;
+        let docker = self.container_args.connect_to_docker(&print).await?;
 
         print.infoln(format!(
             "Stopping {} container",

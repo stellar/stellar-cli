@@ -1,6 +1,9 @@
 use futures_util::TryStreamExt;
 
-use crate::commands::network::container::shared::Error as ConnectionError;
+use crate::{
+    commands::{global, network::container::shared::Error as ConnectionError},
+    print,
+};
 
 use super::shared::{Args, Name};
 
@@ -23,9 +26,10 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone()).get_internal_container_name();
-        let docker = self.container_args.connect_to_docker().await?;
+        let docker = self.container_args.connect_to_docker(&print).await?;
         let logs_stream = &mut docker.logs(
             &container_name,
             Some(bollard::container::LogsOptions {

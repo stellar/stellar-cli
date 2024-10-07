@@ -4,11 +4,9 @@ use std::{io::Write, str::FromStr};
 
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
-use crate::print::Print;
-use crate::signer::native_ledger;
 use crate::{
     print::Print,
-    signer::{self, LocalKey, Signer, SignerKind},
+    signer::{self, native_ledger, LocalKey, Signer, SignerKind},
     utils,
 };
 

@@ -239,7 +239,7 @@ impl Signer {
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-                    SignerKind::Ledger(ledger) => todo!("ledger signing"),
+                    SignerKind::Ledger(_) => todo!("ledger signing"),
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -257,9 +257,10 @@ pub struct LocalKey {
     pub key: ed25519_dalek::SigningKey,
 }
 
+#[allow(dead_code)]
 pub struct Ledger<T: Exchange> {
-    index: u32,
-    signer: LedgerSigner<T>,
+    pub(crate) index: u32,
+    pub(crate) signer: LedgerSigner<T>,
 }
 pub fn native_ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
     let signer = stellar_ledger::native()?;
