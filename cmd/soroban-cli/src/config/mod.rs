@@ -145,14 +145,3 @@ impl ArgsLocatorAndNetwork {
         Ok(self.network.get(&self.locator)?)
     }
 }
-
-impl From<ArgsLocatorAndNetwork> for Args {
-    fn from(value: ArgsLocatorAndNetwork) -> Self {
-        Args {
-            network: value.network,
-            source_account: Address::AliasOrSecret(String::new()),
-            hd_path: Some(0),
-            locator: value.locator,
-        }
-    }
-}

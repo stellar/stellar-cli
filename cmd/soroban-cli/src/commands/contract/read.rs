@@ -89,6 +89,8 @@ pub enum Error {
     OnlyDataAllowed,
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Network(#[from] config::network::Error),
 }
 
 impl Cmd {
@@ -182,11 +184,12 @@ impl NetworkRunnable for Cmd {
         _global_args: Option<&global::Args>,
         _config: Option<&config::Args>,
     ) -> Result<FullLedgerEntries, Error> {
-        let config: config::Args = self.config.clone().into();
-        let network = config.get_network()?;
+        let locator = self.config.locator.clone();
+        let network = self.config.network.get(&locator)?;
+
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys(&config.locator, &network)?;
+        let keys = self.key.parse_keys(&locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }
