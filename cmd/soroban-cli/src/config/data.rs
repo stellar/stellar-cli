@@ -1,6 +1,7 @@
 use crate::rpc::{GetTransactionResponse, GetTransactionResponseRaw, SimulateTransactionResponse};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
+use soroban_rpc::TransactionInfoRaw;
 use std::str::FromStr;
 use url::Url;
 
@@ -128,7 +129,7 @@ impl std::fmt::Display for DatedAction {
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Send { response } => response.status.to_string(),
+            Action::Send { response } => response.transaction_info.status.to_string(),
         };
         write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
@@ -179,10 +180,37 @@ impl TryFrom<GetTransactionResponse> for Action {
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
-                status: res.status,
-                envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
-                result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
-                result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
+                transaction_info: TransactionInfoRaw {
+                    envelope_xdr: res.envelope().map(to_xdr).transpose()?,
+                    result_xdr: res.result().map(to_xdr).transpose()?,
+                    result_meta_xdr: res.result_meta().map(to_xdr).transpose()?,
+                    status: res.transaction_info.status,
+                    application_order: res.transaction_info.application_order,
+                    diff: if let Some(soroban_rpc::TransactionInfoDiff::Protocol22 {
+                        transaction_hash,
+                        fee_bump,
+                    }) = res.transaction_info.diff
+                    {
+                        Some(soroban_rpc::TransactionInfoDiffRaw::Protocol22 {
+                            transaction_hash: transaction_hash.as_ref().map(ToString::to_string),
+                            fee_bump,
+                        })
+                    } else {
+                        None
+                    },
+                    diagnostic_events_xdr: res
+                        .transaction_info
+                        .diagnostic_events_xdr
+                        .iter()
+                        .map(to_xdr)
+                        .collect::<Result<Vec<_>, _>>()?,
+                    ledger: res.transaction_info.ledger,
+                    ledger_close_time: res.transaction_info.ledger_close_time,
+                },
+                latest_ledger_close_time: res.latest_ledger_close_time,
+                oldest_ledger: res.oldest_ledger,
+                oldest_ledger_close_time: res.oldest_ledger_close_time,
+                latest_ledger: res.latest_ledger,
             },
         })
     }
@@ -209,7 +237,7 @@ mod test {
         assert_eq!(rpc_uri, new_rpc_uri);
         match (action, original_action) {
             (Action::Simulate { response: a }, Action::Simulate { response: b }) => {
-                assert_eq!(a.cost.cpu_insns, b.cost.cpu_insns);
+                assert_eq!(a.min_resource_fee, b.min_resource_fee);
             }
             _ => panic!("Action mismatch"),
         }

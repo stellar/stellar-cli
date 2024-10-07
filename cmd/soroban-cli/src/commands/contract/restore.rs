@@ -138,8 +138,9 @@ impl NetworkRunnable for Cmd {
         let source_account = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(source_account.clone().account_id())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
@@ -178,10 +179,7 @@ impl NetworkRunnable for Cmd {
         if args.map_or(true, |a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
+        let meta = res.result_meta().ok_or(Error::MissingOperationResult)?;
         let events = res.events()?;
         tracing::trace!(?meta);
         if !events.is_empty() {

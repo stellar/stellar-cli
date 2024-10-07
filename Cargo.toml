@@ -15,16 +15,16 @@ version = "21.5.0"
 rust-version = "1.81.0"
 
 [workspace.dependencies.soroban-env-host]
-version = "=22.0.0-rc.1"
+version = "=22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-simulation]
 version = "=21.2.1"
 
 [workspace.dependencies.soroban-spec]
-version = "22.0.0-rc.1"
+version = "22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "22.0.0-rc.1"
+version = "22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-spec-json]
 version = "=21.5.0"
@@ -39,13 +39,13 @@ version = "21.5.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.soroban-sdk]
-version = "22.0.0-rc.1"
+version = "22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "22.0.0-rc.1"
+version = "22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "22.0.0-rc.1"
+version = "22.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-cli]
 version = "=21.5.0"
@@ -55,10 +55,10 @@ path = "cmd/soroban-cli"
 package = "stellar-rpc-client"
 version = "22.0.0-rc.1"
 git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "7ce2d11159202cfe67862cf83a2ef955fe0ec982"
+rev = "932b52c4df92c0a1237420d86ff7bdf51f9ac21a"
 
 [workspace.dependencies.stellar-xdr]
-version = "=22.0.0-rc.1"
+version = "=22.0.0-rc.1.1"
 default-features = true
 features = ["curr"]
 

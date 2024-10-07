@@ -270,7 +270,9 @@ impl NetworkRunnable for Cmd {
         };
 
         // Get the account sequence number
-        let account_details = client.get_account(&source_account.to_string()).await?;
+        let account_details = client
+            .get_account(config.source_account()?.account_id())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
         let txn = build_create_contract_tx(
             wasm_hash,
