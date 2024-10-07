@@ -157,7 +157,7 @@ fn try_docker_desktop_socket(
         &default_docker_desktop_host,
         DEFAULT_TIMEOUT,
         API_DEFAULT_VERSION,
-    ).map_err(|e| {
+    ).inspect_err(|_| {
         print.errorln(format!(
             "Failed to connect to the Docker daemon at {host:?}. Is the docker daemon running?"
         ));
@@ -167,7 +167,6 @@ fn try_docker_desktop_socket(
         print.infoln(
             "Please note that if you are using Docker Desktop, you may need to utilize the `--docker-host` flag to pass in the location of the docker socket on your machine."
         );
-        e
     })
 }
 
