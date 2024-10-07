@@ -9,8 +9,10 @@ use std::{
 use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
 use crate::{
-    config::{locator, network::Network},
-    rpc_client::{Error as RpcClientError, RpcClient},
+    config::{
+        locator,
+        network::{Error as NetworkError, Network},
+    },
     utils::{self, rpc::get_remote_wasm_from_hash},
     wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
 };
@@ -47,7 +49,7 @@ pub enum Error {
     )]
     ContractIsStellarAsset,
     #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
+    Network(#[from] NetworkError),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -129,7 +131,7 @@ pub async fn fetch_from_contract(
         .resolve_contract_id(contract_id, &network.network_passphrase)?
         .0;
 
-    let client = RpcClient::new(network)?;
+    let client = network.rpc_client()?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
         .await?;

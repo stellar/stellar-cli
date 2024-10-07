@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     print::Print,
-    rpc_client::{Error as RpcClientError, RpcClient},
     signer::{self, LocalKey, Signer, SignerKind},
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
@@ -35,8 +34,6 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
     #[error(transparent)]
     Address(#[from] address::Error),
 }
@@ -99,7 +96,7 @@ impl Args {
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_key = self.key_pair()?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
@@ -117,7 +114,7 @@ impl Args {
 
     pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         Ok((client.get_account(account_str).await?.seq_num.0 + 1).into())
     }
 }

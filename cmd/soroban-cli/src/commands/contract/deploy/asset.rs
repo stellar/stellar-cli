@@ -19,7 +19,6 @@ use crate::{
     },
     config::{self, data, network},
     rpc::Error as SorobanRpcError,
-    rpc_client::{Error as RpcClientError, RpcClient},
     tx::builder,
     utils::contract_id_hash_from_asset,
 };
@@ -44,8 +43,6 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
     #[error(transparent)]
     Builder(#[from] builder::Error),
 }
@@ -97,7 +94,7 @@ impl NetworkRunnable for Cmd {
         let asset = &self.asset;
 
         let network = config.get_network()?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

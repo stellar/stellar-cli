@@ -20,7 +20,6 @@ use crate::{
     key,
     print::Print,
     rpc,
-    rpc_client::{Error as RpcClientError, RpcClient},
     tx::builder::{self, TxExt},
     utils, wasm,
 };
@@ -77,8 +76,6 @@ pub enum Error {
     #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
-    #[error(transparent)]
     Builder(#[from] builder::Error),
 }
 
@@ -110,7 +107,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

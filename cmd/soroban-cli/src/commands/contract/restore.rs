@@ -17,9 +17,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key, rpc,
-    rpc_client::{Error as RpcClientError, RpcClient},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -89,8 +87,6 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
 }
 
 impl Cmd {
@@ -136,7 +132,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
 
         // Get the account sequence number

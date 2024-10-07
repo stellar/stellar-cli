@@ -15,9 +15,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key, rpc,
-    rpc_client::{Error as RpcClientError, RpcClient},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
@@ -86,8 +84,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
 }
 
 impl Cmd {
@@ -133,7 +129,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 

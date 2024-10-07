@@ -7,7 +7,6 @@ use super::{global, NetworkRunnable};
 use crate::{
     config::{self, locator, network},
     rpc,
-    rpc_client::{Error as RpcClientError, RpcClient},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -122,8 +121,6 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
@@ -212,7 +209,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

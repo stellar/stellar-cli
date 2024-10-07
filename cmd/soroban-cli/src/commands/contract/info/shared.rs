@@ -6,7 +6,6 @@ use soroban_env_host::xdr;
 use crate::{
     commands::contract::info::shared::Error::InvalidWasmHash,
     config::{locator, network},
-    rpc_client::{Error as RpcClientError, RpcClient},
     utils::rpc::get_remote_wasm_from_hash,
     wasm::{self, Error::ContractIsStellarAsset},
 };
@@ -57,8 +56,6 @@ pub enum Error {
     InvalidWasmHash(String),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
 }
 
 pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
@@ -74,7 +71,7 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         let hash = xdr::Hash(hash);
 
-        let client = RpcClient::new(network)?;
+        let client = network.rpc_client()?;
 
         client
             .verify_network_passphrase(Some(&network.network_passphrase))

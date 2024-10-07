@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use soroban_rpc::Assembled;
 
 use crate::commands::{config, global, NetworkRunnable};
-use crate::rpc_client::{Error as RpcClientError, RpcClient};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,7 +15,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
+    Network(#[from] config::network::Error),
 }
 
 /// Command to simulate a transaction envelope via rpc
@@ -51,7 +50,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
         Ok(client.simulate_and_assemble_transaction(&tx).await?)
     }

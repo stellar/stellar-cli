@@ -32,9 +32,7 @@ use crate::{
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
-    print, rpc,
-    rpc_client::{Error as RpcClientError, RpcClient},
-    Pwd,
+    print, rpc, Pwd,
 };
 use soroban_spec_tools::contract;
 
@@ -131,8 +129,6 @@ pub enum Error {
     GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
-    #[error(transparent)]
-    RpcClient(#[from] RpcClientError),
 }
 
 impl From<Infallible> for Error {
@@ -214,7 +210,7 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = RpcClient::new(&network)?;
+        let client = network.rpc_client()?;
         let account_details = if self.is_view {
             default_account_entry()
         } else {
