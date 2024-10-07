@@ -35,6 +35,13 @@ fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
     (test_address(sandbox), new_account(sandbox, "test1"))
 }
 
+async fn get_account(client: &soroban_rpc::Client, address: &str) -> xdr::AccountEntry {
+    client
+        .get_account(address.parse::<xdr::AccountId>().unwrap())
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn create_account() {
     let sandbox = &TestEnv::new();
@@ -52,7 +59,7 @@ async fn create_account() {
         .stdout_as_str();
     let test = test_address(sandbox);
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let test_account = client.get_account(&test).await.unwrap();
+    let test_account = get_account(&client, &test).await;
     println!("test account has a balance of {}", test_account.balance);
     let starting_balance = ONE_XLM * 100;
     sandbox
@@ -67,7 +74,7 @@ async fn create_account() {
         ])
         .assert()
         .success();
-    let test_account_after = client.get_account(&test).await.unwrap();
+    let test_account_after = get_account(&client, &test).await;
     assert!(test_account_after.balance < test_account.balance);
     let id = deploy_contract(sandbox, HELLO_WORLD, DeployKind::Normal, Some("new")).await;
     println!("{id}");
@@ -79,11 +86,11 @@ async fn payment() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, test1) = setup_accounts(sandbox);
-    let test_account = client.get_account(&test).await.unwrap();
+    let test_account = get_account(&client, &test).await;
     println!("test account has a balance of {}", test_account.balance);
 
-    let before = client.get_account(&test).await.unwrap();
-    let test1_account_entry_before = client.get_account(&test1).await.unwrap();
+    let before = get_account(&client, &test).await;
+    let test1_account_entry_before = get_account(&client, &test1).await;
 
     sandbox
         .new_assert_cmd("tx")
@@ -97,13 +104,13 @@ async fn payment() {
         ])
         .assert()
         .success();
-    let test1_account_entry = client.get_account(&test1).await.unwrap();
+    let test1_account_entry = get_account(&client, &test1).await;
     assert_eq!(
         ONE_XLM,
         test1_account_entry.balance - test1_account_entry_before.balance,
         "Should have One XLM more"
     );
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(before.balance - 10_000_100, after.balance);
 }
 
@@ -112,7 +119,7 @@ async fn bump_sequence() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test = test_address(sandbox);
-    let before = client.get_account(&test).await.unwrap();
+    let before = get_account(&client, &test).await;
     let amount = 50;
     let seq = SequenceNumber(before.seq_num.0 + amount);
     // bump sequence tx new
@@ -126,7 +133,7 @@ async fn bump_sequence() {
         ])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(seq, after.seq_num);
 }
 
@@ -135,8 +142,8 @@ async fn account_merge() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, test1) = setup_accounts(sandbox);
-    let before = client.get_account(&test).await.unwrap();
-    let before1 = client.get_account(&test1).await.unwrap();
+    let before = get_account(&client, &test).await;
+    let before1 = get_account(&client, &test1).await;
     let fee = 100;
     sandbox
         .new_assert_cmd("tx")
@@ -152,8 +159,11 @@ async fn account_merge() {
         ])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
-    assert!(client.get_account(&test1).await.is_err());
+    let after = get_account(&client, &test).await;
+    assert!(client
+        .get_account(test1.parse::<xdr::AccountId>().unwrap())
+        .await
+        .is_err());
     assert_eq!(before.balance + before1.balance - fee, after.balance);
 }
 
@@ -211,7 +221,7 @@ async fn set_options_add_signer() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, test1) = setup_accounts(sandbox);
-    let before = client.get_account(&test).await.unwrap();
+    let before = get_account(&client, &test).await;
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -224,7 +234,7 @@ async fn set_options_add_signer() {
         ])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(before.signers.len() + 1, after.signers.len());
     assert_eq!(after.signers.first().unwrap().key, test1.parse().unwrap());
     let key = xdr::LedgerKey::Account(xdr::LedgerKeyAccount {
@@ -251,7 +261,7 @@ async fn set_options_add_signer() {
         ])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(before.signers.len(), after.signers.len());
 }
 
@@ -273,7 +283,7 @@ async fn set_options() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let (test, alice) = setup_accounts(sandbox);
-    let before = client.get_account(&test).await.unwrap();
+    let before = get_account(&client, &test).await;
     assert!(before.inflation_dest.is_none());
     let tx_xdr = build_and_run(
         sandbox,
@@ -299,7 +309,7 @@ async fn set_options() {
         ],
     );
     println!("{tx_xdr}");
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     println!("{before:#?}\n{after:#?}");
     assert_eq!(
         after.flags,
@@ -343,7 +353,7 @@ async fn set_some_options() {
     let sandbox = &TestEnv::new();
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
     let test = test_address(sandbox);
-    let before = client.get_account(&test).await.unwrap();
+    let before = get_account(&client, &test).await;
     assert!(before.inflation_dest.is_none());
     sandbox
         .new_assert_cmd("tx")
@@ -366,7 +376,7 @@ async fn set_some_options() {
         ])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(after.flags, xdr::AccountFlags::RevocableFlag as u32);
     assert_eq!([100, 0, 0, 0], after.thresholds.0);
     assert!(after.inflation_dest.is_none());
@@ -380,7 +390,7 @@ async fn set_some_options() {
         .args(["new", "set-options", "--set-clawback-enabled"])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(
         after.flags,
         xdr::AccountFlags::RevocableFlag as u32 | xdr::AccountFlags::ClawbackEnabledFlag as u32
@@ -390,28 +400,28 @@ async fn set_some_options() {
         .args(["new", "set-options", "--clear-clawback-enabled"])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(after.flags, xdr::AccountFlags::RevocableFlag as u32);
     sandbox
         .new_assert_cmd("tx")
         .args(["new", "set-options", "--clear-revocable"])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(after.flags, 0);
     sandbox
         .new_assert_cmd("tx")
         .args(["new", "set-options", "--set-required"])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(after.flags, xdr::AccountFlags::RequiredFlag as u32);
     sandbox
         .new_assert_cmd("tx")
         .args(["new", "set-options", "--clear-required"])
         .assert()
         .success();
-    let after = client.get_account(&test).await.unwrap();
+    let after = get_account(&client, &test).await;
     assert_eq!(after.flags, 0);
 }
 
@@ -559,7 +569,7 @@ async fn manage_data() {
 
 async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, initial_balance: u64) {
     let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let test_before = client.get_account(test).await.unwrap();
+    let test_before = get_account(&client, test).await;
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -594,7 +604,7 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
         .assert()
         .success();
 
-    let after = client.get_account(test).await.unwrap();
+    let after = get_account(&client, test).await;
     assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
     println!("aa");
     // Send a payment to the issuer
