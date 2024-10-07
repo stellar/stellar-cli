@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
-use http::{HeaderMap, HeaderName, HeaderValue};
+use jsonrpsee_http_client::HeaderMap;
 
 use crate::config::network::Network;
 use crate::rpc;
@@ -9,10 +10,8 @@ use crate::rpc;
 pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    InvalidHeaderName(#[from] http::header::InvalidHeaderName),
-    #[error(transparent)]
-    InvalidHeaderValue(#[from] http::header::InvalidHeaderValue),
+    #[error("invalid HTTP header: {0}")]
+    InvalidHeader(String),
 }
 
 #[derive(Debug)]
@@ -22,15 +21,16 @@ pub struct RpcClient {
 
 impl RpcClient {
     pub fn new(network: &Network) -> Result<Self, Error> {
-        let mut additional_headers = HeaderMap::new();
-        for header in &network.rpc_headers {
-            let header_name = HeaderName::from_bytes(header.0.as_bytes())?;
-            let header_value = HeaderValue::from_str(&header.1)?;
-
-            additional_headers.insert(header_name, header_value);
+        let mut header_hash_map = HashMap::new();
+        for (header_name, header_value) in &network.rpc_headers {
+            header_hash_map.insert(header_name.to_string(), header_value.to_string());
         }
 
-        let client = rpc::Client::new_with_headers(&network.rpc_url, additional_headers)?;
+        let header_map: HeaderMap = (&header_hash_map)
+            .try_into()
+            .map_err(|e| Error::InvalidHeader(format!("{:?}", e)))?;
+
+        let client = rpc::Client::new_with_headers(&network.rpc_url, header_map)?;
         Ok(Self { client })
     }
 }
@@ -69,7 +69,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("invalid HTTP header name")
+            format!("invalid HTTP header: http::Error(InvalidHeaderName)")
         );
     }
 

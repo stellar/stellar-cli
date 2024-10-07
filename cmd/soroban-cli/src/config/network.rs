@@ -1,6 +1,6 @@
 use clap::arg;
-use http::{HeaderName, HeaderValue};
 use phf::phf_map;
+use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::str::FromStr;
@@ -32,9 +32,9 @@ pub enum Error {
     #[error("funding failed: {0}")]
     FundingFailed(String),
     #[error(transparent)]
-    InvalidHeaderName(#[from] http::header::InvalidHeaderName),
+    InvalidHeaderName(#[from] InvalidHeaderName),
     #[error(transparent)]
-    InvalidHeaderValue(#[from] http::header::InvalidHeaderValue),
+    InvalidHeaderValue(#[from] InvalidHeaderValue),
     #[error("Invalid header: {0}")]
     InvalidHeader(String),
 }
@@ -251,6 +251,7 @@ mod tests {
         let network = Network {
             rpc_url: "http://localhost:8000".to_string(),
             network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: Vec::new(),
         };
 
         let result = network
@@ -288,6 +289,7 @@ mod tests {
         let network = Network {
             rpc_url: server.url(),
             network_passphrase: passphrase::TESTNET.to_string(),
+            rpc_headers: Vec::new(),
         };
         let url = network
             .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
@@ -318,6 +320,7 @@ mod tests {
         let network = Network {
             rpc_url: server.url(),
             network_passphrase: passphrase::TESTNET.to_string(),
+            rpc_headers: Vec::new(),
         };
         let url = network
             .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
