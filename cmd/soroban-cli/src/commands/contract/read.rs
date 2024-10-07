@@ -28,7 +28,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub key: key::Args,
     #[command(flatten)]
-    config: config::Args,
+    config: config::ArgsLocatorAndNetwork,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -179,10 +179,10 @@ impl NetworkRunnable for Cmd {
 
     async fn run_against_rpc_server(
         &self,
-        _: Option<&global::Args>,
-        config: Option<&config::Args>,
+        _global_args: Option<&global::Args>,
+        _config: Option<&config::Args>,
     ) -> Result<FullLedgerEntries, Error> {
-        let config = config.unwrap_or(&self.config);
+        let config: config::Args = self.config.clone().into();
         let network = config.get_network()?;
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
