@@ -1246,18 +1246,20 @@ Create a ledger snapshot using a history archive.
 
 Filters (address, wasm-hash) specify what ledger entries to include.
 
-Account addresses include the account, and trust lines.
+Account addresses include the account, and trustlines.
 
 Contract addresses include the related wasm, contract data.
 
 If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
+
+Any invalid contract id passed as `--address` will be ignored.
 
 **Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
 
 ###### **Options:**
 
 * `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
-* `--address <ADDRESS>` — Account or contract address to include in the snapshot
+* `--address <ADDRESS>` — Account or contract address/alias to include in the snapshot
 * `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
 * `--output <OUTPUT>` — Format of the out file
 

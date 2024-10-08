@@ -29,7 +29,7 @@ use url::Url;
 
 use crate::utils::http;
 use crate::{
-    commands::{config::data, global, HEADING_RPC},
+    commands::{config::data, global, keys::address::Cmd as AddressCmd, HEADING_RPC},
     config::{self, locator, network::passphrase},
     print,
     tx::builder,
@@ -55,7 +55,7 @@ fn default_out_path() -> PathBuf {
 ///
 /// Filters (address, wasm-hash) specify what ledger entries to include.
 ///
-/// Account addresses include the account, and trust lines.
+/// Account addresses include the account, and trustlines.
 ///
 /// Contract addresses include the related wasm, contract data.
 ///
@@ -63,6 +63,9 @@ fn default_out_path() -> PathBuf {
 /// account and trust lines, but does not include all the trust lines of other
 /// accounts holding the asset. To include them specify the addresses of
 /// relevant accounts.
+///
+/// Any invalid contract id passed as `--address` will be ignored.
+///
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 #[command(arg_required_else_help = true)]
@@ -70,9 +73,9 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// Account or contract address to include in the snapshot.
+    /// Account or contract address/alias to include in the snapshot.
     #[arg(long = "address", help_heading = "Filter Options")]
-    address: Vec<ScAddress>,
+    address: Vec<String>,
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
@@ -213,11 +216,13 @@ impl Cmd {
         }
 
         // Search the buckets using the user inputs as the starting inputs.
-        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
-            self.address.iter().cloned().partition_map(|a| match a {
-                ScAddress::Account(account_id) => Either::Left(account_id),
-                ScAddress::Contract(_) => Either::Right(a),
-            });
+        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) = self
+            .address
+            .iter()
+            .cloned()
+            .filter_map(|a| self.resolve_address(a, network_passphrase.into()))
+            .partition_map(|a| a);
+
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
@@ -387,6 +392,74 @@ impl Cmd {
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
+    }
+
+    fn resolve_address(
+        &self,
+        address: String,
+        network_passphrase: String,
+    ) -> Option<Either<AccountId, ScAddress>> {
+        if let Some(contract) = self.resolve_contract(address.clone(), network_passphrase) {
+            return Some(Either::Right(ScAddress::Contract(contract)));
+        }
+
+        if let Some(account) = self.resolve_account(address.clone()) {
+            return Some(Either::Left(account));
+        }
+
+        None
+    }
+
+    // Resolve an account address to an account id.
+    // The address can be a G-address or a key name
+    // (as in `stellar keys address NAME`).
+    fn resolve_account(&self, address: String) -> Option<AccountId> {
+        let resolver = |address: String| -> Option<AccountId> {
+            match ScAddress::from_str(&address) {
+                Ok(ScAddress::Account(address)) => Some(address),
+                _ => None,
+            }
+        };
+
+        if let Some(account) = resolver(address.clone()) {
+            return Some(account);
+        }
+
+        let cmd = AddressCmd {
+            name: address.clone(),
+            locator: self.locator.clone(),
+            hd_path: None,
+        };
+
+        if let Ok(public_key) = cmd.public_key() {
+            return resolver(public_key.to_string());
+        }
+
+        None
+    }
+
+    // Resolve a contract address to a contract id.
+    // The contract can be a C-address or a contract alias.
+    fn resolve_contract(&self, address: String, network_passphrase: String) -> Option<Hash> {
+        let resolver = |address: String| -> Option<Hash> {
+            match ScAddress::from_str(&address) {
+                Ok(ScAddress::Contract(contract)) => Some(contract),
+                _ => None,
+            }
+        };
+
+        if let Some(contract) = resolver(address.clone()) {
+            return Some(contract);
+        }
+
+        if let Ok(contract) = self
+            .locator
+            .resolve_contract_id(&address, &network_passphrase)
+        {
+            return resolver(contract.to_string());
+        }
+
+        None
     }
 }
 
