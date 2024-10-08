@@ -5725,7 +5725,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "22.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-stellar-rpc-client?rev=932b52c4df92c0a1237420d86ff7bdf51f9ac21a#932b52c4df92c0a1237420d86ff7bdf51f9ac21a"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client?rev=76b6bc942a1ca7c5e0cbfa5fe4e7c541a2a72cf3#76b6bc942a1ca7c5e0cbfa5fe4e7c541a2a72cf3"
 dependencies = [
  "clap",
  "hex",
@@ -5738,7 +5738,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2 0.10.8",
- "stellar-strkey 0.0.8",
+ "stellar-strkey 0.0.9",
  "stellar-xdr",
  "termcolor",
  "termcolor_output",

@@ -55,7 +55,7 @@ path = "cmd/soroban-cli"
 package = "stellar-rpc-client"
 version = "22.0.0-rc.1"
 git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "932b52c4df92c0a1237420d86ff7bdf51f9ac21a"
+rev = "76b6bc942a1ca7c5e0cbfa5fe4e7c541a2a72cf3"
 
 [workspace.dependencies.stellar-xdr]
 version = "=22.0.0-rc.1.1"

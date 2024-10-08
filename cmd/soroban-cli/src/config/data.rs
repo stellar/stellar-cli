@@ -189,11 +189,13 @@ impl TryFrom<GetTransactionResponse> for Action {
                     diff: if let Some(soroban_rpc::TransactionInfoDiff::Protocol22 {
                         transaction_hash,
                         fee_bump,
+                        ledger_close_time,
                     }) = res.transaction_info.diff
                     {
                         Some(soroban_rpc::TransactionInfoDiffRaw::Protocol22 {
                             transaction_hash: transaction_hash.as_ref().map(ToString::to_string),
                             fee_bump,
+                            ledger_close_time,
                         })
                     } else {
                         None
@@ -205,7 +207,6 @@ impl TryFrom<GetTransactionResponse> for Action {
                         .map(to_xdr)
                         .collect::<Result<Vec<_>, _>>()?,
                     ledger: res.transaction_info.ledger,
-                    ledger_close_time: res.transaction_info.ledger_close_time,
                 },
                 latest_ledger_close_time: res.latest_ledger_close_time,
                 oldest_ledger: res.oldest_ledger,
