@@ -3,8 +3,9 @@ use std::{
     path::PathBuf,
 };
 
-use soroban_env_host::xdr::ReadXdr;
-use soroban_sdk::xdr::{Limits, Transaction, TransactionEnvelope, TransactionV1Envelope};
+use crate::xdr::{
+    Limits, Operation, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -18,6 +19,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("only transaction v1 is supported")]
     OnlyTransactionV1Supported,
+    #[error("Only 100 Operations are allowed in a transaction")]
+    TooManyOperations,
 }
 
 pub fn tx_envelope_from_stdin() -> Result<TransactionEnvelope, Error> {
@@ -36,4 +39,12 @@ pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Er
         return Err(Error::OnlyTransactionV1Supported);
     };
     Ok(tx)
+}
+
+pub fn add_op(tx_env: TransactionEnvelope, op: Operation) -> Result<TransactionEnvelope, Error> {
+    let mut tx = unwrap_envelope_v1(tx_env)?;
+    let mut ops = tx.operations.to_vec();
+    ops.push(op);
+    tx.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
+    Ok(tx.into())
 }

@@ -1,7 +1,9 @@
 use super::global;
 
+pub mod add_op;
 pub mod args;
 pub mod hash;
+pub mod help;
 pub mod new;
 pub mod send;
 pub mod sign;
@@ -12,6 +14,9 @@ pub use args::Args;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Add Operation to a transaction
+    #[command(subcommand)]
+    AddOp(add_op::Cmd),
     /// Simulate a transaction envelope from stdin
     Simulate(simulate::Cmd),
     /// Calculate the hash of a transaction envelope from stdin
@@ -28,6 +33,8 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    AddOp(#[from] add_op::Error),
+    #[error(transparent)]
     Hash(#[from] hash::Error),
     #[error(transparent)]
     New(#[from] new::Error),
@@ -42,6 +49,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
+            Cmd::AddOp(cmd) => cmd.run(global_args)?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
