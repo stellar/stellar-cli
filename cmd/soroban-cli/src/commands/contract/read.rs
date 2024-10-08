@@ -28,7 +28,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub key: key::Args,
     #[command(flatten)]
-    config: config::Args,
+    config: config::ArgsLocatorAndNetwork,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -89,6 +89,8 @@ pub enum Error {
     OnlyDataAllowed,
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Network(#[from] config::network::Error),
 }
 
 impl Cmd {
@@ -179,14 +181,15 @@ impl NetworkRunnable for Cmd {
 
     async fn run_against_rpc_server(
         &self,
-        _: Option<&global::Args>,
-        config: Option<&config::Args>,
+        _global_args: Option<&global::Args>,
+        _config: Option<&config::Args>,
     ) -> Result<FullLedgerEntries, Error> {
-        let config = config.unwrap_or(&self.config);
-        let network = config.get_network()?;
+        let locator = self.config.locator.clone();
+        let network = self.config.network.get(&locator)?;
+
         tracing::trace!(?network);
         let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys(&config.locator, &network)?;
+        let keys = self.key.parse_keys(&locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }
