@@ -23,5 +23,4 @@ fn init() {
             table["workspace"]["dependencies"]["soroban-sdk"].as_str()
                 == Some(&format!("{major}.0.0"))
         }));
-    // this is true, that is does create the dir, but it also panics
 }
