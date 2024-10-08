@@ -220,7 +220,7 @@ impl Cmd {
             .address
             .iter()
             .cloned()
-            .filter_map(|a| self.resolve_address(a, network_passphrase.into()))
+            .filter_map(|a| self.resolve_address(&a, network_passphrase))
             .partition_map(|a| a);
 
         let mut current = SearchInputs {
@@ -396,14 +396,14 @@ impl Cmd {
 
     fn resolve_address(
         &self,
-        address: String,
-        network_passphrase: String,
+        address: &str,
+        network_passphrase: &str,
     ) -> Option<Either<AccountId, ScAddress>> {
-        if let Some(contract) = self.resolve_contract(address.clone(), network_passphrase) {
+        if let Some(contract) = self.resolve_contract(address, network_passphrase) {
             return Some(Either::Right(ScAddress::Contract(contract)));
         }
 
-        if let Some(account) = self.resolve_account(address.clone()) {
+        if let Some(account) = self.resolve_account(address) {
             return Some(Either::Left(account));
         }
 
@@ -413,7 +413,7 @@ impl Cmd {
     // Resolve an account address to an account id.
     // The address can be a G-address or a key name
     // (as in `stellar keys address NAME`).
-    fn resolve_account(&self, address: String) -> Option<AccountId> {
+    fn resolve_account(&self, address: &str) -> Option<AccountId> {
         let resolver = |address: String| -> Option<AccountId> {
             match ScAddress::from_str(&address) {
                 Ok(ScAddress::Account(address)) => Some(address),
@@ -421,12 +421,12 @@ impl Cmd {
             }
         };
 
-        if let Some(account) = resolver(address.clone()) {
+        if let Some(account) = resolver(address.to_string()) {
             return Some(account);
         }
 
         let cmd = AddressCmd {
-            name: address.clone(),
+            name: address.to_string(),
             locator: self.locator.clone(),
             hd_path: None,
         };
@@ -440,7 +440,7 @@ impl Cmd {
 
     // Resolve a contract address to a contract id.
     // The contract can be a C-address or a contract alias.
-    fn resolve_contract(&self, address: String, network_passphrase: String) -> Option<Hash> {
+    fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<Hash> {
         let resolver = |address: String| -> Option<Hash> {
             match ScAddress::from_str(&address) {
                 Ok(ScAddress::Contract(contract)) => Some(contract),
@@ -448,13 +448,13 @@ impl Cmd {
             }
         };
 
-        if let Some(contract) = resolver(address.clone()) {
+        if let Some(contract) = resolver(address.to_string()) {
             return Some(contract);
         }
 
         if let Ok(contract) = self
             .locator
-            .resolve_contract_id(&address, &network_passphrase)
+            .resolve_contract_id(address, network_passphrase)
         {
             return resolver(contract.to_string());
         }
