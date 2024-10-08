@@ -252,8 +252,6 @@ mod tests {
             .arg("xdr")
             .arg("--key")
             .arg("COUNTER")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let key_xdr = read_xdr.split(',').next().unwrap_or("").trim();
