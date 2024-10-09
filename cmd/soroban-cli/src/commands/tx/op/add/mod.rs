@@ -1,7 +1,9 @@
 use clap::Parser;
 
-use super::{global, xdr::tx_envelope_from_stdin};
+use super::super::{global, help, xdr::tx_envelope_from_stdin};
 use crate::xdr::WriteXdr;
+
+pub(crate) use super::super::{new, xdr};
 
 mod account_merge;
 mod args;
@@ -16,21 +18,21 @@ mod set_trustline_flags;
 #[derive(Debug, Parser)]
 #[allow(clippy::doc_markdown)]
 pub enum Cmd {
-    #[command(about = super::help::ACCOUNT_MERGE)]
+    #[command(about = help::ACCOUNT_MERGE)]
     AccountMerge(account_merge::Cmd),
-    #[command(about = super::help::BUMP_SEQUENCE)]
+    #[command(about = help::BUMP_SEQUENCE)]
     BumpSequence(bump_sequence::Cmd),
-    #[command(about = super::help::CHANGE_TRUST)]
+    #[command(about = help::CHANGE_TRUST)]
     ChangeTrust(change_trust::Cmd),
-    #[command(about = super::help::CREATE_ACCOUNT)]
+    #[command(about = help::CREATE_ACCOUNT)]
     CreateAccount(create_account::Cmd),
-    #[command(about = super::help::MANAGE_DATA)]
+    #[command(about = help::MANAGE_DATA)]
     ManageData(manage_data::Cmd),
-    #[command(about = super::help::PAYMENT)]
+    #[command(about = help::PAYMENT)]
     Payment(payment::Cmd),
-    #[command(about = super::help::SET_OPTIONS)]
+    #[command(about = help::SET_OPTIONS)]
     SetOptions(set_options::Cmd),
-    #[command(about = super::help::SET_TRUSTLINE_FLAGS)]
+    #[command(about = help::SET_TRUSTLINE_FLAGS)]
     SetTrustlineFlags(set_trustline_flags::Cmd),
 }
 
@@ -39,7 +41,7 @@ pub enum Error {
     #[error(transparent)]
     Args(#[from] args::Error),
     #[error(transparent)]
-    TxXdr(#[from] super::xdr::Error),
+    TxXdr(#[from] super::super::xdr::Error),
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
 }

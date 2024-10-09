@@ -1,4 +1,4 @@
-use super::super::xdr::add_op;
+use super::xdr::add_op;
 use crate::{
     config::{address, locator},
     xdr,
@@ -9,7 +9,7 @@ pub enum Error {
     #[error(transparent)]
     Address(#[from] address::Error),
     #[error(transparent)]
-    TxXdr(#[from] super::super::xdr::Error),
+    TxXdr(#[from] super::xdr::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
