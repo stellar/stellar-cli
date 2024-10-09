@@ -1,7 +1,7 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use soroban_env_host::xdr::{self, Limits, ReadXdr};
+use crate::xdr::{self, Limits, ReadXdr};
 
 use super::{global, NetworkRunnable};
 use crate::config::{self, locator, network};

@@ -8,7 +8,7 @@ use clap::value_parser;
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, Hash, InvokeContractArgs, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
     ScVec,
 };
