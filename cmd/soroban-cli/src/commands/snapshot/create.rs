@@ -27,14 +27,14 @@ use tokio::io::BufReader;
 use tokio_util::io::StreamReader;
 use url::Url;
 
-use crate::utils::http;
 use crate::{
-    commands::{config::data, global, keys::address::Cmd as AddressCmd, HEADING_RPC},
+    commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
     print,
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
+use crate::{config::address::Address, utils::http};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -399,67 +399,37 @@ impl Cmd {
         address: &str,
         network_passphrase: &str,
     ) -> Option<Either<AccountId, ScAddress>> {
-        if let Some(contract) = self.resolve_contract(address, network_passphrase) {
-            return Some(Either::Right(ScAddress::Contract(contract)));
-        }
-
-        if let Some(account) = self.resolve_account(address) {
-            return Some(Either::Left(account));
-        }
-
-        None
+        self.resolve_contract(address, network_passphrase)
+            .map(Either::Right)
+            .or_else(|| self.resolve_account(address).map(Either::Left))
     }
 
-    // Resolve an account address to an account id.
-    // The address can be a G-address or a key name
-    // (as in `stellar keys address NAME`).
+    // Resolve an account address to an account id. The address can be a
+    // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account(&self, address: &str) -> Option<AccountId> {
-        let resolver = |address: String| -> Option<AccountId> {
-            match ScAddress::from_str(&address) {
-                Ok(ScAddress::Account(address)) => Some(address),
-                _ => None,
-            }
-        };
+        let address: Address = address.parse().ok()?;
 
-        if let Some(account) = resolver(address.to_string()) {
-            return Some(account);
-        }
-
-        let cmd = AddressCmd {
-            name: address.to_string(),
-            locator: self.locator.clone(),
-            hd_path: None,
-        };
-
-        if let Ok(public_key) = cmd.public_key() {
-            return resolver(public_key.to_string());
-        }
-
-        None
+        Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
+            match address.resolve_muxed_account(&self.locator, None).ok()? {
+                xdr::MuxedAccount::Ed25519(uint256) => uint256,
+                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 { ed25519, .. }) => {
+                    ed25519
+                }
+            },
+        )))
     }
-
-    // Resolve a contract address to a contract id.
-    // The contract can be a C-address or a contract alias.
-    fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<Hash> {
-        let resolver = |address: String| -> Option<Hash> {
-            match ScAddress::from_str(&address) {
-                Ok(ScAddress::Contract(contract)) => Some(contract),
-                _ => None,
-            }
-        };
-
-        if let Some(contract) = resolver(address.to_string()) {
-            return Some(contract);
-        }
-
-        if let Ok(contract) = self
-            .locator
-            .resolve_contract_id(address, network_passphrase)
-        {
-            return resolver(contract.to_string());
-        }
-
-        None
+    // Resolve a contract address to a contract id. The contract can be a
+    // C-address or a contract alias.
+    fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
+        address.parse().ok().or_else(|| {
+            Some(ScAddress::Contract(
+                self.locator
+                    .resolve_contract_id(address, network_passphrase)
+                    .ok()?
+                    .0
+                    .into(),
+            ))
+        })
     }
 }
 
