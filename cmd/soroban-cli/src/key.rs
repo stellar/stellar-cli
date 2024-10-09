@@ -1,13 +1,13 @@
+use crate::xdr::{
+    self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
+    ScVal,
+};
 use crate::{
     commands::contract::Durability,
     config::{locator, network::Network},
     wasm,
 };
 use clap::arg;
-use soroban_env_host::xdr::{
-    self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
-    ScVal,
-};
 use std::path::PathBuf;
 
 #[derive(thiserror::Error, Debug)]

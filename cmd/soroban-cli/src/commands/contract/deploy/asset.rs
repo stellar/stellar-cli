@@ -1,13 +1,10 @@
-use clap::{arg, command, Parser};
-use soroban_env_host::{
-    xdr::{
-        Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
-        Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
+    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
+    LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
 };
+use clap::{arg, command, Parser};
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
@@ -26,10 +23,6 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]

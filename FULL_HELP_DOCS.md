@@ -85,7 +85,7 @@ Tools for smart contract developers
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban project with an example contract
-* `inspect` — Inspect a WASM file listing contract functions, meta, etc
+* `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
@@ -623,7 +623,7 @@ Initialize a Soroban project with an example contract
 
 ## `stellar contract inspect`
 
-Inspect a WASM file listing contract functions, meta, etc
+(Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
@@ -740,7 +740,7 @@ Optimize a WASM file
 
 Print the current value of a contract-data ledger entry
 
-**Usage:** `stellar contract read [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract read [OPTIONS]`
 
 ###### **Options:**
 
@@ -774,8 +774,6 @@ Print the current value of a contract-data ledger entry
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -1625,6 +1623,7 @@ Decode and encode XDR
 * `guess` — Guess the XDR type
 * `decode` — Decode XDR
 * `encode` — Encode XDR
+* `compare` — Compare two XDR values with each other
 * `version` — Print version information
 
 ###### **Arguments:**
@@ -1760,6 +1759,31 @@ Encode XDR
   Possible values: `json`
 
 * `--output <OUTPUT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `stream`
+
+
+
+
+## `stellar xdr compare`
+
+Compare two XDR values with each other
+
+Outputs: `-1` when the left XDR value is less than the right XDR value, `0` when the left XDR value is equal to the right XDR value, `1` when the left XDR value is greater than the right XDR value
+
+**Usage:** `stellar xdr compare [OPTIONS] --type <TYPE> <LEFT> <RIGHT>`
+
+###### **Arguments:**
+
+* `<LEFT>` — XDR file to decode and compare with the right value
+* `<RIGHT>` — XDR file to decode and compare with the left value
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type of both inputs
+* `--input <INPUT>`
 
   Default value: `single-base64`
 
