@@ -115,9 +115,7 @@ impl CustomAccountInterface for Contract {
                         return Err(Error::NotPermitted);
                     }
                 }
-                Context::CreateContractHostFn(_) | Context::CreateContractWithCtorHostFn(_) => {
-                    return Err(Error::InvalidContext)
-                }
+                Context::CreateContractHostFn(_) => return Err(Error::InvalidContext),
             };
         }
 
