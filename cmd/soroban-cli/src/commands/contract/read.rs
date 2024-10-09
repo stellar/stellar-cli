@@ -3,14 +3,11 @@ use std::{
     io::{self, stdout},
 };
 
-use clap::{command, Parser, ValueEnum};
-use soroban_env_host::{
-    xdr::{
-        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
-        Limits, ScVal, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+    Limits, ScVal, WriteXdr,
 };
+use clap::{command, Parser, ValueEnum};
 
 use crate::{
     commands::{global, NetworkRunnable},
@@ -77,10 +74,6 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Xdr(#[from] XdrError),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("no matching contract data entries were found for the specified contract id")]
     NoContractDataEntryFoundForContractID,
     #[error(transparent)]

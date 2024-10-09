@@ -7,7 +7,7 @@ pub enum Error {
     #[error(transparent)]
     TxEnvelopeFromStdin(#[from] super::xdr::Error),
     #[error(transparent)]
-    XdrToBase64(#[from] soroban_env_host::xdr::Error),
+    XdrToBase64(#[from] crate::xdr::Error),
     #[error(transparent)]
     Config(#[from] network::Error),
 }

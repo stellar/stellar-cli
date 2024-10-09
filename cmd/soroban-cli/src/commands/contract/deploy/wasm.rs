@@ -2,18 +2,15 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
+use crate::xdr::{
+    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+    CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits, Memo,
+    MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, SequenceNumber,
+    Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+};
 use clap::{arg, command, Parser};
 use rand::Rng;
 use regex::Regex;
-use soroban_env_host::{
-    xdr::{
-        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
-        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
-    },
-    HostError,
-};
 
 use crate::{
     assembled::simulate_and_assemble_transaction,
@@ -70,8 +67,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Install(#[from] install::Error),
-    #[error(transparent)]
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]

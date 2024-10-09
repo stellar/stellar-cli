@@ -1,8 +1,8 @@
 use crate::config::locator;
 use crate::config::network::Network;
+use crate::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
 use clap::arg;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
 use soroban_rpc::Client;
 use soroban_spec_tools::contract::{self, Spec};
 use std::{

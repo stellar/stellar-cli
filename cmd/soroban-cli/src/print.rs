@@ -1,6 +1,6 @@
 use std::{env, fmt::Display};
 
-use soroban_env_host::xdr::{Error as XdrError, Transaction};
+use crate::xdr::{Error as XdrError, Transaction};
 
 use crate::{
     config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
