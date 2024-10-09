@@ -30,14 +30,6 @@
               targets = [ "wasm32-unknown-unknown" ];
             })
           ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
-          shellHook =
-          ''
-            echo "Using `nix --version`"
-            alias stellar="cargo run --bin stellar --"
-            shell=$0
-            shell=`basename $shell`
-            source <(stellar completion --shell $shell)
-          '';
         };
       }
     );
