@@ -1,7 +1,7 @@
 use clap::arg;
 
+use crate::assembled::Assembled;
 use crate::xdr;
-use soroban_rpc::Assembled;
 
 use crate::commands::HEADING_RPC;
 

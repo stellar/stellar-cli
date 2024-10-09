@@ -13,7 +13,7 @@ pub struct Cmd {
     pub asset: builder::Asset,
 
     #[command(flatten)]
-    pub config: config::Args,
+    pub config: config::ArgsLocatorAndNetwork,
 }
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

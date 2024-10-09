@@ -11,6 +11,7 @@ pub use stellar_xdr::curr as xdr;
 mod cli;
 pub use cli::main;
 
+pub mod assembled;
 pub mod commands;
 pub mod config;
 pub mod fee;

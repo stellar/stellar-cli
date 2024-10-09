@@ -236,8 +236,6 @@ mod tests {
             .arg("asset")
             .arg("--asset")
             .arg("native")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let contract_id = deploy_hello(&sandbox).await;
@@ -254,8 +252,6 @@ mod tests {
             .arg("xdr")
             .arg("--key")
             .arg("COUNTER")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let key_xdr = read_xdr.split(',').next().unwrap_or("").trim();

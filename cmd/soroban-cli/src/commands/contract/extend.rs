@@ -9,6 +9,7 @@ use crate::xdr::{
 use clap::{command, Parser};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -170,8 +171,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
+        let tx = simulate_and_assemble_transaction(&client, &tx)
             .await?
             .transaction()
             .clone();

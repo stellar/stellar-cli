@@ -56,7 +56,8 @@ pub enum Cmd {
     /// Initialize a Soroban project with an example contract
     Init(init::Cmd),
 
-    /// Inspect a WASM file listing contract functions, meta, etc
+    /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
+    #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
@@ -147,7 +148,7 @@ impl Cmd {
             Cmd::Id(id) => id.run()?,
             Cmd::Info(info) => info.run().await?,
             Cmd::Init(init) => init.run(global_args)?,
-            Cmd::Inspect(inspect) => inspect.run()?,
+            Cmd::Inspect(inspect) => inspect.run(global_args)?,
             Cmd::Install(install) => install.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
