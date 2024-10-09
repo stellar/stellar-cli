@@ -1,5 +1,5 @@
+use crate::xdr;
 use clap::{command, Parser};
-use soroban_env_host::xdr;
 use soroban_spec_tools::contract;
 use std::{fmt::Debug, path::PathBuf};
 use tracing::debug;

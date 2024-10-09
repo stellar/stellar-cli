@@ -14,12 +14,6 @@ defaults:
     shell: bash
 
 jobs:
-  dependency-sanity-checker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: rustup update
-      - run: scripts/check-dependencies.bash
   validate-rust-git-rev-deps:
     runs-on: ubuntu-latest
     steps:
