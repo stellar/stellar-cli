@@ -13,6 +13,8 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error("An identity with the name '{0}' already exists")]
+    IdentityAlreadyExists(String),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -20,9 +22,6 @@ pub enum Error {
 pub struct Cmd {
     /// Name of identity
     pub name: String,
-    /// Do not fund address
-    #[arg(long)]
-    pub no_fund: bool,
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
     #[arg(long, conflicts_with = "default_seed")]
@@ -44,12 +43,36 @@ pub struct Cmd {
     #[arg(long, short = 'd', conflicts_with = "seed")]
     pub default_seed: bool,
 
+    /// Overwrite existing identity if it already exists
+    #[arg(long)]
+    pub overwrite: bool,
+
     #[command(flatten)]
     pub network: network::Args,
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    fn write_identity(&self, secret: &Secret) -> Result<(), Error> {
+        self.config_locator.write_identity(&self.name, secret)?;
+        eprintln!("✅ Generated new key for '{}'", self.name);
+        eprintln!("ℹ️ Public key: {}", secret.public_key(self.hd_path)?);
+        eprintln!(
+            "ℹ️ Secret key: hidden (use 'stellar keys show {}' to view)",
+            self.name
+        );
+        Ok(())
+    }
+
+    fn handle_existing_identity(&self) {
+        eprintln!("The identity {} already exists!", self.name);
+        if let Ok(root) = self.config_locator.config_dir() {
+            let mut path = root.join("identity").join(&self.name);
+            path.set_extension("toml");
+            eprintln!("    Seed phrase found at: {}", path.display());
+        }
+    }
+
+    pub fn run(&self) -> Result<(), Error> {
         let seed_phrase = if self.default_seed {
             Secret::test_seed_phrase()
         } else {
@@ -60,18 +83,24 @@ impl Cmd {
         } else {
             seed_phrase
         };
-        self.config_locator.write_identity(&self.name, &secret)?;
-        if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            network
-                .fund_address(&addr)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("fund_address failed: {e}");
-                })
-                .unwrap_or_default();
+
+        // Check if identity exists
+        if let Ok(_existing_secret) = self.config_locator.read_identity(&self.name) {
+            if self.overwrite {
+                eprintln!(
+                    "Overwriting existing identity '{}' as requested.",
+                    self.name
+                );
+                self.write_identity(&secret)?;
+            } else {
+                self.handle_existing_identity();
+                return Err(Error::IdentityAlreadyExists(self.name.clone()));
+            }
+        } else {
+            // Identity doesn't exist, create new one
+            self.write_identity(&secret)?;
         }
+
         Ok(())
     }
 }

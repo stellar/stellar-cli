@@ -23,8 +23,20 @@ fn snapshot() {
         .stdout_as_str();
     sandbox
         .new_assert_cmd("keys")
+        .arg("fund")
+        .arg(format!("a"))
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
         .arg("generate")
         .arg("b")
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg(format!("b"))
         .assert()
         .success();
     let account_b = sandbox
@@ -56,6 +68,12 @@ fn snapshot() {
         sandbox
             .new_assert_cmd("keys")
             .arg("generate")
+            .arg(format!("k{i}"))
+            .assert()
+            .success();
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("fund")
             .arg(format!("k{i}"))
             .assert()
             .success();

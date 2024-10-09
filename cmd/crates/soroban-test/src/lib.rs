@@ -110,6 +110,7 @@ impl TestEnv {
             env.network_passphrase = network_passphrase;
         };
         env.generate_account("test", None).assert().success();
+        env.fund_account("test").success();
         env
     }
 
