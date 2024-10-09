@@ -77,7 +77,7 @@ mod test {
     #[test]
     fn test_hello() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, Contract);
+        let contract_id = env.register(Contract, ());
         let client = ContractClient::new(&env, &contract_id);
         let world = symbol_short!("world");
         let res = client.hello(&world);
