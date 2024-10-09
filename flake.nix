@@ -18,23 +18,24 @@
       with pkgs;
       {
         devShells.default = mkShell {
+          nativeBuildInputs = lib.optionals (stdenv.isDarwin) [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+          ];
           buildInputs = [
             openssl
             pkg-config
-            libudev-zero
             jq
             (rust-bin.stable.latest.default.override {
               extensions = [ "rust-src" ];
               targets = [ "wasm32-unknown-unknown" ];
             })
-          ];
+          ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
           shellHook =
           ''
             echo "Using `nix --version`"
             alias stellar="cargo run --bin stellar --"
-            [ -f ./local.sh ] && source ./local.sh
             shell=$0
-            shell=`basename $SHELL`
+            shell=`basename $shell`
             source <(stellar completion --shell $shell)
           '';
         };
