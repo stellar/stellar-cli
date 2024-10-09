@@ -1,10 +1,10 @@
 use clap::{arg, command};
 
-use crate::{commands::global, print::Print};
 use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
+use crate::{commands::global, print::Print};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
