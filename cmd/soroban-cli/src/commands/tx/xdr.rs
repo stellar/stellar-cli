@@ -19,7 +19,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("only transaction v1 is supported")]
     OnlyTransactionV1Supported,
-    #[error("Only 100 Operations are allowed in a transaction")]
+    #[error("too many operations, limited to 100 operations in a transaction")]
     TooManyOperations,
 }
 
