@@ -1,8 +1,6 @@
 use clap::{command, Parser};
 
-use soroban_sdk::xdr::{self};
-
-use crate::{commands::tx, tx::builder};
+use crate::{commands::tx, tx::builder, xdr};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
