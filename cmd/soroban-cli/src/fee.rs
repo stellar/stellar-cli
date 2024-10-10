@@ -8,7 +8,7 @@ use crate::{commands::HEADING_RPC, deprecated_arg};
 
 const DEPRECATION_MESSAGE: &str = "--sim-only is deprecated and will be removed \
 in the future versions of CLI. The same functionality is offered by `tx simulate` command. To \
-replicate the behaviour, you can run `stellar <command> --build only | stellar tx simulate`";
+replicate the behaviour, run `stellar <command> --build only | stellar tx simulate`";
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
