@@ -1,4 +1,4 @@
-use soroban_env_host::xdr::{Transaction, TransactionEnvelope, TransactionV1Envelope, VecM};
+use crate::xdr::{Transaction, TransactionEnvelope, TransactionV1Envelope, VecM};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TxnResult<R> {

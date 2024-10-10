@@ -1,7 +1,7 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr;
+use soroban_cli::xdr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

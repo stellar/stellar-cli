@@ -56,7 +56,7 @@ pub async fn upgrade_check(quiet: bool) {
     let current_version = crate::commands::version::pkg();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
-        tracing::error!("Failed to load upgrade check data: {e}");
+        tracing::debug!("Failed to load upgrade check data: {e}");
         UpgradeCheck::default()
     });
 
@@ -72,7 +72,7 @@ pub async fn upgrade_check(quiet: bool) {
                 };
             }
             Err(e) => {
-                tracing::error!("Failed to fetch stellar-cli info from crates.io: {e}");
+                tracing::debug!("Failed to fetch stellar-cli info from crates.io: {e}");
                 // Only update the latest check time if the fetch failed
                 // This way we don't spam the user with errors
                 stats.latest_check_time = now;
@@ -80,7 +80,7 @@ pub async fn upgrade_check(quiet: bool) {
         }
 
         if let Err(e) = stats.save() {
-            tracing::error!("Failed to save upgrade check data: {e}");
+            tracing::debug!("Failed to save upgrade check data: {e}");
         }
     }
 
