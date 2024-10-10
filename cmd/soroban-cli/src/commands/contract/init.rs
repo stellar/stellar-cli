@@ -84,13 +84,13 @@ pub enum Error {
 
 impl Cmd {
     #[allow(clippy::unused_self)]
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let runner = Runner {
             args: self.clone(),
             print: print::Print::new(global_args.quiet),
         };
 
-        runner.run()
+        runner.run().await
     }
 }
 
@@ -103,7 +103,7 @@ struct Runner {
 }
 
 impl Runner {
-    fn run(&self) -> Result<(), Error> {
+    async fn run(&self) -> Result<(), Error> {
         let project_path = PathBuf::from(&self.args.project_path);
         self.print
             .infoln(format!("Initializing project at {project_path:?}"));
@@ -112,7 +112,7 @@ impl Runner {
         Self::create_dir_all(&project_path)?;
         self.copy_template_files()?;
 
-        if !Self::check_internet_connection() {
+        if !Self::check_internet_connection().await {
             self.print.warnln("It doesn't look like you're connected to the internet. We're still able to initialize a new project, but additional examples and the frontend template will not be included.");
             return Ok(());
         }
@@ -260,8 +260,8 @@ impl Runner {
             .unwrap_or(false)
     }
 
-    fn check_internet_connection() -> bool {
-        if let Ok(_req) = http::blocking_client().get(GITHUB_URL).send() {
+    async fn check_internet_connection() -> bool {
+        if let Ok(_req) = http::client().get(GITHUB_URL).send().await {
             return true;
         }
 
@@ -454,8 +454,8 @@ mod tests {
 
     const TEST_PROJECT_NAME: &str = "test-project";
 
-    #[test]
-    fn test_init() {
+    #[tokio::test]
+    async fn test_init() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let runner = Runner {
@@ -467,7 +467,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -480,8 +480,8 @@ mod tests {
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_including_example_contract() {
+    #[tokio::test]
+    async fn test_init_including_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let runner = Runner {
@@ -493,7 +493,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -511,8 +511,8 @@ mod tests {
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_including_multiple_example_contracts() {
+    #[tokio::test]
+    async fn test_init_including_multiple_example_contracts() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let runner = Runner {
@@ -524,7 +524,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -543,8 +543,8 @@ mod tests {
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_with_invalid_example_contract() {
+    #[tokio::test]
+    async fn test_init_with_invalid_example_contract() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("project");
         let runner = Runner {
@@ -556,13 +556,13 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        assert!(runner.run().is_err());
+        assert!(runner.run().await.is_err());
 
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_with_frontend_template() {
+    #[tokio::test]
+    async fn test_init_with_frontend_template() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let runner = Runner {
@@ -574,7 +574,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -592,8 +592,8 @@ mod tests {
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_with_overwrite() {
+    #[tokio::test]
+    async fn test_init_with_overwrite() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
 
@@ -607,7 +607,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         // Get initial modification times
         let initial_mod_times = get_mod_times(&project_dir);
@@ -622,7 +622,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         // Get new modification times
         let new_mod_times = get_mod_times(&project_dir);
@@ -653,8 +653,8 @@ mod tests {
         mod_times
     }
 
-    #[test]
-    fn test_init_from_within_an_existing_project() {
+    #[tokio::test]
+    async fn test_init_from_within_an_existing_project() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join("./");
         let runner = Runner {
@@ -666,7 +666,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
@@ -686,8 +686,8 @@ mod tests {
         temp_dir.close().unwrap();
     }
 
-    #[test]
-    fn test_init_does_not_duplicate_frontend_readme_contents_when_run_more_than_once() {
+    #[tokio::test]
+    async fn test_init_does_not_duplicate_frontend_readme_contents_when_run_more_than_once() {
         let temp_dir = tempfile::tempdir().unwrap();
         let project_dir = temp_dir.path().join(TEST_PROJECT_NAME);
         let runner = Runner {
@@ -699,7 +699,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         // call init again to make sure the README.md's contents are not duplicated
         let runner = Runner {
@@ -711,7 +711,7 @@ mod tests {
             },
             print: print::Print::new(false),
         };
-        runner.run().unwrap();
+        runner.run().await.unwrap();
 
         assert_base_template_files_exist(&project_dir);
         assert_default_hello_world_contract_files_exist(&project_dir);
