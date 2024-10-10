@@ -197,21 +197,19 @@ pub mod http {
 }
 
 pub mod args {
-    /// Mark argument as deprecated with warning to be printed when it's used. Note: marco is only
-    /// supported for `bool` and `String` and is required to add
-    /// ```
-    /// use clap::builder::TypedValueParser;
-    /// ```
-    /// When using the marco
+    /// Mark argument as deprecated with warning to be printed when it's used.
     #[macro_export]
     macro_rules! deprecated_arg {
         (bool, $message: expr) => {
-            clap::builder::BoolValueParser::new().map(|x| {
-                if (x) {
-                    $crate::print::Print::new(false).warnln($message);
-                }
-                x
-            })
+            <_ as clap::builder::TypedValueParser>::map(
+                clap::builder::BoolValueParser::new(),
+                |x| {
+                    if (x) {
+                        $crate::print::Print::new(false).warnln($message);
+                    }
+                    x
+                },
+            )
         };
     }
 }

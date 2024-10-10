@@ -1,5 +1,4 @@
 use clap::arg;
-use clap::builder::TypedValueParser;
 
 use crate::assembled::Assembled;
 use soroban_env_host::xdr;
