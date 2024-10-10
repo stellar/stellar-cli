@@ -1,3 +1,4 @@
+use crate::commands::global;
 use clap::Parser;
 
 pub mod add;
@@ -48,12 +49,12 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Address(cmd) => cmd.run()?,
             Cmd::Fund(cmd) => cmd.run().await?,
-            Cmd::Generate(cmd) => cmd.run().await?,
+            Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Rm(cmd) => cmd.run()?,
             Cmd::Show(cmd) => cmd.run()?,
