@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = { version = "=21.7.2" }
-soroban-token-sdk = { workspace = true }
+soroban-token-sdk = { version = "=21.7.2" }
 
 [dev-dependencies]
 soroban-sdk = { version = "=21.7.2", features = ["testutils"] }
