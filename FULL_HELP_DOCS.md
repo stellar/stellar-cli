@@ -981,6 +981,9 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+* `--fund` — Fund generated key pair
+
+  Default value: `false`
 
 
 

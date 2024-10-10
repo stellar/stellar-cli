@@ -5,35 +5,30 @@ use std::{array::TryFromSliceError, ffi::OsString};
 use clap::{arg, command, Parser};
 use rand::Rng;
 use regex::Regex;
-use soroban_env_host::{
-    xdr::{
-        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
-        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
-    },
-    HostError,
-};
-use soroban_sdk::xdr::{CreateContractArgsV2, InvokeContractArgs};
+
 use soroban_spec_tools::contract as contract_spec;
 
-use crate::commands::contract::arg_parsing;
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::xdr::{
+    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+    CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
+    InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
+    VecM, WriteXdr,
+};
+
 use crate::{
     assembled::simulate_and_assemble_transaction,
-    commands::{contract::install, HEADING_RPC},
-    config::{self, data, locator, network},
-    rpc::{self, Client},
-    utils, wasm,
-};
-use crate::{
     commands::{
-        contract::{self, id::wasm::get_contract_id},
+        contract::{self, arg_parsing, id::wasm::get_contract_id, install},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
+        NetworkRunnable, HEADING_RPC,
     },
+    config::{self, data, locator, network},
     print::Print,
+    rpc::{self, Client},
+    utils::{self, rpc::get_remote_wasm_from_hash},
+    wasm,
 };
 
 pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
@@ -79,8 +74,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Install(#[from] install::Error),
-    #[error(transparent)]
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]

@@ -1,6 +1,6 @@
 use assert_cmd::Command;
 
-use soroban_sdk::xdr::{
+use soroban_cli::xdr::{
     self, CreateContractArgsV2, HostFunction, InvokeHostFunctionOp, Limits, OperationBody, ReadXdr,
     Transaction, TransactionV1Envelope,
 };
@@ -59,4 +59,6 @@ async fn deploy_constructor_contract() {
         xdr::ScVal::U32(u32) => assert_eq!(*u32, value),
         _ => panic!("Expected U32"),
     }
+
+    constructor_cmd(&sandbox, value, "").assert().success();
 }

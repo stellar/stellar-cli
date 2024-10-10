@@ -127,9 +127,10 @@ impl Display for Spec {
                             pre_release,
                         },
                     ) => {
-                        let p = protocol >> 32;
-                        let interface = p & 0xffff_ffff;
-                        writeln!(f, " • Interface Version: {protocol} (protocol: {p}, pre-release: {pre_release}, interface: {interface})")?;
+                        writeln!(f, " • Protocol Version: {protocol}")?;
+                        if pre_release != &0 {
+                            writeln!(f, " • Pre-release Version: {pre_release})")?;
+                        }
                     }
                 }
             }

@@ -1,8 +1,6 @@
-use soroban_env_host::xdr;
+use crate::xdr;
 
-use soroban_env_host::xdr::{
-    ContractDataEntry, ContractExecutable, ScContractInstance, ScSpecEntry, ScVal,
-};
+use crate::xdr::{ContractDataEntry, ContractExecutable, ScContractInstance, ScSpecEntry, ScVal};
 
 use soroban_spec::read::FromWasmError;
 pub use soroban_spec_tools::contract as contract_spec;

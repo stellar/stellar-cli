@@ -1,8 +1,10 @@
+use soroban_cli::xdr::{self, ReadXdr, SequenceNumber};
 use soroban_cli::{
     tx::{builder, ONE_XLM},
     utils::contract_id_hash_from_asset,
+    xdr::{self, ReadXdr, SequenceNumber},
 };
-use soroban_sdk::xdr::{self, ReadXdr, SequenceNumber};
+use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{

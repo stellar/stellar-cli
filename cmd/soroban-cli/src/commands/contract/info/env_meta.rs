@@ -5,10 +5,13 @@ use clap::{command, Parser};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
-use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
-use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
-use crate::xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion};
+use crate::{
+    commands::contract::info::{
+        env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta},
+        shared::{self, fetch_wasm, MetasInfoOutput},
+    },
+    xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion},
+};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -56,16 +59,14 @@ impl Cmd {
                     match env_meta_entry {
                         ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
                             ScEnvMetaEntryInterfaceVersion {
-                                protocol: v,
+                                protocol,
                                 pre_release,
                             },
                         ) => {
-                            let protocol = v >> 32;
-                            let interface = v & 0xffff_ffff;
                             meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
-                            meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
-                            meta_str.push_str(&format!(" • Interface: v{interface}\n"));
-                            meta_str.push_str(&format!(" • Interface Version: {v}\n"));
+                            if pre_release != &0 {
+                                meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
+                            }
                         }
                     }
                 }
