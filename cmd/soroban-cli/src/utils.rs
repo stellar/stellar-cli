@@ -214,6 +214,22 @@ pub mod args {
             }
         };
     }
+
+    /// Mark argument as deprecated with warning to be printed when it's used.
+    #[macro_export]
+    macro_rules! deprecated_arg {
+        (bool, $message: expr) => {
+            <_ as clap::builder::TypedValueParser>::map(
+                clap::builder::BoolValueParser::new(),
+                |x| {
+                    if (x) {
+                        $crate::print::Print::new(false).warnln($message);
+                    }
+                    x
+                },
+            )
+        };
+    }
 }
 
 pub mod rpc {
