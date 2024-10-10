@@ -8,7 +8,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, print, error_on_use_of_removed_arg, utils};
+use crate::{commands::global, error_on_use_of_removed_arg, print, utils};
 
 const EXAMPLE_REMOVAL_NOTICE: &str = "Adding examples via cli is no longer supported. \
 You can still clone examples from the repo https://github.com/stellar/soroban-examples";
