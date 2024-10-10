@@ -8,7 +8,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, print, removed_arg, utils};
+use crate::{commands::global, print, error_on_use_of_removed_arg, utils};
 
 const EXAMPLE_REMOVAL_NOTICE: &str = "Adding examples via cli is no longer supported. \
 You can still clone examples from the repo https://github.com/stellar/soroban-examples";
@@ -21,22 +21,22 @@ such as `soroban-template` or `soroban-frontend-template`";
 pub struct Cmd {
     pub project_path: String,
 
-    // TODO: remove in future version https://github.com/stellar/stellar-cli/issues/1586
+    // TODO: remove in future version (23+) https://github.com/stellar/stellar-cli/issues/1586
     #[arg(
         short,
         long,
         hide = true,
     display_order = 100,
-        value_parser = removed_arg!(String, EXAMPLE_REMOVAL_NOTICE)
+        value_parser = error_on_use_of_removed_arg!(String, EXAMPLE_REMOVAL_NOTICE)
     )]
     pub with_example: Option<String>,
 
-    // TODO: remove in future version https://github.com/stellar/stellar-cli/issues/1586
+    // TODO: remove in future version (23+) https://github.com/stellar/stellar-cli/issues/1586
     #[arg(
         long,
         hide = true,
         display_order = 100,
-        value_parser = removed_arg!(String, FRONTEND_EXAMPLE_REMOVAL_NOTICE),
+        value_parser = error_on_use_of_removed_arg!(String, FRONTEND_EXAMPLE_REMOVAL_NOTICE),
     )]
     pub frontend_template: Option<String>,
 

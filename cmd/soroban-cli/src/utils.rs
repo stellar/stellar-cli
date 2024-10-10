@@ -205,7 +205,8 @@ pub mod args {
     }
 
     #[macro_export]
-    macro_rules! removed_arg {
+    /// Mark argument as removed with an error to be printed when it's used.
+    macro_rules! error_on_use_of_removed_arg {
         ($_type:ident, $message: expr) => {
             |a: &str| {
                 Err::<$_type, utils::args::DeprecatedError>(
