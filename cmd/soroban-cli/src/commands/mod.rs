@@ -113,7 +113,7 @@ impl Root {
             Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
-            Cmd::Keys(id) => id.run().await?,
+            Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(data) => data.run()?,
         };
