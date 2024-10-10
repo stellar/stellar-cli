@@ -53,12 +53,12 @@ pub enum Cmd {
     #[command(subcommand)]
     Info(info::Cmd),
 
-    /// Initialize a Soroban contract.
+    /// Initialize a Soroban contract project.
     ///
-    /// When running with empty or non-existent `--project-path`, this command will
-    /// generate a template Cargo workspace project and add a sample contract package.
-    /// When running in the existing Cargo project, it will add a new package for a sample contract
-    /// with a given `--name`.
+    /// This command will generate a template Soroban Cargo workspace project and add a sample
+    /// contract package with a given `--name`. It can be run multiple times with different names
+    /// in order to generate multiple contract templates,  and files won't be overwritten
+    /// unless `--overwrite` is passed.
     Init(init::Cmd),
 
     /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc

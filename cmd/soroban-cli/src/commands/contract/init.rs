@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::{
     fs::{create_dir_all, metadata, write, Metadata},
     io,
@@ -21,12 +22,19 @@ such as `soroban-template` or `soroban-frontend-template`";
 pub struct Cmd {
     pub project_path: String,
 
+    #[arg(
+        long,
+        default_value = "hello-world",
+        long_help = "An optional flag to specify a new contract's name."
+    )]
+    pub name: String,
+
     // TODO: remove in future version (23+) https://github.com/stellar/stellar-cli/issues/1586
     #[arg(
         short,
         long,
         hide = true,
-    display_order = 100,
+        display_order = 100,
         value_parser = error_on_use_of_removed_arg!(String, EXAMPLE_REMOVAL_NOTICE)
     )]
     pub with_example: Option<String>,
@@ -79,8 +87,12 @@ impl Cmd {
 }
 
 #[derive(RustEmbed)]
-#[folder = "src/utils/contract-init-template"]
-struct TemplateFiles;
+#[folder = "src/utils/contract-workspace-template"]
+struct WorkspaceTemplateFiles;
+
+#[derive(RustEmbed)]
+#[folder = "src/utils/contract-template"]
+struct ContractTemplateFiles;
 
 struct Runner {
     args: Cmd,
@@ -95,15 +107,45 @@ impl Runner {
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
         Self::create_dir_all(&project_path)?;
-        self.copy_template_files()?;
+        self.copy_template_files(
+            project_path.as_path(),
+            &mut WorkspaceTemplateFiles::iter(),
+            WorkspaceTemplateFiles::get,
+        )?;
+
+        let contract_path = project_path.join("contracts").join(&self.args.name);
+        self.print
+            .infoln(format!("Initializing contract at {contract_path:?}"));
+
+        Self::create_dir_all(contract_path.as_path())?;
+        self.copy_template_files(
+            contract_path.as_path(),
+            &mut ContractTemplateFiles::iter(),
+            ContractTemplateFiles::get,
+        )?;
 
         Ok(())
     }
 
-    fn copy_template_files(&self) -> Result<(), Error> {
-        let project_path = Path::new(&self.args.project_path);
-        for item in TemplateFiles::iter() {
-            let mut to = project_path.join(item.as_ref());
+    fn copy_template_files(
+        &self,
+        root_path: &Path,
+        files: &mut dyn Iterator<Item = Cow<str>>,
+        getter: fn(&str) -> Option<rust_embed::EmbeddedFile>,
+    ) -> Result<(), Error> {
+        for item in &mut *files {
+            let mut to = root_path.join(item.as_ref());
+            // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template
+            // so that it will be included the package. This is making sure that the Cargo file is
+            // written as Cargo.toml in the new project. This is a workaround for this issue:
+            // https://github.com/rust-lang/cargo/issues/8597.
+            let item_path = Path::new(item.as_ref());
+            let is_toml = item_path.file_name().unwrap() == "Cargo.toml.removeextension";
+            if is_toml {
+                let item_parent_path = item_path.parent().unwrap();
+                to = root_path.join(item_parent_path).join("Cargo.toml");
+            }
+
             let exists = Self::file_exists(&to);
             if exists && !self.args.overwrite {
                 self.print
@@ -113,20 +155,19 @@ impl Runner {
 
             Self::create_dir_all(to.parent().unwrap())?;
 
-            let Some(file) = TemplateFiles::get(item.as_ref()) else {
+            let Some(file) = getter(item.as_ref()) else {
                 self.print
                     .warnln(format!("Failed to read file: {}", item.as_ref()));
                 continue;
             };
 
-            let file_contents =
-                str::from_utf8(file.data.as_ref()).map_err(Error::ConvertBytesToString)?;
+            let mut file_contents = str::from_utf8(file.data.as_ref())
+                .map_err(Error::ConvertBytesToString)?
+                .to_string();
 
-            // We need to include the Cargo.toml file as Cargo.toml.removeextension in the template so that it will be included the package. This is making sure that the Cargo file is written as Cargo.toml in the new project. This is a workaround for this issue: https://github.com/rust-lang/cargo/issues/8597.
-            let item_path = Path::new(item.as_ref());
-            if item_path.file_name().unwrap() == "Cargo.toml.removeextension" {
-                let item_parent_path = item_path.parent().unwrap();
-                to = project_path.join(item_parent_path).join("Cargo.toml");
+            if is_toml {
+                let new_content = file_contents.replace("%contract-template%", &self.args.name);
+                file_contents = new_content;
             }
 
             if exists {
@@ -135,10 +176,8 @@ impl Runner {
             } else {
                 self.print.plusln(format!("Writing {to:?}"));
             }
-            Self::write(&to, file_contents)?;
+            Self::write(&to, &file_contents)?;
         }
-
-        Self::create_dir_all(project_path.join("contracts").as_path())?;
 
         Ok(())
     }
@@ -177,6 +216,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
+                name: "hello_world".to_string(),
                 with_example: None,
                 frontend_template: None,
                 overwrite: false,
@@ -186,11 +226,29 @@ mod tests {
         runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
-        assert_default_hello_world_contract_files_exist(&project_dir);
+
+        assert_contract_files_exist(&project_dir, "hello_world");
         assert_excluded_paths_do_not_exist(&project_dir);
 
         assert_contract_cargo_file_is_well_formed(&project_dir, "hello_world");
+        assert_excluded_paths_do_not_exist(&project_dir);
 
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                name: "contract2".to_string(),
+                with_example: None,
+                frontend_template: None,
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
+
+        assert_contract_files_exist(&project_dir, "contract2");
+        assert_excluded_paths_do_not_exist(&project_dir);
+
+        assert_contract_cargo_file_is_well_formed(&project_dir, "contract2");
         assert_excluded_paths_do_not_exist(&project_dir);
 
         temp_dir.close().unwrap();
@@ -202,10 +260,6 @@ mod tests {
         for path in &expected_paths {
             assert!(project_dir.join(path).exists());
         }
-    }
-
-    fn assert_default_hello_world_contract_files_exist(project_dir: &Path) {
-        assert_contract_files_exist(project_dir, "hello_world");
     }
 
     fn assert_contract_files_exist(project_dir: &Path, contract_name: &str) {
@@ -283,7 +337,7 @@ mod tests {
             let filepath = project_dir.join(path);
             assert!(!filepath.exists(), "{filepath:?} should not exist");
         }
-        let contract_excluded_paths = ["Makefile", "target", "Cargo.lock"];
+        let contract_excluded_paths = ["target", "Cargo.lock"];
         let contract_dirs = fs::read_dir(project_dir.join("contracts"))
             .unwrap()
             .map(|entry| entry.unwrap().path());

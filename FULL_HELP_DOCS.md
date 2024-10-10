@@ -84,7 +84,7 @@ Tools for smart contract developers
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
-* `init` — Initialize a Soroban project with an example contract
+* `init` — Initialize a Soroban contract project
 * `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -607,7 +607,9 @@ Outputs no data when no data is present in the contract.
 
 ## `stellar contract init`
 
-Initialize a Soroban project with an example contract
+Initialize a Soroban contract project.
+
+This command will generate a template Soroban Cargo workspace project and add a sample contract package with a given `--name`. It can be run multiple times with different names in order to generate multiple contract templates,  and files won't be overwritten unless `--overwrite` is passed.
 
 **Usage:** `stellar contract init [OPTIONS] <PROJECT_PATH>`
 
@@ -617,6 +619,9 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
+* `--name <NAME>` — An optional flag to specify a new contract's name.
+
+  Default value: `hello-world`
 * `--overwrite` — Overwrite all existing files.
 
 
