@@ -4,7 +4,7 @@ use soroban_cli::{
         contract::{self, fetch},
         txn_result::TxnResult,
     },
-    config::{locator, secret},
+    config::{address::Address, locator, secret},
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
@@ -20,7 +20,7 @@ async fn invoke_view_with_non_existent_source_account() {
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let mut cmd = hello_world_cmd(&id, world);
-    cmd.config.source_account = String::new();
+    cmd.config.source_account = Address::default();
     cmd.is_view = true;
     let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
@@ -60,6 +60,12 @@ async fn invoke() {
         .arg("test")
         .assert()
         .stdout_as_str();
+    let public_key = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .assert()
+        .stdout_as_str();
     let secret_key_1 = sandbox
         .new_assert_cmd("keys")
         .arg("show")
@@ -88,7 +94,7 @@ async fn invoke() {
     sandbox
         .new_assert_cmd("events")
         .arg("--start-ledger")
-        .arg(&sequence.to_string())
+        .arg(sequence.to_string())
         .arg("--id")
         .arg(id)
         .assert()
@@ -129,6 +135,7 @@ async fn invoke() {
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
+    invoke_with_pk(sandbox, id, &public_key).await;
     // This does add an identity to local config
     invoke_with_id(sandbox, id).await;
     handles_kebab_case(sandbox, id).await;
@@ -137,7 +144,7 @@ async fn invoke() {
     invoke_log(sandbox, id);
 }
 
-fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
+pub(crate) fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
@@ -317,7 +324,7 @@ async fn half_max_instructions() {
         .arg("--fee")
         .arg("1000000")
         .arg("--instructions")
-        .arg(&(u32::MAX / 2).to_string())
+        .arg((u32::MAX / 2).to_string())
         .arg("--wasm")
         .arg(wasm.path())
         .arg("--ignore-checks")
@@ -332,6 +339,10 @@ async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
 
 async fn invoke_with_sk(sandbox: &TestEnv, id: &str, sk: &str) {
     invoke_with_source(sandbox, sk, id).await;
+}
+
+async fn invoke_with_pk(sandbox: &TestEnv, id: &str, pk: &str) {
+    invoke_with_source(sandbox, pk, id).await;
 }
 
 async fn invoke_with_id(sandbox: &TestEnv, id: &str) {

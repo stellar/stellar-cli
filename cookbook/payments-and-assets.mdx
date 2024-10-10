@@ -17,11 +17,11 @@ By setting the `STELLAR_NETWORK` environment variable, we will not have to set t
 2. Fund the accounts:
 
 ```bash
-stellar keys generate alice
+stellar keys generate alice -q
 ```
 
 ```bash
-stellar keys generate bob
+stellar keys generate bob -q
 ```
 
 ```bash
@@ -35,7 +35,7 @@ stellar keys fund bob
 3. Obtain the stellar asset contract ID:
 
 ```bash
-stellar contract id asset --asset native --source-account alice
+stellar contract id asset --asset native
 ```
 
 4. Get Bob's public key:

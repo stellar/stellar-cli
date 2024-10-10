@@ -1,8 +1,7 @@
 use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
 use clap::{arg, Parser, ValueEnum};
-use futures::{StreamExt, TryStreamExt};
-use http::Uri;
+use futures::StreamExt;
 use humantime::format_duration;
 use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
@@ -24,13 +23,18 @@ use stellar_xdr::curr::{
     ScVal,
 };
 use tokio::fs::OpenOptions;
+use tokio::io::BufReader;
+use tokio_util::io::StreamReader;
+use url::Url;
 
 use crate::{
     commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
     print,
-    utils::{get_name_from_stellar_asset_contract_storage, parsing::parse_asset},
+    tx::builder,
+    utils::get_name_from_stellar_asset_contract_storage,
 };
+use crate::{config::address::Address, utils::http};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -51,7 +55,7 @@ fn default_out_path() -> PathBuf {
 ///
 /// Filters (address, wasm-hash) specify what ledger entries to include.
 ///
-/// Account addresses include the account, and trust lines.
+/// Account addresses include the account, and trustlines.
 ///
 /// Contract addresses include the related wasm, contract data.
 ///
@@ -59,6 +63,9 @@ fn default_out_path() -> PathBuf {
 /// account and trust lines, but does not include all the trust lines of other
 /// accounts holding the asset. To include them specify the addresses of
 /// relevant accounts.
+///
+/// Any invalid contract id passed as `--address` will be ignored.
+///
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 #[command(arg_required_else_help = true)]
@@ -66,9 +73,9 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// Account or contract address to include in the snapshot.
+    /// Account or contract address/alias to include in the snapshot.
     #[arg(long = "address", help_heading = "Filter Options")]
-    address: Vec<ScAddress>,
+    address: Vec<String>,
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
@@ -84,7 +91,7 @@ pub struct Cmd {
     network: config::network::Args,
     /// Archive URL
     #[arg(long, help_heading = HEADING_RPC, env = "STELLAR_ARCHIVE_URL")]
-    archive_url: Option<Uri>,
+    archive_url: Option<Url>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -92,19 +99,19 @@ pub enum Error {
     #[error("wasm hash invalid: {0}")]
     WasmHashInvalid(String),
     #[error("downloading history: {0}")]
-    DownloadingHistory(hyper::Error),
+    DownloadingHistory(reqwest::Error),
     #[error("downloading history: got status code {0}")]
-    DownloadingHistoryGotStatusCode(hyper::StatusCode),
+    DownloadingHistoryGotStatusCode(reqwest::StatusCode),
     #[error("json decoding history: {0}")]
     JsonDecodingHistory(serde_json::Error),
     #[error("opening cached bucket to read: {0}")]
     ReadOpeningCachedBucket(io::Error),
     #[error("parsing bucket url: {0}")]
-    ParsingBucketUrl(http::uri::InvalidUri),
+    ParsingBucketUrl(url::ParseError),
     #[error("getting bucket: {0}")]
-    GettingBucket(hyper::Error),
+    GettingBucket(reqwest::Error),
     #[error("getting bucket: got status code {0}")]
-    GettingBucketGotStatusCode(hyper::StatusCode),
+    GettingBucketGotStatusCode(reqwest::StatusCode),
     #[error("opening cached bucket to write: {0}")]
     WriteOpeningCachedBucket(io::Error),
     #[error("streaming bucket: {0}")]
@@ -116,7 +123,7 @@ pub enum Error {
     #[error("getting bucket directory: {0}")]
     GetBucketDir(data::Error),
     #[error("reading history http stream: {0}")]
-    ReadHistoryHttpStream(hyper::Error),
+    ReadHistoryHttpStream(reqwest::Error),
     #[error("writing ledger snapshot: {0}")]
     WriteLedgerSnapshot(soroban_ledger_snapshot::Error),
     #[error(transparent)]
@@ -131,6 +138,8 @@ pub enum Error {
     ArchiveUrlNotConfigured,
     #[error("parsing asset name: {0}")]
     ParseAssetName(String),
+    #[error(transparent)]
+    Asset(#[from] builder::asset::Error),
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -207,11 +216,13 @@ impl Cmd {
         }
 
         // Search the buckets using the user inputs as the starting inputs.
-        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
-            self.address.iter().cloned().partition_map(|a| match a {
-                ScAddress::Account(account_id) => Either::Left(account_id),
-                ScAddress::Contract(_) => Either::Right(a),
-            });
+        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) = self
+            .address
+            .iter()
+            .cloned()
+            .filter_map(|a| self.resolve_address(&a, network_passphrase))
+            .partition_map(|a| a);
+
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
@@ -310,16 +321,11 @@ impl Cmd {
                                         if let Some(name) =
                                             get_name_from_stellar_asset_contract_storage(storage)
                                         {
-                                            let asset = parse_asset(&name)
-                                                .map_err(|_| Error::ParseAssetName(name))?;
-                                            if let Some(issuer) = match &asset {
+                                            let asset: builder::Asset = name.parse()?;
+                                            if let Some(issuer) = match asset.into() {
                                                 Asset::Native => None,
-                                                Asset::CreditAlphanum4(a4) => {
-                                                    Some(a4.issuer.clone())
-                                                }
-                                                Asset::CreditAlphanum12(a12) => {
-                                                    Some(a12.issuer.clone())
-                                                }
+                                                Asset::CreditAlphanum4(a4) => Some(a4.issuer),
+                                                Asset::CreditAlphanum12(a12) => Some(a12.issuer),
                                             } {
                                                 print.infoln(format!(
                                                     "Adding asset issuer {issuer} to search"
@@ -364,7 +370,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn archive_url(&self) -> Result<http::Uri, Error> {
+    fn archive_url(&self) -> Result<Url, Error> {
         // Return the configured archive URL, or if one is not configured, guess
         // at an appropriate archive URL given the network passphrase.
         self.archive_url
@@ -382,16 +388,54 @@ impl Cmd {
                         passphrase::LOCAL => Some("http://localhost:8000/archive"),
                         _ => None,
                     }
-                    .map(|s| Uri::from_str(s).expect("archive url valid"))
+                    .map(|s| Url::from_str(s).expect("archive url valid"))
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
+    }
+
+    fn resolve_address(
+        &self,
+        address: &str,
+        network_passphrase: &str,
+    ) -> Option<Either<AccountId, ScAddress>> {
+        self.resolve_contract(address, network_passphrase)
+            .map(Either::Right)
+            .or_else(|| self.resolve_account(address).map(Either::Left))
+    }
+
+    // Resolve an account address to an account id. The address can be a
+    // G-address or a key name (as in `stellar keys address NAME`).
+    fn resolve_account(&self, address: &str) -> Option<AccountId> {
+        let address: Address = address.parse().ok()?;
+
+        Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
+            match address.resolve_muxed_account(&self.locator, None).ok()? {
+                xdr::MuxedAccount::Ed25519(uint256) => uint256,
+                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 { ed25519, .. }) => {
+                    ed25519
+                }
+            },
+        )))
+    }
+    // Resolve a contract address to a contract id. The contract can be a
+    // C-address or a contract alias.
+    fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
+        address.parse().ok().or_else(|| {
+            Some(ScAddress::Contract(
+                self.locator
+                    .resolve_contract_id(address, network_passphrase)
+                    .ok()?
+                    .0
+                    .into(),
+            ))
+        })
     }
 }
 
 async fn get_history(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     ledger: Option<u32>,
 ) -> Result<History, Error> {
     let archive_url = archive_url.to_string();
@@ -405,14 +449,13 @@ async fn get_history(
     } else {
         format!("{archive_url}/.well-known/stellar-history.json")
     };
-    let history_url = Uri::from_str(&history_url).unwrap();
+    let history_url = Url::from_str(&history_url).unwrap();
 
     print.globe(format!("Downloading history {history_url}"));
 
-    let https = hyper_tls::HttpsConnector::new();
-    let response = hyper::Client::builder()
-        .build::<_, hyper::Body>(https)
-        .get(history_url.clone())
+    let response = http::client()
+        .get(history_url.as_str())
+        .send()
         .await
         .map_err(Error::DownloadingHistory)?;
 
@@ -433,7 +476,8 @@ async fn get_history(
         return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
     }
 
-    let body = hyper::body::to_bytes(response.into_body())
+    let body = response
+        .bytes()
         .await
         .map_err(Error::ReadHistoryHttpStream)?;
 
@@ -445,7 +489,7 @@ async fn get_history(
 
 async fn cache_bucket(
     print: &print::Print,
-    archive_url: &Uri,
+    archive_url: &Url,
     bucket_index: usize,
     bucket: &str,
 ) -> Result<PathBuf, Error> {
@@ -460,11 +504,11 @@ async fn cache_bucket(
 
         print.globe(format!("Downloading bucket {bucket_index} {bucket}…"));
 
-        let bucket_url = Uri::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
-        let https = hyper_tls::HttpsConnector::new();
-        let response = hyper::Client::builder()
-            .build::<_, hyper::Body>(https)
-            .get(bucket_url)
+        let bucket_url = Url::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
+
+        let response = http::client()
+            .get(bucket_url.as_str())
+            .send()
             .await
             .map_err(Error::GettingBucket)?;
 
@@ -473,26 +517,22 @@ async fn cache_bucket(
             return Err(Error::GettingBucketGotStatusCode(response.status()));
         }
 
-        if let Some(val) = response.headers().get("Content-Length") {
-            if let Ok(str) = val.to_str() {
-                if let Ok(len) = str.parse::<u64>() {
-                    print.clear_line();
-                    print.globe(format!(
-                        "Downloaded bucket {bucket_index} {bucket} ({})",
-                        ByteSize(len)
-                    ));
-                }
-            }
+        if let Some(len) = response.content_length() {
+            print.clear_line();
+            print.globe(format!(
+                "Downloaded bucket {bucket_index} {bucket} ({})",
+                ByteSize(len)
+            ));
         }
 
         print.println("");
 
-        let read = response
-            .into_body()
-            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-            .into_async_read();
-        let read = tokio_util::compat::FuturesAsyncReadCompatExt::compat(read);
-        let mut read = GzipDecoder::new(read);
+        let stream = response
+            .bytes_stream()
+            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+        let stream_reader = StreamReader::new(stream);
+        let buf_reader = BufReader::new(stream_reader);
+        let mut decoder = GzipDecoder::new(buf_reader);
         let dl_path = cache_path.with_extension("dl");
         let mut file = OpenOptions::new()
             .create(true)
@@ -501,7 +541,7 @@ async fn cache_bucket(
             .open(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut read, &mut file)
+        tokio::io::copy(&mut decoder, &mut file)
             .await
             .map_err(Error::StreamingBucket)?;
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;

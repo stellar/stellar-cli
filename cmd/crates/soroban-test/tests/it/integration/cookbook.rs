@@ -12,7 +12,8 @@ fn parse_command(command: &str) -> Vec<String> {
         .collect()
 }
 
-async fn run_command(
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn run_command(
     sandbox: &TestEnv,
     command: &str,
     wasm_path: &str,
@@ -133,7 +134,8 @@ async fn run_command(
     Ok(())
 }
 
-async fn test_mdx_file(
+#[allow(clippy::too_many_arguments)]
+fn test_mdx_file(
     sandbox: &TestEnv,
     file_path: &str,
     wasm_path: &str,
@@ -145,7 +147,7 @@ async fn test_mdx_file(
     key_xdr: &str,
 ) -> Result<(), String> {
     let content = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file {}: {}", file_path, e))?;
+        .map_err(|e| format!("Failed to read file {file_path}: {e}"))?;
 
     let commands: Vec<&str> = content
         .split("```bash")
@@ -153,7 +155,7 @@ async fn test_mdx_file(
         .filter_map(|block| block.split("```").next())
         .collect();
 
-    println!("Testing commands from file: {}", file_path);
+    println!("Testing commands from file: {file_path}");
 
     for (i, command) in commands.iter().enumerate() {
         println!("Running command {}: {}", i + 1, command);
@@ -167,8 +169,7 @@ async fn test_mdx_file(
             bob_id,
             native_id,
             key_xdr,
-        )
-        .await?;
+        )?;
     }
 
     Ok(())
@@ -235,8 +236,6 @@ mod tests {
             .arg("asset")
             .arg("--asset")
             .arg("native")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let contract_id = deploy_hello(&sandbox).await;
@@ -253,16 +252,12 @@ mod tests {
             .arg("xdr")
             .arg("--key")
             .arg("COUNTER")
-            .arg("--source-account")
-            .arg(source)
             .assert()
             .stdout_as_str();
         let key_xdr = read_xdr.split(',').next().unwrap_or("").trim();
         let repo_root = get_repo_root();
         let docs_dir = repo_root.join("cookbook");
-        if !docs_dir.is_dir() {
-            panic!("docs directory not found");
-        }
+        assert!(docs_dir.is_dir(), "docs directory not found");
 
         for entry in fs::read_dir(docs_dir).expect("Failed to read docs directory") {
             let entry = entry.expect("Failed to read directory entry");
@@ -273,18 +268,16 @@ mod tests {
                 match test_mdx_file(
                     &sandbox,
                     file_path,
-                    &wasm_path.to_str().unwrap(),
+                    wasm_path.to_str().unwrap(),
                     &wasm_hash,
                     source,
                     &contract_id,
                     &bob_id,
                     &native_id,
-                    &key_xdr,
-                )
-                .await
-                {
-                    Ok(_) => println!("Successfully tested all commands in {}", file_path),
-                    Err(e) => panic!("Error testing {}: {}", file_path, e),
+                    key_xdr,
+                ) {
+                    Ok(()) => println!("Successfully tested all commands in {file_path}"),
+                    Err(e) => panic!("Error testing {file_path}: {e}"),
                 }
             }
         }

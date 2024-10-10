@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use crate::xdr;
 use clap::arg;
-use soroban_env_host::xdr;
 use soroban_rpc::Client;
 
 use crate::commands::contract::info::shared::Error::InvalidWasmHash;
