@@ -27,7 +27,6 @@ use tokio::io::BufReader;
 use tokio_util::io::StreamReader;
 use url::Url;
 
-use crate::utils::http;
 use crate::{
     commands::{config::data, global, HEADING_RPC},
     config::{self, locator, network::passphrase},
@@ -35,6 +34,7 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
+use crate::{config::address::Address, utils::http};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -55,7 +55,7 @@ fn default_out_path() -> PathBuf {
 ///
 /// Filters (address, wasm-hash) specify what ledger entries to include.
 ///
-/// Account addresses include the account, and trust lines.
+/// Account addresses include the account, and trustlines.
 ///
 /// Contract addresses include the related wasm, contract data.
 ///
@@ -63,6 +63,9 @@ fn default_out_path() -> PathBuf {
 /// account and trust lines, but does not include all the trust lines of other
 /// accounts holding the asset. To include them specify the addresses of
 /// relevant accounts.
+///
+/// Any invalid contract id passed as `--address` will be ignored.
+///
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 #[command(arg_required_else_help = true)]
@@ -70,9 +73,9 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
-    /// Account or contract address to include in the snapshot.
+    /// Account or contract address/alias to include in the snapshot.
     #[arg(long = "address", help_heading = "Filter Options")]
-    address: Vec<ScAddress>,
+    address: Vec<String>,
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
@@ -213,11 +216,13 @@ impl Cmd {
         }
 
         // Search the buckets using the user inputs as the starting inputs.
-        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) =
-            self.address.iter().cloned().partition_map(|a| match a {
-                ScAddress::Account(account_id) => Either::Left(account_id),
-                ScAddress::Contract(_) => Either::Right(a),
-            });
+        let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) = self
+            .address
+            .iter()
+            .cloned()
+            .filter_map(|a| self.resolve_address(&a, network_passphrase))
+            .partition_map(|a| a);
+
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
@@ -387,6 +392,44 @@ impl Cmd {
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
+    }
+
+    fn resolve_address(
+        &self,
+        address: &str,
+        network_passphrase: &str,
+    ) -> Option<Either<AccountId, ScAddress>> {
+        self.resolve_contract(address, network_passphrase)
+            .map(Either::Right)
+            .or_else(|| self.resolve_account(address).map(Either::Left))
+    }
+
+    // Resolve an account address to an account id. The address can be a
+    // G-address or a key name (as in `stellar keys address NAME`).
+    fn resolve_account(&self, address: &str) -> Option<AccountId> {
+        let address: Address = address.parse().ok()?;
+
+        Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
+            match address.resolve_muxed_account(&self.locator, None).ok()? {
+                xdr::MuxedAccount::Ed25519(uint256) => uint256,
+                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 { ed25519, .. }) => {
+                    ed25519
+                }
+            },
+        )))
+    }
+    // Resolve a contract address to a contract id. The contract can be a
+    // C-address or a contract alias.
+    fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
+        address.parse().ok().or_else(|| {
+            Some(ScAddress::Contract(
+                self.locator
+                    .resolve_contract_id(address, network_passphrase)
+                    .ok()?
+                    .0
+                    .into(),
+            ))
+        })
     }
 }
 
