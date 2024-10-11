@@ -33,6 +33,8 @@ pub struct Args {
     pub locator: locator::Args,
 }
 
+// Here perhaps? this seems like its contract meta, not cargo meta
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum MetasInfoOutput {
     /// Text output of the meta info entry
