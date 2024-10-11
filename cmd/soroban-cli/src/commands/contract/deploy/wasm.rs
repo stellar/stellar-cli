@@ -244,19 +244,21 @@ impl NetworkRunnable for Cmd {
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone());
-        let constructor_params = if res.find_function(CONSTRUCTOR_FUNCTION_NAME).is_ok() {
-            let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
-            slop.extend_from_slice(&self.slop);
-            if let Ok((_, _, args, _)) = arg_parsing::build_host_function_parameters(
-                &stellar_strkey::Contract(contract_id.0),
-                &slop,
-                &entries,
-                config,
-            ) {
-                Some(args)
-            } else {
-                print.warnln("Contract has `__constructor` function but no arguments provided so skipping deploy and init");
+        let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
+            if func.inputs.len() == 0 {
                 None
+            } else {
+                let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+                slop.extend_from_slice(&self.slop);
+                Some(
+                    arg_parsing::build_host_function_parameters(
+                        &stellar_strkey::Contract(contract_id.0),
+                        &slop,
+                        &entries,
+                        config,
+                    )?
+                    .2,
+                )
             }
         } else {
             None

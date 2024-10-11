@@ -186,18 +186,12 @@ impl TryFrom<GetTransactionResponse> for Action {
                     result_meta_xdr: res.result_meta().map(to_xdr).transpose()?,
                     status: res.transaction_info.status,
                     application_order: res.transaction_info.application_order,
-                    diff: if let Some(soroban_rpc::TransactionInfoDiff::Protocol22 {
-                        transaction_hash,
-                        fee_bump,
-                    }) = res.transaction_info.diff
-                    {
-                        Some(soroban_rpc::TransactionInfoDiffRaw::Protocol22 {
-                            transaction_hash: transaction_hash.as_ref().map(ToString::to_string),
-                            fee_bump,
-                        })
-                    } else {
-                        None
-                    },
+                    transaction_hash: res
+                        .transaction_info
+                        .transaction_hash
+                        .as_ref()
+                        .map(ToString::to_string),
+                    fee_bump: Some(res.transaction_info.fee_bump),
                     diagnostic_events_xdr: res
                         .transaction_info
                         .diagnostic_events_xdr

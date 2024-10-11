@@ -38,26 +38,26 @@ default-features = true
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "=22.0.0-rc.1.1"
+version = "=22.0.0-rc.2"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=22.0.0-rc.1.1"
+version = "=22.0.0-rc.2"
 
 [workspace.dependencies.soroban-sdk]
-version = "=22.0.0-rc.1.1"
+version = "=22.0.0-rc.2"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "=22.0.0-rc.1.1"
+version = "=22.0.0-rc.2"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "=22.0.0-rc.1.1"
+version = "=22.0.0-rc.2"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
 version = "22.0.0-rc.1"
 git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "108861599b78f6f942934bcb70d712169e55c690"
+rev = "519d3b74138895f5d7c03cc72eef43ce0dda4dff"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

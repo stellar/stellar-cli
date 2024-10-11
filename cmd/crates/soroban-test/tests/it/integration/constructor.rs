@@ -10,13 +10,11 @@ use super::util::CONSTRUCTOR;
 
 fn constructor_cmd(sandbox: &TestEnv, value: u32, arg: &str) -> Command {
     let mut cmd = sandbox.new_assert_cmd("contract");
-    cmd.arg("deploy")
-        .arg("--wasm")
-        .arg(CONSTRUCTOR.path())
-        .arg(arg)
-        .arg("--")
-        .arg("--counter")
-        .arg(value.to_string());
+    cmd.arg("deploy").arg("--wasm").arg(CONSTRUCTOR.path());
+    if !arg.is_empty() {
+        cmd.arg(arg);
+    }
+    cmd.arg("--").arg("--counter").arg(value.to_string());
     cmd
 }
 
