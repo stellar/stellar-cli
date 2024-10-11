@@ -30,14 +30,6 @@ jobs:
     - run: rustup update
     - run: cargo fmt --all --check
 
-  check-generated-examples-list:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: make generate-examples-list
-    - name: Check no diffs exist
-      run: git add -N . && git diff HEAD --exit-code
-
   check-generated-full-help-docs:
     runs-on: ubuntu-latest-16-cores
     steps:
