@@ -7,20 +7,11 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use crate::xdr::{
-    self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-    DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-    Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
-    SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
-    WriteXdr,
-};
-
 use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::assembled::simulate_and_assemble_transaction;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -31,7 +22,15 @@ use crate::{
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
-    print, rpc, Pwd,
+    print, rpc,
+    xdr::{
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
+        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
+        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
+        Uint256, VecM, WriteXdr,
+    },
+    Pwd,
 };
 use soroban_spec_tools::contract;
 
