@@ -1,8 +1,6 @@
 use ledger_transport::Exchange;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
-use soroban_env_host::xdr::{Hash, Transaction};
 use std::ops::Range;
 use std::sync::Mutex;
 use std::vec;
@@ -15,8 +13,10 @@ use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use stellar_xdr::curr::{
-    Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
+    self as xdr, Hash, Memo, MuxedAccount, Operation, OperationBody, PaymentOp, Preconditions,
+    SequenceNumber, Transaction, TransactionExt, Uint256,
 };
+
 use testcontainers::{core::ContainerPort, runners::AsyncRunner, ContainerAsync, ImageExt};
 use tokio::time::sleep;
 

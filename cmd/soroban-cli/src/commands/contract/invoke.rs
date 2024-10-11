@@ -7,15 +7,12 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use soroban_env_host::{
-    xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+    DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
+    Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
+    SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+    WriteXdr,
 };
 
 use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
@@ -23,7 +20,9 @@ use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
+use crate::assembled::simulate_and_assemble_transaction;
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::arg_parsing::{build_host_function_parameters, output_to_string},
         global,
@@ -80,10 +79,6 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
@@ -247,7 +242,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = client.simulate_and_assemble_transaction(&tx).await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn);
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn.transaction().clone()));

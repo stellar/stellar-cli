@@ -1,14 +1,15 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
     SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
     TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
 };
+use clap::{command, Parser};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -168,8 +169,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
+        let tx = simulate_and_assemble_transaction(&client, &tx)
             .await?
             .transaction()
             .clone();
