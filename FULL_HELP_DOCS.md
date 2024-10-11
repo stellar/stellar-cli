@@ -84,7 +84,7 @@ Tools for smart contract developers
 * `fetch` — Fetch a contract's Wasm binary
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
-* `init` — Initialize a Soroban project with an example contract
+* `init` — Initialize a Soroban contract project
 * `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
 * `install` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
@@ -611,7 +611,9 @@ Outputs no data when no data is present in the contract.
 
 ## `stellar contract init`
 
-Initialize a Soroban project with an example contract
+Initialize a Soroban contract project.
+
+This command will create a Cargo workspace project and add a sample Stellar contract. The name of the contract can be specified by `--name`. It can be run multiple times with different names in order to generate multiple contracts, and files won't be overwritten unless `--overwrite` is passed.
 
 **Usage:** `stellar contract init [OPTIONS] <PROJECT_PATH>`
 
@@ -621,13 +623,9 @@ Initialize a Soroban project with an example contract
 
 ###### **Options:**
 
-* `-w`, `--with-example <WITH_EXAMPLE>` — An optional flag to specify Soroban example contracts to include. A hello-world contract will be included by default.
+* `--name <NAME>` — An optional flag to specify a new contract's name.
 
-  Possible values: `account`, `alloc`, `atomic_multiswap`, `atomic_swap`, `auth`, `cross_contract`, `custom_types`, `deep_contract_auth`, `deployer`, `errors`, `eth_abi`, `events`, `fuzzing`, `increment`, `liquidity_pool`, `logging`, `mint-lock`, `other_custom_types`, `simple_account`, `single_offer`, `timelock`, `token`, `ttl`, `upgradeable_contract`, `workspace`
-
-* `--frontend-template <FRONTEND_TEMPLATE>` — An optional flag to pass in a url for a frontend template repository.
-
-  Default value: ``
+  Default value: `hello-world`
 * `--overwrite` — Overwrite all existing files.
 
 
@@ -1253,18 +1251,20 @@ Create a ledger snapshot using a history archive.
 
 Filters (address, wasm-hash) specify what ledger entries to include.
 
-Account addresses include the account, and trust lines.
+Account addresses include the account, and trustlines.
 
 Contract addresses include the related wasm, contract data.
 
 If a contract is a Stellar asset contract, it includes the asset issuer's account and trust lines, but does not include all the trust lines of other accounts holding the asset. To include them specify the addresses of relevant accounts.
+
+Any invalid contract id passed as `--address` will be ignored.
 
 **Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
 
 ###### **Options:**
 
 * `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
-* `--address <ADDRESS>` — Account or contract address to include in the snapshot
+* `--address <ADDRESS>` — Account or contract address/alias to include in the snapshot
 * `--wasm-hash <WASM_HASHES>` — WASM hashes to include in the snapshot
 * `--output <OUTPUT>` — Format of the out file
 

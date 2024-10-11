@@ -197,6 +197,25 @@ pub mod http {
 }
 
 pub mod args {
+    #[derive(thiserror::Error, Debug)]
+    pub enum DeprecatedError<'a> {
+        #[error("This argument has been removed and will be not be recognized by the future versions of CLI: {0}"
+        )]
+        RemovedArgument(&'a str),
+    }
+
+    #[macro_export]
+    /// Mark argument as removed with an error to be printed when it's used.
+    macro_rules! error_on_use_of_removed_arg {
+        ($_type:ident, $message: expr) => {
+            |a: &str| {
+                Err::<$_type, utils::args::DeprecatedError>(
+                    utils::args::DeprecatedError::RemovedArgument($message),
+                )
+            }
+        };
+    }
+
     /// Mark argument as deprecated with warning to be printed when it's used.
     #[macro_export]
     macro_rules! deprecated_arg {
