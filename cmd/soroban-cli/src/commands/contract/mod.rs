@@ -55,10 +55,10 @@ pub enum Cmd {
 
     /// Initialize a Soroban contract project.
     ///
-    /// This command will generate a template Soroban Cargo workspace project and add a sample
-    /// contract package with a given `--name`. It can be run multiple times with different names
-    /// in order to generate multiple contract templates,  and files won't be overwritten
-    /// unless `--overwrite` is passed.
+    /// This command will create a Cargo workspace project and add a sample Stellar contract.
+    /// The name of the contract can be specified by `--name`. It can be run multiple times
+    /// with different names in order to generate multiple contracts, and files won't
+    /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
     /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc

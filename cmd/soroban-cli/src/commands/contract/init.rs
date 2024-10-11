@@ -103,7 +103,7 @@ impl Runner {
     fn run(&self) -> Result<(), Error> {
         let project_path = PathBuf::from(&self.args.project_path);
         self.print
-            .infoln(format!("Initializing project at {project_path:?}"));
+            .infoln(format!("Initializing workspace at {project_path:?}"));
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
         Self::create_dir_all(&project_path)?;
