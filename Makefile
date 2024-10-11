@@ -46,11 +46,6 @@ build-test: build-test-wasms install
 generate-full-help-doc:
 	cargo run --bin doc-gen --features clap-markdown
 
-generate-examples-list:
-	curl -sSL https://api.github.com/repos/stellar/soroban-examples/git/trees/main \
-		| jq -r '.tree[] | select(.type != "blob" and .path != "hello_world" and (.path | startswith(".") | not)) | .path' \
-		> cmd/soroban-cli/example_contracts.list
-
 test: build-test
 	cargo test
 
