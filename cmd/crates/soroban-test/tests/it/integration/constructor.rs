@@ -10,7 +10,7 @@ use super::util::CONSTRUCTOR;
 
 fn constructor_cmd(sandbox: &TestEnv, value: u32, arg: &str) -> Command {
     let mut cmd = sandbox.new_assert_cmd("contract");
-    cmd.arg("deploy").arg("--wasm").arg(CONSTRUCTOR.path());
+    cmd.arg("deploy").arg("--wasm").arg(CONSTRUCTOR.path()).arg("--alias=init");
     if !arg.is_empty() {
         cmd.arg(arg);
     }
@@ -59,4 +59,9 @@ async fn deploy_constructor_contract() {
     }
 
     constructor_cmd(&sandbox, value, "").assert().success();
+
+    let res = sandbox.new_assert_cmd("contract").args(["invoke", "--id=init", "--", "counter"]).assert().success().stdout_as_str();
+    assert_eq!(res.trim(), value.to_string());
+
+
 }
