@@ -7,12 +7,14 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
 
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{
-    self, locator,
-    network::{self, Network},
+use crate::{
+    commands::{global, NetworkRunnable},
+    config::{
+        self, locator,
+        network::{self, Network},
+    },
+    wasm, Pwd,
 };
-use crate::{wasm, Pwd};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
