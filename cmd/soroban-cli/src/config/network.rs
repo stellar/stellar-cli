@@ -260,7 +260,7 @@ mod tests {
     use serde_json::json;
 
     const INVALID_HEADER_NAME: &str = "api key";
-    const INVALID_HEADER_VALUE: &str = "cannot include a carriage return \r";
+    const INVALID_HEADER_VALUE: &str = "cannot include a carriage return \r in the value";
 
     #[tokio::test]
     async fn test_helper_url_local_network() {
@@ -428,7 +428,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("invalid header: http::Error(InvalidHeaderName)")
+            format!("invalid HTTP header: must be in the form 'key:value'")
         );
     }
 
@@ -444,7 +444,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("invalid header: http::Error(InvalidHeaderValue)")
+            format!("invalid HTTP header: must be in the form 'key:value'")
         );
     }
 }
