@@ -1,10 +1,12 @@
 name: 'Install stellar-cli'
 description: 'Install the stellar-cli'
 inputs:
-  # Recommended for use only in testing new versions of the action prior to
-  # release. For regular use, use the version of the action corresponding to the
-  # version of the stellar-cli that should be installed.
   unstable_version:
+    description: |
+      Recommended for use only in testing new versions of the action prior to
+      release. For regular use, use the version of the action corresponding to
+      the version of the stellar-cli that should be installed.
+    required: false
 runs:
   using: "composite"
   steps:
