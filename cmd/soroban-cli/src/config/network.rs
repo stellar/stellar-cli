@@ -141,10 +141,12 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
     let (key, value) = (
         header_components
             .next()
-            .ok_or_else(|| Error::InvalidHeader(format!("Missing header name: {header}")))?,
+            .ok_or_else(|| Error::InvalidHeader(format!("Missing header name: {header}")))?
+            .trim(),
         header_components
             .next()
-            .ok_or_else(|| Error::InvalidHeader(format!("Missing header value: {header}")))?,
+            .ok_or_else(|| Error::InvalidHeader(format!("Missing header value: {header}")))?
+            .trim(),
     );
 
     // Check that the headers are properly formatted
