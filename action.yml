@@ -42,6 +42,6 @@ runs:
         exit 1
       esac
       file="stellar-cli-$version-$os_arch.tar.gz"
-      url="https://github.com/stellar/stellar-cli/releases/download/$version/$file"
+      url="https://github.com/stellar/stellar-cli/releases/download/v$version/$file"
       echo "$url"
       curl -fL "$url" | tar xvz -C $HOME/.local/bin
