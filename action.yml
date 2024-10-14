@@ -1,0 +1,40 @@
+name: 'Install stellar-cli'
+description: 'Install the stellar-cli'
+inputs:
+  version:
+runs:
+  using: "composite"
+  steps:
+  - name: Setup install path
+    shell: bash
+    run: |
+      mkdir -p $HOME/.local/bin
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
+  - name: Copy binary to install location
+    shell: bash
+    env:
+      REF: ${{ github.action_ref }}
+    run: |
+      version="${{ inputs.version || env.REF }}"
+      case "${{ runner.os }}-${{ runner.arch }}" in
+      'Linux-X64')
+        os_arch=x86_64-unknown-linux-gnu
+        ;;
+      'Linux-ARM64')
+        os_arch=aarch64-unknown-linux-gnu
+        ;;
+      'macOS-X64')
+        os_arch=x86_64-apple-darwin
+        ;;
+      'macOS-ARM64')
+        os_arch=aarch64-apple-darwin
+        ;;
+      'Windows-X64')
+        os_arch=x86_64-pc-windows-msvc
+        ;;
+      *)
+        echo "Unsupported OS / Arch pair: ${{ runner.os }} ${{ runner.arch }}" >&2
+        exit 1
+      esac
+      file="stellar-cli-$version-$os_arch.tar.gz"
+      curl -fL https://github.com/stellar/stellar-cli/releases/download/$version/$file | tar xvz -C $HOME/.local/bin
