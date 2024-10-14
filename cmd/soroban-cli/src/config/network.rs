@@ -148,8 +148,8 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
     );
 
     // Check that the headers are properly formatted
-    HeaderName::from_str(&key)?;
-    HeaderValue::from_str(&value)?;
+    HeaderName::from_str(key)?;
+    HeaderValue::from_str(value)?;
 
     Ok((key.to_string(), value.to_string()))
 }
@@ -220,7 +220,7 @@ impl Network {
 
         let header_map: HeaderMap = (&header_hash_map)
             .try_into()
-            .map_err(|e| Error::InvalidHeader(format!("{:?}", e)))?;
+            .map_err(|e| Error::InvalidHeader(format!("{e:?}")))?;
 
         Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
     }
