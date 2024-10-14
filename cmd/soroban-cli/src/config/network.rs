@@ -1,4 +1,5 @@
 use clap::arg;
+use itertools::Itertools;
 use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
@@ -37,8 +38,8 @@ pub enum Error {
     InvalidHeaderName(#[from] InvalidHeaderName),
     #[error(transparent)]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
-    #[error("invalid header: {0}")]
-    InvalidHeader(String),
+    #[error("invalid HTTP header: must be in the form 'key:value'")]
+    InvalidHeader,
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -136,18 +137,12 @@ pub struct Network {
 }
 
 fn parse_http_header(header: &str) -> Result<(String, String), Error> {
-    let mut header_components = header.splitn(2, ':');
+    let header_components = header.splitn(2, ':');
 
-    let (key, value) = (
-        header_components
-            .next()
-            .ok_or_else(|| Error::InvalidHeader(format!("Missing header name: {header}")))?
-            .trim(),
-        header_components
-            .next()
-            .ok_or_else(|| Error::InvalidHeader(format!("Missing header value: {header}")))?
-            .trim(),
-    );
+    let (key, value) = header_components
+        .map(str::trim)
+        .next_tuple()
+        .ok_or_else(|| Error::InvalidHeader)?;
 
     // Check that the headers are properly formatted
     HeaderName::from_str(key)?;
@@ -222,7 +217,7 @@ impl Network {
 
         let header_map: HeaderMap = (&header_hash_map)
             .try_into()
-            .map_err(|e| Error::InvalidHeader(format!("{e:?}")))?;
+            .map_err(|_| Error::InvalidHeader)?;
 
         Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
     }
