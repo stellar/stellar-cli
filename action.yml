@@ -1,7 +1,7 @@
 name: 'Install stellar-cli'
 description: 'Install the stellar-cli'
 inputs:
-  unstable_version:
+  version:
     description: |
       Recommended for use only in testing new versions of the action prior to
       release. For regular use, use the version of the action corresponding to
@@ -20,7 +20,7 @@ runs:
     env:
       REF: ${{ github.action_ref }}
     run: |
-      version="${{ inputs.unstable_version || env.REF }}"
+      version="${{ inputs.version || env.REF }}"
       case "${{ runner.os }}-${{ runner.arch }}" in
       'Linux-X64')
         os_arch=x86_64-unknown-linux-gnu
