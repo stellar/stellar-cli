@@ -50,6 +50,8 @@ runs:
       curl -fL "$url" | tar xvz -C $HOME/.local/bin
   - name: Verify binary against attestation
     shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
     run: |
       version="${{ steps.version.outputs.version }}"
       subject="$(gh attestation verify ~/.local/bin/stellar --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"
