@@ -16,11 +16,14 @@ runs:
       mkdir -p $HOME/.local/bin
       echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Copy binary to install location
+    id: version
     shell: bash
-    env:
-      REF: ${{ github.action_ref }}
     run: |
-      version="${{ inputs.version || env.REF }}"
+      echo "version=${{ inputs.version || github.action_ref }}" >> "$GITHUB_OUTPUT"
+  - name: Copy binary to install location
+    shell: bash
+    run: |
+      version="${{ steps.version.outputs.version }}"
       case "${{ runner.os }}-${{ runner.arch }}" in
       'Linux-X64')
         os_arch=x86_64-unknown-linux-gnu
@@ -45,3 +48,15 @@ runs:
       url="https://github.com/stellar/stellar-cli/releases/download/v$version/$file"
       echo "$url"
       curl -fL "$url" | tar xvz -C $HOME/.local/bin
+  - name: Verify binary against attestation
+    shell: bash
+    run: |
+      version="${{ steps.version.outputs.version }}"
+      subject="$(gh attestation verify ~/.local/bin/stellar --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"
+      expected_subject="https://github.com/stellar/stellar-cli/.github/workflows/binaries.yml@refs/tags/v$version"
+      if [[ "$subject" != "$expected_subject" ]]; then
+        echo "Attestation verification found unexpected subject" >&2
+        echo "Found subject: $subject" >&2
+        echo "Expected subject: $expected_subject" >&2
+        exit 1
+      fi
