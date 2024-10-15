@@ -15,7 +15,7 @@ runs:
     run: |
       mkdir -p $HOME/.local/bin
       echo "$HOME/.local/bin" >> $GITHUB_PATH
-  - name: Copy binary to install location
+  - name: Determine version to install
     id: version
     shell: bash
     run: |
