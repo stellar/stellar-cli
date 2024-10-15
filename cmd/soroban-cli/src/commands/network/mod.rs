@@ -97,6 +97,17 @@ impl Cmd {
                 cmd.run(global_args).await?;
             }
         };
+
+        // Additional logic for checking network requirement
+        // If WASM file is provided, don't require network arguments
+        if global_args.wasm.is_some() {
+            return Ok(());
+        }
+
+        // If no wasm is provided, network arguments are required
+        if global_args.rpc_url.is_none() || global_args.network_passphrase.is_none() || global_args.network.is_none() {
+            return Err(Error::Network);
+        }
         Ok(())
     }
 }
