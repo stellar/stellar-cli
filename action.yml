@@ -55,10 +55,10 @@ runs:
     run: |
       version="${{ steps.version.outputs.version }}"
       subject="$(gh attestation verify ~/.local/bin/stellar --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"
+      echo "Found subject: $subject" >&2
       expected_subject="https://github.com/stellar/stellar-cli/.github/workflows/binaries.yml@refs/tags/v$version"
+      echo "Expected subject: $expected_subject" >&2
       if [[ "$subject" != "$expected_subject" ]]; then
         echo "Attestation verification found unexpected subject" >&2
-        echo "Found subject: $subject" >&2
-        echo "Expected subject: $expected_subject" >&2
         exit 1
       fi
