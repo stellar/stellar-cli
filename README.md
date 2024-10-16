@@ -8,18 +8,14 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 
 ## Table of Contents
 
-- [Stellar CLI (stellar-cli)](#stellar-cli-stellar-cli)
-  - [Table of Contents](#table-of-contents)
-  - [Documentation](#documentation)
-  - [Cookbook](#cookbook)
-  - [Install](#install)
-  - [Autocomplete](#autocomplete)
-  - [Latest Release](#latest-release)
-  - [Upcoming Features](#upcoming-features)
-  - [To Contribute](#to-contribute)
-  - [Additional Developer Resources](#additional-developer-resources)
-
-
+- [Documentation](#documentation)
+- [Cookbook](#cookbook)
+- [Install](#install)
+- [Autocomplete](#autocomplete)
+- [Latest Release](#latest-release)
+- [Upcoming Features](#upcoming-features)
+- [To Contribute](#to-contribute)
+- [Additional Developer Resources](#additional-developer-resources)
 
 ## Documentation
 
