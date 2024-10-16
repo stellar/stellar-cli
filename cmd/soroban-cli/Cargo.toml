@@ -11,10 +11,6 @@ edition = "2021"
 rust-version.workspace = true
 autobins = false
 
-[package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
-bin-dir = "{ bin }{ binary-ext }"
-
 [[bin]]
 name = "doc-gen"
 path = "src/bin/doc-gen.rs"
