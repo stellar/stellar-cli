@@ -10,11 +10,6 @@ version = "21.5.0"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
-default-run = "stellar"
-
-[[bin]]
-name = "stellar"
-path = "src/bin/stellar.rs"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
