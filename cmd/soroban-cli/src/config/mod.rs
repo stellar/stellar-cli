@@ -2,8 +2,6 @@ use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 
-use soroban_rpc::Client;
-
 use crate::{
     print::Print,
     signer::{self, LocalKey, Signer, SignerKind},
@@ -98,7 +96,7 @@ impl Args {
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_key = self.key_pair()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
@@ -119,7 +117,7 @@ impl Args {
         account: impl Into<xdr::AccountId>,
     ) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         Ok((client.get_account(account).await?.seq_num.0 + 1).into())
     }
 }

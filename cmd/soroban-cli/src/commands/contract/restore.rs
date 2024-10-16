@@ -17,9 +17,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -134,7 +132,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
 
         // Get the account sequence number

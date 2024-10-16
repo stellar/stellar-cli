@@ -57,7 +57,7 @@ version = "=22.0.0-rc.2"
 package = "stellar-rpc-client"
 version = "22.0.0-rc.1"
 git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "519d3b74138895f5d7c03cc72eef43ce0dda4dff"
+rev = "f5bce51f3a893b009da4b59b5171c93ef6a9b7a1"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

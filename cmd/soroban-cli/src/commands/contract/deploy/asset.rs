@@ -16,7 +16,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
+    rpc::Error as SorobanRpcError,
     tx::builder,
     utils::contract_id_hash_from_asset,
 };
@@ -88,7 +88,7 @@ impl NetworkRunnable for Cmd {
         let asset = &self.asset;
 
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

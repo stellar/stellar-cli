@@ -235,6 +235,7 @@ impl TestEnv {
         config::Args {
             network: network::Args {
                 rpc_url: Some(self.rpc_url.clone()),
+                rpc_headers: [].to_vec(),
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
             },

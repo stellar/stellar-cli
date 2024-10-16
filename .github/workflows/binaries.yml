@@ -13,6 +13,11 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  id-token: write
+  contents: write
+  attestations: write
+
 jobs:
 
   build:
@@ -62,6 +67,11 @@ jobs:
         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       working-directory: ${{ env.BUILD_WORKING_DIR }}
       run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
+    - name: Build provenance for attestation (release only)
+      if: github.event_name == 'release'
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: target/${{ matrix.sys.target }}/release/${{ matrix.crate.binary }}${{ matrix.sys.ext }}
     - name: Compress
       run: |
           cd target/${{ matrix.sys.target }}/release

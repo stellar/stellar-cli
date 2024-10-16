@@ -26,7 +26,7 @@ use crate::{
     },
     config::{self, data, locator, network},
     print::Print,
-    rpc::{self, Client},
+    rpc,
     utils::{self, rpc::get_remote_wasm_from_hash},
     wasm,
 };
@@ -220,7 +220,7 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
