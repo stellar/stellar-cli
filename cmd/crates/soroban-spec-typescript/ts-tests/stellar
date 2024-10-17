@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cargo run --quiet -p stellar-cli -- "$@"
