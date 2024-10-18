@@ -1,6 +1,7 @@
 use clap::Parser;
 use itertools::Itertools;
 use std::{
+    borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
@@ -133,11 +134,26 @@ impl Cmd {
                     cmd.arg(format!("--features={activate}"));
                 }
             }
-            set_env_to_remap_absolute_paths(&mut cmd)?;
-            let cmd_str = format!(
-                "cargo {}",
-                cmd.get_args().map(OsStr::to_string_lossy).join(" ")
+
+            if let Some(rustflags) = make_rustflags_to_remap_absolute_paths()? {
+                cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
+            }
+
+            let mut cmd_str_parts = Vec::<String>::new();
+            cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
+                format!(
+                    "{}={}",
+                    key.to_string_lossy(),
+                    shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+                )
+            }));
+            cmd_str_parts.push("cargo".to_string());
+            cmd_str_parts.extend(
+                cmd.get_args()
+                    .map(OsStr::to_string_lossy)
+                    .map(Cow::into_owned),
             );
+            let cmd_str = cmd_str_parts.join(" ");
 
             if self.print_commands_only {
                 println!("{cmd_str}");
@@ -280,7 +296,7 @@ impl Cmd {
 /// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
 /// existing rustflags being ignored, which is also the behavior of
 /// Cargo itself.
-fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
+fn make_rustflags_to_remap_absolute_paths() -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let cargo_home = format!("{}", cargo_home.display());
 
@@ -289,7 +305,7 @@ fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
             "⚠  Warning: Cargo home directory contains whitespace. \
                    Dependency paths will not be remapped; builds may not be reproducible."
         );
-        return Ok(());
+        return Ok(None);
     }
 
     if env::var("RUSTFLAGS").is_ok() {
@@ -297,7 +313,7 @@ fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
             "⚠  Warning: `RUSTFLAGS` set. \
                    Dependency paths will not be remapped; builds may not be reproducible."
         );
-        return Ok(());
+        return Ok(None);
     }
 
     if env::var("CARGO_ENCODED_RUSTFLAGS").is_ok() {
@@ -305,7 +321,7 @@ fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
             "⚠  Warning: `CARGO_ENCODED_RUSTFLAGS` set. \
                    Dependency paths will not be remapped; builds may not be reproducible."
         );
-        return Ok(());
+        return Ok(None);
     }
 
     if env::var("TARGET_wasm32-unknown-unknown_RUSTFLAGS").is_ok() {
@@ -313,7 +329,7 @@ fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
             "⚠  Warning: `TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. \
                    Dependency paths will not be remapped; builds may not be reproducible."
         );
-        return Ok(());
+        return Ok(None);
     }
 
     let registry_prefix = format!("{cargo_home}/registry/src/");
@@ -323,9 +339,8 @@ fn set_env_to_remap_absolute_paths(cmd: &mut Command) -> Result<(), Error> {
     rustflags.push(new_rustflag);
 
     let rustflags = rustflags.join(" ");
-    cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
 
-    Ok(())
+    Ok(Some(rustflags))
 }
 
 /// Get any existing `CARGO_BUILD_RUSTFLAGS`, split on whitespace.
