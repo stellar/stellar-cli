@@ -1,7 +1,7 @@
 /*
-This function calls the stellar executable via cargo and checks that the output
+This function calls the soroban executable via cargo and checks that the output
 is correct. The PATH environment variable is set to include the target/bin
-directory, so that the stellar executable can be found.
+directory, so that the soroban executable can be found.
 */
 
 use std::{ffi::OsString, path::PathBuf};
@@ -10,9 +10,9 @@ use std::{ffi::OsString, path::PathBuf};
 fn soroban_hello() {
     // Add the target/bin directory to the iterator of paths
     let paths = get_paths();
-    // Call stellar with the PATH variable set to include the target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    // Call soroban with the PATH variable set to include the target/bin directory
+    assert_cmd::Command::cargo_bin("soroban")
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
         .env("PATH", &paths)
         .assert()
@@ -21,9 +21,9 @@ fn soroban_hello() {
 
 #[test]
 fn list() {
-    // Call `stellar --list` with the PATH variable set to include the target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    // Call `soroban --list` with the PATH variable set to include the target/bin directory
+    assert_cmd::Command::cargo_bin("soroban")
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("--list")
         .env("PATH", get_paths())
         .assert()
@@ -33,9 +33,9 @@ fn list() {
 #[test]
 #[cfg(not(unix))]
 fn has_no_path() {
-    // Call stellar with the PATH variable set to include just target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    // Call soroban with the PATH variable set to include just target/bin directory
+    assert_cmd::Command::cargo_bin("soroban")
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
         .env("PATH", target_bin())
         .assert()
@@ -44,9 +44,9 @@ fn has_no_path() {
 
 #[test]
 fn has_no_path_failure() {
-    // Call stellar with the PATH variable set to include just target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    // Call soroban with the PATH variable set to include just target/bin directory
+    assert_cmd::Command::cargo_bin("soroban")
+        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
         .arg("hello")
         .assert()
         .stderr(predicates::str::contains("error: no such command: `hello`"));

@@ -1,6 +1,6 @@
 //! **Soroban Test** - Test framework for invoking Soroban externally.
 //!
-//! Currently stellar provides a mock test environment for writing unit tets.
+//! Currently soroban provides a mock test environment for writing unit tets.
 //!
 //! However, it does not provide a way to run tests against a local sandbox or rpc endpoint.
 //!

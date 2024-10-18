@@ -13,7 +13,7 @@ pub enum Error {
 }
 
 // Command to return the transaction hash submitted to a network
-/// e.g. `cat file.txt | stellar tx hash`
+/// e.g. `cat file.txt | soroban tx hash`
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {

@@ -21,7 +21,7 @@ pub enum Error {
 }
 
 /// Command to simulate a transaction envelope via rpc
-/// e.g. `cat file.txt | stellar tx simulate`
+/// e.g. `cat file.txt | soroban tx simulate`
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {

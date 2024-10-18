@@ -8,5 +8,5 @@ fn version() {
         .new_assert_cmd("version")
         .assert()
         .success()
-        .stdout(format!("stellar {}\n", long()));
+        .stdout(format!("soroban {}\n", long()));
 }

@@ -23,7 +23,7 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 /// Command to send a transaction envelope to the network
-/// e.g. `cat file.txt | stellar tx send`
+/// e.g. `cat file.txt | soroban tx send`
 pub struct Cmd {
     #[clap(flatten)]
     pub network: network::Args,
