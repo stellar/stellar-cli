@@ -62,6 +62,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` — Log DEBUG and TRACE events
+**Alias**: --vv
 * `--list` — List installed plugins. E.g. `stellar-hello`
 * `--no-cache` — Do not cache your simulations and transactions
 
@@ -130,6 +131,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 Deploy builtin Soroban Asset Contract
 
 **Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Alias**: --source-account
 
 ###### **Options:**
 
@@ -288,6 +290,7 @@ Generate Rust bindings
 Generate a TypeScript / JavaScript package
 
 **Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Alias**: --id
 
 ###### **Options:**
 
@@ -1941,6 +1944,5 @@ Read cached action
 Print version information
 
 **Usage:** `stellar version`
-
 
 
