@@ -14,10 +14,9 @@ pub async fn config_dir_check(locator: Locator, printer: Print) {
         return;
     };
 
-    let parent_dir = config_dir
-        .parent()
-        .expect("cannot access parent dir")
-        .to_owned();
+    let Some(parent_dir) = config_dir.parent() else {
+        return;
+    };
 
     let new_config_dir = if locator.global {
         parent_dir.join("stellar")
