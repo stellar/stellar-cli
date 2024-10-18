@@ -13,6 +13,8 @@ use std::{
 
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 
+use crate::{commands::global, print::Print};
+
 /// Build a contract from source
 ///
 /// Builds all crates that are referenced by the cargo manifest (Cargo.toml)
@@ -88,7 +90,9 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
         let metadata = self.metadata()?;
@@ -135,7 +139,7 @@ impl Cmd {
                 }
             }
 
-            if let Some(rustflags) = make_rustflags_to_remap_absolute_paths()? {
+            if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(&print)? {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
@@ -158,7 +162,7 @@ impl Cmd {
             if self.print_commands_only {
                 println!("{cmd_str}");
             } else {
-                eprintln!("{cmd_str}");
+                print.infoln(cmd_str);
                 let status = cmd.status().map_err(Error::CargoCmd)?;
                 if !status.success() {
                     return Err(Error::Exit(status));
@@ -296,39 +300,27 @@ impl Cmd {
 /// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
 /// existing rustflags being ignored, which is also the behavior of
 /// Cargo itself.
-fn make_rustflags_to_remap_absolute_paths() -> Result<Option<String>, Error> {
+fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let cargo_home = format!("{}", cargo_home.display());
 
     if cargo_home.find(|c: char| c.is_whitespace()).is_some() {
-        eprintln!(
-            "⚠  Warning: Cargo home directory contains whitespace. \
-                   Dependency paths will not be remapped; builds may not be reproducible."
-        );
+        print.warnln("Cargo home directory contains whitespace. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
 
     if env::var("RUSTFLAGS").is_ok() {
-        eprintln!(
-            "⚠  Warning: `RUSTFLAGS` set. \
-                   Dependency paths will not be remapped; builds may not be reproducible."
-        );
+        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
 
     if env::var("CARGO_ENCODED_RUSTFLAGS").is_ok() {
-        eprintln!(
-            "⚠  Warning: `CARGO_ENCODED_RUSTFLAGS` set. \
-                   Dependency paths will not be remapped; builds may not be reproducible."
-        );
+        print.warnln("`CARGO_ENCODED_RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
 
     if env::var("TARGET_wasm32-unknown-unknown_RUSTFLAGS").is_ok() {
-        eprintln!(
-            "⚠  Warning: `TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. \
-                   Dependency paths will not be remapped; builds may not be reproducible."
-        );
+        print.warnln("`TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
 
