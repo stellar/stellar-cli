@@ -2,8 +2,10 @@ use clap::CommandFactory;
 use dotenvy::dotenv;
 use tracing_subscriber::{fmt, EnvFilter};
 
+use crate::config_dir_check::config_dir_check;
+use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
-use crate::{commands, print, Root};
+use crate::{commands, Root};
 
 #[tokio::main]
 pub async fn main() {
@@ -42,6 +44,7 @@ pub async fn main() {
             std::process::exit(1);
         }
     });
+
     // Now use root to setup the logger
     if let Some(level) = root.global_args.log_level() {
         let mut e_filter = EnvFilter::from_default_env()
@@ -78,7 +81,14 @@ pub async fn main() {
         upgrade_check(root.global_args.quiet).await;
     });
 
-    let printer = print::Print::new(root.global_args.quiet);
+    let locator = root.global_args.locator.clone();
+
+    // Spawn a thread to check for .soroban config directories
+    tokio::spawn(async move {
+        config_dir_check(locator, Print::new(root.global_args.quiet)).await;
+    });
+
+    let printer = Print::new(root.global_args.quiet);
     if let Err(e) = root.run().await {
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);

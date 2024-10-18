@@ -14,6 +14,7 @@ pub use cli::main;
 pub mod assembled;
 pub mod commands;
 pub mod config;
+pub mod config_dir_check;
 pub mod fee;
 pub mod get_spec;
 pub mod key;
