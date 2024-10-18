@@ -95,6 +95,7 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
         if soroban_exists {
             return Ok(soroban_dir);
         }
+
         if !pwd.pop() {
             break;
         }

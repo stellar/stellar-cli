@@ -145,7 +145,7 @@ impl Args {
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
         let pwd = self.current_dir()?;
-        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban")))
+        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
     pub fn current_dir(&self) -> Result<PathBuf, Error> {
@@ -468,14 +468,22 @@ impl KeyType {
 }
 
 pub fn global_config_path() -> Result<PathBuf, Error> {
-    Ok(if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
         dirs::home_dir()
             .ok_or(Error::HomeDirNotFound)?
             .join(".config")
+    };
+
+    let soroban_dir = config_dir.join("soroban");
+    let stellar_dir = config_dir.join("stellar");
+
+    if soroban_dir.exists() {
+        Ok(soroban_dir)
+    } else {
+        Ok(stellar_dir)
     }
-    .join("soroban"))
 }
 
 impl Pwd for Args {
