@@ -2,7 +2,6 @@ use clap::CommandFactory;
 use dotenvy::dotenv;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use crate::config_dir_check::config_dir_check;
 use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
 use crate::{commands, Root};
@@ -79,13 +78,6 @@ pub async fn main() {
     // the code block that initializes the logger.
     tokio::spawn(async move {
         upgrade_check(root.global_args.quiet).await;
-    });
-
-    let locator = root.global_args.locator.clone();
-
-    // Spawn a thread to check for .soroban config directories
-    tokio::spawn(async move {
-        config_dir_check(locator, Print::new(root.global_args.quiet)).await;
     });
 
     let printer = Print::new(root.global_args.quiet);
