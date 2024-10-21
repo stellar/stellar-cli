@@ -478,12 +478,22 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
 
     let soroban_dir = config_dir.join("soroban");
     let stellar_dir = config_dir.join("stellar");
+    let soroban_exists = soroban_dir.exists();
+    let stellar_exists = stellar_dir.exists();
 
-    if soroban_dir.exists() {
-        Ok(soroban_dir)
-    } else {
-        Ok(stellar_dir)
+    if stellar_exists && soroban_exists {
+        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
     }
+
+    if stellar_exists {
+        return Ok(stellar_dir);
+    }
+
+    if soroban_exists {
+        return Ok(soroban_dir);
+    }
+
+    Ok(stellar_dir)
 }
 
 impl Pwd for Args {
