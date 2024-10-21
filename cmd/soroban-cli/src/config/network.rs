@@ -1,7 +1,11 @@
 use clap::arg;
+use itertools::Itertools;
+use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
+use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::str::FromStr;
 use stellar_strkey::ed25519::PublicKey;
 use url::Url;
@@ -30,6 +34,12 @@ pub enum Error {
     InvalidUrl(String),
     #[error("funding failed: {0}")]
     FundingFailed(String),
+    #[error(transparent)]
+    InvalidHeaderName(#[from] InvalidHeaderName),
+    #[error(transparent)]
+    InvalidHeaderValue(#[from] InvalidHeaderValue),
+    #[error("invalid HTTP header: must be in the form 'key:value'")]
+    InvalidHeader,
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -44,6 +54,17 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
+    /// RPC Header(s) to include in requests to the RPC provider
+    #[arg(
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADERS",
+        help_heading = HEADING_RPC,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = '\n',
+        value_parser = parse_http_header,
+    )]
+    pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -76,6 +97,7 @@ impl Args {
         {
             Ok(Network {
                 rpc_url,
+                rpc_headers: self.rpc_headers.clone(),
                 network_passphrase,
             })
         } else {
@@ -94,6 +116,17 @@ pub struct Network {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
+    /// Optional header (e.g. API Key) to include in requests to the RPC
+    #[arg(
+        long = "rpc-header",
+        env = "STELLAR_RPC_HEADERS",
+        help_heading = HEADING_RPC,
+        num_args = 1,
+        action = clap::ArgAction::Append,
+        value_delimiter = '\n',
+        value_parser = parse_http_header,
+    )]
+    pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
             long,
@@ -101,6 +134,21 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
+}
+
+fn parse_http_header(header: &str) -> Result<(String, String), Error> {
+    let header_components = header.splitn(2, ':');
+
+    let (key, value) = header_components
+        .map(str::trim)
+        .next_tuple()
+        .ok_or_else(|| Error::InvalidHeader)?;
+
+    // Check that the headers are properly formatted
+    HeaderName::from_str(key)?;
+    HeaderValue::from_str(value)?;
+
+    Ok((key.to_string(), value.to_string()))
 }
 
 impl Network {
@@ -160,6 +208,19 @@ impl Network {
     pub fn rpc_uri(&self) -> Result<Url, Error> {
         Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
     }
+
+    pub fn rpc_client(&self) -> Result<Client, Error> {
+        let mut header_hash_map = HashMap::new();
+        for (header_name, header_value) in &self.rpc_headers {
+            header_hash_map.insert(header_name.to_string(), header_value.to_string());
+        }
+
+        let header_map: HeaderMap = (&header_hash_map)
+            .try_into()
+            .map_err(|_| Error::InvalidHeader)?;
+
+        Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
+    }
 }
 
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
@@ -186,6 +247,7 @@ impl From<&(&str, &str)> for Network {
     fn from(n: &(&str, &str)) -> Self {
         Self {
             rpc_url: n.0.to_string(),
+            rpc_headers: Vec::new(),
             network_passphrase: n.1.to_string(),
         }
     }
@@ -197,11 +259,15 @@ mod tests {
     use mockito::Server;
     use serde_json::json;
 
+    const INVALID_HEADER_NAME: &str = "api key";
+    const INVALID_HEADER_VALUE: &str = "cannot include a carriage return \r in the value";
+
     #[tokio::test]
     async fn test_helper_url_local_network() {
         let network = Network {
             rpc_url: "http://localhost:8000".to_string(),
             network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: Vec::new(),
         };
 
         let result = network
@@ -239,6 +305,7 @@ mod tests {
         let network = Network {
             rpc_url: server.url(),
             network_passphrase: passphrase::TESTNET.to_string(),
+            rpc_headers: Vec::new(),
         };
         let url = network
             .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
@@ -269,11 +336,115 @@ mod tests {
         let network = Network {
             rpc_url: server.url(),
             network_passphrase: passphrase::TESTNET.to_string(),
+            rpc_headers: Vec::new(),
         };
         let url = network
             .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
             .await
             .unwrap();
         assert_eq!(url.as_str(), "https://friendbot.stellar.org/secret?api_key=123456&user=demo&addr=GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI");
+    }
+
+    // testing parse_header function
+    #[tokio::test]
+    async fn test_parse_http_header_ok() {
+        let result = parse_http_header("Authorization: Bearer 1234");
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_parse_http_header_error_with_invalid_name() {
+        let invalid_header = format!("{INVALID_HEADER_NAME}: Bearer 1234");
+        let result = parse_http_header(&invalid_header);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("invalid HTTP header name")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_parse_http_header_error_with_invalid_value() {
+        let invalid_header = format!("Authorization: {INVALID_HEADER_VALUE}");
+        let result = parse_http_header(&invalid_header);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("failed to parse header value")
+        );
+    }
+
+    // testing rpc_client function - we're testing this and the parse_http_header function separately because when a user has their network already configured in a toml file, the parse_http_header function is not called and we want to make sure that if the toml file is correctly formatted, the rpc_client function will work as expected
+
+    #[tokio::test]
+    async fn test_rpc_client_is_ok_when_there_are_no_headers() {
+        let network = Network {
+            rpc_url: "http://localhost:1234".to_string(),
+            network_passphrase: "Network passphrase".to_string(),
+            rpc_headers: [].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rpc_client_is_ok_with_correctly_formatted_headers() {
+        let network = Network {
+            rpc_url: "http://localhost:1234".to_string(),
+            network_passphrase: "Network passphrase".to_string(),
+            rpc_headers: [("Authorization".to_string(), "Bearer 1234".to_string())].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rpc_client_is_ok_with_multiple_headers() {
+        let network = Network {
+            rpc_url: "http://localhost:1234".to_string(),
+            network_passphrase: "Network passphrase".to_string(),
+            rpc_headers: [
+                ("Authorization".to_string(), "Bearer 1234".to_string()),
+                ("api-key".to_string(), "5678".to_string()),
+            ]
+            .to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rpc_client_returns_err_with_invalid_header_name() {
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: [(INVALID_HEADER_NAME.to_string(), "Bearer".to_string())].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("invalid HTTP header: must be in the form 'key:value'")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rpc_client_returns_err_with_invalid_header_value() {
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: [("api-key".to_string(), INVALID_HEADER_VALUE.to_string())].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("invalid HTTP header: must be in the form 'key:value'")
+        );
     }
 }
