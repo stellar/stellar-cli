@@ -8,7 +8,6 @@ use ledger_transport_hid::{
 };
 
 pub use ledger_transport_hid::TransportNativeHID;
-use soroban_env_host::xdr::{Hash, Transaction};
 
 use std::vec;
 use stellar_strkey::DecodeError;
