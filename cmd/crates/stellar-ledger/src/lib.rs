@@ -8,13 +8,13 @@ use ledger_transport_hid::{
 };
 
 pub use ledger_transport_hid::TransportNativeHID;
-
 use soroban_env_host::xdr::{Hash, Transaction};
+
 use std::vec;
 use stellar_strkey::DecodeError;
 use stellar_xdr::curr::{
-    self as xdr, Limits, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    WriteXdr,
+    self as xdr, Hash, Limits, Transaction, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
 pub use crate::signer::Blob;
@@ -316,10 +316,9 @@ mod test {
     use crate::Blob;
     use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
-    use soroban_env_host::xdr::Transaction;
     use std::vec;
 
-    use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
+    use super::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
     use crate::{test_network_hash, Error, LedgerSigner};
 

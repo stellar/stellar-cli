@@ -1,7 +1,7 @@
 use ed25519_dalek::ed25519::signature::Signer as _;
 use sha2::{Digest, Sha256};
 
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,

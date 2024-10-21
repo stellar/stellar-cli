@@ -1,5 +1,4 @@
 use clap::Parser;
-use soroban_env_host::meta;
 use std::fmt::Debug;
 
 #[derive(Parser, Debug, Clone)]
@@ -22,12 +21,9 @@ pub fn git() -> &'static str {
 }
 
 pub fn long() -> String {
-    let env = soroban_env_host::VERSION;
-    let xdr = soroban_env_host::VERSION.xdr;
+    let xdr = stellar_xdr::VERSION;
     [
         format!("{} ({})", pkg(), git()),
-        format!("soroban-env {} ({})", env.pkg, env.rev),
-        format!("soroban-env interface version {}", meta::INTERFACE_VERSION),
         format!(
             "stellar-xdr {} ({})
 xdr curr ({})",

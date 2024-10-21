@@ -1,9 +1,9 @@
-use clap::{arg, command, Parser};
-use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, AccountId, ContractIdPreimage, ContractIdPreimageFromAddress, Hash, HashIdPreimage,
     HashIdPreimageContractId, Limits, PublicKey, ScAddress, Uint256, WriteXdr,
 };
+use clap::{arg, command, Parser};
+use sha2::{Digest, Sha256};
 
 use crate::config;
 

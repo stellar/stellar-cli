@@ -1,5 +1,5 @@
 use soroban_cli::assembled::simulate_and_assemble_transaction;
-use soroban_sdk::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
+use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
