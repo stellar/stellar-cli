@@ -1,14 +1,16 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine as _};
-use std::{
-    fmt::Display,
-    io::{self, Cursor},
-};
-
 use soroban_env_host::xdr::{
     self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
     ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
     StringM, WriteXdr,
 };
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    fs,
+    io::{self, Cursor},
+};
+use wasm_encoder::{CustomSection, Encode, Module};
 
 pub struct Spec {
     pub env_meta_base64: Option<String>,
@@ -17,6 +19,7 @@ pub struct Spec {
     pub meta: Vec<ScMetaEntry>,
     pub spec_base64: Option<String>,
     pub spec: Vec<ScSpecEntry>,
+    bytes: Vec<u8>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -91,6 +94,7 @@ impl Spec {
             meta,
             spec_base64,
             spec,
+            bytes: bytes.to_vec(),
         })
     }
 
@@ -113,7 +117,47 @@ impl Spec {
             ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?,
         ))
     }
+
+    pub fn append_custom_section_to_wasm(
+        &self,
+        wasm_file: &str,
+        section_name: &str,
+        new_data: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Read the existing WASM file
+        let wasm_bytes = fs::read(wasm_file)?;
+
+        // Create a new custom section with new meta
+        let custom_section = CustomSection {
+            name: std::borrow::Cow::Borrowed(section_name),
+            data: Cow::Borrowed(&[]),
+        };
+
+        // Append the custom section to the existing WASM bytes
+        let mut new_wasm_bytes = wasm_bytes.clone();
+
+        println!("new custom section data: {:?}", new_data);
+        custom_section.encode(&mut new_data.to_vec());
+        println!("custom section data: {:?}", custom_section.data);
+        new_wasm_bytes.extend(custom_section.data.iter());
+
+        let updated_spec = Spec::new(&new_wasm_bytes)?;
+        println!("======> this is the updated spec: {:?}", updated_spec.spec);
+        println!(
+            "======> this is the updated meta (in the spec): {:?}",
+            updated_spec.meta
+        );
+
+        let valid_wasm = wasmparser::validate(&new_wasm_bytes).is_ok();
+        println!("======> is the updated WASM valid? {:?}", valid_wasm);
+
+        // Write the updated WASM back to the file
+        fs::write(wasm_file, new_wasm_bytes)?;
+
+        Ok(())
+    }
 }
+
 
 impl Display for Spec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

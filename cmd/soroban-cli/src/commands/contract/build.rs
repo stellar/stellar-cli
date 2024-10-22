@@ -3,14 +3,9 @@ use clap::Parser;
 use itertools::Itertools;
 use soroban_env_host::xdr::{Limits, WriteXdr};
 use soroban_spec_tools::contract::Spec;
+use wasm_encoder::{Module, CustomSection};
 use std::{
-    collections::HashSet,
-    env,
-    ffi::OsStr,
-    fmt::Debug,
-    fs, io,
-    path::{self, Path, PathBuf},
-    process::{Command, ExitStatus, Stdio},
+    borrow::Cow, collections::HashSet, env, ffi::OsStr, fmt::Debug, fs, io, path::{self, Path, PathBuf}, process::{Command, ExitStatus, Stdio}
 };
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0, StringM};
 
@@ -90,10 +85,7 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
 
-        // here we are including the metadata that is already included in the contracts
-        // or is this just metadata for the build process, and doesn't actually include the contract metadata?
         let metadata = self.metadata()?;
-        println!("Metadata: {:#?}", metadata);
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
 
@@ -105,18 +97,7 @@ impl Cmd {
             }
         }
 
-        println!("number of packages: {:?}", packages.len());
         // now for each package compile it with rustc
-        // in my example, there is only one package, because there is only one contract
-        // i think that when i print out my package, there is no metadata because i have not included any via the contractmetadata macro
-        // buuuut, i think what i can do is find that in the package struct, and then add additional metadata to it?
-        // not sure how this will work
-        // i wonder if we're doing any wasm parsing elsewhere... it kind of sounded like we w
-
-        // when i put metadata in the contract, i am still not seeing it in my package output :thinking:
-        // i think that the metadata here is only cargo rust metadata... not necessarily related to the stellar contract
-
-        println!("package: {:#?}", packages[0]);
 
         for p in packages {
             let mut cmd = Command::new("cargo");
@@ -164,6 +145,7 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
+
                 // and here is where we're copying the wasm file to the output directory
                 // i probably could update the wasm here... but im not sure if that is the best place to do this
                 // i'll try it here for now...
@@ -176,33 +158,22 @@ impl Cmd {
                     .join("wasm32-unknown-unknown")
                     .join(&self.profile)
                     .join(&file);
-                let wasm_bytes = fs::read(target_file_path).unwrap();
-                let mut spec = Spec::new(&wasm_bytes).unwrap();
-                let original_meta = spec.meta.clone();
+                let wasm_bytes = fs::read(&target_file_path).unwrap();
+                let spec = Spec::new(&wasm_bytes).unwrap();
+                println!("this is the original spec: {:?}", spec.spec);
+                println!("this is the original meta (in the spec): {:?}", spec.meta);
 
                 let key: StringM = "new_meta_key".try_into().unwrap();
                 let val: StringM = "new_meta_val".try_into().unwrap();
-
                 let new_meta_v0 = ScMetaV0 { key, val };
                 let new_meta_entry = ScMetaEntry::ScMetaV0(new_meta_v0);
-                // let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
+                let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
 
-                let mut updated_meta = original_meta.clone();
-                updated_meta.push(new_meta_entry);
+                let str_path: &str = target_file_path.to_str().unwrap();
+                let result = spec.append_custom_section_to_wasm(str_path, "contractmetav0", &new_meta_xdr);
+                println!("RESULT: {:?}", result);
 
-                // update the meta in the spec
-                spec.meta = updated_meta.clone();
 
-                let meta_json = serde_json::to_string_pretty(&spec.meta).unwrap();
-                println!("meta: {}", meta_json); // this is the meta xdr
-
-                // i have an updated spec... how do i get that spec back to wasm binary, so i can write it back into a file?
-
-                // rewrite the file with the new meta
-
-                // let meta_xdr = spec.meta_base64.unwrap();
-                // let meta_json = serde_json::to_string_pretty(&spec.meta).unwrap();
-                // println!("meta: {:?}", meta_json); // this is the meta xdr
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
