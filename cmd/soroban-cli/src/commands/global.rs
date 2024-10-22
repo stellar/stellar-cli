@@ -46,6 +46,22 @@ pub struct Args {
     /// Do not cache your simulations and transactions
     #[arg(long, env = "STELLAR_NO_CACHE", global = true)]
     pub no_cache: bool,
+
+    /// RPC URL for the Stellar network
+    #[arg(long, env = "STELLAR_RPC_URL")]
+    pub rpc_url: Option<String>,
+ 
+    /// Network passphrase for the Stellar network
+    #[arg(long, env = "STELLAR_NETWORK_PASSPHRASE")]
+    pub network_passphrase: Option<String>,
+ 
+    /// Network name (e.g., 'testnet', 'mainnet')
+    #[arg(long, env = "STELLAR_NETWORK")]
+    pub network: Option<String>,
+
+    /// Path to the WebAssembly file
+    #[arg(long, env = "STELLAR_WASM", global = true)]
+    pub wasm: Option<PathBuf>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -61,6 +77,9 @@ pub enum Error {
         filepath: PathBuf,
         error: soroban_ledger_snapshot::Error,
     },
+
+    #[error("network arg or rpc url and network passphrase are required if using the network")]
+    Network,
 }
 
 impl Args {
