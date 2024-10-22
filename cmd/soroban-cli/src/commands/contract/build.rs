@@ -3,11 +3,18 @@ use clap::Parser;
 use itertools::Itertools;
 use soroban_env_host::xdr::{Limits, WriteXdr};
 use soroban_spec_tools::contract::Spec;
-use wasm_encoder::{Module, CustomSection};
 use std::{
-    borrow::Cow, collections::HashSet, env, ffi::OsStr, fmt::Debug, fs, io, path::{self, Path, PathBuf}, process::{Command, ExitStatus, Stdio}
+    borrow::Cow,
+    collections::HashSet,
+    env,
+    ffi::OsStr,
+    fmt::Debug,
+    fs, io,
+    path::{self, Path, PathBuf},
+    process::{Command, ExitStatus, Stdio},
 };
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0, StringM};
+use wasm_encoder::{CustomSection, Module};
 
 /// Build a contract from source
 ///
@@ -145,7 +152,6 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
-
                 // and here is where we're copying the wasm file to the output directory
                 // i probably could update the wasm here... but im not sure if that is the best place to do this
                 // i'll try it here for now...
@@ -170,10 +176,10 @@ impl Cmd {
                 let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
 
                 let str_path: &str = target_file_path.to_str().unwrap();
-                let result = spec.append_custom_section_to_wasm(str_path, "contractmetav0", &new_meta_xdr);
+                // let result =
+                //     spec.append_custom_section_to_wasm(str_path, "contractmetav0", &new_meta_xdr);
+                let result = spec.append_based_on_strip(str_path, "contractmetav0", &new_meta_xdr);
                 println!("RESULT: {:?}", result);
-
-
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;

@@ -9,8 +9,11 @@ use std::{
     fmt::Display,
     fs,
     io::{self, Cursor},
+    ops::Range,
 };
-use wasm_encoder::{CustomSection, Encode, Module};
+use wasm_encoder::{CustomSection, Module, RawSection, SectionId};
+use wasmparser::Payload::*;
+use wasmparser::{Encoding, Parser as WasmParser, SectionReader};
 
 pub struct Spec {
     pub env_meta_base64: Option<String>,
@@ -46,7 +49,7 @@ impl Spec {
         let mut env_meta: Option<&[u8]> = None;
         let mut meta: Option<&[u8]> = None;
         let mut spec: Option<&[u8]> = None;
-        for payload in wasmparser::Parser::new(0).parse_all(bytes) {
+        for payload in WasmParser::new(0).parse_all(bytes) {
             let payload = payload?;
             if let wasmparser::Payload::CustomSection(section) = payload {
                 let out = match section.name() {
@@ -118,6 +121,143 @@ impl Spec {
         ))
     }
 
+    pub fn append_based_on_strip(
+        &self,
+        wasm_file: &str,
+        section_name: &str,
+        new_data: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let original_wasm_bytes = fs::read(wasm_file).unwrap();
+
+        let mut module = Module::new();
+
+        for payload in WasmParser::new(0).parse_all(&original_wasm_bytes) {
+            let payload = payload?;
+
+            // closure to add current section to the module
+            let mut section = |id: SectionId, range: Range<usize>| {
+                module.section(&RawSection {
+                    id: id as u8,
+                    data: &original_wasm_bytes[range],
+                });
+            };
+
+            // rewrite the wasm file as-is - in the newer version wasm-tools there seems to be an easier way to do this.
+            // https://github.com/bytecodealliance/wasm-tools/blob/91be0bbc8c5df685a74d87295e9cfff0be9c07c7/src/bin/wasm-tools/strip.rs#L63
+            match payload {
+                Version {
+                    encoding: Encoding::Module,
+                    ..
+                } => {}
+                Version {
+                    encoding: Encoding::Component,
+                    ..
+                } => {
+                    println!("components are not supported yet with the `strip` command");
+                    continue;
+                }
+
+                TypeSection(s) => section(SectionId::Type, s.range()),
+                ImportSection(s) => section(SectionId::Import, s.range()),
+                FunctionSection(s) => section(SectionId::Function, s.range()),
+                TableSection(s) => section(SectionId::Table, s.range()),
+                MemorySection(s) => section(SectionId::Memory, s.range()),
+                TagSection(s) => section(SectionId::Tag, s.range()),
+                GlobalSection(s) => section(SectionId::Global, s.range()),
+                ExportSection(s) => section(SectionId::Export, s.range()),
+                ElementSection(s) => section(SectionId::Element, s.range()),
+                DataSection(s) => section(SectionId::Data, s.range()),
+                StartSection { range, .. } => section(SectionId::Start, range),
+                DataCountSection { range, .. } => section(SectionId::DataCount, range),
+                CodeSectionStart { range, .. } => section(SectionId::Code, range),
+                CodeSectionEntry(_) => {}
+                wasmparser::Payload::CustomSection(c) => {
+                    println!("custom section: {:?}", c);
+                    
+                    module.section(&RawSection {
+                        id: SectionId::Custom as u8,
+                        data: &original_wasm_bytes[c.range()],
+                    });
+                }
+
+                ModuleSection { .. }
+                | InstanceSection(_)
+                | CoreTypeSection(_)
+                | ComponentSection { .. }
+                | ComponentInstanceSection(_)
+                | ComponentAliasSection(_)
+                | ComponentTypeSection(_)
+                | ComponentCanonicalSection(_)
+                | ComponentStartSection(_)
+                | ComponentImportSection(_)
+                | ComponentExportSection(_) => unimplemented!("component model"),
+
+                UnknownSection {
+                    id,
+                    contents,
+                    range: _,
+                } => {
+                    module.section(&RawSection { id, data: contents });
+                }
+
+                End(_) => {}
+                AliasSection(alias_section_reader) => todo!(),
+            }
+        }
+
+        // module.section(&RawSection {
+        //     id: SectionId::Custom as u8,
+        //     data: new_data,
+        // });
+
+        // then add the new custom section
+        module.section(&CustomSection {
+            name: Cow::Borrowed("contractmetav0"),
+            data: Cow::Borrowed(new_data),
+        });
+
+
+        let module = module.finish();
+        let updated_spec = Spec::new(&module)?;
+        println!("======> this is the updated spec: {:?}", updated_spec.spec);
+        println!(
+            "======> this is the updated meta (in the spec): {:?}",
+            updated_spec.meta
+        );
+
+        // rewrite the new module to the exsiting wasm file
+        fs::write(wasm_file, module)?;
+
+        Ok(())
+    }
+
+    // pub fn new_append_custom_section_to_wasm(
+    //     &self,
+    //     wasm_file: &str,
+    //     section_name: &str,
+    //     new_data: &[u8],
+    // ) -> Result<(), Box<dyn std::error::Error>> {
+    //     let original_wasm_bytes = fs::read(wasm_file)?;
+    //     let mut original_module = Module::new();
+    //     RoundtripReencoder
+    //         .parse_core_module(
+    //             &mut original_module,
+    //             WasmParser::new(0),
+    //             &original_wasm_bytes,
+    //         )
+    //         .unwrap();
+    //     let original_module = original_module.finish();
+
+    //     let custom_section_module = Module::new();
+    //     let custom_section_name = "contractmetav0";
+    //     let custom_section_data = b"oh hi, this is a custom section";
+    //     let custom_section = CustomSection {
+    //         name: Cow::Borrowed(custom_section_name),
+    //         data: Cow::Borrowed(custom_section_data),
+    //     };
+    //     custom_section_module.section(&custom_section);
+    // }
+
     pub fn append_custom_section_to_wasm(
         &self,
         wasm_file: &str,
@@ -127,37 +267,55 @@ impl Spec {
         // Read the existing WASM file
         let wasm_bytes = fs::read(wasm_file)?;
 
-        // Create a new custom section with new meta
+        // let mut module = Module::new();
+        let custom_section_name = "contractmetav0";
+        let custom_section_data = b"oh hi, this is a custom section";
         let custom_section = CustomSection {
-            name: std::borrow::Cow::Borrowed(section_name),
-            data: Cow::Borrowed(&[]),
+            name: std::borrow::Cow::Borrowed(&custom_section_name),
+            data: Cow::Borrowed(custom_section_data),
         };
 
+        let mut original_module = Module::new();
+        // RoundtripReencoder
+        //     .parse_core_module(
+        //         &mut original_module,
+        //         Parser::new(0),
+        //         &wasm_bytes,
+        //     )
+        //     .unwrap();
+        // // RoundtripReencoder
+        // //     .parse_core_module(&mut original_module, wasmparser::Parser::new(0), &wasm_bytes)
+        // //     .unwrap();
+
+        original_module.section(&custom_section);
+        let new_binary = original_module.finish();
+        // // Create a new custom section with new meta
+        // let custom_section = CustomSection {
+        //     name: std::borrow::Cow::Borrowed(section_name),
+        //     data: Cow::Borrowed(&[]),
+        // };
+
         // Append the custom section to the existing WASM bytes
-        let mut new_wasm_bytes = wasm_bytes.clone();
+        // let mut new_wasm_bytes = wasm_bytes.clone();
 
-        println!("new custom section data: {:?}", new_data);
-        custom_section.encode(&mut new_data.to_vec());
-        println!("custom section data: {:?}", custom_section.data);
-        new_wasm_bytes.extend(custom_section.data.iter());
+        // new_wasm_bytes.extend(new_binary);
 
-        let updated_spec = Spec::new(&new_wasm_bytes)?;
+        let updated_spec = Spec::new(&new_binary)?;
         println!("======> this is the updated spec: {:?}", updated_spec.spec);
         println!(
             "======> this is the updated meta (in the spec): {:?}",
             updated_spec.meta
         );
 
-        let valid_wasm = wasmparser::validate(&new_wasm_bytes).is_ok();
+        let valid_wasm = wasmparser::validate(&new_binary).is_ok();
         println!("======> is the updated WASM valid? {:?}", valid_wasm);
 
         // Write the updated WASM back to the file
-        fs::write(wasm_file, new_wasm_bytes)?;
+        fs::write(wasm_file, new_binary)?;
 
         Ok(())
     }
 }
-
 
 impl Display for Spec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
