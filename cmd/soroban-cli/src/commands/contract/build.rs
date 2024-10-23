@@ -64,6 +64,16 @@ pub struct Cmd {
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
+    #[arg(long, num_args=1, value_parser=parse_metadata, action=clap::ArgAction::Append, help_heading = "Metadata")]
+    pub metadata: Vec<(String, String)>,
+}
+
+fn parse_metadata(s: &str) -> Result<(String, String), Error> {
+    let parts = s.splitn(2, '=');
+
+    let (key, value) = parts.map(str::trim).next_tuple().unwrap();
+
+    Ok((key.to_string(), value.to_string()))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -155,13 +165,15 @@ impl Cmd {
 
                 let mut wasm_bytes = fs::read(&target_file_path).unwrap();
 
-                let key: StringM = "new_meta_key".try_into().unwrap();
-                let val: StringM = "new_meta_val".try_into().unwrap();
-                let new_meta_v0 = ScMetaV0 { key, val };
-                let new_meta_entry = ScMetaEntry::ScMetaV0(new_meta_v0);
-                let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
+                self.metadata.iter().for_each(|(k, v)| {
+                    println!("Metadata: {}={}", k, v);
+                    let key: StringM = k.try_into().unwrap();
+                    let val: StringM = v.try_into().unwrap();
+                    let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
+                    let xdr: Vec<u8> = meta_entry.to_xdr(Limits::none()).unwrap();
 
-                wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &new_meta_xdr);
+                    wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &xdr);
+                });
 
                 let updated_spec = Spec::new(&wasm_bytes).unwrap();
                 println!("Updated meta!: {:?}", updated_spec.meta);
