@@ -1,7 +1,6 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
-use soroban_env_host::xdr::{Limits, WriteXdr};
 use soroban_spec_tools::contract::Spec;
 use std::{
     collections::HashSet,
@@ -12,7 +11,7 @@ use std::{
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{ScMetaEntry, ScMetaV0, StringM};
+use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 /// Build a contract from source
 ///
