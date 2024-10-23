@@ -98,17 +98,6 @@ impl Cmd {
             }
         };
         
-        // Check if a WASM file is provided; if so, skip the network argument requirement
-        if global_args.wasm.is_some() {
-            return Ok(()); // No further checks needed
-        }
-
-        // Ensure network arguments are provided when WASM is not specified
-        if global_args.rpc_url.is_none() || global_args.network_passphrase.is_none() || global_args.network.is_none() {
-            return Err(Error::Network); // Inform user that these arguments are required
-        }
-
-       
         Ok(())
     }
 }
