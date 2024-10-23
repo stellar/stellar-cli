@@ -4,7 +4,6 @@ use itertools::Itertools;
 use soroban_env_host::xdr::{Limits, WriteXdr};
 use soroban_spec_tools::contract::Spec;
 use std::{
-    borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
@@ -14,7 +13,6 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0, StringM};
-use wasm_encoder::{CustomSection, Module};
 
 /// Build a contract from source
 ///
@@ -154,10 +152,8 @@ impl Cmd {
                     .join("wasm32-unknown-unknown")
                     .join(&self.profile)
                     .join(&file);
-                let wasm_bytes = fs::read(&target_file_path).unwrap();
-                let spec = Spec::new(&wasm_bytes).unwrap();
-                println!("this is the original spec: {:?}", spec.spec);
-                println!("this is the original meta (in the spec): {:?}", spec.meta);
+
+                let mut wasm_bytes = fs::read(&target_file_path).unwrap();
 
                 let key: StringM = "new_meta_key".try_into().unwrap();
                 let val: StringM = "new_meta_val".try_into().unwrap();
@@ -165,9 +161,13 @@ impl Cmd {
                 let new_meta_entry = ScMetaEntry::ScMetaV0(new_meta_v0);
                 let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
 
+                wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &new_meta_xdr);
+
+                let updated_spec = Spec::new(&wasm_bytes).unwrap();
+                println!("Updated meta!: {:?}", updated_spec.meta);
+
                 let str_path: &str = target_file_path.to_str().unwrap();
-                let result = spec.append_based_on_strip(str_path, "contractmetav0", &new_meta_xdr);
-                println!("RESULT: {:?}", result);
+                fs::write(str_path, wasm_bytes).unwrap();
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;

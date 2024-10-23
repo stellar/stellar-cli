@@ -129,7 +129,7 @@ glob = "0.3.1"
 fqdn = "0.3.12"
 open = "5.3.0"
 url = "2.5.2"
-wasm-encoder = "0.219.1"
+wasm-gen = "0.1.4"
 
 [build-dependencies]
 crate-git-revision = "0.0.4"
