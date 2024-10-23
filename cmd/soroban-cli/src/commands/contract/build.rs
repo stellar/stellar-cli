@@ -104,8 +104,6 @@ impl Cmd {
             }
         }
 
-        // now for each package compile it with rustc
-
         for p in packages {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
@@ -146,18 +144,10 @@ impl Cmd {
                 println!("{cmd_str}");
             } else {
                 eprintln!("{cmd_str}");
-                // here is where we're compiling the contract pkg
                 let status = cmd.status().map_err(Error::CargoCmd)?;
                 if !status.success() {
                     return Err(Error::Exit(status));
                 }
-
-                // and here is where we're copying the wasm file to the output directory
-                // i probably could update the wasm here... but im not sure if that is the best place to do this
-                // i'll try it here for now...
-
-                // copied some of this from contract/info/shared.rs and wasm.rs - should refactor
-                // and from the copying to an output dir too... there is probalby some sort of utility here
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
@@ -176,8 +166,6 @@ impl Cmd {
                 let new_meta_xdr: Vec<u8> = new_meta_entry.to_xdr(Limits::none()).unwrap();
 
                 let str_path: &str = target_file_path.to_str().unwrap();
-                // let result =
-                //     spec.append_custom_section_to_wasm(str_path, "contractmetav0", &new_meta_xdr);
                 let result = spec.append_based_on_strip(str_path, "contractmetav0", &new_meta_xdr);
                 println!("RESULT: {:?}", result);
 

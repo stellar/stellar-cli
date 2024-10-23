@@ -173,7 +173,7 @@ impl Spec {
                 CodeSectionEntry(_) => {}
                 wasmparser::Payload::CustomSection(c) => {
                     println!("custom section: {:?}", c);
-                    
+
                     module.section(&RawSection {
                         id: SectionId::Custom as u8,
                         data: &original_wasm_bytes[c.range()],
@@ -216,7 +216,6 @@ impl Spec {
             data: Cow::Borrowed(new_data),
         });
 
-
         let module = module.finish();
         let updated_spec = Spec::new(&module)?;
         println!("======> this is the updated spec: {:?}", updated_spec.spec);
@@ -227,91 +226,6 @@ impl Spec {
 
         // rewrite the new module to the exsiting wasm file
         fs::write(wasm_file, module)?;
-
-        Ok(())
-    }
-
-    // pub fn new_append_custom_section_to_wasm(
-    //     &self,
-    //     wasm_file: &str,
-    //     section_name: &str,
-    //     new_data: &[u8],
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     let original_wasm_bytes = fs::read(wasm_file)?;
-    //     let mut original_module = Module::new();
-    //     RoundtripReencoder
-    //         .parse_core_module(
-    //             &mut original_module,
-    //             WasmParser::new(0),
-    //             &original_wasm_bytes,
-    //         )
-    //         .unwrap();
-    //     let original_module = original_module.finish();
-
-    //     let custom_section_module = Module::new();
-    //     let custom_section_name = "contractmetav0";
-    //     let custom_section_data = b"oh hi, this is a custom section";
-    //     let custom_section = CustomSection {
-    //         name: Cow::Borrowed(custom_section_name),
-    //         data: Cow::Borrowed(custom_section_data),
-    //     };
-    //     custom_section_module.section(&custom_section);
-    // }
-
-    pub fn append_custom_section_to_wasm(
-        &self,
-        wasm_file: &str,
-        section_name: &str,
-        new_data: &[u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Read the existing WASM file
-        let wasm_bytes = fs::read(wasm_file)?;
-
-        // let mut module = Module::new();
-        let custom_section_name = "contractmetav0";
-        let custom_section_data = b"oh hi, this is a custom section";
-        let custom_section = CustomSection {
-            name: std::borrow::Cow::Borrowed(&custom_section_name),
-            data: Cow::Borrowed(custom_section_data),
-        };
-
-        let mut original_module = Module::new();
-        // RoundtripReencoder
-        //     .parse_core_module(
-        //         &mut original_module,
-        //         Parser::new(0),
-        //         &wasm_bytes,
-        //     )
-        //     .unwrap();
-        // // RoundtripReencoder
-        // //     .parse_core_module(&mut original_module, wasmparser::Parser::new(0), &wasm_bytes)
-        // //     .unwrap();
-
-        original_module.section(&custom_section);
-        let new_binary = original_module.finish();
-        // // Create a new custom section with new meta
-        // let custom_section = CustomSection {
-        //     name: std::borrow::Cow::Borrowed(section_name),
-        //     data: Cow::Borrowed(&[]),
-        // };
-
-        // Append the custom section to the existing WASM bytes
-        // let mut new_wasm_bytes = wasm_bytes.clone();
-
-        // new_wasm_bytes.extend(new_binary);
-
-        let updated_spec = Spec::new(&new_binary)?;
-        println!("======> this is the updated spec: {:?}", updated_spec.spec);
-        println!(
-            "======> this is the updated meta (in the spec): {:?}",
-            updated_spec.meta
-        );
-
-        let valid_wasm = wasmparser::validate(&new_binary).is_ok();
-        println!("======> is the updated WASM valid? {:?}", valid_wasm);
-
-        // Write the updated WASM back to the file
-        fs::write(wasm_file, new_binary)?;
 
         Ok(())
     }
