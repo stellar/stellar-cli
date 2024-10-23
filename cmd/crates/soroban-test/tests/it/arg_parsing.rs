@@ -1,6 +1,6 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
-use soroban_env_host::xdr::{
+use soroban_cli::xdr::{
     ScBytes, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal,
 };
 use soroban_spec_tools::{from_string_primitive, Spec};

@@ -2,23 +2,28 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
     LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
     TransactionResult, TransactionResultResult, VecM, WriteXdr,
 };
+use clap::{command, Parser};
 
 use super::restore;
-use crate::assembled::simulate_and_assemble_transaction;
-use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{self, data, network};
-use crate::key;
-use crate::print::Print;
-use crate::rpc::{self, Client};
-use crate::tx::builder::{self, TxExt};
-use crate::{utils, wasm};
+use crate::{
+    assembled::simulate_and_assemble_transaction,
+    commands::{
+        global,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
+    },
+    config::{self, data, network},
+    key,
+    print::Print,
+    rpc,
+    tx::builder::{self, TxExt},
+    utils, wasm,
+};
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
 const PUBLIC_NETWORK_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";
@@ -103,7 +108,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

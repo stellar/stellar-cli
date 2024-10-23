@@ -3,20 +3,17 @@ use std::{
     io::{self, stdout},
 };
 
-use clap::{command, Parser, ValueEnum};
-use soroban_env_host::{
-    xdr::{
-        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
-        Limits, ScVal, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+    Limits, ScVal, WriteXdr,
 };
+use clap::{command, Parser, ValueEnum};
 
 use crate::{
     commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
-    rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
+    rpc::{self, FullLedgerEntries, FullLedgerEntry},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -77,10 +74,6 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Xdr(#[from] XdrError),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("no matching contract data entries were found for the specified contract id")]
     NoContractDataEntryFoundForContractID,
     #[error(transparent)]
@@ -188,7 +181,7 @@ impl NetworkRunnable for Cmd {
         let network = self.config.network.get(&locator)?;
 
         tracing::trace!(?network);
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let keys = self.key.parse_keys(&locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }

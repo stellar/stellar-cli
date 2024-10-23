@@ -1,11 +1,13 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use soroban_env_host::xdr::{self, Limits, ReadXdr};
+use crate::xdr::{self, Limits, ReadXdr};
 
 use super::{global, NetworkRunnable};
-use crate::config::{self, locator, network};
-use crate::rpc;
+use crate::{
+    config::{self, locator, network},
+    rpc,
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -207,7 +209,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        let client = rpc::Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

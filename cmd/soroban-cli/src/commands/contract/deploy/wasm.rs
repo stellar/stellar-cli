@@ -2,25 +2,21 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
+use crate::xdr::{
+    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+    CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits, Memo,
+    MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress, SequenceNumber,
+    Transaction, TransactionExt, Uint256, VecM, WriteXdr,
+};
 use clap::{arg, command, Parser};
 use rand::Rng;
 use regex::Regex;
-use soroban_env_host::{
-    xdr::{
-        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
-        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
-    },
-    HostError,
-};
 
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
-    rpc::{self, Client},
-    utils, wasm,
+    rpc, utils, wasm,
 };
 use crate::{
     commands::{
@@ -70,8 +66,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Install(#[from] install::Error),
-    #[error(transparent)]
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -213,7 +207,7 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
