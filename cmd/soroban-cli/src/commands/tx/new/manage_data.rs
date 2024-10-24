@@ -7,6 +7,12 @@ use crate::{commands::tx, xdr};
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+pub struct Args {
     /// Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
     #[arg(long)]
     pub data_name: xdr::StringM<64>,
@@ -17,8 +23,8 @@ pub struct Cmd {
     pub data_value: Option<xdr::BytesM<64>>,
 }
 
-impl From<&Cmd> for xdr::OperationBody {
-    fn from(cmd: &Cmd) -> Self {
+impl From<&Args> for xdr::OperationBody {
+    fn from(cmd: &Args) -> Self {
         let data_value = cmd.data_value.clone().map(Into::into);
         let data_name = cmd.data_name.clone().into();
         xdr::OperationBody::ManageData(xdr::ManageDataOp {
