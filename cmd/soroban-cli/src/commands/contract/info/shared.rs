@@ -59,11 +59,16 @@ pub enum Error {
 }
 
 pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
-    let network = &args.network.get(&args.locator)?;
+    // Check if a local WASM file path is provided
+    if let Some(path) = &args.wasm {
+        // Read the WASM file and return its contents
+        let wasm_bytes = wasm::Args { wasm: path.clone() }.read()?;
+        return Ok(Some(wasm_bytes));
+    }
 
-    let wasm = if let Some(path) = &args.wasm {
-        wasm::Args { wasm: path.clone() }.read()?
-    } else if let Some(wasm_hash) = &args.wasm_hash {
+    // If no local wasm, then check for wasm_hash and fetch from the network
+    let network = &args.network.get(&args.locator)?;
+    let wasm = if let Some(wasm_hash) = &args.wasm_hash {
         let hash = hex::decode(wasm_hash)
             .map_err(|_| InvalidWasmHash(wasm_hash.clone()))?
             .try_into()
