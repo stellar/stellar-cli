@@ -177,8 +177,7 @@ impl Cmd {
                 let updated_spec = Spec::new(&wasm_bytes).unwrap();
                 println!("Updated meta!: {:?}", updated_spec.meta);
 
-                let str_path: &str = target_file_path.to_str().unwrap();
-                fs::write(str_path, wasm_bytes).unwrap();
+                fs::write(&target_file_path, wasm_bytes).unwrap();
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
