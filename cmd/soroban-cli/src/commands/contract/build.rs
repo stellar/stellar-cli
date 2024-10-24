@@ -1,7 +1,6 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
-use soroban_spec_tools::contract::Spec;
 use std::{
     collections::HashSet,
     env,
@@ -165,7 +164,6 @@ impl Cmd {
                 let mut wasm_bytes = fs::read(&target_file_path).unwrap();
 
                 self.metadata.iter().for_each(|(k, v)| {
-                    println!("Metadata: {}={}", k, v);
                     let key: StringM = k.try_into().unwrap();
                     let val: StringM = v.try_into().unwrap();
                     let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
@@ -173,10 +171,6 @@ impl Cmd {
 
                     wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &xdr);
                 });
-
-                let updated_spec = Spec::new(&wasm_bytes).unwrap();
-                println!("Updated meta!: {:?}", updated_spec.meta);
-
                 fs::write(&target_file_path, wasm_bytes).unwrap();
 
                 if let Some(out_dir) = &self.out_dir {
