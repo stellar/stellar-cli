@@ -97,7 +97,6 @@ impl Cmd {
                 cmd.run(global_args).await?;
             }
         };
-        
         Ok(())
     }
 }
