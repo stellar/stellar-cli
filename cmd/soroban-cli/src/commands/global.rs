@@ -46,7 +46,6 @@ pub struct Args {
     /// Do not cache your simulations and transactions
     #[arg(long, env = "STELLAR_NO_CACHE", global = true)]
     pub no_cache: bool,
-
 }
 
 #[derive(thiserror::Error, Debug)]
