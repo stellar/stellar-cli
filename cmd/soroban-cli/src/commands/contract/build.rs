@@ -1,3 +1,4 @@
+use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
 use std::{
@@ -9,8 +10,7 @@ use std::{
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 /// Build a contract from source
 ///
@@ -62,6 +62,19 @@ pub struct Cmd {
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
+    #[arg(long, num_args=1, value_parser=parse_metadata, action=clap::ArgAction::Append, help_heading = "Metadata")]
+    pub metadata: Vec<(String, String)>,
+}
+
+fn parse_metadata(s: &str) -> Result<(String, String), Error> {
+    let parts = s.splitn(2, '=');
+
+    let (key, value) = parts
+        .map(str::trim)
+        .next_tuple()
+        .ok_or_else(|| Error::MetadataArg("must be in the form 'key=value'".to_string()))?;
+
+    Ok((key.to_string(), value.to_string()))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -82,6 +95,12 @@ pub enum Error {
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
+    #[error("reading wasm file: {0}")]
+    ReadingWasmFile(io::Error),
+    #[error("writing wasm file: {0}")]
+    WritingWasmFile(io::Error),
+    #[error("invalid metadata entry: {0}")]
+    MetadataArg(String),
 }
 
 impl Cmd {
@@ -145,14 +164,34 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
+                let file = format!("{}.wasm", p.name.replace('-', "_"));
+                let target_file_path = Path::new(target_dir)
+                    .join("wasm32-unknown-unknown")
+                    .join(&self.profile)
+                    .join(&file);
+
+                let mut wasm_bytes = fs::read(&target_file_path).map_err(Error::ReadingWasmFile)?;
+
+                for (k, v) in self.metadata.clone() {
+                    let key: StringM = k.clone().try_into().map_err(|e| {
+                        Error::MetadataArg(format!("{k} is an invalid metadata key: {e}"))
+                    })?;
+
+                    let val: StringM = v.clone().try_into().map_err(|e| {
+                        Error::MetadataArg(format!("{v} is an invalid metadata value: {e}"))
+                    })?;
+                    let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
+                    let xdr: Vec<u8> = meta_entry.to_xdr(Limits::none()).map_err(|e| {
+                        Error::MetadataArg(format!("failed to encode metadata entry: {e}"))
+                    })?;
+
+                    wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &xdr);
+                }
+
+                fs::write(&target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?;
+
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-
-                    let file = format!("{}.wasm", p.name.replace('-', "_"));
-                    let target_file_path = Path::new(target_dir)
-                        .join("wasm32-unknown-unknown")
-                        .join(&self.profile)
-                        .join(&file);
                     let out_file_path = Path::new(out_dir).join(&file);
                     fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
                 }

@@ -52,7 +52,13 @@ impl Spec {
                     "contractspecv0" => &mut spec,
                     _ => continue,
                 };
-                *out = Some(section.data());
+
+                if let Some(existing_data) = out.as_mut() {
+                    let combined_data = [existing_data, section.data()].concat();
+                    *out = Some(Box::leak(combined_data.into_boxed_slice()));
+                } else {
+                    *out = Some(section.data());
+                }
             };
         }
 
