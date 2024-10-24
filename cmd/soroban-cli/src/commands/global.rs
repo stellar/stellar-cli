@@ -61,7 +61,6 @@ pub enum Error {
         filepath: PathBuf,
         error: soroban_ledger_snapshot::Error,
     },
-
 }
 
 impl Args {
