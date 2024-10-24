@@ -68,7 +68,6 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
     // If no local wasm, then check for wasm_hash and fetch from the network
     let network = &args.network.get(&args.locator)?;
-    
     let wasm = if let Some(wasm_hash) = &args.wasm_hash {
         let hash = hex::decode(wasm_hash)
             .map_err(|_| InvalidWasmHash(wasm_hash.clone()))?
