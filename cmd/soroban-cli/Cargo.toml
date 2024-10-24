@@ -107,7 +107,7 @@ ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
 async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
-
+shell-escape = "0.1.5"
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
