@@ -354,16 +354,6 @@ If no keys are specified the contract itself is extended.
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--wasm <WASM>` — Path to Wasm file of contract code to extend
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
-* `--durability <DURABILITY>` — Storage entry durability
-
-  Default value: `persistent`
-
-  Possible values:
-  - `persistent`:
-    Persistent
-  - `temporary`:
-    Temporary
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -782,16 +772,6 @@ Print the current value of a contract-data ledger entry
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--wasm <WASM>` — Path to Wasm file of contract code to extend
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
-* `--durability <DURABILITY>` — Storage entry durability
-
-  Default value: `persistent`
-
-  Possible values:
-  - `persistent`:
-    Persistent
-  - `temporary`:
-    Temporary
-
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -816,16 +796,6 @@ If no keys are specificed the contract itself is restored.
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--wasm <WASM>` — Path to Wasm file of contract code to extend
 * `--wasm-hash <WASM_HASH>` — Path to Wasm file of contract code to extend
-* `--durability <DURABILITY>` — Storage entry durability
-
-  Default value: `persistent`
-
-  Possible values:
-  - `persistent`:
-    Persistent
-  - `temporary`:
-    Temporary
-
 * `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 * `--ttl-ledger-only` — Only print the new Time To Live ledger
 * `--rpc-url <RPC_URL>` — RPC server endpoint
