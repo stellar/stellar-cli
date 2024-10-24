@@ -182,12 +182,6 @@ impl Cmd {
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-
-                    let file = format!("{}.wasm", p.name.replace('-', "_"));
-                    let target_file_path = Path::new(target_dir)
-                        .join("wasm32-unknown-unknown")
-                        .join(&self.profile)
-                        .join(&file);
                     let out_file_path = Path::new(out_dir).join(&file);
                     fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
                 }
