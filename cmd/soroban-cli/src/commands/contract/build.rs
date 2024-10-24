@@ -69,7 +69,10 @@ pub struct Cmd {
 fn parse_metadata(s: &str) -> Result<(String, String), Error> {
     let parts = s.splitn(2, '=');
 
-    let (key, value) = parts.map(str::trim).next_tuple().unwrap();
+    let (key, value) = parts
+        .map(str::trim)
+        .next_tuple()
+        .ok_or_else(|| Error::MetadataArg("must be in the form 'key=value'".to_string()))?;
 
     Ok((key.to_string(), value.to_string()))
 }
@@ -92,6 +95,12 @@ pub enum Error {
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
+    #[error("reading wasm file: {0}")]
+    ReadingWasmFile(io::Error),
+    #[error("writing wasm file: {0}")]
+    WritingWasmFile(io::Error),
+    #[error("invalid metadata entry: {0}")]
+    MetadataArg(String),
 }
 
 impl Cmd {
@@ -161,17 +170,25 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                let mut wasm_bytes = fs::read(&target_file_path).unwrap();
+                let mut wasm_bytes = fs::read(&target_file_path).map_err(Error::ReadingWasmFile)?;
 
-                self.metadata.iter().for_each(|(k, v)| {
-                    let key: StringM = k.try_into().unwrap();
-                    let val: StringM = v.try_into().unwrap();
+                for (k, v) in self.metadata.clone() {
+                    let key: StringM = k.clone().try_into().map_err(|e| {
+                        Error::MetadataArg(format!("{k} is an invalid metadata key: {e}"))
+                    })?;
+
+                    let val: StringM = v.clone().try_into().map_err(|e| {
+                        Error::MetadataArg(format!("{v} is an invalid metadata value: {e}"))
+                    })?;
                     let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-                    let xdr: Vec<u8> = meta_entry.to_xdr(Limits::none()).unwrap();
+                    let xdr: Vec<u8> = meta_entry.to_xdr(Limits::none()).map_err(|e| {
+                        Error::MetadataArg(format!("failed to encode metadata entry: {e}"))
+                    })?;
 
                     wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &xdr);
-                });
-                fs::write(&target_file_path, wasm_bytes).unwrap();
+                }
+
+                fs::write(&target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?;
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
