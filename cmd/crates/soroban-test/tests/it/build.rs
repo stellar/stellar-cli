@@ -116,3 +116,37 @@ cargo rustc --manifest-path=contracts/add/Cargo.toml --crate-type=cdylib --targe
 ",
         ));
 }
+
+#[test]
+fn build_with_metadata() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let outdir = sandbox.dir().join("out");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("build")
+        .arg("--metadata")
+        .arg("metadata=added on build")
+        .arg("--out-dir")
+        .arg(&outdir)
+        .assert()
+        .success();
+
+    // verify that the metadata added in the contract code via contractmetadata! macro is present
+    // as well as the meta that is included on build
+    let wasm_path = fixture_path.join(&outdir).join("add.wasm");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("info")
+        .arg("meta")
+        .arg("--wasm")
+        .arg(wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Description: A test add contract"))
+        .stdout(predicate::str::contains("metadata: added on build"));
+}
