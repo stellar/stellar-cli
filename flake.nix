@@ -37,7 +37,7 @@
 
           cargoLock.outputHashes = {
               # The only git+https dependency in Cargo.lock
-              "stellar-rpc-client-21.4.0" = "sha256-gIxoWJY0MaV/cOmFdyclvjioCBkAhCAKFOvWc0q42/o=";
+              "stellar-rpc-client-21.4.0" = "sha256-ue7Ynux9YaDP3f/XkHz2OPd2g0iCX5R0yS5SaVHEYxQ";
           };
 
           # As of writing 'cargo test' fails
