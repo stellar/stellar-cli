@@ -63,11 +63,11 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
-    #[arg(long, num_args=1, value_parser=parse_metadata, action=clap::ArgAction::Append, help_heading = "Metadata")]
+    #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
 }
 
-fn parse_metadata(s: &str) -> Result<(String, String), Error> {
+fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
     let parts = s.splitn(2, '=');
 
     let (key, value) = parts
@@ -174,29 +174,7 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                let mut wasm_bytes = fs::read(&target_file_path).map_err(Error::ReadingWasmFile)?;
-
-                for (k, v) in self.metadata.clone() {
-                    let key: StringM = k.clone().try_into().map_err(|e| {
-                        Error::MetadataArg(format!("{k} is an invalid metadata key: {e}"))
-                    })?;
-
-                    let val: StringM = v.clone().try_into().map_err(|e| {
-                        Error::MetadataArg(format!("{v} is an invalid metadata value: {e}"))
-                    })?;
-                    let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-                    let xdr: Vec<u8> = meta_entry.to_xdr(Limits::none()).map_err(|e| {
-                        Error::MetadataArg(format!("failed to encode metadata entry: {e}"))
-                    })?;
-
-                    wasm_gen::write_custom_section(
-                        &mut wasm_bytes,
-                        METADATA_CUSTOM_SECTION_NAME,
-                        &xdr,
-                    );
-                }
-
-                fs::write(&target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?;
+                self.handle_contract_metadata_args(&target_file_path)?;
 
                 if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -274,5 +252,32 @@ impl Cmd {
         // only collecting non-dependency metadata, features have no impact on
         // the output.
         cmd.exec()
+    }
+
+    fn handle_contract_metadata_args(&self, target_file_path: &PathBuf) -> Result<(), Error> {
+        if self.meta.is_empty() {
+            return Ok(());
+        }
+
+        let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        for (k, v) in self.meta.clone() {
+            let key: StringM = k
+                .clone()
+                .try_into()
+                .map_err(|e| Error::MetadataArg(format!("{k} is an invalid metadata key: {e}")))?;
+
+            let val: StringM = v.clone().try_into().map_err(|e| {
+                Error::MetadataArg(format!("{v} is an invalid metadata value: {e}"))
+            })?;
+            let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
+            let xdr: Vec<u8> = meta_entry
+                .to_xdr(Limits::none())
+                .map_err(|e| Error::MetadataArg(format!("failed to encode metadata entry: {e}")))?;
+
+            wasm_gen::write_custom_section(&mut wasm_bytes, METADATA_CUSTOM_SECTION_NAME, &xdr);
+        }
+
+        Ok(fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?)
     }
 }
