@@ -2,7 +2,7 @@ all: check build test
 
 export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
-REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
+REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD || echo NOREPO)"
 ifeq (${REPOSITORY_COMMIT_HASH},"")
 	$(error failed to retrieve git head commit hash)
 endif
@@ -10,9 +10,9 @@ endif
 # By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
 # Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
-	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
+	override REPOSITORY_VERSION = "$(shell ( git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//' ) || echo NOREPO )"
 endif  
-REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
+REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD || echo NOREPO)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
 
 SOROBAN_PORT?=8000
