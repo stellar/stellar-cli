@@ -104,6 +104,9 @@ pub enum Error {
     MetadataArg(String),
 }
 
+const WASM_TARGET: &str = "wasm32-unknown-unknown";
+const METADATA_CUSTOM_SECTION_NAME: &str = "contractmetav0";
+
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
@@ -131,7 +134,7 @@ impl Cmd {
                 manifest_path.to_string_lossy()
             ));
             cmd.arg("--crate-type=cdylib");
-            cmd.arg("--target=wasm32-unknown-unknown");
+            cmd.arg(format!("--target={WASM_TARGET}"));
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -167,7 +170,7 @@ impl Cmd {
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
-                    .join("wasm32-unknown-unknown")
+                    .join(WASM_TARGET)
                     .join(&self.profile)
                     .join(&file);
 
@@ -186,7 +189,11 @@ impl Cmd {
                         Error::MetadataArg(format!("failed to encode metadata entry: {e}"))
                     })?;
 
-                    wasm_gen::write_custom_section(&mut wasm_bytes, "contractmetav0", &xdr);
+                    wasm_gen::write_custom_section(
+                        &mut wasm_bytes,
+                        METADATA_CUSTOM_SECTION_NAME,
+                        &xdr,
+                    );
                 }
 
                 fs::write(&target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?;
