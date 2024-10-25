@@ -16,8 +16,7 @@ use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{contract::install, HEADING_RPC},
     config::{self, data, locator, network},
-    rpc::{self, Client},
-    utils, wasm,
+    rpc, utils, wasm,
 };
 use crate::{
     commands::{
@@ -208,7 +207,7 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;

@@ -145,7 +145,7 @@ impl Args {
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
         let pwd = self.current_dir()?;
-        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban")))
+        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
     pub fn current_dir(&self) -> Result<PathBuf, Error> {
@@ -468,14 +468,32 @@ impl KeyType {
 }
 
 pub fn global_config_path() -> Result<PathBuf, Error> {
-    Ok(if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
         dirs::home_dir()
             .ok_or(Error::HomeDirNotFound)?
             .join(".config")
+    };
+
+    let soroban_dir = config_dir.join("soroban");
+    let stellar_dir = config_dir.join("stellar");
+    let soroban_exists = soroban_dir.exists();
+    let stellar_exists = stellar_dir.exists();
+
+    if stellar_exists && soroban_exists {
+        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
     }
-    .join("soroban"))
+
+    if stellar_exists {
+        return Ok(stellar_dir);
+    }
+
+    if soroban_exists {
+        return Ok(soroban_dir);
+    }
+
+    Ok(stellar_dir)
 }
 
 impl Pwd for Args {

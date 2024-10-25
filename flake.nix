@@ -31,7 +31,6 @@
           ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
         };
         stellarcli = stellardev // {
-          GIT_REVISION = "${self.rev or self.dirtyRev or "unknown"}";
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
@@ -43,6 +42,8 @@
 
           # As of writing 'cargo test' fails
           doCheck = false;
+
+          GIT_REVISION = "${self.rev or self.dirtyRev or "unknown"}";
         };
         rustPlatformMod = pkgs.makeRustPlatform {
           cargo = pkgs.rust-bin.stable.latest.default;
@@ -53,20 +54,6 @@
       {
         devShells.default = mkShell stellardev;
         packages.default = rustPlatformMod.buildRustPackage stellarcli;
-        # {
-        #   nativeBuildInputs = lib.optionals (stdenv.isDarwin) [
-        #     pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-        #   ];
-        #   buildInputs = [
-        #     openssl
-        #     pkg-config
-        #     jq
-        #     (rust-bin.stable.latest.default.override {
-        #       extensions = [ "rust-src" ];
-        #       targets = [ "wasm32-unknown-unknown" ];
-        #     })
-        #   ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
-        # };
       }
     );
 }

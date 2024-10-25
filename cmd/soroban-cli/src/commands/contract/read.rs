@@ -13,7 +13,7 @@ use crate::{
     commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
-    rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
+    rpc::{self, FullLedgerEntries, FullLedgerEntry},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -181,7 +181,7 @@ impl NetworkRunnable for Cmd {
         let network = self.config.network.get(&locator)?;
 
         tracing::trace!(?network);
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let keys = self.key.parse_keys(&locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
