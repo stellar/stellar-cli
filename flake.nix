@@ -15,7 +15,7 @@
           inherit system overlays;
         };
         stellardev = {
-          name = "stellar-cli";
+          name = "stellar";
           src = ./.;
           nativeBuildInputs = pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
