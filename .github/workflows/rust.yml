@@ -77,7 +77,7 @@ jobs:
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.sys.os == 'ubuntu-latest-16-cores'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-    - run: cargo clippy --all-targets --target ${{ matrix.target }}
+    - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
     - run: make build-test
     - if: startsWith(matrix.sys.target, 'x86_64')
       # specify directories explicitly (otherwise it will fail with missing symbols)
