@@ -334,7 +334,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
    If ommitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
-* `--metadata <METADATA>`
+* `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
 
 
