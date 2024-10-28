@@ -76,7 +76,7 @@ jobs:
     - run: rustup target add ${{ matrix.sys.target }}
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.sys.os == 'ubuntu-latest-16-cores'
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
     - run: make build-test
     - if: startsWith(matrix.sys.target, 'x86_64')
@@ -96,10 +96,10 @@ jobs:
           target: x86_64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset
           additional-deb-packages: libudev-dev
-        # - os: ubuntu-latest-16-cores
-        #   target: aarch64-unknown-linux-gnu
-        #   cargo-hack-feature-options: --feature-powerset
-        #   additional-deb-packages: libudev-dev libssl-dev
+        - os: ubuntu-latest-16-cores
+          target: aarch64-unknown-linux-gnu
+          cargo-hack-feature-options: --feature-powerset
+          additional-deb-packages: libudev-dev libssl-dev
         - os: macos-latest
           target: x86_64-apple-darwin
           cargo-hack-feature-options: --feature-powerset
