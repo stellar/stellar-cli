@@ -73,7 +73,7 @@ jobs:
       run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
     - run: rustup update
     - run: cargo version
-    - run: rustup target add ${{ matrix.target }}
+    - run: rustup target add ${{ matrix.sys.target }}
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.sys.os == 'ubuntu-latest-16-cores'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
