@@ -43,18 +43,18 @@ jobs:
       fail-fast: false
       matrix:
         rust: [msrv, latest]
-        include:
-        - os: ubuntu-latest-16-cores
-          target: x86_64-unknown-linux-gnu
-        - os: ubuntu-latest-16-cores
-          target: aarch64-unknown-linux-gnu
-        - os: macos-latest
-          target: x86_64-apple-darwin
-        - os: macos-latest
-          target: aarch64-apple-darwin
-        - os: windows-latest-8-cores
-          target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.os }}
+        sys:
+          - os: ubuntu-latest-16-cores
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest-16-cores
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest-8-cores
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.sys.os }}
     env:
       CI_TESTS: true
     steps:
@@ -75,15 +75,15 @@ jobs:
     - run: cargo version
     - run: rustup target add ${{ matrix.target }}
     - run: rustup target add wasm32-unknown-unknown
-    - if: matrix.target == 'aarch64-unknown-linux-gnu'
+    - if: matrix.sys.os == 'ubuntu-latest-16-cores'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
     - run: cargo clippy --all-targets --target ${{ matrix.target }}
     - run: make build-test
-    - if: startsWith(matrix.target, 'x86_64')
+    - if: startsWith(matrix.sys.target, 'x86_64')
       # specify directories explicitly (otherwise it will fail with missing symbols)
       run: |
         for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
-          cargo test --target ${{ matrix.target }} --manifest-path $I/Cargo.toml
+          cargo test --target ${{ matrix.sys.target }} --manifest-path $I/Cargo.toml
         done
 
   publish-dry-run:
