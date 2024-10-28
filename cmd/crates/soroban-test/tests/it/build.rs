@@ -128,8 +128,8 @@ fn build_with_metadata() {
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
         .arg("build")
-        .arg("--metadata")
-        .arg("metadata=added on build")
+        .arg("--meta")
+        .arg("contract meta=added on build")
         .arg("--out-dir")
         .arg(&outdir)
         .assert()
@@ -148,5 +148,5 @@ fn build_with_metadata() {
         .assert()
         .success()
         .stdout(predicate::str::contains("Description: A test add contract"))
-        .stdout(predicate::str::contains("metadata: added on build"));
+        .stdout(predicate::str::contains("contract meta: added on build"));
 }

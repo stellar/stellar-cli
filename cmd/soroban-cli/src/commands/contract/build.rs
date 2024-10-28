@@ -62,8 +62,9 @@ pub struct Cmd {
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
+    /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_metadata, action=clap::ArgAction::Append, help_heading = "Metadata")]
-    pub metadata: Vec<(String, String)>,
+    pub meta: Vec<(String, String)>,
 }
 
 fn parse_metadata(s: &str) -> Result<(String, String), Error> {
