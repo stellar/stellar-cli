@@ -11,7 +11,7 @@ pub struct Cmd {
     #[arg(long)]
     pub destination: xdr::AccountId,
     /// Initial balance in stroops of the account, default 1 XLM
-    #[arg(long, default_value = "10_000_000")]
+    #[arg(long, default_value = "10000000")]
     pub starting_balance: i64,
 }
 
