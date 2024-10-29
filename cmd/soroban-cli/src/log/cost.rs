@@ -1,4 +1,4 @@
-use soroban_env_host::xdr::SorobanResources;
+use crate::xdr::SorobanResources;
 use std::fmt::{Debug, Display};
 
 struct Cost<'a>(&'a SorobanResources);

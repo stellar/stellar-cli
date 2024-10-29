@@ -1,5 +1,7 @@
-use soroban_cli::commands;
-use soroban_sdk::xdr::{Limits, WriteXdr};
+use soroban_cli::{
+    commands,
+    xdr::{Limits, WriteXdr},
+};
 use soroban_test::{TestEnv, Wasm};
 use std::fmt::Display;
 

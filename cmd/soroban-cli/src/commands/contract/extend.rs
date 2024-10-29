@@ -1,23 +1,22 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
     SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
     TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
 };
+use clap::{command, Parser};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
@@ -131,7 +130,7 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 
@@ -170,8 +169,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
+        let tx = simulate_and_assemble_transaction(&client, &tx)
             .await?
             .transaction()
             .clone();

@@ -40,7 +40,6 @@ opt = ["dep:wasm-opt"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
@@ -107,10 +106,6 @@ directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
-gix = { version = "0.58.0", default-features = false, features = [
-    "blocking-http-transport-reqwest-rust-tls",
-    "worktree-mutation",
-] }
 async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
 
 tempfile = "3.8.1"
