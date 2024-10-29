@@ -79,14 +79,14 @@ jobs:
     - if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
-    - run: make build-test
+    - run: make test
       # TODO: enable ARM linux
-    - if: startsWith(matrix.sys.target, 'x86_64') || runner.os == 'macOS'
-      # specify directories explicitly (otherwise it will fail with missing symbols)
-      run: |
-        for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
-          cargo test --target ${{ matrix.sys.target }} --manifest-path $I/Cargo.toml
-        done
+#    - if: startsWith(matrix.sys.target, 'x86_64') || runner.os == 'macOS'
+#      # specify directories explicitly (otherwise it will fail with missing symbols)
+#      run: |
+#        for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
+#          cargo test --target ${{ matrix.sys.target }} --manifest-path $I/Cargo.toml
+#        done
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
