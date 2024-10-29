@@ -125,9 +125,6 @@ impl Pwd for Args {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct Config {}
-
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct ArgsLocatorAndNetwork {
@@ -141,5 +138,33 @@ pub struct ArgsLocatorAndNetwork {
 impl ArgsLocatorAndNetwork {
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Config {
+    pub defaults: Defaults,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Defaults {
+    pub network: Option<String>,
+    pub identity: Option<String>,
+}
+
+impl Config {
+    pub fn new() -> Config {
+        Config {
+            defaults: Defaults {
+                network: None,
+                identity: None,
+            },
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
     }
 }
