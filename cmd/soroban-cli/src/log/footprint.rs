@@ -1,4 +1,4 @@
-use soroban_env_host::xdr::LedgerFootprint;
+use crate::xdr::LedgerFootprint;
 
 pub fn footprint(footprint: &LedgerFootprint) {
     tracing::debug!("{footprint:#?}");

@@ -28,7 +28,7 @@ impl TxExt for xdr::Transaction {
             source_account,
             fee,
             seq_num: seq_num.into(),
-            cond: soroban_env_host::xdr::Preconditions::None,
+            cond: crate::xdr::Preconditions::None,
             memo: Memo::None,
             operations: [operation].try_into().unwrap(),
             ext: TransactionExt::V0,

@@ -7,7 +7,22 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use soroban_env_host::{
+use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
+use soroban_spec::read::FromWasmError;
+
+use super::super::events;
+use super::arg_parsing;
+use crate::{
+    assembled::simulate_and_assemble_transaction,
+    commands::{
+        contract::arg_parsing::{build_host_function_parameters, output_to_string},
+        global,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
+    },
+    config::{self, data, locator, network},
+    get_spec::{self, get_remote_contract_spec},
+    print, rpc,
     xdr::{
         self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
         DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
@@ -15,24 +30,7 @@ use soroban_env_host::{
         ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
         Uint256, VecM, WriteXdr,
     },
-    HostError,
-};
-
-use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
-use soroban_spec::read::FromWasmError;
-
-use super::super::events;
-use super::arg_parsing;
-use crate::assembled::simulate_and_assemble_transaction;
-use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
-use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
-use crate::commands::NetworkRunnable;
-use crate::get_spec::{self, get_remote_contract_spec};
-use crate::print;
-use crate::{
-    commands::global,
-    config::{self, data, locator, network},
-    rpc, Pwd,
+    Pwd,
 };
 use soroban_spec_tools::contract;
 
@@ -80,10 +78,6 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
@@ -210,7 +204,7 @@ impl NetworkRunnable for Cmd {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = rpc::Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let account_details = if self.is_view {
             default_account_entry()
         } else {
