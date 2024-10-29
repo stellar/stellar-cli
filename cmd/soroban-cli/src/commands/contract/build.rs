@@ -278,6 +278,6 @@ impl Cmd {
             wasm_gen::write_custom_section(&mut wasm_bytes, METADATA_CUSTOM_SECTION_NAME, &xdr);
         }
 
-        Ok(fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)?)
+        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 }
