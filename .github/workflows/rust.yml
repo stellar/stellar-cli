@@ -96,10 +96,11 @@ jobs:
           target: x86_64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset
           additional-deb-packages: libudev-dev
-        - os: ubuntu-latest-16-cores
-          target: aarch64-unknown-linux-gnu
-          cargo-hack-feature-options: --feature-powerset
-          additional-deb-packages: libudev-dev libssl-dev
+        # TODO: add back ARM support
+        #- os: ubuntu-latest-16-cores
+        #  target: aarch64-unknown-linux-gnu
+        #  cargo-hack-feature-options: --feature-powerset
+        #  additional-deb-packages: libudev-dev libssl-dev
         - os: macos-latest
           target: x86_64-apple-darwin
           cargo-hack-feature-options: --feature-powerset
