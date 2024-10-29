@@ -118,7 +118,13 @@ impl Args {
     ) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
-        Ok((client.get_account(account).await?.seq_num.0 + 1).into())
+        Ok((client
+            .get_account(&account.into().to_string())
+            .await?
+            .seq_num
+            .0
+            + 1)
+        .into())
     }
 }
 

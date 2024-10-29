@@ -8,8 +8,15 @@ members = [
     "cmd/crates/soroban-test/tests/fixtures/hello",
     "cmd/crates/soroban-test/tests/fixtures/bye",
 ]
-default-members = ["cmd/soroban-cli", "cmd/crates/soroban-spec-tools", "cmd/crates/soroban-test"]
-exclude = ["cmd/crates/soroban-test/tests/fixtures/hello", "cmd/crates/soroban-test/tests/fixtures/bye"]
+default-members = [
+    "cmd/soroban-cli",
+    "cmd/crates/soroban-spec-tools",
+    "cmd/crates/soroban-test",
+]
+exclude = [
+    "cmd/crates/soroban-test/tests/fixtures/hello",
+    "cmd/crates/soroban-test/tests/fixtures/bye",
+]
 
 [workspace.package]
 version = "21.5.0"
@@ -56,9 +63,9 @@ version = "=22.0.0-rc.2"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "22.0.0-rc.1"
-git = "https://github.com/stellar/rs-stellar-rpc-client" 
-rev = "f5bce51f3a893b009da4b59b5171c93ef6a9b7a1"
+version = "21.4.0"
+git = "https://github.com/stellar/rs-stellar-rpc-client"
+rev = "7554d4c87c026313a1f5b3c7ae66a92b5ff7e091"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

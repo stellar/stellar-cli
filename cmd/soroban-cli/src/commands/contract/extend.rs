@@ -136,7 +136,7 @@ impl NetworkRunnable for Cmd {
 
         // Get the account sequence number
         let account_details = client
-            .get_account(source_account.clone().account_id())
+            .get_account(&source_account.clone().to_string())
             .await?;
         let sequence: i64 = account_details.seq_num.into();
 
@@ -186,7 +186,7 @@ impl NetworkRunnable for Cmd {
         if !events.is_empty() {
             tracing::info!("Events:\n {events:#?}");
         }
-        let meta = res.result_meta().ok_or(Error::MissingOperationResult)?;
+        let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.

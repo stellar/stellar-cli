@@ -96,7 +96,7 @@ impl NetworkRunnable for Cmd {
         // Get the account sequence number
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client
-            .get_account(source_account.clone().account_id())
+            .get_account(&source_account.clone().to_string())
             .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;

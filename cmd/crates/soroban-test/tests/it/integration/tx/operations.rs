@@ -36,10 +36,7 @@ fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
 }
 
 async fn get_account(client: &soroban_rpc::Client, address: &str) -> xdr::AccountEntry {
-    client
-        .get_account(address.parse::<xdr::AccountId>().unwrap())
-        .await
-        .unwrap()
+    client.get_account(address).await.unwrap()
 }
 
 #[tokio::test]
@@ -160,10 +157,7 @@ async fn account_merge() {
         .assert()
         .success();
     let after = get_account(&client, &test).await;
-    assert!(client
-        .get_account(test1.parse::<xdr::AccountId>().unwrap())
-        .await
-        .is_err());
+    assert!(client.get_account(&test1).await.is_err());
     assert_eq!(before.balance + before1.balance - fee, after.balance);
 }
 

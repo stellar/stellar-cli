@@ -1,4 +1,3 @@
-
 name: RPC Tests
 on:
   push:
@@ -15,7 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     services:
       rpc:
-        image: stellar/quickstart:testing
+        image: stellar/quickstart:pr637-v450-testing
         ports:
           - 8000:8000
         env:
@@ -29,19 +28,18 @@ jobs:
           --health-timeout 5s
           --health-retries 50
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - run: rustup update
-    - run: cargo build
-    - run: rustup target add wasm32-unknown-unknown
-    - run: make build-test-wasms
-    - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
-
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - run: rustup update
+      - run: cargo build
+      - run: rustup target add wasm32-unknown-unknown
+      - run: make build-test-wasms
+      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration

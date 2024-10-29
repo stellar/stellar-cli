@@ -213,7 +213,7 @@ impl NetworkRunnable for Cmd {
                 .await?;
 
             client
-                .get_account(config.source_account()?.account_id())
+                .get_account(&config.source_account()?.to_string())
                 .await?
         };
         let sequence: i64 = account_details.seq_num.into();
@@ -266,7 +266,8 @@ impl NetworkRunnable for Cmd {
                     data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
                 }
                 let events = res
-                    .result_meta()
+                    .result_meta
+                    .as_ref()
                     .map(crate::log::extract_events)
                     .unwrap_or_default();
                 (res.return_value()?, events)

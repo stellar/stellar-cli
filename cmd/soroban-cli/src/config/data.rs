@@ -1,7 +1,6 @@
 use crate::rpc::{GetTransactionResponse, GetTransactionResponseRaw, SimulateTransactionResponse};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use soroban_rpc::TransactionInfoRaw;
 use std::str::FromStr;
 use url::Url;
 
@@ -129,7 +128,7 @@ impl std::fmt::Display for DatedAction {
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Send { response } => response.transaction_info.status.to_string(),
+            Action::Send { response } => response.status.to_string(),
         };
         write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
@@ -180,31 +179,10 @@ impl TryFrom<GetTransactionResponse> for Action {
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
-                transaction_info: TransactionInfoRaw {
-                    envelope_xdr: res.envelope().map(to_xdr).transpose()?,
-                    result_xdr: res.result().map(to_xdr).transpose()?,
-                    result_meta_xdr: res.result_meta().map(to_xdr).transpose()?,
-                    status: res.transaction_info.status,
-                    application_order: res.transaction_info.application_order,
-                    transaction_hash: res
-                        .transaction_info
-                        .transaction_hash
-                        .as_ref()
-                        .map(ToString::to_string),
-                    fee_bump: Some(res.transaction_info.fee_bump),
-                    diagnostic_events_xdr: res
-                        .transaction_info
-                        .diagnostic_events_xdr
-                        .iter()
-                        .map(to_xdr)
-                        .collect::<Result<Vec<_>, _>>()?,
-                    ledger: res.transaction_info.ledger,
-                    close_time: res.transaction_info.close_time,
-                },
-                latest_ledger_close_time: res.latest_ledger_close_time,
-                oldest_ledger: res.oldest_ledger,
-                oldest_ledger_close_time: res.oldest_ledger_close_time,
-                latest_ledger: res.latest_ledger,
+                status: res.status,
+                envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
+                result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
+                result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
             },
         })
     }
