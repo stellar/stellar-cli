@@ -8,6 +8,7 @@ use crate::{
 
 const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
 
+#[derive(Clone)]
 pub struct Print {
     pub quiet: bool,
 }

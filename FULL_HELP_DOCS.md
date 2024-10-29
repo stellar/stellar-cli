@@ -1521,7 +1521,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10_000_000`
+  Default value: `10000000`
 
 
 
