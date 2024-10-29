@@ -75,11 +75,12 @@ jobs:
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
     - run: rustup target add wasm32-unknown-unknown
-    - if: matrix.sys.os == 'ubuntu-latest-16-cores'
+    - if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
     - run: make build-test
-    - if: startsWith(matrix.sys.target, 'x86_64')
+      # TODO: enable ARM linux
+    - if: startsWith(matrix.sys.target, 'x86_64') || runner.os == 'macOS'
       # specify directories explicitly (otherwise it will fail with missing symbols)
       run: |
         for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
