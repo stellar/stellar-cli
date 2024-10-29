@@ -17,8 +17,13 @@
         stellardev = {
           name = "stellar";
           src = ./.;
-          nativeBuildInputs = pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+          nativeBuildInputs = (pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration ]) ++
+            [ pkgs.cacert
+            (pkgs.rust-bin.stable.latest.default.override {
+              extensions = [ "rust-src" ];
+              targets = [ "wasm32-unknown-unknown" ];
+            })
           ];
           buildInputs = with pkgs; [
             openssl
@@ -29,6 +34,9 @@
               targets = [ "wasm32-unknown-unknown" ];
             })
           ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
+          postBuild = ''
+            make build-test-wasms
+            '';
         };
         stellarcli = stellardev // {
           cargoLock = {
@@ -41,7 +49,7 @@
           };
 
           # As of writing 'cargo test' fails
-          doCheck = false;
+          doCheck = true;
 
           GIT_REVISION = "${self.rev or self.dirtyRev or "unknown"}";
         };
