@@ -82,5 +82,3 @@ Find issues to contribute to [here](https://github.com/stellar/stellar-cli/contr
 - Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
 - Video Tutorial on `network container`, `keys`, and `contract init`: https://developers.stellar.org/meetings/2024/06/27
 - Video Tutorial on `alias` and `snapshot`: https://developers.stellar.org/meetings/2024/09/12
-
-

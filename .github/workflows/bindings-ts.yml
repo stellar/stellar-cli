@@ -3,7 +3,7 @@ name: bindings typescript
 on:
   push:
     branches: [main, release/**]
-#  pull_request:
+  pull_request:
 
 jobs:
   test:

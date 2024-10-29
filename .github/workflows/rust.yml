@@ -59,35 +59,35 @@ jobs:
       CI_TESTS: true
     steps:
     - uses: actions/checkout@v4
-#    - uses: stellar/actions/rust-cache@main
-#    - name: Use the minimum supported Rust version
-#      if: matrix.rust == 'msrv'
-#      run: |
-#        msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
-#        rustup override set $msrv
-#        rustup component add clippy --toolchain $msrv
-#    - name: Error on warnings and clippy checks
-#      # Only error on warnings and checks for the msrv, because new versions of
-#      # Rust will frequently add new warnings and checks.
-#      if: matrix.rust == 'msrv'
-#      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
-#    - run: rustup update
-#    - run: cargo version
-#    - run: rustup target add ${{ matrix.sys.target }}
-#    - run: rustup target add wasm32-unknown-unknown
-#    - if: matrix.sys.os == 'ubuntu-latest-16-cores'
-#      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
-#    - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
-#    - run: make build-test
-#    - if: startsWith(matrix.sys.target, 'x86_64')
-#      # specify directories explicitly (otherwise it will fail with missing symbols)
-#      run: |
-#        for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
-#          cargo test --target ${{ matrix.sys.target }} --manifest-path $I/Cargo.toml
-#        done
+    - uses: stellar/actions/rust-cache@main
+    - name: Use the minimum supported Rust version
+      if: matrix.rust == 'msrv'
+      run: |
+        msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
+        rustup override set $msrv
+        rustup component add clippy --toolchain $msrv
+    - name: Error on warnings and clippy checks
+      # Only error on warnings and checks for the msrv, because new versions of
+      # Rust will frequently add new warnings and checks.
+      if: matrix.rust == 'msrv'
+      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
+    - run: rustup update
+    - run: cargo version
+    - run: rustup target add ${{ matrix.sys.target }}
+    - run: rustup target add wasm32-unknown-unknown
+    - if: matrix.sys.os == 'ubuntu-latest-16-cores'
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
+    - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
+    - run: make build-test
+    - if: startsWith(matrix.sys.target, 'x86_64')
+      # specify directories explicitly (otherwise it will fail with missing symbols)
+      run: |
+        for I in cmd/soroban-cli cmd/crates/* cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world ; do
+          cargo test --target ${{ matrix.sys.target }} --manifest-path $I/Cargo.toml
+        done
 
   publish-dry-run:
-#    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
