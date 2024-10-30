@@ -1,4 +1,5 @@
 use assert_fs::TempDir;
+use predicates::prelude::predicate;
 use soroban_test::{AssertExt, TestEnv};
 use std::{fs, path::Path};
 
@@ -287,4 +288,55 @@ fn use_env() {
         .assert()
         .success()
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
+}
+
+#[test]
+fn config_dirs_precedence() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    fs::rename(
+        sandbox.dir().join(".stellar"),
+        sandbox.dir().join("_soroban"),
+    )
+    .unwrap();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    fs::rename(
+        sandbox.dir().join("_soroban"),
+        sandbox.dir().join(".soroban"),
+    )
+    .unwrap();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("show")
+        .arg("alice")
+        .arg("--verbose")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "WARN soroban_cli::utils: the .stellar and .soroban config directories exist at path",
+        ))
+        .stdout("SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG\n");
 }

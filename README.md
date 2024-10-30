@@ -10,15 +10,12 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 
 - [Documentation](#documentation)
 - [Cookbook](#cookbook)
-- [Installation](#installation)
-- [Installation with Experimental Features](#installation-with-experimental-features)
+- [Install](#install)
 - [Autocomplete](#autocomplete)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
 - [To Contribute](#to-contribute)
 - [Additional Developer Resources](#additional-developer-resources)
-
-
 
 ## Documentation
 
@@ -27,28 +24,17 @@ For installation options see below, for usage instructions [see the full help do
 ## Cookbook
 To understand how to get the most of the Stellar CLI, see the [Stellar CLI Cookbook](https://github.com/stellar/stellar-cli/tree/main/cookbook) for recipes and a collection of resources to teach you how to use the CLI. Examples of recipes included in the CLI cookbook include: send payments, manage contract lifecycle, extend contract instance/storage/wasm, and more.
 
-## Installation
-Install the latest version from source:
-```
-cargo install --locked stellar-cli --features opt
-```
+## Install
 
-Install with `cargo-binstall`:
-```
-cargo install --locked cargo-binstall
-cargo binstall -y stellar-cli
-```
-
-Install with Homebrew:
+Install with Homebrew (macOS, Linux):
 
 ```
 brew install stellar-cli
 ```
 
-## Installation with Experimental Features
-To use the potentially unreleased bleeding edge CLI functionalities, install from git:
+Install the latest version from source:
 ```
-cargo install --locked stellar-cli --features opt --git https://github.com/stellar/stellar-cli.git
+cargo install --locked stellar-cli --features opt
 ```
 
 ## Autocomplete
