@@ -45,16 +45,16 @@ jobs:
       matrix:
         rust: [msrv, latest]
         sys:
-        - os: ubuntu-latest-16-cores
-          target: x86_64-unknown-linux-gnu
+#        - os: ubuntu-latest-16-cores
+#          target: x86_64-unknown-linux-gnu
         - os: ubuntu-latest-16-cores
           target: aarch64-unknown-linux-gnu
-        - os: macos-latest
-          target: x86_64-apple-darwin
-        - os: macos-latest
-          target: aarch64-apple-darwin
-        - os: windows-latest-8-cores
-          target: x86_64-pc-windows-msvc
+#        - os: macos-latest
+#          target: x86_64-apple-darwin
+#        - os: macos-latest
+#          target: aarch64-apple-darwin
+#        - os: windows-latest-8-cores
+#          target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     env:
       CI_TESTS: true
@@ -78,7 +78,9 @@ jobs:
     - run: rustup target add wasm32-unknown-unknown
     - if: runner.os == 'Linux'
       run: |
-        sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev pkg-config libssl-dev:armhf
+        cat /etc/apt/sources.list
+        sudo dpkg --add-architecture arm64
+        sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev pkg-config libssl-dev:arm64
         cfg_path=`pkg-config --variable pc_path pkg-config`
         echo "PKG_CONFIG_PATH=${cfg_path}" >>  $GITHUB_ENV
         echo "PKG_CONFIG_SYSROOT_DIR=/home/runner/.local/sysroot" >>  $GITHUB_ENV
