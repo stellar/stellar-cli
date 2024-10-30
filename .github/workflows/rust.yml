@@ -78,7 +78,7 @@ jobs:
     - run: rustup target add wasm32-unknown-unknown
     - if: runner.os == 'Linux'
       run: |
-        sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev pkg-config libssl-dev:arm64
+        sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev pkg-config libssl-dev
         cfg_path=`pkg-config --variable pc_path pkg-config`
         echo "PKG_CONFIG_PATH=${cfg_path}" >>  $GITHUB_ENV
         echo "PKG_CONFIG_SYSROOT_DIR=/home/runner/.local/sysroot" >>  $GITHUB_ENV
