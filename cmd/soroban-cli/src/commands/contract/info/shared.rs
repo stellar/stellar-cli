@@ -24,7 +24,7 @@ pub struct Args {
     /// Wasm hash to get the data for
     #[arg(long = "wasm-hash", group = "Source")]
     pub wasm_hash: Option<String>,
-    /// Contract id to get the data for
+    /// Contract id or contract alias to get the data for
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "Source")]
     pub contract_id: Option<String>,
     #[command(flatten)]
@@ -79,6 +79,9 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         get_remote_wasm_from_hash(&client, &hash).await?
     } else if let Some(contract_id) = &args.contract_id {
+        let contract_id = args
+            .locator
+            .resolve_contract_id(contract_id, &network.network_passphrase)?;
         let res = wasm::fetch_from_contract(contract_id, network, &args.locator).await;
         if let Some(ContractIsStellarAsset) = res.as_ref().err() {
             return Ok(None);
