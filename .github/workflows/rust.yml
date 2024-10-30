@@ -82,6 +82,7 @@ jobs:
         cfg_path=`pkg-config --variable pc_path pkg-config`
         echo "PKG_CONFIG_PATH=${cfg_path}" >>  $GITHUB_ENV
         echo "PKG_CONFIG_SYSROOT_DIR=/home/runner/.local/sysroot" >>  $GITHUB_ENV
+        ls -la /usr/include/
     - if: runner.os == 'Linux'
       run: |
         pkg-config --variable pc_path pkg-config
