@@ -80,6 +80,9 @@ jobs:
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
     - run: make test
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
