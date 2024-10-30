@@ -37,7 +37,7 @@ Install the latest version from source:
 cargo install --locked stellar-cli --features opt
 ```
 
-Run directly with nix, ex:
+Install or run the unreleased main branch with nix:
 ```
 % nix run 'github:stellar/stellar-cli' -- --help
 or install
