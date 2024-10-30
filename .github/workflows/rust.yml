@@ -79,8 +79,6 @@ jobs:
     - if: runner.os == 'Linux'
       run: |
         sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev pkg-config libssl-dev
-        ssl_dir=`openssl version -d | sed -e 's/OPENSSLDIR: \"\(.*\)\"/\1/g'`
-        echo "OPENSSL_DIR=${ssl_dir}" >> $GITHUB_ENV
         cfg_path=`pkg-config --variable pc_path pkg-config`
         echo "PKG_CONFIG_PATH=${cfg_path}" >>  $GITHUB_ENV
     - if: runner.os == 'Linux'
