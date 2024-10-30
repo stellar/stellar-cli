@@ -82,7 +82,8 @@ jobs:
         cfg_path=`pkg-config --variable pc_path pkg-config`
         echo "PKG_CONFIG_PATH=${cfg_path}" >>  $GITHUB_ENV
         echo "PKG_CONFIG_SYSROOT_DIR=/home/runner/.local/sysroot" >>  $GITHUB_ENV
-        ls -la /usr/include/
+        sudo ln -s /usr/include/x86_64-linux-gnu/openssl/opensslconf.h /usr/include/openssl/opensslconf.h
+        sudo ln -s /usr/include/x86_64-linux-gnu/openssl/configuration.h /usr/include/openssl/configuration.h
     - if: runner.os == 'Linux'
       run: |
         pkg-config --variable pc_path pkg-config
