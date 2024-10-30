@@ -72,17 +72,13 @@ jobs:
       # Rust will frequently add new warnings and checks.
       if: matrix.rust == 'msrv'
       run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-      with:
-        limit-access-to-actor: true
     - run: rustup update
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
     - run: rustup target add wasm32-unknown-unknown
     - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
       run: |
-        sudo cat >> /etc/apt/sources.list << EOF
+        echo "
         deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted
         
         deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted
@@ -94,9 +90,7 @@ jobs:
         deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates multiverse
         
         deb [arch=arm64] http://ports.ubuntu.com/ jammy-backports main restricted universe multiverse
-        EOF
-        
-        cat /etc/apt/sources.list
+        " | sudo tee -a /etc/apt/sources.list >/dev/null
         
         sudo dpkg --add-architecture arm64
         sudo apt update && sudo apt upgrade
