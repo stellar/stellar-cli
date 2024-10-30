@@ -60,7 +60,7 @@ jobs:
       CI_TESTS: true
     steps:
     - uses: actions/checkout@v4
-    - uses: stellar/actions/rust-cache@2e6d2ccfe3c07260044cbc5261ed61dff3a897d1
+    - uses: stellar/actions/rust-cache@3de70bce21ab18ada0a52dd9aca8651bf6a9521a
     - name: Use the minimum supported Rust version
       if: matrix.rust == 'msrv'
       run: |
