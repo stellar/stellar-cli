@@ -662,7 +662,7 @@ async fn multi_create_accounts() {
     let final_tx = accounts.iter().fold(input, |tx_env, (_, address)| {
         sandbox
             .new_assert_cmd("tx")
-            .args(["add-op", "create-account", "--destination", address])
+            .args(["op", "add", "create-account", "--destination", address])
             .write_stdin(tx_env.as_bytes())
             .assert()
             .success()
