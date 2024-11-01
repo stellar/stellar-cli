@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
-use crate::xdr;
 use clap::arg;
 
 use crate::{
     commands::contract::info::shared::Error::InvalidWasmHash,
-    config::{locator, network},
+    config::{self, locator, network},
     utils::rpc::get_remote_wasm_from_hash,
     wasm::{self, Error::ContractIsStellarAsset},
+    xdr,
 };
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -26,7 +26,7 @@ pub struct Args {
     pub wasm_hash: Option<String>,
     /// Contract id or contract alias to get the data for
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "Source")]
-    pub contract_id: Option<String>,
+    pub contract_id: Option<config::ContractAddress>,
     #[command(flatten)]
     pub network: network::Args,
     #[command(flatten)]
@@ -56,6 +56,8 @@ pub enum Error {
     InvalidWasmHash(String),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
@@ -79,10 +81,9 @@ pub async fn fetch_wasm(args: &Args) -> Result<Option<Vec<u8>>, Error> {
 
         get_remote_wasm_from_hash(&client, &hash).await?
     } else if let Some(contract_id) = &args.contract_id {
-        let contract_id = args
-            .locator
-            .resolve_contract_id(contract_id, &network.network_passphrase)?;
-        let res = wasm::fetch_from_contract(contract_id, network, &args.locator).await;
+        let contract_id =
+            contract_id.resolve_contract_id(&args.locator, &network.network_passphrase)?;
+        let res = wasm::fetch_from_contract(&contract_id, network).await;
         if let Some(ContractIsStellarAsset) = res.as_ref().err() {
             return Ok(None);
         }

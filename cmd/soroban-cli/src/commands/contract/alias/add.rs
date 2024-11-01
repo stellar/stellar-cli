@@ -15,7 +15,7 @@ pub struct Cmd {
     #[command(flatten)]
     network: network::Args,
 
-    /// The contract alias that will be removed.
+    /// The contract alias that will be used.
     pub alias: String,
 
     /// Overwrite the contract alias if it already exists.
@@ -41,7 +41,7 @@ pub enum Error {
     AlreadyExist {
         alias: String,
         network_passphrase: String,
-        contract: String,
+        contract: stellar_strkey::Contract,
     },
 }
 

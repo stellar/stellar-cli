@@ -1,7 +1,10 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use crate::xdr::{self, Limits, ReadXdr};
+use crate::{
+    config::alias,
+    xdr::{self, Limits, ReadXdr},
+};
 
 use super::{global, NetworkRunnable};
 use crate::{
@@ -42,7 +45,7 @@ pub struct Cmd {
         num_args = 1..=6,
         help_heading = "FILTERS"
     )]
-    contract_ids: Vec<String>,
+    contract_ids: Vec<config::ContractAddress>,
     /// A set of (up to 4) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segment filters, separated by
     /// commas, with an asterisk (`*` character) indicating a wildcard segment.
@@ -121,6 +124,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
+    #[error(transparent)]
+    ContractId(#[from] alias::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
@@ -218,9 +223,8 @@ impl NetworkRunnable for Cmd {
             .contract_ids
             .iter()
             .map(|id| {
-                Ok(self
-                    .locator
-                    .resolve_contract_id(id, &network.network_passphrase)?
+                Ok(id
+                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
                     .to_string())
             })
             .collect::<Result<Vec<_>, Error>>()?;
