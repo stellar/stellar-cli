@@ -62,6 +62,15 @@ pub fn build_host_function_parameters(
     }
     cmd.build();
     let long_help = cmd.render_long_help();
+
+    match cmd.clone().try_get_matches_from(slop) {
+        Ok(m) => m,
+        Err(e) => {
+            println!("Failed to match subcommand: {}", e);
+            std::process::exit(1);
+        }
+    };
+
     let mut matches_ = cmd.get_matches_from(slop);
     let Some((function, matches_)) = &matches_.remove_subcommand() else {
         println!("{long_help}");
