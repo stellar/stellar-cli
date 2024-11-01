@@ -369,7 +369,7 @@ fn set_default_identity() {
     sandbox
         .new_assert_cmd("env")
         .assert()
-        .stdout(predicate::str::contains("identity=alice"))
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
         .success();
 }
 
@@ -390,6 +390,6 @@ fn set_default_network() {
     sandbox
         .new_assert_cmd("env")
         .assert()
-        .stdout(predicate::str::contains("network=testnet"))
+        .stdout(predicate::str::contains("STELLAR_NETWORK=testnet"))
         .success();
 }
