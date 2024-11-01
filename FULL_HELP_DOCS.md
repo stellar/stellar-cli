@@ -942,7 +942,7 @@ Given an identity return its address (public key)
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+* `<NAME>` — Name of identity to lookup, ledger, or secret key
 
 ###### **Options:**
 
@@ -960,7 +960,7 @@ Fund an identity on a test network
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+* `<NAME>` — Name of identity to lookup, ledger, or secret key
 
 ###### **Options:**
 

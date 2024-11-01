@@ -52,7 +52,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
-            Cmd::Address(cmd) => cmd.run()?,
+            Cmd::Address(cmd) => cmd.run().await?,
             Cmd::Fund(cmd) => cmd.run().await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,

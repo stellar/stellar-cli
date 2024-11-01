@@ -36,7 +36,7 @@ pub enum Error {
 
 impl Args {
     pub async fn tx(&self, body: impl Into<xdr::OperationBody>) -> Result<xdr::Transaction, Error> {
-        let source_account = self.source_account()?;
+        let source_account = self.source_account().await?;
         let seq_num = self
             .config
             .next_sequence_number(&source_account.to_string())
@@ -101,7 +101,7 @@ impl Args {
         Ok(TxnEnvelopeResult::Res(txn_resp))
     }
 
-    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self.config.source_account()?)
+    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.config.source_account().await?)
     }
 }

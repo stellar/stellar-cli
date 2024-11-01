@@ -1,21 +1,25 @@
 use clap::command;
 
-use crate::config::{locator, secret};
+use crate::config::{
+    address::{self, KeyName},
+    locator, secret,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Secret(#[from] secret::Error),
-
     #[error(transparent)]
     Config(#[from] locator::Error),
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity
-    pub name: String,
+    pub name: KeyName,
 
     #[command(flatten)]
     pub secrets: secret::Args,

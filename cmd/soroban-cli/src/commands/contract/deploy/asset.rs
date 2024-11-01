@@ -92,7 +92,7 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let source_account = config.source_account()?;
+        let source_account = config.source_account().await?;
 
         // Get the account sequence number
         let public_strkey = source_account.to_string();

@@ -58,7 +58,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn sign_tx_env(
+    pub async fn sign_tx_env(
         &self,
         tx: &TransactionEnvelope,
         locator: &locator::Args,
@@ -87,6 +87,6 @@ impl Args {
             let secret = locator.key(key_or_name)?;
             secret.signer(self.hd_path, print)?
         };
-        Ok(signer.sign_tx_env(tx, network)?)
+        Ok(signer.sign_tx_env(tx, network).await?)
     }
 }

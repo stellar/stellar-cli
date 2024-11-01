@@ -96,6 +96,9 @@ where
     pub fn new(transport: T) -> Self {
         Self { transport }
     }
+
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device
     pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
         Ok(LedgerSigner {
             transport: get_transport()?,

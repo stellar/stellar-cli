@@ -211,7 +211,7 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
+        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
 

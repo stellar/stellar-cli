@@ -276,9 +276,10 @@ impl TestEnv {
     }
 
     /// Returns the public key corresponding to the test keys's `hd_path`
-    pub fn test_address(&self, hd_path: usize) -> String {
+    pub async fn test_address(&self, hd_path: usize) -> String {
         self.cmd::<keys::address::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
+            .await
             .unwrap()
             .to_string()
     }

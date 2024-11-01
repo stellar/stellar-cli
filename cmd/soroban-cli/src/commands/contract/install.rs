@@ -135,7 +135,7 @@ impl NetworkRunnable for Cmd {
         }
 
         // Get the account sequence number
-        let source_account = config.source_account()?;
+        let source_account = config.source_account().await?;
 
         let account_details = client.get_account(&source_account.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();

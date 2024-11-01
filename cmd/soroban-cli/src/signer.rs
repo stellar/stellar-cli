@@ -8,7 +8,7 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-use stellar_ledger::{Exchange, LedgerSigner, TransportNativeHID};
+use stellar_ledger::{Blob as _, Exchange, LedgerSigner, TransportNativeHID};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
@@ -214,7 +214,7 @@ pub enum SignerKind {
 }
 
 impl Signer {
-    pub fn sign_tx(
+    pub async fn sign_tx(
         &self,
         tx: Transaction,
         network: &Network,
@@ -223,10 +223,10 @@ impl Signer {
             tx,
             signatures: VecM::default(),
         });
-        self.sign_tx_env(&tx_env, network)
+        self.sign_tx_env(&tx_env, network).await
     }
 
-    pub fn sign_tx_env(
+    pub async fn sign_tx_env(
         &self,
         tx_env: &TransactionEnvelope,
         network: &Network,
@@ -239,7 +239,7 @@ impl Signer {
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-                    SignerKind::Ledger(_) => todo!("ledger signing"),
+                    SignerKind::Ledger(ledger) => ledger.sign_transaction_hash(&tx_hash).await?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -262,6 +262,28 @@ pub struct Ledger<T: Exchange> {
     pub(crate) index: u32,
     pub(crate) signer: LedgerSigner<T>,
 }
+
+impl<T: Exchange> Ledger<T> {
+    pub async fn sign_transaction_hash(
+        &self,
+        tx_hash: &[u8; 32],
+    ) -> Result<DecoratedSignature, Error> {
+        let key = self.public_key().await?;
+        let hint = SignatureHint(key.0[28..].try_into()?);
+        let signature = Signature(
+            self.signer
+                .sign_transaction_hash(self.index, tx_hash)
+                .await?
+                .try_into()?,
+        );
+        Ok(DecoratedSignature { hint, signature })
+    }
+
+    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        Ok(self.signer.get_public_key(&self.index.into()).await?)
+    }
+}
+
 pub fn native_ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
     let signer = stellar_ledger::native()?;
     Ok(Ledger {
