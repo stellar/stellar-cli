@@ -48,8 +48,6 @@ pub struct Args {
     /// RPC server endpoint
     #[arg(
         long = "rpc-url",
-        requires = "network_passphrase",
-        required_unless_present = "network",
         env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
     )]
@@ -68,8 +66,6 @@ pub struct Args {
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
-        requires = "rpc_url",
-        required_unless_present = "network",
         env = "STELLAR_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
@@ -77,8 +73,6 @@ pub struct Args {
     /// Name of network to use from config
     #[arg(
         long,
-        required_unless_present = "rpc_url",
-        required_unless_present = "network_passphrase",
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
