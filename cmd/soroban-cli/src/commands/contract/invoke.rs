@@ -163,7 +163,7 @@ impl Cmd {
             .transpose()
     }
 
-    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+    fn should_send_tx(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
         Ok(match self.send {
             Send::Default => {
                 if self.is_view {
@@ -180,7 +180,7 @@ impl Cmd {
         })
     }
 
-    async fn should_send_tx(
+    async fn check_should_send_tx_with_default_account(
         &self,
         host_function_params: InvokeContractArgs,
         rpc_client: Client,
@@ -198,7 +198,7 @@ impl Cmd {
         let txn = simulate_and_assemble_transaction(&rpc_client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn); // do we need this part?
         let sim_res = txn.sim_response();
-        self.send(sim_res)
+        self.should_send_tx(sim_res)
     }
 }
 
@@ -236,40 +236,28 @@ impl NetworkRunnable for Cmd {
         )
         .await
         .map_err(Error::from)?;
+
         let (function, spec, host_function_params, signers) =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
-        let should_send = self.should_send_tx(host_function_params, client.clone()).await?;
-        let account_details = if should_send != ShouldSend::Yes{
-            default_account_entry()
-        } else {
+        let should_send_tx = self
+            .check_should_send_tx_with_default_account(host_function_params.clone(), client.clone())
+            .await?;
+
+        let account_details = if should_send_tx == ShouldSend::Yes {
             client
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
 
-            println!("here, about to fail?");
-
             client
                 .get_account(&config.source_account()?.to_string())
                 .await?
+        } else {
+            default_account_entry()
         };
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
-        let spec_entries = get_remote_contract_spec(
-            &contract_id.0,
-            &config.locator,
-            &config.network,
-            global_args,
-            Some(config),
-        )
-        .await
-        .map_err(Error::from)?;
-
-        // Get the ledger footprint
-        let (function, spec, host_function_params, signers) =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
-        println!("this doesn't print");
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -288,7 +276,7 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let should_send = self.send(sim_res)?;
+        let should_send = self.should_send_tx(sim_res)?;
         let (return_value, events) = match should_send {
             ShouldSend::Yes => {
                 let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();

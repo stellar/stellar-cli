@@ -63,9 +63,8 @@ pub fn build_host_function_parameters(
     cmd.build();
     let long_help = cmd.render_long_help();
     let mut matches_ = cmd.get_matches_from(slop);
-    println!("this doesn't print either");
     let Some((function, matches_)) = &matches_.remove_subcommand() else {
-        println!("LONG HELP: {long_help}");
+        println!("{long_help}");
         std::process::exit(1);
     };
 
