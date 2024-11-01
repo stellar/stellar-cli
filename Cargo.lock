@@ -729,6 +729,12 @@ checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
 name = "byteorder"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fc10e8cc6b2580fda3f36eb6dc5316657f812a3df879a44a66fc9f0fdbc4855"
+
+[[package]]
+name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
@@ -1084,7 +1090,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
 dependencies = [
- "byteorder",
+ "byteorder 1.5.0",
  "digest 0.9.0",
  "rand_core 0.5.1",
  "subtle",
@@ -2693,6 +2699,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "leb128"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
 name = "ledger-apdu"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2719,7 +2731,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45ba81a1f5f24396b37211478aff7fbcd605dd4544df8dbed07b9da3c2057aee"
 dependencies = [
- "byteorder",
+ "byteorder 1.5.0",
  "cfg-if",
  "hex",
  "hidapi",
@@ -4508,6 +4520,7 @@ dependencies = [
  "ulid",
  "url",
  "walkdir",
+ "wasm-gen",
  "wasm-opt",
  "wasmparser 0.90.0",
  "which",
@@ -4675,9 +4688,9 @@ version = "21.5.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.7.3"
+version = "21.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84589856911dfd6731695c9b51c858aed6d4540118c0a1e5c4c858ea13bc744c"
+checksum = "9cf596b2083946a95914a55d7d29cee6a8095b515fd06211851f45bf6af5a496"
 dependencies = [
  "serde",
  "serde_json",
@@ -4716,8 +4729,8 @@ dependencies = [
  "serde_json",
  "soroban-env-guest 21.2.1",
  "soroban-env-host 21.2.1",
- "soroban-ledger-snapshot 21.7.3",
- "soroban-sdk-macros 21.7.3",
+ "soroban-ledger-snapshot 21.7.2",
+ "soroban-sdk-macros 21.7.2",
  "stellar-strkey 0.0.8",
 ]
 
@@ -4740,9 +4753,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.7.3"
+version = "21.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63c2173f1aacd56b4405eed71cb2a9694dff99d51ba72d4f0cbc5e4961fdabf4"
+checksum = "da03fa00b8ca6e392f013359c06d790d2d379f9c8d6f8a6dfe563ec64311e5d3"
 dependencies = [
  "crate-git-revision 0.0.6",
  "darling",
@@ -4752,8 +4765,8 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.8",
  "soroban-env-common 21.2.1",
- "soroban-spec 21.7.3",
- "soroban-spec-rust 21.7.3",
+ "soroban-spec 21.7.2",
+ "soroban-spec-rust 21.7.2",
  "stellar-xdr 21.2.0",
  "syn 2.0.77",
 ]
@@ -4780,9 +4793,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.7.3"
+version = "21.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7705bffbcc747c08e81698b87b4a787f8b268c25d88f777160091dc1ee8121cb"
+checksum = "64c723195463d8742bcb481520bd8b8325da66c39ea236ad46261e6af992e8a8"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr 21.2.0",
@@ -4818,15 +4831,15 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.7.3"
+version = "21.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48207ebc8616c2804a17203d1d86c53c3d3c804b682cbab011a135893db1cf78"
+checksum = "c0f1b0ec2af54e38f138910f09e101b100130efe625f69ece51c76dd4f06f8b2"
 dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "soroban-spec 21.7.3",
+ "soroban-spec 21.7.2",
  "stellar-xdr 21.2.0",
  "syn 2.0.77",
  "thiserror",
@@ -4949,7 +4962,7 @@ dependencies = [
  "smallvec",
  "spin",
  "wasmi_collections",
- "wasmi_core 0.36.3",
+ "wasmi_core 0.36.5",
  "wasmparser-nostd",
 ]
 
@@ -4976,6 +4989,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "stellar-bye"
+version = "21.5.0"
+
+[[package]]
 name = "stellar-cli"
 version = "21.5.0"
 dependencies = [
@@ -4988,7 +5005,7 @@ version = "21.5.0"
 dependencies = [
  "async-trait",
  "bollard",
- "byteorder",
+ "byteorder 1.5.0",
  "ed25519-dalek 2.1.1",
  "env_logger",
  "futures",
@@ -6012,6 +6029,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 
 [[package]]
+name = "wasm-gen"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b854b1461005a7b3365742310f7faa3cac3add809d66928c64a40c7e9e842ebb"
+dependencies = [
+ "byteorder 0.5.3",
+ "leb128",
+]
+
+[[package]]
 name = "wasm-opt"
 version = "0.114.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6053,9 +6080,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-streams"
-version = "0.4.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e072d4e72f700fb3443d8fe94a39315df013eef1104903cdb0a2abd322bbecd"
+checksum = "b65dc4c90b63b118468cf747d8bf3566c1913ef60be765b5730ead9e0a3ba129"
 dependencies = [
  "futures-util",
  "js-sys",
@@ -6072,9 +6099,9 @@ checksum = "104a7f73be44570cac297b3035d76b169d6599637631cf37a1703326a0727073"
 
 [[package]]
 name = "wasmi_collections"
-version = "0.36.3"
+version = "0.36.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1ee1cf2328e7fbb8654fda8449395c64c36ef5a30511e79fae0265a96e1a446"
+checksum = "8eddc10bfb0069e913399ebd66c5a72c7d9aceabddcaa0296f062a55ab61d404"
 dependencies = [
  "ahash",
  "hashbrown 0.14.5",
@@ -6095,9 +6122,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi_core"
-version = "0.36.3"
+version = "0.36.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e77c1e701d21edfd263e5c6c940861202c6b840c715040cfdca6211bf8857aa"
+checksum = "f08b12621457c17cfd5349cce25029eeac3769b63b1b02bd850d595a00f375ff"
 dependencies = [
  "downcast-rs",
  "libm",
@@ -6439,7 +6466,7 @@ version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
 dependencies = [
- "byteorder",
+ "byteorder 1.5.0",
  "zerocopy-derive",
 ]
 

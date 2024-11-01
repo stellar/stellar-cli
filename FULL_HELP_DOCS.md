@@ -334,6 +334,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
    If ommitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
+* `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
 
 
@@ -1362,6 +1363,7 @@ Sign a transaction envelope appending the signature to the envelope
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1517,7 +1519,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10_000_000`
+  Default value: `10000000`
 
 
 
