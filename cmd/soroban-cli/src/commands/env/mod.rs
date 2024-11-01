@@ -1,6 +1,6 @@
 use crate::{
     commands::global,
-    config::locator::{self, config, config_file},
+    config::locator::{self, config},
 };
 use clap::Parser;
 
@@ -14,24 +14,46 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
+    #[error("no defaults or environment variables set")]
+    NoEnv,
 }
 
 impl Cmd {
     pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
         let config = config()?;
+        let mut lines: Vec<(String, String)> = Vec::new();
 
-        println!("config_file={}", config_file()?.to_string_lossy());
+        if let Some(data) = get("STELLAR_NETWORK", config.defaults.network) {
+            lines.push(data);
+        }
 
-        println!(
-            "network={}",
-            config.defaults.network.unwrap_or("(unset)".to_string())
-        );
+        if let Some(data) = get("STELLAR_ACCOUNT", config.defaults.identity) {
+            lines.push(data);
+        }
 
-        println!(
-            "identity={}",
-            config.defaults.identity.unwrap_or("(unset)".to_string())
-        );
+        if lines.is_empty() {
+            return Err(Error::NoEnv);
+        }
+
+        let max_len = lines.iter().map(|l| l.0.len()).max().unwrap_or(0);
+
+        for (value, source) in lines {
+            println!("{value:max_len$} # {source}");
+        }
 
         Ok(())
     }
+}
+
+fn get(env_var: &str, default_value: Option<String>) -> Option<(String, String)> {
+    if let Ok(value) = std::env::var(env_var) {
+        return Some((format!("{env_var}={value}"), "env".to_string()));
+    }
+
+    if let Some(value) = default_value {
+        return Some((format!("{env_var}={value}"), "default".to_string()));
+    }
+
+    None
 }
