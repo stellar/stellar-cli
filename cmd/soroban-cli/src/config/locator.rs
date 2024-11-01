@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs::{self, create_dir_all, File, OpenOptions},
+    fs::{self, create_dir_all, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
@@ -168,27 +168,11 @@ impl Args {
     }
 
     pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
-        let mut config = config()?;
-
-        config.defaults.network = Some(name.to_string());
-
-        let toml_string = toml::to_string(&config)?;
-        let mut file = File::create(config_file()?)?;
-        file.write_all(toml_string.as_bytes())?;
-
-        Ok(())
+        Config::new()?.set_network(name).save()
     }
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
-        let mut config = config()?;
-
-        config.defaults.identity = Some(name.to_string());
-
-        let toml_string = toml::to_string(&config)?;
-        let mut file = File::create(config_file()?)?;
-        file.write_all(toml_string.as_bytes())?;
-
-        Ok(())
+        Config::new()?.set_identity(name).save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -543,6 +527,6 @@ pub fn config() -> Result<Config, Error> {
 
         Ok(config)
     } else {
-        Ok(Config::new())
+        Ok(Config::new()?)
     }
 }
