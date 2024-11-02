@@ -22,7 +22,12 @@ pub mod passphrase;
 pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
+    #[error(
+        r#"Access to the network is required
+`--network` or `--rpc-url` and `--network-passphrase` are required if using the network.
+Alternatively you can use their corresponding environment variables:
+STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
+    )]
     Network,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
@@ -48,8 +53,6 @@ pub struct Args {
     /// RPC server endpoint
     #[arg(
         long = "rpc-url",
-        requires = "network_passphrase",
-        required_unless_present = "network",
         env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
     )]
@@ -68,8 +71,6 @@ pub struct Args {
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
-        requires = "rpc_url",
-        required_unless_present = "network",
         env = "STELLAR_NETWORK_PASSPHRASE",
         help_heading = HEADING_RPC,
     )]
@@ -77,8 +78,6 @@ pub struct Args {
     /// Name of network to use from config
     #[arg(
         long,
-        required_unless_present = "rpc_url",
-        required_unless_present = "network_passphrase",
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
