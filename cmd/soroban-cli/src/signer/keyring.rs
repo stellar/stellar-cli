@@ -44,42 +44,37 @@ impl StellarEntry {
         Ok(base64.decode(entry.get_password()?)?)
     }
 
-    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+    fn use_key<T>(
+        &self,
+        f: impl FnOnce(ed25519_dalek::SigningKey) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         let mut key_vec = self.get_password()?;
         let mut key_bytes: [u8; 32] = key_vec.as_slice().try_into().unwrap();
 
-        let pub_key = {
+        let result = {
             // Use this scope to ensure the keypair is zeroized
             let keypair = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
-            stellar_strkey::ed25519::PublicKey(*keypair.verifying_key().as_bytes())
+            f(keypair)?
         };
         key_vec.zeroize();
         key_bytes.zeroize();
-        Ok(pub_key)
+        Ok(result)
     }
-}
 
-pub fn sign_data(name: &str, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    // Retrieve the key from the secure storage
-    let entry = Entry::new("stellar", name)?;
-    let key_bytes: [u8; 32] = entry.get_secret()?.try_into().unwrap();
-    // Create a keypair from the retrieved bytes
-    let keypair = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
+    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        self.use_key(|keypair| {
+            Ok(stellar_strkey::ed25519::PublicKey(
+                *keypair.verifying_key().as_bytes(),
+            ))
+        })
+    }
 
-    // Sign the data
-    let signature = keypair.sign(data);
-
-    // Clear the key from memory
-    let mut key_bytes = key_bytes;
-    key_bytes.zeroize();
-
-    Ok(signature.to_bytes().to_vec())
-}
-
-pub fn add_key(name: &str, key_bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a new keyring entry for "stellar"
-    StellarEntry::new(name)?.set_password(key_bytes)?;
-    Ok(())
+    pub fn sign_data(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
+        self.use_key(|keypair| {
+            let signature = keypair.sign(data);
+            Ok(signature.to_bytes().to_vec())
+        })
+    }
 }
 
 #[cfg(test)]
@@ -91,9 +86,9 @@ mod test {
         let secret = crate::config::secret::Secret::from_seed(None)?;
         let pub_key = secret.public_key(None)?;
         let key_pair = secret.key_pair(None)?;
-
-        add_key("test", &key_pair.to_bytes()).unwrap();
-        let pub_key_2 = get_public_key("test")?;
+        let entry = StellarEntry::new("test")?;
+        entry.set_password(&key_pair.to_bytes());
+        let pub_key_2 = entry.get_public_key()?;
         assert_eq!(pub_key, pub_key_2);
         Ok(())
     }
