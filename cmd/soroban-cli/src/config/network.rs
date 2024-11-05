@@ -102,11 +102,10 @@ impl Args {
             self.network_passphrase.clone(),
         ) {
             (None, None, None) => Err(Error::Network),
-            (Some(_), Some(_), Some(_)) => Err(Error::CannotUseBothRpcAndNetwork),
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
-            (Some(network), _, _) => Ok(locator.read_network(network)?),
-            (None, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
+            (Some(network), None, None) => Ok(locator.read_network(network)?),
+            (_, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
                 rpc_url,
                 rpc_headers: self.rpc_headers.clone(),
                 network_passphrase,
