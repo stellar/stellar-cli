@@ -1,6 +1,9 @@
 use crate::{
     commands::global,
-    config::locator::{self, config},
+    config::{
+        locator::{self},
+        Config,
+    },
 };
 use clap::Parser;
 
@@ -21,7 +24,7 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
-        let config = config()?;
+        let config = Config::new()?;
         let mut lines: Vec<(String, String)> = Vec::new();
 
         if let Some(data) = get("STELLAR_NETWORK", config.defaults.network) {

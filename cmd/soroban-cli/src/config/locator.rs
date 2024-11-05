@@ -517,16 +517,3 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
 pub fn config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
 }
-
-pub fn config() -> Result<Config, Error> {
-    let path = config_file()?;
-
-    if path.exists() {
-        let data = fs::read(&path).map_err(|_| Error::FileRead { path })?;
-        let config: Config = toml::from_slice(data.as_slice())?;
-
-        Ok(config)
-    } else {
-        Ok(Config::new()?)
-    }
-}
