@@ -24,6 +24,8 @@ pub struct Args {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
+    #[arg(long, visible_alias = "seq-num", help_heading = HEADING_RPC)]
+    pub sequence_number: Option<i64>,
     /// (Deprecated) simulate the transaction and only write the base64 xdr to stdout
     #[arg(
         long,
@@ -37,10 +39,15 @@ pub struct Args {
 
 impl Args {
     pub fn apply_to_assembled_txn(&self, txn: Assembled) -> Assembled {
-        if let Some(instructions) = self.instructions {
+        let txn = if let Some(instructions) = self.instructions {
             txn.set_max_instructions(instructions)
         } else {
             add_padding_to_instructions(txn)
+        };
+        if let Some(sequence_number) = self.sequence_number {
+            txn.set_seq_num(sequence_number)
+        } else {
+            txn
         }
     }
 }
@@ -66,6 +73,7 @@ impl Default for Args {
             instructions: None,
             build_only: false,
             sim_only: false,
+            sequence_number: None,
         }
     }
 }

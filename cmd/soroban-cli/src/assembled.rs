@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use soroban_sdk::xdr::SequenceNumber;
 use stellar_xdr::curr::{
     self as xdr, ExtensionPoint, Hash, InvokeHostFunctionOp, LedgerFootprint, Limits, Memo,
     Operation, OperationBody, Preconditions, ReadXdr, RestoreFootprintOp,
@@ -99,6 +100,12 @@ impl Assembled {
     #[must_use]
     pub fn bump_seq_num(mut self) -> Self {
         self.txn.seq_num.0 += 1;
+        self
+    }
+
+    #[must_use]
+    pub fn set_seq_num(mut self, seq_num: impl Into<SequenceNumber>) -> Self {
+        self.txn.seq_num = seq_num.into();
         self
     }
 

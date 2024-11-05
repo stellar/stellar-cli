@@ -37,10 +37,13 @@ pub enum Error {
 impl Args {
     pub async fn tx(&self, body: impl Into<xdr::OperationBody>) -> Result<xdr::Transaction, Error> {
         let source_account = self.source_account()?;
-        let seq_num = self
-            .config
-            .next_sequence_number(&source_account.to_string())
-            .await?;
+        let seq_num = if let Some(seq_num) = self.fee.sequence_number {
+            seq_num.into()
+        } else {
+            self.config
+                .next_sequence_number(&source_account.to_string())
+                .await?
+        };
         // Once we have a way to add operations this will be updated to allow for a different source account
         let operation = xdr::Operation {
             source_account: None,
