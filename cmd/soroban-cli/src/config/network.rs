@@ -22,8 +22,23 @@ pub mod passphrase;
 pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
+    #[error(
+        r#"Access to the network is required
+`--network` or `--rpc-url` and `--network-passphrase` are required if using the network.
+Alternatively you can use their corresponding environment variables:
+STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
+    )]
     Network,
+    #[error(
+        "rpc-url is used but network passphrase is missing, use `--network-passphrase` or `STELLAR_NETWORK_PASSPHRASE`"
+    )]
+    MissingNetworkPassphrase,
+    #[error(
+        "network passphrase is used but rpc-url is missing, use `--rpc-url` or `STELLAR_RPC_URL`"
+    )]
+    MissingRpcUrl,
+    #[error("cannot use both `--rpc-url` and `--network`")]
+    CannotUseBothRpcAndNetwork,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -81,21 +96,20 @@ pub struct Args {
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
-        if let Some(name) = self.network.as_deref() {
-            if let Ok(network) = locator.read_network(name) {
-                return Ok(network);
-            }
-        }
-        if let (Some(rpc_url), Some(network_passphrase)) =
-            (self.rpc_url.clone(), self.network_passphrase.clone())
-        {
-            Ok(Network {
+        match (
+            self.network.as_deref(),
+            self.rpc_url.clone(),
+            self.network_passphrase.clone(),
+        ) {
+            (None, None, None) => Err(Error::Network),
+            (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
+            (_, None, Some(_)) => Err(Error::MissingRpcUrl),
+            (Some(network), None, None) => Ok(locator.read_network(network)?),
+            (_, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
                 rpc_url,
                 rpc_headers: self.rpc_headers.clone(),
                 network_passphrase,
-            })
-        } else {
-            Err(Error::Network)
+            }),
         }
     }
 }

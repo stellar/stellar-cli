@@ -12,7 +12,7 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{utils::find_config_dir, Pwd};
+use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
 
 use super::{
     alias,
@@ -82,11 +82,11 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Use global config
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
     /// Location of config directory, default is "."
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
 
