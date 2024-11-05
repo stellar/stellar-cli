@@ -9,6 +9,8 @@ use crate::{
     utils,
 };
 
+use super::key::{self, Key};
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid secret key")]
@@ -39,19 +41,26 @@ pub struct Args {
     /// Add using 12 word seed phrase to generate `secret_key`
     #[arg(long, conflicts_with = "secret_key")]
     pub seed_phrase: bool,
+
+    /// Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+    #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
+    pub public_key: Option<String>,
 }
 
 impl Args {
-    pub fn read_secret(&self) -> Result<Secret, Error> {
+    pub fn read_key(&self) -> Result<Key, key::Error> {
+        if let Some(public_key) = self.public_key.as_ref() {
+            return Ok(public_key.parse()?);
+        };
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
-            Ok(Secret::SecretKey { secret_key })
+            Ok(Key::Secret(Secret::SecretKey { secret_key }))
         } else if self.secret_key {
             println!("Type a secret key: ");
             let secret_key = read_password()?;
             let secret_key = PrivateKey::from_string(&secret_key)
                 .map_err(|_| Error::InvalidSecretKey)?
                 .to_string();
-            Ok(Secret::SecretKey { secret_key })
+            Ok(Key::Secret(Secret::SecretKey { secret_key }))
         } else if self.seed_phrase {
             println!("Type a 12 word seed phrase: ");
             let seed_phrase = read_password()?;
@@ -60,20 +69,20 @@ impl Args {
             //     let len = seed_phrase.len();
             //     return Err(Error::InvalidSeedPhrase { len });
             // }
-            Ok(Secret::SeedPhrase {
+            Ok(Key::Secret(Secret::SeedPhrase {
                 seed_phrase: seed_phrase
                     .into_iter()
                     .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .join(" "),
-            })
+            }))
         } else {
-            Err(Error::PasswordRead {})
+            Err(Error::PasswordRead {}.into())
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Secret {
     SecretKey { secret_key: String },

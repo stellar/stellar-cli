@@ -16,6 +16,7 @@ use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
 
 use super::{
     alias,
+    key::Key,
     network::{self, Network},
     secret::Secret,
     Config,
@@ -163,7 +164,19 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
-        KeyType::Identity.write(name, secret, &self.config_dir()?)
+        self.write_key(name, &Key::Secret(secret.clone()))
+    }
+
+    pub fn write_public_key(
+        &self,
+        name: &str,
+        public_key: &stellar_strkey::ed25519::PublicKey,
+    ) -> Result<(), Error> {
+        self.write_key(name, &public_key.into())
+    }
+
+    pub fn write_key(&self, name: &str, public_key: &Key) -> Result<(), Error> {
+        KeyType::Identity.write(name, public_key, &self.config_dir()?)
     }
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
@@ -228,17 +241,20 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        Ok(KeyType::Identity
-            .read_with_global(name, &self.local_config()?)
-            .or_else(|_| name.parse())?)
+    pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
+        Ok(KeyType::Identity.read_with_global(name, &self.local_config()?)?)
     }
 
-    pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {
+    pub fn get_private_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         if let Ok(signer) = key_or_name.parse::<Secret>() {
             Ok(signer)
         } else {
-            self.read_identity(key_or_name)
+            match self.read_identity(key_or_name)? {
+                Key::Secret(s) => Ok(s),
+                _ => Err(Error::SecretFileRead {
+                    path: self.alias_path(key_or_name)?,
+                }),
+            }
         }
     }
 
