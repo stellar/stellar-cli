@@ -148,7 +148,7 @@ Deploy builtin Soroban Asset Contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
@@ -380,7 +380,7 @@ If no keys are specified the contract itself is extended.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
@@ -410,7 +410,7 @@ Deploy a wasm contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -692,7 +692,7 @@ Install a WASM file to the ledger without creating a contract instance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
@@ -733,7 +733,7 @@ stellar contract invoke ... -- --help
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
@@ -848,7 +848,7 @@ If no keys are specificed the contract itself is restored.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
@@ -1428,7 +1428,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1456,7 +1456,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1484,7 +1484,7 @@ Creates, updates, or deletes a trustline Learn more about trustlines https://dev
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1515,7 +1515,7 @@ Creates and funds a new account with the specified starting balance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1546,7 +1546,7 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1575,7 +1575,7 @@ Sends an amount in a specific asset to a destination account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1607,7 +1607,7 @@ Set option for an account such as flags, inflation destination, signers, home do
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1650,7 +1650,7 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sequence-number <SEQUENCE_NUMBER>`
+* `--sequence-number <SEQUENCE_NUMBER>` — Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider

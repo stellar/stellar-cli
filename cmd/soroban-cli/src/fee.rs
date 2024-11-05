@@ -25,6 +25,7 @@ pub struct Args {
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
     #[arg(long, visible_alias = "seq-num", help_heading = HEADING_RPC)]
+    /// Optionally set the sequence number for the transaction; default is the current sequence number of the source account incremented by one
     pub sequence_number: Option<i64>,
     /// (Deprecated) simulate the transaction and only write the base64 xdr to stdout
     #[arg(
