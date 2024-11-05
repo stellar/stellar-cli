@@ -11,6 +11,8 @@ use crate::xdr::{
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
+pub mod keyring;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Contract addresses are not supported to sign auth entries {address}")]
