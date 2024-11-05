@@ -4,6 +4,7 @@ use crate::{
         locator::{self},
         Config,
     },
+    print::Print,
 };
 use clap::Parser;
 
@@ -17,13 +18,11 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
-
-    #[error("no defaults or environment variables set")]
-    NoEnv,
 }
 
 impl Cmd {
-    pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let config = Config::new()?;
         let mut lines: Vec<(String, String)> = Vec::new();
 
@@ -36,10 +35,13 @@ impl Cmd {
         }
 
         if lines.is_empty() {
-            return Err(Error::NoEnv);
+            print.warnln("No defaults or environment variables set".to_string());
+            return Ok(());
         }
 
         let max_len = lines.iter().map(|l| l.0.len()).max().unwrap_or(0);
+
+        lines.sort();
 
         for (value, source) in lines {
             println!("{value:max_len$} # {source}");
