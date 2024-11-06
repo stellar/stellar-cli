@@ -1,12 +1,7 @@
+use std::array::TryFromSliceError;
+use std::ffi::OsString;
 use std::fmt::Debug;
 use std::num::ParseIntError;
-use std::{array::TryFromSliceError, ffi::OsString};
-
-use clap::{arg, command, Parser};
-use rand::Rng;
-use regex::Regex;
-
-use soroban_spec_tools::contract as contract_spec;
 
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
@@ -15,6 +10,11 @@ use crate::xdr::{
     Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
     VecM, WriteXdr,
 };
+use clap::{arg, command, Parser};
+use rand::Rng;
+use regex::Regex;
+
+use soroban_spec_tools::contract as contract_spec;
 
 use crate::{
     assembled::simulate_and_assemble_transaction,
