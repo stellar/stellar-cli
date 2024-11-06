@@ -1099,7 +1099,7 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `stellar container start` instead
+- `start` — ⚠️ Deprecated: use `stellar network container start` instead
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — Commands to start, stop and get logs for a quickstart container
