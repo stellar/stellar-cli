@@ -10,7 +10,7 @@ use clap::{arg, command, Parser};
 use crate::{
     commands::{global, NetworkRunnable},
     config::{
-        self, alias, locator,
+        self, locator,
         network::{self, Network},
     },
     wasm, Pwd,

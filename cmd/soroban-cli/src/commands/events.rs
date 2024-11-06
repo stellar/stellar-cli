@@ -1,10 +1,7 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use crate::{
-    config::alias,
-    xdr::{self, Limits, ReadXdr},
-};
+use crate::xdr::{self, Limits, ReadXdr};
 
 use super::{global, NetworkRunnable};
 use crate::{
@@ -124,8 +121,6 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error(transparent)]
-    ContractId(#[from] alias::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]

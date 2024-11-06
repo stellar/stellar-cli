@@ -22,8 +22,6 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
-    #[error(transparent)]
-    ContractId(#[from] alias::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -36,7 +34,7 @@ pub struct Args {
         required_unless_present = "wasm",
         required_unless_present = "wasm_hash"
     )]
-    pub contract_id: Option<config::ContractAddress>,
+    pub contract_id: Option<alias::ContractAddress>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     pub key: Option<Vec<String>>,

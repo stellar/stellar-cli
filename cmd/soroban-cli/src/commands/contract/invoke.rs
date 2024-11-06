@@ -12,7 +12,6 @@ use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::config::alias;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -124,8 +123,6 @@ pub enum Error {
     GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
-    #[error(transparent)]
-    ContractAddress(#[from] alias::Error),
 }
 
 impl From<Infallible> for Error {
