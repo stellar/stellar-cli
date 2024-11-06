@@ -6,6 +6,7 @@ use super::{config::locator, global};
 
 pub mod add;
 pub mod container;
+pub mod default;
 pub mod ls;
 pub mod rm;
 
@@ -13,10 +14,13 @@ pub mod rm;
 pub enum Cmd {
     /// Add a new network
     Add(add::Cmd),
+
     /// Remove a network
     Rm(rm::Cmd),
+
     /// List networks
     Ls(ls::Cmd),
+
     /// ⚠️ Deprecated: use `stellar container start` instead
     ///
     /// Start network
@@ -29,10 +33,17 @@ pub enum Cmd {
     ///
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
     Start(container::StartCmd),
+
     /// ⚠️ Deprecated: use `stellar container stop` instead
     ///
     /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
     Stop(container::StopCmd),
+
+    /// Set the default network that will be used on all commands.
+    /// This allows you to skip `--network` or setting a environment variable,
+    /// while reusing this value in all commands that require it.
+    #[command(name = "use")]
+    Default(default::Cmd),
 
     /// Commands to start, stop and get logs for a quickstart container
     #[command(subcommand)]
@@ -41,6 +52,9 @@ pub enum Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Default(#[from] default::Error),
+
     #[error(transparent)]
     Add(#[from] add::Error),
 
@@ -81,6 +95,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
+            Cmd::Default(cmd) => cmd.run(global_args)?,
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
