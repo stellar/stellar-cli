@@ -21,7 +21,7 @@ pub enum Cmd {
     /// List networks
     Ls(ls::Cmd),
 
-    /// ⚠️ Deprecated: use `stellar container start` instead
+    /// ⚠️ Deprecated: use `stellar network container start` instead
     ///
     /// Start network
     ///
@@ -34,7 +34,7 @@ pub enum Cmd {
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
     Start(container::StartCmd),
 
-    /// ⚠️ Deprecated: use `stellar container stop` instead
+    /// ⚠️ Deprecated: use `stellar network container stop` instead
     ///
     /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
     Stop(container::StopCmd),

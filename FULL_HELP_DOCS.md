@@ -1099,8 +1099,8 @@ Start and configure networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-- `start` — ⚠️ Deprecated: use `stellar network container start` instead
-* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
+* `start` — ⚠️ Deprecated: use `stellar network container start` instead
+* `stop` — ⚠️ Deprecated: use `stellar network container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — Commands to start, stop and get logs for a quickstart container
 
@@ -1159,7 +1159,7 @@ List networks
 
 ## `stellar network start`
 
-⚠️ Deprecated: use `stellar container start` instead
+⚠️ Deprecated: use `stellar network container start` instead
 
 Start network
 
@@ -1195,7 +1195,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network stop`
 
-⚠️ Deprecated: use `stellar container stop` instead
+⚠️ Deprecated: use `stellar network container stop` instead
 
 Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
