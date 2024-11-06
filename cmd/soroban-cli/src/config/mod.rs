@@ -115,10 +115,19 @@ impl Args {
         Ok(self.network.get(&self.locator)?)
     }
 
-    pub async fn next_sequence_number(&self, account_str: &str) -> Result<SequenceNumber, Error> {
+    pub async fn next_sequence_number(
+        &self,
+        account: impl Into<xdr::AccountId>,
+    ) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
-        Ok((client.get_account(account_str).await?.seq_num.0 + 1).into())
+        Ok((client
+            .get_account(&account.into().to_string())
+            .await?
+            .seq_num
+            .0
+            + 1)
+        .into())
     }
 }
 

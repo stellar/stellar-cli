@@ -388,7 +388,11 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
+
+###### **Arguments:**
+
+* `<CONTRACT_CONSTRUCTOR_ARGS>` — If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
 
 ###### **Options:**
 
