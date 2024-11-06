@@ -72,7 +72,7 @@ impl Cmd {
                 return Err(Error::IdentityAlreadyExists(self.name.clone()));
             }
 
-            print.infoln(format!("Overwriting identity '{}'", &self.name));
+            print.exclaimln(format!("Overwriting identity '{}'", &self.name));
         }
 
         if !self.fund {
