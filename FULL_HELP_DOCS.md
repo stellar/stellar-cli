@@ -45,6 +45,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
+* `env` — Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Start and configure networks
 * `snapshot` — Download a snapshot of a ledger from an archive
@@ -897,6 +898,19 @@ Watch the network for contract events
 
 
 
+## `stellar env`
+
+Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+
+**Usage:** `stellar env [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
 ## `stellar keys`
 
 Create and manage identities including keys and addresses
@@ -912,6 +926,7 @@ Create and manage identities including keys and addresses
 * `ls` — List identities
 * `rm` — Remove an identity
 * `show` — Given an identity return its private key
+* `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
 
 
@@ -1052,6 +1067,23 @@ Given an identity return its private key
 
 
 
+## `stellar keys use`
+
+Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
+
+**Usage:** `stellar keys use [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Set the default network name
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
 ## `stellar network`
 
 Start and configure networks
@@ -1065,6 +1097,7 @@ Start and configure networks
 * `ls` — List networks
 * `start` — ⚠️ Deprecated: use `stellar container start` instead
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
+* `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — Commands to start, stop and get logs for a quickstart container
 
 
@@ -1171,6 +1204,23 @@ Stop a network started with `network start`. For example, if you ran `stellar ne
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar network use`
+
+Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
+
+**Usage:** `stellar network use [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Set the default network name
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
