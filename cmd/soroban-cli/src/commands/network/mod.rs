@@ -104,12 +104,14 @@ impl Cmd {
 
             // TODO Remove this once `network start` is removed
             Cmd::Start(cmd) => {
-                eprintln!("⚠️ Warning: `network start` has been deprecated. Use `network container start` instead");
+                eprintln!("⚠️ Warning: `network start` has been deprecated. Use `container start` instead");
                 cmd.run(global_args).await?;
             }
             // TODO Remove this once `network stop` is removed
             Cmd::Stop(cmd) => {
-                println!("⚠️ Warning: `network stop` has been deprecated. Use `network container stop` instead");
+                println!(
+                    "⚠️ Warning: `network stop` has been deprecated. Use `container stop` instead"
+                );
                 cmd.run(global_args).await?;
             }
         };
