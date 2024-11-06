@@ -52,7 +52,7 @@ async fn deploy_constructor_contract() {
                 }),
             ..
         } => constructor_args,
-        _ => panic!("Expected ManageData operation"),
+        _ => panic!("expected invoke host function with create contract v2"),
     }
     .to_vec();
 
