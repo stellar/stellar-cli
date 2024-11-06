@@ -1,8 +1,10 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl};
+use soroban_sdk::{contract, contractimpl, contractmeta};
 
 #[contract]
 pub struct Contract;
+
+contractmeta!(key = "Description", val = "A test add contract");
 
 #[contractimpl]
 impl Contract {
