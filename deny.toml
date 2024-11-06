@@ -110,7 +110,6 @@ allow = [
     "Unicode-DFS-2016",
     "ISC",
     "BSD-2-Clause",
-    # "MPL-2.0"
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -140,9 +139,14 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    # Each entry is the crate and version constraint, and its specific allow
-    # list
-    #{ allow = ["Zlib"], name = "adler32", version = "*" },
+    # The following dep licenses were inspected and approved for use because we
+    # do not fork them. Related conversation and approval is at:
+    # https://stellarfoundation.slack.com/archives/C07TC92R2P7/p1730924548048429?thread_ts=1730900591.962089&cid=C07TC92R2P7
+    { allow = ["MPL-2.0"], name = "option-ext", version = "0.2.0" },
+    { allow = ["MPL-2.0"], name = "webpki-roots", version = "0.26.3" },
+    # The following dep licensed was manually reviewed and approved for use. Related conversation and approval is at:
+    # https://stellarfoundation.slack.com/archives/C07TC92R2P7/p1730917671563029?thread_ts=1730903286.490759&cid=C07TC92R2P7
+    { allow = ["unlicensed"], name = "ring", version = "0.17.8" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
