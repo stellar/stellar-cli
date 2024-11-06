@@ -224,15 +224,13 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+
         let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
-
-        let source_account = stellar_strkey::ed25519::PublicKey(bytes.into());
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
         let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-            address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(
-                source_account.0.into(),
-            ))),
+            address: ScAddress::Account(source_account.clone()),
             salt: Uint256(salt),
         });
         let contract_id =
@@ -271,7 +269,7 @@ impl NetworkRunnable for Cmd {
             wasm_hash,
             sequence + 1,
             self.fee.fee,
-            &source_account,
+            source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
         )?;
@@ -317,7 +315,7 @@ fn build_create_contract_tx(
     wasm_hash: Hash,
     sequence: i64,
     fee: u32,
-    key: &stellar_strkey::ed25519::PublicKey,
+    key: AccountId,
     contract_id_preimage: ContractIdPreimage,
     constructor_params: Option<&InvokeContractArgs>,
 ) -> Result<Transaction, Error> {
@@ -346,7 +344,7 @@ fn build_create_contract_tx(
         }
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(key.0.into()),
+        source_account: key.into(),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -372,12 +370,12 @@ mod tests {
         let key =
             &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
                 .unwrap();
-        let source_account = stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes());
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            key.verifying_key().to_bytes(),
+        )));
 
         let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-            address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(
-                source_account.0.into(),
-            ))),
+            address: ScAddress::Account(source_account.clone()),
             salt: Uint256(salt),
         });
 
@@ -385,7 +383,7 @@ mod tests {
             Hash(hash),
             300,
             1,
-            &source_account,
+            source_account,
             contract_id_preimage,
             None,
         );
