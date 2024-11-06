@@ -1,6 +1,10 @@
 use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
+use std::{
+    fs::{self, File},
+    io::Write,
+};
 
 use crate::{
     print::Print,
@@ -8,7 +12,6 @@ use crate::{
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
-
 use network::Network;
 
 pub mod address;
@@ -134,9 +137,6 @@ impl Pwd for Args {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
-pub struct Config {}
-
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct ArgsLocatorAndNetwork {
@@ -150,5 +150,50 @@ pub struct ArgsLocatorAndNetwork {
 impl ArgsLocatorAndNetwork {
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct Config {
+    pub defaults: Defaults,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct Defaults {
+    pub network: Option<String>,
+    pub identity: Option<String>,
+}
+
+impl Config {
+    pub fn new() -> Result<Config, locator::Error> {
+        let path = locator::config_file()?;
+
+        if path.exists() {
+            let data = fs::read(&path).map_err(|_| locator::Error::FileRead { path })?;
+
+            Ok(toml::from_slice(&data)?)
+        } else {
+            Ok(Config::default())
+        }
+    }
+
+    #[must_use]
+    pub fn set_network(mut self, s: &str) -> Self {
+        self.defaults.network = Some(s.to_string());
+        self
+    }
+
+    #[must_use]
+    pub fn set_identity(mut self, s: &str) -> Self {
+        self.defaults.identity = Some(s.to_string());
+        self
+    }
+
+    pub fn save(&self) -> Result<(), locator::Error> {
+        let toml_string = toml::to_string(&self)?;
+        let mut file = File::create(locator::config_file()?)?;
+        file.write_all(toml_string.as_bytes())?;
+
+        Ok(())
     }
 }
