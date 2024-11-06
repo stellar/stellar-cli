@@ -158,7 +158,7 @@ pub enum Cmd {
 
     /// Start local networks in containers
     #[command(subcommand)]
-    Container(network::Cmd),
+    Container(container::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
