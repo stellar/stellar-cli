@@ -4542,6 +4542,7 @@ version = "22.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39b6d2ec8955243394278e1fae88be3b367fcfed9cf74e5044799a90786a8642"
 dependencies = [
+ "arbitrary",
  "crate-git-revision 0.0.6",
  "ethnum",
  "num-derive",
@@ -4731,7 +4732,10 @@ version = "22.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d063d0df000aaec20105aab3d743660322bc0269934ea95d79fa19aa8792385"
 dependencies = [
+ "arbitrary",
  "bytes-lit",
+ "ctor",
+ "ed25519-dalek 2.1.1",
  "rand",
  "rustc_version",
  "serde",
@@ -5091,6 +5095,7 @@ version = "22.0.0-rc.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c88dc0e928b9cb65ea43836b52560bb4ead3e32895f5019ca223dc7cd1966cbf"
 dependencies = [
+ "arbitrary",
  "base64 0.13.1",
  "clap",
  "crate-git-revision 0.0.6",
@@ -5345,6 +5350,13 @@ dependencies = [
  "quote",
  "syn 2.0.77",
  "test-case-core",
+]
+
+[[package]]
+name = "test_constructor"
+version = "21.5.0"
+dependencies = [
+ "soroban-sdk 22.0.0-rc.3",
 ]
 
 [[package]]
