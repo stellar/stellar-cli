@@ -5,7 +5,6 @@ use crate::rpc::{self};
 use super::{config::locator, global};
 
 pub mod add;
-pub mod container;
 pub mod default;
 pub mod ls;
 pub mod rm;
@@ -32,12 +31,12 @@ pub enum Cmd {
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     ///
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-    Start(container::StartCmd),
+    Start(crate::commands::container::StartCmd),
 
     /// ⚠️ Deprecated: use `stellar container stop` instead
     ///
     /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
-    Stop(container::StopCmd),
+    Stop(crate::commands::container::StopCmd),
 
     /// Set the default network that will be used on all commands.
     /// This allows you to skip `--network` or setting a environment variable,
@@ -45,9 +44,11 @@ pub enum Cmd {
     #[command(name = "use")]
     Default(default::Cmd),
 
+    /// ⚠️ Deprecated: use `stellar container` instead
+    ///
     /// Commands to start, stop and get logs for a quickstart container
     #[command(subcommand)]
-    Container(container::Cmd),
+    Container(crate::commands::container::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -66,14 +67,14 @@ pub enum Error {
 
     // TODO: remove once `network start` is removed
     #[error(transparent)]
-    Start(#[from] container::start::Error),
+    Start(#[from] crate::commands::container::start::Error),
 
     // TODO: remove once `network stop` is removed
     #[error(transparent)]
-    Stop(#[from] container::stop::Error),
+    Stop(#[from] crate::commands::container::stop::Error),
 
     #[error(transparent)]
-    Container(#[from] container::Error),
+    Container(#[from] crate::commands::container::Error),
 
     #[error(transparent)]
     Config(#[from] locator::Error),

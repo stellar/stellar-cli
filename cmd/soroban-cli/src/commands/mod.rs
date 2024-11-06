@@ -7,6 +7,7 @@ use crate::config;
 
 pub mod cache;
 pub mod completion;
+pub mod container;
 pub mod contract;
 pub mod env;
 pub mod events;
@@ -113,6 +114,7 @@ impl Root {
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
+            Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
@@ -150,9 +152,13 @@ pub enum Cmd {
     #[command(subcommand)]
     Keys(keys::Cmd),
 
-    /// Start and configure networks
+    /// Configure connection to networks
     #[command(subcommand)]
     Network(network::Cmd),
+
+    /// Start local networks in containers
+    #[command(subcommand)]
+    Container(network::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
@@ -200,6 +206,9 @@ pub enum Error {
 
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Container(#[from] container::Error),
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
