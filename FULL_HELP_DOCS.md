@@ -392,7 +392,7 @@ Deploy a wasm contract
 
 ###### **Arguments:**
 
-* `<CONTRACT_CONSTRUCTOR_ARGS>` — If provided, in one transaction will deploy and call `__constructor` with provided arguments for that function as `--arg-name value`
+* `<CONTRACT_CONSTRUCTOR_ARGS>` — If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
 
 ###### **Options:**
 

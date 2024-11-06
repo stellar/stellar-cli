@@ -65,7 +65,7 @@ pub struct Cmd {
     /// configuration without asking for confirmation.
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
-    /// If provided, in one transaction will deploy and call `__constructor` with provided arguments for that function as `--arg-name value`
+    /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
 }
