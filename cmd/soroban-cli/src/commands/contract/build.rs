@@ -1,6 +1,7 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
+use soroban_spec_tools::contract::Spec;
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -283,6 +284,8 @@ impl Cmd {
         }
 
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let spec = Spec::new(&wasm_bytes).unwrap();
+        println!("spec: {:#?}", spec.meta);
 
         for (k, v) in self.meta.clone() {
             let key: StringM = k
@@ -298,6 +301,11 @@ impl Cmd {
             let xdr: Vec<u8> = meta_entry
                 .to_xdr(Limits::none())
                 .map_err(|e| Error::MetaArg(format!("failed to encode metadata entry: {e}")))?;
+
+            if spec.meta.contains(&meta_entry) {
+                println!("metadata entry already exists in wasm: {k}={v}");
+                continue;
+            }
 
             wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
         }
