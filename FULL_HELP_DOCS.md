@@ -130,7 +130,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 Deploy builtin Soroban Asset Contract
 
-**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract asset deploy [OPTIONS] --asset <ASSET>`
 
 ###### **Options:**
 
@@ -140,6 +140,8 @@ Deploy builtin Soroban Asset Contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -345,7 +347,7 @@ Extend the time to live ledger of a contract-data ledger entry.
 
 If no keys are specified the contract itself is extended.
 
-**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract extend [OPTIONS] --ledgers-to-extend <LEDGERS_TO_EXTEND>`
 
 ###### **Options:**
 
@@ -371,6 +373,8 @@ If no keys are specified the contract itself is extended.
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -388,7 +392,7 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
+**Usage:** `stellar contract deploy [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -404,6 +408,8 @@ Deploy a wasm contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -475,7 +481,7 @@ Deploy builtin Soroban Asset Contract
 
 Deploy normal Wasm Contract
 
-**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT>`
 
 ###### **Options:**
 
@@ -485,6 +491,8 @@ Deploy normal Wasm Contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -676,7 +684,7 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract install [OPTIONS] --wasm <WASM>`
 
 ###### **Options:**
 
@@ -685,6 +693,8 @@ Install a WASM file to the ledger without creating a contract instance
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -710,7 +720,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -725,6 +735,8 @@ stellar contract invoke ... -- --help
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -813,7 +825,7 @@ Restore an evicted value for a contract-data legder entry.
 
 If no keys are specificed the contract itself is restored.
 
-**Usage:** `stellar contract restore [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar contract restore [OPTIONS]`
 
 ###### **Options:**
 
@@ -839,6 +851,8 @@ If no keys are specificed the contract itself is restored.
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1377,7 +1391,7 @@ Sign, Simulate, and Send transactions
 
 Simulate a transaction envelope from stdin
 
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx simulate [OPTIONS]`
 
 ###### **Options:**
 
@@ -1386,6 +1400,8 @@ Simulate a transaction envelope from stdin
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1467,7 +1483,7 @@ Create a new transaction
 
 Transfers the XLM balance of an account to another account and removes the source account from the ledger
 
-**Usage:** `stellar tx new account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
+**Usage:** `stellar tx new account-merge [OPTIONS] --account <ACCOUNT>`
 
 ###### **Options:**
 
@@ -1483,6 +1499,8 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1494,7 +1512,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 
 Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
 
-**Usage:** `stellar tx new bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
+**Usage:** `stellar tx new bump-sequence [OPTIONS] --bump-to <BUMP_TO>`
 
 ###### **Options:**
 
@@ -1510,6 +1528,8 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1521,7 +1541,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 
 Creates, updates, or deletes a trustline Learn more about trustlines https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
 
-**Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
+**Usage:** `stellar tx new change-trust [OPTIONS] --line <LINE>`
 
 ###### **Options:**
 
@@ -1537,6 +1557,8 @@ Creates, updates, or deletes a trustline Learn more about trustlines https://dev
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1551,7 +1573,7 @@ Creates, updates, or deletes a trustline Learn more about trustlines https://dev
 
 Creates and funds a new account with the specified starting balance
 
-**Usage:** `stellar tx new create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
+**Usage:** `stellar tx new create-account [OPTIONS] --destination <DESTINATION>`
 
 ###### **Options:**
 
@@ -1567,6 +1589,8 @@ Creates and funds a new account with the specified starting balance
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1581,7 +1605,7 @@ Creates and funds a new account with the specified starting balance
 
 Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
 
-**Usage:** `stellar tx new manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
+**Usage:** `stellar tx new manage-data [OPTIONS] --data-name <DATA_NAME>`
 
 ###### **Options:**
 
@@ -1597,6 +1621,8 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1609,7 +1635,7 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 
 Sends an amount in a specific asset to a destination account
 
-**Usage:** `stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
+**Usage:** `stellar tx new payment [OPTIONS] --destination <DESTINATION> --amount <AMOUNT>`
 
 ###### **Options:**
 
@@ -1625,6 +1651,8 @@ Sends an amount in a specific asset to a destination account
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1640,7 +1668,7 @@ Sends an amount in a specific asset to a destination account
 
 Set option for an account such as flags, inflation destination, signers, home domain, and master key weight Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags Learn more about the home domain: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md Learn more about signers operations and key weight: https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
 
-**Usage:** `stellar tx new set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx new set-options [OPTIONS]`
 
 ###### **Options:**
 
@@ -1656,6 +1684,8 @@ Set option for an account such as flags, inflation destination, signers, home do
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
@@ -1682,7 +1712,7 @@ Set option for an account such as flags, inflation destination, signers, home do
 
 Allows issuing account to configure authorization and trustline flags to an asset The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID. Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags
 
-**Usage:** `stellar tx new set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
+**Usage:** `stellar tx new set-trustline-flags [OPTIONS] --trustor <TRUSTOR> --asset <ASSET>`
 
 ###### **Options:**
 
@@ -1698,6 +1728,8 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+
+  Default value: ``
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
