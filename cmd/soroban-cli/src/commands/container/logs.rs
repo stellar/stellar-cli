@@ -1,7 +1,7 @@
 use futures_util::TryStreamExt;
 
 use crate::{
-    commands::{global, network::container::shared::Error as ConnectionError},
+    commands::{container::shared::Error as ConnectionError, global},
     print,
 };
 
