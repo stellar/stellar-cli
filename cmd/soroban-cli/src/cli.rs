@@ -110,6 +110,6 @@ fn set_env_value_from_config(name: &str, value: Option<String>) {
 
     if std::env::var(name).is_err() {
         std::env::set_var(name, value);
-        std::env::set_var(format!("{name}_SOURCE"), "default");
+        std::env::set_var(format!("{name}_SOURCE"), "use");
     }
 }
