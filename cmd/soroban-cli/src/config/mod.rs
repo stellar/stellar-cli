@@ -47,7 +47,12 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(
+        long,
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        default_value = ""
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
