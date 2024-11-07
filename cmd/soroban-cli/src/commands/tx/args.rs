@@ -39,7 +39,7 @@ impl Args {
         let source_account = self.source_account()?;
         let seq_num = self
             .config
-            .next_sequence_number(&source_account.to_string())
+            .next_sequence_number(source_account.clone().account_id())
             .await?;
         // Once we have a way to add operations this will be updated to allow for a different source account
         let operation = xdr::Operation {

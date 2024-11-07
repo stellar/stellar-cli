@@ -340,3 +340,56 @@ fn config_dirs_precedence() {
         ))
         .stdout("SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG\n");
 }
+
+#[test]
+fn set_default_identity() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("alice")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `alice`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
+        .success();
+}
+
+#[test]
+fn set_default_network() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("network")
+        .arg("use")
+        .arg("testnet")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default network is set to `testnet`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_NETWORK=testnet"))
+        .success();
+}
