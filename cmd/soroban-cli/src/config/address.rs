@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::xdr;
 
-use super::{locator, secret, Config};
+use super::{locator, secret};
 
 /// Address can be either a public key or eventually an alias of a address.
 #[derive(Clone, Debug)]
@@ -31,16 +31,8 @@ impl FromStr for Address {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let mut identity = value.to_string();
-
-        if value.is_empty() {
-            if let Ok(config) = Config::new() {
-                identity = config.defaults.identity.unwrap_or_default();
-            }
-        }
-
-        Ok(xdr::MuxedAccount::from_str(&identity).map_or_else(
-            |_| Address::AliasOrSecret(identity.to_string()),
+        Ok(xdr::MuxedAccount::from_str(value).map_or_else(
+            |_| Address::AliasOrSecret(value.to_string()),
             Address::MuxedAccount,
         ))
     }
