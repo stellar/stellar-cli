@@ -47,7 +47,8 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `events` — Watch the network for contract events
 * `env` — Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
 * `keys` — Create and manage identities including keys and addresses
-* `network` — Start and configure networks
+* `network` — Configure connection to networks
+* `container` — Start local networks in containers
 * `snapshot` — Download a snapshot of a ledger from an archive
 * `tx` — Sign, Simulate, and Send transactions
 * `xdr` — Decode and encode XDR
@@ -1105,7 +1106,7 @@ Set the default identity that will be used on all commands. This allows you to s
 
 ## `stellar network`
 
-Start and configure networks
+Configure connection to networks
 
 **Usage:** `stellar network <COMMAND>`
 
@@ -1117,7 +1118,7 @@ Start and configure networks
 * `start` — ⚠️ Deprecated: use `stellar container start` instead
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
-* `container` — Commands to start, stop and get logs for a quickstart container
+* `container` — ⚠️ Deprecated: use `stellar container` instead
 
 
 
@@ -1245,6 +1246,8 @@ Set the default network that will be used on all commands. This allows you to sk
 
 ## `stellar network container`
 
+⚠️ Deprecated: use `stellar container` instead
+
 Commands to start, stop and get logs for a quickstart container
 
 **Usage:** `stellar network container <COMMAND>`
@@ -1253,7 +1256,7 @@ Commands to start, stop and get logs for a quickstart container
 
 * `logs` — Get logs from a running network container
 * `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `network container start`
+* `stop` — Stop a network container started with `stellar container start`
 
 
 
@@ -1277,7 +1280,7 @@ Get logs from a running network container
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-`stellar network container start NETWORK [OPTIONS]`
+`stellar container start NETWORK [OPTIONS]`
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
@@ -1307,9 +1310,87 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network container stop`
 
-Stop a network container started with `network container start`
+Stop a network container started with `stellar container start`
 
 **Usage:** `stellar network container stop [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Container to stop
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar container`
+
+Start local networks in containers
+
+**Usage:** `stellar container <COMMAND>`
+
+###### **Subcommands:**
+
+* `logs` — Get logs from a running network container
+* `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
+* `stop` — Stop a network container started with `stellar container start`
+
+
+
+## `stellar container logs`
+
+Get logs from a running network container
+
+**Usage:** `stellar container logs [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Container to get logs from
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar container start`
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+`stellar container start NETWORK [OPTIONS]`
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+
+**Usage:** `stellar container start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
+
+  Default value: `8000:8000`
+* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+
+
+
+## `stellar container stop`
+
+Stop a network container started with `stellar container start`
+
+**Usage:** `stellar container stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
