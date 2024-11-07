@@ -1241,7 +1241,7 @@ Commands to start, stop and get logs for a quickstart container
 
 * `logs` — Get logs from a running network container
 * `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `network container start`
+* `stop` — Stop a network container started with `stellar container start`
 
 
 
@@ -1265,7 +1265,7 @@ Get logs from a running network container
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-`stellar network container start NETWORK [OPTIONS]`
+`stellar container start NETWORK [OPTIONS]`
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
@@ -1295,7 +1295,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network container stop`
 
-Stop a network container started with `network container start`
+Stop a network container started with `stellar container start`
 
 **Usage:** `stellar network container stop [OPTIONS] <NAME>`
 
@@ -1319,7 +1319,7 @@ Start local networks in containers
 
 * `logs` — Get logs from a running network container
 * `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `network container start`
+* `stop` — Stop a network container started with `stellar container start`
 
 
 
@@ -1343,7 +1343,7 @@ Get logs from a running network container
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-`stellar network container start NETWORK [OPTIONS]`
+`stellar container start NETWORK [OPTIONS]`
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
@@ -1373,7 +1373,7 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar container stop`
 
-Stop a network container started with `network container start`
+Stop a network container started with `stellar container start`
 
 **Usage:** `stellar container stop [OPTIONS] <NAME>`
 
