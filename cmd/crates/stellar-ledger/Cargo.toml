@@ -10,6 +10,11 @@ version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 
+# This crate has not yet ever been published. Skip publishing until these
+# security issues are addressed:
+# https://github.com/stellar/stellar-cli/issues/1706
+publish = false
+
 [dependencies]
 soroban-spec = { workspace = true }
 thiserror = "1.0.32"
@@ -47,7 +52,7 @@ once_cell = "1.19.0"
 pretty_assertions = "1.2.1"
 serial_test = "3.0.0"
 httpmock = "0.7.0-rc.1"
-test-case = "*"
+test-case = "3.3.1"
 testcontainers = "0.20.1"
 
 
