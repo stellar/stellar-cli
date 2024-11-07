@@ -28,17 +28,17 @@ To understand how to get the most of the Stellar CLI, see the [Stellar CLI Cookb
 
 Install with Homebrew (macOS, Linux):
 
-```
+```bash
 brew install stellar-cli
 ```
 
 Install the latest version from source:
-```
+```bash
 cargo install --locked stellar-cli --features opt
 ```
 
 Install or run the unreleased main branch with nix:
-```
+```bash
 % nix run 'github:stellar/stellar-cli' -- --help
 or install
 % nix profile install github:stellar/stellar-cli
@@ -47,18 +47,18 @@ or install
 ## Autocomplete
 The Stellar CLI supports some autocompletion. To set up, run the following commands:
 
-```
+```bash
 stellar completion --shell <SHELL>
 ```
 Possible SHELL values are `bash`, `elvish`, `fish`, `powershell`, `zsh`, etc.
 
 To enable autocomplete in the current bash shell, run:
-```
+```bash
 source <(stellar completion --shell bash)
 ```
 
 To enable autocomplete permanently, run:
-```
+```bash
 echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 ```
 
