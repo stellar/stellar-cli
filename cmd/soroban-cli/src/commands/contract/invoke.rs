@@ -180,7 +180,7 @@ impl Cmd {
         })
     }
 
-    async fn check_should_send_tx_with_default_account(
+    async fn should_send_tx_with_default_account(
         &self,
         host_function_params: InvokeContractArgs,
         rpc_client: Client,
@@ -241,7 +241,7 @@ impl NetworkRunnable for Cmd {
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
         let should_send_tx = self
-            .check_should_send_tx_with_default_account(host_function_params.clone(), client.clone())
+            .should_send_tx_with_default_account(host_function_params.clone(), client.clone())
             .await?;
 
         let account_details = if should_send_tx == ShouldSend::Yes {
