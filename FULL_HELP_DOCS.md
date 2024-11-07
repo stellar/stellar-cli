@@ -1019,6 +1019,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--fund` — Fund generated key pair
 
   Default value: `false`
+* `--overwrite` — Overwrite existing identity if it already exists
 
 
 
