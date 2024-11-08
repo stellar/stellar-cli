@@ -1,9 +1,6 @@
 use crate::{
     commands::global,
-    config::{
-        locator::{self},
-        Config,
-    },
+    config::locator::{self},
     print::Print,
 };
 use clap::Parser;
@@ -23,14 +20,13 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let config = Config::new()?;
         let mut lines: Vec<(String, String)> = Vec::new();
 
-        if let Some(data) = get("STELLAR_NETWORK", config.defaults.network) {
+        if let Some(data) = get("STELLAR_NETWORK") {
             lines.push(data);
         }
 
-        if let Some(data) = get("STELLAR_ACCOUNT", config.defaults.identity) {
+        if let Some(data) = get("STELLAR_ACCOUNT") {
             lines.push(data);
         }
 
@@ -51,13 +47,14 @@ impl Cmd {
     }
 }
 
-fn get(env_var: &str, default_value: Option<String>) -> Option<(String, String)> {
-    if let Ok(value) = std::env::var(env_var) {
-        return Some((format!("{env_var}={value}"), "env".to_string()));
-    }
+fn get(env_var: &str) -> Option<(String, String)> {
+    // The _SOURCE env var is set from cmd/soroban-cli/src/cli.rs#set_env_value_from_config
+    let source = std::env::var(format!("{env_var}_SOURCE"))
+        .ok()
+        .unwrap_or("env".to_string());
 
-    if let Some(value) = default_value {
-        return Some((format!("{env_var}={value}"), "default".to_string()));
+    if let Ok(value) = std::env::var(env_var) {
+        return Some((format!("{env_var}={value}"), source));
     }
 
     None
