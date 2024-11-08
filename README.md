@@ -38,7 +38,7 @@ cargo install --locked stellar-cli --features opt
 ```
 
 Install or run the unreleased main branch with nix:
-```console
+```
 $ nix run 'github:stellar/stellar-cli' -- --help
 or install
 $ nix profile install github:stellar/stellar-cli
