@@ -7,6 +7,7 @@ use crate::config;
 
 pub mod cache;
 pub mod completion;
+pub mod container;
 pub mod contract;
 pub mod env;
 pub mod events;
@@ -37,7 +38,7 @@ For additional information see:
 
 - Stellar Docs: https://developers.stellar.org
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
-- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli";
+- CLI Docs: https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
@@ -113,6 +114,7 @@ impl Root {
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
+            Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
@@ -150,9 +152,13 @@ pub enum Cmd {
     #[command(subcommand)]
     Keys(keys::Cmd),
 
-    /// Start and configure networks
+    /// Configure connection to networks
     #[command(subcommand)]
     Network(network::Cmd),
+
+    /// Start local networks in containers
+    #[command(subcommand)]
+    Container(container::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
@@ -200,6 +206,9 @@ pub enum Error {
 
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Container(#[from] container::Error),
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),

@@ -1,5 +1,5 @@
 use crate::{
-    commands::{global, network::container::shared::Error as BollardConnectionError},
+    commands::{container::shared::Error as BollardConnectionError, global},
     print,
 };
 
