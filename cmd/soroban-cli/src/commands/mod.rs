@@ -7,7 +7,9 @@ use crate::config;
 
 pub mod cache;
 pub mod completion;
+pub mod container;
 pub mod contract;
+pub mod env;
 pub mod events;
 pub mod global;
 pub mod keys;
@@ -36,7 +38,7 @@ For additional information see:
 
 - Stellar Docs: https://developers.stellar.org
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
-- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli";
+- CLI Docs: https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
@@ -112,11 +114,13 @@ impl Root {
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
+            Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
-            Cmd::Cache(data) => data.run()?,
+            Cmd::Cache(cache) => cache.run()?,
+            Cmd::Env(env) => env.run(&self.global_args)?,
         };
         Ok(())
     }
@@ -135,16 +139,26 @@ pub enum Cmd {
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
+
     /// Watch the network for contract events
     Events(events::Cmd),
+
+    /// Prints the current environment variables or defaults to the stdout, in
+    /// a format that can be used as .env file. Environment variables have
+    /// precedency over defaults.
+    Env(env::Cmd),
 
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
 
-    /// Start and configure networks
+    /// Configure connection to networks
     #[command(subcommand)]
     Network(network::Cmd),
+
+    /// Start local networks in containers
+    #[command(subcommand)]
+    Container(container::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
@@ -160,9 +174,11 @@ pub enum Cmd {
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
+
     /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
+
     /// Print version information
     Version(version::Cmd),
 }
@@ -172,24 +188,39 @@ pub enum Error {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
     Contract(#[from] contract::Error),
+
     #[error(transparent)]
     Events(#[from] events::Error),
+
     #[error(transparent)]
     Keys(#[from] keys::Error),
+
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
+
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
+
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Container(#[from] container::Error),
+
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+
     #[error(transparent)]
     Tx(#[from] tx::Error),
+
     #[error(transparent)]
     Cache(#[from] cache::Error),
+
+    #[error(transparent)]
+    Env(#[from] env::Error),
 }
 
 #[async_trait]

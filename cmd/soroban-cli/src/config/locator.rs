@@ -5,8 +5,7 @@ use std::{
     ffi::OsStr,
     fmt::Display,
     fs::{self, create_dir_all, OpenOptions},
-    io,
-    io::Write,
+    io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -18,10 +17,13 @@ use super::{
     alias,
     network::{self, Network},
     secret::Secret,
+    Config,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    TomlSerialize(#[from] toml::ser::Error),
     #[error("Failed to find home directory")]
     HomeDirNotFound,
     #[error("Failed read current directory")]
@@ -34,6 +36,8 @@ pub enum Error {
     SecretFileRead { path: PathBuf },
     #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
+    #[error("Failed to read file: {path}")]
+    FileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("Secret file failed to deserialize")]
@@ -161,6 +165,14 @@ impl Args {
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         KeyType::Network.write(name, network, &self.config_dir()?)
+    }
+
+    pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_network(name).save()
+    }
+
+    pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_identity(name).save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -344,6 +356,12 @@ impl Args {
     }
 }
 
+impl Pwd for Args {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config_dir = Some(pwd.to_path_buf());
+    }
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
@@ -496,8 +514,6 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
     Ok(stellar_dir)
 }
 
-impl Pwd for Args {
-    fn set_pwd(&mut self, pwd: &Path) {
-        self.config_dir = Some(pwd.to_path_buf());
-    }
+pub fn config_file() -> Result<PathBuf, Error> {
+    Ok(global_config_path()?.join("config.toml"))
 }

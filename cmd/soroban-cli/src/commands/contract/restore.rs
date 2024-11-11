@@ -136,8 +136,9 @@ impl NetworkRunnable for Cmd {
         let source_account = config.source_account().await?;
 
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
@@ -206,7 +207,7 @@ impl NetworkRunnable for Cmd {
             );
         }
         Ok(TxnResult::Res(
-            parse_operations(operations).ok_or(Error::MissingOperationResult)?,
+            parse_operations(&operations.to_vec()).ok_or(Error::MissingOperationResult)?,
         ))
     }
 }

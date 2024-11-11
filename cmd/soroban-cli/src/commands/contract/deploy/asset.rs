@@ -92,12 +92,14 @@ impl NetworkRunnable for Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+
         let source_account = config.source_account().await?;
 
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
         // TODO: use symbols for the method names (both here and in serve)
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
