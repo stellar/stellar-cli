@@ -1,5 +1,5 @@
 use clap::arg;
-use directories::{ProjectDirs, UserDirs};
+use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{

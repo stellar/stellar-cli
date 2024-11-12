@@ -98,7 +98,7 @@ async fn invoke() {
         .arg("--id")
         .arg(id)
         .assert()
-        .stdout(predicates::str::contains(id).not())
+        .stdout(predicates::str::contains(id))
         .success();
     invoke_hello_world_with_lib(sandbox, id).await;
     let config_locator = locator::Args {
