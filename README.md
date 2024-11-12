@@ -39,9 +39,9 @@ cargo install --locked stellar-cli --features opt
 
 Install or run the unreleased main branch with nix:
 ```
-% nix run 'github:stellar/stellar-cli' -- --help
+$ nix run 'github:stellar/stellar-cli' -- --help
 or install
-% nix profile install github:stellar/stellar-cli
+$ nix profile install github:stellar/stellar-cli
 ```
 
 ## Autocomplete
@@ -53,12 +53,12 @@ stellar completion --shell <SHELL>
 Possible SHELL values are `bash`, `elvish`, `fish`, `powershell`, `zsh`, etc.
 
 To enable autocomplete in the current bash shell, run:
-```
+```bash
 source <(stellar completion --shell bash)
 ```
 
 To enable autocomplete permanently, run:
-```
+```bash
 echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 ```
 
