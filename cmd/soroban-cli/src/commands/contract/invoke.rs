@@ -180,7 +180,8 @@ impl Cmd {
         })
     }
 
-    async fn should_send_tx_with_default_account(
+    // uses a default account to check if the tx should be sent after the simulation
+    async fn should_send_after_sim(
         &self,
         host_function_params: InvokeContractArgs,
         rpc_client: Client,
@@ -241,7 +242,7 @@ impl NetworkRunnable for Cmd {
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
         let should_send_tx = self
-            .should_send_tx_with_default_account(host_function_params.clone(), client.clone())
+            .should_send_after_sim(host_function_params.clone(), client.clone())
             .await?;
 
         let account_details = if should_send_tx == ShouldSend::Yes {
