@@ -1,4 +1,5 @@
 use clap::arg;
+use directories::{ProjectDirs, UserDirs};
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
@@ -414,11 +415,10 @@ impl KeyType {
     }
 
     pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
-        let data = fs::read(path).map_err(|_| Error::NetworkFileRead {
+        let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
-        let res = toml::from_slice(data.as_slice());
-        Ok(res?)
+        Ok(toml::from_str(&data)?)
     }
 
     pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
@@ -489,8 +489,9 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
     let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
-        dirs::home_dir()
+        UserDirs::new()
             .ok_or(Error::HomeDirNotFound)?
+            .home_dir()
             .join(".config")
     };
 

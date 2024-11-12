@@ -12,8 +12,8 @@ rust-version.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk = { version = "=21.7.2" }
-soroban-token-sdk = { version = "=21.7.2" }
+soroban-sdk = { workspace = true }
+soroban-token-sdk = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { version = "=21.7.2", features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils"] }
