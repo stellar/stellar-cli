@@ -253,13 +253,6 @@ deny = [
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
 
-    # requires using slipped10
-    { crate = "curve25519-dalek", version = "4.1.3" , reason = "requires using slipped10" },
-    { crate = "ed25519", version = "2.2.3", reason = "requires using slipped10" },
-    { crate = "ed25519-dalek", version = "2.1.1", reason = "requires using slipped10" },
-    { crate = "signature", version = "2.1.0", reason = "requires using slipped10" },
-    { crate = "rand_core", version = "0.6.4", reason = "requires using slipped10" },
-
     # Requires updating slipped10 to newest sha2 others are dependents that will be updated
     { crate = "sha2", reason = "temporary duplicate until upstream updates" },
     { crate = "digest", reason = "temporary duplicate until upstream updates" },

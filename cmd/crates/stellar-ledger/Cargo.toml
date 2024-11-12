@@ -27,7 +27,7 @@ stellar-strkey = { workspace = true }
 ledger-transport-hid = "0.10.0"
 ledger-transport = "0.10.0"
 sep5.workspace = true
-slip10 = "0.4.3"
+slip10 = { package = "slipped10", version = "0.4.6" }
 tracing = { workspace = true }
 hex.workspace = true
 byteorder = "1.5.0"
