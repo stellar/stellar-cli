@@ -116,12 +116,12 @@ jobs:
         run: |
           version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
           echo "VERSION=${version}" >> $GITHUB_ENV
-          echo "STELLAR_CLI_INSTALLER=stellar-cli-installer-${{ env.VERSION }}-x86_64-pc-windows-msvc.exe"
+          echo "STELLAR_CLI_INSTALLER=stellar-cli-installer-${version}-x86_64-pc-windows-msvc.exe"
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: stellar-cli-${{ inputs.version }}-x86_64-pc-windows-msvc.tar.gz
+          name: stellar-cli-${{ env.VERSION }}-x86_64-pc-windows-msvc.tar.gz
           path: stellar-cli.tar.gz
 
       - name: Uncompress Artifact
