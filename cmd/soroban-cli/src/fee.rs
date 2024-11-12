@@ -1,9 +1,13 @@
 use clap::arg;
 
-use soroban_env_host::xdr;
-use soroban_rpc::Assembled;
+use crate::assembled::Assembled;
+use crate::xdr;
 
-use crate::commands::HEADING_RPC;
+use crate::{commands::HEADING_RPC, deprecated_arg};
+
+const DEPRECATION_MESSAGE: &str = "--sim-only is deprecated and will be removed \
+in the future versions of CLI. The same functionality is offered by `tx simulate` command. To \
+replicate the behaviour, run `stellar <command> --build only | stellar tx simulate`";
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -20,8 +24,14 @@ pub struct Args {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
-    /// Simulate the transaction and only write the base64 xdr to stdout
-    #[arg(long, help_heading = HEADING_RPC, conflicts_with = "build_only")]
+    /// (Deprecated) simulate the transaction and only write the base64 xdr to stdout
+    #[arg(
+        long,
+        help_heading = HEADING_RPC,
+        conflicts_with = "build_only",
+        display_order = 100,
+        value_parser = deprecated_arg!(bool, DEPRECATION_MESSAGE))
+    ]
     pub sim_only: bool,
 }
 

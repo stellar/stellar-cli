@@ -1,12 +1,12 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
     LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
     RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
     TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
 };
+use clap::{command, Parser};
 use stellar_strkey::DecodeError;
 
 use crate::{
@@ -17,9 +17,7 @@ use crate::{
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -134,12 +132,13 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
@@ -208,7 +207,7 @@ impl NetworkRunnable for Cmd {
             );
         }
         Ok(TxnResult::Res(
-            parse_operations(operations).ok_or(Error::MissingOperationResult)?,
+            parse_operations(&operations.to_vec()).ok_or(Error::MissingOperationResult)?,
         ))
     }
 }

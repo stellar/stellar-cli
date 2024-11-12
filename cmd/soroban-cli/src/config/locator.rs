@@ -5,23 +5,25 @@ use std::{
     ffi::OsStr,
     fmt::Display,
     fs::{self, create_dir_all, OpenOptions},
-    io,
-    io::Write,
+    io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{utils::find_config_dir, Pwd};
+use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
 
 use super::{
     alias,
     network::{self, Network},
     secret::Secret,
+    Config,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    TomlSerialize(#[from] toml::ser::Error),
     #[error("Failed to find home directory")]
     HomeDirNotFound,
     #[error("Failed read current directory")]
@@ -34,6 +36,8 @@ pub enum Error {
     SecretFileRead { path: PathBuf },
     #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
+    #[error("Failed to read file: {path}")]
+    FileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("Secret file failed to deserialize")]
@@ -82,11 +86,11 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Use global config
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
     /// Location of config directory, default is "."
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
 
@@ -145,7 +149,7 @@ impl Args {
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
         let pwd = self.current_dir()?;
-        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban")))
+        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
     pub fn current_dir(&self) -> Result<PathBuf, Error> {
@@ -161,6 +165,14 @@ impl Args {
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         KeyType::Network.write(name, network, &self.config_dir()?)
+    }
+
+    pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_network(name).save()
+    }
+
+    pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_identity(name).save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -344,6 +356,12 @@ impl Args {
     }
 }
 
+impl Pwd for Args {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config_dir = Some(pwd.to_path_buf());
+    }
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
@@ -468,18 +486,34 @@ impl KeyType {
 }
 
 pub fn global_config_path() -> Result<PathBuf, Error> {
-    Ok(if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
         dirs::home_dir()
             .ok_or(Error::HomeDirNotFound)?
             .join(".config")
+    };
+
+    let soroban_dir = config_dir.join("soroban");
+    let stellar_dir = config_dir.join("stellar");
+    let soroban_exists = soroban_dir.exists();
+    let stellar_exists = stellar_dir.exists();
+
+    if stellar_exists && soroban_exists {
+        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
     }
-    .join("soroban"))
+
+    if stellar_exists {
+        return Ok(stellar_dir);
+    }
+
+    if soroban_exists {
+        return Ok(soroban_dir);
+    }
+
+    Ok(stellar_dir)
 }
 
-impl Pwd for Args {
-    fn set_pwd(&mut self, pwd: &Path) {
-        self.config_dir = Some(pwd.to_path_buf());
-    }
+pub fn config_file() -> Result<PathBuf, Error> {
+    Ok(global_config_path()?.join("config.toml"))
 }

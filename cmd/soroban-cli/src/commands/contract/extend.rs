@@ -1,23 +1,22 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
     LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
     SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
     TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
 };
+use clap::{command, Parser};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
 
 const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
@@ -131,12 +130,14 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let source_account = config.source_account()?;
         let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
-        let account_details = client.get_account(&source_account.to_string()).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let tx = Transaction {
@@ -170,8 +171,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
+        let tx = simulate_and_assemble_transaction(&client, &tx)
             .await?
             .transaction()
             .clone();
@@ -186,10 +186,7 @@ impl NetworkRunnable for Cmd {
         if !events.is_empty() {
             tracing::info!("Events:\n {events:#?}");
         }
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
+        let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.

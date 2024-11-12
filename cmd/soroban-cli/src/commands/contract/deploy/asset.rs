@@ -1,34 +1,28 @@
-use clap::{arg, command, Parser};
-use soroban_env_host::{
-    xdr::{
-        Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
-        Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
+    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
+    LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
 };
+use clap::{arg, command, Parser};
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
+    rpc::Error as SorobanRpcError,
     tx::builder,
     utils::contract_id_hash_from_asset,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
@@ -94,16 +88,16 @@ impl NetworkRunnable for Cmd {
         let asset = &self.asset;
 
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
         let source_account = config.source_account()?;
-
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
         // TODO: use symbols for the method names (both here and in serve)
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
@@ -118,7 +112,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let txn = client.simulate_and_assemble_transaction(&tx).await?;
+        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));

@@ -209,7 +209,7 @@ mod test {
         assert_eq!(rpc_uri, new_rpc_uri);
         match (action, original_action) {
             (Action::Simulate { response: a }, Action::Simulate { response: b }) => {
-                assert_eq!(a.cost.cpu_insns, b.cost.cpu_insns);
+                assert_eq!(a.min_resource_fee, b.min_resource_fee);
             }
             _ => panic!("Action mismatch"),
         }

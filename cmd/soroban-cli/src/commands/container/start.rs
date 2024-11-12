@@ -9,8 +9,8 @@ use futures_util::TryStreamExt;
 
 use crate::{
     commands::{
+        container::shared::{Error as ConnectionError, Network},
         global,
-        network::container::shared::{Error as ConnectionError, Network},
     },
     print,
 };

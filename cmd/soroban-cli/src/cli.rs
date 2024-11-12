@@ -2,8 +2,10 @@ use clap::CommandFactory;
 use dotenvy::dotenv;
 use tracing_subscriber::{fmt, EnvFilter};
 
+use crate::config::Config;
+use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
-use crate::{commands, print, Root};
+use crate::{commands, Root};
 
 #[tokio::main]
 pub async fn main() {
@@ -32,6 +34,8 @@ pub async fn main() {
         }
     }
 
+    set_env_from_config();
+
     let mut root = Root::new().unwrap_or_else(|e| match e {
         commands::Error::Clap(e) => {
             let mut cmd = Root::command();
@@ -42,6 +46,7 @@ pub async fn main() {
             std::process::exit(1);
         }
     });
+
     // Now use root to setup the logger
     if let Some(level) = root.global_args.log_level() {
         let mut e_filter = EnvFilter::from_default_env()
@@ -78,9 +83,33 @@ pub async fn main() {
         upgrade_check(root.global_args.quiet).await;
     });
 
-    let printer = print::Print::new(root.global_args.quiet);
+    let printer = Print::new(root.global_args.quiet);
     if let Err(e) = root.run().await {
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);
+    }
+}
+
+// Load ~/.config/stellar/config.toml defaults as env vars.
+fn set_env_from_config() {
+    if let Ok(config) = Config::new() {
+        set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
+        set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+    }
+}
+
+// Set an env var from a config file if the env var is not already set.
+// Additionally, a `$NAME_SOURCE` variant will be set, which allows
+// `stellar env` to properly identity the source.
+fn set_env_value_from_config(name: &str, value: Option<String>) {
+    let Some(value) = value else {
+        return;
+    };
+
+    std::env::remove_var(format!("{name}_SOURCE"));
+
+    if std::env::var(name).is_err() {
+        std::env::set_var(name, value);
+        std::env::set_var(format!("{name}_SOURCE"), "use");
     }
 }

@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.5.0"
+version = "22.0.0-rc.1"
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -40,7 +40,6 @@ opt = ["dep:wasm-opt"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
@@ -107,12 +106,8 @@ directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
-gix = { version = "0.58.0", default-features = false, features = [
-    "blocking-http-transport-reqwest-rust-tls",
-    "worktree-mutation",
-] }
 async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
-
+shell-escape = "0.1.5"
 tempfile = "3.8.1"
 toml_edit = "0.21.0"
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
@@ -129,6 +124,7 @@ glob = "0.3.1"
 fqdn = "0.3.12"
 open = "5.3.0"
 url = "2.5.2"
+wasm-gen = "0.1.4"
 
 [build-dependencies]
 crate-git-revision = "0.0.4"

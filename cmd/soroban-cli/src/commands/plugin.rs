@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use clap::CommandFactory;
 use which::which;
@@ -44,7 +44,7 @@ pub fn run() -> Result<(), Error> {
         return Ok(());
     }
 
-    let bin = which(format!("soroban-{name}")).map_err(|_| {
+    let bin = find_bin(&name).map_err(|_| {
         let suggestion = if let Ok(bins) = list() {
             let suggested_name = bins
                 .iter()
@@ -53,6 +53,7 @@ pub fn run() -> Result<(), Error> {
                 .min_by(|a, b| a.1.total_cmp(&b.1))
                 .map(|(a, _)| a.to_string())
                 .unwrap_or_default();
+
             if suggested_name.is_empty() {
                 suggested_name
             } else {
@@ -64,8 +65,10 @@ pub fn run() -> Result<(), Error> {
         } else {
             String::new()
         };
+
         Error::ExecutableNotFound(name, suggestion)
     })?;
+
     std::process::exit(
         Command::new(bin)
             .args(args)
@@ -78,19 +81,29 @@ pub fn run() -> Result<(), Error> {
 
 const MAX_HEX_LENGTH: usize = 10;
 
+fn find_bin(name: &str) -> Result<PathBuf, which::Error> {
+    if let Ok(path) = which(format!("stellar-{name}")) {
+        Ok(path)
+    } else {
+        which(format!("soroban-{name}"))
+    }
+}
+
 pub fn list() -> Result<Vec<String>, Error> {
     let re_str = if cfg!(target_os = "windows") {
-        r"^soroban-.*.exe$"
+        r"^(soroban|stellar)-.*.exe$"
     } else {
-        r"^soroban-.*"
+        r"^(soroban|stellar)-.*"
     };
+
     let re = regex::Regex::new(re_str)?;
+
     Ok(which::which_re(re)?
         .filter_map(|b| {
             let s = b.file_name()?.to_str()?;
             Some(s.strip_suffix(".exe").unwrap_or(s).to_string())
         })
         .filter(|s| !(utils::is_hex_string(s) && s.len() > MAX_HEX_LENGTH))
-        .map(|s| s.replace("soroban-", ""))
+        .map(|s| s.replace("soroban-", "").replace("stellar-", ""))
         .collect())
 }
