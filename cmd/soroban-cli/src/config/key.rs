@@ -13,13 +13,15 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+    #[error("failed to parse key {0}")]
+    Parse(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Key {
     Secret(Secret),
-    PublicKey { public_key: PublicKey },
+    PublicKey { public_key: Public },
     MuxedAccount { muxed_account: MuxedAccount },
 }
 
@@ -28,7 +30,7 @@ impl Key {
         let bytes = match self {
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
             Key::PublicKey {
-                public_key: PublicKey(key),
+                public_key: Public(key),
             } => key.0,
             Key::MuxedAccount {
                 muxed_account: MuxedAccount(stellar_strkey::ed25519::MuxedAccount { ed25519, id }),
@@ -66,14 +68,14 @@ impl FromStr for Key {
         if let Ok(muxed_account) = s.parse() {
             return Ok(Key::MuxedAccount { muxed_account });
         }
-        todo!("Error handling for invalid key format");
+        Err(Error::Parse(s.to_owned()))
     }
 }
 
 impl From<stellar_strkey::ed25519::PublicKey> for Key {
     fn from(value: stellar_strkey::ed25519::PublicKey) -> Self {
         Key::PublicKey {
-            public_key: PublicKey(value),
+            public_key: Public(value),
         }
     }
 }
@@ -85,24 +87,24 @@ impl From<&stellar_strkey::ed25519::PublicKey> for Key {
 }
 
 #[derive(Debug, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
-pub struct PublicKey(pub stellar_strkey::ed25519::PublicKey);
+pub struct Public(pub stellar_strkey::ed25519::PublicKey);
 
-impl FromStr for PublicKey {
+impl FromStr for Public {
     type Err = stellar_strkey::DecodeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(PublicKey(stellar_strkey::ed25519::PublicKey::from_str(s)?))
+        Ok(Public(stellar_strkey::ed25519::PublicKey::from_str(s)?))
     }
 }
 
-impl Display for PublicKey {
+impl Display for Public {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl From<&PublicKey> for stellar_strkey::ed25519::MuxedAccount {
-    fn from(PublicKey(stellar_strkey::ed25519::PublicKey(key)): &PublicKey) -> Self {
+impl From<&Public> for stellar_strkey::ed25519::MuxedAccount {
+    fn from(Public(stellar_strkey::ed25519::PublicKey(key)): &Public) -> Self {
         stellar_strkey::ed25519::MuxedAccount {
             id: 0,
             ed25519: *key,
@@ -136,7 +138,7 @@ mod test {
     #[test]
     fn public_key() {
         let key = Key::PublicKey {
-            public_key: PublicKey(stellar_strkey::ed25519::PublicKey([0; 32])),
+            public_key: Public(stellar_strkey::ed25519::PublicKey([0; 32])),
         };
         let serialized = toml::to_string(&key).unwrap();
         println!("{serialized}");

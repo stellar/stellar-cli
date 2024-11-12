@@ -48,7 +48,7 @@ impl Address {
             Address::MuxedAccount(muxed_account) => Ok(muxed_account.clone()),
             Address::AliasOrSecret(alias) => alias
                 .parse()
-                .or_else(|_| Ok(locator.read_identity(alias)?.public_key(hd_path)?)),
+                .or_else(|_| Ok(locator.get_public_key(alias, hd_path)?)),
         }
     }
 

@@ -12,11 +12,11 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
+use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, xdr, Pwd};
 
 use super::{
     alias,
-    key::Key,
+    key::{self, Key},
     network::{self, Network},
     secret::Secret,
     Config,
@@ -84,6 +84,10 @@ pub enum Error {
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
+    #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
+    SecretKeyOnly(String),
+    #[error(transparent)]
+    Key(#[from] key::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -242,20 +246,30 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
-        Ok(KeyType::Identity.read_with_global(name, &self.local_config()?)?)
+        KeyType::Identity.read_with_global(name, &self.local_config()?)
+    }
+
+    pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
+        if let Ok(key) = self.read_identity(key_or_name) {
+            Ok(key)
+        } else {
+            Ok(key_or_name.parse()?)
+        }
     }
 
     pub fn get_private_key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        if let Ok(signer) = key_or_name.parse::<Secret>() {
-            Ok(signer)
-        } else {
-            match self.read_identity(key_or_name)? {
-                Key::Secret(s) => Ok(s),
-                _ => Err(Error::SecretFileRead {
-                    path: self.alias_path(key_or_name)?,
-                }),
-            }
+        match self.read_key(key_or_name)? {
+            Key::Secret(s) => Ok(s),
+            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
         }
+    }
+
+    pub fn get_public_key(
+        &self,
+        key_or_name: &str,
+        hd_path: Option<usize>,
+    ) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.read_key(key_or_name)?.public_key(hd_path)?)
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
