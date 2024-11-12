@@ -252,6 +252,63 @@ deny = [
 
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
+
+    # Requires updating slipped10 to newest sha2 others are dependents that will be updated
+    { crate = "sha2", reason = "temporary duplicate until upstream updates" },
+    { crate = "digest", reason = "temporary duplicate until upstream updates" },
+    { crate = "block-buffer", reason = "temporary duplicate until upstream updates" },
+    # slipped again 0.12.1
+    { crate = "hmac", reason = "temp" },
+
+    # update rpassword, hidapi (then ledger-transport-hid), and dirs-sys (then directories) to 0.52
+    # { crate = "window-sys", reason = "temp" },
+
+    # syn is too large of a surface to check
+    { crate = "syn", reason = "Too many crates haven't updated to v2" },
+
+    # Need to release new version and update all stellar crates
+    { crate = "stellar-strkey", reason = "Temp until new release and updates upstream", version = "0.0.8" },
+
+    # Need to update jsonrpsee in stellar-rpc-client
+    { crate = "rustls-pemfile", reason = "Temp until new release and updates upstream" },
+    { crate = "rustls-webpki", reason = "Temp until new release and updates upstream" },
+    { crate = "rustls-native-certs", reason = "Temp until new release and updates upstream", version = "0.7.3" },
+    { crate = "rustls", reason = "Temp until new release and updates upstream" },
+    { crate = "hyper", reason = "temporary duplicate until upstream updates" },
+    { crate = "hyper-rustls", reason = "temporary duplicate until upstream updates", version = "0.27.3" },
+    { crate = "http-body", reason = "temporary duplicate until upstream updates" },
+    { crate = "http", reason = "temporary duplicate until upstream updates" },
+    { crate = "h2", reason = "temporary duplicate until upstream updates", version = "0.3.26" },
+    { crate = "base64", reason = "temporary duplicate until upstream updates", version = "0.22.1" },
+    # Upgrade stellar-rpc-client to use 0.26.0
+    { crate = "tokio-rustls", reason = "temporary duplicate until upstream updates" },
+
+    # wasm-opt
+    { crate = "heck", reason = "wasm-opt needs to update to 0.5"},
+    { crate = "strum", reason = "wasm-opt needs to update", version = "0.26.3" },
+    { crate = "strum_macros", reason = "wasm-opt needs to update", version = "0.26.4" },
+
+
+    # soroban-env-host  must upgrade ark-* to 0.14.5
+    { crate = "hashbrown", reason = "temp", version = "13.2"},
+
+    { crate = "windows-sys", reason = "temp", version = "0.59.0"},
+    { crate = "windows-targets", reason = "temp", version = "0.52.6"},
+    { crate = "windows_x86_64_gnu", reason = "temp", version = "0.52.6"},
+    { crate = "windows_x86_64_msvc", reason = "temp", version = "0.52.6"},
+    # { crate = "dir-sys", reason = "temp", version }
+    #
+    # update tracing-subscriber
+    { crate = "regex-syntax", reason = "temp", version = "0.8.4" },
+    { crate = "regex-automata", reason = "temp", version = "0.4.7" },
+
+    # wasm-gen update
+    { crate = "byteorder", reason = "temp", version = "1.5.0" },
+
+    # testcontainers
+    { crate = "idna", reason = "temp", version = "0.5.0" },
+
+
     # { name = "hashbrown", version = "=0.13.2" },
     # { name = "syn", version = "=1.0.109" },
 ]
