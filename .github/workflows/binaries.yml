@@ -28,14 +28,14 @@ jobs:
           - name: stellar-cli
             binary: stellar
         sys:
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
-            target: aarch64-unknown-linux-gnu
-          - os: macos-14
-            target: aarch64-apple-darwin
-          - os: macos-12
-            target: x86_64-apple-darwin
+          # - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          #   target: x86_64-unknown-linux-gnu
+          # - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          #   target: aarch64-unknown-linux-gnu
+          # - os: macos-14
+          #   target: aarch64-apple-darwin
+          # - os: macos-14-large # macos-14-large is the last intel-based image
+          #   target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: .exe
@@ -122,10 +122,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: stellar-cli-${{ env.VERSION }}-x86_64-pc-windows-msvc.tar.gz
-          path: stellar-cli.tar.gz
 
       - name: Uncompress Artifact
-        run: tar xvf stellar-cli.tar.gz
+        run: tar xvf stellar-cli-${{ env.VERSION }}-x86_64-pc-windows-msvc.tar.gz
 
       - name: Build Installer
         run: |
