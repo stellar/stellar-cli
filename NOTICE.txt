@@ -1,2 +1,0 @@
-The NSIS extension EnVar in nsis/EnVar.dll was developed by
-Jason Ross aka JasonFriday13 (https://nsis.sourceforge.io/EnVar_plug-in).

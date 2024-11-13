@@ -104,19 +104,18 @@ jobs:
 
   installer:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get -y install nsis wget
-
       - name: Setup vars
         run: |
           version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
+          installer_basename="stellar-cli-installer-${version}-x86_64-pc-windows-msvc"
           echo "VERSION=${version}" >> $GITHUB_ENV
-          echo "STELLAR_CLI_INSTALLER=stellar-cli-installer-${version}-x86_64-pc-windows-msvc.exe" >> $GITHUB_ENV
+          echo "STELLAR_CLI_INSTALLER_BASENAME=${installer_basename}" >> $GITHUB_ENV
+          echo "STELLAR_CLI_INSTALLER=${installer_basename}.exe" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
 
       - name: Download Artifact
@@ -127,9 +126,13 @@ jobs:
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
 
+      - name: Install Inno Setup
+        run: winget install --id JRSoftware.InnoSetup
+
       - name: Build Installer
         run: |
-          makensis -V4 -DSTELLAR_CLI_INSTALLER="${{ env.STELLAR_CLI_INSTALLER }}" -DSTELLAR_CLI_VERSION="${{ env.VERSION }}" installer.nsi
+          $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
+          ISCC.exe installer.iss /F${{ env.STELLAR_CLI_INSTALLER_BASENAME }}
 
       - name: Build provenance for attestation (release only)
         if: github.event_name == 'release'
