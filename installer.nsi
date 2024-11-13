@@ -1,6 +1,11 @@
+!addplugindir nsis
+!include LogicLib.nsh
+
 OutFile "${STELLAR_CLI_INSTALLER}"
 InstallDir "$PROGRAMFILES\Stellar CLI"
 RequestExecutionLevel admin
+ShowInstDetails Show
+Unicode True
 
 ; Define WM_SETTINGCHANGE since NSIS doesn’t natively recognize it
 !define WM_SETTINGCHANGE 0x1A
@@ -24,9 +29,15 @@ Section "Install"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar CLI" "InstallLocation" "$INSTDIR"
 
     ; Add install directory to the PATH
-    ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
-    StrCpy $1 "$0;$INSTDIR"
-    WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
+    EnVar::SetHKLM
+    EnVar::Check "Path" "$INSTDIR"
+    Pop $0
+    ${If} $0 = 0
+      DetailPrint "Path already has $INSTDIR"
+    ${Else}
+      EnVar::AddValue "Path" "$INSTDIR"
+      Pop $0 ; 0 on success
+    ${EndIf}
 
     ; Notify Windows that the PATH has changed
     System::Call 'user32::SendMessageA(i 0xFFFF, i ${WM_SETTINGCHANGE}, i 0, i 0)'
@@ -35,6 +46,7 @@ SectionEnd
 Section "Uninstall"
     Delete "$INSTDIR\stellar.exe"
     Delete "$INSTDIR\Uninstall.exe"
+    Delete "$INSTDIR\stellar.ico"
     RMDir "$INSTDIR"
 
     ; Remove the Start Menu shortcut
@@ -44,20 +56,15 @@ Section "Uninstall"
     ; Remove the entry from "Programs and Features"
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Stellar CLI"
 
-    ; Restore PATH without the installation directory
-    ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
-    StrCpy $1 "$0"  ; Store the original PATH in $1
-
-    ; Remove install directory from PATH (manual string removal)
-    StrLen $2 "$INSTDIR"
-    loop:
-    StrCpy $3 "$1" "$2"
-    StrCmp $3 "$INSTDIR" 0 +3
-    StrCpy $1 "$1" "" $2
-    goto loop
-
-    ; Write the modified PATH back to registry
-    WriteRegStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
+    ; Remove install directory from PATH
+    EnVar::SetHKLM
+    EnVar::DeleteValue "Path" "$INSTDIR"
+    Pop $0
+    ${If} $0 = 0
+      DetailPrint "$INSTDIR was removed from Path"
+    ${Else}
+      DetailPrint "Unable to remove $INSTDIR from Path"
+    ${EndIf}
 
     ; Notify Windows that the PATH has changed
     System::Call 'user32::SendMessageA(i 0xFFFF, i ${WM_SETTINGCHANGE}, i 0, i 0)'
