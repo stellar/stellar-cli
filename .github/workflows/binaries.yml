@@ -85,7 +85,7 @@ jobs:
     - name: Upload to Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.NAME }}
+        name: ${{ env.NAME }}.tar.gz
         path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
 
     - name: Upload to Release (release only)
@@ -118,7 +118,7 @@ jobs:
           echo "VERSION=${version}" >> $GITHUB_ENV
           echo "STELLAR_CLI_INSTALLER=stellar-cli-installer-${version}-x86_64-pc-windows-msvc.exe"
 
-      - name: Download Artifacts
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: stellar-cli-${{ env.VERSION }}-x86_64-pc-windows-msvc.tar.gz
