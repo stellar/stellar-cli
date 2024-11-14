@@ -8,7 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "12.3.0",
+    "@stellar/stellar-sdk": "13.0.0",
     "buffer": "6.0.3"
   },
   "devDependencies": {
