@@ -1,18 +1,18 @@
+use crate::xdr::{
+    self, Hash, InvokeContractArgs, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
+    ScVec,
+};
+use clap::error::ErrorKind::DisplayHelp;
+use clap::value_parser;
+use ed25519_dalek::SigningKey;
+use heck::ToKebabCase;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use clap::value_parser;
-use ed25519_dalek::SigningKey;
-use heck::ToKebabCase;
-
-use crate::xdr::{
-    self, Hash, InvokeContractArgs, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
-    ScVec,
-};
-
+use crate::commands::contract::arg_parsing::HostFunctionParameters::{HelpMessage, Params};
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self};
 use soroban_spec_tools::Spec;
@@ -45,12 +45,17 @@ pub enum Error {
     MissingFileArg(PathBuf),
 }
 
+pub enum HostFunctionParameters {
+    Params((String, Spec, InvokeContractArgs, Vec<SigningKey>)),
+    HelpMessage(String),
+}
+
 pub fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
-) -> Result<(String, Spec, InvokeContractArgs, Vec<SigningKey>), Error> {
+) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let mut cmd = clap::Command::new(contract_id.to_string())
         .no_binary_name(true)
@@ -63,12 +68,20 @@ pub fn build_host_function_parameters(
     cmd.build();
     let long_help = cmd.render_long_help();
 
-    // get_matches_from exits the process if `help`, `--help` or `-h`are passed in the slop
+    // try_get_matches_from returns an error if `help`, `--help` or `-h`are passed in the slop
     // see clap documentation for more info: https://github.com/clap-rs/clap/blob/v4.1.8/src/builder/command.rs#L631
-    let mut matches_ = cmd.get_matches_from(slop);
-    let Some((function, matches_)) = &matches_.remove_subcommand() else {
-        println!("{long_help}");
-        std::process::exit(1);
+    let maybe_matches = cmd.try_get_matches_from(slop);
+    let Some((function, matches_)) = (match maybe_matches {
+        Ok(mut matches) => &matches.remove_subcommand(),
+        Err(e) => {
+            // to not exit immediately (to be able to fetch help message in tests), check for an error
+            if e.kind() == DisplayHelp {
+                return Ok(HelpMessage(e.to_string()));
+            }
+            e.exit();
+        }
+    }) else {
+        return Ok(HelpMessage(format!("{long_help}")));
     };
 
     let func = spec.find_function(function)?;
@@ -145,7 +158,7 @@ pub fn build_host_function_parameters(
         args: final_args,
     };
 
-    Ok((function.clone(), spec, invoke_args, signers))
+    Ok(Params((function.clone(), spec, invoke_args, signers)))
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {

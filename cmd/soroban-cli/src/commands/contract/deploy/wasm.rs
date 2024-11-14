@@ -1,8 +1,3 @@
-use std::array::TryFromSliceError;
-use std::ffi::OsString;
-use std::fmt::Debug;
-use std::num::ParseIntError;
-
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -11,11 +6,17 @@ use crate::xdr::{
     VecM, WriteXdr,
 };
 use clap::{arg, command, Parser};
+use itertools::Either;
+use itertools::Either::{Left, Right};
 use rand::Rng;
 use regex::Regex;
-
 use soroban_spec_tools::contract as contract_spec;
+use std::array::TryFromSliceError;
+use std::ffi::OsString;
+use std::fmt::Debug;
+use std::num::ParseIntError;
 
+use crate::commands::contract::arg_parsing::HostFunctionParameters;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -128,26 +129,31 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
-            .await?
-            .to_envelope();
+        let res = self.run_against_rpc_server(Some(global_args), None).await?;
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
-
-                if let Some(alias) = self.alias.clone() {
-                    self.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
-                }
-
-                println!("{contract}");
+            Left(help) => {
+                println!("{help}");
             }
+            Right(res) => match res.to_envelope() {
+                TxnEnvelopeResult::TxnEnvelope(tx) => {
+                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                }
+                TxnEnvelopeResult::Res(contract) => {
+                    let network = self.config.get_network()?;
+
+                    if let Some(alias) = self.alias.clone() {
+                        self.config.locator.save_contract_id(
+                            &network.network_passphrase,
+                            &contract,
+                            &alias,
+                        )?;
+                    }
+
+                    println!("{contract}");
+                }
+            },
         }
+
         Ok(())
     }
 }
@@ -167,14 +173,14 @@ fn alias_validator(alias: &str) -> Result<String, Error> {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<stellar_strkey::Contract>;
+    type Result = Either<String, TxnResult<stellar_strkey::Contract>>;
 
     #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
+    ) -> Result<Either<String, TxnResult<stellar_strkey::Contract>>, Error> {
         let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
@@ -248,15 +254,18 @@ impl NetworkRunnable for Cmd {
             } else {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
                 slop.extend_from_slice(&self.slop);
-                Some(
-                    arg_parsing::build_host_function_parameters(
-                        &stellar_strkey::Contract(contract_id.0),
-                        &slop,
-                        &entries,
-                        config,
-                    )?
-                    .2,
-                )
+                let params = arg_parsing::build_host_function_parameters(
+                    &stellar_strkey::Contract(contract_id.0),
+                    &slop,
+                    &entries,
+                    config,
+                )?;
+                match params {
+                    HostFunctionParameters::Params(p) => Some(p.2),
+                    HostFunctionParameters::HelpMessage(h) => {
+                        return Ok(Left(h));
+                    }
+                }
             }
         } else {
             None
@@ -276,7 +285,7 @@ impl NetworkRunnable for Cmd {
 
         if self.fee.build_only {
             print.checkln("Transaction built!");
-            return Ok(TxnResult::Txn(txn));
+            return Ok(Right(TxnResult::Txn(txn)));
         }
 
         print.infoln("Simulating deploy transaction…");
@@ -286,7 +295,7 @@ impl NetworkRunnable for Cmd {
 
         if self.fee.sim_only {
             print.checkln("Done!");
-            return Ok(TxnResult::Txn(txn));
+            return Ok(Right(TxnResult::Txn(txn)));
         }
 
         print.globeln("Submitting deploy transaction…");
@@ -307,7 +316,7 @@ impl NetworkRunnable for Cmd {
 
         print.checkln("Deployed!");
 
-        Ok(TxnResult::Res(contract_id))
+        Ok(Right(TxnResult::Res(contract_id)))
     }
 }
 
