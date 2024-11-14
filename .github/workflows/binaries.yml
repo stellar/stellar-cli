@@ -130,7 +130,7 @@ jobs:
         shell: powershell
         run: |
           $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
-          $Env:STELLAR_CLI_VERSION = "${{ env.STELLAR_CLI_VERSION }}"
+          $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss /F${{ env.STELLAR_CLI_INSTALLER_BASENAME }}
 
       - name: Build provenance for attestation (release only)
