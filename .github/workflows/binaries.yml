@@ -126,9 +126,6 @@ jobs:
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
 
-      - name: Install Inno Setup
-        run: winget install --id JRSoftware.InnoSetup
-
       - name: Build Installer
         run: |
           $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
