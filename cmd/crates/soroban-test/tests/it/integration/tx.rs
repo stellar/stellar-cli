@@ -5,6 +5,7 @@ use soroban_test::{AssertExt, TestEnv};
 use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
 
 mod operations;
+mod set;
 
 #[tokio::test]
 async fn simulate() {
