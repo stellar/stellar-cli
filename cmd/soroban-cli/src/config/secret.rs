@@ -50,7 +50,7 @@ pub struct Args {
 impl Args {
     pub fn read_key(&self) -> Result<Key, key::Error> {
         if let Some(public_key) = self.public_key.as_ref() {
-            return Ok(public_key.parse()?);
+            return public_key.parse();
         };
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Key::Secret(Secret::SecretKey { secret_key }))
