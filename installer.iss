@@ -17,7 +17,7 @@ ChangesEnvironment=yes
 [Files]
 Source: "stellar.exe"; DestDir: "{app}"
 Source: "stellar.ico"; DestDir: "{app}"
-Source: "License.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Windows optimizes start menu, and removes the uninstall entry. Unless we
