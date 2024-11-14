@@ -127,6 +127,7 @@ jobs:
         run: tar xvf ${{ env.ARTIFACT_NAME }}
 
       - name: Build Installer
+        shell: powershell
         run: |
           $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
           ISCC.exe installer.iss /F${{ env.STELLAR_CLI_INSTALLER_BASENAME }}
