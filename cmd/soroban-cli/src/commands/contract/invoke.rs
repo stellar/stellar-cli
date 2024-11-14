@@ -7,7 +7,7 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
+use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -163,7 +163,7 @@ impl Cmd {
             .transpose()
     }
 
-    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+    fn should_send_tx(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
         Ok(match self.send {
             Send::Default => {
                 if self.is_view {
@@ -178,6 +178,28 @@ impl Cmd {
             Send::No => ShouldSend::No,
             Send::Yes => ShouldSend::Yes,
         })
+    }
+
+    // uses a default account to check if the tx should be sent after the simulation
+    async fn should_send_after_sim(
+        &self,
+        host_function_params: InvokeContractArgs,
+        rpc_client: Client,
+    ) -> Result<ShouldSend, Error> {
+        let account_details = default_account_entry();
+        let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
+
+        let tx = build_invoke_contract_tx(
+            host_function_params.clone(),
+            sequence + 1,
+            self.fee.fee,
+            account_id,
+        )?;
+        let txn = simulate_and_assemble_transaction(&rpc_client, &tx).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn); // do we need this part?
+        let sim_res = txn.sim_response();
+        self.should_send_tx(sim_res)
     }
 }
 
@@ -204,19 +226,6 @@ impl NetworkRunnable for Cmd {
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
         let client = network.rpc_client()?;
-        let account_details = if self.is_view {
-            default_account_entry()
-        } else {
-            client
-                .verify_network_passphrase(Some(&network.network_passphrase))
-                .await?;
-
-            client
-                .get_account(&config.source_account()?.to_string())
-                .await?
-        };
-        let sequence: i64 = account_details.seq_num.into();
-        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
@@ -228,9 +237,27 @@ impl NetworkRunnable for Cmd {
         .await
         .map_err(Error::from)?;
 
-        // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+
+        let should_send_tx = self
+            .should_send_after_sim(host_function_params.clone(), client.clone())
+            .await?;
+
+        let account_details = if should_send_tx == ShouldSend::Yes {
+            client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await?;
+
+            client
+                .get_account(&config.source_account()?.to_string())
+                .await?
+        } else {
+            default_account_entry()
+        };
+        let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
+
         let tx = build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
@@ -249,7 +276,7 @@ impl NetworkRunnable for Cmd {
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let should_send = self.send(sim_res)?;
+        let should_send = self.should_send_tx(sim_res)?;
         let (return_value, events) = match should_send {
             ShouldSend::Yes => {
                 let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
@@ -364,6 +391,7 @@ pub enum Send {
     Yes,
 }
 
+#[derive(Debug, PartialEq)]
 enum ShouldSend {
     DefaultNo,
     No,
