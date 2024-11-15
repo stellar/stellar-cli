@@ -4602,6 +4602,7 @@ dependencies = [
  "either",
  "fs_extra",
  "hex",
+ "home",
  "predicates",
  "sep5",
  "serde_json",
