@@ -24,7 +24,7 @@ Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 ; specify it twice. 🫠
 Name: "{group}\Uninstall Stellar CLI"; Filename: "{uninstallexe}"
 Name: "{group}\Uninstall Stellar CLI"; Filename: "{uninstallexe}"
-Name: "{group}\Stellar Docs"; Filename: "https://stellar.org/docs"
+Name: "{group}\Stellar Developer Docs"; Filename: "https://stellar.org/docs"
 
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
