@@ -89,6 +89,6 @@ Type: filesandordirs; Name: "{group}"
 
 ; Remove installed files and directory
 Type: files; Name: "{app}\stellar.exe"
-Type: files; Name: "{app}\unins000.exe"
+Type: files; Name: "{uninstallexe}"
 Type: files; Name: "{app}\stellar.ico"
 Type: dirifempty; Name: "{app}"
