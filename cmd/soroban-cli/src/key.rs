@@ -4,7 +4,7 @@ use crate::xdr::{
 };
 use crate::{
     commands::contract::Durability,
-    config::{locator, network::Network},
+    config::{alias, locator, network::Network},
     wasm,
 };
 use clap::arg;
@@ -34,7 +34,7 @@ pub struct Args {
         required_unless_present = "wasm",
         required_unless_present = "wasm_hash"
     )]
-    pub contract_id: Option<String>,
+    pub contract_id: Option<alias::ContractAddress>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     pub key: Option<Vec<String>>,
@@ -97,8 +97,11 @@ impl Args {
         } else {
             vec![ScVal::LedgerKeyContractInstance]
         };
-        let contract =
-            locator.resolve_contract_id(self.contract_id.as_ref().unwrap(), network_passphrase)?;
+        let contract = self
+            .contract_id
+            .as_ref()
+            .unwrap()
+            .resolve_contract_id(locator, network_passphrase)?;
 
         Ok(keys
             .into_iter()
