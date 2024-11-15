@@ -198,7 +198,7 @@ Add contract alias
 
 ###### **Arguments:**
 
-* `<ALIAS>` — The contract alias that will be removed
+* `<ALIAS>` — The contract alias that will be used
 
 ###### **Options:**
 
@@ -522,7 +522,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -562,7 +562,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -602,7 +602,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
