@@ -40,7 +40,7 @@ pub struct Cmd {
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1
     pub set_required: bool,
     #[arg(long, conflicts_with = "clear_revocable")]
-    /// When enabled, an issuer can revoke an existing trustline’s authorization, thereby freezing the asset held by an account.
+    /// When enabled, an issuer can revoke an existing trustline's authorization, thereby freezing the asset held by an account.
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
     pub set_revocable: bool,
     #[arg(long, conflicts_with = "clear_clawback_enabled")]
@@ -48,7 +48,7 @@ pub struct Cmd {
     /// https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8
     pub set_clawback_enabled: bool,
     #[arg(long, conflicts_with = "clear_immutable")]
-    /// With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can’t be merged.
+    /// With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can't be merged.
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
     pub set_immutable: bool,
     #[arg(long)]
