@@ -159,7 +159,7 @@ pub(crate) fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
 
 fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
     contract::invoke::Cmd {
-        contract_id: id.to_string(),
+        contract_id: id.parse().unwrap(),
         slop: vec!["hello".into(), format!("--world={arg}").into()],
         ..Default::default()
     }

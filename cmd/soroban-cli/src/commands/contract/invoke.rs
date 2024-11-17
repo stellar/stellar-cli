@@ -40,7 +40,7 @@ use soroban_spec_tools::contract;
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
-    pub contract_id: String,
+    pub contract_id: config::ContractAddress,
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
@@ -217,9 +217,8 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self
-            .config
-            .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+            .contract_id
+            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {

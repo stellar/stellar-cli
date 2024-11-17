@@ -23,6 +23,8 @@ pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
+pub use alias::ContractAddress;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
