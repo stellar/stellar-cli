@@ -3,6 +3,9 @@ use ed25519_dalek::Signer;
 use keyring::Entry;
 use zeroize::Zeroize;
 
+pub(crate) const KEYCHAIN_ENTRY_PREFIX: &str = "keychain:"; //TODO: does this belong here, or in secret?
+pub(crate) const KEYCHAIN_ENTRY_SERVICE: &str = "org.stellar.cli";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -18,10 +21,7 @@ pub struct StellarEntry {
 impl TryFrom<&StellarEntry> for Entry {
     type Error = Error;
     fn try_from(StellarEntry { name }: &StellarEntry) -> Result<Self, Self::Error> {
-        Ok(Entry::new(
-            &format!("org.stellar.cli.{name}"),
-            &whoami::username(),
-        )?)
+        Ok(Entry::new(name, &whoami::username())?)
     }
 }
 
