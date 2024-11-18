@@ -9,10 +9,7 @@ use crate::print::Print;
 use crate::wasm;
 use crate::{
     commands::{contract::fetch, global, NetworkRunnable},
-    config::{
-        self, locator,
-        network::{self, Network},
-    },
+    config::{self, locator, network},
     get_spec::{self, get_remote_contract_spec},
     xdr::{Hash, ScAddress},
 };
@@ -86,22 +83,25 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<(), Error> {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
+
+        let network = self.network.get(&self.locator).ok().unwrap_or_else(|| {
+            network::DEFAULTS
+                .get("testnet")
+                .expect("no network specified and testnet network not found")
+                .into()
+        });
+
+        let contract_id = self
+            .locator
+            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
+            .0;
+        let contract_address = ScAddress::Contract(Hash(contract_id));
+
         let spec = if let Some(wasm) = &self.wasm {
             print.infoln("Loading contract spec from file...");
             let wasm: wasm::Args = wasm.into();
             wasm.parse()?.spec
         } else {
-            let network = config.map_or_else(
-                || self.network.get(&self.locator).map_err(Error::from),
-                |c| c.get_network().map_err(Error::from),
-            )?;
-
-            let contract_id = self
-                .locator
-                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
-                .0;
-
-            let contract_address = ScAddress::Contract(Hash(contract_id));
             print.globeln(format!("Downloading contract spec: {contract_address}"));
             get_remote_contract_spec(
                 &contract_id,
@@ -125,17 +125,7 @@ impl NetworkRunnable for Cmd {
         }
         std::fs::create_dir_all(&self.output_dir)?;
         let p: Project = self.output_dir.clone().try_into()?;
-        let Network {
-            rpc_url,
-            network_passphrase,
-            ..
-        } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
-            network::DEFAULTS
-                .get("futurenet")
-                .expect("why did we remove the default futurenet network?")
-                .into()
-        });
-        print.infoln(format!("Network: {network_passphrase}"));
+        print.infoln(format!("Network: {}", network.network_passphrase));
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
@@ -143,12 +133,12 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
-        print.infoln(format!("Embedding contract address: {}", self.contract_id));
+        print.infoln(format!("Embedding contract address: {contract_address}"));
         p.init(
             contract_name,
-            &self.contract_id,
-            &rpc_url,
-            &network_passphrase,
+            &contract_address.to_string(),
+            &network.rpc_url,
+            &network.network_passphrase,
             &spec,
         )?;
         print.checkln("Generated!");
