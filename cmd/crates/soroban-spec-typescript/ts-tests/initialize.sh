@@ -37,6 +37,7 @@ function deploy_all() {
 }
 function bind() {
   exe eval "./soroban contract bindings typescript --contract-id $(cat $1) --output-dir ./node_modules/$2 --overwrite"
+  exe eval "sh -c \"cd ./node_modules/$2 && npm install && npm run build\""
 }
 function bind_all() {
   bind contract-id-custom-types.txt test-custom-types
