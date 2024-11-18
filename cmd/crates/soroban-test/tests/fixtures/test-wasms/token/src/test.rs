@@ -9,7 +9,7 @@ use soroban_sdk::{
 };
 
 fn create_token<'a>(e: &Env, admin: &Address) -> TokenClient<'a> {
-    let token = TokenClient::new(e, &e.register_contract(None, Token {}));
+    let token = TokenClient::new(e, &e.register(Token {}, ()));
     token.initialize(admin, &7, &"name".into_val(e), &"symbol".into_val(e));
     token
 }
@@ -247,7 +247,7 @@ fn initialize_already_initialized() {
 fn decimal_is_over_max() {
     let e = Env::default();
     let admin = Address::generate(&e);
-    let token = TokenClient::new(&e, &e.register_contract(None, Token {}));
+    let token = TokenClient::new(&e, &e.register(Token {}, ()));
     token.initialize(
         &admin,
         &(u32::from(u8::MAX) + 1),
