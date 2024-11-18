@@ -5,6 +5,7 @@ use soroban_spec_tools::contract as contract_spec;
 use soroban_spec_typescript::{self as typescript, boilerplate::Project};
 use stellar_strkey::DecodeError;
 
+use crate::print::Print;
 use crate::wasm;
 use crate::{
     commands::{contract::fetch, global, NetworkRunnable},
@@ -13,6 +14,7 @@ use crate::{
         network::{self, Network},
     },
     get_spec::{self, get_remote_contract_spec},
+    xdr::{Hash, ScAddress},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -83,7 +85,9 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<(), Error> {
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let spec = if let Some(wasm) = &self.wasm {
+            print.infoln("Loading contract spec from file...");
             let wasm: wasm::Args = wasm.into();
             wasm.parse()?.spec
         } else {
@@ -97,6 +101,8 @@ impl NetworkRunnable for Cmd {
                 .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
                 .0;
 
+            let contract_address = ScAddress::Contract(Hash(contract_id));
+            print.globeln(format!("Downloading contract spec: {contract_address}"));
             get_remote_contract_spec(
                 &contract_id,
                 &self.locator,
@@ -129,6 +135,7 @@ impl NetworkRunnable for Cmd {
                 .expect("why did we remove the default futurenet network?")
                 .into()
         });
+        print.infoln(format!("Network: {network_passphrase}"));
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
@@ -136,6 +143,7 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
+        print.infoln(format!("Embedding contract address: {}", self.contract_id));
         p.init(
             contract_name,
             &self.contract_id,
@@ -143,17 +151,10 @@ impl NetworkRunnable for Cmd {
             &network_passphrase,
             &spec,
         )?;
-        std::process::Command::new("npm")
-            .arg("install")
-            .current_dir(&self.output_dir)
-            .spawn()?
-            .wait()?;
-        std::process::Command::new("npm")
-            .arg("run")
-            .arg("build")
-            .current_dir(&self.output_dir)
-            .spawn()?
-            .wait()?;
+        print.infoln(format!(
+            "Run \"npm install && npm run build\" in {:?} to build the JavaScript NPM package.",
+            self.output_dir
+        ));
         Ok(())
     }
 }
