@@ -125,8 +125,8 @@ impl NetworkRunnable for Cmd {
             ..
         } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
             network::DEFAULTS
-                .get("futurenet")
-                .expect("why did we remove the default futurenet network?")
+                .get("testnet")
+                .expect("why did we remove the default testnet network?")
                 .into()
         });
         let absolute_path = self.output_dir.canonicalize()?;
