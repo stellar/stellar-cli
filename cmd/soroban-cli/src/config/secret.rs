@@ -9,6 +9,8 @@ use crate::{
     utils,
 };
 
+const KEYCHAIN_ENTRY_NAME: &str = "org.stellar.cli";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid secret key")]
@@ -72,13 +74,8 @@ impl Args {
                     .join(" "),
             })
         } else if self.keychain {
-            // generate a secret, and save it in the keychain
-            // return a new type of secret?
-            // for now, put it all in here
-            println!("generate a secret in the keychain");
-            // let keychain = keyring::Keyring::new("
-            Ok(Secret::SecretKey {
-                secret_key: "test".to_owned(),
+            Ok(Secret::Keychain {
+                entry_name: KEYCHAIN_ENTRY_NAME.to_owned(),
             })
         } else {
             Err(Error::PasswordRead {})
@@ -91,7 +88,7 @@ impl Args {
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
-    Keychain,
+    Keychain { entry_name: String },
 }
 
 impl FromStr for Secret {
@@ -107,7 +104,9 @@ impl FromStr for Secret {
                 seed_phrase: s.to_string(),
             })
         } else if s == "keychain" {
-            Ok(Secret::Keychain)
+            Ok(Secret::Keychain {
+                entry_name: KEYCHAIN_ENTRY_NAME.to_owned(), //TODO: namespace the entry_name to the system user or key name?
+            })
         } else {
             Err(Error::InvalidAddress(s.to_string()))
         }
@@ -132,7 +131,7 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::Keychain => panic!("Keychain does not reveal secret key"),
+            Secret::Keychain { entry_name: _ } => panic!("Keychain does not reveal secret key"),
         })
     }
 
@@ -149,7 +148,7 @@ impl Secret {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::Keychain => todo!(),
+            Secret::Keychain { .. } => todo!(),
         };
         Ok(Signer { kind, print })
     }
@@ -191,51 +190,29 @@ mod tests {
     fn test_secret_from_key() {
         let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
         // assert that it is a Secret::SecretKey
-        match secret {
-            Secret::SecretKey { secret_key: _ } => assert!(true),
-            _ => assert!(false),
-        }
+        assert!(matches!(secret, Secret::SecretKey { .. }));
         // assert that we can get the private key from it
         let private_key = secret.private_key(None).unwrap();
         assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
-
-        let signer = secret.signer(None, Print::new(false)).unwrap();
-        println!("signer: {:?}", signer.kind);
     }
 
     #[test]
     fn test_secret_from_seed_phrase() {
         let secret = Secret::from_str(TEST_SEED_PHRASE).unwrap();
-        match secret {
-            Secret::SeedPhrase { seed_phrase: _ } => assert!(true),
-            _ => assert!(false),
-        }
+        assert!(matches!(secret, Secret::SeedPhrase { .. }));
 
         let private_key = secret.private_key(None).unwrap();
         assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
     }
 
     #[test]
-    fn test_ledger_secret() {
-        let secret = Secret::from_str("ledger").unwrap();
-        match secret {
-            Secret::Ledger => assert!(true),
-            _ => assert!(false),
-        }
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_ledger_secret_will_not_reveal_private_key() {
-        let secret = Secret::from_str("ledger").unwrap();
-        secret.private_key(None).unwrap();
-    }
-
-    #[test]
     fn test_keychain_secret() {
         let keychain_secret = Secret::from_str("keychain").unwrap();
+
         match keychain_secret {
-            Secret::Keychain => assert!(true),
+            Secret::Keychain { entry_name } => {
+                assert_eq!(entry_name, KEYCHAIN_ENTRY_NAME);
+            }
             _ => assert!(false),
         }
     }

@@ -39,6 +39,10 @@ pub struct Cmd {
     #[arg(long, short = 's')]
     pub as_secret: bool,
 
+    /// Save in `keychain`
+    #[arg(long)]
+    pub keychain: bool,
+
     #[command(flatten)]
     pub config_locator: locator::Args,
 
@@ -63,6 +67,8 @@ pub struct Cmd {
     pub overwrite: bool,
 }
 
+const KEYCHAIN_CONSTANT: &str = "keychain";
+
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
@@ -83,19 +89,7 @@ impl Cmd {
             warning. It can be suppressed with -q flag.",
             );
         }
-
-        let seed_phrase = if self.default_seed {
-            Secret::test_seed_phrase()
-        } else {
-            Secret::from_seed(self.seed.as_deref())
-        }?;
-
-        let secret = if self.as_secret {
-            seed_phrase.private_key(self.hd_path)?.into()
-        } else {
-            seed_phrase
-        };
-
+        let secret = self.secret()?;
         self.config_locator.write_identity(&self.name, &secret)?;
 
         if !self.no_fund {
@@ -111,5 +105,93 @@ impl Cmd {
         }
 
         Ok(())
+    }
+
+    fn secret(&self) -> Result<Secret, Error> {
+        let seed_phrase = self.seed_phrase()?;
+        Ok(if self.as_secret {
+            seed_phrase.private_key(self.hd_path)?.into()
+        } else if self.keychain {
+            KEYCHAIN_CONSTANT.parse()?
+        } else {
+            seed_phrase
+        })
+    }
+
+    fn seed_phrase(&self) -> Result<Secret, Error> {
+        Ok(if self.default_seed {
+            Secret::test_seed_phrase()
+        } else {
+            Secret::from_seed(self.seed.as_deref())
+        }?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::secret::Secret;
+
+    fn set_up_test() -> (super::locator::Args, super::Cmd) {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let locator = super::locator::Args {
+            global: false,
+            config_dir: Some(temp_dir.path().to_path_buf()),
+        };
+
+        let cmd = super::Cmd {
+            name: "test_name".to_string(),
+            no_fund: true,
+            seed: None,
+            as_secret: false,
+            keychain: false,
+            config_locator: locator.clone(),
+            hd_path: None,
+            default_seed: false,
+            network: Default::default(),
+            fund: false,
+        };
+
+        (locator, cmd)
+    }
+
+    fn global_args() -> super::global::Args {
+        let mut global_args = super::global::Args::default();
+        global_args.quiet = true;
+        global_args
+    }
+
+    #[tokio::test]
+    async fn test_storing_secret_as_a_seed_phrase() {
+        let (test_locator, cmd) = set_up_test();
+        let global_args = global_args();
+
+        let result = cmd.run(&global_args).await;
+        assert!(result.is_ok());
+        let identity = test_locator.read_identity("test_name").unwrap();
+        assert!(matches!(identity, Secret::SeedPhrase { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_storing_secret_as_a_secret_key() {
+        let (test_locator, mut cmd) = set_up_test();
+        cmd.as_secret = true;
+        let global_args = global_args();
+
+        let result = cmd.run(&global_args).await;
+        assert!(result.is_ok());
+        let identity = test_locator.read_identity("test_name").unwrap();
+        assert!(matches!(identity, Secret::SecretKey { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_storing_secret_in_keychain() {
+        let (test_locator, mut cmd) = set_up_test();
+        cmd.keychain = true;
+        let global_args = global_args();
+
+        let result = cmd.run(&global_args).await;
+        assert!(result.is_ok());
+        let identity = test_locator.read_identity("test_name").unwrap();
+        assert!(matches!(identity, Secret::Keychain { .. }));
     }
 }
