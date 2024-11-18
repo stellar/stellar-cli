@@ -151,6 +151,7 @@ impl NetworkRunnable for Cmd {
             &network_passphrase,
             &spec,
         )?;
+        print.checkln("Generated!");
         print.infoln(format!(
             "Run \"npm install && npm run build\" in {:?} to build the JavaScript NPM package.",
             self.output_dir
