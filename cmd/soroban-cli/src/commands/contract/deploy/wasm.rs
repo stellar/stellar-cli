@@ -264,14 +264,14 @@ impl NetworkRunnable for Cmd {
         // Get the account sequence number
         let account_details = client.get_account(&source_account.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
-        let txn = build_create_contract_tx(
+        let txn = Box::new(build_create_contract_tx(
             wasm_hash,
             sequence + 1,
             self.fee.fee,
             source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
-        )?;
+        )?);
 
         if self.fee.build_only {
             print.checkln("Transaction built!");
@@ -281,7 +281,7 @@ impl NetworkRunnable for Cmd {
         print.infoln("Simulating deploy transaction…");
 
         let txn = simulate_and_assemble_transaction(&client, &txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
 
         if self.fee.sim_only {
             print.checkln("Done!");
@@ -292,7 +292,7 @@ impl NetworkRunnable for Cmd {
         print.log_transaction(&txn, &network, true)?;
 
         let get_txn_resp = client
-            .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
             .await?
             .try_into()?;
 

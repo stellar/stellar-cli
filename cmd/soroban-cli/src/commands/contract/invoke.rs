@@ -25,10 +25,10 @@ use crate::{
     print, rpc,
     xdr::{
         self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
+        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo,
+        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
+        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+        WriteXdr,
     },
     Pwd,
 };
@@ -93,8 +93,6 @@ pub enum Error {
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-    #[error("unexpected contract code data type: {0:?}")]
-    UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
     #[error("error loading signing key: {0}")]
@@ -258,21 +256,22 @@ impl NetworkRunnable for Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
-        let tx = build_invoke_contract_tx(
+        let tx = Box::new(build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
             self.fee.fee,
             account_id,
-        )?;
+        )?);
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let assembled = self.fee.apply_to_assembled_txn(txn);
+        let mut txn = Box::new(assembled.transaction().clone());
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn.transaction().clone()));
+            return Ok(TxnResult::Txn(txn));
         }
-        let sim_res = txn.sim_response();
+        let sim_res = assembled.sim_response();
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
@@ -281,12 +280,11 @@ impl NetworkRunnable for Cmd {
             ShouldSend::Yes => {
                 let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
                 // Need to sign all auth entries
-                let mut txn = txn.transaction().clone();
                 if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-                    txn = tx;
+                    txn = Box::new(tx);
                 }
                 let res = client
-                    .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+                    .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
                     .await?;
                 if !no_cache {
                     data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

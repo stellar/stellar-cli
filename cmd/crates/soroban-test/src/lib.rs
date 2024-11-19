@@ -36,10 +36,7 @@ use soroban_cli::{
 };
 
 mod wasm;
-use stellar_ledger::emulator_test_support::{
-    enable_hash_signing, get_container, speculos::Speculos, wait_for_emulator_start_text,
-};
-use testcontainers::ContainerAsync;
+
 pub use wasm::Wasm;
 
 pub const TEST_ACCOUNT: &str = "test";
@@ -313,7 +310,11 @@ impl TestEnv {
         soroban_rpc::Client::new(&self.rpc_url).unwrap()
     }
 
-    pub async fn speculos_container(ledger_device_model: &str) -> ContainerAsync<Speculos> {
+    #[cfg(feature = "emulator-tests")]
+    pub async fn speculos_container(ledger_device_model: &str) -> testcontainers::ContainerAsync<stellar_ledger::emulator_test_support::speculos::Speculos> {
+        use stellar_ledger::emulator_test_support::{
+            enable_hash_signing, get_container, wait_for_emulator_start_text,
+        };
         let container = get_container(ledger_device_model).await;
         let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
         wait_for_emulator_start_text(ui_host_port).await;

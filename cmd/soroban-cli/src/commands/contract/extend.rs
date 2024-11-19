@@ -140,7 +140,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let tx = Transaction {
+        let tx = Box::new(Transaction {
             source_account,
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
@@ -167,7 +167,7 @@ impl NetworkRunnable for Cmd {
                 },
                 resource_fee: 0,
             }),
-        };
+        });
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
