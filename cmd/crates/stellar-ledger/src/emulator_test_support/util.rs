@@ -1,4 +1,3 @@
-use ledger_transport::Exchange;
 use serde::Deserialize;
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -24,7 +23,7 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-pub async fn ledger(host_port: u16) -> LedgerSigner<impl Exchange> {
+pub async fn ledger(host_port: u16) -> LedgerSigner<EmulatorHttpTransport> {
     LedgerSigner::new(get_http_transport("127.0.0.1", host_port).await.unwrap())
 }
 
@@ -83,9 +82,9 @@ struct EventsResponse {
     events: Vec<EmulatorEvent>,
 }
 
-pub async fn get_container(ledger_device_model: String) -> ContainerAsync<Speculos> {
+pub async fn get_container(ledger_device_model: &str) -> ContainerAsync<Speculos> {
     let (tcp_port_1, tcp_port_2) = get_available_ports(2);
-    Speculos::new(ledger_device_model)
+    Speculos::new(ledger_device_model.to_string())
         .with_mapped_port(tcp_port_1, ContainerPort::Tcp(9998))
         .with_mapped_port(tcp_port_2, ContainerPort::Tcp(5000))
         .start()
@@ -110,7 +109,7 @@ pub fn get_available_ports(n: usize) -> (u16, u16) {
     (ports[0], ports[1])
 }
 
-pub async fn get_http_transport(host: &str, port: u16) -> Result<impl Exchange, Error> {
+pub async fn get_http_transport(host: &str, port: u16) -> Result<EmulatorHttpTransport, Error> {
     let max_retries = 5;
     let mut retries = 0;
     let mut wait_time = Duration::from_secs(1);

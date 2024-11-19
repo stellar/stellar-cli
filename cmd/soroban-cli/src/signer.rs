@@ -209,7 +209,10 @@ pub struct Signer {
 #[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
 pub enum SignerKind {
     Local(LocalKey),
+    #[cfg(not(feature = "emulator-tests"))]
     Ledger(Ledger<TransportNativeHID>),
+    #[cfg(feature = "emulator-tests")]
+    Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::EmulatorHttpTransport>),
     Lab,
 }
 
@@ -279,13 +282,51 @@ impl<T: Exchange> Ledger<T> {
         Ok(DecoratedSignature { hint, signature })
     }
 
+    pub async fn sign_transaction(
+        &self,
+        tx: Transaction,
+        network_passphrase: &str,
+    ) -> Result<DecoratedSignature, Error> {
+        let network_id = Hash(Sha256::digest(network_passphrase).into());
+        let signature = self
+            .signer
+            .sign_transaction(self.index, tx, network_id)
+            .await?;
+        let key = self.public_key().await?;
+        let hint = SignatureHint(key.0[28..].try_into()?);
+        let signature = Signature(signature.try_into()?);
+        Ok(DecoratedSignature { hint, signature })
+    }
+
     pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         Ok(self.signer.get_public_key(&self.index.into()).await?)
     }
 }
 
-pub fn native_ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
+#[cfg(not(feature = "emulator-tests"))]
+pub async fn ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
     let signer = stellar_ledger::native()?;
+    Ok(Ledger {
+        index: hd_path,
+        signer,
+    })
+}
+
+#[cfg(feature = "emulator-tests")]
+pub async fn ledger(
+    hd_path: u32,
+) -> Result<
+    Ledger<stellar_ledger::emulator_test_support::http_transport::EmulatorHttpTransport>,
+    Error,
+> {
+    use stellar_ledger::emulator_test_support::ledger as emulator_ledger;
+    // port from SPECULOS_PORT ENV var
+    let host_port: u16 = std::env::var("SPECULOS_PORT")
+        .expect("SPECULOS_PORT env var not set")
+        .parse()
+        .expect("port must be a number");
+    let signer = emulator_ledger(host_port).await;
+
     Ok(Ledger {
         index: hd_path,
         signer,

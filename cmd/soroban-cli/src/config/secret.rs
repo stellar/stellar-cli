@@ -6,7 +6,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, native_ledger, LocalKey, Signer, SignerKind},
+    signer::{self, ledger, LocalKey, Signer, SignerKind},
     utils,
 };
 
@@ -133,7 +133,7 @@ impl Secret {
         )?)
     }
 
-    pub fn signer(&self, index: Option<usize>, print: Print) -> Result<Signer, Error> {
+    pub async fn signer(&self, index: Option<usize>, print: Print) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 let key = self.key_pair(index)?;
@@ -144,7 +144,7 @@ impl Secret {
                     .unwrap_or_default()
                     .try_into()
                     .expect("uszie bigger than u32");
-                SignerKind::Ledger(native_ledger(hd_path)?)
+                SignerKind::Ledger(ledger(hd_path).await?)
             }
         };
         Ok(Signer { kind, print })

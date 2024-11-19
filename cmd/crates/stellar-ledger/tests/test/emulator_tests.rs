@@ -12,12 +12,12 @@ use stellar_ledger::emulator_test_support::*;
 
 use test_case::test_case;
 
-#[test_case("nanos".to_string() ; "when the device is NanoS")]
-#[test_case("nanox".to_string() ; "when the device is NanoX")]
-#[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
+#[test_case("nanos"; "when the device is NanoS")]
+#[test_case("nanox"; "when the device is NanoX")]
+#[test_case("nanosp"; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_get_public_key(ledger_device_model: String) {
-    let container = get_container(ledger_device_model.clone()).await;
+async fn test_get_public_key(ledger_device_model: &str) {
+    let container = get_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
@@ -39,12 +39,12 @@ async fn test_get_public_key(ledger_device_model: String) {
     }
 }
 
-#[test_case("nanos".to_string() ; "when the device is NanoS")]
-#[test_case("nanox".to_string() ; "when the device is NanoX")]
-#[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
+#[test_case("nanos"; "when the device is NanoS")]
+#[test_case("nanox"; "when the device is NanoX")]
+#[test_case("nanosp"; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_get_app_configuration(ledger_device_model: String) {
-    let container = get_container(ledger_device_model.clone()).await;
+async fn test_get_app_configuration(ledger_device_model: &str) {
+    let container = get_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
@@ -62,12 +62,12 @@ async fn test_get_app_configuration(ledger_device_model: String) {
     };
 }
 
-#[test_case("nanos".to_string() ; "when the device is NanoS")]
-#[test_case("nanox".to_string() ; "when the device is NanoX")]
-#[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
+#[test_case("nanos"; "when the device is NanoS")]
+#[test_case("nanox"; "when the device is NanoX")]
+#[test_case("nanosp"; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_sign_tx(ledger_device_model: String) {
-    let container = get_container(ledger_device_model.clone()).await;
+async fn test_sign_tx(ledger_device_model: &str) {
+    let container = get_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
@@ -112,7 +112,7 @@ async fn test_sign_tx(ledger_device_model: String) {
         fee: 100,
         seq_num: SequenceNumber(1),
         cond: Preconditions::None,
-        memo: Memo::Text("Stellar".as_bytes().try_into().unwrap()),
+        memo: Memo::Text("Stellar".try_into().unwrap()),
         ext: TransactionExt::V0,
         operations: [Operation {
             source_account: Some(MuxedAccount::Ed25519(Uint256(source_account_bytes))),
@@ -130,7 +130,10 @@ async fn test_sign_tx(ledger_device_model: String) {
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction(path, tx, test_network_hash()).await }
     });
-    let approve = tokio::task::spawn(approve_tx_signature(ui_host_port, ledger_device_model));
+    let approve = tokio::task::spawn(approve_tx_signature(
+        ui_host_port,
+        ledger_device_model.to_string(),
+    ));
 
     let result = sign.await.unwrap();
     let _ = approve.await.unwrap();
@@ -146,12 +149,12 @@ async fn test_sign_tx(ledger_device_model: String) {
     };
 }
 
-#[test_case("nanos".to_string() ; "when the device is NanoS")]
-#[test_case("nanox".to_string() ; "when the device is NanoX")]
-#[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
+#[test_case("nanos"; "when the device is NanoS")]
+#[test_case("nanox"; "when the device is NanoX")]
+#[test_case("nanosp"; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model: String) {
-    let container = get_container(ledger_device_model.clone()).await;
+async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model: &str) {
+    let container = get_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
     wait_for_emulator_start_text(ui_host_port).await;
@@ -170,12 +173,12 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
     }
 }
 
-#[test_case("nanos".to_string() ; "when the device is NanoS")]
-#[test_case("nanox".to_string() ; "when the device is NanoX")]
-#[test_case("nanosp".to_string() ; "when the device is NanoS Plus")]
+#[test_case("nanos"; "when the device is NanoS")]
+#[test_case("nanox"; "when the device is NanoX")]
+#[test_case("nanosp"; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: String) {
-    let container = get_container(ledger_device_model.clone()).await;
+async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: &str) {
+    let container = get_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
 
@@ -201,7 +204,10 @@ async fn test_sign_tx_hash_when_hash_signing_is_enabled(ledger_device_model: Str
         let ledger = Arc::clone(&ledger);
         async move { ledger.sign_transaction_hash(path, &test_hash).await }
     });
-    let approve = tokio::task::spawn(approve_tx_hash_signature(ui_host_port, ledger_device_model));
+    let approve = tokio::task::spawn(approve_tx_hash_signature(
+        ui_host_port,
+        ledger_device_model.to_string(),
+    ));
 
     let response = sign.await.unwrap();
     let _ = approve.await.unwrap();

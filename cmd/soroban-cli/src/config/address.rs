@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    signer::{self, native_ledger},
+    signer::{self, ledger},
     xdr,
 };
 
@@ -80,7 +80,7 @@ impl Address {
                 ))
             }),
             Address::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
-                native_ledger(*hd_path)?.public_key().await?.0.into(),
+                ledger(*hd_path).await?.public_key().await?.0.into(),
             )),
         }
     }

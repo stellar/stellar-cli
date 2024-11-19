@@ -1,6 +1,6 @@
 use crate::{
     print::Print,
-    signer::{self, native_ledger, Signer, SignerKind},
+    signer::{self, ledger, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
 };
 use clap::arg;
@@ -72,12 +72,13 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            let ledger = native_ledger(
+            let ledger = ledger(
                 self.hd_path
                     .unwrap_or_default()
                     .try_into()
                     .unwrap_or_default(),
-            )?;
+            )
+            .await?;
             Signer {
                 kind: SignerKind::Ledger(ledger),
                 print,
@@ -85,7 +86,7 @@ impl Args {
         } else {
             let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
             let secret = locator.key(key_or_name)?;
-            secret.signer(self.hd_path, print)?
+            secret.signer(self.hd_path, print).await?
         };
         Ok(signer.sign_tx_env(tx, network).await?)
     }

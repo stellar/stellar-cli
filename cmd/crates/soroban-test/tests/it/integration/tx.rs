@@ -56,10 +56,19 @@ async fn txn_hash() {
 #[tokio::test]
 async fn build_simulate_sign_send() {
     let sandbox = &TestEnv::new();
+    build_sim_sign_send(sandbox, "test", "--sign-with-key=test").await;
+}
+
+pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_with: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
-        .args(["--wasm", HELLO_WORLD.path().as_os_str().to_str().unwrap()])
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--source",
+            account,
+        ])
         .assert()
         .success();
 
@@ -69,7 +78,7 @@ async fn build_simulate_sign_send() {
     let tx_signed = sandbox
         .new_assert_cmd("tx")
         .arg("sign")
-        .arg("--sign-with-key=test")
+        .arg(sign_with)
         .write_stdin(tx_simulated.as_bytes())
         .assert()
         .success()

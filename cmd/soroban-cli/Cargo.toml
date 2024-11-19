@@ -37,6 +37,7 @@ doctest = false
 [features]
 default = []
 opt = ["dep:wasm-opt"]
+emulator-tests = ["stellar-ledger/emulator-tests"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }

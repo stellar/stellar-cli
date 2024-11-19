@@ -35,7 +35,7 @@ tokio = { version = "1", features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
 phf = { version = "0.11.2", features = ["macros"], optional = true }
 async-trait = { workspace = true }
-testcontainers = { version = "0.20.1", optional = true }
+testcontainers = { workspace = true, optional = true }
 
 [dependencies.stellar-xdr]
 workspace = true
