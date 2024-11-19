@@ -4454,7 +4454,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "22.0.0"
+version = "0.0.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -4665,7 +4665,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-bye"
-version = "22.0.0"
+version = "0.0.0"
 
 [[package]]
 name = "stellar-cli"
@@ -5023,42 +5023,42 @@ dependencies = [
 
 [[package]]
 name = "test_constructor"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_account"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "22.0.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
