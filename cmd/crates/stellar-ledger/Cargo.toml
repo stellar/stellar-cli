@@ -21,7 +21,7 @@ thiserror = "1.0.32"
 serde = "1.0.82"
 serde_derive = "1.0.82"
 serde_json = "1.0.82"
-sha2 = "0.9.9"
+sha2 = { workspace = true }
 ed25519-dalek = { workspace = true }
 stellar-strkey = { workspace = true }
 ledger-transport-hid = "0.10.0"
@@ -34,7 +34,7 @@ byteorder = "1.5.0"
 bollard = { workspace = true }
 home = "0.5.9"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { workspace = true, features = ["json"] }
 soroban-rpc.workspace = true
 phf = { version = "0.11.2", features = ["macros"] }
 futures = "0.3.30"

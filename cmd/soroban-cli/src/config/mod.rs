@@ -23,6 +23,8 @@ pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
+pub use alias::ContractAddress;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -169,9 +171,8 @@ impl Config {
         let path = locator::config_file()?;
 
         if path.exists() {
-            let data = fs::read(&path).map_err(|_| locator::Error::FileRead { path })?;
-
-            Ok(toml::from_slice(&data)?)
+            let data = fs::read_to_string(&path).map_err(|_| locator::Error::FileRead { path })?;
+            Ok(toml::from_str(&data)?)
         } else {
             Ok(Config::default())
         }

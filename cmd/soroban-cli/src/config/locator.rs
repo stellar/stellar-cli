@@ -1,4 +1,5 @@
 use clap::arg;
+use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
@@ -76,6 +77,8 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("contract not found: {0}")]
+    ContractNotFound(String),
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
@@ -332,12 +335,17 @@ impl Args {
         &self,
         alias: &str,
         network_passphrase: &str,
-    ) -> Result<Option<String>, Error> {
+    ) -> Result<Option<Contract>, Error> {
         let Some(alias_data) = self.load_contract_from_alias(alias)? else {
             return Ok(None);
         };
 
-        Ok(alias_data.ids.get(network_passphrase).cloned())
+        alias_data
+            .ids
+            .get(network_passphrase)
+            .map(|id| id.parse())
+            .transpose()
+            .map_err(|e| Error::CannotParseContractId(alias.to_owned(), e))
     }
 
     pub fn resolve_contract_id(
@@ -345,14 +353,12 @@ impl Args {
         alias_or_contract_id: &str,
         network_passphrase: &str,
     ) -> Result<Contract, Error> {
-        let contract_id = self
-            .get_contract_id(alias_or_contract_id, network_passphrase)?
-            .unwrap_or_else(|| alias_or_contract_id.to_string());
-
-        Ok(Contract(
-            soroban_spec_tools::utils::contract_id_from_str(&contract_id)
-                .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))?,
-        ))
+        let Some(contract) = self.get_contract_id(alias_or_contract_id, network_passphrase)? else {
+            return alias_or_contract_id
+                .parse()
+                .map_err(|e| Error::CannotParseContractId(alias_or_contract_id.to_owned(), e));
+        };
+        Ok(contract)
     }
 }
 
@@ -414,11 +420,10 @@ impl KeyType {
     }
 
     pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
-        let data = fs::read(path).map_err(|_| Error::NetworkFileRead {
+        let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
-        let res = toml::from_slice(data.as_slice());
-        Ok(res?)
+        Ok(toml::from_str(&data)?)
     }
 
     pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
@@ -489,8 +494,9 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
     let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
-        dirs::home_dir()
+        UserDirs::new()
             .ok_or(Error::HomeDirNotFound)?
+            .home_dir()
             .join(".config")
     };
 
