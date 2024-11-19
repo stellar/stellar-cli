@@ -87,7 +87,7 @@ impl Args {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
         if self.fee.build_only {
-            return Ok(TxnEnvelopeResult::TxnEnvelope(tx.into()));
+            return Ok(TxnEnvelopeResult::TxnEnvelope(Box::new(tx.into())));
         }
 
         let txn_resp = client
