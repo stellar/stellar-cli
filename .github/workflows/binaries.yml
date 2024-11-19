@@ -133,17 +133,17 @@ jobs:
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
 
-      - name: Build provenance for attestation (release only)
-        if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: ${{ env.STELLAR_CLI_INSTALLER }}
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
           path: Output/stellar-installer.exe
+
+      - name: Build provenance for attestation (release only)
+        if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: ${{ env.STELLAR_CLI_INSTALLER }}
 
       - name: Upload to Release (release only)
         if: github.event_name == 'release'
