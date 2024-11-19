@@ -311,7 +311,10 @@ impl TestEnv {
     }
 
     #[cfg(feature = "emulator-tests")]
-    pub async fn speculos_container(ledger_device_model: &str) -> testcontainers::ContainerAsync<stellar_ledger::emulator_test_support::speculos::Speculos> {
+    pub async fn speculos_container(
+        ledger_device_model: &str,
+    ) -> testcontainers::ContainerAsync<stellar_ledger::emulator_test_support::speculos::Speculos>
+    {
         use stellar_ledger::emulator_test_support::{
             enable_hash_signing, get_container, wait_for_emulator_start_text,
         };
