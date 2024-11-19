@@ -42,7 +42,7 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error("unexpected contract data {0:?}")]
-    UnexpectedContractToken(ContractDataEntry),
+    UnexpectedContractToken(Box<ContractDataEntry>),
     #[error(
         "cannot fetch wasm for contract because the contract is \
     a network built-in asset contract that does not have a downloadable code binary"
@@ -136,5 +136,5 @@ pub async fn fetch_from_contract(
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
         };
     }
-    Err(UnexpectedContractToken(data_entry))
+    Err(UnexpectedContractToken(Box::new(data_entry)))
 }
