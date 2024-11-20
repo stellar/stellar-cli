@@ -27,6 +27,8 @@ pub enum Error {
     InvalidAddress(String),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    Keyring(#[from] keyring::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -103,12 +105,8 @@ impl FromStr for Secret {
                 seed_phrase: s.to_string(),
             })
         } else if s.starts_with(keyring::KEYCHAIN_ENTRY_PREFIX) {
-            let entry_name = s
-                .strip_prefix(keyring::KEYCHAIN_ENTRY_PREFIX)
-                .ok_or(Error::InvalidAddress(s.to_string()))?;
-
             Ok(Secret::Keychain {
-                entry_name: entry_name.to_owned(),
+                entry_name: s.to_owned(),
             })
         } else {
             Err(Error::InvalidAddress(s.to_string()))
@@ -139,10 +137,18 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        let key = self.key_pair(index)?;
-        Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-            key.verifying_key().as_bytes(),
-        )?)
+        match self {
+            Secret::Keychain { entry_name } => {
+                let entry = keyring::StellarEntry::new(entry_name)?;
+                Ok(entry.get_public_key()?)
+            }
+            _ => {
+                let key = self.key_pair(index)?;
+                Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                    key.verifying_key().as_bytes(),
+                )?)
+            }
+        }
     }
 
     pub fn signer(&self, index: Option<usize>, print: Print) -> Result<Signer, Error> {
