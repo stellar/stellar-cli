@@ -57,17 +57,15 @@ impl NetworkRunnable for Cmd {
         };
         let client = network.rpc_client()?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
-        match super::xdr::unwrap_envelope_v1(tx_env.clone()).map(|tx| transaction_hash(&tx, &network.network_passphrase)) {
+        match super::xdr::unwrap_envelope_v1(tx_env.clone())
+                .map(|tx| transaction_hash(&tx, &network.network_passphrase))
+        {
             Ok(Ok(hash)) => {
-                if !globals.map_or(false, |g| g.quiet) {
-                    println!(
-                        "Transaction Hash: {}",
-                        hex::encode(hash)
-                    );
+                if !globals.map_or(false, |g| g.quiet){
+                    println!( "Transaction Hash: {}", hex::encode(hash));
                 }
             }
-            _ => {
-            }
+            _ => {}
         }
         Ok(client.send_transaction_polling(&tx_env).await?)
     }
