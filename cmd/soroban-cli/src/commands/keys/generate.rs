@@ -6,6 +6,7 @@ use super::super::config::{
 };
 use crate::{
     commands::global,
+    config::address::KeyName,
     print::Print,
     signer::keyring::{self, StellarEntry},
 };
@@ -33,7 +34,7 @@ pub enum Error {
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Name of identity
-    pub name: String,
+    pub name: KeyName,
     /// Do not fund address
     #[arg(long)]
     pub no_fund: bool,
@@ -122,7 +123,7 @@ impl Cmd {
                 "{}{}-{}",
                 keyring::KEYCHAIN_ENTRY_PREFIX,
                 keyring::KEYCHAIN_ENTRY_SERVICE,
-                self.name
+                self.name.to_string()
             );
 
             let secret: Secret = entry_name_with_prefix.parse()?; //checking that the entry name is valid before writing to the keychain
