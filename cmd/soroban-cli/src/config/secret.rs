@@ -73,11 +73,6 @@ impl Args {
                     .collect::<Vec<_>>()
                     .join(" "),
             })
-        } else if self.keychain {
-            todo!();
-            // Ok(Secret::Keychain {
-            //     entry_name: KEYCHAIN_ENTRY_NAME.to_owned(),
-            // })
         } else {
             Err(Error::PasswordRead {})
         }
@@ -132,7 +127,7 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::Keychain { entry_name: _ } => panic!("Keychain does not reveal secret key"),
+            Secret::Keychain { .. } => panic!("Keychain does not reveal secret key"),
         })
     }
 
@@ -222,7 +217,7 @@ mod tests {
 
         match keychain_secret {
             Secret::Keychain { entry_name } => {
-                assert_eq!(entry_name, "org.stellar.cli-alice");
+                assert_eq!(entry_name, "keychain:org.stellar.cli-alice");
             }
             _ => assert!(false),
         }

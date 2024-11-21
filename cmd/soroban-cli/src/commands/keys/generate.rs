@@ -162,7 +162,7 @@ impl Cmd {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::secret::Secret;
+    use crate::config::{self, address::KeyName, secret::Secret};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -172,7 +172,7 @@ mod tests {
         };
 
         let cmd = super::Cmd {
-            name: "test_name".to_string(),
+            name: KeyName("test_name".to_string()),
             no_fund: true,
             seed: None,
             as_secret: false,
@@ -182,6 +182,7 @@ mod tests {
             default_seed: false,
             network: Default::default(),
             fund: false,
+            overwrite: false,
         };
 
         (locator, cmd)
