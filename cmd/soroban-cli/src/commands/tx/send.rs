@@ -61,7 +61,7 @@ impl NetworkRunnable for Cmd {
             .map(|tx| transaction_hash(&tx, &network.network_passphrase))
         {
             Ok(Ok(hash)) => {
-                if !globals.map_or(false, |g| g.quiet) {
+                if !globals.is_some_and(|g| g.quiet) {
                     println!("Transaction Hash: {}", hex::encode(hash));
                 }
             }
