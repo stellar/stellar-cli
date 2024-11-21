@@ -5,7 +5,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, keyring, LocalKey, Signer, SignerKind},
+    signer::{self, keyring, KeychainEntry, LocalKey, Signer, SignerKind},
     utils,
 };
 
@@ -106,7 +106,7 @@ impl FromStr for Secret {
             })
         } else if s.starts_with(keyring::KEYCHAIN_ENTRY_PREFIX) {
             Ok(Secret::Keychain {
-                entry_name: s.to_owned(),
+                entry_name: s.to_string(),
             })
         } else {
             Err(Error::InvalidAddress(s.to_string()))
@@ -157,7 +157,9 @@ impl Secret {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::Keychain { .. } => todo!(),
+            Secret::Keychain { entry_name } => SignerKind::Keychain(KeychainEntry {
+                name: entry_name.to_string(),
+            }),
         };
         Ok(Signer { kind, print })
     }

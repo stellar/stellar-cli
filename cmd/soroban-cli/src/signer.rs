@@ -1,4 +1,5 @@
-use ed25519_dalek::ed25519::signature::Signer as _;
+use ed25519_dalek::ed25519::signature::{self, Signer as _};
+use keyring::StellarEntry;
 use sha2::{Digest, Sha256};
 
 use crate::xdr::{
@@ -35,6 +36,8 @@ pub enum Error {
     Open(#[from] std::io::Error),
     #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
     ReturningSignatureFromLab,
+    #[error(transparent)]
+    Keyring(#[from] keyring::Error),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -209,6 +212,7 @@ pub struct Signer {
 pub enum SignerKind {
     Local(LocalKey),
     Lab,
+    Keychain(KeychainEntry),
 }
 
 impl Signer {
@@ -237,6 +241,7 @@ impl Signer {
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
+                    SignerKind::Keychain(entry) => entry.sign_tx_env(tx_env)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -284,5 +289,19 @@ impl Lab {
         open::that(url)?;
 
         Err(Error::ReturningSignatureFromLab)
+    }
+}
+
+pub struct KeychainEntry {
+    pub name: String,
+}
+
+impl KeychainEntry {
+    pub fn sign_tx_env(&self, tx_env: &TransactionEnvelope) -> Result<DecoratedSignature, Error> {
+        let entry = StellarEntry::new(&self.name)?;
+        let signed_tx_env = entry.sign_data(tx_env.to_xdr_base64(Limits::none())?.as_bytes())?;
+        let hint = SignatureHint(entry.get_public_key()?.0[28..].try_into()?);
+        let signature = Signature(signed_tx_env.to_vec().try_into()?);
+        Ok(DecoratedSignature { hint, signature })
     }
 }
