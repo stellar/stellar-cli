@@ -1,4 +1,4 @@
-use crate::utils::transaction_hash;
+use crate::{print::Print, utils::transaction_hash};
 use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
 
@@ -57,16 +57,14 @@ impl NetworkRunnable for Cmd {
         };
         let client = network.rpc_client()?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
-        match super::xdr::unwrap_envelope_v1(tx_env.clone())
+
+        if let Ok(Ok(hash)) = super::xdr::unwrap_envelope_v1(tx_env.clone())
             .map(|tx| transaction_hash(&tx, &network.network_passphrase))
         {
-            Ok(Ok(hash)) => {
-                if !globals.is_some_and(|g| g.quiet) {
-                    println!("Transaction Hash: {}", hex::encode(hash));
-                }
-            }
-            _ => {}
+            let print = Print::new(globals.map_or(false, |g| g.quiet));
+            print.infoln(format!("Transaction Hash: {}", hex::encode(hash)));
         }
+
         Ok(client.send_transaction_polling(&tx_env).await?)
     }
 }
