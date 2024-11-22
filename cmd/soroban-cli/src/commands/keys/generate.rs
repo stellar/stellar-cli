@@ -163,6 +163,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use crate::config::{self, address::KeyName, secret::Secret};
+    use keyring::{mock, set_default_credential_builder};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -184,6 +185,8 @@ mod tests {
             fund: false,
             overwrite: false,
         };
+
+        set_default_credential_builder(mock::default_credential_builder());
 
         (locator, cmd)
     }
