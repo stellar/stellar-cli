@@ -4611,7 +4611,6 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
- "stellar-xdr",
  "thiserror",
  "tokio",
  "toml",

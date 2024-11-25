@@ -1,9 +1,8 @@
 use predicates::prelude::predicate;
-use soroban_cli::wasm;
+use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
-use std::collections::HashMap;
-use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
+use std::io::Cursor;
 
 #[test]
 fn build_all() {
@@ -153,41 +152,36 @@ fn build_with_metadata() {
     // verify that the metadata added in the contract code via contractmetadata! macro is present
     // as well as the meta that is included on build
     let wasm_path = fixture_path.join(&outdir).join("add.wasm");
-
-    let wasm_bytes = wasm::Args {
-        wasm: wasm_path.clone(),
-    }
-    .read()
-    .unwrap();
-    let spec = Spec::new(&wasm_bytes).unwrap();
-    let mut expected_entries = HashMap::new();
-
-    expected_entries.insert("Description".to_string(), None);
-    expected_entries.insert("rsver".to_string(), None);
-    expected_entries.insert("rssdkver".to_string(), None);
-    expected_entries.insert("meta_replaced".to_string(), Some("some_new_meta"));
-
-    for meta_entry in &spec.meta {
-        match meta_entry {
-            ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
-                let key = key.to_string();
-                if let Some(entry) = expected_entries.remove(&key) {
-                    if let Some(str) = entry {
-                        assert_eq!(
-                            str,
-                            val.to_string(),
-                            "Unexpected value ${val} for key ${key} (expecting ${str})"
-                        );
-                    }
-                } else {
-                    panic!("Unexpected key {key}");
-                }
-            }
+    let wasm = std::fs::read(wasm_path).unwrap();
+    let spec = Spec::new(&wasm).unwrap();
+    let meta = spec.meta_base64.unwrap();
+    let entries = ScMetaEntry::read_xdr_base64_iter(&mut Limited::new(
+        Cursor::new(meta.as_bytes()),
+        Limits::none(),
+    ))
+    .filter(|entry| match entry {
+        // Ignore the meta entries that the SDK embeds that capture the SDK and
+        // Rust version, since these will change often and are not really
+        // relevant to this test.
+        Ok(ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. })) => {
+            let key = key.to_string();
+            !matches!(key.as_str(), "rsver" | "rssdkver")
         }
-    }
+        _ => true,
+    })
+    .collect::<Result<Vec<_>, _>>()
+    .unwrap();
 
-    assert!(
-        expected_entries.is_empty(),
-        "Some entries were not found in the metadata: {expected_entries:?}",
-    );
+    let expected_entries = vec![
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "Description".try_into().unwrap(),
+            val: "A test add contract".try_into().unwrap(),
+        }),
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "meta_replaced".try_into().unwrap(),
+            val: "some_new_meta".try_into().unwrap(),
+        }),
+    ];
+
+    assert_eq!(entries, expected_entries);
 }
