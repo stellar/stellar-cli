@@ -36,8 +36,8 @@
           };
 
           cargoLock.outputHashes = {
-              # The only git+https dependency in Cargo.lock
-              "stellar-rpc-client-21.4.0" = "sha256-ue7Ynux9YaDP3f/XkHz2OPd2g0iCX5R0yS5SaVHEYxQ";
+              # This is needed for any git+https dependency in Cargo.lock
+              # "somepackage-1.2.3" = "sha256-somehash";
           };
 
           doCheck = false;
