@@ -4,10 +4,10 @@ use std::{
     io::{self, Cursor},
 };
 
-use soroban_env_host::xdr::{
-    self, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScMetaEntry, ScMetaV0, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0,
-    StringM, WriteXdr,
+use stellar_xdr::curr::{
+    self as xdr, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion,
+    ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
+    ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
 };
 
 pub struct Spec {
@@ -40,9 +40,9 @@ pub enum Error {
 
 impl Spec {
     pub fn new(bytes: &[u8]) -> Result<Self, Error> {
-        let mut env_meta: Option<&[u8]> = None;
-        let mut meta: Option<&[u8]> = None;
-        let mut spec: Option<&[u8]> = None;
+        let mut env_meta: Option<Vec<u8>> = None;
+        let mut meta: Option<Vec<u8>> = None;
+        let mut spec: Option<Vec<u8>> = None;
         for payload in wasmparser::Parser::new(0).parse_all(bytes) {
             let payload = payload?;
             if let wasmparser::Payload::CustomSection(section) = payload {
@@ -52,13 +52,19 @@ impl Spec {
                     "contractspecv0" => &mut spec,
                     _ => continue,
                 };
-                *out = Some(section.data());
+
+                if let Some(existing_data) = out {
+                    let combined_data = [existing_data, section.data()].concat();
+                    *out = Some(combined_data);
+                } else {
+                    *out = Some(section.data().to_vec());
+                }
             };
         }
 
         let mut env_meta_base64 = None;
         let env_meta = if let Some(env_meta) = env_meta {
-            env_meta_base64 = Some(base64.encode(env_meta));
+            env_meta_base64 = Some(base64.encode(&env_meta));
             let cursor = Cursor::new(env_meta);
             let mut read = Limited::new(cursor, Limits::none());
             ScEnvMetaEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?
@@ -68,7 +74,7 @@ impl Spec {
 
         let mut meta_base64 = None;
         let meta = if let Some(meta) = meta {
-            meta_base64 = Some(base64.encode(meta));
+            meta_base64 = Some(base64.encode(&meta));
             let cursor = Cursor::new(meta);
             let mut depth_limit_read = Limited::new(cursor, Limits::none());
             ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
@@ -78,7 +84,7 @@ impl Spec {
         };
 
         let (spec_base64, spec) = if let Some(spec) = spec {
-            let (spec_base64, spec) = Spec::spec_to_base64(spec)?;
+            let (spec_base64, spec) = Spec::spec_to_base64(&spec)?;
             (Some(spec_base64), spec)
         } else {
             (None, vec![])
@@ -121,10 +127,16 @@ impl Display for Spec {
             writeln!(f, "Env Meta: {env_meta}")?;
             for env_meta_entry in &self.env_meta {
                 match env_meta_entry {
-                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                        let protocol = v >> 32;
-                        let interface = v & 0xffff_ffff;
-                        writeln!(f, " • Interface Version: {v} (protocol: {protocol}, interface: {interface})")?;
+                    ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
+                        ScEnvMetaEntryInterfaceVersion {
+                            protocol,
+                            pre_release,
+                        },
+                    ) => {
+                        writeln!(f, " • Protocol Version: {protocol}")?;
+                        if pre_release != &0 {
+                            writeln!(f, " • Pre-release Version: {pre_release})")?;
+                        }
                     }
                 }
             }

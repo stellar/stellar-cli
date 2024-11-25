@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.5.0"
+version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -40,7 +40,6 @@ opt = ["dep:wasm-opt"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
@@ -84,18 +83,17 @@ reqwest = { version = "0.12.7", default-features = false, features = [
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
 regex = "1.6.0"
-wasm-opt = { version = "0.114.0", optional = true }
+wasm-opt = { version = "0.116.1", optional = true }
 chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
-dirs = "4.0.0"
-toml = "0.5.9"
+toml = { workspace = true }
 itertools = "0.10.5"
 shlex = "1.1.0"
 sep5 = { workspace = true }
 ethnum = { workspace = true }
 clap-markdown = { version = "0.1.4", optional = true }
 which = { workspace = true, features = ["regex"] }
-strsim = "0.10.0"
+strsim = "0.11.1"
 heck = "0.5.0"
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
@@ -107,14 +105,10 @@ directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
-gix = { version = "0.58.0", default-features = false, features = [
-    "blocking-http-transport-reqwest-rust-tls",
-    "worktree-mutation",
-] }
 async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
-
+shell-escape = "0.1.5"
 tempfile = "3.8.1"
-toml_edit = "0.21.0"
+toml_edit = { workspace = true }
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 bollard = { workspace = true }
 futures-util = "0.3.30"
@@ -129,9 +123,10 @@ glob = "0.3.1"
 fqdn = "0.3.12"
 open = "5.3.0"
 url = "2.5.2"
+wasm-gen = "0.1.4"
 
 [build-dependencies]
-crate-git-revision = "0.0.4"
+crate-git-revision = "0.0.6"
 serde.workspace = true
 thiserror.workspace = true
 
@@ -139,6 +134,6 @@ thiserror.workspace = true
 [dev-dependencies]
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
-predicates = "2.1.5"
+predicates = { workspace = true }
 walkdir = "2.5.0"
 mockito = "1.5.0"

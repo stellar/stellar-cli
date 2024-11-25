@@ -1,6 +1,6 @@
 use std::{env, fmt::Display};
 
-use soroban_env_host::xdr::{Error as XdrError, Transaction};
+use crate::xdr::{Error as XdrError, Transaction};
 
 use crate::{
     config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
@@ -8,6 +8,7 @@ use crate::{
 
 const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
 
+#[derive(Clone)]
 pub struct Print {
     pub quiet: bool,
 }
@@ -104,3 +105,4 @@ create_print_functions!(plus, plusln, "➕");
 create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
 create_print_functions!(warn, warnln, "⚠️");
+create_print_functions!(exclaim, exclaimln, "❗️");

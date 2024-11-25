@@ -7,32 +7,30 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
 
-use soroban_env_host::{
-    xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, LedgerEntryData,
-        Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-        ScSpecEntry, SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt,
-        Uint256, VecM, WriteXdr,
-    },
-    HostError,
-};
-
-use soroban_rpc::{SimulateHostFunctionResult, SimulateTransactionResponse};
+use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::assembled::simulate_and_assemble_transaction;
-use crate::commands::contract::arg_parsing::{build_host_function_parameters, output_to_string};
-use crate::commands::txn_result::{TxnEnvelopeResult, TxnResult};
-use crate::commands::NetworkRunnable;
-use crate::get_spec::{self, get_remote_contract_spec};
-use crate::print;
 use crate::{
-    commands::global,
+    assembled::simulate_and_assemble_transaction,
+    commands::{
+        contract::arg_parsing::{build_host_function_parameters, output_to_string},
+        global,
+        txn_result::{TxnEnvelopeResult, TxnResult},
+        NetworkRunnable,
+    },
     config::{self, data, locator, network},
-    rpc, Pwd,
+    get_spec::{self, get_remote_contract_spec},
+    print, rpc,
+    xdr::{
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
+        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo,
+        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
+        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
+        WriteXdr,
+    },
+    Pwd,
 };
 use soroban_spec_tools::contract;
 
@@ -42,7 +40,7 @@ use soroban_spec_tools::contract;
 pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
-    pub contract_id: String,
+    pub contract_id: config::ContractAddress,
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
@@ -80,10 +78,6 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
     #[error("committing file {filepath}: {error}")]
@@ -99,8 +93,6 @@ pub enum Error {
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
-    #[error("unexpected contract code data type: {0:?}")]
-    UnexpectedContractCodeDataType(LedgerEntryData),
     #[error("missing operation result")]
     MissingOperationResult,
     #[error("error loading signing key: {0}")]
@@ -169,7 +161,7 @@ impl Cmd {
             .transpose()
     }
 
-    fn send(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
+    fn should_send_tx(&self, sim_res: &SimulateTransactionResponse) -> Result<ShouldSend, Error> {
         Ok(match self.send {
             Send::Default => {
                 if self.is_view {
@@ -184,6 +176,28 @@ impl Cmd {
             Send::No => ShouldSend::No,
             Send::Yes => ShouldSend::Yes,
         })
+    }
+
+    // uses a default account to check if the tx should be sent after the simulation
+    async fn should_send_after_sim(
+        &self,
+        host_function_params: InvokeContractArgs,
+        rpc_client: Client,
+    ) -> Result<ShouldSend, Error> {
+        let account_details = default_account_entry();
+        let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
+
+        let tx = build_invoke_contract_tx(
+            host_function_params.clone(),
+            sequence + 1,
+            self.fee.fee,
+            account_id,
+        )?;
+        let txn = simulate_and_assemble_transaction(&rpc_client, &tx).await?;
+        let txn = self.fee.apply_to_assembled_txn(txn); // do we need this part?
+        let sim_res = txn.sim_response();
+        self.should_send_tx(sim_res)
     }
 }
 
@@ -201,29 +215,15 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self
-            .config
-            .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?;
+            .contract_id
+            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
             let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
-        let client = rpc::Client::new(&network.rpc_url)?;
-        let account_details = if self.is_view {
-            default_account_entry()
-        } else {
-            client
-                .verify_network_passphrase(Some(&network.network_passphrase))
-                .await?;
-
-            client
-                .get_account(&config.source_account()?.to_string())
-                .await?
-        };
-        let sequence: i64 = account_details.seq_num.into();
-        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
+        let client = network.rpc_client()?;
 
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
@@ -235,38 +235,56 @@ impl NetworkRunnable for Cmd {
         .await
         .map_err(Error::from)?;
 
-        // Get the ledger footprint
         let (function, spec, host_function_params, signers) =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
-        let tx = build_invoke_contract_tx(
+
+        let should_send_tx = self
+            .should_send_after_sim(host_function_params.clone(), client.clone())
+            .await?;
+
+        let account_details = if should_send_tx == ShouldSend::Yes {
+            client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await?;
+
+            client
+                .get_account(&config.source_account()?.to_string())
+                .await?
+        } else {
+            default_account_entry()
+        };
+        let sequence: i64 = account_details.seq_num.into();
+        let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
+
+        let tx = Box::new(build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
             self.fee.fee,
             account_id,
-        )?;
+        )?);
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn);
+        let assembled = self.fee.apply_to_assembled_txn(txn);
+        let mut txn = Box::new(assembled.transaction().clone());
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn.transaction().clone()));
+            return Ok(TxnResult::Txn(txn));
         }
-        let sim_res = txn.sim_response();
+        let sim_res = assembled.sim_response();
         if global_args.map_or(true, |a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-        let should_send = self.send(sim_res)?;
+        let should_send = self.should_send_tx(sim_res)?;
         let (return_value, events) = match should_send {
             ShouldSend::Yes => {
                 let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
                 // Need to sign all auth entries
-                let mut txn = txn.transaction().clone();
                 if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-                    txn = tx;
+                    txn = Box::new(tx);
                 }
                 let res = client
-                    .send_transaction_polling(&config.sign_with_local_key(txn).await?)
+                    .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
                     .await?;
                 if !no_cache {
                     data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
@@ -371,6 +389,7 @@ pub enum Send {
     Yes,
 }
 
+#[derive(Debug, PartialEq)]
 enum ShouldSend {
     DefaultNo,
     No,

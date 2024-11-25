@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/soroban-test"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.5.0"
+version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -17,12 +17,10 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
-soroban-sdk = { workspace = true }
 sep5 = { workspace = true }
 soroban-cli = { workspace = true }
 soroban-rpc = { workspace = true }
@@ -32,9 +30,9 @@ thiserror = "1.0.31"
 sha2 = "0.10.6"
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
-predicates = "2.1.5"
+predicates = { workspace = true }
 fs_extra = "1.3.0"
-toml = "0.8.10"
+toml = { workspace = true }
 
 
 [dev-dependencies]

@@ -53,7 +53,12 @@ pub enum Cmd {
     #[command(subcommand)]
     Info(info::Cmd),
 
-    /// Initialize a Soroban project with an example contract
+    /// Initialize a Soroban contract project.
+    ///
+    /// This command will create a Cargo workspace project and add a sample Stellar contract.
+    /// The name of the contract can be specified by `--name`. It can be run multiple times
+    /// with different names in order to generate multiple contracts, and files won't
+    /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
     /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
@@ -141,7 +146,7 @@ impl Cmd {
         match &self {
             Cmd::Asset(asset) => asset.run().await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
-            Cmd::Build(build) => build.run()?,
+            Cmd::Build(build) => build.run(global_args)?,
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
@@ -168,11 +173,11 @@ pub enum Durability {
     Temporary,
 }
 
-impl From<&Durability> for soroban_env_host::xdr::ContractDataDurability {
+impl From<&Durability> for crate::xdr::ContractDataDurability {
     fn from(d: &Durability) -> Self {
         match d {
-            Durability::Persistent => soroban_env_host::xdr::ContractDataDurability::Persistent,
-            Durability::Temporary => soroban_env_host::xdr::ContractDataDurability::Temporary,
+            Durability::Persistent => crate::xdr::ContractDataDurability::Persistent,
+            Durability::Temporary => crate::xdr::ContractDataDurability::Temporary,
         }
     }
 }

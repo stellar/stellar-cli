@@ -7,12 +7,14 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
 
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{
-    self, locator,
-    network::{self, Network},
+use crate::{
+    commands::{global, NetworkRunnable},
+    config::{
+        self, locator,
+        network::{self, Network},
+    },
+    wasm, Pwd,
 };
-use crate::{wasm, Pwd};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -20,7 +22,7 @@ use crate::{wasm, Pwd};
 pub struct Cmd {
     /// Contract ID to fetch
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
-    pub contract_id: String,
+    pub contract_id: config::ContractAddress,
     /// Where to write output otherwise stdout is used
     #[arg(long, short = 'o')]
     pub out_file: Option<std::path::PathBuf>,
@@ -109,6 +111,12 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<Vec<u8>, Error> {
         let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
-        return Ok(wasm::fetch_from_contract(&self.contract_id, &network, &self.locator).await?);
+        Ok(wasm::fetch_from_contract(
+            &self
+                .contract_id
+                .resolve_contract_id(&self.locator, &network.network_passphrase)?,
+            &network,
+        )
+        .await?)
     }
 }

@@ -2,7 +2,7 @@ use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, ScMap,
     ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
@@ -95,10 +95,12 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
         if soroban_exists {
             return Ok(soroban_dir);
         }
+
         if !pwd.pop() {
             break;
         }
     }
+
     Err(std::io::Error::new(
         std::io::ErrorKind::Other,
         "stellar directory not found",
@@ -196,8 +198,45 @@ pub mod http {
     }
 }
 
+pub mod args {
+    #[derive(thiserror::Error, Debug)]
+    pub enum DeprecatedError<'a> {
+        #[error("This argument has been removed and will be not be recognized by the future versions of CLI: {0}"
+        )]
+        RemovedArgument(&'a str),
+    }
+
+    #[macro_export]
+    /// Mark argument as removed with an error to be printed when it's used.
+    macro_rules! error_on_use_of_removed_arg {
+        ($_type:ident, $message: expr) => {
+            |a: &str| {
+                Err::<$_type, utils::args::DeprecatedError>(
+                    utils::args::DeprecatedError::RemovedArgument($message),
+                )
+            }
+        };
+    }
+
+    /// Mark argument as deprecated with warning to be printed when it's used.
+    #[macro_export]
+    macro_rules! deprecated_arg {
+        (bool, $message: expr) => {
+            <_ as clap::builder::TypedValueParser>::map(
+                clap::builder::BoolValueParser::new(),
+                |x| {
+                    if (x) {
+                        $crate::print::Print::new(false).warnln($message);
+                    }
+                    x
+                },
+            )
+        };
+    }
+}
+
 pub mod rpc {
-    use soroban_env_host::xdr;
+    use crate::xdr;
     use soroban_rpc::{Client, Error};
     use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 

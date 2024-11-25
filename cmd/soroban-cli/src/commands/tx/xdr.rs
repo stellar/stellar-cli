@@ -3,8 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use soroban_env_host::xdr::ReadXdr;
-use soroban_sdk::xdr::{Limits, Transaction, TransactionEnvelope, TransactionV1Envelope};
+use crate::xdr::{Limits, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

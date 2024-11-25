@@ -13,9 +13,9 @@ pub struct Cmd {
     pub config_locator: locator::Args,
 
     #[command(flatten)]
-    network: network::Args,
+    pub network: network::Args,
 
-    /// The contract alias that will be removed.
+    /// The contract alias that will be used.
     pub alias: String,
 
     /// Overwrite the contract alias if it already exists.
@@ -41,7 +41,7 @@ pub enum Error {
     AlreadyExist {
         alias: String,
         network_passphrase: String,
-        contract: String,
+        contract: stellar_strkey::Contract,
     },
 }
 
@@ -57,7 +57,7 @@ impl Cmd {
             .get_contract_id(&self.alias, network_passphrase)?;
 
         if let Some(contract) = contract {
-            if contract != self.contract_id.to_string() && !self.overwrite {
+            if contract != self.contract_id && !self.overwrite {
                 return Err(Error::AlreadyExist {
                     alias: alias.to_string(),
                     network_passphrase: network_passphrase.to_string(),

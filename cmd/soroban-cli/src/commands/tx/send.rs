@@ -1,8 +1,11 @@
+use crate::{print::Print, utils::transaction_hash};
 use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
 
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{self, locator, network};
+use crate::{
+    commands::{global, NetworkRunnable},
+    config::{self, locator, network},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -44,7 +47,7 @@ impl NetworkRunnable for Cmd {
     type Result = GetTransactionResponse;
     async fn run_against_rpc_server(
         &self,
-        _: Option<&global::Args>,
+        globals: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<Self::Result, Self::Error> {
         let network = if let Some(config) = config {
@@ -52,8 +55,16 @@ impl NetworkRunnable for Cmd {
         } else {
             self.network.get(&self.locator)?
         };
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         let tx_env = super::xdr::tx_envelope_from_stdin()?;
+
+        if let Ok(Ok(hash)) = super::xdr::unwrap_envelope_v1(tx_env.clone())
+            .map(|tx| transaction_hash(&tx, &network.network_passphrase))
+        {
+            let print = Print::new(globals.map_or(false, |g| g.quiet));
+            print.infoln(format!("Transaction Hash: {}", hex::encode(hash)));
+        }
+
         Ok(client.send_transaction_polling(&tx_env).await?)
     }
 }
