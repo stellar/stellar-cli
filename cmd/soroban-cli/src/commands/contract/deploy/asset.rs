@@ -110,12 +110,12 @@ impl NetworkRunnable for Cmd {
             source_account,
         )?;
         if self.fee.build_only {
-            return Ok(TxnResult::Txn(tx));
+            return Ok(TxnResult::Txn(Box::new(tx)));
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn));
+            return Ok(TxnResult::Txn(Box::new(txn)));
         }
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)

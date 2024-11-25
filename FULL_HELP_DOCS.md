@@ -1585,7 +1585,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--line <LINE>`
 * `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
 
-  Default value: `18446744073709551615`
+  Default value: `9223372036854775807`
 
 
 
