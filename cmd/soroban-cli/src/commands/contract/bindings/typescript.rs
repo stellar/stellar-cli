@@ -124,7 +124,7 @@ impl NetworkRunnable for Cmd {
             }
         }
         std::fs::create_dir_all(&self.output_dir)?;
-        let p: Project = self.output_dir.clone().try_into()?;
+        let project: Project = self.output_dir.clone().try_into()?;
         print.infoln(format!("Network: {}", network.network_passphrase));
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
@@ -134,7 +134,7 @@ impl NetworkRunnable for Cmd {
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
         print.infoln(format!("Embedding contract address: {contract_address}"));
-        p.init(
+        project.init(
             contract_name,
             &contract_address.to_string(),
             &network.rpc_url,
@@ -142,10 +142,6 @@ impl NetworkRunnable for Cmd {
             &spec,
         )?;
         print.checkln("Generated!");
-        print.infoln(format!(
-            "Run \"npm install && npm run build\" in {:?} to build the JavaScript NPM package.",
-            self.output_dir
-        ));
         Ok(())
     }
 }
