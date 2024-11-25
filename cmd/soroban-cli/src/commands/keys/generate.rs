@@ -35,9 +35,11 @@ pub enum Error {
 pub struct Cmd {
     /// Name of identity
     pub name: KeyName,
+
     /// Do not fund address
     #[arg(long)]
     pub no_fund: bool,
+
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
     #[arg(long, conflicts_with = "default_seed")]
@@ -162,7 +164,7 @@ impl Cmd {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{self, address::KeyName, secret::Secret};
+    use crate::config::{address::KeyName, secret::Secret};
     use keyring::{mock, set_default_credential_builder};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
@@ -185,8 +187,6 @@ mod tests {
             fund: false,
             overwrite: false,
         };
-
-        set_default_credential_builder(mock::default_credential_builder());
 
         (locator, cmd)
     }
@@ -222,6 +222,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_storing_secret_in_keychain() {
+        set_default_credential_builder(mock::default_credential_builder());
         let (test_locator, mut cmd) = set_up_test();
         cmd.keychain = true;
         let global_args = global_args();
