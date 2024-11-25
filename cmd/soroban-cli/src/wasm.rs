@@ -42,7 +42,7 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error("unexpected contract data {0:?}")]
-    UnexpectedContractToken(ContractDataEntry),
+    UnexpectedContractToken(Box<ContractDataEntry>),
     #[error(
         "cannot fetch wasm for contract because the contract is \
     a network built-in asset contract that does not have a downloadable code binary"
@@ -121,16 +121,10 @@ pub fn len(p: &Path) -> Result<u64, Error> {
 }
 
 pub async fn fetch_from_contract(
-    contract_id: &str,
+    stellar_strkey::Contract(contract_id): &stellar_strkey::Contract,
     network: &Network,
-    locator: &locator::Args,
 ) -> Result<Vec<u8>, Error> {
     tracing::trace!(?network);
-
-    let contract_id = &locator
-        .resolve_contract_id(contract_id, &network.network_passphrase)?
-        .0;
-
     let client = network.rpc_client()?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
@@ -142,5 +136,5 @@ pub async fn fetch_from_contract(
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
         };
     }
-    Err(UnexpectedContractToken(data_entry))
+    Err(UnexpectedContractToken(Box::new(data_entry)))
 }

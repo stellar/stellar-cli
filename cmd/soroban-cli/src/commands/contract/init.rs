@@ -275,7 +275,7 @@ mod tests {
         let contract_dir = project_dir.join("contracts").join(contract_name);
         let cargo_toml_path = contract_dir.as_path().join("Cargo.toml");
         let cargo_toml_str = read_to_string(cargo_toml_path.clone()).unwrap();
-        let doc = cargo_toml_str.parse::<toml_edit::Document>().unwrap();
+        let doc: toml_edit::DocumentMut = cargo_toml_str.parse().unwrap();
         assert!(
             doc.get("dependencies")
                 .unwrap()

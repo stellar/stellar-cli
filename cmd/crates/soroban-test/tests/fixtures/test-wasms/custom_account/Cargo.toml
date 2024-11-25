@@ -1,18 +1,17 @@
 [package]
 name = "test_custom_account"
-version = "21.5.0"
+version = "0.0.0"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
 publish = false
-rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { version = "=21.7.2" }
+soroban-sdk = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { version = "=21.7.2", features = ["testutils"]}
+soroban-sdk = { workspace = true, features = ["testutils"]}

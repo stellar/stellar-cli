@@ -18,7 +18,7 @@ For additional information see:
 
 - Stellar Docs: https://developers.stellar.org
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
-- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli
+- CLI Docs: https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli
 
 To get started generate a new identity:
 
@@ -45,8 +45,10 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
+* `env` — Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
 * `keys` — Create and manage identities including keys and addresses
-* `network` — Start and configure networks
+* `network` — Configure connection to networks
+* `container` — Start local networks in containers
 * `snapshot` — Download a snapshot of a ledger from an archive
 * `tx` — Sign, Simulate, and Send transactions
 * `xdr` — Decode and encode XDR
@@ -196,7 +198,7 @@ Add contract alias
 
 ###### **Arguments:**
 
-* `<ALIAS>` — The contract alias that will be removed
+* `<ALIAS>` — The contract alias that will be used
 
 ###### **Options:**
 
@@ -334,6 +336,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
    If ommitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
+* `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
 
 
@@ -386,7 +389,11 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>>`
+**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
+
+###### **Arguments:**
+
+* `<CONTRACT_CONSTRUCTOR_ARGS>` — If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
 
 ###### **Options:**
 
@@ -515,7 +522,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -555,7 +562,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -595,7 +602,7 @@ Outputs no data when no data is present in the contract.
 
 * `--wasm <WASM>` — Wasm file to extract the data from
 * `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id to get the data for
+* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -896,6 +903,19 @@ Watch the network for contract events
 
 
 
+## `stellar env`
+
+Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+
+**Usage:** `stellar env [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
 ## `stellar keys`
 
 Create and manage identities including keys and addresses
@@ -911,6 +931,7 @@ Create and manage identities including keys and addresses
 * `ls` — List identities
 * `rm` — Remove an identity
 * `show` — Given an identity return its private key
+* `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
 
 
@@ -999,6 +1020,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--fund` — Fund generated key pair
 
   Default value: `false`
+* `--overwrite` — Overwrite existing identity if it already exists
 
 
 
@@ -1051,9 +1073,26 @@ Given an identity return its private key
 
 
 
+## `stellar keys use`
+
+Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
+
+**Usage:** `stellar keys use [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Set the default network name
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
 ## `stellar network`
 
-Start and configure networks
+Configure connection to networks
 
 **Usage:** `stellar network <COMMAND>`
 
@@ -1064,7 +1103,8 @@ Start and configure networks
 * `ls` — List networks
 * `start` — ⚠️ Deprecated: use `stellar container start` instead
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
-* `container` — Commands to start, stop and get logs for a quickstart container
+* `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
+* `container` — ⚠️ Deprecated: use `stellar container` instead
 
 
 
@@ -1173,7 +1213,26 @@ Stop a network started with `network start`. For example, if you ran `stellar ne
 
 
 
+## `stellar network use`
+
+Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
+
+**Usage:** `stellar network use [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Set the default network name
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
 ## `stellar network container`
+
+⚠️ Deprecated: use `stellar container` instead
 
 Commands to start, stop and get logs for a quickstart container
 
@@ -1183,7 +1242,7 @@ Commands to start, stop and get logs for a quickstart container
 
 * `logs` — Get logs from a running network container
 * `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `network container start`
+* `stop` — Stop a network container started with `stellar container start`
 
 
 
@@ -1207,7 +1266,7 @@ Get logs from a running network container
 
 Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
-`stellar network container start NETWORK [OPTIONS]`
+`stellar container start NETWORK [OPTIONS]`
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
@@ -1237,9 +1296,87 @@ By default, when starting a testnet container, without any optional arguments, i
 
 ## `stellar network container stop`
 
-Stop a network container started with `network container start`
+Stop a network container started with `stellar container start`
 
 **Usage:** `stellar network container stop [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Container to stop
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar container`
+
+Start local networks in containers
+
+**Usage:** `stellar container <COMMAND>`
+
+###### **Subcommands:**
+
+* `logs` — Get logs from a running network container
+* `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
+* `stop` — Stop a network container started with `stellar container start`
+
+
+
+## `stellar container logs`
+
+Get logs from a running network container
+
+**Usage:** `stellar container logs [OPTIONS] <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Container to get logs from
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar container start`
+
+Start a container running a Stellar node, RPC, API, and friendbot (faucet).
+
+`stellar container start NETWORK [OPTIONS]`
+
+By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
+
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+
+**Usage:** `stellar container start [OPTIONS] <NETWORK>`
+
+###### **Arguments:**
+
+* `<NETWORK>` — Network to start
+
+  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
+
+
+###### **Options:**
+
+* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+* `--name <NAME>` — Optional argument to specify the container name
+* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
+* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
+
+  Default value: `8000:8000`
+* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
+* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
+
+
+
+## `stellar container stop`
+
+Stop a network container started with `stellar container start`
+
+**Usage:** `stellar container stop [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -1487,7 +1624,7 @@ Creates, updates, or deletes a trustline Learn more about trustlines https://dev
 * `--line <LINE>`
 * `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
 
-  Default value: `18446744073709551615`
+  Default value: `9223372036854775807`
 
 
 
@@ -1517,7 +1654,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10_000_000`
+  Default value: `10000000`
 
 
 
@@ -1612,9 +1749,9 @@ Set option for an account such as flags, inflation destination, signers, home do
 * `--signer <SIGNER>` — Add, update, or remove a signer from an account
 * `--signer-weight <SIGNER_WEIGHT>` — Signer weight is a number from 0-255 (inclusive). The signer is deleted if the weight is 0
 * `--set-required` — When enabled, an issuer must approve an account before that account can hold its asset. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1
-* `--set-revocable` — When enabled, an issuer can revoke an existing trustline’s authorization, thereby freezing the asset held by an account. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
+* `--set-revocable` — When enabled, an issuer can revoke an existing trustline's authorization, thereby freezing the asset held by an account. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
 * `--set-clawback-enabled` — Enables the issuing account to take back (burning) all of the asset. https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8
-* `--set-immutable` — With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can’t be merged. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
+* `--set-immutable` — With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can't be merged. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
 * `--clear-required`
 * `--clear-revocable`
 * `--clear-immutable`

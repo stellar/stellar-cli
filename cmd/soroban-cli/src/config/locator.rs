@@ -1,27 +1,30 @@
 use clap::arg;
+use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
     fs::{self, create_dir_all, OpenOptions},
-    io,
-    io::Write,
+    io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{utils::find_config_dir, Pwd};
+use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
 
 use super::{
     alias,
     network::{self, Network},
     secret::Secret,
+    Config,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    TomlSerialize(#[from] toml::ser::Error),
     #[error("Failed to find home directory")]
     HomeDirNotFound,
     #[error("Failed read current directory")]
@@ -34,6 +37,8 @@ pub enum Error {
     SecretFileRead { path: PathBuf },
     #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
+    #[error("Failed to read file: {path}")]
+    FileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("Secret file failed to deserialize")]
@@ -72,6 +77,8 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+    #[error("contract not found: {0}")]
+    ContractNotFound(String),
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
@@ -82,11 +89,11 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Use global config
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
     /// Location of config directory, default is "."
-    #[arg(long, global = true)]
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
 
@@ -145,7 +152,7 @@ impl Args {
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
         let pwd = self.current_dir()?;
-        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".soroban")))
+        Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
     pub fn current_dir(&self) -> Result<PathBuf, Error> {
@@ -161,6 +168,14 @@ impl Args {
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
         KeyType::Network.write(name, network, &self.config_dir()?)
+    }
+
+    pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_network(name).save()
+    }
+
+    pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
+        Config::new()?.set_identity(name).save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -320,12 +335,17 @@ impl Args {
         &self,
         alias: &str,
         network_passphrase: &str,
-    ) -> Result<Option<String>, Error> {
+    ) -> Result<Option<Contract>, Error> {
         let Some(alias_data) = self.load_contract_from_alias(alias)? else {
             return Ok(None);
         };
 
-        Ok(alias_data.ids.get(network_passphrase).cloned())
+        alias_data
+            .ids
+            .get(network_passphrase)
+            .map(|id| id.parse())
+            .transpose()
+            .map_err(|e| Error::CannotParseContractId(alias.to_owned(), e))
     }
 
     pub fn resolve_contract_id(
@@ -333,14 +353,18 @@ impl Args {
         alias_or_contract_id: &str,
         network_passphrase: &str,
     ) -> Result<Contract, Error> {
-        let contract_id = self
-            .get_contract_id(alias_or_contract_id, network_passphrase)?
-            .unwrap_or_else(|| alias_or_contract_id.to_string());
+        let Some(contract) = self.get_contract_id(alias_or_contract_id, network_passphrase)? else {
+            return alias_or_contract_id
+                .parse()
+                .map_err(|e| Error::CannotParseContractId(alias_or_contract_id.to_owned(), e));
+        };
+        Ok(contract)
+    }
+}
 
-        Ok(Contract(
-            soroban_spec_tools::utils::contract_id_from_str(&contract_id)
-                .map_err(|e| Error::CannotParseContractId(contract_id.clone(), e))?,
-        ))
+impl Pwd for Args {
+    fn set_pwd(&mut self, pwd: &Path) {
+        self.config_dir = Some(pwd.to_path_buf());
     }
 }
 
@@ -396,11 +420,10 @@ impl KeyType {
     }
 
     pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
-        let data = fs::read(path).map_err(|_| Error::NetworkFileRead {
+        let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
-        let res = toml::from_slice(data.as_slice());
-        Ok(res?)
+        Ok(toml::from_str(&data)?)
     }
 
     pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
@@ -468,18 +491,35 @@ impl KeyType {
 }
 
 pub fn global_config_path() -> Result<PathBuf, Error> {
-    Ok(if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
-        dirs::home_dir()
+        UserDirs::new()
             .ok_or(Error::HomeDirNotFound)?
+            .home_dir()
             .join(".config")
+    };
+
+    let soroban_dir = config_dir.join("soroban");
+    let stellar_dir = config_dir.join("stellar");
+    let soroban_exists = soroban_dir.exists();
+    let stellar_exists = stellar_dir.exists();
+
+    if stellar_exists && soroban_exists {
+        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
     }
-    .join("soroban"))
+
+    if stellar_exists {
+        return Ok(stellar_dir);
+    }
+
+    if soroban_exists {
+        return Ok(soroban_dir);
+    }
+
+    Ok(stellar_dir)
 }
 
-impl Pwd for Args {
-    fn set_pwd(&mut self, pwd: &Path) {
-        self.config_dir = Some(pwd.to_path_buf());
-    }
+pub fn config_file() -> Result<PathBuf, Error> {
+    Ok(global_config_path()?.join("config.toml"))
 }

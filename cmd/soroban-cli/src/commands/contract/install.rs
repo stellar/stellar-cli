@@ -137,14 +137,16 @@ impl NetworkRunnable for Cmd {
         // Get the account sequence number
         let source_account = config.source_account()?;
 
-        let account_details = client.get_account(&source_account.to_string()).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
         let (tx_without_preflight, hash) =
             build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &source_account)?;
 
         if self.fee.build_only {
-            return Ok(TxnResult::Txn(tx_without_preflight));
+            return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
         }
 
         // Don't check whether the contract is already installed when the user
@@ -184,7 +186,7 @@ impl NetworkRunnable for Cmd {
         print.infoln("Simulating install transaction…");
 
         let txn = simulate_and_assemble_transaction(&client, &tx_without_preflight).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
 
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));
@@ -193,7 +195,7 @@ impl NetworkRunnable for Cmd {
         print.globeln("Submitting install transaction…");
 
         let txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&self.config.sign_with_local_key(*txn).await?)
             .await?;
 
         if args.map_or(true, |a| !a.no_cache) {
@@ -204,7 +206,7 @@ impl NetworkRunnable for Cmd {
         if let Some(TransactionResult {
             result: TransactionResultResult::TxInternalError,
             ..
-        }) = txn_resp.result.as_ref()
+        }) = txn_resp.result
         {
             // Now just need to restore it and don't have to install again
             restore::Cmd {

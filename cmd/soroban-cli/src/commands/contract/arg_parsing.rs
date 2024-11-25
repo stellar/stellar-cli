@@ -62,6 +62,9 @@ pub fn build_host_function_parameters(
     }
     cmd.build();
     let long_help = cmd.render_long_help();
+
+    // get_matches_from exits the process if `help`, `--help` or `-h`are passed in the slop
+    // see clap documentation for more info: https://github.com/clap-rs/clap/blob/v4.1.8/src/builder/command.rs#L631
     let mut matches_ = cmd.get_matches_from(slop);
     let Some((function, matches_)) = &matches_.remove_subcommand() else {
         println!("{long_help}");

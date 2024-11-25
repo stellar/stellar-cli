@@ -1,5 +1,5 @@
 {
-  description = "stellar-cli development shell";
+  description = "stellar-cli";
 
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
@@ -14,14 +14,13 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-      in
-      with pkgs;
-      {
-        devShells.default = mkShell {
-          nativeBuildInputs = lib.optionals (stdenv.isDarwin) [
+        stellardev = {
+          name = "stellar";
+          src = ./.;
+          nativeBuildInputs = pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
-          buildInputs = [
+          buildInputs = with pkgs; [
             openssl
             pkg-config
             jq
@@ -31,6 +30,29 @@
             })
           ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
         };
+        stellarcli = stellardev // {
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+
+          cargoLock.outputHashes = {
+              # This is needed for any git+https dependency in Cargo.lock
+              # "somepackage-1.2.3" = "sha256-somehash";
+          };
+
+          doCheck = false;
+
+          GIT_REVISION = "${self.rev or self.dirtyRev or "unknown"}";
+        };
+        rustPlatformMod = pkgs.makeRustPlatform {
+          cargo = pkgs.rust-bin.stable.latest.default;
+          rustc = pkgs.rust-bin.stable.latest.default;
+        };
+      in
+      with pkgs;
+      {
+        devShells.default = mkShell stellardev;
+        packages.default = rustPlatformMod.buildRustPackage stellarcli;
       }
     );
 }

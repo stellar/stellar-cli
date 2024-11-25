@@ -8,6 +8,7 @@ use crate::{
 
 const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
 
+#[derive(Clone)]
 pub struct Print {
     pub quiet: bool,
 }
@@ -104,3 +105,4 @@ create_print_functions!(plus, plusln, "➕");
 create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
 create_print_functions!(warn, warnln, "⚠️");
+create_print_functions!(exclaim, exclaimln, "❗️");
