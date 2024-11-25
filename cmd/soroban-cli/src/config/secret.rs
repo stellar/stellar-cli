@@ -84,7 +84,7 @@ impl Args {
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
-    Keychain { entry_name: String },
+    SecureStore { entry_name: String },
 }
 
 impl FromStr for Secret {
@@ -100,7 +100,7 @@ impl FromStr for Secret {
                 seed_phrase: s.to_string(),
             })
         } else if s.starts_with(keyring::SECURE_STORE_ENTRY_PREFIX) {
-            Ok(Secret::Keychain {
+            Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
             })
         } else {
@@ -127,13 +127,13 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::Keychain { .. } => panic!("Keychain does not reveal secret key"),
+            Secret::SecureStore { .. } => panic!("Secure Store does not reveal secret key"),
         })
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
         match self {
-            Secret::Keychain { entry_name } => {
+            Secret::SecureStore { entry_name } => {
                 let entry = keyring::StellarEntry::new(entry_name)?;
                 Ok(entry.get_public_key()?)
             }
@@ -152,7 +152,7 @@ impl Secret {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::Keychain { entry_name } => SignerKind::Keychain(KeychainEntry {
+            Secret::SecureStore { entry_name } => SignerKind::Keychain(KeychainEntry {
                 name: entry_name.to_string(),
             }),
         };
@@ -216,17 +216,17 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_for_keychain_secret() {
+    fn test_from_str_for_secure_store_secret() {
         //todo: add assertion for getting public key - will need to mock the keychain and add the keypair to the keychain
-        let secret = Secret::from_str("keychain:org.stellar.cli-alice").unwrap();
+        let secret = Secret::from_str("secure_store:org.stellar.cli-alice").unwrap();
 
-        assert!(matches!(secret, Secret::Keychain { .. }));
+        assert!(matches!(secret, Secret::SecureStore { .. }));
     }
 
     #[test]
     #[should_panic]
-    fn test_keychain_secret_will_not_reveal_private_key() {
-        let secret = Secret::from_str("keychain").unwrap();
+    fn test_secure_store_will_not_reveal_private_key() {
+        let secret = Secret::from_str("secure_store").unwrap();
         secret.private_key(None).unwrap();
     }
 

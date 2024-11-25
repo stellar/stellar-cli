@@ -131,7 +131,7 @@ impl Cmd {
             //checking that the entry name is valid before writing to the secure store
             let secret: Secret = entry_name_with_prefix.parse()?;
 
-            if let Secret::Keychain { entry_name } = &secret {
+            if let Secret::SecureStore { entry_name } = &secret {
                 self.write_to_secure_store(entry_name.clone(), seed_phrase)?;
             }
 
@@ -231,6 +231,6 @@ mod tests {
         let result = cmd.run(&global_args).await;
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
-        assert!(matches!(identity, Secret::Keychain { .. }));
+        assert!(matches!(identity, Secret::SecureStore { .. }));
     }
 }
