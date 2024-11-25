@@ -71,17 +71,33 @@ impl StellarEntry {
 #[cfg(test)]
 mod test {
     use super::*;
-    use keyring::{
-        mock,
-        set_default_credential_builder,
-    };
+    use keyring::{mock, set_default_credential_builder};
 
     #[test]
-    fn test_sign_data() {
+    fn test_get_password() {
         set_default_credential_builder(mock::default_credential_builder());
 
         let secret = crate::config::secret::Secret::from_seed(None).unwrap();
-        let pub_key = secret.public_key(None).unwrap();
+        let key_pair = secret.key_pair(None).unwrap();
+
+        let entry = StellarEntry::new("test").unwrap();
+
+        // set the password
+        let set_password_result = entry.set_password(&key_pair.to_bytes());
+        assert!(set_password_result.is_ok());
+
+        // get_password should return the same password we set
+        let get_password_result = entry.get_password();
+        assert!(get_password_result.is_ok());
+        assert_eq!(key_pair.to_bytes().to_vec(), get_password_result.unwrap());
+    }
+
+    #[test]
+    fn test_get_public_key() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        let secret = crate::config::secret::Secret::from_seed(None).unwrap();
+        let public_key = secret.public_key(None).unwrap();
         let key_pair = secret.key_pair(None).unwrap();
 
         let entry = StellarEntry::new("test").unwrap();
@@ -93,6 +109,24 @@ mod test {
         // confirm that we can get the public key from the entry and that it matches the one we set
         let get_public_key_result = entry.get_public_key();
         assert!(get_public_key_result.is_ok());
-        assert_eq!(pub_key, get_public_key_result.unwrap());
+        assert_eq!(public_key, get_public_key_result.unwrap());
+    }
+
+    #[test]
+    fn test_sign_data() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        //create a secret
+        let secret = crate::config::secret::Secret::from_seed(None).unwrap();
+        let key_pair = secret.key_pair(None).unwrap();
+
+        // create a keyring entry and set the password
+        let entry = StellarEntry::new("test").unwrap();
+        entry.set_password(&key_pair.to_bytes()).unwrap();
+
+        let tx_xdr = r#"AAAAAgAAAADh6eOnZEq1xQgKioffuH7/8D8x8+OdGFEkiYC6QKMWzQAAAGQAAACuAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAYAAAAAQAAAAAAAAAAAAAAAOHp46dkSrXFCAqKh9+4fv/wPzHz450YUSSJgLpAoxbNoFT1s8jZPCv9IJ2DsqGTA8pOtavv58JF53aDycpRPcEAAAAA+N2m5zc3EfWUmLvigYPOHKXhSy8OrWfVibc6y6PrQoYAAAAAAAAAAAAAAAA"#;
+
+        let sign_tx_env_result = entry.sign_data(tx_xdr.as_bytes());
+        assert!(sign_tx_env_result.is_ok());
     }
 }
