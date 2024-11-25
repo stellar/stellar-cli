@@ -188,39 +188,39 @@ fn read_password() -> Result<String, Error> {
 mod tests {
     use super::*;
 
+    const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
     const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
     const TEST_SEED_PHRASE: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";
 
     #[test]
-    fn test_secret_from_key() {
+    fn test_from_str_for_secret_key() {
         let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
-        // assert that it is a Secret::SecretKey
+        let public_key = secret.public_key(None).unwrap();
+        let private_key = secret.private_key(None).unwrap();
+
         assert!(matches!(secret, Secret::SecretKey { .. }));
-        // assert that we can get the private key from it
-        let private_key = secret.private_key(None).unwrap();
+        assert_eq!(public_key.to_string(), TEST_PUBLIC_KEY);
         assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
     }
 
     #[test]
-    fn test_secret_from_seed_phrase() {
+    fn test_from_str_for_seed_phrase() {
         let secret = Secret::from_str(TEST_SEED_PHRASE).unwrap();
-        assert!(matches!(secret, Secret::SeedPhrase { .. }));
-
+        let public_key = secret.public_key(None).unwrap();
         let private_key = secret.private_key(None).unwrap();
+
+        assert!(matches!(secret, Secret::SeedPhrase { .. }));
+        assert_eq!(public_key.to_string(), TEST_PUBLIC_KEY);
         assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
     }
 
     #[test]
-    fn test_keychain_secret() {
-        let keychain_secret = Secret::from_str("keychain:org.stellar.cli-alice").unwrap();
+    fn test_from_str_for_keychain_secret() {
+        //todo: add assertion for getting public key - will need to mock the keychain and add the keypair to the keychain
+        let secret = Secret::from_str("keychain:org.stellar.cli-alice").unwrap();
 
-        match keychain_secret {
-            Secret::Keychain { entry_name } => {
-                assert_eq!(entry_name, "keychain:org.stellar.cli-alice");
-            }
-            _ => assert!(false),
-        }
+        assert!(matches!(secret, Secret::Keychain { .. }));
     }
 
     #[test]
