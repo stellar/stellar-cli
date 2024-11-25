@@ -15,33 +15,24 @@ pub enum Error {
 }
 
 pub struct StellarEntry {
-    name: String,
-}
-
-impl TryFrom<&StellarEntry> for Entry {
-    type Error = Error;
-    fn try_from(StellarEntry { name }: &StellarEntry) -> Result<Self, Self::Error> {
-        Ok(Entry::new(name, &whoami::username())?)
-    }
+    keyring: Entry,
 }
 
 impl StellarEntry {
     pub fn new(name: &str) -> Result<Self, Error> {
         Ok(StellarEntry {
-            name: name.to_string(),
+            keyring: Entry::new(name, &whoami::username())?,
         })
     }
 
     pub fn set_password(&self, password: &[u8]) -> Result<(), Error> {
         let data = base64.encode(password);
-        let entry: Entry = self.try_into()?;
-        entry.set_password(&data)?;
+        self.keyring.set_password(&data)?;
         Ok(())
     }
 
     pub fn get_password(&self) -> Result<Vec<u8>, Error> {
-        let entry: Entry = self.try_into()?;
-        Ok(base64.decode(entry.get_password()?)?)
+        Ok(base64.decode(self.keyring.get_password()?)?)
     }
 
     fn use_key<T>(
@@ -80,16 +71,28 @@ impl StellarEntry {
 #[cfg(test)]
 mod test {
     use super::*;
+    use keyring::{
+        mock,
+        set_default_credential_builder,
+    };
 
     #[test]
-    fn test_sign_data() -> Result<(), Box<dyn std::error::Error>> {
-        let secret = crate::config::secret::Secret::from_seed(None)?;
-        let pub_key = secret.public_key(None)?;
-        let key_pair = secret.key_pair(None)?;
-        let entry = StellarEntry::new("test")?;
-        entry.set_password(&key_pair.to_bytes());
-        let pub_key_2 = entry.get_public_key()?;
-        assert_eq!(pub_key, pub_key_2);
-        Ok(())
+    fn test_sign_data() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        let secret = crate::config::secret::Secret::from_seed(None).unwrap();
+        let pub_key = secret.public_key(None).unwrap();
+        let key_pair = secret.key_pair(None).unwrap();
+
+        let entry = StellarEntry::new("test").unwrap();
+
+        // set the password
+        let set_password_result = entry.set_password(&key_pair.to_bytes());
+        assert!(set_password_result.is_ok());
+
+        // confirm that we can get the public key from the entry and that it matches the one we set
+        let get_public_key_result = entry.get_public_key();
+        assert!(get_public_key_result.is_ok());
+        assert_eq!(pub_key, get_public_key_result.unwrap());
     }
 }
