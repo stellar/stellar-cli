@@ -5,7 +5,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, keyring, KeychainEntry, LocalKey, Signer, SignerKind},
+    signer::{self, keyring, LocalKey, SecureStoreEntry, Signer, SignerKind},
     utils,
 };
 
@@ -36,15 +36,11 @@ pub enum Error {
 pub struct Args {
     /// Add using `secret_key`
     /// Can provide with `SOROBAN_SECRET_KEY`
-    #[arg(long, conflicts_with_all = ["seed_phrase", "keychain"])]
+    #[arg(long, conflicts_with = "seed_phrase")]
     pub secret_key: bool,
     /// Add using 12 word seed phrase to generate `secret_key`
-    #[arg(long, conflicts_with_all = ["secret_key", "keychain"])]
+    #[arg(long, conflicts_with = "secret_key")]
     pub seed_phrase: bool,
-
-    /// Add using `keychain`
-    #[arg(long, conflicts_with_all = ["seed_phrase", "secret_key"])]
-    pub keychain: bool,
 }
 
 impl Args {
@@ -152,7 +148,7 @@ impl Secret {
                 let key = self.key_pair(index)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::SecureStore { entry_name } => SignerKind::Keychain(KeychainEntry {
+            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.to_string(),
             }),
         };

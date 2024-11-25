@@ -1,4 +1,4 @@
-use ed25519_dalek::ed25519::signature::{self, Signer as _};
+use ed25519_dalek::ed25519::signature::Signer as _;
 use keyring::StellarEntry;
 use sha2::{Digest, Sha256};
 
@@ -212,7 +212,7 @@ pub struct Signer {
 pub enum SignerKind {
     Local(LocalKey),
     Lab,
-    Keychain(KeychainEntry),
+    SecureStore(SecureStoreEntry),
 }
 
 impl Signer {
@@ -241,7 +241,7 @@ impl Signer {
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-                    SignerKind::Keychain(entry) => entry.sign_tx_env(tx_env)?,
+                    SignerKind::SecureStore(entry) => entry.sign_tx_env(tx_env)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -292,11 +292,11 @@ impl Lab {
     }
 }
 
-pub struct KeychainEntry {
+pub struct SecureStoreEntry {
     pub name: String,
 }
 
-impl KeychainEntry {
+impl SecureStoreEntry {
     pub fn sign_tx_env(&self, tx_env: &TransactionEnvelope) -> Result<DecoratedSignature, Error> {
         let entry = StellarEntry::new(&self.name)?;
         let signed_tx_env = entry.sign_data(tx_env.to_xdr_base64(Limits::none())?.as_bytes())?;
