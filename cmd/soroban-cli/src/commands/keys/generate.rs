@@ -49,9 +49,9 @@ pub struct Cmd {
     #[arg(long, short = 's')]
     pub as_secret: bool,
 
-    /// Save in `keychain`
+    /// Save in OS-specific secure store
     #[arg(long)]
-    pub keychain: bool,
+    pub secure_store: bool,
 
     #[command(flatten)]
     pub config_locator: locator::Args,
@@ -119,19 +119,20 @@ impl Cmd {
         let seed_phrase = self.seed_phrase()?;
         Ok(if self.as_secret {
             seed_phrase.private_key(self.hd_path)?.into()
-        } else if self.keychain {
-            // keychain:org.stellar.cli:<key name>
+        } else if self.secure_store {
+            // secure_store:org.stellar.cli:<key name>
             let entry_name_with_prefix = format!(
                 "{}{}-{}",
-                keyring::KEYCHAIN_ENTRY_PREFIX,
-                keyring::KEYCHAIN_ENTRY_SERVICE,
+                keyring::SECURE_STORE_ENTRY_PREFIX,
+                keyring::SECURE_STORE_ENTRY_SERVICE,
                 self.name.to_string()
             );
 
-            let secret: Secret = entry_name_with_prefix.parse()?; //checking that the entry name is valid before writing to the keychain
+            //checking that the entry name is valid before writing to the secure store
+            let secret: Secret = entry_name_with_prefix.parse()?;
 
             if let Secret::Keychain { entry_name } = &secret {
-                self.write_to_keychain(entry_name.clone(), seed_phrase)?;
+                self.write_to_secure_store(entry_name.clone(), seed_phrase)?;
             }
 
             secret
@@ -148,13 +149,13 @@ impl Cmd {
         }?)
     }
 
-    fn write_to_keychain(&self, entry_name: String, seed_phrase: Secret) -> Result<(), Error> {
-        println!("Writing to keychain: {entry_name}");
+    fn write_to_secure_store(&self, entry_name: String, seed_phrase: Secret) -> Result<(), Error> {
+        println!("Writing to secure store: {entry_name}");
         let entry = StellarEntry::new(&entry_name)?;
         if let Ok(key) = entry.get_public_key() {
-            println!("A key for {entry_name} already exists in your keychain: {key}");
+            println!("A key for {entry_name} already exists in your operating system's secure store: {key}");
         } else {
-            println!("Saving a new key to your keychain: {entry_name}");
+            println!("Saving a new key to your operating system's secure store: {entry_name}");
             let key_pair = seed_phrase.key_pair(None)?;
             entry.set_password(key_pair.as_bytes())?;
         }
@@ -179,7 +180,7 @@ mod tests {
             no_fund: true,
             seed: None,
             as_secret: false,
-            keychain: false,
+            secure_store: false,
             config_locator: locator.clone(),
             hd_path: None,
             default_seed: false,
@@ -221,10 +222,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_storing_secret_in_keychain() {
+    async fn test_storing_secret_in_secure_store() {
         set_default_credential_builder(mock::default_credential_builder());
         let (test_locator, mut cmd) = set_up_test();
-        cmd.keychain = true;
+        cmd.secure_store = true;
         let global_args = global_args();
 
         let result = cmd.run(&global_args).await;

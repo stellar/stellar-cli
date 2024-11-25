@@ -3,8 +3,8 @@ use ed25519_dalek::Signer;
 use keyring::Entry;
 use zeroize::Zeroize;
 
-pub(crate) const KEYCHAIN_ENTRY_PREFIX: &str = "keychain:"; //TODO: does this belong here, or in secret?
-pub(crate) const KEYCHAIN_ENTRY_SERVICE: &str = "org.stellar.cli";
+pub(crate) const SECURE_STORE_ENTRY_PREFIX: &str = "secure_store:";
+pub(crate) const SECURE_STORE_ENTRY_SERVICE: &str = "org.stellar.cli";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

@@ -99,7 +99,7 @@ impl FromStr for Secret {
             Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
             })
-        } else if s.starts_with(keyring::KEYCHAIN_ENTRY_PREFIX) {
+        } else if s.starts_with(keyring::SECURE_STORE_ENTRY_PREFIX) {
             Ok(Secret::Keychain {
                 entry_name: s.to_string(),
             })
