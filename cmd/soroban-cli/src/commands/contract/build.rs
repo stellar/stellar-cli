@@ -323,8 +323,9 @@ impl Cmd {
 /// debugging is expected to be minimal.
 ///
 /// This works by setting the `CARGO_BUILD_RUSTFLAGS` environment variable,
-/// with appropriate `--remap-path-prefix` option. It preserves the values of an
-/// existing `CARGO_BUILD_RUSTFLAGS` environment variable.
+/// with an appropriate
+/// [`--remap-path-prefix`](https://doc.rust-lang.org/rustc/command-line-arguments.html#--remap-path-prefix-remap-source-names-in-output)
+/// option. It preserves the values of an existing `CARGO_BUILD_RUSTFLAGS` environment variable.
 ///
 /// This must be done some via some variation of `RUSTFLAGS` and not as
 /// arguments to `cargo rustc` because the latter only applies to the crate
@@ -378,9 +379,11 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     }
 
     let registry_prefix = format!("{cargo_home}/registry/src/");
-    let new_rustflag = format!("--remap-path-prefix={registry_prefix}=");
+    let new_rustflag = format!("{registry_prefix}=");
 
     let mut rustflags = get_rustflags().unwrap_or_default();
+    // --remap-path-prefix is separated by space with the arguments
+    rustflags.push("--remap-path-prefix".to_string());
     rustflags.push(new_rustflag);
 
     let rustflags = rustflags.join(" ");
