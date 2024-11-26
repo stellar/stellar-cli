@@ -16,7 +16,7 @@ changes quickly.
 
 ## Setting up development environment
 
-There are 2 ways to being developing stellar-cli:
+There are 2 ways to begin developing stellar-cli:
 
 ### Installing all required dependencies 
 

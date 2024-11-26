@@ -10,7 +10,7 @@ pub struct Cmd {
     #[arg(long)]
     pub line: builder::Asset,
     /// Limit for the trust line, 0 to remove the trust line
-    #[arg(long, default_value = u64::MAX.to_string())]
+    #[arg(long, default_value = i64::MAX.to_string())]
     pub limit: i64,
 }
 
