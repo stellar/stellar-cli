@@ -1,6 +1,6 @@
 use clap::{command, Parser};
 
-use crate::{commands::tx, tx::builder, xdr};
+use crate::{commands::tx, config::address, tx::builder, xdr};
 
 #[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[derive(Parser, Debug, Clone)]
@@ -8,9 +8,9 @@ use crate::{commands::tx, tx::builder, xdr};
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
-    /// Account to set trustline flags for
+    /// Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
     #[arg(long)]
-    pub trustor: xdr::AccountId,
+    pub trustor: address::Address,
     /// Asset to set trustline flags for
     #[arg(long)]
     pub asset: builder::Asset,
@@ -32,8 +32,9 @@ pub struct Cmd {
     pub clear_trustline_clawback_enabled: bool,
 }
 
-impl From<&Cmd> for xdr::OperationBody {
-    fn from(cmd: &Cmd) -> Self {
+impl TryFrom<&Cmd> for xdr::OperationBody {
+    type Error = tx::args::Error;
+    fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         let mut set_flags = 0;
         let mut set_flag = |flag: xdr::TrustLineFlags| set_flags |= flag as u32;
 
@@ -59,11 +60,13 @@ impl From<&Cmd> for xdr::OperationBody {
             clear_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
         };
 
-        xdr::OperationBody::SetTrustLineFlags(xdr::SetTrustLineFlagsOp {
-            trustor: cmd.trustor.clone(),
-            asset: cmd.asset.clone().into(),
-            clear_flags,
-            set_flags,
-        })
+        Ok(xdr::OperationBody::SetTrustLineFlags(
+            xdr::SetTrustLineFlagsOp {
+                trustor: cmd.tx.reslove_account_id(&cmd.trustor)?,
+                asset: cmd.asset.clone().into(),
+                clear_flags,
+                set_flags,
+            },
+        ))
     }
 }

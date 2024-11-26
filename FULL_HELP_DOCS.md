@@ -1577,7 +1577,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--account <ACCOUNT>` — Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
+* `--account <ACCOUNT>` — Muxed Account to merge with, e.g. `GBX...`, 'MBX...' or alias
 
 
 
@@ -1792,7 +1792,7 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--trustor <TRUSTOR>` — Account to set trustline flags for
+* `--trustor <TRUSTOR>` — Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
 * `--asset <ASSET>` — Asset to set trustline flags for
 * `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders
 * `--set-authorize-to-maintain-liabilities` — Denotes limited authorization that allows an account to maintain current orders but not to otherwise transact with the asset

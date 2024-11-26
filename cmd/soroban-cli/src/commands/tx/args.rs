@@ -1,6 +1,10 @@
 use crate::{
     commands::{global, txn_result::TxnEnvelopeResult},
-    config::{self, data, network, secret},
+    config::{
+        self,
+        address::{self, Address},
+        data, network, secret,
+    },
     fee,
     rpc::{self, Client, GetTransactionResponse},
     tx::builder::{self, TxExt},
@@ -32,6 +36,8 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 impl Args {
@@ -64,7 +70,7 @@ impl Args {
         op: impl Into<xdr::OperationBody>,
         global_args: &global::Args,
     ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
-        let tx = self.tx(op.into()).await?;
+        let tx = self.tx(op).await?;
         self.handle_tx(tx, global_args).await
     }
     pub async fn handle_and_print(
@@ -103,5 +109,15 @@ impl Args {
 
     pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self.config.source_account()?)
+    }
+
+    pub fn reslove_muxed_address(&self, address: &Address) -> Result<xdr::MuxedAccount, Error> {
+        Ok(address.resolve_muxed_account(&self.config.locator, self.config.hd_path)?)
+    }
+
+    pub fn reslove_account_id(&self, address: &Address) -> Result<xdr::AccountId, Error> {
+        Ok(address
+            .resolve_muxed_account(&self.config.locator, self.config.hd_path)?
+            .account_id())
     }
 }

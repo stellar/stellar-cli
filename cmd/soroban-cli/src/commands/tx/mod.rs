@@ -37,6 +37,8 @@ pub enum Error {
     Sign(#[from] sign::Error),
     #[error(transparent)]
     Send(#[from] send::Error),
+    #[error(transparent)]
+    Args(#[from] args::Error),
 }
 
 impl Cmd {

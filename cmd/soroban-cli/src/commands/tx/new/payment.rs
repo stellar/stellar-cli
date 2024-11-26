@@ -1,6 +1,6 @@
 use clap::{command, Parser};
 
-use crate::{commands::tx, tx::builder, xdr};
+use crate::{commands::tx, config::address, tx::builder, xdr};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -9,7 +9,7 @@ pub struct Cmd {
     pub tx: tx::Args,
     /// Account to send to, e.g. `GBX...`
     #[arg(long)]
-    pub destination: xdr::MuxedAccount,
+    pub destination: address::Address,
     /// Asset to send, default native, e.i. XLM
     #[arg(long, default_value = "native")]
     pub asset: builder::Asset,
@@ -18,10 +18,11 @@ pub struct Cmd {
     pub amount: builder::Amount,
 }
 
-impl From<&Cmd> for xdr::OperationBody {
-    fn from(cmd: &Cmd) -> Self {
-        xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: cmd.destination.clone(),
+impl TryFrom<&Cmd> for xdr::OperationBody {
+    type Error = tx::args::Error;
+    fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
+        Ok(xdr::OperationBody::Payment(xdr::PaymentOp {
+            destination: cmd.tx.reslove_muxed_address(&cmd.destination)?,
             asset: cmd.asset.clone().into(),
             amount: cmd.amount.into(),
         })
