@@ -69,7 +69,7 @@ pub fn build_host_function_parameters(
     let long_help = cmd.render_long_help();
 
     // try_get_matches_from returns an error if `help`, `--help` or `-h`are passed in the slop
-    // see clap documentation for more info: https://github.com/clap-rs/clap/blob/v4.1.8/src/builder/command.rs#L631
+    // see clap documentation for more info: https://github.com/clap-rs/clap/blob/v4.1.8/src/builder/command.rs#L586
     let maybe_matches = cmd.try_get_matches_from(slop);
     let Some((function, matches_)) = (match maybe_matches {
         Ok(mut matches) => &matches.remove_subcommand(),
