@@ -258,6 +258,7 @@ Generate code client bindings for a contract
 * `json` — Generate Json Bindings
 * `rust` — Generate Rust bindings
 * `typescript` — Generate a TypeScript / JavaScript package
+* `python` — Generate Python bindings
 
 
 
@@ -303,6 +304,14 @@ Generate a TypeScript / JavaScript package
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar contract bindings python`
+
+Generate Python bindings
+
+**Usage:** `stellar contract bindings python`
 
 
 
