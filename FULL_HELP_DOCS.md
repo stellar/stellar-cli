@@ -1663,7 +1663,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10000000`
+  Default value: `10_000_000`
 
 
 
@@ -1722,7 +1722,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
 
 
 
