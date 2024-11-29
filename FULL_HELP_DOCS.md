@@ -258,6 +258,7 @@ Generate code client bindings for a contract
 * `json` — Generate Json Bindings
 * `rust` — Generate Rust bindings
 * `typescript` — Generate a TypeScript / JavaScript package
+* `python` — Generate Python bindings
 
 
 
@@ -303,6 +304,14 @@ Generate a TypeScript / JavaScript package
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+
+
+
+## `stellar contract bindings python`
+
+Generate Python bindings
+
+**Usage:** `stellar contract bindings python`
 
 
 
@@ -1446,30 +1455,12 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
-* `simulate` — Simulate a transaction envelope from stdin
 * `hash` — Calculate the hash of a transaction envelope from stdin
-* `sign` — Sign a transaction envelope appending the signature to the envelope
-* `send` — Send a transaction envelope to the network
 * `new` — Create a new transaction
-
-
-
-## `stellar tx simulate`
-
-Simulate a transaction envelope from stdin
-
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `send` — Send a transaction envelope to the network
+* `set` — Set various options for a transaction
+* `simulate` — Simulate a transaction envelope from stdin
+* `sign` — Sign a transaction envelope appending the signature to the envelope
 
 
 
@@ -1485,43 +1476,6 @@ Calculate the hash of a transaction envelope from stdin
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
-
-
-
-## `stellar tx sign`
-
-Sign a transaction envelope appending the signature to the envelope
-
-**Usage:** `stellar tx sign [OPTIONS]`
-
-###### **Options:**
-
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
-* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--sign-with-lab` — Sign with https://lab.stellar.org
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `stellar tx send`
-
-Send a transaction envelope to the network
-
-**Usage:** `stellar tx send [OPTIONS]`
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1654,7 +1608,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10000000`
+  Default value: `10_000_000`
 
 
 
@@ -1713,7 +1667,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
 
 
 
@@ -1790,6 +1744,89 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--clear-authorize`
 * `--clear-authorize-to-maintain-liabilities`
 * `--clear-trustline-clawback-enabled`
+
+
+
+## `stellar tx send`
+
+Send a transaction envelope to the network
+
+**Usage:** `stellar tx send [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx set`
+
+Set various options for a transaction
+
+**Usage:** `stellar tx set [OPTIONS]`
+
+###### **Options:**
+
+* `--sequence-number <SEQUENCE_NUMBER>` — Set the transactions sequence number
+* `--fee <FEE>` — Set the transactions fee
+* `--memo-text <MEMO_TEXT>` — Set the transactions memo text
+* `--memo-id <MEMO_ID>` — Set the transactions memo id
+* `--memo-hash <MEMO_HASH>` — Set the transactions memo hash
+* `--memo-return <MEMO_RETURN>` — Set the transactions memo return
+* `--source-account <SOURCE_ACCOUNT>` — Change the source account for the transaction
+* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions max time bound
+* `--min-time-bound <MIN_TIME_BOUND>` — Set the transactions min time bound
+* `--min-ledger <MIN_LEDGER>` — Set the minimum ledger that the transaction is valid
+* `--max-ledger <MAX_LEDGER>` — Set the max ledger that the transaction is valid. 0 or not present means to max
+* `--min-seq-num <MIN_SEQ_NUM>` — set mimimum sequence number
+* `--min-seq-age <MIN_SEQ_AGE>`
+* `--min-seq-ledger-gap <MIN_SEQ_LEDGER_GAP>` — min sequeence ledger gap
+* `--extra-signers <EXTRA_SIGNERS>` — Extra signers
+* `--no-preconditions` — Set precondition to None
+
+
+
+## `stellar tx simulate`
+
+Simulate a transaction envelope from stdin
+
+**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx sign`
+
+Sign a transaction envelope appending the signature to the envelope
+
+**Usage:** `stellar tx sign [OPTIONS]`
+
+###### **Options:**
+
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 

@@ -93,7 +93,7 @@ async fn payment() {
             "--destination",
             test1.as_str(),
             "--amount",
-            ONE_XLM.to_string().as_str(),
+            "10_000_000",
         ])
         .assert()
         .success();

@@ -13,9 +13,9 @@ pub struct Cmd {
     /// Asset to send, default native, e.i. XLM
     #[arg(long, default_value = "native")]
     pub asset: builder::Asset,
-    /// Amount of the aforementioned asset to send.
+    /// Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
     #[arg(long)]
-    pub amount: i64,
+    pub amount: builder::Amount,
 }
 
 impl From<&Cmd> for xdr::OperationBody {
@@ -23,7 +23,7 @@ impl From<&Cmd> for xdr::OperationBody {
         xdr::OperationBody::Payment(xdr::PaymentOp {
             destination: cmd.destination.clone(),
             asset: cmd.asset.clone().into(),
-            amount: cmd.amount,
+            amount: cmd.amount.into(),
         })
     }
 }
