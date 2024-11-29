@@ -95,7 +95,7 @@ fn set_and_remove_global_network() {
         .arg("ls")
         .arg("--global")
         .assert()
-        .stdout(format!("global\n{}", NETWORKS));
+        .stdout(format!("global\n{NETWORKS}"));
 
     sandbox
         .new_assert_cmd("network")
