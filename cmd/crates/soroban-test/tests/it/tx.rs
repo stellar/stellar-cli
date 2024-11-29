@@ -1,4 +1,4 @@
-use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
+use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope};
 use soroban_test::{AssertExt, TestEnv};
 
 const SOURCE: &str = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";

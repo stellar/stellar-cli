@@ -1,7 +1,7 @@
-use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
+use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
+use crate::integration::util::HELLO_WORLD;
 
 #[tokio::test]
 async fn build_simulate_sign_send() {
