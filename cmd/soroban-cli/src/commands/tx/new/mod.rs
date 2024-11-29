@@ -45,7 +45,7 @@ impl TryFrom<&Cmd> for OperationBody {
         Ok(match cmd {
             Cmd::AccountMerge(cmd) => cmd.try_into()?,
             Cmd::BumpSequence(cmd) => cmd.into(),
-            Cmd::ChangeTrust(cmd) => cmd.into(),
+            Cmd::ChangeTrust(cmd) => cmd.try_into()?,
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
             Cmd::ManageData(cmd) => cmd.into(),
             Cmd::Payment(cmd) => cmd.try_into()?,
