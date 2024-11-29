@@ -1,6 +1,6 @@
 use clap::{command, Parser};
 
-use crate::{commands::tx, config::address, xdr};
+use crate::{commands::tx, config::address, tx::builder, xdr};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -20,7 +20,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::CreateAccount(xdr::CreateAccountOp {
             destination: cmd.tx.reslove_account_id(&cmd.destination)?,
-            starting_balance: cmd.starting_balance,
+            starting_balance: cmd.starting_balance.into(),
         }))
     }
 }

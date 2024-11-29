@@ -25,6 +25,6 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
             destination: cmd.tx.reslove_muxed_address(&cmd.destination)?,
             asset: cmd.asset.clone().into(),
             amount: cmd.amount.into(),
-        })
+        }))
     }
 }
