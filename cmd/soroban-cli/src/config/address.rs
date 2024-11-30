@@ -46,12 +46,22 @@ impl Address {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             Address::MuxedAccount(muxed_account) => Ok(muxed_account.clone()),
-            Address::AliasOrSecret(alias) => alias.parse().or_else(|_| {
-                Ok(xdr::MuxedAccount::Ed25519(
-                    locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
-                ))
-            }),
+            Address::AliasOrSecret(alias) => {
+                Self::resolve_muxed_account_with_alias(alias, locator, hd_path)
+            }
         }
+    }
+
+    pub fn resolve_muxed_account_with_alias(
+        alias: &str,
+        locator: &locator::Args,
+        hd_path: Option<usize>,
+    ) -> Result<xdr::MuxedAccount, Error> {
+        alias.parse().or_else(|_| {
+            Ok(xdr::MuxedAccount::Ed25519(
+                locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
+            ))
+        })
     }
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {

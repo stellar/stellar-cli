@@ -40,10 +40,20 @@ impl ContractAddress {
         network_passphrase: &str,
     ) -> Result<stellar_strkey::Contract, locator::Error> {
         match self {
-            ContractAddress::ContractId(muxed_account) => Ok(*muxed_account),
-            ContractAddress::Alias(alias) => locator
-                .get_contract_id(alias, network_passphrase)?
-                .ok_or_else(|| locator::Error::ContractNotFound(alias.to_owned())),
+            ContractAddress::ContractId(contract) => Ok(*contract),
+            ContractAddress::Alias(alias) => {
+                Self::resolve_alias(alias, locator, network_passphrase)
+            }
         }
+    }
+
+    pub fn resolve_alias(
+        alias: &str,
+        locator: &locator::Args,
+        network_passphrase: &str,
+    ) -> Result<stellar_strkey::Contract, locator::Error> {
+        locator
+            .get_contract_id(alias, network_passphrase)?
+            .ok_or_else(|| locator::Error::ContractNotFound(alias.to_owned()))
     }
 }

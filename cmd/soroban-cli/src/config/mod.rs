@@ -19,6 +19,7 @@ pub mod alias;
 pub mod data;
 pub mod locator;
 pub mod network;
+pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
