@@ -256,7 +256,7 @@ fn resolve_sc_address(
     let account = match sc_address {
         ScAddress::Address(addr) => return Ok((addr.to_string(), None)),
         addr @ ScAddress::Alias(_) => {
-            let addr= addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => return Ok((contract.to_string(), None)),
