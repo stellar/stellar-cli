@@ -86,10 +86,13 @@ pub fn build_host_function_parameters(
         .map(|i| {
             let name = i.name.to_utf8_string()?;
             if let Some(mut val) = matches_.get_raw(&name) {
-                let s = val.next().unwrap().to_string_lossy().to_string();
-                let (s, signer) = resolve_sc_address(&s, config)?;
-                if let Some(signer) = signer {
-                    signers.push(signer);
+                let mut s = val.next().unwrap().to_string_lossy().to_string();
+                if matches!(i.type_, ScSpecTypeDef::Address) {
+                    let (addr, signer) = resolve_sc_address(&s, config)?;
+                    s = addr;
+                    if let Some(signer) = signer {
+                        signers.push(signer);
+                    }
                 }
                 spec.from_string(&s, &i.type_)
                     .map_err(|error| Error::CannotParseArg { arg: name, error })
@@ -248,11 +251,12 @@ fn resolve_sc_address(
     addr_or_alias: &str,
     config: &config::Args,
 ) -> Result<(String, Option<SigningKey>), Error> {
+    let addr_or_alias = addr_or_alias.trim_matches('"');
     let sc_address: ScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
         ScAddress::Address(addr) => return Ok((addr.to_string(), None)),
         addr @ ScAddress::Alias(_) => {
-            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr= addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => return Ok((contract.to_string(), None)),
