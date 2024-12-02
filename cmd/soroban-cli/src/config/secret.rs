@@ -205,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_for_seed_phrase() {
+    fn test_secret_from_seed_phrase() {
         let secret = Secret::from_str(TEST_SEED_PHRASE).unwrap();
         let public_key = secret.public_key(None).unwrap();
         let private_key = secret.private_key(None).unwrap();
@@ -216,18 +216,17 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_for_secure_store_secret() {
+    fn test_secret_from_secure_store() {
         //todo: add assertion for getting public key - will need to mock the keychain and add the keypair to the keychain
         let secret = Secret::from_str("secure_store:org.stellar.cli-alice").unwrap();
-
         assert!(matches!(secret, Secret::SecureStore { .. }));
-    }
 
-    #[test]
-    #[should_panic]
-    fn test_secure_store_will_not_reveal_private_key() {
-        let secret = Secret::from_str("secure_store").unwrap();
-        secret.private_key(None).unwrap();
+        let private_key_result = secret.private_key(None);
+        assert!(private_key_result.is_err());
+        assert!(matches!(
+            private_key_result.unwrap_err(),
+            Error::SecureStoreDoesNotRevealSecretKey
+        ));
     }
 
     #[test]
