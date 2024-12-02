@@ -69,10 +69,10 @@ impl Cmd {
 
         if self.config_locator.read_identity(&self.name).is_ok() {
             if !self.overwrite {
-                return Err(Error::IdentityAlreadyExists(self.name.clone()));
+                return Err(Error::IdentityAlreadyExists(self.name.to_string()));
             }
 
-            print.exclaimln(format!("Overwriting identity '{}'", &self.name));
+            print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
         }
 
         if !self.fund {
