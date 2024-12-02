@@ -13,7 +13,8 @@ use std::{
 use stellar_strkey::{Contract, DecodeError};
 
 use crate::{
-    commands::HEADING_GLOBAL,
+    commands::{global, HEADING_GLOBAL},
+    print::Print,
     signer::{self, keyring::StellarEntry},
     utils::find_config_dir,
     Pwd,
@@ -260,19 +261,21 @@ impl Args {
         res
     }
 
-    pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
+    pub fn remove_identity(&self, name: &str, global_args: &global::Args) -> Result<(), Error> {
+        let printer = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
         match identity {
             Secret::SecureStore { entry_name } => {
                 let entry = StellarEntry::new(&entry_name)?;
-                let _ = entry.delete_password().map_err(|e| {
-                    if e.to_string() == keyring::Error::NoEntry.to_string() {
-                        println!("This key was already removed from the secure store. Removing the config file");
-                        return Ok(());
-                    } else {
-                      Err(Error::Keyring(e))
+                match entry.delete_password() {
+                    Ok(_) => {}
+                    Err(e) if e.to_string() == keyring::Error::NoEntry.to_string() => {
+                        printer.infoln("This key was already removed from the secure store. Removing the config file.");
                     }
-                });
+                    Err(e) => {
+                        return Err(Error::Keyring(e));
+                    }
+                }
             }
             _ => {}
         }
