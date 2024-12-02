@@ -97,7 +97,7 @@ impl Cmd {
             warning. It can be suppressed with -q flag.",
             );
         }
-        let secret = self.secret()?;
+        let secret = self.secret(print)?;
         self.config_locator.write_identity(&self.name, &secret)?;
 
         if !self.no_fund {
@@ -115,7 +115,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn secret(&self) -> Result<Secret, Error> {
+    fn secret(&self, print: Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         Ok(if self.as_secret {
             seed_phrase.private_key(self.hd_path)?.into()
@@ -132,7 +132,7 @@ impl Cmd {
             let secret: Secret = entry_name_with_prefix.parse()?;
 
             if let Secret::SecureStore { entry_name } = &secret {
-                self.write_to_secure_store(entry_name.clone(), seed_phrase)?;
+                self.write_to_secure_store(entry_name.clone(), seed_phrase, print)?;
             }
 
             secret
@@ -149,13 +149,20 @@ impl Cmd {
         }?)
     }
 
-    fn write_to_secure_store(&self, entry_name: String, seed_phrase: Secret) -> Result<(), Error> {
+    fn write_to_secure_store(
+        &self,
+        entry_name: String,
+        seed_phrase: Secret,
+        print: Print,
+    ) -> Result<(), Error> {
         println!("Writing to secure store: {entry_name}");
         let entry = StellarEntry::new(&entry_name)?;
         if let Ok(key) = entry.get_public_key() {
-            println!("A key for {entry_name} already exists in your operating system's secure store: {key}");
+            print.warnln(format!("A key for {entry_name} already exists in your operating system's secure store: {key}"));
         } else {
-            println!("Saving a new key to your operating system's secure store: {entry_name}");
+            print.infoln(format!(
+                "Saving a new key to your operating system's secure store: {entry_name}"
+            ));
             let key_pair = seed_phrase.key_pair(None)?;
             entry.set_password(key_pair.as_bytes())?;
         }
