@@ -7,7 +7,9 @@ use crate::{commands::tx, xdr};
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
-    /// Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
+    /// String up to 64 bytes long.
+    /// If this is a new Name it will add the given name/value pair to the account.
+    /// If this Name is already present then the associated value will be modified.
     #[arg(long)]
     pub data_name: xdr::StringM<64>,
     /// Up to 64 bytes long hex string
