@@ -2,18 +2,19 @@ use std::str::FromStr;
 
 use crate::xdr;
 
-use super::{address, locator, ContractAddress};
+use super::{address, locator, UnresolvedContract};
 
 /// `ScAddress` can be either a resolved `xdr::ScAddress` or an alias of a `Contract` or `MuxedAccount`.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug)]
-pub enum ScAddress {
-    Address(xdr::ScAddress),
+pub enum UnresolvedScAddress {
+    Resolved(xdr::ScAddress),
     Alias(String),
 }
 
-impl Default for ScAddress {
+impl Default for UnresolvedScAddress {
     fn default() -> Self {
-        ScAddress::Alias(String::default())
+        UnresolvedScAddress::Alias(String::default())
     }
 }
 
@@ -27,27 +28,27 @@ pub enum Error {
     AccountAliasNotFound(String),
 }
 
-impl FromStr for ScAddress {
+impl FromStr for UnresolvedScAddress {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(xdr::ScAddress::from_str(value)
-            .map_or_else(|_| ScAddress::Alias(value.to_string()), ScAddress::Address))
+            .map_or_else(|_| UnresolvedScAddress::Alias(value.to_string()), UnresolvedScAddress::Resolved))
     }
 }
 
-impl ScAddress {
+impl UnresolvedScAddress {
     pub fn resolve(
         self,
         locator: &locator::Args,
         network_passphrase: &str,
     ) -> Result<xdr::ScAddress, Error> {
         let alias = match self {
-            ScAddress::Address(addr) => return Ok(addr),
-            ScAddress::Alias(alias) => alias,
+            UnresolvedScAddress::Resolved(addr) => return Ok(addr),
+            UnresolvedScAddress::Alias(alias) => alias,
         };
-        let contract = ContractAddress::resolve_alias(&alias, locator, network_passphrase);
-        let muxed_account = super::Address::resolve_muxed_account_with_alias(&alias, locator, None);
+        let contract = UnresolvedContract::resolve_alias(&alias, locator, network_passphrase);
+        let muxed_account = super::UnresolvedMuxedAccount::resolve_muxed_account_with_alias(&alias, locator, None);
         match (contract, muxed_account) {
             (Ok(contract), _) => Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0))),
             (_, Ok(muxed_account)) => Ok(xdr::ScAddress::Account(muxed_account.account_id())),

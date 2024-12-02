@@ -15,7 +15,7 @@ use crate::xdr::{
 use crate::commands::txn_result::TxnResult;
 use crate::config::{
     self,
-    sc_address::{self, ScAddress},
+    sc_address::{self, UnresolvedScAddress},
 };
 use soroban_spec_tools::Spec;
 
@@ -254,10 +254,10 @@ pub fn output_to_string(
 }
 
 fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
-    let sc_address: ScAddress = addr_or_alias.parse().unwrap();
+    let sc_address: UnresolvedScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
-        ScAddress::Address(addr) => addr.to_string(),
-        addr @ ScAddress::Alias(_) => {
+        UnresolvedScAddress::Resolved(addr) => addr.to_string(),
+        addr @ UnresolvedScAddress::Alias(_) => {
             let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),

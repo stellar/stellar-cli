@@ -26,7 +26,7 @@ pub struct Args {
     pub wasm_hash: Option<String>,
     /// Contract id or contract alias to get the data for
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID", group = "Source")]
-    pub contract_id: Option<config::ContractAddress>,
+    pub contract_id: Option<config::UnresolvedContract>,
     #[command(flatten)]
     pub network: network::Args,
     #[command(flatten)]
