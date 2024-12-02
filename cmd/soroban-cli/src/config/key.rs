@@ -7,7 +7,7 @@ use crate::xdr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to extract public key from secret")]
+    #[error("failed to extract public key from secret")]
     SecretPublicKey,
     #[error(transparent)]
     Secret(#[from] secret::Error),
