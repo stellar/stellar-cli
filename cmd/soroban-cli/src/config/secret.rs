@@ -29,6 +29,8 @@ pub enum Error {
     Signer(#[from] signer::Error),
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
+    #[error("Secure Store does not reveal secret key")]
+    SecureStoreDoesNotRevealSecretKey,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -123,7 +125,9 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::SecureStore { .. } => panic!("Secure Store does not reveal secret key"),
+            Secret::SecureStore { .. } => {
+                return Err(Error::SecureStoreDoesNotRevealSecretKey);
+            }
         })
     }
 
