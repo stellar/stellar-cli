@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         check: [advisories, bans, licenses, sources]
-    continue-on-error: ${{ matrix.check == 'advisories' || matrix.check == 'bans' || matrix.check == 'licenses' }}
+    continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
     - uses: actions/checkout@v3
     - uses: EmbarkStudios/cargo-deny-action@b01e7a8cfb1f496c52d77361e84c1840d8246393
