@@ -12,7 +12,12 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
+use crate::{
+    commands::HEADING_GLOBAL,
+    signer::{self, keyring::StellarEntry},
+    utils::find_config_dir,
+    Pwd,
+};
 
 use super::{
     alias,
@@ -83,6 +88,8 @@ pub enum Error {
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
+    #[error(transparent)]
+    Keyring(#[from] signer::keyring::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -254,6 +261,22 @@ impl Args {
     }
 
     pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
+        let identity = self.read_identity(name)?;
+        match identity {
+            Secret::SecureStore { entry_name } => {
+                let entry = StellarEntry::new(&entry_name)?;
+                let _ = entry.delete_password().map_err(|e| {
+                    if e.to_string() == keyring::Error::NoEntry.to_string() {
+                        println!("This key was already removed from the secure store. Removing the config file");
+                        return Ok(());
+                    } else {
+                      Err(Error::Keyring(e))
+                    }
+                });
+            }
+            _ => {}
+        }
+
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 
