@@ -7,14 +7,14 @@ use crate::xdr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("failed to extract public key from secret")]
+    #[error("failed to extract secret from public key ")]
     SecretPublicKey,
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
-    #[error("failed to parse key {0}")]
-    Parse(String),
+    #[error("failed to parse key")]
+    Parse,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -68,7 +68,7 @@ impl FromStr for Key {
         if let Ok(muxed_account) = s.parse() {
             return Ok(Key::MuxedAccount { muxed_account });
         }
-        Err(Error::Parse(s.to_owned()))
+        Err(Error::Parse)
     }
 }
 
