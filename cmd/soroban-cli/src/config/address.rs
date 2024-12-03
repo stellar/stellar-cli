@@ -61,8 +61,8 @@ impl Address {
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
         match &self {
-            Address::MuxedAccount(muxed_account) => Err(Error::CannotSign(muxed_account.clone())),
             Address::AliasOrSecret(alias) => Ok(locator.read_identity(alias)?),
+            a => Err(Error::CannotSign(a.resolve_muxed_account(locator, None)?)),
         }
     }
 }
