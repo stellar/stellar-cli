@@ -122,10 +122,10 @@ impl Cmd {
         } else if self.secure_store {
             // secure_store:org.stellar.cli:<key name>
             let entry_name_with_prefix = format!(
-                "{}{}-{:?}",
+                "{}{}-{}",
                 keyring::SECURE_STORE_ENTRY_PREFIX,
                 keyring::SECURE_STORE_ENTRY_SERVICE,
-                self.name.to_string()
+                self.name
             );
 
             //checking that the entry name is valid before writing to the secure store

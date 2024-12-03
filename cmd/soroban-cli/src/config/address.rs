@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 
 use crate::xdr;
 
@@ -84,6 +87,12 @@ impl std::str::FromStr for KeyName {
             return Err(Error::InvalidKeyName(s.to_string()));
         }
         Ok(KeyName(s.to_string()))
+    }
+}
+
+impl Display for KeyName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
