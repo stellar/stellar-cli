@@ -24,8 +24,6 @@ where
     assert_eq!(res, data);
 }
 
-pub const TEST_SALT: &str = "f55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114";
-
 pub enum DeployKind {
     BuildOnly,
     Normal,
@@ -70,8 +68,6 @@ pub async fn deploy_contract(
             "1000000",
             "--wasm",
             &wasm.path().to_string_lossy(),
-            "--salt",
-            TEST_SALT,
             "--ignore-checks",
             &deploy.to_string(),
         ],

@@ -9,3 +9,6 @@ mod snapshot;
 mod tx;
 mod util;
 mod wrap;
+
+#[cfg(feature = "emulator-tests")]
+mod emulator;

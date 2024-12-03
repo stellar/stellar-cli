@@ -1,9 +1,13 @@
 use hd_path::HdPath;
-use ledger_transport::{APDUCommand, Exchange};
+use ledger_transport::APDUCommand;
+pub use ledger_transport::Exchange;
+
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
-    LedgerHIDError, TransportNativeHID,
+    LedgerHIDError,
 };
+
+pub use ledger_transport_hid::TransportNativeHID;
 
 use std::vec;
 use stellar_strkey::DecodeError;
@@ -15,6 +19,8 @@ use stellar_xdr::curr::{
 pub use crate::signer::Blob;
 pub mod hd_path;
 mod signer;
+
+pub mod emulator_test_support;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
@@ -92,6 +98,9 @@ where
     pub fn new(transport: T) -> Self {
         Self { transport }
     }
+
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device
     pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
         Ok(LedgerSigner {
             transport: get_transport()?,
@@ -298,18 +307,13 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "http-transport"))]
 mod test {
-    mod test_helpers {
-        pub mod test {
-            include!("../tests/utils/mod.rs");
-        }
-    }
     use httpmock::prelude::*;
     use serde_json::json;
 
+    use super::emulator_test_support::http_transport::EmulatorHttpTransport;
     use crate::Blob;
-    use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
     use std::vec;
 

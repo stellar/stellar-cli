@@ -39,7 +39,10 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
-      - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
-      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
+      - name: install libudev-dev
+        run: |
+          sudo apt install -y libudev-dev
+      - run: cargo build --features emulator-tests
+      - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration
