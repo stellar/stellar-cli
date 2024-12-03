@@ -132,17 +132,14 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        match self {
-            Secret::SecureStore { entry_name } => {
-                let entry = keyring::StellarEntry::new(entry_name)?;
-                Ok(entry.get_public_key()?)
-            }
-            _ => {
-                let key = self.key_pair(index)?;
-                Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-                    key.verifying_key().as_bytes(),
-                )?)
-            }
+        if let Secret::SecureStore { entry_name } = self {
+            let entry = keyring::StellarEntry::new(entry_name)?;
+            Ok(entry.get_public_key()?)
+        } else {
+            let key = self.key_pair(index)?;
+            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                key.verifying_key().as_bytes(),
+            )?)
         }
     }
 

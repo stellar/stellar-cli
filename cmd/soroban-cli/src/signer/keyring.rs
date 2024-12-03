@@ -124,7 +124,7 @@ mod test {
         let entry = StellarEntry::new("test").unwrap();
         entry.set_password(&key_pair.to_bytes()).unwrap();
 
-        let tx_xdr = r#"AAAAAgAAAADh6eOnZEq1xQgKioffuH7/8D8x8+OdGFEkiYC6QKMWzQAAAGQAAACuAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAYAAAAAQAAAAAAAAAAAAAAAOHp46dkSrXFCAqKh9+4fv/wPzHz450YUSSJgLpAoxbNoFT1s8jZPCv9IJ2DsqGTA8pOtavv58JF53aDycpRPcEAAAAA+N2m5zc3EfWUmLvigYPOHKXhSy8OrWfVibc6y6PrQoYAAAAAAAAAAAAAAAA"#;
+        let tx_xdr = r"AAAAAgAAAADh6eOnZEq1xQgKioffuH7/8D8x8+OdGFEkiYC6QKMWzQAAAGQAAACuAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAYAAAAAQAAAAAAAAAAAAAAAOHp46dkSrXFCAqKh9+4fv/wPzHz450YUSSJgLpAoxbNoFT1s8jZPCv9IJ2DsqGTA8pOtavv58JF53aDycpRPcEAAAAA+N2m5zc3EfWUmLvigYPOHKXhSy8OrWfVibc6y6PrQoYAAAAAAAAAAAAAAAA";
 
         let sign_tx_env_result = entry.sign_data(tx_xdr.as_bytes());
         assert!(sign_tx_env_result.is_ok());

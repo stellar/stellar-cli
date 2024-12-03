@@ -97,7 +97,7 @@ impl Cmd {
             warning. It can be suppressed with -q flag.",
             );
         }
-        let secret = self.secret(print)?;
+        let secret = self.secret(&print)?;
         self.config_locator.write_identity(&self.name, &secret)?;
 
         if !self.no_fund {
@@ -115,14 +115,14 @@ impl Cmd {
         Ok(())
     }
 
-    fn secret(&self, print: Print) -> Result<Secret, Error> {
+    fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         Ok(if self.as_secret {
             seed_phrase.private_key(self.hd_path)?.into()
         } else if self.secure_store {
             // secure_store:org.stellar.cli:<key name>
             let entry_name_with_prefix = format!(
-                "{}{}-{}",
+                "{}{}-{:?}",
                 keyring::SECURE_STORE_ENTRY_PREFIX,
                 keyring::SECURE_STORE_ENTRY_SERVICE,
                 self.name.to_string()
@@ -132,7 +132,7 @@ impl Cmd {
             let secret: Secret = entry_name_with_prefix.parse()?;
 
             if let Secret::SecureStore { entry_name } = &secret {
-                self.write_to_secure_store(entry_name.clone(), seed_phrase, print)?;
+                Self::write_to_secure_store(entry_name, &seed_phrase, print)?;
             }
 
             secret
@@ -150,13 +150,12 @@ impl Cmd {
     }
 
     fn write_to_secure_store(
-        &self,
-        entry_name: String,
-        seed_phrase: Secret,
-        print: Print,
+        entry_name: &String,
+        seed_phrase: &Secret,
+        print: &Print,
     ) -> Result<(), Error> {
-        println!("Writing to secure store: {entry_name}");
-        let entry = StellarEntry::new(&entry_name)?;
+        print.infoln(format!("Writing to secure store: {entry_name}"));
+        let entry = StellarEntry::new(entry_name)?;
         if let Ok(key) = entry.get_public_key() {
             print.warnln(format!("A key for {entry_name} already exists in your operating system's secure store: {key}"));
         } else {
@@ -191,7 +190,7 @@ mod tests {
             config_locator: locator.clone(),
             hd_path: None,
             default_seed: false,
-            network: Default::default(),
+            network: super::network::Args::default(),
             fund: false,
             overwrite: false,
         };
@@ -200,9 +199,10 @@ mod tests {
     }
 
     fn global_args() -> super::global::Args {
-        let mut global_args = super::global::Args::default();
-        global_args.quiet = true;
-        global_args
+        super::global::Args {
+            quiet: true,
+            ..Default::default()
+        }
     }
 
     #[tokio::test]

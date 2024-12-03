@@ -301,7 +301,7 @@ impl SecureStoreEntry {
         let entry = StellarEntry::new(&self.name)?;
         let signed_tx_env = entry.sign_data(tx_env.to_xdr_base64(Limits::none())?.as_bytes())?;
         let hint = SignatureHint(entry.get_public_key()?.0[28..].try_into()?);
-        let signature = Signature(signed_tx_env.to_vec().try_into()?);
+        let signature = Signature(signed_tx_env.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
 }
