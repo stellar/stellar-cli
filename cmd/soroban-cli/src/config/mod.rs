@@ -23,8 +23,8 @@ pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
-pub use alias::UnresolvedContract;
 pub use address::UnresolvedMuxedAccount;
+pub use alias::UnresolvedContract;
 pub use sc_address::UnresolvedScAddress;
 
 #[derive(thiserror::Error, Debug)]

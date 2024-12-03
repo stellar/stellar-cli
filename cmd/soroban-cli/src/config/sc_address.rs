@@ -32,8 +32,10 @@ impl FromStr for UnresolvedScAddress {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(xdr::ScAddress::from_str(value)
-            .map_or_else(|_| UnresolvedScAddress::Alias(value.to_string()), UnresolvedScAddress::Resolved))
+        Ok(xdr::ScAddress::from_str(value).map_or_else(
+            |_| UnresolvedScAddress::Alias(value.to_string()),
+            UnresolvedScAddress::Resolved,
+        ))
     }
 }
 
@@ -48,7 +50,8 @@ impl UnresolvedScAddress {
             UnresolvedScAddress::Alias(alias) => alias,
         };
         let contract = UnresolvedContract::resolve_alias(&alias, locator, network_passphrase);
-        let muxed_account = super::UnresolvedMuxedAccount::resolve_muxed_account_with_alias(&alias, locator, None);
+        let muxed_account =
+            super::UnresolvedMuxedAccount::resolve_muxed_account_with_alias(&alias, locator, None);
         match (contract, muxed_account) {
             (Ok(contract), _) => Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0))),
             (_, Ok(muxed_account)) => Ok(xdr::ScAddress::Account(muxed_account.account_id())),

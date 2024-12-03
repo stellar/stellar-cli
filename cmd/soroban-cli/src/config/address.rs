@@ -66,7 +66,9 @@ impl UnresolvedMuxedAccount {
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
         match &self {
-            UnresolvedMuxedAccount::Resolved(muxed_account) => Err(Error::CannotSign(muxed_account.clone())),
+            UnresolvedMuxedAccount::Resolved(muxed_account) => {
+                Err(Error::CannotSign(muxed_account.clone()))
+            }
             UnresolvedMuxedAccount::AliasOrSecret(alias) => Ok(locator.read_identity(alias)?),
         }
     }
