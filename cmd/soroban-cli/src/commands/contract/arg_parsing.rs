@@ -14,7 +14,7 @@ use crate::xdr::{
 };
 
 use crate::commands::txn_result::TxnResult;
-use crate::config::{self};
+use crate::config::{self, address, secret};
 use soroban_spec_tools::Spec;
 
 #[derive(thiserror::Error, Debug)]
@@ -39,6 +39,10 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     StrVal(#[from] soroban_spec_tools::Error),
+    #[error(transparent)]
+    Address(#[from] address::Error),
+    #[error(transparent)]
+    Secret(#[from] secret::Error),
     #[error("Missing argument {0}")]
     MissingArgument(String),
     #[error("")]
@@ -82,16 +86,12 @@ pub fn build_host_function_parameters(
             if let Some(mut val) = matches_.get_raw(&name) {
                 let mut s = val.next().unwrap().to_string_lossy().to_string();
                 if matches!(i.type_, ScSpecTypeDef::Address) {
-                    let cmd = crate::commands::keys::address::Cmd {
-                        name: s.clone(),
-                        hd_path: Some(0),
-                        locator: config.locator.clone(),
-                    };
-                    if let Ok(address) = cmd.public_key() {
+                    let addr: address::Address = s.parse()?;
+                    if let Ok(address) = addr.resolve_muxed_account(&config.locator, None) {
                         s = address.to_string();
                     }
-                    if let Ok(key) = cmd.private_key() {
-                        signers.push(key);
+                    if let Ok(key) = addr.resolve_secret(&config.locator) {
+                        signers.push(SigningKey::from_bytes(&key.private_key(None)?.0));
                     }
                 }
                 spec.from_string(&s, &i.type_)
