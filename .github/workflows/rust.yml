@@ -38,8 +38,8 @@ jobs:
         check: [advisories, bans, licenses, sources]
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: EmbarkStudios/cargo-deny-action@b01e7a8cfb1f496c52d77361e84c1840d8246393
+    - uses: actions/checkout@v4
+    - uses: EmbarkStudios/cargo-deny-action@2d8c9929d8f9f42bedba73f1287cb0b479f07acb
       with:
         command: check ${{ matrix.check }}
 
