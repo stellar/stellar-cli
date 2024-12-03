@@ -132,12 +132,13 @@ jobs:
           $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
+          mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
-          path: Output/stellar-installer.exe
+          path: ${{ env.STELLAR_CLI_INSTALLER }}
 
       - name: Build provenance for attestation (release only)
         if: github.event_name == 'release'
