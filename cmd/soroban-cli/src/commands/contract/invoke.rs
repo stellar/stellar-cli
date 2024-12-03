@@ -6,12 +6,15 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
-
+use itertools::Either;
+use itertools::Either::{Left, Right};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
+use crate::commands::contract::arg_parsing::HostFunctionParameters;
+use crate::commands::contract::arg_parsing::HostFunctionParameters::HelpMessage;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -131,17 +134,27 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await?.to_envelope();
+        let res = self.invoke(global_args).await?;
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(output) => {
-                println!("{output}");
+            Right(res) => match res.to_envelope() {
+                TxnEnvelopeResult::TxnEnvelope(tx) => {
+                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                }
+                TxnEnvelopeResult::Res(output) => {
+                    println!("{output}");
+                }
+            },
+            Left(help) => {
+                println!("{help}");
             }
         }
         Ok(())
     }
 
-    pub async fn invoke(&self, global_args: &global::Args) -> Result<TxnResult<String>, Error> {
+    pub async fn invoke(
+        &self,
+        global_args: &global::Args,
+    ) -> Result<Either<String, TxnResult<String>>, Error> {
         self.run_against_rpc_server(Some(global_args), None).await
     }
 
@@ -204,13 +217,13 @@ impl Cmd {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<String>;
+    type Result = Either<String, TxnResult<String>>;
 
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<String>, Error> {
+    ) -> Result<Either<String, TxnResult<String>>, Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -221,7 +234,11 @@ impl NetworkRunnable for Cmd {
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            let params =
+                build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            if let HelpMessage(s) = params {
+                return Ok(Left(s));
+            }
         }
         let client = network.rpc_client()?;
 
@@ -235,8 +252,13 @@ impl NetworkRunnable for Cmd {
         .await
         .map_err(Error::from)?;
 
-        let (function, spec, host_function_params, signers) =
+        let params =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+
+        let (function, spec, host_function_params, signers) = match params {
+            HostFunctionParameters::Params(x) => x,
+            HelpMessage(s) => return Ok(Left(s)),
+        };
 
         let should_send_tx = self
             .should_send_after_sim(host_function_params.clone(), client.clone())
@@ -263,13 +285,13 @@ impl NetworkRunnable for Cmd {
             account_id,
         )?);
         if self.fee.build_only {
-            return Ok(TxnResult::Txn(tx));
+            return Ok(Right(TxnResult::Txn(tx)));
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn));
+            return Ok(Right(TxnResult::Txn(txn)));
         }
         let sim_res = assembled.sim_response();
         if global_args.map_or(true, |a| !a.no_cache) {
@@ -304,7 +326,7 @@ impl NetworkRunnable for Cmd {
             }
         };
         crate::log::events(&events);
-        Ok(output_to_string(&spec, &return_value, &function)?)
+        Ok(Right(output_to_string(&spec, &return_value, &function)?))
     }
 }
 

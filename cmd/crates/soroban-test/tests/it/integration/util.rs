@@ -80,7 +80,8 @@ pub async fn deploy_contract(
     let res = sandbox
         .run_cmd_with(cmd, deployer.unwrap_or("test"))
         .await
-        .unwrap();
+        .unwrap()
+        .unwrap_right();
     match deploy {
         DeployKind::BuildOnly | DeployKind::SimOnly => match res.to_envelope() {
             commands::txn_result::TxnEnvelopeResult::TxnEnvelope(e) => {

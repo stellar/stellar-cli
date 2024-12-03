@@ -27,6 +27,7 @@ use std::{ffi::OsString, fmt::Display, path::Path};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
+use either::Either;
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
@@ -202,9 +203,10 @@ impl TestEnv {
         source: &str,
     ) -> Result<String, invoke::Error> {
         let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str, None);
-        self.run_cmd_with(cmd, source)
-            .await
-            .map(|r| r.into_result().unwrap())
+        self.run_cmd_with(cmd, source).await.map(|r| match r {
+            Either::Left(help) => help,
+            Either::Right(tx) => tx.into_result().unwrap(),
+        })
     }
 
     /// A convenience method for using the invoke command.
