@@ -184,7 +184,7 @@ impl NetworkRunnable for Cmd {
 
         let events = res.events()?;
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::diagnostic_events(&events, tracing::Level::INFO);
         }
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 

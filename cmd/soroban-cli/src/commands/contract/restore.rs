@@ -184,7 +184,7 @@ impl NetworkRunnable for Cmd {
         let events = res.events()?;
         tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::diagnostic_events(&events, tracing::Level::INFO);
         }
 
         // The transaction from core will succeed regardless of whether it actually found &
