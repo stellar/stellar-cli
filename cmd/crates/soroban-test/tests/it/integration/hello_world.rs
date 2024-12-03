@@ -4,7 +4,7 @@ use soroban_cli::{
         contract::{self, fetch},
         txn_result::TxnResult,
     },
-    config::{address::Address, locator, secret},
+    config::{address::UnresolvedMuxedAccount, locator, secret},
 };
 use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
