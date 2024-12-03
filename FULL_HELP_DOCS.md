@@ -1884,7 +1884,7 @@ Creates and funds a new account with the specified starting balance
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
-  Default value: `10000000`
+  Default value: `10_000_000`
 
 
 
@@ -1901,7 +1901,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
-* `--data-name <DATA_NAME>` — Line to change, either 4 or 12 alphanumeric characters, or "native" if not specified
+* `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
 
 
@@ -1921,7 +1921,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
 
 
 
