@@ -34,7 +34,7 @@ pub enum Cmd {
     Show(show::Cmd),
 
     /// Set the default identity that will be used on all commands.
-    /// This allows you to skip `--source-account` or setting a environment
+    /// This allows you to skip `--source-account` or setting an environment
     /// variable, while reusing this value in all commands that require it.
     #[command(name = "use")]
     Default(default::Cmd),
