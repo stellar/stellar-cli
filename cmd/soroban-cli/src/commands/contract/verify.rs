@@ -129,8 +129,12 @@ impl Cmd {
             " • Run:        {}",
             payload.predicate.run_details.metadata.invocation_id
         ));
-        print.globeln(format!("View the workflow at {workflow_repo}/blob/{git_commit}/{workflow_path}"));
-        print.globeln(format!("View the repo at {workflow_repo}/tree/{git_commit}"));
+        print.globeln(format!(
+            "View the workflow at {workflow_repo}/blob/{git_commit}/{workflow_path}"
+        ));
+        print.globeln(format!(
+            "View the repo at {workflow_repo}/tree/{git_commit}"
+        ));
 
         Ok(())
     }
