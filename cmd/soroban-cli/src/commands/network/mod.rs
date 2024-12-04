@@ -39,7 +39,7 @@ pub enum Cmd {
     Stop(crate::commands::container::StopCmd),
 
     /// Set the default network that will be used on all commands.
-    /// This allows you to skip `--network` or setting a environment variable,
+    /// This allows you to skip `--network` or setting an environment variable,
     /// while reusing this value in all commands that require it.
     #[command(name = "use")]
     Default(default::Cmd),
@@ -89,8 +89,8 @@ pub enum Error {
     FailedToParseJSON(String, serde_json::Error),
     #[error("Invalid URL {0}")]
     InvalidUrl(String),
-    #[error("Inproper response {0}")]
-    InproperResponse(String),
+    #[error("Improper response {0}")]
+    ImproperResponse(String),
 }
 
 impl Cmd {
