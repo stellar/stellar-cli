@@ -241,7 +241,7 @@ impl Signer {
                 let decorated_signature = match &self.kind {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-                    SignerKind::SecureStore(entry) => entry.sign_tx_env(tx_env)?,
+                    SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -297,11 +297,11 @@ pub struct SecureStoreEntry {
 }
 
 impl SecureStoreEntry {
-    pub fn sign_tx_env(&self, tx_env: &TransactionEnvelope) -> Result<DecoratedSignature, Error> {
+    pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let entry = StellarEntry::new(&self.name)?;
-        let signed_tx_env = entry.sign_data(tx_env.to_xdr_base64(Limits::none())?.as_bytes())?;
         let hint = SignatureHint(entry.get_public_key()?.0[28..].try_into()?);
-        let signature = Signature(signed_tx_env.clone().try_into()?);
+        let signed_tx_hash = entry.sign_data(&tx_hash)?;
+        let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
 }
