@@ -3,7 +3,7 @@
 Thanks for taking the time to improve stellar-cli!
 
 The following is a set of guidelines for contributions and may change over time.
-Feel free to suggest improvements to this document in a pull request.We want to make it as easy as possible to contribute changes that help the Stellar network grow and
+Feel free to suggest improvements to this document in a pull request. We want to make it as easy as possible to contribute changes that help the Stellar network grow and
 thrive. There are a few guidelines that we ask contributors to follow so that we can merge your
 changes quickly.
 
@@ -20,7 +20,7 @@ There are 2 ways to begin developing stellar-cli:
 
 ### Installing all required dependencies 
 
-You may want to install all required dependencies locally. This includes installing `rustup`, `make`, `libudev`, `jq` from your package manager. After all dependencies are installed, you can start with running `make install` to build `stellar-cli` and install it! 
+You may want to install all required dependencies locally. This includes installing `rustup`, `make`, `libudev`, `jq` from your package manager. After all dependencies are installed, you can start by running `make install` to build `stellar-cli` and install it! 
 
 ### Using `nix`
 
@@ -36,7 +36,7 @@ You can add extra configuration in your `local.sh` file (for example, if you wan
 #!/usr/bin/env bash
 export STELLAR_NETWORK=testnet
 ```
-Note that all of dependencies and configurations mentioned above is available only in your local development shell, not outside of it.
+Note that all of the dependencies and configurations mentioned above are available only in your local development shell, not outside of it.
 
 
 ### Minor Changes
