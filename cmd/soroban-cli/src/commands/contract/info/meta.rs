@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared;
 use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
+use crate::commands::global;
+use crate::print::Print;
 use clap::{command, Parser};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
@@ -32,8 +34,9 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<String, Error> {
-        let bytes = fetch_wasm(&self.common).await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<String, Error> {
+        let print = Print::new(global_args.quiet);
+        let (bytes, ..) = fetch_wasm(&self.common, &print).await?;
 
         let Some(bytes) = bytes else {
             return Err(NoSACMeta());
