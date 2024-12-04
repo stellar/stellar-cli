@@ -43,7 +43,7 @@ function bind() {
 }
 function bind_all() {
   bind --contract-id $(cat contract-id-custom-types.txt) test-custom-types
-  bind --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm test-constructor
+  bind --wasm-hash $(cat contract-wasm-hash-constructor.txt) test-constructor
 }
 
 fund_all
