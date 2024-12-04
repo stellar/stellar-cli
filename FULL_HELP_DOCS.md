@@ -343,7 +343,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
    If provided, wasm files can be found in the cargo target directory, and the specified directory.
 
-   If ommitted, wasm files are written only to the cargo target directory.
+   If omitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
 * `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
@@ -559,7 +559,7 @@ Outputs no data when no data is present in the contract.
 
 Output the metadata stored in a contract.
 
-A contract's meta is a series of key-value pairs that the contract developer can set with any values to provided metadata about the contract. The meta also contains some information like the version of Rust SDK, and Rust compiler version.
+A contract's meta is a series of key-value pairs that the contract developer can set with any values to provide metadata about the contract. The meta also contains some information like the version of Rust SDK, and Rust compiler version.
 
 The data outputted by this command is a stream of `SCMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
 
@@ -599,7 +599,7 @@ Outputs no data when no data is present in the contract.
 
 Output the env required metadata stored in a contract.
 
-Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatibility with the network in its current configuration.
+Env-meta is information stored in all contracts, in the `contractenvmetav0` WASM custom section, about the environment that the contract was built for. Env-meta allows the Soroban Env to know whether the contract is compatible with the network in its current configuration.
 
 The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. See the type definitions in [stellar-xdr](https://github.com/stellar/stellar-xdr). [See also XDR data format](https://developers.stellar.org/docs/learn/encyclopedia/data-format/xdr).
 
@@ -940,7 +940,7 @@ Create and manage identities including keys and addresses
 * `ls` — List identities
 * `rm` — Remove an identity
 * `show` — Given an identity return its private key
-* `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
+* `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting an environment variable, while reusing this value in all commands that require it
 
 
 
@@ -1084,7 +1084,7 @@ Given an identity return its private key
 
 ## `stellar keys use`
 
-Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
+Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting an environment variable, while reusing this value in all commands that require it
 
 **Usage:** `stellar keys use [OPTIONS] <NAME>`
 
@@ -1112,7 +1112,7 @@ Configure connection to networks
 * `ls` — List networks
 * `start` — ⚠️ Deprecated: use `stellar container start` instead
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
-* `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
+* `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting an environment variable, while reusing this value in all commands that require it
 * `container` — ⚠️ Deprecated: use `stellar container` instead
 
 
@@ -1224,7 +1224,7 @@ Stop a network started with `network start`. For example, if you ran `stellar ne
 
 ## `stellar network use`
 
-Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
+Set the default network that will be used on all commands. This allows you to skip `--network` or setting an environment variable, while reusing this value in all commands that require it
 
 **Usage:** `stellar network use [OPTIONS] <NAME>`
 
