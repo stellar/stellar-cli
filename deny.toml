@@ -75,7 +75,7 @@ notice = "warn"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-    #"RUSTSEC-0000-0000",
+    "RUSTSEC-2024-0388", # derivative is no longer maintained, but that has no known material impact on the this repo
 ]
 # Threshold for security vulnerabilities, any vulnerability with a CVSS score
 # lower than the range specified will be ignored. Note that ignored advisories
@@ -308,9 +308,7 @@ skip = [
     # testcontainers
     { crate = "idna", reason = "temp", version = "0.5.0" },
 
-
-    # { name = "hashbrown", version = "=0.13.2" },
-    # { name = "syn", version = "=1.0.109" },
+    { crate = "bitflags", reason = "too many", version = "=1.3.2" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate
 # detection. Unlike skip, it also includes the entire tree of transitive
