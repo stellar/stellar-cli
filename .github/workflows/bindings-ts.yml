@@ -8,7 +8,11 @@ on:
 jobs:
   test:
     name: test generated libraries
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest-16-cores, macos-latest, windows-latest-8-cores]
+    runs-on: ${{ matrix.os }}
     services:
       rpc:
         image: stellar/quickstart:testing
