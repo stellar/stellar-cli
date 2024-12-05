@@ -12,10 +12,11 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
+use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, xdr, Pwd};
 
 use super::{
     alias,
+    key::{self, Key},
     network::{self, Network},
     secret::Secret,
     Config,
@@ -83,6 +84,10 @@ pub enum Error {
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
+    #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
+    SecretKeyOnly(String),
+    #[error(transparent)]
+    Key(#[from] key::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -163,7 +168,19 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
-        KeyType::Identity.write(name, secret, &self.config_dir()?)
+        self.write_key(name, &Key::Secret(secret.clone()))
+    }
+
+    pub fn write_public_key(
+        &self,
+        name: &str,
+        public_key: &stellar_strkey::ed25519::PublicKey,
+    ) -> Result<(), Error> {
+        self.write_key(name, &public_key.into())
+    }
+
+    pub fn write_key(&self, name: &str, public_key: &Key) -> Result<(), Error> {
+        KeyType::Identity.write(name, public_key, &self.config_dir()?)
     }
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
@@ -228,18 +245,31 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        Ok(KeyType::Identity
-            .read_with_global(name, &self.local_config()?)
-            .or_else(|_| name.parse())?)
+    pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
+        KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
-    pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        if let Ok(signer) = key_or_name.parse::<Secret>() {
-            Ok(signer)
+    pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
+        if let Ok(key) = self.read_identity(key_or_name) {
+            Ok(key)
         } else {
-            self.read_identity(key_or_name)
+            Ok(key_or_name.parse()?)
         }
+    }
+
+    pub fn get_private_key(&self, key_or_name: &str) -> Result<Secret, Error> {
+        match self.read_key(key_or_name)? {
+            Key::Secret(s) => Ok(s),
+            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
+        }
+    }
+
+    pub fn get_public_key(
+        &self,
+        key_or_name: &str,
+        hd_path: Option<usize>,
+    ) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.read_key(key_or_name)?.public_key(hd_path)?)
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
