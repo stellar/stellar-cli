@@ -3,6 +3,7 @@ use soroban_cli::{
     utils::contract_id_hash_from_asset,
     xdr::{self, ReadXdr, SequenceNumber},
 };
+use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
@@ -22,6 +23,20 @@ fn test_address(sandbox: &TestEnv) -> String {
 
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "--no-fund", name])
+        .assert()
+        .success();
     sandbox
         .new_assert_cmd("keys")
         .args(["address", name])
@@ -613,4 +628,87 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
         ])
         .assert()
         .success();
+}
+
+#[tokio::test]
+async fn multi_create_accounts() {
+    let sandbox = &TestEnv::new();
+    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let nums: Vec<u8> = (1..=3).collect();
+    let mut accounts: Vec<(String, String)> = nums
+        .iter()
+        .map(|x| {
+            let name = format!("test_{x}");
+            let address = gen_account_no_fund(sandbox, &name);
+            (name, address)
+        })
+        .collect();
+    let (_, test_99_address) = accounts.pop().unwrap();
+
+    let input = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-account",
+            "--fee=1000000",
+            "--build-only",
+            "--destination",
+            &test_99_address,
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let final_tx = accounts.iter().fold(input, |tx_env, (_, address)| {
+        sandbox
+            .new_assert_cmd("tx")
+            .args(["op", "add", "create-account", "--destination", address])
+            .write_stdin(tx_env.as_bytes())
+            .assert()
+            .success()
+            .stdout_as_str()
+    });
+    let out = sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(
+            sandbox
+                .new_assert_cmd("tx")
+                .arg("sign")
+                .arg("--sign-with-key=test")
+                .write_stdin(final_tx.as_bytes())
+                .assert()
+                .success()
+                .stdout_as_str()
+                .as_bytes(),
+        )
+        .assert()
+        .success()
+        .stdout_as_str();
+    println!("{out}");
+    let keys = accounts
+        .iter()
+        .map(|(_, address)| {
+            xdr::LedgerKey::Account(xdr::LedgerKeyAccount {
+                account_id: address.parse().unwrap(),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let account = client.get_account(&test_99_address).await.unwrap();
+    println!("{account:#?}");
+    let entries = client.get_ledger_entries(&keys).await.unwrap();
+    println!("{entries:#?}");
+    entries
+        .entries
+        .unwrap()
+        .iter()
+        .for_each(|LedgerEntryResult { xdr, .. }| {
+            let xdr::LedgerEntryData::Account(value) =
+                xdr::LedgerEntryData::from_xdr_base64(xdr, xdr::Limits::none()).unwrap()
+            else {
+                panic!("Expected Account");
+            };
+            assert_eq!(value.balance, 10_000_000);
+        });
 }
