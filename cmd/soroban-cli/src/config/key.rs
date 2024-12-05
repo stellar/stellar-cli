@@ -134,17 +134,17 @@ impl Display for MuxedAccount {
 mod test {
     use super::*;
 
-    fn round_trip(key: Key) {
+    fn round_trip(key: &Key) {
         let serialized = toml::to_string(&key).unwrap();
         println!("{serialized}");
         let deserialized: Key = toml::from_str(&serialized).unwrap();
-        assert_eq!(key, deserialized);
+        assert_eq!(key, &deserialized);
     }
 
     #[test]
     fn public_key() {
         let key = Key::PublicKey(Public(stellar_strkey::ed25519::PublicKey([0; 32])));
-        round_trip(key);
+        round_trip(&key);
     }
     #[test]
     fn muxed_key() {
@@ -153,15 +153,20 @@ mod test {
                 .parse()
                 .unwrap();
         let key = Key::MuxedAccount(MuxedAccount(key));
-        round_trip(key);
+        round_trip(&key);
     }
     #[test]
     fn secret_key() {
-        let secret_key = stellar_strkey::ed25519::PrivateKey([0; 32]);
-        let secret = Secret::SecretKey {
-            secret_key: secret_key.to_string(),
-        };
+        let secret_key = stellar_strkey::ed25519::PrivateKey([0; 32]).to_string();
+        let secret = Secret::SecretKey { secret_key };
         let key = Key::Secret(secret);
-        round_trip(key);
+        round_trip(&key);
+    }
+    #[test]
+    fn secret_seed_phrase() {
+        let seed_phrase = "singer swing mango apple singer swing mango apple singer swing mango apple singer swing mango apple".to_string();
+        let secret = Secret::SeedPhrase { seed_phrase };
+        let key = Key::Secret(secret);
+        round_trip(&key);
     }
 }
