@@ -70,10 +70,12 @@ pub struct Args {
 impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
+        let tx = &cmd.tx;
         let mut set_flags = None;
         let mut set_flag = |flag: xdr::AccountFlags| {
             *set_flags.get_or_insert(0) |= flag as u32;
         };
+        let cmd = &cmd.op;
 
         if cmd.set_required {
             set_flag(xdr::AccountFlags::RequiredFlag);
@@ -118,7 +120,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
         let inflation_dest: Option<xdr::AccountId> = cmd
             .inflation_dest
             .as_ref()
-            .map(|dest| cmd.tx.reslove_account_id(dest))
+            .map(|dest| tx.reslove_account_id(dest))
             .transpose()?;
         Ok(xdr::OperationBody::SetOptions(xdr::SetOptionsOp {
             inflation_dest,

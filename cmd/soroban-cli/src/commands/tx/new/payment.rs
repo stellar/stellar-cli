@@ -28,9 +28,9 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: cmd.tx.reslove_muxed_address(&cmd.destination)?,
-            asset: cmd.asset.clone().into(),
-            amount: cmd.amount.into(),
+            destination: cmd.tx.reslove_muxed_address(&cmd.op.destination)?,
+            asset: cmd.op.asset.clone().into(),
+            amount: cmd.op.amount.into(),
         }))
     }
 }
