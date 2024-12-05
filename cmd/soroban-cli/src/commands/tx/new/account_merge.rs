@@ -7,7 +7,13 @@ use crate::{commands::tx, config::address, xdr};
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
-    /// Muxed Account to merge with, e.g. `GBX...`, 'MBX...' or alias
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+pub struct Args {
+    /// Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
     #[arg(long)]
     pub account: address::Address,
 }

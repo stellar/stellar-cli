@@ -2,12 +2,18 @@ use clap::{command, Parser};
 
 use crate::{commands::tx, config::address, tx::builder, xdr};
 
-#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
+pub struct Args {
     /// Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
     #[arg(long)]
     pub trustor: address::Address,
@@ -38,32 +44,32 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
         let mut set_flags = 0;
         let mut set_flag = |flag: xdr::TrustLineFlags| set_flags |= flag as u32;
 
-        if cmd.set_authorize {
+        if cmd.op.set_authorize {
             set_flag(xdr::TrustLineFlags::AuthorizedFlag);
         };
-        if cmd.set_authorize_to_maintain_liabilities {
+        if cmd.op.set_authorize_to_maintain_liabilities {
             set_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
         };
-        if cmd.set_trustline_clawback_enabled {
+        if cmd.op.set_trustline_clawback_enabled {
             set_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
         };
 
         let mut clear_flags = 0;
         let mut clear_flag = |flag: xdr::TrustLineFlags| clear_flags |= flag as u32;
-        if cmd.clear_authorize {
+        if cmd.op.clear_authorize {
             clear_flag(xdr::TrustLineFlags::AuthorizedFlag);
         };
-        if cmd.clear_authorize_to_maintain_liabilities {
+        if cmd.op.clear_authorize_to_maintain_liabilities {
             clear_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
         };
-        if cmd.clear_trustline_clawback_enabled {
+        if cmd.op.clear_trustline_clawback_enabled {
             clear_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
         };
 
         Ok(xdr::OperationBody::SetTrustLineFlags(
             xdr::SetTrustLineFlagsOp {
-                trustor: cmd.tx.reslove_account_id(&cmd.trustor)?,
-                asset: cmd.asset.clone().into(),
+                trustor: cmd.tx.reslove_account_id(&cmd.op.trustor)?,
+                asset: cmd.op.asset.clone().into(),
                 clear_flags,
                 set_flags,
             },

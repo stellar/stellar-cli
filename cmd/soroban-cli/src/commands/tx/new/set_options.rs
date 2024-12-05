@@ -3,11 +3,17 @@ use clap::{command, Parser};
 use crate::{commands::tx, config::address, xdr};
 
 #[derive(Parser, Debug, Clone)]
-#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
+pub struct Args {
     #[arg(long)]
     /// Account of the inflation destination.
     pub inflation_dest: Option<address::Address>,

@@ -7,6 +7,12 @@ use crate::{commands::tx, config::address, tx::builder, xdr};
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+pub struct Args {
     /// Account Id to create, e.g. `GBX...`
     #[arg(long)]
     pub destination: address::Address,
