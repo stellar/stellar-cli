@@ -51,7 +51,7 @@ jobs:
             --health-interval 10s \
             --health-timeout 5s \
             --health-retries 50
-      - run: docker wait quickstart
+      - run: docker inspect -f {{.State.Running}} quickstart
       - run: rustup update
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
