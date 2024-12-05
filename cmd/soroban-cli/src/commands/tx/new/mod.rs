@@ -67,7 +67,6 @@ impl Cmd {
             Cmd::Payment(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(op, global_args).await,
-
         }?;
         Ok(())
     }
