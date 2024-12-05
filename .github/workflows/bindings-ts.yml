@@ -42,7 +42,8 @@ jobs:
         if: runner.os == 'macos'
         run: |
           brew install docker
-#          colima start
+          brew install colima
+          colima start
       - name: Run quickstart
         run: |
           docker run -d --name quickstart stellar/quickstart:testing \
@@ -51,7 +52,7 @@ jobs:
             --health-interval 10s \
             --health-timeout 5s \
             --health-retries 50
-      - run: docker inspect -f {{.State.Running}} quickstart
+      - run: docker inspect -f {{.State.Health.Status}} quickstart
       - run: rustup update
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
