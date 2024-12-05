@@ -11,7 +11,6 @@ use crate::{
     xdr::{self, Limits, WriteXdr},
 };
 
-
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
@@ -123,7 +122,6 @@ impl Args {
             .resolve_muxed_account(&self.config.locator, self.config.hd_path)?
             .account_id())
     }
-
 
     pub fn add_op(
         &self,

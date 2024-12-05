@@ -18,23 +18,24 @@ pub enum Error {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
 pub enum Key {
+    #[serde(rename = "public_key")]
+    PublicKey(Public),
+    #[serde(rename = "muxed_account")]
+    MuxedAccount(MuxedAccount),
+    #[serde(untagged)]
     Secret(Secret),
-    PublicKey { public_key: Public },
-    MuxedAccount { muxed_account: MuxedAccount },
 }
 
 impl Key {
     pub fn public_key(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
         let bytes = match self {
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
-            Key::PublicKey {
-                public_key: Public(key),
-            } => key.0,
-            Key::MuxedAccount {
-                muxed_account: MuxedAccount(stellar_strkey::ed25519::MuxedAccount { ed25519, id }),
-            } => {
+            Key::PublicKey(Public(key)) => key.0,
+            Key::MuxedAccount(MuxedAccount(stellar_strkey::ed25519::MuxedAccount {
+                ed25519,
+                id,
+            })) => {
                 return Ok(xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 {
                     ed25519: xdr::Uint256(*ed25519),
                     id: *id,
@@ -63,10 +64,10 @@ impl FromStr for Key {
             return Ok(Key::Secret(secret));
         }
         if let Ok(public_key) = s.parse() {
-            return Ok(Key::PublicKey { public_key });
+            return Ok(Key::PublicKey(public_key));
         }
         if let Ok(muxed_account) = s.parse() {
-            return Ok(Key::MuxedAccount { muxed_account });
+            return Ok(Key::MuxedAccount(muxed_account));
         }
         Err(Error::Parse)
     }
@@ -74,9 +75,7 @@ impl FromStr for Key {
 
 impl From<stellar_strkey::ed25519::PublicKey> for Key {
     fn from(value: stellar_strkey::ed25519::PublicKey) -> Self {
-        Key::PublicKey {
-            public_key: Public(value),
-        }
+        Key::PublicKey(Public(value))
     }
 }
 
@@ -135,14 +134,34 @@ impl Display for MuxedAccount {
 mod test {
     use super::*;
 
-    #[test]
-    fn public_key() {
-        let key = Key::PublicKey {
-            public_key: Public(stellar_strkey::ed25519::PublicKey([0; 32])),
-        };
+    fn round_trip(key: Key) {
         let serialized = toml::to_string(&key).unwrap();
         println!("{serialized}");
         let deserialized: Key = toml::from_str(&serialized).unwrap();
         assert_eq!(key, deserialized);
+    }
+
+    #[test]
+    fn public_key() {
+        let key = Key::PublicKey(Public(stellar_strkey::ed25519::PublicKey([0; 32])));
+        round_trip(key);
+    }
+    #[test]
+    fn muxed_key() {
+        let key: stellar_strkey::ed25519::MuxedAccount =
+            "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU"
+                .parse()
+                .unwrap();
+        let key = Key::MuxedAccount(MuxedAccount(key));
+        round_trip(key);
+    }
+    #[test]
+    fn secret_key() {
+        let secret_key = stellar_strkey::ed25519::PrivateKey([0; 32]);
+        let secret = Secret::SecretKey {
+            secret_key: secret_key.to_string(),
+        };
+        let key = Key::Secret(secret);
+        round_trip(key);
     }
 }
