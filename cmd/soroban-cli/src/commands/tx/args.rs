@@ -11,6 +11,7 @@ use crate::{
     xdr::{self, Limits, WriteXdr},
 };
 
+
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
@@ -38,6 +39,8 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     Address(#[from] address::Error),
+    #[error(transparent)]
+    TxXdr(#[from] super::xdr::Error),
 }
 
 impl Args {
@@ -119,5 +122,22 @@ impl Args {
         Ok(address
             .resolve_muxed_account(&self.config.locator, self.config.hd_path)?
             .account_id())
+    }
+
+
+    pub fn add_op(
+        &self,
+        op_body: impl Into<xdr::OperationBody>,
+        tx_env: xdr::TransactionEnvelope,
+        op_source: Option<&address::Address>,
+    ) -> Result<xdr::TransactionEnvelope, Error> {
+        let source_account = op_source
+            .map(|a| self.reslove_muxed_address(a))
+            .transpose()?;
+        let op = xdr::Operation {
+            source_account,
+            body: op_body.into(),
+        };
+        Ok(super::xdr::add_op(tx_env, op)?)
     }
 }

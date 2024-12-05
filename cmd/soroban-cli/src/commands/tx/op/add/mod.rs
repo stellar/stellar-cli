@@ -1,7 +1,7 @@
 use super::super::{global, help, xdr::tx_envelope_from_stdin};
 use crate::xdr::{OperationBody, WriteXdr};
 
-pub(crate) use super::super::{new, xdr};
+pub(crate) use super::super::new;
 
 mod account_merge;
 mod args;
@@ -37,8 +37,6 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Args(#[from] args::Error),
-    #[error(transparent)]
     TxXdr(#[from] super::super::xdr::Error),
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
@@ -69,14 +67,14 @@ impl Cmd {
         let tx_env = tx_envelope_from_stdin()?;
         let op = OperationBody::try_from(self)?;
         let res = match self {
-            Cmd::AccountMerge(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::BumpSequence(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::ChangeTrust(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::CreateAccount(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::ManageData(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::Payment(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::SetOptions(cmd) => cmd.args.add_op(op, tx_env),
-            Cmd::SetTrustlineFlags(cmd) => cmd.args.add_op(op, tx_env),
+            Cmd::AccountMerge(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::BumpSequence(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::ChangeTrust(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::CreateAccount(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::ManageData(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::Payment(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::SetOptions(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
+            Cmd::SetTrustlineFlags(cmd) => cmd.args.add_op(op, tx_env, &cmd.op.tx),
         }?;
         println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
         Ok(())
