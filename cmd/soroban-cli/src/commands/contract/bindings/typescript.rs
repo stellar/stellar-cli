@@ -17,22 +17,22 @@ use crate::{
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Path to optional wasm binary
+    /// Path to wasm file on local filesystem. You must either include this OR `--contract-id`.
     #[arg(long)]
     pub wasm: Option<std::path::PathBuf>,
+    /// A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`.
+    #[arg(long, visible_alias = "id")]
+    pub contract_id: Option<String>,
     /// Where to place generated project
     #[arg(long)]
     pub output_dir: PathBuf,
     /// Whether to overwrite output directory if it already exists
     #[arg(long)]
     pub overwrite: bool,
-    /// The contract ID/address on the network
-    #[arg(long, visible_alias = "id")]
-    pub contract_id: String,
-    #[command(flatten)]
-    pub locator: locator::Args,
     #[command(flatten)]
     pub network: network::Args,
+    #[command(flatten)]
+    pub locator: locator::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -50,6 +50,9 @@ pub enum Error {
 
     #[error("--output-dir filepath not representable as utf-8: {0:?}")]
     NotUtf8(OsString),
+
+    #[error("must include either --wasm or --contract-id")]
+    MissingWasmOrContractId,
 
     #[error(transparent)]
     Network(#[from] network::Error),
@@ -84,34 +87,46 @@ impl NetworkRunnable for Cmd {
     ) -> Result<(), Error> {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
 
-        let network = self.network.get(&self.locator).ok().unwrap_or_else(|| {
-            network::DEFAULTS
-                .get("testnet")
-                .expect("no network specified and testnet network not found")
-                .into()
-        });
-
-        let contract_id = self
-            .locator
-            .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
-            .0;
-        let contract_address = ScAddress::Contract(Hash(contract_id));
-
-        let spec = if let Some(wasm) = &self.wasm {
+        let (spec, contract_address, rpc_url, network_passphrase) = if let Some(wasm) = &self.wasm {
             print.infoln("Loading contract spec from file...");
             let wasm: wasm::Args = wasm.into();
-            wasm.parse()?.spec
+            (wasm.parse()?.spec, None, None, None)
         } else {
+            let contract_id = self
+                .contract_id
+                .as_ref()
+                .ok_or(Error::MissingWasmOrContractId)?;
+
+            let network = self.network.get(&self.locator).ok().unwrap_or_else(|| {
+                network::DEFAULTS
+                    .get("testnet")
+                    .expect("no network specified and testnet network not found")
+                    .into()
+            });
+            print.infoln(format!("Network: {}", network.network_passphrase));
+
+            let contract_id = self
+                .locator
+                .resolve_contract_id(contract_id, &network.network_passphrase)?
+                .0;
+
+            let contract_address = ScAddress::Contract(Hash(contract_id)).to_string();
             print.globeln(format!("Downloading contract spec: {contract_address}"));
-            get_remote_contract_spec(
-                &contract_id,
-                &self.locator,
-                &self.network,
-                global_args,
-                config,
+
+            (
+                get_remote_contract_spec(
+                    &contract_id,
+                    &self.locator,
+                    &self.network,
+                    global_args,
+                    config,
+                )
+                .await
+                .map_err(Error::from)?,
+                Some(contract_address),
+                Some(network.rpc_url),
+                Some(network.network_passphrase),
             )
-            .await
-            .map_err(Error::from)?
         };
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
@@ -125,7 +140,6 @@ impl NetworkRunnable for Cmd {
         }
         std::fs::create_dir_all(&self.output_dir)?;
         let p: Project = self.output_dir.clone().try_into()?;
-        print.infoln(format!("Network: {}", network.network_passphrase));
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
@@ -133,12 +147,14 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
-        print.infoln(format!("Embedding contract address: {contract_address}"));
+        if let Some(contract_address) = contract_address.clone() {
+            print.infoln(format!("Embedding contract address: {contract_address}"));
+        }
         p.init(
             contract_name,
-            &contract_address.to_string(),
-            &network.rpc_url,
-            &network.network_passphrase,
+            contract_address.as_deref(),
+            rpc_url.as_deref(),
+            network_passphrase.as_deref(),
             &spec,
         )?;
         print.checkln("Generated!");
