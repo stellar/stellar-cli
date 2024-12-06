@@ -958,6 +958,8 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 * `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
 * `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
+* `--secure-store` — Add using secure store entry
+* `--entry-name <ENTRY_NAME>` — Name of the secure store entry
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
