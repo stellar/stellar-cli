@@ -6,10 +6,14 @@ use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
 use crate::{
-    commands::contract::info::{
-        env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta},
-        shared::{self, fetch_wasm, MetasInfoOutput},
+    commands::{
+        contract::info::{
+            env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta},
+            shared::{self, fetch_wasm, MetasInfoOutput},
+        },
+        global,
     },
+    print::Print,
     xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion},
 };
 
@@ -37,8 +41,9 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<String, Error> {
-        let bytes = fetch_wasm(&self.common).await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<String, Error> {
+        let print = Print::new(global_args.quiet);
+        let (bytes, ..) = fetch_wasm(&self.common, &print).await?;
 
         let Some(bytes) = bytes else {
             return Err(NoSACEnvMeta());
