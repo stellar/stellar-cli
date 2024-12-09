@@ -1,14 +1,13 @@
-use stellar_ledger::{Blob, Error};
+use stellar_ledger::Blob;
 
 use soroban_test::{AssertExt, TestEnv};
-use std::{sync::Arc, time::Duration};
-use tokio::time::sleep;
+use std::sync::Arc;
 
 use stellar_ledger::emulator_test_support::*;
 
 use test_case::test_case;
 
-use crate::integration::util::{deploy_contract, DeployKind, HELLO_WORLD};
+use crate::integration::util::{self, deploy_contract, DeployKind, HELLO_WORLD};
 
 #[test_case("nanos", 0; "when the device is NanoS")]
 #[test_case("nanox", 1; "when the device is NanoX")]
@@ -23,21 +22,32 @@ async fn test_get_public_key(ledger_device_model: &str, hd_path: u32) {
     let ledger = ledger(host_port).await;
 
     let key = ledger.get_public_key(&hd_path.into()).await.unwrap();
-    let account = &key.to_string();
-    sandbox.fund_account(account);
-    sleep(Duration::from_secs(hd_path as u64)).await;
+    let contract = match hd_path {
+        0 => HELLO_WORLD,
+        1 => util::CUSTOM_ACCOUNT,
+        2 => util::CUSTOM_TYPES,
+        _ => panic!("Invalid hd_path"),
+    };
+    let account = key.to_string();
+    sandbox.fund_account(&account);
+
     sandbox
         .new_assert_cmd("contract")
         .arg("install")
-        .args(["--wasm", HELLO_WORLD.path().as_os_str().to_str().unwrap()])
+        .args(["--wasm", contract.path().as_os_str().to_str().unwrap()])
         .assert()
         .success();
 
-    let tx_simulated =
-        deploy_contract(&sandbox, HELLO_WORLD, DeployKind::SimOnly, Some(account)).await;
-    dbg!("{tx_simulated}");
-    let key = ledger.get_public_key(&hd_path.into()).await.unwrap();
-    println!("{key}");
+    let tx_simulated = deploy_contract(
+        &sandbox,
+        contract,
+        crate::integration::util::DeployOptions {
+            kind: DeployKind::SimOnly,
+            deployer: Some(account),
+            ..Default::default()
+        },
+    )
+    .await;
     let sign = tokio::task::spawn_blocking({
         let sandbox = Arc::clone(&sandbox);
 
@@ -63,8 +73,6 @@ async fn test_get_public_key(ledger_device_model: &str, hd_path: u32) {
 
     let response = sign.await.unwrap();
     approve.await.unwrap();
-
-    dbg!("{tx_signed:#?}");
 
     sandbox
         .clone()
