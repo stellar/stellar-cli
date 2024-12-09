@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::{Error, LedgerSigner};
 use std::net::TcpListener;
 
-use super::{http_transport::EmulatorHttpTransport, speculos::Speculos};
+use super::{http_transport::Emulator, speculos::Speculos};
 
 use std::{collections::HashMap, time::Duration};
 
@@ -23,7 +23,7 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-pub async fn ledger(host_port: u16) -> LedgerSigner<EmulatorHttpTransport> {
+pub async fn ledger(host_port: u16) -> LedgerSigner<Emulator> {
     LedgerSigner::new(get_http_transport("127.0.0.1", host_port).await.unwrap())
 }
 
@@ -109,7 +109,7 @@ pub fn get_available_ports(n: usize) -> (u16, u16) {
     (ports[0], ports[1])
 }
 
-pub async fn get_http_transport(host: &str, port: u16) -> Result<EmulatorHttpTransport, Error> {
+pub async fn get_http_transport(host: &str, port: u16) -> Result<Emulator, Error> {
     let max_retries = 5;
     let mut retries = 0;
     let mut wait_time = Duration::from_secs(1);
@@ -117,7 +117,7 @@ pub async fn get_http_transport(host: &str, port: u16) -> Result<EmulatorHttpTra
     // retry with exponential backoff
     loop {
         match reqwest::get(format!("http://{host}:{port}")).await {
-            Ok(_) => return Ok(EmulatorHttpTransport::new(host, port)),
+            Ok(_) => return Ok(Emulator::new(host, port)),
             Err(e) => {
                 retries += 1;
                 if retries >= max_retries {

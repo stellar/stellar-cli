@@ -212,7 +212,7 @@ pub enum SignerKind {
     #[cfg(not(feature = "emulator-tests"))]
     Ledger(Ledger<TransportNativeHID>),
     #[cfg(feature = "emulator-tests")]
-    Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::EmulatorHttpTransport>),
+    Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
     Lab,
 }
 
@@ -315,10 +315,7 @@ pub async fn ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
 #[cfg(feature = "emulator-tests")]
 pub async fn ledger(
     hd_path: u32,
-) -> Result<
-    Ledger<stellar_ledger::emulator_test_support::http_transport::EmulatorHttpTransport>,
-    Error,
-> {
+) -> Result<Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>, Error> {
     use stellar_ledger::emulator_test_support::ledger as emulator_ledger;
     // port from SPECULOS_PORT ENV var
     let host_port: u16 = std::env::var("SPECULOS_PORT")

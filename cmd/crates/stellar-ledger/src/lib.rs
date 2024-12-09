@@ -85,6 +85,8 @@ pub struct LedgerSigner<T: Exchange> {
 unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
 unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 
+/// # Errors
+/// Could fail to make the connection to the Ledger device
 pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
     Ok(LedgerSigner {
         transport: get_transport()?,
@@ -312,7 +314,7 @@ mod test {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use super::emulator_test_support::http_transport::EmulatorHttpTransport;
+    use super::emulator_test_support::http_transport::Emulator;
     use crate::Blob;
 
     use std::vec;
@@ -325,8 +327,8 @@ mod test {
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 
-    fn ledger(server: &MockServer) -> LedgerSigner<EmulatorHttpTransport> {
-        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
+    fn ledger(server: &MockServer) -> LedgerSigner<Emulator> {
+        let transport = Emulator::new(&server.host(), server.port());
         LedgerSigner::new(transport)
     }
 
