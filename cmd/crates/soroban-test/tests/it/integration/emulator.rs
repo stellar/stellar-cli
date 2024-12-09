@@ -5,16 +5,17 @@ use std::sync::Arc;
 
 use stellar_ledger::emulator_test_support::*;
 
-use test_case::test_case;
-
 use crate::integration::util::{self, deploy_contract, DeployKind, HELLO_WORLD};
 
-#[test_case("nanos", 0; "when the device is NanoS")]
-#[test_case("nanox", 1; "when the device is NanoX")]
-#[test_case("nanosp",2; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_get_public_key(ledger_device_model: &str, hd_path: u32) {
+async fn test_ledger_signer() {
     let sandbox = Arc::new(TestEnv::new());
+    test_signer(&sandbox, "nanos", 0).await;
+    test_signer(&sandbox, "nanox", 1).await;
+    test_signer(&sandbox, "nanosp", 2).await;
+}
+
+async fn test_signer(sandbox: &Arc<TestEnv>, ledger_device_model: &str, hd_path: u32) {
     let container = TestEnv::speculos_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
     let ui_host_port = container.get_host_port_ipv4(5000).await.unwrap();
