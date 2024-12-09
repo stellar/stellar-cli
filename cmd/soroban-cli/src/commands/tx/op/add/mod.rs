@@ -47,17 +47,17 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, _: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
         let tx_env = tx_envelope_from_stdin()?;
         let res = match self {
-            Cmd::AccountMerge(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::BumpSequence(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::ChangeTrust(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::CreateAccount(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::ManageData(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::Payment(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::SetOptions(cmd) => cmd.args.add_op(&cmd.op, tx_env),
-            Cmd::SetTrustlineFlags(cmd) => cmd.args.add_op(&cmd.op, tx_env),
+            Cmd::AccountMerge(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::BumpSequence(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::ChangeTrust(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::CreateAccount(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::ManageData(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::Payment(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::SetOptions(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
+            Cmd::SetTrustlineFlags(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
         }?;
         println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
         Ok(())

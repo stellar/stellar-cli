@@ -27,16 +27,20 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn add_op(
+    pub async fn add_op(
         &self,
         op_body: impl Into<xdr::OperationBody>,
         tx_env: xdr::TransactionEnvelope,
     ) -> Result<xdr::TransactionEnvelope, Error> {
-        let source_account = self
-            .operation_source_account
-            .as_ref()
-            .map(|a| a.resolve_muxed_account(&self.locator, None))
-            .transpose()?;
+        let source_account = if let Some(source_account) = self.operation_source_account.as_ref() {
+            Some(
+                source_account
+                    .resolve_muxed_account(&self.locator, None)
+                    .await?,
+            )
+        } else {
+            None
+        };
         let op = xdr::Operation {
             source_account,
             body: op_body.into(),
