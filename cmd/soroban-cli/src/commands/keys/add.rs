@@ -1,11 +1,11 @@
 use clap::command;
 
-use crate::config::{locator, secret};
+use crate::config::{key, locator, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Secret(#[from] secret::Error),
+    Key(#[from] key::Error),
 
     #[error(transparent)]
     Config(#[from] locator::Error),
@@ -28,6 +28,6 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         Ok(self
             .config_locator
-            .write_identity(&self.name, &self.secrets.read_secret()?)?)
+            .write_key(&self.name, &self.secrets.read_key()?)?)
     }
 }
