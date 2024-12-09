@@ -290,20 +290,20 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to optional wasm binary
+* `--wasm <WASM>` — Path to wasm file on local filesystem. You must either include this OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`
 * `--output-dir <OUTPUT_DIR>` — Where to place generated project
 * `--overwrite` — Whether to overwrite output directory if it already exists
-* `--contract-id <CONTRACT_ID>` — The contract ID/address on the network
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
