@@ -9,11 +9,13 @@ mod operations;
 #[tokio::test]
 async fn simulate() {
     let sandbox = &TestEnv::new();
+    let salt = Some(String::from("A"));
     let xdr_base64_build_only = deploy_contract(
         sandbox,
         HELLO_WORLD,
         DeployOptions {
             kind: DeployKind::BuildOnly,
+            salt: salt.clone(),
             ..Default::default()
         },
     )
@@ -23,6 +25,7 @@ async fn simulate() {
         HELLO_WORLD,
         DeployOptions {
             kind: DeployKind::SimOnly,
+            salt: salt.clone(),
             ..Default::default()
         },
     )
