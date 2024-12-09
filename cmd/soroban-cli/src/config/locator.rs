@@ -262,18 +262,20 @@ impl Args {
     }
 
     pub fn remove_identity(&self, name: &str, global_args: &global::Args) -> Result<(), Error> {
-        let printer = Print::new(global_args.quiet);
+        let print = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
         if let Secret::SecureStore { entry_name } = identity {
             let entry = StellarEntry::new(&entry_name)?;
             match entry.delete_password() {
                 Ok(()) => {}
-                Err(e) if e.to_string() == keyring::Error::NoEntry.to_string() => {
-                    printer.infoln("This key was already removed from the secure store. Removing the cli config file.");
-                }
-                Err(e) => {
-                    return Err(Error::Keyring(e));
-                }
+                Err(e) => match e {
+                    signer::keyring::Error::Keyring(keyring::Error::NoEntry) => {
+                        print.infoln("This key was already removed from the secure store. Removing the cli config file.");
+                    }
+                    _ => {
+                        return Err(Error::Keyring(e));
+                    }
+                },
             }
         }
 
