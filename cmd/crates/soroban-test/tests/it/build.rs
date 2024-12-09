@@ -2,8 +2,8 @@ use predicates::prelude::predicate;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
-use std::io::Cursor;
 use std::env;
+use std::io::Cursor;
 
 #[test]
 fn build_all() {
@@ -186,7 +186,7 @@ fn with_flags(expected: &str) -> String {
             .split("\n")
             .map(|x| {
                 format!(
-                    "CARGO_BUILD_RUSTFLAGS='--remap-path-prefix {}=' {}",
+                    "CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={}= {}",
                     registry_prefix, x
                 )
             })
