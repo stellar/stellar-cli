@@ -20,10 +20,6 @@ path = "src/bin/stellar.rs"
 name = "soroban"
 path = "src/bin/soroban.rs"
 
-[[bin]]
-name = "secret"
-path = "src/bin/secret.rs"
-
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
 bin-dir = "{ bin }{ binary-ext }"
