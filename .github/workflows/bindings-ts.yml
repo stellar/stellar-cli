@@ -33,8 +33,8 @@ jobs:
       - name: Configure WSL
         if: runner.os ==  'windows'
         run: |
-          wsl --update
-          wsl --install -d Ubuntu-24.04
+          wsl --update --web-download
+          wsl --install --web-download -d Ubuntu-24.04
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true stellar/quickstart:testing
