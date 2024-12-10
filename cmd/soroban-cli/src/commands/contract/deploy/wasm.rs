@@ -6,8 +6,6 @@ use crate::xdr::{
     VecM, WriteXdr,
 };
 use clap::{arg, command, Parser};
-use itertools::Either;
-use itertools::Either::{Left, Right};
 use rand::Rng;
 use regex::Regex;
 use soroban_spec_tools::contract as contract_spec;
@@ -16,7 +14,8 @@ use std::ffi::OsString;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
-use crate::commands::contract::arg_parsing::HostFunctionParameters;
+use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -129,12 +128,9 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(Some(global_args), None).await?;
+        let res = self.run_against_rpc_server(Some(global_args), None).await;
         match res {
-            Left(help) => {
-                println!("{help}");
-            }
-            Right(res) => match res.to_envelope() {
+            Ok(res) => match res.to_envelope() {
                 TxnEnvelopeResult::TxnEnvelope(tx) => {
                     println!("{}", tx.to_xdr_base64(Limits::none())?);
                 }
@@ -152,6 +148,10 @@ impl Cmd {
                     println!("{contract}");
                 }
             },
+            Err(ArgParse(HelpMessage(help))) => {
+                println!("{help}");
+            }
+            Err(e) => return Err(e),
         }
 
         Ok(())
@@ -173,14 +173,14 @@ fn alias_validator(alias: &str) -> Result<String, Error> {
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = Either<String, TxnResult<stellar_strkey::Contract>>;
+    type Result = TxnResult<stellar_strkey::Contract>;
 
     #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<Either<String, TxnResult<stellar_strkey::Contract>>, Error> {
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         let print = Print::new(global_args.map_or(false, |a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
@@ -260,12 +260,7 @@ impl NetworkRunnable for Cmd {
                     &entries,
                     config,
                 )?;
-                match params {
-                    HostFunctionParameters::Params(p) => Some(p.2),
-                    HostFunctionParameters::HelpMessage(h) => {
-                        return Ok(Left(h));
-                    }
-                }
+                Some(params.2)
             }
         } else {
             None
@@ -285,7 +280,7 @@ impl NetworkRunnable for Cmd {
 
         if self.fee.build_only {
             print.checkln("Transaction built!");
-            return Ok(Right(TxnResult::Txn(txn)));
+            return Ok(TxnResult::Txn(txn));
         }
 
         print.infoln("Simulating deploy transaction…");
@@ -295,7 +290,7 @@ impl NetworkRunnable for Cmd {
 
         if self.fee.sim_only {
             print.checkln("Done!");
-            return Ok(Right(TxnResult::Txn(txn)));
+            return Ok(TxnResult::Txn(txn));
         }
 
         print.globeln("Submitting deploy transaction…");
@@ -316,7 +311,7 @@ impl NetworkRunnable for Cmd {
 
         print.checkln("Deployed!");
 
-        Ok(Right(TxnResult::Res(contract_id)))
+        Ok(TxnResult::Res(contract_id))
     }
 }
 

@@ -1,6 +1,8 @@
+pub mod amount;
 pub mod asset;
 pub mod transaction;
 
+pub use amount::Amount;
 pub use asset::Asset;
 pub use transaction::TxExt;
 
