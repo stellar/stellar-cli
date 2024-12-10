@@ -4599,7 +4599,6 @@ dependencies = [
  "assert_cmd",
  "assert_fs",
  "ed25519-dalek",
- "either",
  "fs_extra",
  "hex",
  "predicates",

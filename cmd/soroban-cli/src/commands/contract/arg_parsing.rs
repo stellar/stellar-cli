@@ -1,3 +1,6 @@
+use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::txn_result::TxnResult;
+use crate::config::{self};
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ScAddress, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
     ScVec,
@@ -6,16 +9,12 @@ use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
 use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
+use soroban_spec_tools::Spec;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::path::PathBuf;
-
-use crate::commands::contract::arg_parsing::HostFunctionParameters::{HelpMessage, Params};
-use crate::commands::txn_result::TxnResult;
-use crate::config::{self};
-use soroban_spec_tools::Spec;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -43,12 +42,11 @@ pub enum Error {
     MissingArgument(String),
     #[error("")]
     MissingFileArg(PathBuf),
-}
-
-pub enum HostFunctionParameters {
-    Params((String, Spec, InvokeContractArgs, Vec<SigningKey>)),
+    #[error("")]
     HelpMessage(String),
 }
+
+pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
 
 pub fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
@@ -76,12 +74,12 @@ pub fn build_host_function_parameters(
         Err(e) => {
             // to not exit immediately (to be able to fetch help message in tests), check for an error
             if e.kind() == DisplayHelp {
-                return Ok(HelpMessage(e.to_string()));
+                return Err(HelpMessage(e.to_string()));
             }
             e.exit();
         }
     }) else {
-        return Ok(HelpMessage(format!("{long_help}")));
+        return Err(HelpMessage(format!("{long_help}")));
     };
 
     let func = spec.find_function(function)?;
@@ -158,7 +156,7 @@ pub fn build_host_function_parameters(
         args: final_args,
     };
 
-    Ok(Params((function.clone(), spec, invoke_args, signers)))
+    Ok((function.clone(), spec, invoke_args, signers))
 }
 
 fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
