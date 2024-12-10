@@ -1,4 +1,3 @@
-use either::Either;
 use soroban_cli::{
     commands::contract,
     config::{locator::KeyType, secret::Secret},
@@ -55,10 +54,7 @@ pub async fn invoke_custom(
         sandbox.cmd_with_config(&["--id", id, "--", func, arg], None);
     i.wasm = Some(wasm.to_path_buf());
     let s = sandbox.run_cmd_with(i, TEST_ACCOUNT).await;
-    s.map(|r| match r {
-        Either::Left(help) => help,
-        Either::Right(tx) => tx.into_result().unwrap(),
-    })
+    s.map(|tx| tx.into_result().unwrap())
 }
 
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";

@@ -1,4 +1,5 @@
 pub mod json;
+pub mod python;
 pub mod rust;
 pub mod typescript;
 
@@ -12,6 +13,9 @@ pub enum Cmd {
 
     /// Generate a TypeScript / JavaScript package
     Typescript(typescript::Cmd),
+
+    /// Generate Python bindings
+    Python(python::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -24,6 +28,9 @@ pub enum Error {
 
     #[error(transparent)]
     Typescript(#[from] typescript::Error),
+
+    #[error(transparent)]
+    Python(#[from] python::Error),
 }
 
 impl Cmd {
@@ -32,6 +39,7 @@ impl Cmd {
             Cmd::Json(json) => json.run()?,
             Cmd::Rust(rust) => rust.run()?,
             Cmd::Typescript(ts) => ts.run().await?,
+            Cmd::Python(python) => python.run()?,
         }
         Ok(())
     }
