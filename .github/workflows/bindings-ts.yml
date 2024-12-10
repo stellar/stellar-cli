@@ -30,13 +30,20 @@ jobs:
           brew install docker
           brew install colima
           colima start
+      - name: Configure WSL
+        if: runner.os ==  'windows'
+        run: |
+          wsl --update
+          wsl --install -d Ubuntu-24.04
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true stellar/quickstart:testing
+        shell: bash
       - run: |
           until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
               sleep 0.1;
           done;
+        shell: bash
       - run: rustup update
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
