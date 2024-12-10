@@ -6,8 +6,7 @@ pub enum Error {
     Cli(#[from] stellar_xdr::cli::decode::Error),
 }
 
-/// Command to simulate a transaction envelope via rpc
-/// e.g. `cat file.txt | soroban tx simulate`
+/// Decode a transaction envelope to JSON
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
