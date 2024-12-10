@@ -1,5 +1,3 @@
-use soroban_rpc::GetLatestLedgerResponse;
-
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -7,6 +5,7 @@ use soroban_cli::{
     },
     config::{locator, secret},
 };
+use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
 use crate::integration::util::extend_contract;
@@ -20,7 +19,7 @@ async fn invoke_view_with_non_existent_source_account() {
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let cmd = hello_world_cmd(&id, world);
-    let res = sandbox.run_cmd_with(cmd, "").await.unwrap().unwrap_right();
+    let res = sandbox.run_cmd_with(cmd, "").await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
 
@@ -167,7 +166,7 @@ fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
 
 async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
     let cmd = hello_world_cmd(id, "world");
-    let res = e.run_cmd_with(cmd, "test").await.unwrap().unwrap_right();
+    let res = e.run_cmd_with(cmd, "test").await.unwrap();
     assert_eq!(res, TxnResult::Res(r#"["Hello","world"]"#.to_string()));
 }
 
