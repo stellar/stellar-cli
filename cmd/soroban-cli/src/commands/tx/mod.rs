@@ -2,6 +2,7 @@ use super::global;
 
 pub mod args;
 pub mod decode;
+pub mod encode;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -10,7 +11,6 @@ pub mod send;
 pub mod sign;
 pub mod simulate;
 pub mod xdr;
-pub mod encode;
 
 pub use args::Args;
 
