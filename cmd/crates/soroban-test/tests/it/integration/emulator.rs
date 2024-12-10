@@ -8,10 +8,22 @@ use stellar_ledger::emulator_test_support::*;
 use crate::integration::util::{self, deploy_contract, DeployKind, HELLO_WORLD};
 
 #[tokio::test]
-async fn test_ledger_signer() {
+async fn nanos() {
     let sandbox = Arc::new(TestEnv::new());
     test_signer(&sandbox, "nanos", 0).await;
     test_signer(&sandbox, "nanox", 1).await;
+    test_signer(&sandbox, "nanosp", 2).await;
+}
+
+#[tokio::test]
+async fn nanox() {
+    let sandbox = Arc::new(TestEnv::new());
+    test_signer(&sandbox, "nanox", 1).await;
+}
+
+#[tokio::test]
+async fn nanosp() {
+    let sandbox = Arc::new(TestEnv::new());
     test_signer(&sandbox, "nanosp", 2).await;
 }
 
@@ -40,7 +52,7 @@ async fn test_signer(sandbox: &Arc<TestEnv>, ledger_device_model: &str, hd_path:
         .success();
 
     let tx_simulated = deploy_contract(
-        &sandbox,
+        sandbox,
         contract,
         crate::integration::util::DeployOptions {
             kind: DeployKind::SimOnly,
@@ -50,7 +62,7 @@ async fn test_signer(sandbox: &Arc<TestEnv>, ledger_device_model: &str, hd_path:
     )
     .await;
     let sign = tokio::task::spawn_blocking({
-        let sandbox = Arc::clone(&sandbox);
+        let sandbox = Arc::clone(sandbox);
 
         move || {
             sandbox

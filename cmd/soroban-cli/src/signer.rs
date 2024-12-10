@@ -8,7 +8,7 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-use stellar_ledger::{Blob as _, Exchange, LedgerSigner, TransportNativeHID};
+use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
@@ -210,7 +210,7 @@ pub struct Signer {
 pub enum SignerKind {
     Local(LocalKey),
     #[cfg(not(feature = "emulator-tests"))]
-    Ledger(Ledger<TransportNativeHID>),
+    Ledger(Ledger<stellar_ledger::TransportNativeHID>),
     #[cfg(feature = "emulator-tests")]
     Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
     Lab,
@@ -304,7 +304,7 @@ impl<T: Exchange> Ledger<T> {
 }
 
 #[cfg(not(feature = "emulator-tests"))]
-pub async fn ledger(hd_path: u32) -> Result<Ledger<TransportNativeHID>, Error> {
+pub async fn ledger(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
     let signer = stellar_ledger::native()?;
     Ok(Ledger {
         index: hd_path,

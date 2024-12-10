@@ -12,6 +12,8 @@ jobs:
     test:
         name: test RPC
         runs-on: ubuntu-22.04
+        env:
+            CI_TESTS: true
         services:
             rpc:
                 image: stellar/quickstart:testing
@@ -46,4 +48,6 @@ jobs:
                   sudo apt install -y libudev-dev
             - run: cargo build --features emulator-tests
             - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
-            - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator
+            - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanos
+            - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanox
+            - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanosp
