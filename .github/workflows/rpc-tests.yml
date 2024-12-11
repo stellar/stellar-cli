@@ -46,8 +46,46 @@ jobs:
             - name: install libudev-dev
               run: |
                   sudo apt install -y libudev-dev
-            - run: cargo build --features emulator-tests
+            - run: cargo build
             - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
+    test-ledger:
+        name: test RPC
+        runs-on: ubuntu-22.04
+        env:
+            CI_TESTS: true
+        services:
+            rpc:
+                image: stellar/quickstart:testing
+                ports:
+                    - 8000:8000
+                env:
+                    ENABLE_LOGS: true
+                    ENABLE_SOROBAN_DIAGNOSTIC_EVENTS: true
+                    NETWORK: local
+                    PROTOCOL_VERSION: 22
+                options: >-
+                    --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 50
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            - run: rustup update
+            - run: rustup target add wasm32-unknown-unknown
+            - run: make build-test-wasms
+            - name: install libudev-dev
+              run: |
+                  sudo apt install -y libudev-dev
+            - run: cargo build --features emulator-tests
             - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanos --exact
             - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanox --exact
             - run: SOROBAN_PORT=8000 cargo test --features it --features emulator-tests --package soroban-test --test it -- integration::emulator::nanosp --exact
