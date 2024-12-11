@@ -291,20 +291,20 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> --contract-id <CONTRACT_ID>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to optional wasm binary
+* `--wasm <WASM>` — Path to wasm file on local filesystem. You must either include this OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`
 * `--output-dir <OUTPUT_DIR>` — Where to place generated project
 * `--overwrite` — Whether to overwrite output directory if it already exists
-* `--contract-id <CONTRACT_ID>` — The contract ID/address on the network
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1476,30 +1476,12 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
-* `simulate` — Simulate a transaction envelope from stdin
 * `hash` — Calculate the hash of a transaction envelope from stdin
-* `sign` — Sign a transaction envelope appending the signature to the envelope
-* `send` — Send a transaction envelope to the network
 * `new` — Create a new transaction
-
-
-
-## `stellar tx simulate`
-
-Simulate a transaction envelope from stdin
-
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `operation` — Manipulate the operations in a transaction, including adding new operations
+* `send` — Send a transaction envelope to the network
+* `sign` — Sign a transaction envelope appending the signature to the envelope
+* `simulate` — Simulate a transaction envelope from stdin
 
 
 
@@ -1518,43 +1500,6 @@ Calculate the hash of a transaction envelope from stdin
 
 
 
-## `stellar tx sign`
-
-Sign a transaction envelope appending the signature to the envelope
-
-**Usage:** `stellar tx sign [OPTIONS]`
-
-###### **Options:**
-
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
-* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-* `--sign-with-lab` — Sign with https://lab.stellar.org
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `stellar tx send`
-
-Send a transaction envelope to the network
-
-**Usage:** `stellar tx send [OPTIONS]`
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `--network <NETWORK>` — Name of network to use from config
-* `--global` — Use global config
-* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
 ## `stellar tx new`
 
 Create a new transaction
@@ -1565,12 +1510,26 @@ Create a new transaction
 
 * `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
 * `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-* `change-trust` — Creates, updates, or deletes a trustline Learn more about trustlines https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+* `change-trust` — Creates, updates, or deletes a trustline
+Learn more about trustlines
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
 * `create-account` — Creates and funds a new account with the specified starting balance
-* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
+Learn more about entries and subentries:
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
 * `payment` — Sends an amount in a specific asset to a destination account
-* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags Learn more about the home domain: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md Learn more about signers operations and key weight: https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
-* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID. Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags
+* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+Learn more about the home domain:
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+Learn more about signers operations and key weight:
+https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
+The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
+If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
 
 
 
@@ -1630,7 +1589,9 @@ Bumps forward the sequence number of the source account to the given sequence nu
 
 ## `stellar tx new change-trust`
 
-Creates, updates, or deletes a trustline Learn more about trustlines https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+Creates, updates, or deletes a trustline
+Learn more about trustlines
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
 
 **Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
 
@@ -1690,7 +1651,9 @@ Creates and funds a new account with the specified starting balance
 
 ## `stellar tx new manage-data`
 
-Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account Learn more about entries and subentries: https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
+Learn more about entries and subentries:
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
 
 **Usage:** `stellar tx new manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
 
@@ -1749,7 +1712,13 @@ Sends an amount in a specific asset to a destination account
 
 ## `stellar tx new set-options`
 
-Set option for an account such as flags, inflation destination, signers, home domain, and master key weight Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags Learn more about the home domain: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md Learn more about signers operations and key weight: https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+Learn more about the home domain:
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+Learn more about signers operations and key weight:
+https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
 
 **Usage:** `stellar tx new set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
@@ -1791,7 +1760,11 @@ Set option for an account such as flags, inflation destination, signers, home do
 
 ## `stellar tx new set-trustline-flags`
 
-Allows issuing account to configure authorization and trustline flags to an asset The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type. If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID. Learn more about flags: https://developers.stellar.org/docs/learn/glossary#flags
+Allows issuing account to configure authorization and trustline flags to an asset
+The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
+If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
 
 **Usage:** `stellar tx new set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
 
@@ -1820,6 +1793,274 @@ Allows issuing account to configure authorization and trustline flags to an asse
 * `--clear-authorize`
 * `--clear-authorize-to-maintain-liabilities`
 * `--clear-trustline-clawback-enabled`
+
+
+
+## `stellar tx operation`
+
+Manipulate the operations in a transaction, including adding new operations
+
+**Usage:** `stellar tx operation <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — Add Operation to a transaction
+
+
+
+## `stellar tx operation add`
+
+Add Operation to a transaction
+
+**Usage:** `stellar tx operation add <COMMAND>`
+
+###### **Subcommands:**
+
+* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
+* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+* `change-trust` — Creates, updates, or deletes a trustline
+Learn more about trustlines
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+* `create-account` — Creates and funds a new account with the specified starting balance
+* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
+Learn more about entries and subentries:
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+* `payment` — Sends an amount in a specific asset to a destination account
+* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+Learn more about the home domain:
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+Learn more about signers operations and key weight:
+https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
+The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
+If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+
+
+
+## `stellar tx operation add account-merge`
+
+Transfers the XLM balance of an account to another account and removes the source account from the ledger
+
+**Usage:** `stellar tx operation add account-merge [OPTIONS] --account <ACCOUNT>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--account <ACCOUNT>` — Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
+
+
+
+## `stellar tx operation add bump-sequence`
+
+Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+
+**Usage:** `stellar tx operation add bump-sequence [OPTIONS] --bump-to <BUMP_TO>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--bump-to <BUMP_TO>` — Sequence number to bump to
+
+
+
+## `stellar tx operation add change-trust`
+
+Creates, updates, or deletes a trustline
+Learn more about trustlines
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+
+**Usage:** `stellar tx operation add change-trust [OPTIONS] --line <LINE>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--line <LINE>`
+* `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
+
+  Default value: `9223372036854775807`
+
+
+
+## `stellar tx operation add create-account`
+
+Creates and funds a new account with the specified starting balance
+
+**Usage:** `stellar tx operation add create-account [OPTIONS] --destination <DESTINATION>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
+* `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
+
+  Default value: `10_000_000`
+
+
+
+## `stellar tx operation add manage-data`
+
+Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
+Learn more about entries and subentries:
+https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+
+**Usage:** `stellar tx operation add manage-data [OPTIONS] --data-name <DATA_NAME>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
+* `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
+
+
+
+## `stellar tx operation add payment`
+
+Sends an amount in a specific asset to a destination account
+
+**Usage:** `stellar tx operation add payment [OPTIONS] --destination <DESTINATION> --amount <AMOUNT>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--destination <DESTINATION>` — Account to send to, e.g. `GBX...`
+* `--asset <ASSET>` — Asset to send, default native, e.i. XLM
+
+  Default value: `native`
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+
+
+
+## `stellar tx operation add set-options`
+
+Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+Learn more about the home domain:
+https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+Learn more about signers operations and key weight:
+https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+
+**Usage:** `stellar tx operation add set-options [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--inflation-dest <INFLATION_DEST>` — Account of the inflation destination
+* `--master-weight <MASTER_WEIGHT>` — A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled
+* `--low-threshold <LOW_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a low threshold. https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+* `--med-threshold <MED_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a medium threshold. https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+* `--high-threshold <HIGH_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a high threshold. https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+* `--home-domain <HOME_DOMAIN>` — Sets the home domain of an account. See https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/federation
+* `--signer <SIGNER>` — Add, update, or remove a signer from an account
+* `--signer-weight <SIGNER_WEIGHT>` — Signer weight is a number from 0-255 (inclusive). The signer is deleted if the weight is 0
+* `--set-required` — When enabled, an issuer must approve an account before that account can hold its asset. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1
+* `--set-revocable` — When enabled, an issuer can revoke an existing trustline's authorization, thereby freezing the asset held by an account. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
+* `--set-clawback-enabled` — Enables the issuing account to take back (burning) all of the asset. https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8
+* `--set-immutable` — With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can't be merged. https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
+* `--clear-required`
+* `--clear-revocable`
+* `--clear-immutable`
+* `--clear-clawback-enabled`
+
+
+
+## `stellar tx operation add set-trustline-flags`
+
+Allows issuing account to configure authorization and trustline flags to an asset
+The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
+If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
+Learn more about flags:
+https://developers.stellar.org/docs/learn/glossary#flags
+
+**Usage:** `stellar tx operation add set-trustline-flags [OPTIONS] --trustor <TRUSTOR> --asset <ASSET>`
+
+###### **Options:**
+
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` — Source account used for the operation
+* `--trustor <TRUSTOR>` — Account to set trustline flags for
+* `--asset <ASSET>` — Asset to set trustline flags for
+* `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders
+* `--set-authorize-to-maintain-liabilities` — Denotes limited authorization that allows an account to maintain current orders but not to otherwise transact with the asset
+* `--set-trustline-clawback-enabled` — Enables the issuing account to take back (burning) all of the asset. See our section on Clawbacks: https://developers.stellar.org/docs/learn/encyclopedia/transactions-specialized/clawbacks
+* `--clear-authorize`
+* `--clear-authorize-to-maintain-liabilities`
+* `--clear-trustline-clawback-enabled`
+
+
+
+## `stellar tx send`
+
+Send a transaction envelope to the network
+
+**Usage:** `stellar tx send [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx sign`
+
+Sign a transaction envelope appending the signature to the envelope
+
+**Usage:** `stellar tx sign [OPTIONS]`
+
+###### **Options:**
+
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+
+
+
+## `stellar tx simulate`
+
+Simulate a transaction envelope from stdin
+
+**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
