@@ -1,7 +1,6 @@
-use crate::commands::config::secret;
-
-use super::super::config::locator;
 use clap::arg;
+
+use crate::commands::config::{key, locator};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -9,7 +8,7 @@ pub enum Error {
     Config(#[from] locator::Error),
 
     #[error(transparent)]
-    Secret(#[from] secret::Error),
+    Key(#[from] key::Error),
 
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
@@ -36,10 +35,13 @@ impl Cmd {
     }
 
     pub fn private_key(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        Ok(self
-            .locator
-            .read_identity(&self.name)?
-            .key_pair(self.hd_path)?)
+        Ok(ed25519_dalek::SigningKey::from_bytes(
+            &self
+                .locator
+                .read_identity(&self.name)?
+                .private_key(self.hd_path)?
+                .0,
+        ))
     }
 
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
