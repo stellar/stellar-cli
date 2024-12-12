@@ -30,13 +30,17 @@ jobs:
           brew install docker
           brew install colima
           colima start
-      - name: Install winget
-        uses: Cyberboss/install-winget@1c6f189175e9f015bf1aa113cd1cc6c73efb9d47
-      - name: Install or update WSL
+      - name: Install wsl
         if: runner.os ==  'windows'
-        uses: Ubuntu/WSL/.github/actions/wsl-install@7ebeb4e1dabf44381674461f8c4da4dc8cd99b33
-        with:
-          distro: Ubuntu
+        uses: vedantmgoyal9/setup-wsl2@main
+      - run: apt update && apt upgrade -y
+        if: runner.os ==  'windows'
+        shell: wsl-run {0} # add this to run the commands inside linux
+      - run: ls -la
+        if: runner.os ==  'windows'
+        shell: wsl-run {0}
+      - run: ls -la
+        shell: bash
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true stellar/quickstart:testing
