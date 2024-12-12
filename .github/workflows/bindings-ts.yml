@@ -44,7 +44,7 @@ jobs:
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true stellar/quickstart:testing
-        shell: bash
+        shell: wsl-run {0}
       - run: |
           until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
               sleep 0.1;
