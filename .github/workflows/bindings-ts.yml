@@ -33,7 +33,23 @@ jobs:
       - name: Install wsl
         if: runner.os ==  'windows'
         uses: vedantmgoyal9/setup-wsl2@main
+      - name: Enable systemd
+        if: runner.os == 'windows'
+        run: |
+          echo "[boot]
+          systemd=true" > /etc/wsl.conf
+        shell: wsl-run {0}
+      - name: Restart WSL
+        if: runner.os == 'windows'
+        run: |
+          Write-Output 'Restarting WSL...'
+          wsl --shutdown
+          # https://learn.microsoft.com/en-us/windows/wsl/wsl-config#the-8-second-rule-for-configuration-changes
+          # although the documentation says 8 seconds, we wait for 10 seconds to be safe
+          Start-Sleep -Seconds 10
       - run: |
+          systemctl list-unit-files --type=service
+          
           # Add Docker's official GPG key:
           sudo apt-get update
           sudo apt-get install --yes ca-certificates curl
