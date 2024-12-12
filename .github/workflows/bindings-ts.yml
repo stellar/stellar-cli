@@ -30,9 +30,11 @@ jobs:
           brew install docker
           brew install colima
           colima start
+      - name: Install winget
+        uses: Cyberboss/install-winget@1c6f189175e9f015bf1aa113cd1cc6c73efb9d47
       - name: Install or update WSL
         if: runner.os ==  'windows'
-        uses: Ubuntu/WSL/.github/actions/wsl-install@main
+        uses: Ubuntu/WSL/.github/actions/wsl-install@7ebeb4e1dabf44381674461f8c4da4dc8cd99b33
         with:
           distro: Ubuntu
       - name: Run quickstart
