@@ -30,11 +30,11 @@ jobs:
           brew install docker
           brew install colima
           colima start
-      - name: Configure WSL
+      - name: Install or update WSL
         if: runner.os ==  'windows'
-        run: |
-          wsl --update --web-download
-          wsl --install --web-download -d Ubuntu-22.04
+        uses: Ubuntu/WSL/.github/actions/wsl-install@main
+        with:
+          distro: Ubuntu
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true stellar/quickstart:testing
