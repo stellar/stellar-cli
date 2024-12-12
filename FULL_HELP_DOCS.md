@@ -290,20 +290,21 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to wasm file on local filesystem. You must either include this OR `--contract-id`
-* `--contract-id <CONTRACT_ID>` — A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`
-* `--output-dir <OUTPUT_DIR>` — Where to place generated project
-* `--overwrite` — Whether to overwrite output directory if it already exists
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output-dir <OUTPUT_DIR>` — Where to place generated project
+* `--overwrite` — Whether to overwrite output directory if it already exists
 
 
 
@@ -525,13 +526,13 @@ The data outputted by this command is a stream of `SCSpecEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -565,13 +566,13 @@ The data outputted by this command is a stream of `SCMetaEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -605,13 +606,13 @@ The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. S
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
