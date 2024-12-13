@@ -84,7 +84,21 @@ jobs:
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
-      - run: npm ci && npm run test
+      - run: npm ci
+        if: runner.os !=  'windows'
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: |
+          npm ci --ignore-scripts
+          cargo run --quiet -p stellar-cli -- "keys generate root"
+          cargo run --quiet -p stellar-cli -- "keys fund root"
+          $contract_id=(cargo run --quiet -p stellar-cli -- "contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks")
+          cargo run --quiet -p stellar-cli -- contract bindings typescript --contract-id $contract_id --output-dir ./node_modules/test-custom-types --overwrite
+          cd ./node_modules/test-custom-types
+          npm install 
+          npm run build
+        if: runner.os ==  'windows'
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: npm run test
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - name: quickstart logs
         if: always()
