@@ -54,7 +54,9 @@ jobs:
           # https://learn.microsoft.com/en-us/windows/wsl/wsl-config#the-8-second-rule-for-configuration-changes
           # although the documentation says 8 seconds, we wait for 10 seconds to be safe
           Start-Sleep -Seconds 10
-      - run: |
+      - name: Install Docker
+        if: runner.os == 'windows'
+        run: |
           systemctl list-unit-files --type=service
           
           # Add Docker's official GPG key:
@@ -75,7 +77,6 @@ jobs:
           sudo systemctl start docker.service
           sudo systemctl status docker.service
           sudo docker run hello-world
-        if: runner.os == 'windows'
         shell: wsl-run {0}
       - name: Run quickstart
         run: |
