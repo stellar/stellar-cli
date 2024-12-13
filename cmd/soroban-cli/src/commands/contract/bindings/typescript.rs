@@ -44,6 +44,8 @@ pub enum Error {
     FailedToGetFileName(PathBuf),
     #[error(transparent)]
     WasmOrContract(#[from] wasm_or_contract::Error),
+    #[error(transparent)]
+    Xdr(#[from] crate::xdr::Error),
 }
 
 #[async_trait::async_trait]
@@ -62,9 +64,9 @@ impl NetworkRunnable for Cmd {
             wasm_or_contract::fetch_wasm(&self.wasm_or_hash_or_contract_id, &print).await?;
 
         let spec = if let Some(spec) = spec {
-            Spec::new(&spec)?
+            Spec::new(&spec)?.spec
         } else {
-            Spec::new(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
         };
 
         if self.output_dir.is_file() {
@@ -94,7 +96,7 @@ impl NetworkRunnable for Cmd {
             contract_address.as_deref(),
             network.as_ref().map(|n| n.rpc_url.as_ref()),
             network.as_ref().map(|n| n.network_passphrase.as_ref()),
-            &spec.spec,
+            &spec,
         )?;
         print.checkln("Generated!");
         print.infoln(format!(
