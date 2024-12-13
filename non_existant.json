@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Extended Schema with MuxedAccount Examples",
+  "definitions": {
+      "MuxedAccount": {
+          "type": "string",
+          "description": "A muxed account identifier. Suggested values are provided, but any string is allowed.",
+          "examples": ["alice", "bob", "charlie", "david"]
+      }
+  }
+  
+}
