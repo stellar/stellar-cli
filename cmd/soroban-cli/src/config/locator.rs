@@ -257,7 +257,7 @@ impl Args {
         }
     }
 
-    pub fn get_private_key(&self, key_or_name: &str) -> Result<Secret, Error> {
+    pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         match self.read_key(key_or_name)? {
             Key::Secret(s) => Ok(s),
             _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),

@@ -113,11 +113,11 @@ impl Args {
         Ok(self.config.source_account()?)
     }
 
-    pub fn reslove_muxed_address(&self, address: &Address) -> Result<xdr::MuxedAccount, Error> {
+    pub fn resolve_muxed_address(&self, address: &Address) -> Result<xdr::MuxedAccount, Error> {
         Ok(address.resolve_muxed_account(&self.config.locator, self.config.hd_path)?)
     }
 
-    pub fn reslove_account_id(&self, address: &Address) -> Result<xdr::AccountId, Error> {
+    pub fn resolve_account_id(&self, address: &Address) -> Result<xdr::AccountId, Error> {
         Ok(address
             .resolve_muxed_account(&self.config.locator, self.config.hd_path)?
             .account_id())
