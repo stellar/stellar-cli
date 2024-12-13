@@ -11,14 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sys:
-          - os: ubuntu-latest-16-cores
-            shell: bash
-          - os: macos-13
-            shell: bash
-          - os: windows-latest-8-cores
-            shell: 'wsl-run {0}'
-    runs-on: ${{ matrix.sys.os }}
+        os: [ubuntu-latest-16-cores, macos-13, windows-latest-8-cores]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -107,9 +101,9 @@ jobs:
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - run: |
           npm ci --ignore-scripts
-          cargo run --quiet -p stellar-cli -- "keys generate root"
-          cargo run --quiet -p stellar-cli -- "keys fund root"
-          $contract_id=(cargo run --quiet -p stellar-cli -- "contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks")
+          cargo run --quiet -p stellar-cli -- keys generate root
+          cargo run --quiet -p stellar-cli -- keys fund root
+          $contract_id=(cargo run --quiet -p stellar-cli -- contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-check
           cargo run --quiet -p stellar-cli -- contract bindings typescript --contract-id $contract_id --output-dir ./node_modules/test-custom-types --overwrite
           cd ./node_modules/test-custom-types
           npm install 
