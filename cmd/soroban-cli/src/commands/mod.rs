@@ -143,11 +143,12 @@ pub enum Cmd {
     /// Watch the network for contract events
     Events(events::Cmd),
 
-    /// Prints the current environment variables.
+    /// Prints the environment variables
     ///
-    /// Prints the current environment variables or defaults to the stdout, in a
-    /// format that can be used as .env file. Environment variables have
-    /// precedency over defaults.
+    /// Prints to stdout in a format that can be used as .env file. Environment
+    /// variables have precedence over defaults.
+    ///
+    /// If there are no environment variables in use, prints the defaults.
     Env(env::Cmd),
 
     /// Create and manage identities including keys and addresses
