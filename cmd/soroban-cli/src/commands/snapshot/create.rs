@@ -274,7 +274,13 @@ impl Cmd {
                         }
                         BucketEntry::Deadentry(k) => (k, None),
                         BucketEntry::Metaentry(m) => {
-                            snapshot.protocol_version = m.ledger_version;
+                            if m.ledger_version > snapshot.protocol_version {
+                                snapshot.protocol_version = m.ledger_version;
+                                print.infoln(format!(
+                                    "Protocol version: {}",
+                                    snapshot.protocol_version
+                                ));
+                            }
                             continue;
                         }
                     };
