@@ -45,7 +45,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
-* `env` — Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+* `env` — Prints the current environment variables
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Configure connection to networks
 * `container` — Start local networks in containers
@@ -915,7 +915,9 @@ Watch the network for contract events
 
 ## `stellar env`
 
-Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+Prints the current environment variables.
+
+Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults.
 
 **Usage:** `stellar env [OPTIONS]`
 
