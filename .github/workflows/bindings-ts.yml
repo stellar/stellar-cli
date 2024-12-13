@@ -97,7 +97,7 @@ jobs:
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
       - run: npm ci
-        if: runner.os !=  'windows'
+        if: runner.os != 'windows'
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - run: |
           npm ci --ignore-scripts
@@ -113,5 +113,9 @@ jobs:
       - run: npm run test
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - name: quickstart logs
-        if: always()
+        if: always() && runner.os != 'windows'
         run: docker logs quickstart
+      - name: quickstart logs
+        if: always() && runner.os == 'windows'
+        run: docker logs quickstart
+        shell: wsl-run {0}
