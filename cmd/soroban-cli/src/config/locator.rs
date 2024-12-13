@@ -180,7 +180,7 @@ impl Args {
     }
 
     pub fn write_key(&self, name: &str, key: &Key) -> Result<(), Error> {
-        KeyType::Identity.write(name, public_key, &self.config_dir()?)
+        KeyType::Identity.write(name, key, &self.config_dir()?)
     }
 
     pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {

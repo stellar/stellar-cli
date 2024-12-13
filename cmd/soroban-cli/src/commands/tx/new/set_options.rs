@@ -120,7 +120,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
         let inflation_dest: Option<xdr::AccountId> = cmd
             .inflation_dest
             .as_ref()
-            .map(|dest| tx.reslove_account_id(dest))
+            .map(|dest| tx.resolve_account_id(dest))
             .transpose()?;
         Ok(xdr::OperationBody::SetOptions(xdr::SetOptionsOp {
             inflation_dest,

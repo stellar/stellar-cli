@@ -25,7 +25,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::CreateAccount(xdr::CreateAccountOp {
-            destination: cmd.tx.reslove_account_id(&cmd.op.destination)?,
+            destination: cmd.tx.resolve_account_id(&cmd.op.destination)?,
             starting_balance: cmd.op.starting_balance.into(),
         }))
     }

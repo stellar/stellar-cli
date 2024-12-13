@@ -22,7 +22,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::AccountMerge(
-            cmd.tx.reslove_muxed_address(&cmd.op.account)?,
+            cmd.tx.resolve_muxed_address(&cmd.op.account)?,
         ))
     }
 }

@@ -130,7 +130,7 @@ impl Args {
         op_source: Option<&address::Address>,
     ) -> Result<xdr::TransactionEnvelope, Error> {
         let source_account = op_source
-            .map(|a| self.reslove_muxed_address(a))
+            .map(|a| self.resolve_muxed_address(a))
             .transpose()?;
         let op = xdr::Operation {
             source_account,
