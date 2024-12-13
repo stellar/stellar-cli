@@ -179,7 +179,7 @@ impl Args {
         self.write_key(name, &public_key.into())
     }
 
-    pub fn write_key(&self, name: &str, public_key: &Key) -> Result<(), Error> {
+    pub fn write_key(&self, name: &str, key: &Key) -> Result<(), Error> {
         KeyType::Identity.write(name, public_key, &self.config_dir()?)
     }
 
