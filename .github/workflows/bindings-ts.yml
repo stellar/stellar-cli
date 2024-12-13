@@ -11,8 +11,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest-16-cores, macos-13, windows-latest-8-cores]
-    runs-on: ${{ matrix.os }}
+        sys:
+          - os: ubuntu-latest-16-cores
+            shell: bash
+          - os: macos-13
+            shell: bash
+          - os: windows-latest-8-cores
+            shell: 'wsl-run {0}'
+    runs-on: ${{ matrix.sys.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -30,10 +36,10 @@ jobs:
           brew install docker
           brew install colima
           colima start
-
       - name: Install wsl
         if: runner.os ==  'windows'
         uses: vedantmgoyal9/setup-wsl2@4edf825c69cdaad7d6a852f57c9446f83fea8b91
+        # https://github.com/vedantmgoyal9/setup-wsl2/issues/3
       - name: Enable systemd
         if: runner.os == 'windows'
         run: |
@@ -70,16 +76,16 @@ jobs:
           sudo systemctl status docker.service
           sudo docker run hello-world
         if: runner.os ==  'windows'
-        shell: wsl-run {0}
+        shell: ${{ matrix.sys.shell }}
       - name: Run quickstart
         run: |
           docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'" --health-interval 10s --health-timeout 5s --health-retries 50 stellar/quickstart:testing
-        shell: bash
+        shell: ${{ matrix.sys.shell }}
       - run: |
           until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
               sleep 0.1;
           done;
-        shell: bash
+        shell: ${{ matrix.sys.shell }}
       - run: rustup update
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
