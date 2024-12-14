@@ -88,6 +88,7 @@ jobs:
         if: runner.os ==  'windows'
         shell: wsl-run {0}
       - run: |
+          docker inspect -f {{.State.Health.Status}} quickstart
           until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
               sleep 0.1;
           done;
