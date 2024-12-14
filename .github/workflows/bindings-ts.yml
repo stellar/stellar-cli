@@ -77,9 +77,13 @@ jobs:
         if: runner.os !=  'windows'
         shell: bash
       - run: |
-          docker inspect -f {{.State.Health.Status}} quickstart
-          until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
-              sleep 0.1;
+          while true; do
+            status=`docker inspect -f {{.State.Health.Status}} quickstart`
+            echo "quickstart status: $status"
+            if [ "$status" == "healthy" ]; then
+              break
+            fi
+            sleep 1;
           done;
         if: runner.os !=  'windows'
         shell: bash
@@ -88,9 +92,13 @@ jobs:
         if: runner.os ==  'windows'
         shell: wsl-run {0}
       - run: |
-          docker inspect -f {{.State.Health.Status}} quickstart
-          until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
-              sleep 0.1;
+          while true; do
+            status=`docker inspect -f {{.State.Health.Status}} quickstart`
+            echo "quickstart status: $status"
+            if [ "$status" == "healthy" ]; then
+              break
+            fi
+            sleep 1;
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
