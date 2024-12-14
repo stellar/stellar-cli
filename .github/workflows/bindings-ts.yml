@@ -77,6 +77,7 @@ jobs:
         if: runner.os !=  'windows'
         shell: bash
       - run: |
+          docker inspect -f {{.State.Health.Status}} quickstart
           until [ "`docker inspect -f {{.State.Health.Status}} quickstart`"=="healthy" ]; do
               sleep 0.1;
           done;
@@ -103,7 +104,7 @@ jobs:
           npm ci --ignore-scripts
           cargo run --quiet -p stellar-cli -- keys generate root
           cargo run --quiet -p stellar-cli -- keys fund root
-          $contract_id=(cargo run --quiet -p stellar-cli -- contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-check)
+          $contract_id=(cargo run --quiet -p stellar-cli -- contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks)
           cargo run --quiet -p stellar-cli -- contract bindings typescript --contract-id $contract_id --output-dir ./node_modules/test-custom-types --overwrite
           cd ./node_modules/test-custom-types
           npm install 
