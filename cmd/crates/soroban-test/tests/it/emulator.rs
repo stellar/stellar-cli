@@ -12,11 +12,11 @@ use soroban_cli::{
 
 use test_case::test_case;
 
-#[test_case("nanos"; "when the device is NanoS")]
-#[test_case("nanox"; "when the device is NanoX")]
-#[test_case("nanosp"; "when the device is NanoS Plus")]
+#[test_case("nanos", 0; "when the device is NanoS")]
+#[test_case("nanox", 1; "when the device is NanoX")]
+#[test_case("nanosp", 2; "when the device is NanoS Plus")]
 #[tokio::test]
-async fn test_signer(ledger_device_model: &str) {
+async fn test_signer(ledger_device_model: &str, hd_path: u32) {
     let sandbox = Arc::new(TestEnv::new());
     let container = TestEnv::speculos_container(ledger_device_model).await;
     let host_port = container.get_host_port_ipv4(9998).await.unwrap();
@@ -24,7 +24,7 @@ async fn test_signer(ledger_device_model: &str) {
 
     let ledger = ledger(host_port).await;
 
-    let key = ledger.get_public_key(&0.into()).await.unwrap();
+    let key = ledger.get_public_key(&hd_path.into()).await.unwrap();
 
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key.0).unwrap();
     let body: OperationBody =
@@ -56,6 +56,8 @@ async fn test_signer(ledger_device_model: &str) {
                 .new_assert_cmd("tx")
                 .arg("sign")
                 .arg("--sign-with-ledger")
+                .arg("--hd-path")
+                .arg(hd_path.to_string())
                 .write_stdin(tx_env.as_bytes())
                 .env("SPECULOS_PORT", host_port.to_string())
                 .env("RUST_LOGS", "trace")
