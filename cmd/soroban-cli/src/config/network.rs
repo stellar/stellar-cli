@@ -231,6 +231,17 @@ impl Network {
     }
 }
 
+impl Default for Network {
+    fn default() -> Self {
+        let testnet_default = DEFAULTS["testnet"];
+        Network {
+            rpc_url: testnet_default.0.to_string(),
+            rpc_headers: Vec::new(),
+            network_passphrase: testnet_default.1.to_string(),
+        }
+    }
+}
+
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
     "local" => (
         "http://localhost:8000/rpc",

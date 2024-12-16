@@ -58,8 +58,7 @@ pub enum Error {
 /// its own `TempDir` where it will save test-specific configuration.
 pub struct TestEnv {
     pub temp_dir: TempDir,
-    pub rpc_url: String,
-    pub network_passphrase: String,
+    pub network: network::Network,
 }
 
 impl Default for TestEnv {
@@ -67,8 +66,11 @@ impl Default for TestEnv {
         let temp_dir = TempDir::new().unwrap();
         Self {
             temp_dir,
-            rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
-            network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
+            network: network::Network {
+                rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
+                network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
+                rpc_headers: [].to_vec(),
+            },
         }
     }
 }
@@ -103,11 +105,14 @@ impl TestEnv {
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
         let mut env = TestEnv {
-            rpc_url: rpc_url.to_string(),
+            network: network::Network {
+                rpc_url: rpc_url.to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
-            env.network_passphrase = network_passphrase;
+            env.network.network_passphrase = network_passphrase;
         };
         env.generate_account("test", None).assert().success();
         env
@@ -133,7 +138,7 @@ impl TestEnv {
         let mut cmd: Command = self.bin();
         cmd.arg(subcommand)
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
-            .env("SOROBAN_RPC_URL", &self.rpc_url)
+            .env("SOROBAN_RPC_URL", &self.network.rpc_url)
             .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
             .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
             .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
@@ -234,7 +239,7 @@ impl TestEnv {
         let config_dir = Some(self.dir().to_path_buf());
         config::Args {
             network: network::Args {
-                rpc_url: Some(self.rpc_url.clone()),
+                rpc_url: Some(self.network.rpc_url.clone()),
                 rpc_headers: [].to_vec(),
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
@@ -305,7 +310,7 @@ impl TestEnv {
     }
 
     pub fn client(&self) -> soroban_rpc::Client {
-        soroban_rpc::Client::new(&self.rpc_url).unwrap()
+        self.network.rpc_client().unwrap()
     }
 }
 
