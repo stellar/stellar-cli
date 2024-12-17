@@ -1,4 +1,3 @@
-use predicates::boolean::PredicateBooleanExt;
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -19,7 +18,7 @@ async fn invoke_view_with_non_existent_source_account() {
     let sandbox = &TestEnv::new();
     let id = deploy_hello(sandbox).await;
     let world = "world";
-    let mut cmd = hello_world_cmd(&id, world);
+    let cmd = hello_world_cmd(&id, world);
     let res = sandbox.run_cmd_with(cmd, "").await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
