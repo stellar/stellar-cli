@@ -53,6 +53,12 @@ impl UnresolvedScAddress {
         let muxed_account =
             super::UnresolvedMuxedAccount::resolve_muxed_account_with_alias(&alias, locator, None);
         match (contract, muxed_account) {
+            (Ok(contract), Ok(_)) => {
+                eprintln!(
+                    "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
+                );
+                Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0)))
+            }
             (Ok(contract), _) => Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0))),
             (_, Ok(muxed_account)) => Ok(xdr::ScAddress::Account(muxed_account.account_id())),
             _ => Err(Error::AccountAliasNotFound(alias)),

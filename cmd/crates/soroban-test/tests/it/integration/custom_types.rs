@@ -40,9 +40,9 @@ async fn parse() {
     negative_i32(sandbox, id).await;
     negative_i64(sandbox, id).await;
     account_address(sandbox, id).await;
-    // account_address_with_alias(sandbox, id).await;
+    account_address_with_alias(sandbox, id).await;
     contract_address(sandbox, id).await;
-    // contract_address_with_alias(sandbox, id).await;
+    contract_address_with_alias(sandbox, id).await;
     bytes(sandbox, id).await;
     const_enum(sandbox, id).await;
     number_arg_return_ok(sandbox, id);
