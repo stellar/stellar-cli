@@ -29,18 +29,21 @@ function fund_all() {
   exe eval "./soroban keys generate root"
   exe eval "./soroban keys fund root"
 }
-function deploy() {
-  exe eval "(./soroban contract deploy --quiet --source root --wasm $1 --ignore-checks) > $2"
+function upload() {
+  exe eval "(./soroban contract $1 --quiet --source root --wasm $2 --ignore-checks) > $3"
 }
 function deploy_all() {
-  deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
+  upload deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
+  # TODO: support `--wasm-hash` with `contract bindings`
+  upload install ../../../../target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm contract-wasm-hash-constructor.txt
 }
 function bind() {
-  exe eval "./soroban contract bindings typescript --contract-id $(cat $1) --output-dir ./node_modules/$2 --overwrite"
-  exe eval "sh -c \"cd ./node_modules/$2 && npm install && npm run build\""
+  exe eval "./soroban contract bindings typescript $1 $2 --output-dir ./node_modules/$3 --overwrite"
+  exe eval "sh -c \"cd ./node_modules/$3 && npm install && npm run build\""
 }
 function bind_all() {
-  bind contract-id-custom-types.txt test-custom-types
+  bind --contract-id $(cat contract-id-custom-types.txt) test-custom-types
+  bind --wasm-hash $(cat contract-wasm-hash-constructor.txt) test-constructor
 }
 
 fund_all
