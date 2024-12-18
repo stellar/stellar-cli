@@ -76,23 +76,58 @@ pub enum Error {
     #[error("provided wasm hash is invalid {0:?}")]
     InvalidWasmHash(String),
     #[error("must provide one of --wasm, --wasm-hash, or --contract-id")]
-    MalformedWasmOrWasmHashOrContractId,
+    MissingArg,
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
 }
 
-pub async fn fetch_wasm(
-    args: &Args,
-    print: &Print,
-) -> Result<(Option<Vec<u8>>, Option<String>, Option<Network>), Error> {
+pub struct Fetched {
+    pub contract: Contract,
+    pub source: Source,
+}
+
+pub enum Contract {
+    Wasm { wasm_bytes: Vec<u8> },
+    StellarAssetContract,
+}
+
+pub enum Source {
+    File {
+        path: PathBuf,
+    },
+    Wasm {
+        hash: String,
+        network: Network,
+    },
+    Contract {
+        resolved_address: String,
+        network: Network,
+    },
+}
+
+impl Source {
+    pub fn network(&self) -> Option<&Network> {
+        match self {
+            Source::File { .. } => None,
+            Source::Wasm { ref network, .. } | Source::Contract { ref network, .. } => {
+                Some(network)
+            }
+        }
+    }
+}
+
+pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
     // Check if a local WASM file path is provided
     if let Some(path) = &args.wasm {
         // Read the WASM file and return its contents
         print.infoln("Loading contract spec from file...");
         let wasm_bytes = wasm::Args { wasm: path.clone() }.read()?;
-        return Ok((Some(wasm_bytes), None, None));
+        return Ok(Fetched {
+            contract: Contract::Wasm { wasm_bytes },
+            source: Source::File { path: path.clone() },
+        });
     }
 
     // If no local wasm, then check for wasm_hash and fetch from the network
@@ -116,22 +151,37 @@ pub async fn fetch_wasm(
         print.globeln(format!(
             "Downloading contract spec for wasm hash: {wasm_hash}"
         ));
-        Ok((
-            Some(get_remote_wasm_from_hash(&client, &hash).await?),
-            None,
-            Some(network.clone()),
-        ))
+        let wasm_bytes = get_remote_wasm_from_hash(&client, &hash).await?;
+        Ok(Fetched {
+            contract: Contract::Wasm { wasm_bytes },
+            source: Source::Wasm {
+                hash: wasm_hash.clone(),
+                network: network.clone(),
+            },
+        })
     } else if let Some(contract_id) = &args.contract_id {
         let contract_id =
             contract_id.resolve_contract_id(&args.locator, &network.network_passphrase)?;
-        let contract_address = xdr::ScAddress::Contract(xdr::Hash(contract_id.0)).to_string();
-        print.globeln(format!("Downloading contract spec: {contract_address}"));
+        let derived_address = xdr::ScAddress::Contract(xdr::Hash(contract_id.0)).to_string();
+        print.globeln(format!("Downloading contract spec: {derived_address}"));
         let res = wasm::fetch_from_contract(&contract_id, network).await;
         if let Some(ContractIsStellarAsset) = res.as_ref().err() {
-            return Ok((None, Some(contract_address), Some(network.clone())));
+            return Ok(Fetched {
+                contract: Contract::StellarAssetContract,
+                source: Source::Contract {
+                    resolved_address: derived_address,
+                    network: network.clone(),
+                },
+            });
         }
-        Ok((Some(res?), Some(contract_address), Some(network.clone())))
+        Ok(Fetched {
+            contract: Contract::Wasm { wasm_bytes: res? },
+            source: Source::Contract {
+                resolved_address: derived_address,
+                network: network.clone(),
+            },
+        })
     } else {
-        return Err(Error::MalformedWasmOrWasmHashOrContractId);
+        return Err(Error::MissingArg);
     }
 }
