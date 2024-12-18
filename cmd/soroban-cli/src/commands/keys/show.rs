@@ -1,6 +1,6 @@
 use clap::arg;
 
-use crate::config::{locator, secret};
+use crate::config::{key, locator};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -8,10 +8,7 @@ pub enum Error {
     Config(#[from] locator::Error),
 
     #[error(transparent)]
-    Secret(#[from] secret::Error),
-
-    #[error(transparent)]
-    StrKey(#[from] stellar_strkey::DecodeError),
+    Key(#[from] key::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
