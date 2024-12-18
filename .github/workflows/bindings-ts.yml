@@ -118,10 +118,14 @@ jobs:
         if: runner.os != 'windows'
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - run: |
+          Write-Host "Running npm build"
           npm ci --ignore-scripts
-          cargo run --quiet -p stellar-cli -- keys generate root
-          cargo run --quiet -p stellar-cli -- keys fund root
-          cargo run --quiet -p stellar-cli -- contract deploy --quiet --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks --alias custom-types
+          Write-Host "Generating keys"
+          cargo run -p stellar-cli -- keys generate root
+          cargo run -p stellar-cli -- keys fund root
+          Write-Host "Deploying contract"
+          cargo run -p stellar-cli -- contract deploy --quiet --alias custom-types --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks 
+          Write-Host "Generating bindings"
           cargo run --quiet -p stellar-cli -- contract bindings typescript --contract-id custom-types --output-dir ./node_modules/test-custom-types --overwrite
           cd ./node_modules/test-custom-types
           npm install 
