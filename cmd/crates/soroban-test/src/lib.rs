@@ -104,13 +104,8 @@ impl TestEnv {
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
-        let mut env = TestEnv {
-            network: network::Network {
-                rpc_url: rpc_url.to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
+        let mut env: TestEnv = Default::default();
+        env.network.rpc_url = rpc_url.to_string();
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
         };
@@ -119,14 +114,9 @@ impl TestEnv {
     }
 
     pub fn with_rpc_provider(rpc_url: &str, rpc_headers: Vec<(String, String)>) -> TestEnv {
-        let mut env = TestEnv {
-            network: network::Network {
-                rpc_url: rpc_url.to_string(),
-                rpc_headers,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
+        let mut env: TestEnv = Default::default();
+        env.network.rpc_url = rpc_url.to_string();
+        env.network.rpc_headers = rpc_headers;
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
         };
