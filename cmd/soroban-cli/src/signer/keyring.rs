@@ -35,6 +35,10 @@ impl StellarEntry {
         Ok(base64.decode(self.keyring.get_password()?)?)
     }
 
+    pub fn delete_password(&self) -> Result<(), Error> {
+        Ok(self.keyring.delete_credential()?)
+    }
+
     fn use_key<T>(
         &self,
         f: impl FnOnce(ed25519_dalek::SigningKey) -> Result<T, Error>,
@@ -116,7 +120,7 @@ mod test {
     fn test_sign_data() {
         set_default_credential_builder(mock::default_credential_builder());
 
-        //create a secret
+        // create a secret
         let secret = crate::config::secret::Secret::from_seed(None).unwrap();
         let key_pair = secret.key_pair(None).unwrap();
 
@@ -128,5 +132,30 @@ mod test {
 
         let sign_tx_env_result = entry.sign_data(tx_xdr.as_bytes());
         assert!(sign_tx_env_result.is_ok());
+    }
+
+    #[test]
+    fn test_delete_password() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        // add a keyring entry
+        let entry = StellarEntry::new("test").unwrap();
+        entry.set_password("test password".as_bytes()).unwrap();
+
+        // assert it is there
+        let get_password_result = entry.get_password();
+        assert!(get_password_result.is_ok());
+
+        // delete the password
+        let delete_password_result = entry.delete_password();
+        assert!(delete_password_result.is_ok());
+
+        // confirm the entry is gone
+        let get_password_result = entry.get_password();
+        assert!(get_password_result.is_err());
+        assert!(matches!(
+            get_password_result.unwrap_err(),
+            Error::Keyring(_)
+        ));
     }
 }

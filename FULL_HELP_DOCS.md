@@ -963,6 +963,8 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 * `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
 * `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
+* `--secure-store` — Add using a key saved in a secure store entry. Requires the entry name to be provided with `--entry_name`
+* `--entry-name <ENTRY_NAME>` — Name of the secure store entry, to be used with `--secure_store`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -1010,7 +1012,9 @@ Fund an identity on a test network
 
 ## `stellar keys generate`
 
-Generate a new identity with a seed phrase, currently 12 words
+Generate a new identity with a seed phrase, currently 12 words.
+
+The identity's secret can be stored in a config file (default), in an OS-specific secure store, or be printed out to the console.
 
 **Usage:** `stellar keys generate [OPTIONS] <NAME>`
 
@@ -2018,7 +2022,7 @@ Sign a transaction envelope appending the signature to the envelope
 
 ###### **Options:**
 
-* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or a key saved in OS's secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--sign-with-lab` — Sign with https://lab.stellar.org
 * `--rpc-url <RPC_URL>` — RPC server endpoint
