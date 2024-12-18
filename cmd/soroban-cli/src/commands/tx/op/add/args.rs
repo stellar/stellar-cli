@@ -23,7 +23,7 @@ pub struct Args {
         visible_alias = "op-source",
         env = "STELLAR_OPERATION_SOURCE_ACCOUNT"
     )]
-    pub operation_source_account: Option<address::Address>,
+    pub operation_source_account: Option<address::UnresolvedMuxedAccount>,
 }
 
 impl Args {
