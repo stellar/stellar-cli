@@ -118,6 +118,22 @@ impl TestEnv {
         env
     }
 
+    pub fn with_rpc_provider(rpc_url: &str, rpc_headers: Vec<(String, String)>) -> TestEnv {
+        let mut env = TestEnv {
+            network: network::Network {
+                rpc_url: rpc_url.to_string(),
+                rpc_headers,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
+            env.network.network_passphrase = network_passphrase;
+        };
+        env.generate_account("test", None).assert().success();
+        env
+    }
+
     pub fn new() -> TestEnv {
         if let Ok(rpc_url) = std::env::var("SOROBAN_RPC_URL") {
             return Self::with_rpc_url(&rpc_url);
@@ -136,6 +152,7 @@ impl TestEnv {
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
         let mut cmd: Command = self.bin();
+
         cmd.arg(subcommand)
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
             .env("SOROBAN_RPC_URL", &self.network.rpc_url)
@@ -143,6 +160,17 @@ impl TestEnv {
             .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
             .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
             .current_dir(&self.temp_dir);
+
+        if &self.network.rpc_headers.len() > &0 {
+            cmd.env(
+                "STELLAR_RPC_HEADERS",
+                format!(
+                    "{}:{}",
+                    &self.network.rpc_headers[0].0, &self.network.rpc_headers[0].1
+                ),
+            );
+        }
+
         cmd
     }
 
