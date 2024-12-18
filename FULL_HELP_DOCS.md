@@ -976,7 +976,7 @@ Given an identity return its address (public key)
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+* `<NAME>` — Name of identity to lookup, ledger, or secret key
 
 ###### **Options:**
 
@@ -994,7 +994,7 @@ Fund an identity on a test network
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, default test identity used if not provided
+* `<NAME>` — Name of identity to lookup, ledger, or secret key
 
 ###### **Options:**
 
@@ -2020,6 +2020,7 @@ Sign a transaction envelope appending the signature to the envelope
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
