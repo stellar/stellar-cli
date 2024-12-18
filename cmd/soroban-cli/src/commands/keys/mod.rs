@@ -12,7 +12,7 @@ pub mod show;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Add a new identity (keypair, ledger, macOS keychain)
+    /// Add a new identity (keypair, ledger, OS specific secure store)
     Add(add::Cmd),
 
     /// Given an identity return its address (public key)
