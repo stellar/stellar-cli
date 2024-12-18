@@ -1,6 +1,5 @@
 use httpmock::{prelude::*, Mock};
 use serde_json::json;
-use soroban_cli::commands::{env, tx::new};
 use soroban_rpc::{GetEventsResponse, GetNetworkResponse};
 use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 

@@ -104,7 +104,7 @@ impl TestEnv {
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
-        let mut env: TestEnv = Default::default();
+        let mut env = TestEnv::default();
         env.network.rpc_url = rpc_url.to_string();
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
@@ -114,7 +114,7 @@ impl TestEnv {
     }
 
     pub fn with_rpc_provider(rpc_url: &str, rpc_headers: Vec<(String, String)>) -> TestEnv {
-        let mut env: TestEnv = Default::default();
+        let mut env = TestEnv::default();
         env.network.rpc_url = rpc_url.to_string();
         env.network.rpc_headers = rpc_headers;
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
@@ -151,7 +151,7 @@ impl TestEnv {
             .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
             .current_dir(&self.temp_dir);
 
-        if &self.network.rpc_headers.len() > &0 {
+        if !self.network.rpc_headers.is_empty() {
             cmd.env(
                 "STELLAR_RPC_HEADERS",
                 format!(
