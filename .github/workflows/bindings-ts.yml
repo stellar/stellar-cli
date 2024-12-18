@@ -102,14 +102,6 @@ jobs:
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
-      - run: curl http://localhost:8000/friendbot?addr=GA3NSVQ4OYLW6LHQMROQ7BRJ7UTWVM5TSCJEXDE4AUW73SUYWLKJ42GW
-        if: runner.os !=  'windows'
-        shell: bash
-      - run: curl http://localhost:8000/friendbot?addr=GA3NSVQ4OYLW6LHQMROQ7BRJ7UTWVM5TSCJEXDE4AUW73SUYWLKJ42GW
-        if: runner.os ==  'windows'
-        shell: wsl-run {0}
-      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GDMSMNH2Y4RONFEZT6U7SCZP34L5XAAXWHQKELXUW6D2CUT6HNNBEXXY
-        if: runner.os ==  'windows'
       - run: rustup update
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
@@ -121,8 +113,8 @@ jobs:
           Write-Host "Running npm build"
           npm ci --ignore-scripts
           Write-Host "Generating keys"
-          cargo run -p stellar-cli -- keys generate root
-          cargo run -p stellar-cli -- keys fund root
+          Write-Host "SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX" | cargo run -p stellar-cli -- keys add --secret-key root
+          Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GBCNICNDLG2SQ3AIHJTB3G7AMGR4SZZJISYYQENZR7TETHTZHRCSEAWC
           Write-Host "Deploying contract"
           cargo run -p stellar-cli -- contract deploy --quiet --alias custom-types --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks 
           Write-Host "Generating bindings"
