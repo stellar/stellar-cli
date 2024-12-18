@@ -259,8 +259,8 @@ async fn contract_address_with_alias(sandbox: &TestEnv, id: &str) {
         .new_assert_cmd("contract")
         .arg("alias")
         .arg("add")
-        .arg("--alias=test_contract")
-        .arg("--address=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE");
+        .arg("test_contract")
+        .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE");
     let res = invoke(sandbox, id, "addresse", &json!("test_contract").to_string()).await;
     assert_eq!(
         res,
