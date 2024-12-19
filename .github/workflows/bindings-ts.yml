@@ -31,7 +31,14 @@ jobs:
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
-
+      - run: npm ci
+        if: runner.os != 'windows'
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: |
+          Write-Host "Running npm build"
+          npm ci --ignore-scripts
+        if: runner.os == 'windows'
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
       - name: Setup docker (missing on MacOS)
         if: runner.os == 'macos'
         run: |
@@ -110,12 +117,9 @@ jobs:
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
-      - run: npm ci
-        if: runner.os != 'windows'
-        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: docker container inspect quickstart
+        shell: wsl-run {0}
       - run: |
-          Write-Host "Running npm build"
-          npm ci --ignore-scripts
           Write-Host "Generating keys"
           $env:SOROBAN_SECRET_KEY='SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX'
           cargo run -p stellar-cli -- keys add --secret-key root
