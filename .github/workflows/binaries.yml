@@ -158,6 +158,6 @@ jobs:
               repo: context.repo.repo,
               release_id: ${{ github.event.release.id }},
               name: '${{ env.STELLAR_CLI_INSTALLER }}',
-              data: fs.readFileSync('Output/stellar-installer.exe'),
+              data: fs.readFileSync('${{ env.STELLAR_CLI_INSTALLER }}'),
             });
 
