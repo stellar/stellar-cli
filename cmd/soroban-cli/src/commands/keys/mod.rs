@@ -72,7 +72,7 @@ impl Cmd {
         match self {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Address(cmd) => cmd.run()?,
-            Cmd::Fund(cmd) => cmd.run().await?,
+            Cmd::Fund(cmd) => cmd.run(global_args).await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Rm(cmd) => cmd.run()?,
