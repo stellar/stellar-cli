@@ -113,7 +113,8 @@ jobs:
           Write-Host "Running npm build"
           npm ci --ignore-scripts
           Write-Host "Generating keys"
-          Write-Host "SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX" | cargo run -p stellar-cli -- keys add --secret-key root
+          $env:SOROBAN_SECRET_KEY='SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX'
+          cargo run -p stellar-cli -- keys add --secret-key root
           Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GBCNICNDLG2SQ3AIHJTB3G7AMGR4SZZJISYYQENZR7TETHTZHRCSEAWC
           Write-Host "Deploying contract"
           cargo run -p stellar-cli -- contract deploy --quiet --alias custom-types --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks 
