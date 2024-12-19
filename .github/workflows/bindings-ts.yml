@@ -27,6 +27,11 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - run: rustup update
+      - run: cargo build
+      - run: rustup target add wasm32-unknown-unknown
+      - run: make build-test-wasms
+
       - name: Setup docker (missing on MacOS)
         if: runner.os == 'macos'
         run: |
@@ -105,23 +110,6 @@ jobs:
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
-      - run: |
-          while true; do
-            docker container inspect quickstart
-            sleep 15;
-          done;
-        if: runner.os ==  'windows'
-        shell: wsl-run {0}
-      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GDMSMNH2Y4RONFEZT6U7SCZP34L5XAAXWHQKELXUW6D2CUT6HNNBEXXY
-        if: runner.os ==  'windows'
-      - run: rustup update
-      - run: cargo build
-      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GBU23IVABQ7XVJMGQPVGZAX6NKHXVMUUL25KXX6BP3B5A5B7OOYCXBCH
-        if: runner.os ==  'windows'
-      - run: rustup target add wasm32-unknown-unknown
-      - run: make build-test-wasms
-      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GAPIJSEUJRERET674YWPFKMGVH4ALOKHGXTZXSCHC4VVHXNPZ42JMA7K
-        if: runner.os ==  'windows'
       - run: npm ci
         if: runner.os != 'windows'
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
