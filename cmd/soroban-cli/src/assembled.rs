@@ -24,9 +24,14 @@ pub async fn simulate_and_assemble_transaction(
         }))
         .await?;
     match sim_res.error {
-        None => Ok(Assembled::new(tx, sim_res)?),
+        None => {
+            if !sim_res.events.is_empty() {
+                crate::log::sim_diagnostic_events(&sim_res.events, tracing::Level::INFO);
+            }
+            Ok(Assembled::new(tx, sim_res)?)
+        }
         Some(e) => {
-            diagnostic_events(&sim_res.events, tracing::Level::ERROR);
+            crate::log::sim_diagnostic_events(&sim_res.events, tracing::Level::ERROR);
             Err(Error::TransactionSimulationFailed(e))
         }
     }
@@ -282,18 +287,6 @@ fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transactio
         .try_into()?,
         ext: TransactionExt::V1(transaction_data),
     })
-}
-
-fn diagnostic_events(events: &[impl std::fmt::Debug], level: tracing::Level) {
-    for (i, event) in events.iter().enumerate() {
-        if level == tracing::Level::TRACE {
-            tracing::trace!("{i}: {event:#?}");
-        } else if level == tracing::Level::INFO {
-            tracing::info!("{i}: {event:#?}");
-        } else if level == tracing::Level::ERROR {
-            tracing::error!("{i}: {event:#?}");
-        }
-    }
 }
 
 #[cfg(test)]
