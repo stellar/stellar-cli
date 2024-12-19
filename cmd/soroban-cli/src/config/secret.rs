@@ -144,7 +144,7 @@ impl Secret {
         let seed_phrase = if let Some(seed) = seed.map(str::as_bytes) {
             sep5::SeedPhrase::from_entropy(seed)
         } else {
-            sep5::SeedPhrase::random(sep5::MnemonicType::Words12)
+            sep5::SeedPhrase::random(sep5::MnemonicType::Words24)
         }?
         .seed_phrase
         .into_phrase();
