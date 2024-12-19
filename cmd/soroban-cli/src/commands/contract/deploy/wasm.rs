@@ -1,8 +1,3 @@
-use std::array::TryFromSliceError;
-use std::ffi::OsString;
-use std::fmt::Debug;
-use std::num::ParseIntError;
-
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -13,9 +8,14 @@ use crate::xdr::{
 use clap::{arg, command, Parser};
 use rand::Rng;
 use regex::Regex;
-
 use soroban_spec_tools::contract as contract_spec;
+use std::array::TryFromSliceError;
+use std::ffi::OsString;
+use std::fmt::Debug;
+use std::num::ParseIntError;
 
+use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -128,26 +128,32 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
-            .await?
-            .to_envelope();
+        let res = self.run_against_rpc_server(Some(global_args), None).await;
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
-
-                if let Some(alias) = self.alias.clone() {
-                    self.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
+            Ok(res) => match res.to_envelope() {
+                TxnEnvelopeResult::TxnEnvelope(tx) => {
+                    println!("{}", tx.to_xdr_base64(Limits::none())?);
                 }
+                TxnEnvelopeResult::Res(contract) => {
+                    let network = self.config.get_network()?;
 
-                println!("{contract}");
+                    if let Some(alias) = self.alias.clone() {
+                        self.config.locator.save_contract_id(
+                            &network.network_passphrase,
+                            &contract,
+                            &alias,
+                        )?;
+                    }
+
+                    println!("{contract}");
+                }
+            },
+            Err(ArgParse(HelpMessage(help))) => {
+                println!("{help}");
             }
+            Err(e) => return Err(e),
         }
+
         Ok(())
     }
 }
@@ -248,15 +254,13 @@ impl NetworkRunnable for Cmd {
             } else {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
                 slop.extend_from_slice(&self.slop);
-                Some(
-                    arg_parsing::build_host_function_parameters(
-                        &stellar_strkey::Contract(contract_id.0),
-                        &slop,
-                        &entries,
-                        config,
-                    )?
-                    .2,
-                )
+                let params = arg_parsing::build_host_function_parameters(
+                    &stellar_strkey::Contract(contract_id.0),
+                    &slop,
+                    &entries,
+                    config,
+                )?;
+                Some(params.2)
             }
         } else {
             None
