@@ -138,5 +138,7 @@ jobs:
         run: docker logs quickstart
       - name: quickstart logs
         if: always() && runner.os == 'windows'
-        run: docker logs quickstart
+        run: |
+          docker container inspect quickstart
+          docker container logs quickstart -n 1000
         shell: wsl-run {0}
