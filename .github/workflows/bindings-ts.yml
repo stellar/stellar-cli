@@ -88,7 +88,7 @@ jobs:
         if: runner.os !=  'windows'
         shell: bash
       - run: |
-          docker run -d --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'" --health-interval 10s --health-timeout 5s --health-retries 50 stellar/quickstart:testing
+          docker run --name quickstart -p 8000:8000 -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'" --health-interval 10s --health-timeout 5s --health-retries 50 stellar/quickstart:testing
         if: runner.os ==  'windows'
         shell: wsl-run {0}
       - run: |
@@ -102,8 +102,6 @@ jobs:
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
-      - run: Start-Sleep -Seconds 900
-        if: runner.os ==  'windows'
       - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GDMSMNH2Y4RONFEZT6U7SCZP34L5XAAXWHQKELXUW6D2CUT6HNNBEXXY
         if: runner.os ==  'windows'
       - run: rustup update
