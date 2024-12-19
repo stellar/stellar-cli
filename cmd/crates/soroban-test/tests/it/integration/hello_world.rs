@@ -53,7 +53,7 @@ async fn invoke() {
 
     let secret_key = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("test")
         .assert()
         .stdout_as_str();
@@ -65,7 +65,7 @@ async fn invoke() {
         .stdout_as_str();
     let secret_key_1 = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("test")
         .arg("--hd-path=1")
         .assert()
@@ -115,7 +115,7 @@ async fn invoke() {
     assert_eq!(sk_from_file, format!("secret_key = \"{secret_key_1}\"\n"));
     let secret_key_1_readin = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("testone")
         .assert()
         .stdout_as_str();
