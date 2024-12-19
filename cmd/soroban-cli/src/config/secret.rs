@@ -43,29 +43,30 @@ pub struct Args {
 
 impl Args {
     pub fn read_secret(&self) -> Result<Secret, Error> {
+        let print = Print::new(false);
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
+            print.infoln("Read secret key from environment variable SOROBAN_SECRET_KEY");
             Ok(Secret::SecretKey { secret_key })
         } else if self.secret_key {
-            println!("Type a secret key: ");
+            print.kbln("Enter a secret key (starts with S):");
             let secret_key = read_password()?;
             let secret_key = PrivateKey::from_string(&secret_key)
                 .map_err(|_| Error::InvalidSecretKey)?
                 .to_string();
             Ok(Secret::SecretKey { secret_key })
         } else if self.seed_phrase {
-            println!("Type a 12 word seed phrase: ");
+            print.kbln("Enter a 24 word seed phrase:");
             let seed_phrase = read_password()?;
-            let seed_phrase: Vec<&str> = seed_phrase.split_whitespace().collect();
-            // if seed_phrase.len() != 12 {
-            //     let len = seed_phrase.len();
-            //     return Err(Error::InvalidSeedPhrase { len });
-            // }
+            let seed_words = seed_phrase
+                .split_whitespace()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            let seed_words_len = seed_words.len();
+            if seed_words_len < 24 {
+                print.warnln("Warning, seed phrases containing less than 24 words may not be secure. It is safer to use a 24 word seed. To generate a new key and a 24 word seed phrase use the `stellar keys generate` command.");
+            }
             Ok(Secret::SeedPhrase {
-                seed_phrase: seed_phrase
-                    .into_iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(" "),
+                seed_phrase: seed_words.join(" "),
             })
         } else {
             Err(Error::PasswordRead {})
