@@ -14,9 +14,9 @@ export const root = {
   address: Address.fromString(rootKeypair.publicKey()),
 };
 
-export const rpcUrl = process.env.SOROBAN_RPC_URL ?? "http://localhost:8000/";
+export const rpcUrl = process.env.STELLAR_RPC_URL ?? "http://localhost:8000/";
 export const networkPassphrase =
-  process.env.SOROBAN_NETWORK_PASSPHRASE ??
+  process.env.STELLAR_NETWORK_PASSPHRASE ??
   "Standalone Network ; February 2017";
 
 export const signer = basicNodeSigner(root.keypair, networkPassphrase);
