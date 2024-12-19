@@ -46,9 +46,7 @@ impl Args {
         } else {
             println!("Type a secret key or 24 word seed phrase:");
             let secret_key = read_password()?;
-            let secret =
-                Secret::from_str(&secret_key).map_err(|_| Error::InvalidSecretOrSeedPhrase)?;
-            Ok(secret)
+            secret_key.parse().map_err(|_| Error::InvalidSecretOrSeedPhrase)
         }
     }
 }
