@@ -70,7 +70,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Add(cmd) => cmd.run()?,
+            Cmd::Add(cmd) => cmd.run(global_args)?,
             Cmd::Address(cmd) => cmd.run()?,
             Cmd::Fund(cmd) => cmd.run(global_args).await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
