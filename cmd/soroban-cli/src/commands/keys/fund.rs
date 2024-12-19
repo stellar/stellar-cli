@@ -26,13 +26,11 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let addr = self.address.public_key()?;
-        self.network
-            .get(&self.address.locator)?
-            .fund_address(&addr)
-            .await?;
+        let network = self.network.get(&self.address.locator)?;
+        network.fund_address(&addr).await?;
         print.checkln(format!(
             "Account {:?} funded on {:?}",
-            self.address.name, self.network.network_passphrase
+            self.address.name, network.network_passphrase
         ));
         Ok(())
     }
