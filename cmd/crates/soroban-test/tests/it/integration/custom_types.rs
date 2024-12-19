@@ -241,7 +241,8 @@ async fn account_address(sandbox: &TestEnv, id: &str) {
 
 async fn account_address_with_alias(sandbox: &TestEnv, id: &str) {
     let res = invoke(sandbox, id, "addresse", &json!("test").to_string()).await;
-    assert_eq!(sandbox.test_address(0), res);
+    let test = format!("\"{}\"", super::tx::operations::test_address(sandbox));
+    assert_eq!(test, res);
 }
 
 async fn contract_address(sandbox: &TestEnv, id: &str) {
@@ -260,11 +261,13 @@ async fn contract_address_with_alias(sandbox: &TestEnv, id: &str) {
         .arg("alias")
         .arg("add")
         .arg("test_contract")
-        .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE");
+        .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+        .assert()
+        .success();
     let res = invoke(sandbox, id, "addresse", &json!("test_contract").to_string()).await;
     assert_eq!(
         res,
-        "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+        "\"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE\""
     );
 }
 
