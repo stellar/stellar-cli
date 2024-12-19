@@ -1,8 +1,7 @@
 use std::fmt::Debug;
 
 use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
-use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
+use crate::commands::contract::info::shared::{self, fetch, Fetched, MetasInfoOutput};
 use crate::commands::global;
 use crate::print::Print;
 use clap::{command, Parser};
@@ -36,12 +35,12 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<String, Error> {
         let print = Print::new(global_args.quiet);
-        let (bytes, ..) = fetch_wasm(&self.common, &print).await?;
+        let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
-        let Some(bytes) = bytes else {
-            return Err(NoSACMeta());
+        let spec = match contract {
+            shared::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?,
+            shared::Contract::StellarAssetContract => return Err(NoSACMeta()),
         };
-        let spec = Spec::new(&bytes)?;
 
         let Some(meta_base64) = spec.meta_base64 else {
             return Err(NoMetaPresent());
