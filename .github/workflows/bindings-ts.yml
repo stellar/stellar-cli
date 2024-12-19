@@ -102,6 +102,8 @@ jobs:
           done;
         if: runner.os ==  'windows'
         shell: wsl-run {0}
+      - run: Start-Sleep -Seconds 900
+        if: runner.os ==  'windows'
       - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GDMSMNH2Y4RONFEZT6U7SCZP34L5XAAXWHQKELXUW6D2CUT6HNNBEXXY
         if: runner.os ==  'windows'
       - run: rustup update
