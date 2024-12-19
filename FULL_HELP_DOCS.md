@@ -944,7 +944,7 @@ Create and manage identities including keys and addresses
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
 * `ls` — List identities
 * `rm` — Remove an identity
-* `show` — Given an identity return its private key
+* `secret` — Output an identity's secret key
 * `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
 
@@ -1069,11 +1069,11 @@ Remove an identity
 
 
 
-## `stellar keys show`
+## `stellar keys secret`
 
-Given an identity return its private key
+Output an identity's secret key
 
-**Usage:** `stellar keys show [OPTIONS] <NAME>`
+**Usage:** `stellar keys secret [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
