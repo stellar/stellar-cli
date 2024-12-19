@@ -11,7 +11,7 @@ use crate::integration::{
     util::{deploy_contract, DeployKind, HELLO_WORLD},
 };
 
-fn test_address(sandbox: &TestEnv) -> String {
+pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
         .new_assert_cmd("keys")
         .arg("address")
