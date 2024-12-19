@@ -1,6 +1,9 @@
 use clap::command;
 
-use crate::config::{locator, secret};
+use crate::{
+    config::{locator, secret},
+    print::Print,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -26,8 +29,10 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        Ok(self
-            .config_locator
-            .write_identity(&self.name, &self.secrets.read_secret()?)?)
+        let print = Print::new(false);
+        let secret = self.secrets.read_secret()?;
+        let path = self.config_locator.write_identity(&self.name, &secret)?;
+        print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
+        Ok(())
     }
 }
