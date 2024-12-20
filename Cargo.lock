@@ -4601,6 +4601,7 @@ dependencies = [
  "ed25519-dalek",
  "fs_extra",
  "hex",
+ "httpmock",
  "predicates",
  "sep5",
  "serde_json",
