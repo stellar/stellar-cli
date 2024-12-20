@@ -961,11 +961,11 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 ###### **Options:**
 
-* `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
-* `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
-* `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+* `--secret-key` — (deprecated) Enter secret (S) key when prompted
+* `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
 
 
 

@@ -66,7 +66,7 @@ async fn create_account() {
         .success()
         .stdout_as_str();
     let test = test_address(sandbox);
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
     let starting_balance = ONE_XLM * 100;
@@ -157,7 +157,7 @@ async fn payment_with_alias() {
 #[tokio::test]
 async fn payment() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
@@ -190,7 +190,7 @@ async fn payment() {
 #[tokio::test]
 async fn bump_sequence() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test = test_address(sandbox);
     let before = client.get_account(&test).await.unwrap();
     let amount = 50;
@@ -213,7 +213,7 @@ async fn bump_sequence() {
 #[tokio::test]
 async fn account_merge() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     let before1 = client.get_account(&test1).await.unwrap();
@@ -280,7 +280,7 @@ async fn set_trustline_flags() {
         .success();
     let id = contract_id_hash_from_asset(
         asset.parse::<builder::Asset>().unwrap(),
-        &sandbox.network_passphrase,
+        &sandbox.network.network_passphrase,
     );
     // sandbox
     //     .new_assert_cmd("contract")
@@ -316,7 +316,7 @@ async fn set_trustline_flags() {
 #[tokio::test]
 async fn set_options_add_signer() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     sandbox
@@ -378,7 +378,7 @@ fn build_and_run(sandbox: &TestEnv, cmd: &str, args: &[&str]) -> String {
 #[tokio::test]
 async fn set_options() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, alice) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
@@ -448,7 +448,7 @@ async fn set_options() {
 #[tokio::test]
 async fn set_some_options() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test = test_address(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
@@ -543,7 +543,7 @@ async fn change_trust() {
     // wrap_cmd(&asset).run().await.unwrap();
     let id = contract_id_hash_from_asset(
         asset.parse::<builder::Asset>().unwrap(),
-        &sandbox.network_passphrase,
+        &sandbox.network.network_passphrase,
     );
     sandbox
         .new_assert_cmd("contract")
@@ -621,7 +621,7 @@ async fn change_trust() {
 async fn manage_data() {
     let sandbox = &TestEnv::new();
     let (test, _) = setup_accounts(sandbox);
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let key = "test";
     let value = "beefface";
     sandbox
@@ -665,7 +665,7 @@ async fn manage_data() {
 }
 
 async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, initial_balance: u64) {
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test_before = client.get_account(test).await.unwrap();
     sandbox
         .new_assert_cmd("tx")
@@ -725,7 +725,7 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
 #[tokio::test]
 async fn multi_create_accounts() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let nums: Vec<u8> = (1..=3).collect();
     let mut accounts: Vec<(String, String)> = nums
         .iter()
