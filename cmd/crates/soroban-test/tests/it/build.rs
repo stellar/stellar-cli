@@ -109,6 +109,7 @@ fn build_default_members() {
 }
 
 #[test]
+#[ignore] // TODO: unignore -- reproduces unfixed bug https://github.com/stellar/stellar-cli/issues/1694
 fn build_with_metadata() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));

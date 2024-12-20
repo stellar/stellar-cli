@@ -35,7 +35,7 @@ fn mock_generate_account(server: &MockServer) -> Mock {
         when.method(GET)
             .path("/friendbot")
             .header("accept", "*/*")
-            .header("user-agent", "soroban-cli/22.0.1"); //update this to be future proof
+            .header("user-agent", "soroban-cli/22.1.0"); // TODO: update this to be future-proof
         then.status(200);
     })
 }
