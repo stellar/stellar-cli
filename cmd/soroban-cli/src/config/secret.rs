@@ -43,7 +43,7 @@ impl Args {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
         } else {
-            println!("Type a secret key or 24 word seed phrase:");
+            println!("Type a secret key or 12/24 word seed phrase:");
             let secret_key = read_password()?;
             secret_key
                 .parse()
