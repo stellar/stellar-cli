@@ -290,7 +290,7 @@ fn use_env() {
 
     sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("bob")
         .assert()
         .success()
@@ -337,7 +337,7 @@ fn config_dirs_precedence() {
 
     sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("alice")
         .arg("--verbose")
         .assert()
