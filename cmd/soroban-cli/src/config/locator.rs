@@ -167,7 +167,7 @@ impl Args {
         )
     }
 
-    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<(), Error> {
+    pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<PathBuf, Error> {
         self.write_key(name, &Key::Secret(secret.clone()))
     }
 
@@ -175,15 +175,15 @@ impl Args {
         &self,
         name: &str,
         public_key: &stellar_strkey::ed25519::PublicKey,
-    ) -> Result<(), Error> {
+    ) -> Result<PathBuf, Error> {
         self.write_key(name, &public_key.into())
     }
 
-    pub fn write_key(&self, name: &str, key: &Key) -> Result<(), Error> {
+    pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {
         KeyType::Identity.write(name, key, &self.config_dir()?)
     }
 
-    pub fn write_network(&self, name: &str, network: &Network) -> Result<(), Error> {
+    pub fn write_network(&self, name: &str, network: &Network) -> Result<PathBuf, Error> {
         KeyType::Network.write(name, network, &self.config_dir()?)
     }
 
@@ -471,10 +471,14 @@ impl KeyType {
         key: &str,
         value: &T,
         pwd: &Path,
-    ) -> Result<(), Error> {
+    ) -> Result<PathBuf, Error> {
         let filepath = ensure_directory(self.path(pwd, key))?;
         let data = toml::to_string(value).map_err(|_| Error::ConfigSerialization)?;
-        std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed { filepath, error })
+        std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
+            filepath: filepath.clone(),
+            error,
+        })?;
+        Ok(filepath)
     }
 
     fn root(&self, pwd: &Path) -> PathBuf {
