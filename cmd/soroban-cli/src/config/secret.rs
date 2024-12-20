@@ -30,7 +30,7 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// (deprecated) Add secret (S) key
+    /// (deprecated) Enter secret (S) key when prompted
     /// Can provide with `SOROBAN_SECRET_KEY`
     #[arg(long)]
     pub secret_key: bool,
