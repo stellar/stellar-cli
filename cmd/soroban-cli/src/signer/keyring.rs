@@ -31,7 +31,7 @@ impl StellarEntry {
         Ok(())
     }
 
-    pub fn get_password(&self) -> Result<Vec<u8>, Error> {
+    fn get_password(&self) -> Result<Vec<u8>, Error> {
         Ok(base64.decode(self.keyring.get_password()?)?)
     }
 
