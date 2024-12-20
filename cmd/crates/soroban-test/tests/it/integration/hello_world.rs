@@ -27,7 +27,7 @@ async fn invoke_view_with_non_existent_source_account() {
 #[allow(clippy::too_many_lines)]
 async fn invoke() {
     let sandbox = &TestEnv::new();
-    let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let c = sandbox.network.rpc_client().unwrap();
     let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
     sandbox
         .new_assert_cmd("keys")
@@ -365,7 +365,7 @@ async fn fetch(sandbox: &TestEnv, id: &str) {
     let f = sandbox.dir().join("contract.wasm");
     let cmd = sandbox.cmd_arr::<fetch::Cmd>(&[
         "--rpc-url",
-        &sandbox.rpc_url,
+        &sandbox.network.rpc_url,
         "--network-passphrase",
         LOCAL_NETWORK_PASSPHRASE,
         "--id",
