@@ -1,7 +1,6 @@
-use crate::commands::config::secret;
-
-use super::super::config::locator;
 use clap::arg;
+
+use crate::commands::config::{address, locator, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -13,6 +12,9 @@ pub enum Error {
 
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]

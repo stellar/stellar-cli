@@ -2,7 +2,10 @@ use clap::command;
 
 use crate::{
     commands::global,
-    config::{locator, secret},
+    config::{
+        address::{self, KeyName},
+        locator, secret,
+    },
     print::Print,
 };
 
@@ -10,16 +13,17 @@ use crate::{
 pub enum Error {
     #[error(transparent)]
     Secret(#[from] secret::Error),
-
     #[error(transparent)]
     Config(#[from] locator::Error),
+    #[error(transparent)]
+    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity
-    pub name: String,
+    pub name: KeyName,
 
     #[command(flatten)]
     pub secrets: secret::Args,
