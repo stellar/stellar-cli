@@ -98,7 +98,8 @@ impl Cmd {
             );
         }
         let secret = self.secret(&print)?;
-        self.config_locator.write_identity(&self.name, &secret)?;
+        let path = self.config_locator.write_identity(&self.name, &secret)?;
+        print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
 
         if !self.no_fund {
             let addr = secret.public_key(self.hd_path)?;
@@ -110,6 +111,10 @@ impl Cmd {
                     tracing::warn!("fund_address failed: {e}");
                 })
                 .unwrap_or_default();
+            print.checkln(format!(
+                "Account {:?} funded on {:?}",
+                self.name, network.network_passphrase
+            ));
         }
 
         Ok(())

@@ -1,8 +1,12 @@
 use clap::command;
 
-use crate::config::{
-    address::{self, KeyName},
-    locator, secret,
+use crate::{
+    commands::global,
+    config::{
+        address::{self, KeyName},
+        locator, secret,
+    },
+    print::Print,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -29,9 +33,11 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        Ok(self
-            .config_locator
-            .write_identity(&self.name, &self.secrets.read_secret()?)?)
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+        let secret = self.secrets.read_secret()?;
+        let path = self.config_locator.write_identity(&self.name, &secret)?;
+        print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
+        Ok(())
     }
 }

@@ -11,8 +11,6 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid secret key")]
-    InvalidSecretKey,
     // #[error("seed_phrase must be 12 words long, found {len}")]
     // InvalidSeedPhrase { len: usize },
     #[error("secret input error")]
@@ -23,8 +21,8 @@ pub enum Error {
     SeedPhrase(#[from] sep5::error::Error),
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
-    #[error("Invalid address {0}")]
-    InvalidAddress(String),
+    #[error("cannot parse secret (S) or seed phrase (12 or 24 word)")]
+    InvalidSecretOrSeedPhrase,
     #[error(transparent)]
     Signer(#[from] signer::Error),
     #[error(transparent)]
@@ -36,12 +34,11 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// Add using `secret_key`
-    /// Can provide with `SOROBAN_SECRET_KEY`
-    #[arg(long, conflicts_with = "seed_phrase")]
+    /// (deprecated) Enter secret (S) key when prompted
+    #[arg(long)]
     pub secret_key: bool,
-    /// Add using 12 word seed phrase to generate `secret_key`
-    #[arg(long, conflicts_with = "secret_key")]
+    /// (deprecated) Enter key using 12-24 word seed phrase
+    #[arg(long)]
     pub seed_phrase: bool,
 }
 
@@ -49,30 +46,12 @@ impl Args {
     pub fn read_secret(&self) -> Result<Secret, Error> {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
-        } else if self.secret_key {
-            println!("Type a secret key: ");
-            let secret_key = read_password()?;
-            let secret_key = PrivateKey::from_string(&secret_key)
-                .map_err(|_| Error::InvalidSecretKey)?
-                .to_string();
-            Ok(Secret::SecretKey { secret_key })
-        } else if self.seed_phrase {
-            println!("Type a 12 word seed phrase: ");
-            let seed_phrase = read_password()?;
-            let seed_phrase: Vec<&str> = seed_phrase.split_whitespace().collect();
-            // if seed_phrase.len() != 12 {
-            //     let len = seed_phrase.len();
-            //     return Err(Error::InvalidSeedPhrase { len });
-            // }
-            Ok(Secret::SeedPhrase {
-                seed_phrase: seed_phrase
-                    .into_iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            })
         } else {
-            Err(Error::PasswordRead {})
+            println!("Type a secret key or 12/24 word seed phrase:");
+            let secret_key = read_password()?;
+            secret_key
+                .parse()
+                .map_err(|_| Error::InvalidSecretOrSeedPhrase)
         }
     }
 }
@@ -102,7 +81,7 @@ impl FromStr for Secret {
                 entry_name: s.to_string(),
             })
         } else {
-            Err(Error::InvalidAddress(s.to_string()))
+            Err(Error::InvalidSecretOrSeedPhrase)
         }
     }
 }

@@ -105,6 +105,7 @@ toml_edit = "0.22.20"
 toml = "0.8.19"
 reqwest = "0.12.7"
 predicates = "3.1.2"
+httpmock = "0.7.0"
 
 [profile.test-wasms]
 inherits = "release"
