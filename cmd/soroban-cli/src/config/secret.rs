@@ -31,7 +31,6 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// (deprecated) Enter secret (S) key when prompted
-    /// Can provide with `SOROBAN_SECRET_KEY`
     #[arg(long)]
     pub secret_key: bool,
     /// (deprecated) Enter key using 12-24 word seed phrase
