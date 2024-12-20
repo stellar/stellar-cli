@@ -34,7 +34,7 @@ pub struct Args {
     /// Can provide with `SOROBAN_SECRET_KEY`
     #[arg(long)]
     pub secret_key: bool,
-    /// (deprecated) Add key using 12-24 word seed phrase
+    /// (deprecated) Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
 }
