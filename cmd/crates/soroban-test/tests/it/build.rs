@@ -180,23 +180,18 @@ fn with_flags(expected: &str) -> String {
     let registry_prefix = format!("{cargo_home}/registry/src/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
-        expected.split("\n").map(|x| x.to_string()).collect()
+        expected.split('\n').map(ToString::to_string).collect()
     } else {
         expected
-            .split("\n")
-            .map(|x| {
-                format!(
-                    "CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={}= {}",
-                    registry_prefix, x
-                )
-            })
+            .split('\n')
+            .map(|x| format!("CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={registry_prefix}= {x}",))
             .collect()
     };
 
-    return format!(
+    format!(
         "\
 {}
 ",
         vec.join("\n")
-    );
+    )
 }
