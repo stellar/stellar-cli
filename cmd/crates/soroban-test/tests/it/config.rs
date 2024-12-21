@@ -19,12 +19,11 @@ fn ls(sandbox: &TestEnv) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
-pub const NETWORKS: &str = "\
-local
+pub const NETWORKS: &str = r#"local
 futurenet
 mainnet
 testnet
-";
+"#;
 
 #[test]
 fn set_and_remove_network() {

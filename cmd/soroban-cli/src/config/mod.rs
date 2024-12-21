@@ -195,12 +195,8 @@ impl Config {
     pub fn save(&self) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
         let path = locator::config_file()?;
-        let parent = path.parent();
-        if let Some(parent) = parent {
-            fs::create_dir_all(parent)?;
-        }
         // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(path)?;
+        let mut file = File::create(locator::ensure_directory(path)?)?;
         file.write_all(toml_string.as_bytes())?;
 
         Ok(())
