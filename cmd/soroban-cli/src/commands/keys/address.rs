@@ -1,6 +1,9 @@
 use clap::arg;
 
-use crate::commands::config::{address, locator, secret};
+use crate::{
+    commands::config::{address, locator, secret},
+    config::UnresolvedMuxedAccount,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -47,6 +50,11 @@ impl Cmd {
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(&self.name) {
             Ok(key)
+        } else if let Ok(unresolved) = self.name.parse::<UnresolvedMuxedAccount>() {
+            let muxed = unresolved.resolve_muxed_account(&self.locator, self.hd_path)?;
+            Ok(stellar_strkey::ed25519::PublicKey::from_string(
+                &muxed.to_string(),
+            )?)
         } else {
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(
                 self.private_key()?.verifying_key().as_bytes(),
