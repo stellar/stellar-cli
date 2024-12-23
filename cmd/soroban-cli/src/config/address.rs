@@ -28,7 +28,11 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error("Address cannot be used to sign {0}")]
     CannotSign(xdr::MuxedAccount),
-    #[error("Invalid key name: {0}\n only alphanumeric characters, `_`and `-` are allowed")]
+    #[error("Invalid key name: {0}\n only alphanumeric characters, underscores (_), and hyphens (-) are allowed.")]
+    InvalidKeyNameCharacters(String),
+    #[error("Invalid key name: {0}\n keys cannot exceed 250 characters")]
+    InvalidKeyNameLength(String),
+    #[error("Invalid key name: {0}\n keys cannot be the word \"ledger\"")]
     InvalidKeyName(String),
 }
 
@@ -93,10 +97,13 @@ impl std::str::FromStr for KeyName {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if !s.chars().all(allowed_char) {
-            return Err(Error::InvalidKeyName(s.to_string()));
+            return Err(Error::InvalidKeyNameCharacters(s.to_string()));
         }
         if s == "ledger" {
             return Err(Error::InvalidKeyName(s.to_string()));
+        }
+        if s.len() > 250 {
+            return Err(Error::InvalidKeyNameLength(s.to_string()));
         }
         Ok(KeyName(s.to_string()))
     }
