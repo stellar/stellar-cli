@@ -3,7 +3,7 @@ import { Address, Keypair } from "@stellar/stellar-sdk";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
 
 const rootKeypair = Keypair.fromSecret(
-  spawnSync("./soroban", ["keys", "secret", "root"], {
+  spawnSync("./stellar", ["keys", "secret", "root"], {
     shell: true,
     encoding: "utf8",
   }).stdout.trim(),
