@@ -78,7 +78,7 @@ impl UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
                 Err(Error::CannotSign(muxed_account.clone()))
             }
-            UnresolvedMuxedAccount::AliasOrSecret(alias) => Ok(locator.read_identity(alias)?),
+            UnresolvedMuxedAccount::AliasOrSecret(alias) => Ok(locator.key(alias)?),
         }
     }
 }

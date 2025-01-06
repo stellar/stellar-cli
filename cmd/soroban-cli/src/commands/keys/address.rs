@@ -24,7 +24,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity to lookup, default test identity used if not provided
-    pub name: String,
+    pub name: UnresolvedMuxedAccount,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -40,25 +40,14 @@ impl Cmd {
         Ok(())
     }
 
-    pub fn private_key(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        Ok(self
-            .locator
-            .read_identity(&self.name)?
-            .key_pair(self.hd_path)?)
-    }
-
     pub fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        if let Ok(key) = stellar_strkey::ed25519::PublicKey::from_string(&self.name) {
-            Ok(key)
-        } else if let Ok(unresolved) = self.name.parse::<UnresolvedMuxedAccount>() {
-            let muxed = unresolved.resolve_muxed_account(&self.locator, self.hd_path)?;
-            Ok(stellar_strkey::ed25519::PublicKey::from_string(
-                &muxed.to_string(),
-            )?)
-        } else {
-            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-                self.private_key()?.verifying_key().as_bytes(),
-            )?)
-        }
+        let muxed = self
+            .name
+            .resolve_muxed_account(&self.locator, self.hd_path)?;
+        let bytes = match muxed {
+            soroban_sdk::xdr::MuxedAccount::Ed25519(uint256) => uint256.0,
+            soroban_sdk::xdr::MuxedAccount::MuxedEd25519(muxed_account) => muxed_account.ed25519.0,
+        };
+        Ok(stellar_strkey::ed25519::PublicKey(bytes))
     }
 }

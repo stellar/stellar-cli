@@ -274,10 +274,5 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SigningKey> {
-    let cmd = crate::commands::keys::address::Cmd {
-        name: addr_or_alias.to_string(),
-        hd_path: Some(0),
-        locator: config.locator.clone(),
-    };
-    cmd.private_key().ok()
+    config.locator.key(addr_or_alias).ok()?.key_pair(None).ok()
 }
