@@ -1,6 +1,8 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::{io::Write, str::FromStr};
+
+use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
@@ -94,6 +96,14 @@ impl From<PrivateKey> for Secret {
     }
 }
 
+impl From<SeedPhrase> for Secret {
+    fn from(value: SeedPhrase) -> Self {
+        Secret::SeedPhrase {
+            seed_phrase: value.seed_phrase.into_phrase(),
+        }
+    }
+}
+
 impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
@@ -113,7 +123,7 @@ impl Secret {
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
         if let Secret::SecureStore { entry_name } = self {
             let entry = keyring::StellarEntry::new(entry_name)?;
-            Ok(entry.get_public_key()?)
+            Ok(entry.get_public_key(index)?)
         } else {
             let key = self.key_pair(index)?;
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(
@@ -122,14 +132,15 @@ impl Secret {
         }
     }
 
-    pub fn signer(&self, index: Option<usize>, print: Print) -> Result<Signer, Error> {
+    pub fn signer(&self, hd_path: Option<usize>, print: Print) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
-                let key = self.key_pair(index)?;
+                let key = self.key_pair(hd_path)?;
                 SignerKind::Local(LocalKey { key })
             }
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.to_string(),
+                hd_path,
             }),
         };
         Ok(Signer { kind, print })
@@ -140,19 +151,24 @@ impl Secret {
     }
 
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
-        let seed_phrase = if let Some(seed) = seed.map(str::as_bytes) {
-            sep5::SeedPhrase::from_entropy(seed)
-        } else {
-            sep5::SeedPhrase::random(sep5::MnemonicType::Words24)
-        }?
-        .seed_phrase
-        .into_phrase();
-        Ok(Secret::SeedPhrase { seed_phrase })
+        Ok(seed_phrase_from_seed(seed)?.into())
     }
 
     pub fn test_seed_phrase() -> Result<Self, Error> {
         Self::from_seed(Some("0000000000000000"))
     }
+}
+
+pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
+    Ok(if let Some(seed) = seed.map(str::as_bytes) {
+        sep5::SeedPhrase::from_entropy(seed)?
+    } else {
+        sep5::SeedPhrase::random(sep5::MnemonicType::Words24)?
+    })
+}
+
+pub fn test_seed_phrase() -> Result<SeedPhrase, Error> {
+    Ok("0000000000000000".parse()?)
 }
 
 fn read_password() -> Result<String, Error> {

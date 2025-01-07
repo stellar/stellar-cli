@@ -294,13 +294,14 @@ impl Lab {
 
 pub struct SecureStoreEntry {
     pub name: String,
+    pub hd_path: Option<usize>,
 }
 
 impl SecureStoreEntry {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let entry = StellarEntry::new(&self.name)?;
-        let hint = SignatureHint(entry.get_public_key()?.0[28..].try_into()?);
-        let signed_tx_hash = entry.sign_data(&tx_hash)?;
+        let hint = SignatureHint(entry.get_public_key(self.hd_path)?.0[28..].try_into()?);
+        let signed_tx_hash = entry.sign_data(&tx_hash, self.hd_path)?;
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }

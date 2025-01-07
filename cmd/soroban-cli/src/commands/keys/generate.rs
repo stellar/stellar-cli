@@ -1,4 +1,5 @@
 use clap::{arg, command};
+use sep5::SeedPhrase;
 
 use super::super::config::{
     locator, network,
@@ -122,9 +123,7 @@ impl Cmd {
 
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
-        Ok(if self.as_secret {
-            seed_phrase.private_key(self.hd_path)?.into()
-        } else if self.secure_store {
+        if self.secure_store {
             // secure_store:org.stellar.cli:<key name>
             let entry_name_with_prefix = format!(
                 "{}{}-{}",
@@ -137,38 +136,41 @@ impl Cmd {
             let secret: Secret = entry_name_with_prefix.parse()?;
 
             if let Secret::SecureStore { entry_name } = &secret {
-                Self::write_to_secure_store(entry_name, &seed_phrase, print)?;
+                Self::write_to_secure_store(entry_name, seed_phrase, print)?;
             }
 
-            secret
+            return Ok(secret);
+        }
+        let secret: Secret = seed_phrase.into();
+        Ok(if self.as_secret {
+            secret.private_key(self.hd_path)?.into()
         } else {
-            seed_phrase
+            secret
         })
     }
 
-    fn seed_phrase(&self) -> Result<Secret, Error> {
+    fn seed_phrase(&self) -> Result<SeedPhrase, Error> {
         Ok(if self.default_seed {
-            Secret::test_seed_phrase()
+            secret::test_seed_phrase()
         } else {
-            Secret::from_seed(self.seed.as_deref())
+            secret::seed_phrase_from_seed(self.seed.as_deref())
         }?)
     }
 
     fn write_to_secure_store(
         entry_name: &String,
-        seed_phrase: &Secret,
+        seed_phrase: SeedPhrase,
         print: &Print,
     ) -> Result<(), Error> {
         print.infoln(format!("Writing to secure store: {entry_name}"));
         let entry = StellarEntry::new(entry_name)?;
-        if let Ok(key) = entry.get_public_key() {
+        if let Ok(key) = entry.get_public_key(None) {
             print.warnln(format!("A key for {entry_name} already exists in your operating system's secure store: {key}"));
         } else {
             print.infoln(format!(
                 "Saving a new key to your operating system's secure store: {entry_name}"
             ));
-            let key_pair = seed_phrase.key_pair(None)?;
-            entry.set_password(key_pair.as_bytes())?;
+            entry.set_seed_phrase(seed_phrase)?;
         }
         Ok(())
     }
