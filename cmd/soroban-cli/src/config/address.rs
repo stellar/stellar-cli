@@ -55,8 +55,8 @@ impl UnresolvedMuxedAccount {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
-            UnresolvedMuxedAccount::AliasOrSecret(alias) => {
-                Self::resolve_muxed_account_with_alias(alias, locator, hd_path)
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                Self::resolve_muxed_account_with_alias(alias_or_secret, locator, hd_path)
             }
         }
     }
@@ -78,7 +78,9 @@ impl UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
                 Err(Error::CannotSign(muxed_account.clone()))
             }
-            UnresolvedMuxedAccount::AliasOrSecret(alias) => Ok(locator.key(alias)?),
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                Ok(locator.key(alias_or_secret)?)
+            }
         }
     }
 }

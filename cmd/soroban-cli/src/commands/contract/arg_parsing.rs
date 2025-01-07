@@ -14,9 +14,8 @@ use crate::xdr::{
 
 use crate::commands::txn_result::TxnResult;
 use crate::config::{
-    self, address,
+    self,
     sc_address::{self, UnresolvedScAddress},
-    secret,
 };
 use soroban_spec_tools::Spec;
 
@@ -42,10 +41,6 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     StrVal(#[from] soroban_spec_tools::Error),
-    #[error(transparent)]
-    Address(#[from] address::Error),
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
     #[error("Missing argument {0}")]
     MissingArgument(String),
     #[error("")]

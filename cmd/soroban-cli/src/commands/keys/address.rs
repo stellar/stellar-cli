@@ -1,21 +1,12 @@
 use clap::arg;
 
 use crate::{
-    commands::config::{address, locator, secret},
+    commands::config::{address, locator},
     config::UnresolvedMuxedAccount,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Config(#[from] locator::Error),
-
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-
-    #[error(transparent)]
-    StrKey(#[from] stellar_strkey::DecodeError),
-
     #[error(transparent)]
     Address(#[from] address::Error),
 }

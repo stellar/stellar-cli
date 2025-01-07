@@ -2,10 +2,7 @@ use clap::command;
 
 use crate::{
     commands::global,
-    config::{
-        address::{self, KeyName},
-        locator, secret,
-    },
+    config::{address::KeyName, locator, secret},
     print::Print,
 };
 
@@ -13,10 +10,9 @@ use crate::{
 pub enum Error {
     #[error(transparent)]
     Secret(#[from] secret::Error),
+
     #[error(transparent)]
     Config(#[from] locator::Error),
-    #[error(transparent)]
-    Address(#[from] address::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
