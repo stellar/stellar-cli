@@ -84,6 +84,10 @@ pub enum Error {
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
+    #[error("Contract alias {0}, cannot overlap with key")]
+    ContractAliasCannotOverlapWithKey(String),
+    #[error("Key cannot {0} cannot overlap with contract alias")]
+    KeyCannotOverlapWithContractAlias(String),
     #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
     SecretKeyOnly(String),
     #[error(transparent)]
@@ -168,7 +172,10 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<PathBuf, Error> {
-        self.write_key(name, &Key::Secret(secret.clone()))
+        if let Ok(Some(_)) = self.load_contract_from_alias(name) {
+            return Err(Error::KeyCannotOverlapWithContractAlias(name.to_owned()));
+        }
+        KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
     pub fn write_public_key(
@@ -316,6 +323,9 @@ impl Args {
         contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
+        if self.read_identity(alias).is_ok() {
+            return Err(Error::ContractAliasCannotOverlapWithKey(alias.to_owned()));
+        }
         let path = self.alias_path(alias)?;
         let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
 

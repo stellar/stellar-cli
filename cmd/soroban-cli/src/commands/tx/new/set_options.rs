@@ -16,7 +16,7 @@ pub struct Cmd {
 pub struct Args {
     #[arg(long)]
     /// Account of the inflation destination.
-    pub inflation_dest: Option<address::Address>,
+    pub inflation_dest: Option<address::UnresolvedMuxedAccount>,
     #[arg(long)]
     /// A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled.
     pub master_weight: Option<u8>,

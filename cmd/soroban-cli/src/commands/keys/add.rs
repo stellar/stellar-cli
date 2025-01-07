@@ -2,7 +2,7 @@ use clap::command;
 
 use crate::{
     commands::global,
-    config::{key, locator, secret},
+    config::{address::KeyName, key, locator, secret},
     print::Print,
 };
 
@@ -20,7 +20,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of identity
-    pub name: String,
+    pub name: KeyName,
 
     #[command(flatten)]
     pub secrets: secret::Args,

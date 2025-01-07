@@ -15,7 +15,7 @@ pub struct Cmd {
 pub struct Args {
     /// Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
     #[arg(long)]
-    pub account: address::Address,
+    pub account: address::UnresolvedMuxedAccount,
 }
 
 impl TryFrom<&Cmd> for xdr::OperationBody {

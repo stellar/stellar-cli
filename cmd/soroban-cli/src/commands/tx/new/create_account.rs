@@ -15,7 +15,7 @@ pub struct Cmd {
 pub struct Args {
     /// Account Id to create, e.g. `GBX...`
     #[arg(long)]
-    pub destination: address::Address,
+    pub destination: address::UnresolvedMuxedAccount,
     /// Initial balance in stroops of the account, default 1 XLM
     #[arg(long, default_value = "10_000_000")]
     pub starting_balance: builder::Amount,

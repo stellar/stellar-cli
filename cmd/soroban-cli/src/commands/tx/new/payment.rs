@@ -15,7 +15,7 @@ pub struct Cmd {
 pub struct Args {
     /// Account to send to, e.g. `GBX...`
     #[arg(long)]
-    pub destination: address::Address,
+    pub destination: address::UnresolvedMuxedAccount,
     /// Asset to send, default native, e.i. XLM
     #[arg(long, default_value = "native")]
     pub asset: builder::Asset,

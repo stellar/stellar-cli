@@ -2,7 +2,7 @@ use crate::{
     commands::{global, txn_result::TxnEnvelopeResult},
     config::{
         self,
-        address::{self, Address},
+        address::{self, UnresolvedMuxedAccount},
         data, network, secret,
     },
     fee,
@@ -113,11 +113,17 @@ impl Args {
         Ok(self.config.source_account()?)
     }
 
-    pub fn resolve_muxed_address(&self, address: &Address) -> Result<xdr::MuxedAccount, Error> {
+    pub fn resolve_muxed_address(
+        &self,
+        address: &UnresolvedMuxedAccount,
+    ) -> Result<xdr::MuxedAccount, Error> {
         Ok(address.resolve_muxed_account(&self.config.locator, self.config.hd_path)?)
     }
 
-    pub fn resolve_account_id(&self, address: &Address) -> Result<xdr::AccountId, Error> {
+    pub fn resolve_account_id(
+        &self,
+        address: &UnresolvedMuxedAccount,
+    ) -> Result<xdr::AccountId, Error> {
         Ok(address
             .resolve_muxed_account(&self.config.locator, self.config.hd_path)?
             .account_id())
@@ -127,7 +133,7 @@ impl Args {
         &self,
         op_body: impl Into<xdr::OperationBody>,
         tx_env: xdr::TransactionEnvelope,
-        op_source: Option<&address::Address>,
+        op_source: Option<&address::UnresolvedMuxedAccount>,
     ) -> Result<xdr::TransactionEnvelope, Error> {
         let source_account = op_source
             .map(|a| self.resolve_muxed_address(a))

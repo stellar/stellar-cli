@@ -16,7 +16,7 @@ pub struct Cmd {
 pub struct Args {
     /// Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
     #[arg(long)]
-    pub trustor: address::Address,
+    pub trustor: address::UnresolvedMuxedAccount,
     /// Asset to set trustline flags for
     #[arg(long)]
     pub asset: builder::Asset,

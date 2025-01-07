@@ -11,7 +11,7 @@ use crate::integration::{
     util::{deploy_contract, DeployKind, HELLO_WORLD},
 };
 
-fn test_address(sandbox: &TestEnv) -> String {
+pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
         .new_assert_cmd("keys")
         .arg("address")
@@ -98,7 +98,7 @@ async fn create_account_with_alias() {
         .assert()
         .success();
     let test = test_address(sandbox);
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.client();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
     let starting_balance = ONE_XLM * 100;
@@ -124,7 +124,7 @@ async fn create_account_with_alias() {
 #[tokio::test]
 async fn payment_with_alias() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.client();
     let (test, test1) = setup_accounts(sandbox);
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
@@ -240,7 +240,7 @@ async fn account_merge() {
 #[tokio::test]
 async fn account_merge_with_alias() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.client();
     let (test, test1) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     let before1 = client.get_account(&test1).await.unwrap();

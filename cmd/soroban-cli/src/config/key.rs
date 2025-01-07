@@ -130,6 +130,17 @@ impl Display for MuxedAccount {
     }
 }
 
+impl TryFrom<Key> for Secret {
+    type Error = Error;
+
+    fn try_from(key: Key) -> Result<Secret, Self::Error> {
+        match key {
+            Key::Secret(secret) => Ok(secret),
+            _ => Err(Error::SecretPublicKey),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
