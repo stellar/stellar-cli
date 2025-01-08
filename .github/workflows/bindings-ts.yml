@@ -19,7 +19,7 @@ jobs:
           NETWORK: local
           ENABLE_SOROBAN_RPC: true
         options: >-
-          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
+          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 50
@@ -38,9 +38,13 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
+<<<<<<< HEAD
       - name: install libudev-dev
         run: |
             sudo apt install -y libudev-dev
+=======
+      - run: sudo apt install -y libdbus-1-dev
+>>>>>>> feat/os_keychain
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms

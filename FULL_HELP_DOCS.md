@@ -938,20 +938,20 @@ Create and manage identities including keys and addresses
 
 ###### **Subcommands:**
 
-* `add` — Add a new identity (keypair, ledger, macOS keychain)
+* `add` — Add a new identity (keypair, ledger, OS specific secure store)
 * `address` — Given an identity return its address (public key)
 * `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
 * `ls` — List identities
 * `rm` — Remove an identity
-* `show` — Given an identity return its private key
+* `secret` — Output an identity's secret key
 * `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
 
 
 ## `stellar keys add`
 
-Add a new identity (keypair, ledger, macOS keychain)
+Add a new identity (keypair, ledger, OS specific secure store)
 
 **Usage:** `stellar keys add [OPTIONS] <NAME>`
 
@@ -961,8 +961,8 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 ###### **Options:**
 
-* `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
-* `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
+* `--secret-key` — (deprecated) Enter secret (S) key when prompted
+* `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -976,7 +976,7 @@ Given an identity return its address (public key)
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, ledger, or secret key
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
 
 ###### **Options:**
 
@@ -994,7 +994,7 @@ Fund an identity on a test network
 
 ###### **Arguments:**
 
-* `<NAME>` — Name of identity to lookup, ledger, or secret key
+* `<NAME>` — Name of identity to lookup, default test identity used if not provided
 
 ###### **Options:**
 
@@ -1023,6 +1023,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
+* `--secure-store` — Save in OS-specific secure store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
@@ -1069,11 +1070,11 @@ Remove an identity
 
 
 
-## `stellar keys show`
+## `stellar keys secret`
 
-Given an identity return its private key
+Output an identity's secret key
 
-**Usage:** `stellar keys show [OPTIONS] <NAME>`
+**Usage:** `stellar keys secret [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 

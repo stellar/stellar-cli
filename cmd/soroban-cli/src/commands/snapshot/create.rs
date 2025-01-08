@@ -34,7 +34,7 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
-use crate::{config::address::Address, utils::http};
+use crate::{config::address::UnresolvedMuxedAccount, utils::http};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -427,10 +427,9 @@ impl Cmd {
 
     // Resolve an account address to an account id. The address can be a
     // G-address or a key name (as in `stellar keys address NAME`).
-    #[allow(dead_code)]
-    async fn resolve_account(&self, address: &str) -> Option<AccountId> {
-        let address: Address = address.parse().ok()?;
 
+    async fn resolve_account(&self, address: &str) -> Option<AccountId> {
+        let address: UnresolvedMuxedAccount = address.parse().ok()?;
         Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
             match address
                 .resolve_muxed_account(&self.locator, None)
@@ -448,19 +447,20 @@ impl Cmd {
     // Resolve an account address to an account id. The address can be a
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account_sync(&self, address: &str) -> Option<AccountId> {
-        let address: Address = address.parse().ok()?;
-
-        Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
-            match address
-                .resolve_muxed_account_sync(&self.locator, None)
+        let address: UnresolvedMuxedAccount = address.parse().ok()?;
+        let muxed_account = match address {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => muxed_account,
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                UnresolvedMuxedAccount::resolve_muxed_account_with_alias(
+                    &alias_or_secret,
+                    &self.locator,
+                    None,
+                )
                 .ok()?
-            {
-                xdr::MuxedAccount::Ed25519(uint256) => uint256,
-                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 { ed25519, .. }) => {
-                    ed25519
-                }
-            },
-        )))
+            }
+            UnresolvedMuxedAccount::Ledger(_) => return None,
+        };
+        Some(muxed_account.account_id())
     }
     // Resolve a contract address to a contract id. The contract can be a
     // C-address or a contract alias.

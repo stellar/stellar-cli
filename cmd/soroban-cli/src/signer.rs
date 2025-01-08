@@ -1,4 +1,5 @@
 use ed25519_dalek::ed25519::signature::Signer as _;
+use keyring::StellarEntry;
 use sha2::{Digest, Sha256};
 
 use crate::xdr::{
@@ -11,6 +12,8 @@ use crate::xdr::{
 use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
+
+pub mod keyring;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -36,6 +39,8 @@ pub enum Error {
     Open(#[from] std::io::Error),
     #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
     ReturningSignatureFromLab,
+    #[error(transparent)]
+    Keyring(#[from] keyring::Error),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -214,6 +219,7 @@ pub enum SignerKind {
     #[cfg(feature = "emulator-tests")]
     Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
     Lab,
+    SecureStore(SecureStoreEntry),
 }
 
 impl Signer {
@@ -243,6 +249,7 @@ impl Signer {
                     SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
                     SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
                     SignerKind::Ledger(ledger) => ledger.sign_transaction_hash(&tx_hash).await?,
+                    SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash)?,
                 };
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
@@ -360,5 +367,20 @@ impl Lab {
         open::that(url)?;
 
         Err(Error::ReturningSignatureFromLab)
+    }
+}
+
+pub struct SecureStoreEntry {
+    pub name: String,
+    pub hd_path: Option<usize>,
+}
+
+impl SecureStoreEntry {
+    pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+        let entry = StellarEntry::new(&self.name)?;
+        let hint = SignatureHint(entry.get_public_key(self.hd_path)?.0[28..].try_into()?);
+        let signed_tx_hash = entry.sign_data(&tx_hash, self.hd_path)?;
+        let signature = Signature(signed_tx_hash.clone().try_into()?);
+        Ok(DecoratedSignature { hint, signature })
     }
 }
