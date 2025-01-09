@@ -5,6 +5,7 @@ use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
+
 use crate::{
     commands::global,
     config::address::KeyName,

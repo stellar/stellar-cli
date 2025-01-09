@@ -56,7 +56,7 @@ impl UnresolvedMuxedAccount {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                Ok(locator.read_key(alias_or_secret)?.public_key(hd_path)?)
+                Ok(locator.read_key(alias_or_secret)?.muxed_account(hd_path)?)
             }
         }
     }

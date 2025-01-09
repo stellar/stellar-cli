@@ -257,11 +257,9 @@ impl Args {
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
-        if let Ok(key) = self.read_identity(key_or_name) {
-            Ok(key)
-        } else {
-            Ok(key_or_name.parse()?)
-        }
+        key_or_name
+            .parse()
+            .or_else(|_| self.read_identity(key_or_name))
     }
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
@@ -276,7 +274,7 @@ impl Args {
         key_or_name: &str,
         hd_path: Option<usize>,
     ) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self.read_key(key_or_name)?.public_key(hd_path)?)
+        Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {

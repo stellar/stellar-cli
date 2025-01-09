@@ -28,7 +28,7 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn public_key(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
+    pub fn muxed_account(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
         let bytes = match self {
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
             Key::PublicKey(Public(key)) => key.0,
