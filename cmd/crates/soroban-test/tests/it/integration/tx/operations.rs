@@ -98,6 +98,79 @@ async fn create_account() {
 }
 
 #[tokio::test]
+async fn create_account_with_alias() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "--no-fund", "new"])
+        .assert()
+        .success();
+    let test = test_address(sandbox);
+    let client = sandbox.client();
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
+    let starting_balance = ONE_XLM * 100;
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-account",
+            "--destination",
+            "new",
+            "--starting-balance",
+            starting_balance.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let test_account_after = client.get_account(&test).await.unwrap();
+    assert!(test_account_after.balance < test_account.balance);
+    let id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some("new".to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
+    println!("{id}");
+    invoke_hello_world(sandbox, &id);
+}
+
+#[tokio::test]
+async fn payment_with_alias() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.client();
+    let (test, test1) = setup_accounts(sandbox);
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
+
+    let before = client.get_account(&test).await.unwrap();
+    let test1_account_entry_before = client.get_account(&test1).await.unwrap();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            "test1",
+            "--amount",
+            ONE_XLM.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let test1_account_entry = client.get_account(&test1).await.unwrap();
+    assert_eq!(
+        ONE_XLM,
+        test1_account_entry.balance - test1_account_entry_before.balance,
+        "Should have One XLM more"
+    );
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(before.balance - 10_000_100, after.balance);
+}
+
+#[tokio::test]
 async fn payment() {
     let sandbox = &TestEnv::new();
     let client = sandbox.network.rpc_client().unwrap();
@@ -170,6 +243,33 @@ async fn account_merge() {
             "test1",
             "--account",
             test.as_str(),
+            "--fee",
+            fee.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert!(client.get_account(&test1).await.is_err());
+    assert_eq!(before.balance + before1.balance - fee, after.balance);
+}
+
+#[tokio::test]
+async fn account_merge_with_alias() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.client();
+    let (test, test1) = setup_accounts(sandbox);
+    let before = client.get_account(&test).await.unwrap();
+    let before1 = client.get_account(&test1).await.unwrap();
+    let fee = 100;
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "account-merge",
+            "--source",
+            "test1",
+            "--account",
+            "test",
             "--fee",
             fee.to_string().as_str(),
         ])

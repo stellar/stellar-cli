@@ -1,9 +1,7 @@
-use clap::Parser;
-
 use super::super::{global, help, xdr::tx_envelope_from_stdin};
-use crate::xdr::WriteXdr;
+use crate::xdr::{OperationBody, WriteXdr};
 
-pub(crate) use super::super::{new, xdr};
+pub(crate) use super::super::new;
 
 mod account_merge;
 mod args;
@@ -15,7 +13,7 @@ mod payment;
 mod set_options;
 mod set_trustline_flags;
 
-#[derive(Debug, Parser)]
+#[derive(Debug, clap::Parser)]
 #[allow(clippy::doc_markdown)]
 pub enum Cmd {
     #[command(about = help::ACCOUNT_MERGE)]
@@ -39,26 +37,46 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Args(#[from] args::Error),
-    #[error(transparent)]
     TxXdr(#[from] super::super::xdr::Error),
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
+    #[error(transparent)]
+    New(#[from] super::super::new::Error),
+    #[error(transparent)]
+    Tx(#[from] super::super::args::Error),
+}
+
+impl TryFrom<&Cmd> for OperationBody {
+    type Error = super::super::new::Error;
+    fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
+        Ok(match &cmd {
+            Cmd::AccountMerge(account_merge::Cmd { op, .. }) => op.try_into()?,
+            Cmd::BumpSequence(bump_sequence::Cmd { op, .. }) => op.into(),
+            Cmd::ChangeTrust(change_trust::Cmd { op, .. }) => op.into(),
+            Cmd::CreateAccount(create_account::Cmd { op, .. }) => op.try_into()?,
+            Cmd::ManageData(manage_data::Cmd { op, .. }) => op.into(),
+            Cmd::Payment(payment::Cmd { op, .. }) => op.try_into()?,
+            Cmd::SetOptions(set_options::Cmd { op, .. }) => op.try_into()?,
+            Cmd::SetTrustlineFlags(set_trustline_flags::Cmd { op, .. }) => op.try_into()?,
+        })
+    }
 }
 
 impl Cmd {
     pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
         let tx_env = tx_envelope_from_stdin()?;
+        let op = OperationBody::try_from(self)?;
         let res = match self {
-            Cmd::AccountMerge(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::BumpSequence(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::ChangeTrust(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::CreateAccount(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::ManageData(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::Payment(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::SetOptions(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-            Cmd::SetTrustlineFlags(cmd) => cmd.args.add_op(&cmd.op, tx_env).await,
-        }?;
+            Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::BumpSequence(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::ChangeTrust(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::CreateAccount(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::ManageData(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::Payment(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::SetOptions(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::SetTrustlineFlags(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+        }
+        .await?;
         println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
         Ok(())
     }

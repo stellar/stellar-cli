@@ -8,7 +8,7 @@ use crate::{
     xdr,
 };
 
-use super::{locator, secret};
+use super::{key, locator, secret};
 
 /// Address can be either a public key or eventually an alias of a address.
 #[derive(Clone, Debug)]
@@ -32,6 +32,8 @@ pub enum Error {
     Secret(#[from] secret::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    Key(#[from] key::Error),
     #[error("Address cannot be used to sign {0}")]
     CannotSign(xdr::MuxedAccount),
     #[error("Ledger cannot reveal private keys")]
@@ -44,6 +46,8 @@ pub enum Error {
     InvalidKeyNameLength(String),
     #[error("Invalid key name: {0}\n keys cannot be the word \"ledger\"")]
     InvalidKeyName(String),
+    #[error("Ledger not supported in this context")]
+    LedgerNotSupported,
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -80,26 +84,27 @@ impl UnresolvedMuxedAccount {
         hd_path: Option<usize>,
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
-            UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
-            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                Self::resolve_muxed_account_with_alias(alias_or_secret, locator, hd_path)
-            }
             UnresolvedMuxedAccount::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
                 ledger(*hd_path).await?.public_key().await?.0.into(),
             )),
+            UnresolvedMuxedAccount::Resolved(_) | UnresolvedMuxedAccount::AliasOrSecret(_) => {
+                self.resolve_muxed_account_sync(locator, hd_path)
+            }
         }
     }
 
-    pub fn resolve_muxed_account_with_alias(
-        alias: &str,
+    pub fn resolve_muxed_account_sync(
+        &self,
         locator: &locator::Args,
         hd_path: Option<usize>,
     ) -> Result<xdr::MuxedAccount, Error> {
-        alias.parse().or_else(|_| {
-            Ok(xdr::MuxedAccount::Ed25519(
-                locator.read_identity(alias)?.public_key(hd_path)?.0.into(),
-            ))
-        })
+        match self {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                Ok(locator.read_key(alias_or_secret)?.muxed_account(hd_path)?)
+            }
+            UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerNotSupported),
+        }
     }
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
@@ -108,7 +113,7 @@ impl UnresolvedMuxedAccount {
                 Err(Error::CannotSign(muxed_account.clone()))
             }
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                Ok(locator.key(alias_or_secret)?)
+                Ok(locator.read_key(alias_or_secret)?.try_into()?)
             }
             UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerPrivateKeyRevealNotSupported),
         }

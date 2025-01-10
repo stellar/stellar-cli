@@ -111,7 +111,7 @@ jobs:
         - os: ubuntu-latest-16-cores
           target: x86_64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset
-          additional-deb-packages: libudev-dev
+          additional-deb-packages: libudev-dev libdbus-1-dev
         # TODO: add back ARM support
         #- os: ubuntu-latest-16-cores
         #  target: aarch64-unknown-linux-gnu

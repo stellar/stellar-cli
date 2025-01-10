@@ -448,18 +448,9 @@ impl Cmd {
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account_sync(&self, address: &str) -> Option<AccountId> {
         let address: UnresolvedMuxedAccount = address.parse().ok()?;
-        let muxed_account = match address {
-            UnresolvedMuxedAccount::Resolved(muxed_account) => muxed_account,
-            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                UnresolvedMuxedAccount::resolve_muxed_account_with_alias(
-                    &alias_or_secret,
-                    &self.locator,
-                    None,
-                )
-                .ok()?
-            }
-            UnresolvedMuxedAccount::Ledger(_) => return None,
-        };
+        let muxed_account = address
+            .resolve_muxed_account_sync(&self.locator, None)
+            .ok()?;
         Some(muxed_account.account_id())
     }
     // Resolve a contract address to a contract id. The contract can be a
