@@ -3,11 +3,17 @@ use clap::{command, Parser};
 use crate::{commands::tx, xdr};
 
 #[derive(Parser, Debug, Clone)]
-#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     pub tx: tx::Args,
+    #[clap(flatten)]
+    pub op: Args,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+#[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
+pub struct Args {
     #[arg(long)]
     /// Account of the inflation destination.
     pub inflation_dest: Option<xdr::AccountId>,
@@ -40,7 +46,7 @@ pub struct Cmd {
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-required-0x1
     pub set_required: bool,
     #[arg(long, conflicts_with = "clear_revocable")]
-    /// When enabled, an issuer can revoke an existing trustline’s authorization, thereby freezing the asset held by an account.
+    /// When enabled, an issuer can revoke an existing trustline's authorization, thereby freezing the asset held by an account.
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2
     pub set_revocable: bool,
     #[arg(long, conflicts_with = "clear_clawback_enabled")]
@@ -48,7 +54,7 @@ pub struct Cmd {
     /// https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8
     pub set_clawback_enabled: bool,
     #[arg(long, conflicts_with = "clear_immutable")]
-    /// With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can’t be merged.
+    /// With this setting, none of the other authorization flags (`AUTH_REQUIRED_FLAG`, `AUTH_REVOCABLE_FLAG`) can be set, and the issuing account can't be merged.
     /// https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4
     pub set_immutable: bool,
     #[arg(long)]
@@ -61,8 +67,8 @@ pub struct Cmd {
     pub clear_clawback_enabled: bool,
 }
 
-impl From<&Cmd> for xdr::OperationBody {
-    fn from(cmd: &Cmd) -> Self {
+impl From<&Args> for xdr::OperationBody {
+    fn from(cmd: &Args) -> Self {
         let mut set_flags = None;
         let mut set_flag = |flag: xdr::AccountFlags| {
             *set_flags.get_or_insert(0) |= flag as u32;

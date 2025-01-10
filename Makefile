@@ -10,7 +10,7 @@ endif
 # By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
 # Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
-	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
+	override REPOSITORY_VERSION = "$(shell ( git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//' ) )"
 endif  
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
@@ -31,6 +31,7 @@ install_rust: install
 install:
 	cargo install --force --locked --path ./cmd/stellar-cli --debug
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
+	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot: typescript-bindings-fixtures
@@ -47,7 +48,7 @@ generate-full-help-doc:
 	cargo run --bin doc-gen --features clap-markdown
 
 test: build-test
-	cargo test
+	cargo test --workspace
 
 e2e-test:
 	cargo test --features it --test it -- integration
@@ -70,9 +71,11 @@ publish:
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
-					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
-					--network futurenet \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
+					--overwrite && \
+	cargo run -- contract bindings typescript \
+					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm \
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_constructor \
 					--overwrite
 
 

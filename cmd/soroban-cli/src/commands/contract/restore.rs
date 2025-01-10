@@ -136,11 +136,12 @@ impl NetworkRunnable for Cmd {
         let source_account = config.source_account()?;
 
         // Get the account sequence number
-        let public_strkey = source_account.to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let tx = Transaction {
+        let tx = Box::new(Transaction {
             source_account,
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
@@ -166,12 +167,12 @@ impl NetworkRunnable for Cmd {
                 },
                 resource_fee: 0,
             }),
-        };
+        });
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&config.sign_with_local_key(*tx).await?)
             .await?;
         if args.map_or(true, |a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
@@ -206,7 +207,7 @@ impl NetworkRunnable for Cmd {
             );
         }
         Ok(TxnResult::Res(
-            parse_operations(operations).ok_or(Error::MissingOperationResult)?,
+            parse_operations(&operations.to_vec()).ok_or(Error::MissingOperationResult)?,
         ))
     }
 }

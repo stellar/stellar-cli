@@ -1,4 +1,5 @@
 use assert_fs::TempDir;
+use predicates::prelude::predicate;
 use soroban_test::{AssertExt, TestEnv};
 use std::{fs, path::Path};
 
@@ -282,9 +283,157 @@ fn use_env() {
 
     sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("bob")
         .assert()
         .success()
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
+}
+
+#[test]
+fn config_dirs_precedence() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    fs::rename(
+        sandbox.dir().join(".stellar"),
+        sandbox.dir().join("_soroban"),
+    )
+    .unwrap();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    fs::rename(
+        sandbox.dir().join("_soroban"),
+        sandbox.dir().join(".soroban"),
+    )
+    .unwrap();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("alice")
+        .arg("--verbose")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "WARN soroban_cli::utils: the .stellar and .soroban config directories exist at path",
+        ))
+        .stdout("SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG\n");
+}
+
+#[test]
+fn set_default_identity() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("alice")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `alice`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
+        .success();
+}
+
+#[test]
+fn set_default_network() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("network")
+        .arg("use")
+        .arg("testnet")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default network is set to `testnet`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_NETWORK=testnet"))
+        .success();
+}
+
+#[test]
+fn cannot_create_contract_with_test_name() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("--no-fund")
+        .arg("d")
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("alias")
+        .arg("add")
+        .arg("d")
+        .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+        .assert()
+        .stderr(predicate::str::contains("cannot overlap with key"))
+        .failure();
+}
+
+#[test]
+fn cannot_create_key_with_alias() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("alias")
+        .arg("add")
+        .arg("t")
+        .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("--no-fund")
+        .arg("t")
+        .assert()
+        .stderr(predicate::str::contains(
+            "cannot overlap with contract alias",
+        ))
+        .failure();
 }

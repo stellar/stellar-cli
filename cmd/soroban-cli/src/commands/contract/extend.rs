@@ -135,10 +135,12 @@ impl NetworkRunnable for Cmd {
         let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
-        let account_details = client.get_account(&source_account.to_string()).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let tx = Transaction {
+        let tx = Box::new(Transaction {
             source_account,
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
@@ -165,7 +167,7 @@ impl NetworkRunnable for Cmd {
                 },
                 resource_fee: 0,
             }),
-        };
+        });
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
@@ -184,10 +186,7 @@ impl NetworkRunnable for Cmd {
         if !events.is_empty() {
             tracing::info!("Events:\n {events:#?}");
         }
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
+        let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.

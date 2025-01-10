@@ -1,6 +1,6 @@
 # Stellar CLI (stellar-cli)
 
-![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)
+[![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)](LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/stellar-cli?label=version&amp;color=04ac5b)](https://crates.io/crates/stellar-cli)
 
 This repo is home to the Stellar CLI, the command-line multi-tool for running and deploying Stellar contracts on the Stellar network.
@@ -10,15 +10,12 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 
 - [Documentation](#documentation)
 - [Cookbook](#cookbook)
-- [Installation](#installation)
-- [Installation with Experimental Features](#installation-with-experimental-features)
+- [Install](#install)
 - [Autocomplete](#autocomplete)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
 - [To Contribute](#to-contribute)
 - [Additional Developer Resources](#additional-developer-resources)
-
-
 
 ## Documentation
 
@@ -27,28 +24,24 @@ For installation options see below, for usage instructions [see the full help do
 ## Cookbook
 To understand how to get the most of the Stellar CLI, see the [Stellar CLI Cookbook](https://github.com/stellar/stellar-cli/tree/main/cookbook) for recipes and a collection of resources to teach you how to use the CLI. Examples of recipes included in the CLI cookbook include: send payments, manage contract lifecycle, extend contract instance/storage/wasm, and more.
 
-## Installation
-Install the latest version from source:
-```
-cargo install --locked stellar-cli --features opt
-```
+## Install
 
-Install with `cargo-binstall`:
-```
-cargo install --locked cargo-binstall
-cargo binstall -y stellar-cli
-```
-
-Install with Homebrew:
+Install with Homebrew (macOS, Linux):
 
 ```
 brew install stellar-cli
 ```
 
-## Installation with Experimental Features
-To use the potentially unreleased bleeding edge CLI functionalities, install from git:
+Install the latest version from source:
 ```
-cargo install --locked stellar-cli --features opt --git https://github.com/stellar/stellar-cli.git
+cargo install --locked stellar-cli --features opt
+```
+
+Install or run the unreleased main branch with nix:
+```
+$ nix run 'github:stellar/stellar-cli' -- --help
+or install
+$ nix profile install github:stellar/stellar-cli
 ```
 
 ## Autocomplete
@@ -60,12 +53,12 @@ stellar completion --shell <SHELL>
 Possible SHELL values are `bash`, `elvish`, `fish`, `powershell`, `zsh`, etc.
 
 To enable autocomplete in the current bash shell, run:
-```
+```bash
 source <(stellar completion --shell bash)
 ```
 
 To enable autocomplete permanently, run:
-```
+```bash
 echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 ```
 

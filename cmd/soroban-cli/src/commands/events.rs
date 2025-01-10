@@ -42,7 +42,7 @@ pub struct Cmd {
         num_args = 1..=6,
         help_heading = "FILTERS"
     )]
-    contract_ids: Vec<String>,
+    contract_ids: Vec<config::UnresolvedContract>,
     /// A set of (up to 4) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segment filters, separated by
     /// commas, with an asterisk (`*` character) indicating a wildcard segment.
@@ -218,9 +218,8 @@ impl NetworkRunnable for Cmd {
             .contract_ids
             .iter()
             .map(|id| {
-                Ok(self
-                    .locator
-                    .resolve_contract_id(id, &network.network_passphrase)?
+                Ok(id
+                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
                     .to_string())
             })
             .collect::<Result<Vec<_>, Error>>()?;
