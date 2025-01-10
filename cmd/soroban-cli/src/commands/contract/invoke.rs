@@ -6,12 +6,13 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser, ValueEnum};
-
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
+use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -131,12 +132,20 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await?.to_envelope();
+        let res = self.invoke(global_args).await;
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(output) => {
-                println!("{output}");
+            Ok(res) => match res.to_envelope() {
+                TxnEnvelopeResult::TxnEnvelope(tx) => {
+                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                }
+                TxnEnvelopeResult::Res(output) => {
+                    println!("{output}");
+                }
+            },
+            Err(ArgParsing(HelpMessage(help))) => {
+                println!("{help}");
             }
+            Err(e) => return Err(e),
         }
         Ok(())
     }
@@ -221,7 +230,7 @@ impl NetworkRunnable for Cmd {
         let spec_entries = self.spec_entries()?;
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            let _ = build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
         let client = network.rpc_client()?;
 
@@ -235,8 +244,10 @@ impl NetworkRunnable for Cmd {
         .await
         .map_err(Error::from)?;
 
-        let (function, spec, host_function_params, signers) =
+        let params =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+
+        let (function, spec, host_function_params, signers) = params;
 
         let should_send_tx = self
             .should_send_after_sim(host_function_params.clone(), client.clone())
