@@ -75,7 +75,7 @@ impl Cmd {
             Cmd::Fund(cmd) => cmd.run(global_args).await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Rm(cmd) => cmd.run()?,
+            Cmd::Rm(cmd) => cmd.run(global_args)?,
             Cmd::Secret(cmd) => cmd.run()?,
             Cmd::Default(cmd) => cmd.run(global_args)?,
         };

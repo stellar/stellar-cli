@@ -12,7 +12,7 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{commands::HEADING_GLOBAL, utils::find_config_dir, Pwd};
+use crate::{commands::{global, HEADING_GLOBAL}, print::Print, signer::{self, keyring::StellarEntry}, utils::find_config_dir, Pwd};
 
 use super::{
     alias,
@@ -87,6 +87,8 @@ pub enum Error {
     ContractAliasCannotOverlapWithKey(String),
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
+    #[error(transparent)]
+    Keyring(#[from] signer::keyring::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -260,7 +262,23 @@ impl Args {
         res
     }
 
-    pub fn remove_identity(&self, name: &str) -> Result<(), Error> {
+    pub fn remove_identity(&self, name: &str, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+        let identity = self.read_identity(name)?;
+        if let Secret::SecureStore { entry_name } = identity {
+            let entry = StellarEntry::new(&entry_name)?;
+            match entry.delete_seed_phrase() {
+                Ok(()) => {}
+                Err(e) => match e {
+                    signer::keyring::Error::Keyring(keyring::Error::NoEntry) => {
+                        print.infoln("This key was already removed from the secure store. Removing the cli config file.");
+                    }
+                    _ => {
+                        return Err(Error::Keyring(e));
+                    }
+                },
+            }
+        }
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 
