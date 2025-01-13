@@ -27,6 +27,8 @@ pub enum Error {
     InvalidAddress(String),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error("Cannot export seed phrase from a secret key")]
+    InvalidSecretOrSeedPhrase,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -154,9 +156,20 @@ impl Secret {
     pub fn test_seed_phrase() -> Result<Self, Error> {
         Self::from_seed(Some("0000000000000000"))
     }
+
+    pub fn export_seed_phrase(&self) -> Result<String, Error> {
+        match self {
+            Secret::SeedPhrase { seed_phrase } => Ok(seed_phrase.clone()),
+            _ => Err(Error::InvalidSecretOrSeedPhrase),
+        }
+    }
 }
 
 fn read_password() -> Result<String, Error> {
     std::io::stdout().flush().map_err(|_| Error::PasswordRead)?;
     rpassword::read_password().map_err(|_| Error::PasswordRead)
+}
+
+pub fn export_seed_phrase(secret: &Secret) -> Result<String, Error> {
+    secret.export_seed_phrase()
 }

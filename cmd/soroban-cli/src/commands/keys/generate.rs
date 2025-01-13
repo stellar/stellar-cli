@@ -52,10 +52,23 @@ pub struct Cmd {
     /// Fund generated key pair
     #[arg(long, default_value = "false")]
     pub fund: bool,
+
+    /// Export seed phrase
+    #[arg(long)]
+    pub export_seed: bool,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        if self.export_seed {
+            // Handle export case
+            let secret = self.config_locator.read_identity(&self.name)?;
+            if let Ok(seed_phrase) = secret.export_seed_phrase() {
+                println!("{}", seed_phrase);
+                return Ok(());
+            }
+            return Err(Error::Secret(secret::Error::InvalidSecretOrSeedPhrase));
+        }
         if !self.fund {
             Print::new(global_args.quiet).warnln(
                 "Behavior of `generate` will change in the \
