@@ -7,9 +7,11 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, keyring, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    signer::{self, keyring, ledger, LocalKey, SecureStoreEntry, Signer, SignerKind},
     utils,
 };
+
+use super::key::Key;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,6 +29,10 @@ pub enum Error {
     InvalidSecretOrSeedPhrase,
     #[error(transparent)]
     Signer(#[from] signer::Error),
+
+    #[error("Ledger does not reveal secret key")]
+    LedgerDoesNotRevealSecretKey,
+
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
     #[error("Secure Store does not reveal secret key")]
@@ -58,11 +64,12 @@ impl Args {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
+    Ledger,
     SecureStore { entry_name: String },
 }
 
@@ -78,6 +85,8 @@ impl FromStr for Secret {
             Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
             })
+        } else if s == "ledger" {
+            Ok(Secret::Ledger)
         } else if s.starts_with(keyring::SECURE_STORE_ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
@@ -93,6 +102,12 @@ impl From<PrivateKey> for Secret {
         Secret::SecretKey {
             secret_key: value.to_string(),
         }
+    }
+}
+
+impl From<Secret> for Key {
+    fn from(value: Secret) -> Self {
+        Key::Secret(value)
     }
 }
 
@@ -114,6 +129,7 @@ impl Secret {
                     .private()
                     .0,
             )?,
+            Secret::Ledger => panic!("Ledger does not reveal secret key"),
             Secret::SecureStore { .. } => {
                 return Err(Error::SecureStoreDoesNotRevealSecretKey);
             }
@@ -132,11 +148,18 @@ impl Secret {
         }
     }
 
-    pub fn signer(&self, hd_path: Option<usize>, print: Print) -> Result<Signer, Error> {
+    pub async fn signer(&self, hd_path: Option<usize>, print: Print) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 let key = self.key_pair(hd_path)?;
                 SignerKind::Local(LocalKey { key })
+            }
+            Secret::Ledger => {
+                let hd_path: u32 = hd_path
+                    .unwrap_or_default()
+                    .try_into()
+                    .expect("uszie bigger than u32");
+                SignerKind::Ledger(ledger(hd_path).await?)
             }
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.to_string(),

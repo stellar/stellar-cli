@@ -13,10 +13,12 @@ use crate::xdr::{
 };
 
 use crate::commands::txn_result::TxnResult;
+
 use crate::config::{
     self,
     sc_address::{self, UnresolvedScAddress},
 };
+
 use soroban_spec_tools::Spec;
 
 #[derive(thiserror::Error, Debug)]
@@ -269,5 +271,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SigningKey> {
-    config.locator.key(addr_or_alias).ok()?.key_pair(None).ok()
+    config
+        .locator
+        .read_key(addr_or_alias)
+        .ok()?
+        .private_key(None)
+        .ok()
+        .map(|pk| SigningKey::from_bytes(&pk.0))
 }

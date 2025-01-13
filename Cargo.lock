@@ -4158,9 +4158,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.9.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cecfa94848272156ea67b2b1a53f20fc7bc638c4a46d2f8abde08f05f4b857"
+checksum = "d6b6f7f2fcb69f747921f79f3926bd1e203fce4fef62c268dd3abfb6d86029aa"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -4176,9 +4176,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.9.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8fee4991ef4f274617a51ad4af30519438dacb2f56ac773b08a1922ff743350"
+checksum = "8d00caa5193a3c8362ac2b73be6b9e768aa5a4b2f721d8f4b339600c3cb51f8e"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4428,6 +4428,7 @@ dependencies = [
  "serde",
  "serde-aux",
  "serde_json",
+ "serde_with",
  "sha2 0.10.8",
  "shell-escape",
  "shlex",
@@ -4438,6 +4439,7 @@ dependencies = [
  "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
+ "stellar-ledger",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
@@ -4705,8 +4707,11 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-spec",
  "soroban-spec-tools",
+ "stellar-ledger",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
+ "test-case",
+ "testcontainers",
  "thiserror",
  "tokio",
  "toml",
@@ -4779,7 +4784,6 @@ dependencies = [
  "byteorder 1.5.0",
  "ed25519-dalek",
  "env_logger",
- "futures",
  "hex",
  "home",
  "httpmock",
@@ -4790,15 +4794,12 @@ dependencies = [
  "phf",
  "pretty_assertions",
  "reqwest",
- "sep5",
  "serde",
  "serde_derive",
  "serde_json",
  "serial_test",
  "sha2 0.10.8",
  "slipped10",
- "soroban-spec",
- "stellar-rpc-client",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
  "test-case",
@@ -5807,9 +5808,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-streams"
-version = "0.4.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e072d4e72f700fb3443d8fe94a39315df013eef1104903cdb0a2abd322bbecd"
+checksum = "b65dc4c90b63b118468cf747d8bf3566c1913ef60be765b5730ead9e0a3ba129"
 dependencies = [
  "futures-util",
  "js-sys",

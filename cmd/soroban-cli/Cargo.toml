@@ -37,6 +37,7 @@ doctest = false
 [features]
 default = []
 opt = ["dep:wasm-opt"]
+emulator-tests = ["stellar-ledger/emulator-tests"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
@@ -49,6 +50,8 @@ soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
+stellar-ledger = { workspace = true }
+
 clap = { workspace = true, features = [
     "derive",
     "env",
@@ -128,6 +131,7 @@ wasm-gen = "0.1.4"
 zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 whoami = "1.5.2"
+serde_with = "3.11.0"
 
 
 [build-dependencies]

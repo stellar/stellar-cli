@@ -1,9 +1,9 @@
 name: bindings typescript
 
 on:
-  push:
-    branches: [main, release/**]
-  pull_request:
+    push:
+        branches: [main, release/**]
+    pull_request:
 
 jobs:
   test:
@@ -38,9 +38,16 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
+<<<<<<< HEAD
+      - name: install libudev-dev
+        run: |
+            sudo apt install -y libudev-dev
+=======
       - run: sudo apt install -y libdbus-1-dev
+>>>>>>> feat/os_keychain
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
       - run: npm ci && npm run test
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+
