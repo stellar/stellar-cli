@@ -31,7 +31,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let secret = self.secrets.read_secret()?;
+        let secret = self.secrets.read_secret(&self.name)?;
         let path = self.config_locator.write_identity(&self.name, &secret)?;
         print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
         Ok(())

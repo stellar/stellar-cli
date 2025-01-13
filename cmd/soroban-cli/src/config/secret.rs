@@ -6,9 +6,7 @@ use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
-    print::Print,
-    signer::{self, keyring, LocalKey, SecureStoreEntry, Signer, SignerKind},
-    utils,
+    config::address::KeyName, print::Print, signer::{self, keyring, secure_store::SecureStore, LocalKey, SecureStoreEntry, Signer, SignerKind}, utils
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -31,6 +29,8 @@ pub enum Error {
     Keyring(#[from] keyring::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
+    #[error("Getting key from secure store failed")] // Todo: update this
+    SecureStore,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -42,15 +42,24 @@ pub struct Args {
     /// (deprecated) Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
+    /// Save the new key in secure store. This only supports seed phrases for now.
+    #[arg(long)]
+    pub secure_store: bool,
 }
 
 impl Args {
-    pub fn read_secret(&self) -> Result<Secret, Error> {
+    pub fn read_secret(&self, name: &KeyName) -> Result<Secret, Error> {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
-            Ok(Secret::SecretKey { secret_key })
+            return Ok(Secret::SecretKey { secret_key })
+        }
+
+        println!("Type a secret key or 12/24 word seed phrase:");
+        let secret_key = read_password()?;
+        if self.secure_store {
+            let seed_phrase: SeedPhrase = secret_key.parse()?;
+            let print = &Print::new(false);
+            SecureStore::secret(print, name, seed_phrase).map_err(|_| Error::SecureStore)
         } else {
-            println!("Type a secret key or 12/24 word seed phrase:");
-            let secret_key = read_password()?;
             secret_key
                 .parse()
                 .map_err(|_| Error::InvalidSecretOrSeedPhrase)
