@@ -1,3 +1,4 @@
+use crate::config::locator;
 use crate::xdr::{
     Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
@@ -41,6 +42,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Builder(#[from] builder::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl From<Infallible> for Error {
@@ -75,6 +78,16 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
+
+                if let Some(alias) = self.alias.clone() {
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
+                }
+
                 println!("{contract}");
             }
         }
