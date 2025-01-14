@@ -151,6 +151,7 @@ Deploy builtin Soroban Asset Contract
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
+* `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
 
