@@ -34,7 +34,7 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
-use crate::{config::address::Address, utils::http};
+use crate::{config::address::UnresolvedMuxedAccount, utils::http};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
 pub enum Output {
@@ -413,7 +413,7 @@ impl Cmd {
     // Resolve an account address to an account id. The address can be a
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account(&self, address: &str) -> Option<AccountId> {
-        let address: Address = address.parse().ok()?;
+        let address: UnresolvedMuxedAccount = address.parse().ok()?;
 
         Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
             match address.resolve_muxed_account(&self.locator, None).ok()? {
