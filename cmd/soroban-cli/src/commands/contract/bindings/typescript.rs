@@ -1,12 +1,12 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract as contract_spec;
+use soroban_spec_tools::contract as spec_tools;
 use soroban_spec_typescript::boilerplate::Project;
 
 use crate::print::Print;
 use crate::{
-    commands::{contract::info::shared as wasm_or_contract, global, NetworkRunnable},
+    commands::{contract::info::shared as contract_spec, global, NetworkRunnable},
     config,
 };
 use soroban_spec_tools::contract::Spec;
@@ -15,7 +15,7 @@ use soroban_spec_tools::contract::Spec;
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub wasm_or_hash_or_contract_id: wasm_or_contract::Args,
+    pub wasm_or_hash_or_contract_id: contract_spec::Args,
     /// Where to place generated project
     #[arg(long)]
     pub output_dir: PathBuf,
@@ -39,11 +39,13 @@ pub enum Error {
     NotUtf8(OsString),
 
     #[error(transparent)]
-    Spec(#[from] contract_spec::Error),
+    Spec(#[from] spec_tools::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
     #[error(transparent)]
-    WasmOrContract(#[from] wasm_or_contract::Error),
+    WasmOrContract(#[from] contract_spec::Error),
+    #[error(transparent)]
+    Xdr(#[from] crate::xdr::Error),
 }
 
 #[async_trait::async_trait]
@@ -58,13 +60,14 @@ impl NetworkRunnable for Cmd {
     ) -> Result<(), Error> {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
 
-        let (spec, contract_address, network) =
-            wasm_or_contract::fetch_wasm(&self.wasm_or_hash_or_contract_id, &print).await?;
+        let contract_spec::Fetched { contract, source } =
+            contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
 
-        let spec = if let Some(spec) = spec {
-            Spec::new(&spec)?
-        } else {
-            Spec::new(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+        let spec = match contract {
+            contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
+            contract_spec::Contract::StellarAssetContract => {
+                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            }
         };
 
         if self.output_dir.is_file() {
@@ -86,15 +89,23 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
-        if let Some(contract_address) = contract_address.clone() {
-            print.infoln(format!("Embedding contract address: {contract_address}"));
-        }
+        let (resolved_address, network) = match source {
+            contract_spec::Source::Contract {
+                resolved_address,
+                network,
+            } => {
+                print.infoln(format!("Embedding contract address: {resolved_address}"));
+                (Some(resolved_address), Some(network))
+            }
+            contract_spec::Source::Wasm { network, .. } => (None, Some(network)),
+            contract_spec::Source::File { .. } => (None, None),
+        };
         p.init(
             contract_name,
-            contract_address.as_deref(),
+            resolved_address.as_deref(),
             network.as_ref().map(|n| n.rpc_url.as_ref()),
             network.as_ref().map(|n| n.network_passphrase.as_ref()),
-            &spec.spec,
+            &spec,
         )?;
         print.checkln("Generated!");
         print.infoln(format!(
