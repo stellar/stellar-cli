@@ -10,11 +10,11 @@ pub mod id;
 pub mod info;
 pub mod init;
 pub mod inspect;
-pub mod install;
 pub mod invoke;
 pub mod optimize;
 pub mod read;
 pub mod restore;
+pub mod upload;
 
 use crate::commands::global;
 
@@ -66,7 +66,8 @@ pub enum Cmd {
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
-    Install(install::Cmd),
+    #[command(visible_alias = "install")]
+    Upload(upload::Cmd),
 
     /// Invoke a contract function
     ///
@@ -126,7 +127,7 @@ pub enum Error {
     Inspect(#[from] inspect::Error),
 
     #[error(transparent)]
-    Install(#[from] install::Error),
+    Install(#[from] upload::Error),
 
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -154,7 +155,7 @@ impl Cmd {
             Cmd::Info(info) => info.run(global_args).await?,
             Cmd::Init(init) => init.run(global_args)?,
             Cmd::Inspect(inspect) => inspect.run(global_args)?,
-            Cmd::Install(install) => install.run(global_args).await?,
+            Cmd::Upload(install) => install.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
