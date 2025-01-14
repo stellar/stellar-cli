@@ -124,15 +124,13 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            let secret = SecureStore::secret(print, &self.name, seed_phrase)?;
-            return Ok(secret)
-        }
-        let secret: Secret = seed_phrase.into();
-        Ok(if self.as_secret {
-            secret.private_key(self.hd_path)?.into()
+            Ok(SecureStore::save_secret(print, &self.name, seed_phrase)?)
+        } else if self.as_secret {
+            let secret: Secret = seed_phrase.into();
+            Ok(secret.private_key(self.hd_path)?.into())
         } else {
-            secret
-        })
+            Ok(seed_phrase.into())
+        }
     }
 
     fn seed_phrase(&self) -> Result<SeedPhrase, Error> {

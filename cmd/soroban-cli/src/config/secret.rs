@@ -11,8 +11,6 @@ use crate::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // #[error("seed_phrase must be 12 words long, found {len}")]
-    // InvalidSeedPhrase { len: usize },
     #[error(transparent)]
     Secret(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]

@@ -59,7 +59,7 @@ impl Cmd {
         if self.secrets.secure_store {
             let seed_phrase: SeedPhrase = secret_key.parse()?;
             let print = &Print::new(false);
-            Ok(SecureStore::secret(print, &self.name, seed_phrase)?)
+            Ok(SecureStore::save_secret(print, &self.name, seed_phrase)?)
         } else {
             Ok(secret_key.parse()?)
         }
