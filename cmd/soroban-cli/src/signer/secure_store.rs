@@ -48,7 +48,7 @@ pub fn save_secret(
         write_to_secure_store(entry_name, seed_phrase, print)?;
     }
 
-    return Ok(secret);
+    Ok(secret)
 }
 
 fn write_to_secure_store(
@@ -58,7 +58,7 @@ fn write_to_secure_store(
 ) -> Result<(), Error> {
     print.infoln(format!("Writing to secure store: {entry_name}"));
     let entry = StellarEntry::new(entry_name)?;
-    Ok(if let Ok(key) = entry.get_public_key(None) {
+    if let Ok(key) = entry.get_public_key(None) {
         print.warnln(format!(
             "A key for {entry_name} already exists in your operating system's secure store: {key}"
         ));
@@ -67,5 +67,6 @@ fn write_to_secure_store(
             "Saving a new key to your operating system's secure store: {entry_name}"
         ));
         entry.set_seed_phrase(seed_phrase)?;
-    })
+    };
+    Ok(())
 }
