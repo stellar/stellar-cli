@@ -9,7 +9,7 @@ use crate::{
     commands::global,
     config::address::KeyName,
     print::Print,
-    signer::secure_store::{self, SecureStore},
+    signer::secure_store,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -124,7 +124,7 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            Ok(SecureStore::save_secret(print, &self.name, seed_phrase)?)
+            Ok(secure_store::save_secret(print, &self.name, seed_phrase)?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
             Ok(secret.private_key(self.hd_path)?.into())

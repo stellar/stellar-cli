@@ -6,7 +6,7 @@ use sep5::SeedPhrase;
 use crate::{
     commands::global,
     config::{address::KeyName, locator, secret::{self, Secret}},
-    print::{self, Print}, signer::secure_store::{self, SecureStore},
+    print::Print, signer::secure_store,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -58,7 +58,7 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            Ok(SecureStore::save_secret(print, &self.name, seed_phrase)?)
+            Ok(secure_store::save_secret(print, &self.name, seed_phrase)?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
