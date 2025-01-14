@@ -5,12 +5,7 @@ use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
-use crate::{
-    commands::global,
-    config::address::KeyName,
-    print::Print,
-    signer::secure_store,
-};
+use crate::{commands::global, config::address::KeyName, print::Print, signer::secure_store};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,7 +22,7 @@ pub enum Error {
     IdentityAlreadyExists(String),
 
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error)
+    SecureStore(#[from] secure_store::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]

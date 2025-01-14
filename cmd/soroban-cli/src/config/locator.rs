@@ -12,7 +12,13 @@ use std::{
 };
 use stellar_strkey::{Contract, DecodeError};
 
-use crate::{commands::{global, HEADING_GLOBAL}, print::Print, signer::{self, keyring::StellarEntry}, utils::find_config_dir, Pwd};
+use crate::{
+    commands::{global, HEADING_GLOBAL},
+    print::Print,
+    signer::{self, keyring::StellarEntry},
+    utils::find_config_dir,
+    Pwd,
+};
 
 use super::{
     alias,

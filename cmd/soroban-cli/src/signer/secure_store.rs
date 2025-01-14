@@ -1,11 +1,17 @@
 use sep5::SeedPhrase;
 
 use crate::{
-    config::{address::KeyName, locator, secret::{self, Secret}}, print::Print, signer::keyring::{self, StellarEntry}
+    config::{
+        address::KeyName,
+        locator,
+        secret::{self, Secret},
+    },
+    print::Print,
+    signer::keyring::{self, StellarEntry},
 };
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error{
+pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
 
@@ -19,10 +25,14 @@ pub enum Error{
     DoesNotSupportPrivateKey,
 
     #[error(transparent)]
-    SeedPhrase(#[from] sep5::Error)
+    SeedPhrase(#[from] sep5::Error),
 }
 
-pub fn save_secret(print: &Print, entry_name: &KeyName, seed_phrase: SeedPhrase) -> Result<Secret, Error> {
+pub fn save_secret(
+    print: &Print,
+    entry_name: &KeyName,
+    seed_phrase: SeedPhrase,
+) -> Result<Secret, Error> {
     // secure_store:org.stellar.cli:<key name>
     let entry_name_with_prefix = format!(
         "{}{}-{}",
@@ -49,7 +59,9 @@ fn write_to_secure_store(
     print.infoln(format!("Writing to secure store: {entry_name}"));
     let entry = StellarEntry::new(entry_name)?;
     Ok(if let Ok(key) = entry.get_public_key(None) {
-        print.warnln(format!("A key for {entry_name} already exists in your operating system's secure store: {key}"));
+        print.warnln(format!(
+            "A key for {entry_name} already exists in your operating system's secure store: {key}"
+        ));
     } else {
         print.infoln(format!(
             "Saving a new key to your operating system's secure store: {entry_name}"

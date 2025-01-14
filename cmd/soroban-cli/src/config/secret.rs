@@ -6,7 +6,9 @@ use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
-    print::Print, signer::{self, keyring, LocalKey, SecureStoreEntry, Signer, SignerKind}, utils
+    print::Print,
+    signer::{self, keyring, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    utils,
 };
 
 #[derive(thiserror::Error, Debug)]
