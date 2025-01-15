@@ -13,6 +13,7 @@ pub mod env;
 pub mod events;
 pub mod global;
 pub mod keys;
+pub mod licenses;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
@@ -117,6 +118,7 @@ impl Root {
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
+            Cmd::Licenses(licenses) => licenses.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
@@ -184,6 +186,9 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// Show dependency licenses
+    Licenses(licenses::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
