@@ -151,6 +151,7 @@ Deploy builtin Soroban Asset Contract
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
+* `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
 
@@ -938,7 +939,7 @@ Create and manage identities including keys and addresses
 
 ###### **Subcommands:**
 
-* `add` — Add a new identity (keypair, ledger, macOS keychain)
+* `add` — Add a new identity (keypair, ledger, OS specific secure store)
 * `address` — Given an identity return its address (public key)
 * `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
@@ -951,7 +952,7 @@ Create and manage identities including keys and addresses
 
 ## `stellar keys add`
 
-Add a new identity (keypair, ledger, macOS keychain)
+Add a new identity (keypair, ledger, OS specific secure store)
 
 **Usage:** `stellar keys add [OPTIONS] <NAME>`
 
@@ -1023,6 +1024,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
+* `--secure-store` — Save in OS-specific secure store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
