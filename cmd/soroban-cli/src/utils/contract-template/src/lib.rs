@@ -2,7 +2,7 @@
 use soroban_sdk::{contract, contractimpl, vec, Env, String, Vec};
 
 #[contract]
-pub struct Contract;
+pub struct HelloContract;
 
 // This is a sample contract. Replace this placeholder with your own contract logic.
 // A corresponding test example is available in `test.rs`.
@@ -14,7 +14,7 @@ pub struct Contract;
 // Refer to the official documentation:
 // <https://developers.stellar.org/docs/build/smart-contracts/overview>.
 #[contractimpl]
-impl Contract {
+impl HelloContract {
     pub fn hello(env: Env, to: String) -> Vec<String> {
         vec![&env, String::from_str(&env, "Hello"), to]
     }
