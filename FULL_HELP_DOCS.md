@@ -2343,7 +2343,11 @@ Print version information
 
 Show dependency licenses
 
-**Usage:** `stellar licenses`
+**Usage:** `stellar licenses [OPTIONS]`
+
+###### **Options:**
+
+* `-v`, `--verbose` — Display the license text
 
 
 

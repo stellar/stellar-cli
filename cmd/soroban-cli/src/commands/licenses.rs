@@ -5,7 +5,11 @@ use license_fetcher::get_package_list_macro;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
-pub struct Cmd;
+pub struct Cmd {
+    /// Display the license text.
+    #[arg(long, short)]
+    pub verbose: bool,
+}
 
 impl Cmd {
     #[allow(clippy::unused_self)]
@@ -29,6 +33,13 @@ impl Cmd {
 
             if let Some(url) = pkg.homepage.clone() {
                 println!("URL: {url}");
+            }
+
+            if self.verbose {
+                if let Some(text) = pkg.license_text.clone() {
+                    println!("{text}");
+                    println!("———");
+                }
             }
 
             println!();
