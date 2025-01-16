@@ -22,6 +22,7 @@ pub enum Cmd {
     Fund(fund::Cmd),
 
     /// Generate a new identity with a seed phrase, currently 12 words
+    /// The seed phrase can be stored in a config file (default) or in an OS-specific secure store.
     Generate(generate::Cmd),
 
     /// List identities
@@ -75,7 +76,7 @@ impl Cmd {
             Cmd::Fund(cmd) => cmd.run(global_args).await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::Rm(cmd) => cmd.run()?,
+            Cmd::Rm(cmd) => cmd.run(global_args)?,
             Cmd::Secret(cmd) => cmd.run()?,
             Cmd::Default(cmd) => cmd.run(global_args)?,
         };

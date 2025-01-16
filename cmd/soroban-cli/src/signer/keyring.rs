@@ -32,6 +32,10 @@ impl StellarEntry {
         Ok(())
     }
 
+    pub fn delete_seed_phrase(&self) -> Result<(), Error> {
+        Ok(self.keyring.delete_credential()?)
+    }
+
     fn get_seed_phrase(&self) -> Result<SeedPhrase, Error> {
         Ok(self.keyring.get_password()?.parse()?)
     }
@@ -143,5 +147,33 @@ mod test {
 
         let sign_tx_env_result = entry.sign_data(tx_xdr.as_bytes(), None);
         assert!(sign_tx_env_result.is_ok());
+    }
+
+    #[test]
+    fn test_delete_seed_phrase() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        //create a seed phrase
+        let seed_phrase = crate::config::secret::seed_phrase_from_seed(None).unwrap();
+
+        // create a keyring entry and set the seed_phrase
+        let entry = StellarEntry::new("test").unwrap();
+        entry.set_seed_phrase(seed_phrase).unwrap();
+
+        // assert it is there
+        let get_seed_phrase_result = entry.get_seed_phrase();
+        assert!(get_seed_phrase_result.is_ok());
+
+        // delete the password
+        let delete_seed_phrase_result = entry.delete_seed_phrase();
+        assert!(delete_seed_phrase_result.is_ok());
+
+        // confirm the entry is gone
+        let get_password_result = entry.get_seed_phrase();
+        assert!(get_password_result.is_err());
+        assert!(matches!(
+            get_password_result.unwrap_err(),
+            Error::Keyring(_)
+        ));
     }
 }

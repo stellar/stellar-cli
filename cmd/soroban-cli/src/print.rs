@@ -106,3 +106,4 @@ create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
 create_print_functions!(warn, warnln, "⚠️");
 create_print_functions!(exclaim, exclaimln, "❗️");
+create_print_functions!(arrow, arrowln, "➡️");
