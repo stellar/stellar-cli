@@ -110,6 +110,7 @@ allow = [
     "Unicode-DFS-2016",
     "ISC",
     "BSD-2-Clause",
+    "CC0-1.0",
     "Unicode-3.0",
 ]
 # List of explicitly disallowed licenses

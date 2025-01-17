@@ -45,7 +45,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 
 * `contract` — Tools for smart contract developers
 * `events` — Watch the network for contract events
-* `env` — Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+* `env` — Prints the environment variables
 * `keys` — Create and manage identities including keys and addresses
 * `network` — Configure connection to networks
 * `container` — Start local networks in containers
@@ -151,6 +151,7 @@ Deploy builtin Soroban Asset Contract
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
 * `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
+* `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
 
@@ -290,20 +291,21 @@ Generate Rust bindings
 
 Generate a TypeScript / JavaScript package
 
-**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR>`
+**Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to wasm file on local filesystem. You must either include this OR `--contract-id`
-* `--contract-id <CONTRACT_ID>` — A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`
-* `--output-dir <OUTPUT_DIR>` — Where to place generated project
-* `--overwrite` — Whether to overwrite output directory if it already exists
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output-dir <OUTPUT_DIR>` — Where to place generated project
+* `--overwrite` — Whether to overwrite output directory if it already exists
 
 
 
@@ -525,13 +527,13 @@ The data outputted by this command is a stream of `SCSpecEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info interface [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -565,13 +567,13 @@ The data outputted by this command is a stream of `SCMetaEntry` XDR values. See 
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -605,13 +607,13 @@ The data outputted by this command is a stream of `SCEnvMetaEntry` XDR values. S
 
 Outputs no data when no data is present in the contract.
 
-**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--id <CONTRACT_ID>>`
+**Usage:** `stellar contract info env-meta [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Wasm file to extract the data from
-* `--wasm-hash <WASM_HASH>` — Wasm hash to get the data for
-* `--id <CONTRACT_ID>` — Contract id or contract alias to get the data for
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -914,7 +916,11 @@ Watch the network for contract events
 
 ## `stellar env`
 
-Prints the current environment variables or defaults to the stdout, in a format that can be used as .env file. Environment variables have precedency over defaults
+Prints the environment variables
+
+Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
+
+If there are no environment variables in use, prints the defaults.
 
 **Usage:** `stellar env [OPTIONS]`
 
@@ -933,20 +939,20 @@ Create and manage identities including keys and addresses
 
 ###### **Subcommands:**
 
-* `add` — Add a new identity (keypair, ledger, macOS keychain)
+* `add` — Add a new identity (keypair, ledger, OS specific secure store)
 * `address` — Given an identity return its address (public key)
 * `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity with a seed phrase, currently 12 words
 * `ls` — List identities
 * `rm` — Remove an identity
-* `show` — Given an identity return its private key
+* `secret` — Output an identity's secret key
 * `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
 
 
 ## `stellar keys add`
 
-Add a new identity (keypair, ledger, macOS keychain)
+Add a new identity (keypair, ledger, OS specific secure store)
 
 **Usage:** `stellar keys add [OPTIONS] <NAME>`
 
@@ -956,8 +962,8 @@ Add a new identity (keypair, ledger, macOS keychain)
 
 ###### **Options:**
 
-* `--secret-key` — Add using `secret_key` Can provide with `SOROBAN_SECRET_KEY`
-* `--seed-phrase` — Add using 12 word seed phrase to generate `secret_key`
+* `--secret-key` — (deprecated) Enter secret (S) key when prompted
+* `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
@@ -1018,6 +1024,7 @@ Generate a new identity with a seed phrase, currently 12 words
 * `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
+* `--secure-store` — Save in OS-specific secure store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
@@ -1064,11 +1071,11 @@ Remove an identity
 
 
 
-## `stellar keys show`
+## `stellar keys secret`
 
-Given an identity return its private key
+Output an identity's secret key
 
-**Usage:** `stellar keys show [OPTIONS] <NAME>`
+**Usage:** `stellar keys secret [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 

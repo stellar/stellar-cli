@@ -1,44 +1,31 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract as contract_spec;
-use soroban_spec_typescript::{self as typescript, boilerplate::Project};
-use stellar_strkey::DecodeError;
+use soroban_spec_tools::contract as spec_tools;
+use soroban_spec_typescript::boilerplate::Project;
 
 use crate::print::Print;
-use crate::wasm;
 use crate::{
-    commands::{contract::fetch, global, NetworkRunnable},
-    config::{self, locator, network},
-    get_spec::{self, get_remote_contract_spec},
-    xdr::{Hash, ScAddress},
+    commands::{contract::info::shared as contract_spec, global, NetworkRunnable},
+    config,
 };
+use soroban_spec_tools::contract::Spec;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Path to wasm file on local filesystem. You must either include this OR `--contract-id`.
-    #[arg(long)]
-    pub wasm: Option<std::path::PathBuf>,
-    /// A contract ID/address on a network (if no network settings provided, Testnet will be assumed). You must either include this OR `--wasm`.
-    #[arg(long, visible_alias = "id")]
-    pub contract_id: Option<String>,
+    #[command(flatten)]
+    pub wasm_or_hash_or_contract_id: contract_spec::Args,
     /// Where to place generated project
     #[arg(long)]
     pub output_dir: PathBuf,
     /// Whether to overwrite output directory if it already exists
     #[arg(long)]
     pub overwrite: bool,
-    #[command(flatten)]
-    pub network: network::Args,
-    #[command(flatten)]
-    pub locator: locator::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("failed generate TS from file: {0}")]
-    GenerateTSFromFile(typescript::GenerateFromFileError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -51,28 +38,14 @@ pub enum Error {
     #[error("--output-dir filepath not representable as utf-8: {0:?}")]
     NotUtf8(OsString),
 
-    #[error("must include either --wasm or --contract-id")]
-    MissingWasmOrContractId,
-
     #[error(transparent)]
-    Network(#[from] network::Error),
-
-    #[error(transparent)]
-    Locator(#[from] locator::Error),
-    #[error(transparent)]
-    Fetch(#[from] fetch::Error),
-    #[error(transparent)]
-    Spec(#[from] contract_spec::Error),
-    #[error(transparent)]
-    Wasm(#[from] wasm::Error),
+    Spec(#[from] spec_tools::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
-    #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, DecodeError),
     #[error(transparent)]
-    UtilsError(#[from] get_spec::Error),
+    WasmOrContract(#[from] contract_spec::Error),
     #[error(transparent)]
-    Config(#[from] config::Error),
+    Xdr(#[from] crate::xdr::Error),
 }
 
 #[async_trait::async_trait]
@@ -83,51 +56,20 @@ impl NetworkRunnable for Cmd {
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        _config: Option<&config::Args>,
     ) -> Result<(), Error> {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
 
-        let (spec, contract_address, rpc_url, network_passphrase) = if let Some(wasm) = &self.wasm {
-            print.infoln("Loading contract spec from file...");
-            let wasm: wasm::Args = wasm.into();
-            (wasm.parse()?.spec, None, None, None)
-        } else {
-            let contract_id = self
-                .contract_id
-                .as_ref()
-                .ok_or(Error::MissingWasmOrContractId)?;
+        let contract_spec::Fetched { contract, source } =
+            contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
 
-            let network = self.network.get(&self.locator).ok().unwrap_or_else(|| {
-                network::DEFAULTS
-                    .get("testnet")
-                    .expect("no network specified and testnet network not found")
-                    .into()
-            });
-            print.infoln(format!("Network: {}", network.network_passphrase));
-
-            let contract_id = self
-                .locator
-                .resolve_contract_id(contract_id, &network.network_passphrase)?
-                .0;
-
-            let contract_address = ScAddress::Contract(Hash(contract_id)).to_string();
-            print.globeln(format!("Downloading contract spec: {contract_address}"));
-
-            (
-                get_remote_contract_spec(
-                    &contract_id,
-                    &self.locator,
-                    &self.network,
-                    global_args,
-                    config,
-                )
-                .await
-                .map_err(Error::from)?,
-                Some(contract_address),
-                Some(network.rpc_url),
-                Some(network.network_passphrase),
-            )
+        let spec = match contract {
+            contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
+            contract_spec::Contract::StellarAssetContract => {
+                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            }
         };
+
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
         }
@@ -147,14 +89,22 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
-        if let Some(contract_address) = contract_address.clone() {
-            print.infoln(format!("Embedding contract address: {contract_address}"));
-        }
+        let (resolved_address, network) = match source {
+            contract_spec::Source::Contract {
+                resolved_address,
+                network,
+            } => {
+                print.infoln(format!("Embedding contract address: {resolved_address}"));
+                (Some(resolved_address), Some(network))
+            }
+            contract_spec::Source::Wasm { network, .. } => (None, Some(network)),
+            contract_spec::Source::File { .. } => (None, None),
+        };
         p.init(
             contract_name,
-            contract_address.as_deref(),
-            rpc_url.as_deref(),
-            network_passphrase.as_deref(),
+            resolved_address.as_deref(),
+            network.as_ref().map(|n| n.rpc_url.as_ref()),
+            network.as_ref().map(|n| n.network_passphrase.as_ref()),
             &spec,
         )?;
         print.checkln("Generated!");
