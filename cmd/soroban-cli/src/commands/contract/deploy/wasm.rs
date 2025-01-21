@@ -143,7 +143,7 @@ impl Cmd {
                         .locator
                         .get_contract_id(&alias, &network.network_passphrase)?
                     {
-                        let print = Print::new(false);
+                        let print = Print::new(global_args.quiet);
                         print.warnln(format!(
                             "Overwriting existing contract id: {existing_contract}"
                         ));
