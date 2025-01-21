@@ -943,7 +943,7 @@ Create and manage identities including keys and addresses
 * `add` — Add a new identity (keypair, ledger, OS specific secure store)
 * `address` — Given an identity return its address (public key)
 * `fund` — Fund an identity on a test network
-* `generate` — Generate a new identity with a seed phrase, currently 12 words
+* `generate` — Generate a new identity using a 24-word seed phrase
 * `ls` — List identities
 * `rm` — Remove an identity
 * `secret` — Output an identity's secret key
@@ -1012,7 +1012,7 @@ Fund an identity on a test network
 
 ## `stellar keys generate`
 
-Generate a new identity with a seed phrase, currently 12 words
+Generate a new identity using a 24-word seed phrase
 
 **Usage:** `stellar keys generate [OPTIONS] <NAME>`
 
