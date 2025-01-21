@@ -1,4 +1,5 @@
 use crate::config::locator;
+use crate::print::Print;
 use crate::xdr::{
     Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
@@ -81,6 +82,17 @@ impl Cmd {
                 let network = self.config.get_network()?;
 
                 if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(false);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    };
+
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
