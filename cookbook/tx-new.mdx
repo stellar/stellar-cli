@@ -5,9 +5,9 @@ description: Create stellar transactions using the Stellar CLI
 ---
 
 So far the examples of the CLI interacting with the blockchain have been through the `contract` command. Uploading contracts, deploying contracts, and invoking them.
-Each of these are different types of transactions, which must be signed and submitted to the network (and in the case of contract related transations simulated first).
+Each of these are different types of transactions, which must be signed and submitted to the network (and in the case of contract related transactions simulated first).
 
-Technically these three are different operations, of which a transaction can contain upto 100 operations. However, in the case of contract related operations a transaction is limited to just one.
+Technically these three are different operations, of which a transaction can contain up to 100 operations. However, in the case of contract related operations a transaction is limited to just one.
 
 So for all other transactions the CLI provides the `tx` subcommands. These are:
 
@@ -88,7 +88,7 @@ Merge one account into another, transferring all XLM.
 ```sh
 stellar tx new account-merge \
   --source bob \
-  --account chalrie
+  --account charlie
 ```
 
 Notes:
