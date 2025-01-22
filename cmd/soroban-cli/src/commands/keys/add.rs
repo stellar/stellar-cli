@@ -51,10 +51,10 @@ impl Cmd {
 
         if let Key::Secret(Secret::SeedPhrase { seed_phrase }) = key {
             if seed_phrase.split_whitespace().count() < 24 {
-                print.warnln(format!("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option."));
-                print.warnln(format!(
-                    "To generate a new key, use the `stellar keys generate` command."
-                ));
+                print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
+                print.warnln(
+                    "To generate a new key, use the `stellar keys generate` command.".to_string(),
+                );
             }
         }
 
