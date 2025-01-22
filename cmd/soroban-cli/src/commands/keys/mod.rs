@@ -22,7 +22,7 @@ pub enum Cmd {
     /// Fund an identity on a test network
     Fund(fund::Cmd),
 
-    /// Generate a new identity with a seed phrase, currently 12 words
+    /// Generate a new identity using a 24-word seed phrase
     /// The seed phrase can be stored in a config file (default) or in an OS-specific secure store.
     Generate(generate::Cmd),
 
