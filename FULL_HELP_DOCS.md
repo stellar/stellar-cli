@@ -55,6 +55,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `completion` — Print shell completion code for the specified shell
 * `cache` — Cache for transactions and contract specs
 * `version` — Print version information
+* `licenses` — Show dependency licenses
 
 ###### **Options:**
 
@@ -88,7 +89,7 @@ Tools for smart contract developers
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban contract project
 * `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
-* `install` — Install a WASM file to the ledger without creating a contract instance
+* `upload` — Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
@@ -684,11 +685,11 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 
 
-## `stellar contract install`
+## `stellar contract upload`
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract upload [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
@@ -940,9 +941,9 @@ Create and manage identities including keys and addresses
 ###### **Subcommands:**
 
 * `add` — Add a new identity (keypair, ledger, OS specific secure store)
-* `address` — Given an identity return its address (public key)
+* `public-key` — Given an identity return its address (public key)
 * `fund` — Fund an identity on a test network
-* `generate` — Generate a new identity with a seed phrase, currently 12 words
+* `generate` — Generate a new identity using a 24-word seed phrase
 * `ls` — List identities
 * `rm` — Remove an identity
 * `secret` — Output an identity's secret key
@@ -970,11 +971,11 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 
 
-## `stellar keys address`
+## `stellar keys public-key`
 
 Given an identity return its address (public key)
 
-**Usage:** `stellar keys address [OPTIONS] <NAME>`
+**Usage:** `stellar keys public-key [OPTIONS] <NAME>`
 
 ###### **Arguments:**
 
@@ -1012,7 +1013,7 @@ Fund an identity on a test network
 
 ## `stellar keys generate`
 
-Generate a new identity with a seed phrase, currently 12 words
+Generate a new identity using a 24-word seed phrase
 
 **Usage:** `stellar keys generate [OPTIONS] <NAME>`
 
@@ -2440,6 +2441,18 @@ Read cached action
 Print version information
 
 **Usage:** `stellar version`
+
+
+
+## `stellar licenses`
+
+Show dependency licenses
+
+**Usage:** `stellar licenses [OPTIONS]`
+
+###### **Options:**
+
+* `-v`, `--verbose` — Display the license text
 
 
 

@@ -19,7 +19,7 @@ use soroban_spec_tools::contract as contract_spec;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::{self, arg_parsing, id::wasm::get_contract_id, install},
+        contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable, HEADING_RPC,
@@ -73,7 +73,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Install(#[from] install::Error),
+    Install(#[from] upload::Error),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -138,6 +138,17 @@ impl Cmd {
                 let network = self.config.get_network()?;
 
                 if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    };
+
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
@@ -169,7 +180,7 @@ impl NetworkRunnable for Cmd {
             let hash = if self.fee.build_only || self.fee.sim_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
-                install::Cmd {
+                upload::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
                     fee: self.fee.clone(),
