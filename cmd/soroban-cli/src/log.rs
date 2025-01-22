@@ -2,14 +2,11 @@ use crate::xdr;
 
 pub mod auth;
 pub mod cost;
-pub mod diagnostic_event;
 pub mod event;
 pub mod footprint;
 
 pub use auth::*;
 pub use cost::*;
-pub use diagnostic_event::*;
-pub use event::*;
 pub use footprint::*;
 
 pub fn extract_events(tx_meta: &xdr::TransactionMeta) -> Vec<xdr::DiagnosticEvent> {

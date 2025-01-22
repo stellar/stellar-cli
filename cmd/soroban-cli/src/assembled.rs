@@ -23,17 +23,12 @@ pub async fn simulate_and_assemble_transaction(
             signatures: VecM::default(),
         }))
         .await?;
-    match sim_res.error {
-        None => {
-            if !sim_res.events.is_empty() {
-                crate::log::sim_diagnostic_events(&sim_res.events, tracing::Level::INFO);
-            }
-            Ok(Assembled::new(tx, sim_res)?)
-        }
-        Some(e) => {
-            crate::log::sim_diagnostic_events(&sim_res.events, tracing::Level::ERROR);
-            Err(Error::TransactionSimulationFailed(e))
-        }
+    tracing::trace!("{sim_res:#?}");
+    if let Some(e) = &sim_res.error {
+        crate::log::event::all(&sim_res.events()?);
+        Err(Error::TransactionSimulationFailed(e.clone()))
+    } else {
+        Ok(Assembled::new(tx, sim_res)?)
     }
 }
 
