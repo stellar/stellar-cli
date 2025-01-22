@@ -300,7 +300,7 @@ impl Args {
     pub fn remove_identity(&self, name: &str, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
-        if let Secret::SecureStore { entry_name } = identity {
+        if let Secret::SecureStore { entry_name } = identity.try_into()? {
             let entry = StellarEntry::new(&entry_name)?;
             match entry.delete_seed_phrase() {
                 Ok(()) => {}

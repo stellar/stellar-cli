@@ -11,7 +11,6 @@ use crate::{
     config::address::KeyName,
     print::Print,
     signer::secure_store,
-    signer::keyring::{self, StellarEntry},
 };
 
 #[derive(thiserror::Error, Debug)]

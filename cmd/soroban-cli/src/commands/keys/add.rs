@@ -53,11 +53,11 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let key = if let Some(key) = self.public_key.as_ref() {
             key.parse()?
         } else {
-            let print = Print::new(global_args.quiet);
-            self.secrets.read_secret(&print)?.into()
+            self.read_secret(&print)?.into()
         };
         // let path = self.config_locator.write_identity(&self.name, &secret)?;
         let path = self.config_locator.write_key(&self.name, &key)?;
