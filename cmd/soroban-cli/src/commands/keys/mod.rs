@@ -2,11 +2,11 @@ use crate::commands::global;
 use clap::Parser;
 
 pub mod add;
-pub mod address;
 pub mod default;
 pub mod fund;
 pub mod generate;
 pub mod ls;
+pub mod public_key;
 pub mod rm;
 pub mod secret;
 
@@ -16,7 +16,8 @@ pub enum Cmd {
     Add(add::Cmd),
 
     /// Given an identity return its address (public key)
-    Address(address::Cmd),
+    #[command(visible_alias = "address")]
+    PublicKey(public_key::Cmd),
 
     /// Fund an identity on a test network
     Fund(fund::Cmd),
@@ -46,7 +47,7 @@ pub enum Error {
     Add(#[from] add::Error),
 
     #[error(transparent)]
-    Address(#[from] address::Error),
+    Address(#[from] public_key::Error),
 
     #[error(transparent)]
     Fund(#[from] fund::Error),
@@ -71,7 +72,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run(global_args)?,
-            Cmd::Address(cmd) => cmd.run()?,
+            Cmd::PublicKey(cmd) => cmd.run()?,
             Cmd::Fund(cmd) => cmd.run(global_args).await?,
             Cmd::Generate(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
