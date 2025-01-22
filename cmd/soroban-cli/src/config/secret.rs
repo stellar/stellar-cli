@@ -11,6 +11,8 @@ use crate::{
     utils,
 };
 
+use super::key::Key;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -43,7 +45,7 @@ pub struct Args {
     pub secure_store: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Secret {
     SecretKey { secret_key: String },
@@ -78,6 +80,12 @@ impl From<PrivateKey> for Secret {
         Secret::SecretKey {
             secret_key: value.to_string(),
         }
+    }
+}
+
+impl From<Secret> for Key {
+    fn from(value: Secret) -> Self {
+        Key::Secret(value)
     }
 }
 

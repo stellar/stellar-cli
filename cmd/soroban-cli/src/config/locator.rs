@@ -17,11 +17,13 @@ use crate::{
     print::Print,
     signer::{self, keyring::StellarEntry},
     utils::find_config_dir,
+    xdr,
     Pwd,
 };
 
 use super::{
     alias,
+    key::{self, Key},
     network::{self, Network},
     secret::Secret,
     Config,
@@ -95,6 +97,10 @@ pub enum Error {
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
     Keyring(#[from] signer::keyring::Error),
+    #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
+    SecretKeyOnly(String),
+    #[error(transparent)]
+    Key(#[from] key::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -181,6 +187,18 @@ impl Args {
         KeyType::Identity.write(name, secret, &self.config_dir()?)
     }
 
+    pub fn write_public_key(
+        &self,
+        name: &str,
+        public_key: &stellar_strkey::ed25519::PublicKey,
+    ) -> Result<PathBuf, Error> {
+        self.write_key(name, &public_key.into())
+    }
+
+    pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {
+        KeyType::Identity.write(name, key, &self.config_dir()?)
+    }
+
     pub fn write_network(&self, name: &str, network: &Network) -> Result<PathBuf, Error> {
         KeyType::Network.write(name, network, &self.config_dir()?)
     }
@@ -243,18 +261,29 @@ impl Args {
         Ok(saved_networks.chain(default_networks).collect())
     }
 
-    pub fn read_identity(&self, name: &str) -> Result<Secret, Error> {
-        Ok(KeyType::Identity
-            .read_with_global(name, &self.local_config()?)
-            .or_else(|_| name.parse())?)
+    pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
+        KeyType::Identity.read_with_global(name, &self.local_config()?)
     }
 
-    pub fn key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        if let Ok(signer) = key_or_name.parse::<Secret>() {
-            Ok(signer)
-        } else {
-            self.read_identity(key_or_name)
+    pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
+        key_or_name
+            .parse()
+            .or_else(|_| self.read_identity(key_or_name))
+    }
+
+    pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
+        match self.read_key(key_or_name)? {
+            Key::Secret(s) => Ok(s),
+            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
         }
+    }
+
+    pub fn get_public_key(
+        &self,
+        key_or_name: &str,
+        hd_path: Option<usize>,
+    ) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
