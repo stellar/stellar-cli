@@ -26,7 +26,7 @@ For the following examples we will use the following accounts:
 stellar keys generate --fund alice --network testnet
 stellar keys generate --no-fund bob
 # You can add a public key to the keys
-stellar keys add --public-key GCXLHURQS5LX77PBQWEGJLYDPXGVR2F5ME2OPBWQBGJKG2IOBBO2XY5O charlie
+stellar keys add --public-key GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI charlie
 ## and use testnet
 stellar network use testnet
 ```
@@ -101,7 +101,7 @@ Modify authorization flags on a trustline:
 ```sh
 stellar tx new set-trustline-flags \
   --source alice \
-  --asset USDC:GCXLHURQS5LX77PBQWEGJLYDPXGVR2F5ME2OPBWQBGJKG2IOBBO2XY5O \
+  --asset USDC:GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI \
   --trustor charlie \
   --set-authorize \
   --set-authorize-to-maintain-liabilities \
@@ -124,7 +124,7 @@ Configure account settings:
 ```sh
 stellar tx new set-options \
   --source alice \
-  --inflation-dest GCXLHURQS5LX77PBQWEGJLYDPXGVR2F5ME2OPBWQBGJKG2IOBBO2XY5O \
+  --inflation-dest GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI \
   --home-domain "example.com" \
   --master-weight 100 \
   --med-threshold 100 \
