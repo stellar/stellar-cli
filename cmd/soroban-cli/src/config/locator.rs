@@ -17,8 +17,7 @@ use crate::{
     print::Print,
     signer::{self, keyring::StellarEntry},
     utils::find_config_dir,
-    xdr,
-    Pwd,
+    xdr, Pwd,
 };
 
 use super::{
