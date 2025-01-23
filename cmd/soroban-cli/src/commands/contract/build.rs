@@ -59,7 +59,7 @@ pub struct Cmd {
     /// If provided, wasm files can be found in the cargo target directory, and
     /// the specified directory.
     ///
-    /// If ommitted, wasm files are written only to the cargo target directory.
+    /// If omitted, wasm files are written only to the cargo target directory.
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
     /// Print commands to build without executing them
@@ -314,7 +314,7 @@ impl Cmd {
 /// This works for paths to crates in the registry. The compiler already does
 /// something similar for standard library paths and local paths. It may not
 /// work for crates that come from other sources, including the standard library
-/// compiled from source, though it may be possible to accomodate such cases in
+/// compiled from source, though it may be possible to accommodate such cases in
 /// the future.
 ///
 /// This in theory breaks the ability of debuggers to find source code, but
@@ -343,7 +343,7 @@ impl Cmd {
 ///
 /// The major downside of using `CARGO_BUILD_RUSTFLAGS` is that it is whitespace
 /// separated, which means we cannot support paths with spaces. If we encounter
-/// such paths we will emit a warning. Spaces could be accomodated by using
+/// such paths we will emit a warning. Spaces could be accommodated by using
 /// `CARGO_ENCODED_RUSTFLAGS`, but that has high precedence over other rustflags,
 /// so we could be interfering with the user's own use of rustflags. There is
 /// no "encoded" variant of `CARGO_BUILD_RUSTFLAGS` at time of writing.
