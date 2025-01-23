@@ -62,15 +62,6 @@ impl Cmd {
 
         let path = self.config_locator.write_key(&self.name, &key)?;
 
-        if let Key::Secret(Secret::SeedPhrase { seed_phrase }) = key {
-            if seed_phrase.split_whitespace().count() < 24 {
-                print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
-                print.warnln(
-                    "To generate a new key, use the `stellar keys generate` command.".to_string(),
-                );
-            }
-        }
-
         print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
 
         Ok(())
@@ -80,8 +71,14 @@ impl Cmd {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
         } else if self.secrets.secure_store {
-            let prompt = "Type a 12 or 24 word seed phrase:";
+            let prompt = "Type a 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
+            if secret_key.split_whitespace().count() < 24 {
+                print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
+                print.warnln(
+                    "To generate a new key, use the `stellar keys generate` command.".to_string(),
+                );
+            }
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
@@ -89,7 +86,16 @@ impl Cmd {
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
-            Ok(secret_key.parse()?)
+            let secret = secret_key.parse()?;
+            if let Secret::SeedPhrase { seed_phrase } = &secret {
+                if seed_phrase.split_whitespace().count() < 24 {
+                    print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
+                    print.warnln(
+                        "To generate a new key, use the `stellar keys generate` command.".to_string(),
+                    );
+                }
+            }
+            Ok(secret)
         }
     }
 }
