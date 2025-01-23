@@ -4921,6 +4921,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+ "tracing",
+ "tracing-subscriber",
  "ulid",
  "walkdir",
  "which",
