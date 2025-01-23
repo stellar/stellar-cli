@@ -285,7 +285,7 @@ async fn set_trustline_flags() {
             .unwrap()
             .resolve(&locator::Args::default())
             .unwrap(),
-        &sandbox.network_passphrase,
+        &sandbox.network.network_passphrase,
     );
     // sandbox
     //     .new_assert_cmd("contract")
@@ -552,7 +552,7 @@ async fn change_trust() {
             .unwrap()
             .resolve(&locator::Args::default())
             .unwrap(),
-        &sandbox.network_passphrase,
+        &sandbox.network.network_passphrase,
     );
     sandbox
         .new_assert_cmd("contract")
