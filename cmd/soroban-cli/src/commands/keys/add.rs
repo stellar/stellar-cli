@@ -7,8 +7,7 @@ use crate::{
     commands::global,
     config::{
         address::KeyName,
-        key::{self, Key},
-        locator,
+        key, locator,
         secret::{self, Secret},
     },
     print::Print,
