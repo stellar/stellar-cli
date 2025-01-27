@@ -38,7 +38,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
         }: &Cmd,
     ) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: tx.resolve_muxed_address(&destination)?,
+            destination: tx.resolve_muxed_address(destination)?,
             asset: tx.resolve_asset(asset)?,
             amount: amount.into(),
         }))
