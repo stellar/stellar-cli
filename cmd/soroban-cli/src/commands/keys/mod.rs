@@ -15,8 +15,8 @@ pub enum Cmd {
     /// Add a new identity (keypair, ledger, OS specific secure store)
     Add(add::Cmd),
 
-    /// Given an identity return its address (public key)
-    #[command(visible_alias = "address")]
+    /// Given an identity return its address (public key). Alias: `stellar key address`
+    #[command(alias = "address")]
     PublicKey(public_key::Cmd),
 
     /// Fund an identity on a test network
