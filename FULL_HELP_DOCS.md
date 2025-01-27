@@ -941,7 +941,7 @@ Create and manage identities including keys and addresses
 ###### **Subcommands:**
 
 * `add` — Add a new identity (keypair, ledger, OS specific secure store)
-* `public-key` — Given an identity return its address (public key). Alias: `stellar key address`
+* `public-key` — Given an identity return its address (public key). Alias: `stellar keys address`
 * `fund` — Fund an identity on a test network
 * `generate` — Generate a new identity using a 24-word seed phrase
 * `ls` — List identities
@@ -973,7 +973,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 ## `stellar keys public-key`
 
-Given an identity return its address (public key). Alias: `stellar key address`
+Given an identity return its address (public key). Alias: `stellar keys address`
 
 **Usage:** `stellar keys public-key [OPTIONS] <NAME>`
 
