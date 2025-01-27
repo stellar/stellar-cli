@@ -16,7 +16,7 @@ pub mod read;
 pub mod restore;
 pub mod upload;
 
-use crate::commands::global;
+use crate::{commands::global, print::Print};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -66,7 +66,7 @@ pub enum Cmd {
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
-    #[command(visible_alias = "install")]
+    #[command(alias = "install")]
     Upload(upload::Cmd),
 
     /// Invoke a contract function
@@ -144,6 +144,8 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+
         match &self {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
@@ -155,7 +157,13 @@ impl Cmd {
             Cmd::Info(info) => info.run(global_args).await?,
             Cmd::Init(init) => init.run(global_args)?,
             Cmd::Inspect(inspect) => inspect.run(global_args)?,
-            Cmd::Upload(install) => install.run(global_args).await?,
+            Cmd::Upload(install) => {
+                if std::env::args().any(|arg| arg == "install") {
+                    print.warnln("`stellar contract install` has been deprecated in favor of `stellar contract upload`");
+                }
+
+                install.run(global_args).await?
+            }
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
