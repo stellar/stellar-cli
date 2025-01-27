@@ -61,13 +61,15 @@ pub enum Cmd {
     /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
-    /// (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
+    /// (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
     #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
-    #[command(alias = "install")]
     Upload(upload::Cmd),
+
+    /// (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+    Install(upload::Cmd),
 
     /// Invoke a contract function
     ///
@@ -157,13 +159,11 @@ impl Cmd {
             Cmd::Info(info) => info.run(global_args).await?,
             Cmd::Init(init) => init.run(global_args)?,
             Cmd::Inspect(inspect) => inspect.run(global_args)?,
-            Cmd::Upload(install) => {
-                if std::env::args().any(|arg| arg == "install") {
-                    print.warnln("`stellar contract install` has been deprecated in favor of `stellar contract upload`");
-                }
-
-                install.run(global_args).await?
+            Cmd::Install(install) => {
+                print.warnln("`stellar contract install` has been deprecated in favor of `stellar contract upload`");
+                install.run(global_args).await?;
             }
+            Cmd::Upload(upload) => upload.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
             Cmd::Optimize(optimize) => optimize.run()?,
             Cmd::Fetch(fetch) => fetch.run().await?,
