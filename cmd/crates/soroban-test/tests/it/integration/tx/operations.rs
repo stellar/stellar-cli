@@ -268,7 +268,7 @@ async fn account_merge_with_alias() {
 #[tokio::test]
 async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
-    let (test, test1) = setup_accounts(sandbox);
+    let (test, test1_address) = setup_accounts(sandbox);
     let asset = "usdc:test1";
     issue_asset(sandbox, &test, asset, 100_000, 100).await;
     sandbox
@@ -280,7 +280,7 @@ async fn set_trustline_flags() {
         .assert()
         .success();
     let id = contract_id_hash_from_asset(
-        &format!("usdc:{test1}")
+        &format!("usdc:{test1_address}")
             .parse::<builder::Asset>()
             .unwrap()
             .resolve(&locator::Args::default())
