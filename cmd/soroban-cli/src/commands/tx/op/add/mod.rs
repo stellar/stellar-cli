@@ -52,7 +52,7 @@ impl TryFrom<&Cmd> for OperationBody {
         Ok(match &cmd {
             Cmd::AccountMerge(account_merge::Cmd { op, .. }) => op.try_into()?,
             Cmd::BumpSequence(bump_sequence::Cmd { op, .. }) => op.into(),
-            Cmd::ChangeTrust(change_trust::Cmd { op, .. }) => op.into(),
+            Cmd::ChangeTrust(change_trust::Cmd { op, .. }) => op.try_into()?,
             Cmd::CreateAccount(create_account::Cmd { op, .. }) => op.try_into()?,
             Cmd::ManageData(manage_data::Cmd { op, .. }) => op.into(),
             Cmd::Payment(payment::Cmd { op, .. }) => op.try_into()?,
