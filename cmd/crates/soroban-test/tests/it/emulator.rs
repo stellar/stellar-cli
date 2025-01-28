@@ -28,7 +28,7 @@ async fn test_signer(ledger_device_model: &str, hd_path: u32) {
 
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key.0).unwrap();
     let body: OperationBody =
-        (&soroban_cli::commands::tx::new::bump_sequence::Args { bump_to: 100 }).into();
+        (&soroban_cli::commands::tx::new::bump_sequence::Args { bump_to: 100 }).try_into();
     let operation = xdr::Operation {
         body,
         source_account: None,
