@@ -21,9 +21,9 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: stellar/actions/rust-cache@main
-            - name: install libudev-dev
+            - name: install libudev-dev & libdbus-1-dev
               run: |
-                  sudo apt install -y libudev-dev
+                  sudo apt install -y libudev-dev libdbus-1-dev
             - run: |
                   cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
             - run: cargo build --features emulator-tests
