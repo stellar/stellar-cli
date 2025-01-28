@@ -38,13 +38,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
-<<<<<<< HEAD
-      - name: install libudev-dev
-        run: |
-            sudo apt install -y libudev-dev
-=======
-      - run: sudo apt install -y libdbus-1-dev
->>>>>>> feat/os_keychain
+      - run: sudo apt install -y libdbus-1-dev libudev-dev
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms

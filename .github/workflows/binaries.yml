@@ -46,14 +46,10 @@ jobs:
     - run: rustup target add ${{ matrix.sys.target }}
 
     - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
-<<<<<<< HEAD
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libssl-dev
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
     
     - if: matrix.sys.target == 'x86_64-unknown-linux-gnu'
       run: sudo apt-get update && sudo apt-get -y install libudev-dev libssl-dev
-=======
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
->>>>>>> feat/os_keychain
 
     - name: Setup vars
       run: |

@@ -49,11 +49,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: stellar/actions/rust-cache@main
     - run: rustup update
-<<<<<<< HEAD
-    - run: sudo apt install -y libudev-dev
-=======
-    - run: sudo apt install -y libdbus-1-dev
->>>>>>> feat/os_keychain
+    - run: sudo apt install -y libudev-dev libdbus-1-dev
     - run: make generate-full-help-doc
     - run: git add -N . && git diff HEAD --exit-code
 
