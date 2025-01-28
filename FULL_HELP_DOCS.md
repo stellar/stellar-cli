@@ -88,8 +88,9 @@ Tools for smart contract developers
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban contract project
-* `inspect` — (Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
+* `inspect` — (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
 * `upload` — Install a WASM file to the ledger without creating a contract instance
+* `install` — (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
 * `optimize` — Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
@@ -661,7 +662,7 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 ## `stellar contract inspect`
 
-(Deprecated in favor of `contract info` subcommands) Inspect a WASM file listing contract functions, meta, etc
+(Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
@@ -690,6 +691,36 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 Install a WASM file to the ledger without creating a contract instance
 
 **Usage:** `stellar contract upload [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `--network <NETWORK>` — Name of network to use from config
+* `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
+* `--wasm <WASM>` — Path to wasm binary
+* `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
+
+  Default value: `false`
+
+
+
+## `stellar contract install`
+
+(Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+
+**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
 ###### **Options:**
 
