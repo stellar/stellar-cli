@@ -16,6 +16,7 @@ default-members = [
 exclude = [
     "cmd/crates/soroban-test/tests/fixtures/hello",
     "cmd/crates/soroban-test/tests/fixtures/bye",
+    "cmd/crates/soroban-test/tests/fixtures/eth_abi",
 ]
 
 [workspace.package]

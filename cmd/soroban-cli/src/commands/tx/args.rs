@@ -7,7 +7,7 @@ use crate::{
     },
     fee,
     rpc::{self, Client, GetTransactionResponse},
-    tx::builder::{self, TxExt},
+    tx::builder::{self, asset, TxExt},
     xdr::{self, Limits, WriteXdr},
 };
 
@@ -38,6 +38,8 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     Address(#[from] address::Error),
+    #[error(transparent)]
+    Asset(#[from] asset::Error),
     #[error(transparent)]
     TxXdr(#[from] super::xdr::Error),
 }
@@ -75,6 +77,7 @@ impl Args {
         let tx = self.tx(op).await?;
         self.handle_tx(tx, global_args).await
     }
+
     pub async fn handle_and_print(
         &self,
         op: impl Into<xdr::OperationBody>,
@@ -148,5 +151,9 @@ impl Args {
             body: op_body.into(),
         };
         Ok(super::xdr::add_op(tx_env, op)?)
+    }
+
+    pub fn resolve_asset(&self, asset: &builder::Asset) -> Result<xdr::Asset, Error> {
+        Ok(asset.resolve(&self.config.locator)?)
     }
 }

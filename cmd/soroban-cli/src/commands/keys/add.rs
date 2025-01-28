@@ -2,7 +2,12 @@ use clap::command;
 
 use crate::{
     commands::global,
-    config::{address::KeyName, key, locator, secret},
+    config::{
+        address::KeyName,
+        key::{self, Key},
+        locator,
+        secret::{self, Secret},
+    },
     print::Print,
 };
 
@@ -40,9 +45,21 @@ impl Cmd {
         } else {
             self.secrets.read_secret()?.into()
         };
+
         let print = Print::new(global_args.quiet);
         let path = self.config_locator.write_key(&self.name, &key)?;
+
+        if let Key::Secret(Secret::SeedPhrase { seed_phrase }) = key {
+            if seed_phrase.split_whitespace().count() < 24 {
+                print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
+                print.warnln(
+                    "To generate a new key, use the `stellar keys generate` command.".to_string(),
+                );
+            }
+        }
+
         print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
+
         Ok(())
     }
 }

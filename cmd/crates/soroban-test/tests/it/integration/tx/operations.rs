@@ -1,4 +1,5 @@
 use soroban_cli::{
+    config::locator,
     tx::{builder, ONE_XLM},
     utils::contract_id_hash_from_asset,
     xdr::{self, ReadXdr, SequenceNumber},
@@ -283,19 +284,23 @@ async fn account_merge_with_alias() {
 #[tokio::test]
 async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
-    let (test, issuer) = setup_accounts(sandbox);
-    let asset = format!("usdc:{issuer}");
-    issue_asset(sandbox, &test, &asset, 100_000, 100).await;
+    let (test, test1_address) = setup_accounts(sandbox);
+    let asset = "usdc:test1";
+    issue_asset(sandbox, &test, asset, 100_000, 100).await;
     sandbox
         .new_assert_cmd("contract")
         .arg("asset")
         .arg("deploy")
         .arg("--asset")
-        .arg(&asset)
+        .arg(asset)
         .assert()
         .success();
     let id = contract_id_hash_from_asset(
-        asset.parse::<builder::Asset>().unwrap(),
+        &format!("usdc:{test1_address}")
+            .parse::<builder::Asset>()
+            .unwrap()
+            .resolve(&locator::Args::default())
+            .unwrap(),
         &sandbox.network.network_passphrase,
     );
     // sandbox
@@ -558,7 +563,11 @@ async fn change_trust() {
 
     // wrap_cmd(&asset).run().await.unwrap();
     let id = contract_id_hash_from_asset(
-        asset.parse::<builder::Asset>().unwrap(),
+        &asset
+            .parse::<builder::Asset>()
+            .unwrap()
+            .resolve(&locator::Args::default())
+            .unwrap(),
         &sandbox.network.network_passphrase,
     );
     sandbox
