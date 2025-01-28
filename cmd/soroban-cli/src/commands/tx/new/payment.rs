@@ -26,11 +26,21 @@ pub struct Args {
 
 impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
-    fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
+    fn try_from(
+        Cmd {
+            tx,
+            op:
+                Args {
+                    destination,
+                    asset,
+                    amount,
+                },
+        }: &Cmd,
+    ) -> Result<Self, Self::Error> {
         Ok(xdr::OperationBody::Payment(xdr::PaymentOp {
-            destination: cmd.tx.resolve_muxed_address(&cmd.op.destination)?,
-            asset: cmd.op.asset.clone().into(),
-            amount: cmd.op.amount.into(),
+            destination: tx.resolve_muxed_address(destination)?,
+            asset: tx.resolve_asset(asset)?,
+            amount: amount.into(),
         }))
     }
 }
