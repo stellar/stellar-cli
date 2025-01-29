@@ -287,11 +287,12 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.globeln("Submitting deploy transaction…");
         print.log_transaction(&txn, &network, true)?;
+        let signed_txn = &config.sign_with_local_key(*txn).await?;
+        print.globeln("Submitting deploy transaction…");
 
         let get_txn_resp = client
-            .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
+            .send_transaction_polling(signed_txn)
             .await?
             .try_into()?;
 
