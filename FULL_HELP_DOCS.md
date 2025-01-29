@@ -1223,11 +1223,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
 
-**Usage:** `stellar network start [OPTIONS] <NETWORK>`
+**Usage:** `stellar network start [OPTIONS] [NETWORK]`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to start
+* `<NETWORK>` — Network to start. Default is `local`
 
   Possible values: `local`, `testnet`, `futurenet`, `pubnet`
 
@@ -1251,11 +1251,13 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
 
-**Usage:** `stellar network stop [OPTIONS] <NAME>`
+**Usage:** `stellar network stop [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 * `<NAME>` — Container to stop
+
+  Default value: `local`
 
 ###### **Options:**
 
@@ -1300,11 +1302,13 @@ Commands to start, stop and get logs for a quickstart container
 
 Get logs from a running network container
 
-**Usage:** `stellar network container logs [OPTIONS] <NAME>`
+**Usage:** `stellar network container logs [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 * `<NAME>` — Container to get logs from
+
+  Default value: `local`
 
 ###### **Options:**
 
@@ -1322,11 +1326,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
 
-**Usage:** `stellar network container start [OPTIONS] <NETWORK>`
+**Usage:** `stellar network container start [OPTIONS] [NETWORK]`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to start
+* `<NETWORK>` — Network to start. Default is `local`
 
   Possible values: `local`, `testnet`, `futurenet`, `pubnet`
 
@@ -1348,11 +1352,13 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network container started with `stellar container start`
 
-**Usage:** `stellar network container stop [OPTIONS] <NAME>`
+**Usage:** `stellar network container stop [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 * `<NAME>` — Container to stop
+
+  Default value: `local`
 
 ###### **Options:**
 
@@ -1378,11 +1384,13 @@ Start local networks in containers
 
 Get logs from a running network container
 
-**Usage:** `stellar container logs [OPTIONS] <NAME>`
+**Usage:** `stellar container logs [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 * `<NAME>` — Container to get logs from
+
+  Default value: `local`
 
 ###### **Options:**
 
@@ -1400,11 +1408,11 @@ By default, when starting a testnet container, without any optional arguments, i
 
 `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
 
-**Usage:** `stellar container start [OPTIONS] <NETWORK>`
+**Usage:** `stellar container start [OPTIONS] [NETWORK]`
 
 ###### **Arguments:**
 
-* `<NETWORK>` — Network to start
+* `<NETWORK>` — Network to start. Default is `local`
 
   Possible values: `local`, `testnet`, `futurenet`, `pubnet`
 
@@ -1426,11 +1434,13 @@ By default, when starting a testnet container, without any optional arguments, i
 
 Stop a network container started with `stellar container start`
 
-**Usage:** `stellar container stop [OPTIONS] <NAME>`
+**Usage:** `stellar container stop [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 * `<NAME>` — Container to stop
+
+  Default value: `local`
 
 ###### **Options:**
 
