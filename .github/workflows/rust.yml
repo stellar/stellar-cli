@@ -99,7 +99,7 @@ jobs:
         CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
 
   publish-dry-run:
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
+    # if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -137,7 +137,7 @@ jobs:
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features opt --ignore-unknown-features
 
-    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
+    uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@d3482be5dc869655824ea6593773af9e83909baf
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
