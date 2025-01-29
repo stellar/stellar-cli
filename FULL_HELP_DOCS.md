@@ -1116,6 +1116,7 @@ Output an identity's secret key
 
 ###### **Options:**
 
+* `--phrase` — Output seed phrase instead of private key
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
