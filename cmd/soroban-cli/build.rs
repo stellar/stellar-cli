@@ -1,10 +1,22 @@
-use license_fetcher::build_script::generate_package_list_with_licenses;
-
 fn main() {
     crate_git_revision::init();
+    set_protocol_features();
+}
 
-    generate_package_list_with_licenses().write();
-    println!("cargo::rerun-if-changed=build.rs");
-    println!("cargo::rerun-if-changed=Cargo.lock");
-    println!("cargo::rerun-if-changed=Cargo.toml");
+fn set_protocol_features() {
+    let version = env!("CARGO_PKG_VERSION");
+    let major_version: u32 = version
+        .split('.')
+        .next()
+        .unwrap_or("0")
+        .parse()
+        .unwrap_or(0);
+
+    if major_version < 23 {
+        println!("cargo:rustc-cfg=feature=\"version_lt_23\"");
+    }
+
+    if major_version >= 23 {
+        println!("cargo:rustc-cfg=feature=\"version_gte_23\"");
+    }
 }
