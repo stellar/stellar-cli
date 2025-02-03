@@ -49,6 +49,7 @@ pub enum Cmd {
     /// ⚠️ Deprecated: use `stellar container` instead
     ///
     /// Commands to start, stop and get logs for a quickstart container
+    #[cfg(feature = "version_lt_23")]
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
 }
@@ -75,6 +76,7 @@ pub enum Error {
     #[error(transparent)]
     Stop(#[from] crate::commands::container::stop::Error),
 
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Container(#[from] crate::commands::container::Error),
 
@@ -102,6 +104,7 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
+            #[cfg(feature = "version_lt_23")]
             Cmd::Container(cmd) => cmd.run(global_args).await?,
 
             #[cfg(feature = "version_lt_23")]
