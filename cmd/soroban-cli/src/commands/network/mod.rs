@@ -37,6 +37,7 @@ pub enum Cmd {
     /// ⚠️ Deprecated: use `stellar container stop` instead
     ///
     /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
+    #[cfg(feature = "version_lt_23")]
     Stop(crate::commands::container::StopCmd),
 
     /// Set the default network that will be used on all commands.
@@ -70,7 +71,7 @@ pub enum Error {
     #[error(transparent)]
     Start(#[from] crate::commands::container::start::Error),
 
-    // TODO: remove once `network stop` is removed
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Stop(#[from] crate::commands::container::stop::Error),
 
@@ -108,7 +109,7 @@ impl Cmd {
                 eprintln!("⚠️ Warning: `network start` has been deprecated. Use `container start` instead");
                 cmd.run(global_args).await?;
             }
-            // TODO Remove this once `network stop` is removed
+            #[cfg(feature = "version_lt_23")]
             Cmd::Stop(cmd) => {
                 println!(
                     "⚠️ Warning: `network stop` has been deprecated. Use `container stop` instead"
