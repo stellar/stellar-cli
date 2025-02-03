@@ -31,6 +31,7 @@ pub enum Cmd {
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     ///
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+    #[cfg(feature = "version_lt_23")]
     Start(crate::commands::container::StartCmd),
 
     /// ⚠️ Deprecated: use `stellar container stop` instead
@@ -65,7 +66,7 @@ pub enum Error {
     #[error(transparent)]
     Ls(#[from] ls::Error),
 
-    // TODO: remove once `network start` is removed
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Start(#[from] crate::commands::container::start::Error),
 
@@ -102,7 +103,7 @@ impl Cmd {
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Container(cmd) => cmd.run(global_args).await?,
 
-            // TODO Remove this once `network start` is removed
+            #[cfg(feature = "version_lt_23")]
             Cmd::Start(cmd) => {
                 eprintln!("⚠️ Warning: `network start` has been deprecated. Use `container start` instead");
                 cmd.run(global_args).await?;
