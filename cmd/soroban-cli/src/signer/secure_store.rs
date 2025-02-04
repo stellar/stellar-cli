@@ -52,7 +52,7 @@ pub fn save_secret(
 }
 
 fn write_to_secure_store(
-    entry_name: &String,
+    entry_name: &str,
     seed_phrase: SeedPhrase,
     print: &Print,
 ) -> Result<(), Error> {
