@@ -11,6 +11,7 @@ use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::env;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -51,6 +52,16 @@ pub enum Error {
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
 
+fn running_cmd() -> String {
+    let mut args: Vec<String> = env::args().collect();
+
+    if let Some(pos) = args.iter().position(|arg| arg == "--") {
+        args.truncate(pos);
+    }
+
+    format!("{} --", args.join(" "))
+}
+
 pub fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
@@ -58,7 +69,8 @@ pub fn build_host_function_parameters(
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
-    let mut cmd = clap::Command::new(contract_id.to_string())
+
+    let mut cmd = clap::Command::new(running_cmd())
         .no_binary_name(true)
         .term_width(300)
         .max_term_width(300);
@@ -277,10 +289,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SigningKey> {
-    let cmd = crate::commands::keys::address::Cmd {
-        name: addr_or_alias.to_string(),
-        hd_path: Some(0),
-        locator: config.locator.clone(),
-    };
-    cmd.private_key().ok()
+    config
+        .locator
+        .read_key(addr_or_alias)
+        .ok()?
+        .private_key(None)
+        .ok()
+        .map(|pk| SigningKey::from_bytes(&pk.0))
 }

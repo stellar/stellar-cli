@@ -1,3 +1,9 @@
+use crate::commands::contract::deploy::utils::alias_validator;
+use std::array::TryFromSliceError;
+use std::ffi::OsString;
+use std::fmt::Debug;
+use std::num::ParseIntError;
+
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -7,19 +13,14 @@ use crate::xdr::{
 };
 use clap::{arg, command, Parser};
 use rand::Rng;
-use regex::Regex;
 use soroban_spec_tools::contract as contract_spec;
-use std::array::TryFromSliceError;
-use std::ffi::OsString;
-use std::fmt::Debug;
-use std::num::ParseIntError;
 
 use crate::commands::contract::arg_parsing::Error::HelpMessage;
 use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::{self, arg_parsing, id::wasm::get_contract_id, install},
+        contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable, HEADING_RPC,
@@ -73,7 +74,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Install(#[from] install::Error),
+    Install(#[from] upload::Error),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -138,6 +139,16 @@ impl Cmd {
                     let network = self.config.get_network()?;
 
                     if let Some(alias) = self.alias.clone() {
+                        if let Some(existing_contract) = self
+                            .config
+                            .locator
+                            .get_contract_id(&alias, &network.network_passphrase)?
+                        {
+                            let print = Print::new(global_args.quiet);
+                            print.warnln(format!(
+                                "Overwriting existing contract id: {existing_contract}"
+                            ));
+                        };
                         self.config.locator.save_contract_id(
                             &network.network_passphrase,
                             &contract,
@@ -158,18 +169,6 @@ impl Cmd {
     }
 }
 
-fn alias_validator(alias: &str) -> Result<String, Error> {
-    let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
-
-    if regex.is_match(alias) {
-        Ok(alias.into())
-    } else {
-        Err(Error::InvalidAliasFormat {
-            alias: alias.into(),
-        })
-    }
-}
-
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
@@ -187,7 +186,7 @@ impl NetworkRunnable for Cmd {
             let hash = if self.fee.build_only || self.fee.sim_only {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
-                install::Cmd {
+                upload::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
                     fee: self.fee.clone(),
@@ -293,11 +292,12 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.globeln("Submitting deploy transaction…");
         print.log_transaction(&txn, &network, true)?;
+        let signed_txn = &config.sign_with_local_key(*txn).await?;
+        print.globeln("Submitting deploy transaction…");
 
         let get_txn_resp = client
-            .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
+            .send_transaction_polling(signed_txn)
             .await?
             .try_into()?;
 
@@ -393,35 +393,5 @@ mod tests {
         );
 
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_alias_validator_with_valid_inputs() {
-        let valid_inputs = [
-            "hello",
-            "123",
-            "hello123",
-            "hello_123",
-            "123_hello",
-            "123-hello",
-            "hello-123",
-            "HeLlo-123",
-        ];
-
-        for input in valid_inputs {
-            let result = alias_validator(input);
-            assert!(result.is_ok());
-            assert!(result.unwrap() == input);
-        }
-    }
-
-    #[test]
-    fn test_alias_validator_with_invalid_inputs() {
-        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
-
-        for input in invalid_inputs {
-            let result = alias_validator(input);
-            assert!(result.is_err());
-        }
     }
 }
