@@ -145,6 +145,17 @@ pub async fn wait_for_emulator_start_text(ui_host_port: u16) {
     }
 }
 
+pub async fn wait_for_review_transaction_text(ui_host_port: u16) {
+    let mut review_ready = false;
+    while !review_ready {
+        let events = get_emulator_events_with_retries(ui_host_port, 5).await;
+
+        if events.iter().any(|event| event.text == "Review") {
+            review_ready = true;
+        }
+    }
+}
+
 pub async fn get_emulator_events(ui_host_port: u16) -> Vec<EmulatorEvent> {
     // Allowing for less retries here because presumably the emulator should be up and running since we waited
     // for the "is ready" text via wait_for_emulator_start_text
@@ -182,6 +193,7 @@ pub async fn get_emulator_events_with_retries(
 }
 
 pub async fn approve_tx_hash_signature(ui_host_port: u16, device_model: String) {
+    wait_for_review_transaction_text(ui_host_port).await;
     let number_of_right_clicks = if device_model == "nanos" { 10 } else { 6 };
     for _ in 0..number_of_right_clicks {
         click(ui_host_port, "button/right").await;
