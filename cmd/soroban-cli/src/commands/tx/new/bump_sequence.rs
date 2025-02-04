@@ -20,12 +20,11 @@ pub struct Args {
 
 impl From<&Args> for xdr::OperationBody {
     fn from(args: &Args) -> Self {
-        xdr::OperationBody::BumpSequence(xdr::BumpSequenceOp{
+        xdr::OperationBody::BumpSequence(xdr::BumpSequenceOp {
             bump_to: args.bump_to.into(),
         })
     }
 }
-
 
 impl From<&Cmd> for xdr::OperationBody {
     fn from(cmd: &Cmd) -> Self {
