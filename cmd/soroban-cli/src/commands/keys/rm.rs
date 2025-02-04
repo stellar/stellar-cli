@@ -1,5 +1,7 @@
 use clap::command;
 
+use crate::commands::global;
+
 use super::super::config::locator;
 
 #[derive(thiserror::Error, Debug)]
@@ -19,7 +21,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        Ok(self.config.remove_identity(&self.name)?)
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        Ok(self.config.remove_identity(&self.name, global_args)?)
     }
 }

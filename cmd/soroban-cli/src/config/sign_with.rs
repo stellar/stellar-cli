@@ -34,7 +34,7 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
-    /// Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
+    /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
     pub sign_with_key: Option<String>,
 
