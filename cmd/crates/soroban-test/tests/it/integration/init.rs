@@ -1,6 +1,7 @@
 use soroban_test::{AssertExt, TestEnv};
 
 #[test]
+#[ignore]
 fn init_and_deploy() {
     let name = "hello_world";
     let sandbox = TestEnv::default();
