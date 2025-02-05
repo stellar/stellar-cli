@@ -5,12 +5,8 @@ use super::super::config::{
     locator, network,
     secret::{self, Secret},
 };
-use crate::{
-    commands::global,
-    config::address::KeyName,
-    print::Print,
-    signer::keyring::{self, StellarEntry},
-};
+
+use crate::{commands::global, config::address::KeyName, print::Print, signer::secure_store};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,7 +23,7 @@ pub enum Error {
     IdentityAlreadyExists(String),
 
     #[error(transparent)]
-    Keyring(#[from] keyring::Error),
+    SecureStore(#[from] secure_store::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -124,29 +120,13 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            // secure_store:org.stellar.cli:<key name>
-            let entry_name_with_prefix = format!(
-                "{}{}-{}",
-                keyring::SECURE_STORE_ENTRY_PREFIX,
-                keyring::SECURE_STORE_ENTRY_SERVICE,
-                self.name
-            );
-
-            //checking that the entry name is valid before writing to the secure store
-            let secret: Secret = entry_name_with_prefix.parse()?;
-
-            if let Secret::SecureStore { entry_name } = &secret {
-                Self::write_to_secure_store(entry_name, seed_phrase, print)?;
-            }
-
-            return Ok(secret);
-        }
-        let secret: Secret = seed_phrase.into();
-        Ok(if self.as_secret {
-            secret.private_key(self.hd_path)?.into()
+            Ok(secure_store::save_secret(print, &self.name, seed_phrase)?)
+        } else if self.as_secret {
+            let secret: Secret = seed_phrase.into();
+            Ok(secret.private_key(self.hd_path)?.into())
         } else {
-            secret
-        })
+            Ok(seed_phrase.into())
+        }
     }
 
     fn seed_phrase(&self) -> Result<SeedPhrase, Error> {
@@ -156,29 +136,11 @@ impl Cmd {
             secret::seed_phrase_from_seed(self.seed.as_deref())
         }?)
     }
-
-    fn write_to_secure_store(
-        entry_name: &String,
-        seed_phrase: SeedPhrase,
-        print: &Print,
-    ) -> Result<(), Error> {
-        print.infoln(format!("Writing to secure store: {entry_name}"));
-        let entry = StellarEntry::new(entry_name)?;
-        if let Ok(key) = entry.get_public_key(None) {
-            print.warnln(format!("A key for {entry_name} already exists in your operating system's secure store: {key}"));
-        } else {
-            print.infoln(format!(
-                "Saving a new key to your operating system's secure store: {entry_name}"
-            ));
-            entry.set_seed_phrase(seed_phrase)?;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{address::KeyName, secret::Secret};
+    use crate::config::{address::KeyName, key::Key, secret::Secret};
     use keyring::{mock, set_default_credential_builder};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
@@ -220,7 +182,7 @@ mod tests {
         let result = cmd.run(&global_args).await;
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
-        assert!(matches!(identity, Secret::SeedPhrase { .. }));
+        assert!(matches!(identity, Key::Secret(Secret::SeedPhrase { .. })));
     }
 
     #[tokio::test]
@@ -232,7 +194,7 @@ mod tests {
         let result = cmd.run(&global_args).await;
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
-        assert!(matches!(identity, Secret::SecretKey { .. }));
+        assert!(matches!(identity, Key::Secret(Secret::SecretKey { .. })));
     }
 
     #[tokio::test]
@@ -245,6 +207,6 @@ mod tests {
         let result = cmd.run(&global_args).await;
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
-        assert!(matches!(identity, Secret::SecureStore { .. }));
+        assert!(matches!(identity, Key::Secret(Secret::SecureStore { .. })));
     }
 }

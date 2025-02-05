@@ -1,4 +1,5 @@
 use crate::config::locator;
+use crate::print::Print;
 use crate::xdr::{
     Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
@@ -43,6 +44,8 @@ pub enum Error {
     #[error(transparent)]
     Builder(#[from] builder::Error),
     #[error(transparent)]
+    Asset(#[from] builder::asset::Error),
+    #[error(transparent)]
     Locator(#[from] locator::Error),
 }
 
@@ -73,7 +76,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
@@ -81,6 +84,17 @@ impl Cmd {
                 let network = self.config.get_network()?;
 
                 if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    };
+
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
@@ -107,7 +121,7 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
-        let asset = &self.asset;
+        let asset = self.asset.resolve(&config.locator)?;
 
         let network = config.get_network()?;
         let client = network.rpc_client()?;
@@ -122,7 +136,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
+        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
             asset,
             &contract_id,

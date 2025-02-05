@@ -36,6 +36,8 @@ doctest = false
 
 [features]
 default = []
+version_lt_23 = []
+version_gte_23 = []
 opt = ["dep:wasm-opt"]
 
 [dependencies]
@@ -128,6 +130,7 @@ wasm-gen = "0.1.4"
 zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 whoami = "1.5.2"
+serde_with = "3.11.0"
 
 
 [build-dependencies]
