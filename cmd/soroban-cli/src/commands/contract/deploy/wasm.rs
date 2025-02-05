@@ -13,10 +13,9 @@ use crate::xdr::{
 };
 use clap::{arg, command, Parser};
 use rand::Rng;
+
 use soroban_spec_tools::contract as contract_spec;
 
-use crate::commands::contract::arg_parsing::Error::HelpMessage;
-use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -129,42 +128,37 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(Some(global_args), None).await;
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         match res {
-            Ok(res) => match res.to_envelope() {
-                TxnEnvelopeResult::TxnEnvelope(tx) => {
-                    println!("{}", tx.to_xdr_base64(Limits::none())?);
-                }
-                TxnEnvelopeResult::Res(contract) => {
-                    let network = self.config.get_network()?;
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
 
-                    if let Some(alias) = self.alias.clone() {
-                        if let Some(existing_contract) = self
-                            .config
-                            .locator
-                            .get_contract_id(&alias, &network.network_passphrase)?
-                        {
-                            let print = Print::new(global_args.quiet);
-                            print.warnln(format!(
-                                "Overwriting existing contract id: {existing_contract}"
-                            ));
-                        };
-                        self.config.locator.save_contract_id(
-                            &network.network_passphrase,
-                            &contract,
-                            &alias,
-                        )?;
-                    }
+                if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    };
 
-                    println!("{contract}");
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
                 }
-            },
-            Err(ArgParse(HelpMessage(help))) => {
-                println!("{help}");
+
+                println!("{contract}");
             }
-            Err(e) => return Err(e),
         }
-
         Ok(())
     }
 }
@@ -253,13 +247,15 @@ impl NetworkRunnable for Cmd {
             } else {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
                 slop.extend_from_slice(&self.slop);
-                let params = arg_parsing::build_host_function_parameters(
-                    &stellar_strkey::Contract(contract_id.0),
-                    &slop,
-                    &entries,
-                    config,
-                )?;
-                Some(params.2)
+                Some(
+                    arg_parsing::build_host_function_parameters(
+                        &stellar_strkey::Contract(contract_id.0),
+                        &slop,
+                        &entries,
+                        config,
+                    )?
+                    .2,
+                )
             }
         } else {
             None

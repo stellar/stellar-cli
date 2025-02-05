@@ -12,8 +12,6 @@ use soroban_spec::read::FromWasmError;
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
-use crate::commands::contract::arg_parsing::Error::HelpMessage;
-use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -133,20 +131,12 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.invoke(global_args).await;
+        let res = self.invoke(global_args).await?.to_envelope();
         match res {
-            Ok(res) => match res.to_envelope() {
-                TxnEnvelopeResult::TxnEnvelope(tx) => {
-                    println!("{}", tx.to_xdr_base64(Limits::none())?);
-                }
-                TxnEnvelopeResult::Res(output) => {
-                    println!("{output}");
-                }
-            },
-            Err(ArgParsing(HelpMessage(help))) => {
-                println!("{help}");
+            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::Res(output) => {
+                println!("{output}");
             }
-            Err(e) => return Err(e),
         }
         Ok(())
     }
