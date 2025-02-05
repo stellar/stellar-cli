@@ -1,6 +1,6 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
-use std::{io::Write, str::FromStr};
+use std::str::FromStr;
 
 use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
@@ -15,10 +15,6 @@ use super::key::Key;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // #[error("seed_phrase must be 12 words long, found {len}")]
-    // InvalidSeedPhrase { len: usize },
-    #[error("secret input error")]
-    PasswordRead,
     #[error(transparent)]
     Secret(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
@@ -48,20 +44,9 @@ pub struct Args {
     /// (deprecated) Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
-}
-
-impl Args {
-    pub fn read_secret(&self) -> Result<Secret, Error> {
-        if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
-            Ok(Secret::SecretKey { secret_key })
-        } else {
-            println!("Type a secret key or 12/24 word seed phrase:");
-            let secret_key = read_password()?;
-            secret_key
-                .parse()
-                .map_err(|_| Error::InvalidSecretOrSeedPhrase)
-        }
-    }
+    /// Save the new key in secure store. This only supports seed phrases for now.
+    #[arg(long)]
+    pub secure_store: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -192,11 +177,6 @@ pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
 
 pub fn test_seed_phrase() -> Result<SeedPhrase, Error> {
     Ok("0000000000000000".parse()?)
-}
-
-fn read_password() -> Result<String, Error> {
-    std::io::stdout().flush().map_err(|_| Error::PasswordRead)?;
-    rpassword::read_password().map_err(|_| Error::PasswordRead)
 }
 
 #[cfg(test)]
