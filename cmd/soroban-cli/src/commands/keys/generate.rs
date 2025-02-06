@@ -96,7 +96,7 @@ impl Cmd {
         }
         let secret = self.secret(&print)?;
         let path = self.config_locator.write_identity(&self.name, &secret)?;
-        print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
+        print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
         if !self.no_fund {
             let addr = secret.public_key(self.hd_path)?;
