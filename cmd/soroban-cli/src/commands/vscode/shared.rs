@@ -178,30 +178,34 @@ mod test {
     }
 }
 "#;
-    const SETTINGS_AFTER: &str = r#"
-{
+    fn settings_after(s: &str) -> String {
+        format!(
+            r#"
+{{
     "terminal.integrated.scrollback": 10000,
     "tabnine.experimentalAutoImports": true,
-    "editor.codeActionsOnSave": {},
-    "rust-analyzer.cargo.extraEnv": {
+    "editor.codeActionsOnSave": {{}},
+    "rust-analyzer.cargo.extraEnv": {{
         "PROTOC": "/opt/homebrew/bin/protoc",
         "DYLD_FALLBACK_LIBRARY_PATH":"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/"
         // "RUSTFLAGS": "-Dwarnings"
-    },
+    }},
     "continue.telemetryEnabled": false,
     "workbench.sideBar.location": "right",
-    "[html]": {
+    "[html]": {{
         "editor.defaultFormatter": "rvest.vs-code-prettier-eslint"
-    },
+    }},
     "json.schemas": [
-        {
+        {{
             "stellar": true,
             "fileMatch": ["**/*.stellar_txn.json"],
-            "url": "/Users/willem/c/s/soroban-tools/cmd/soroban-cli/transaction_env.json"
-        }
+            "url": "{s}/transaction_env.json"
+        }}
     ]
-}
-"#;
+}}
+"#
+        )
+    }
 
     #[test]
     fn test_add_schema() {
@@ -209,9 +213,10 @@ mod test {
         let base_dir = std::env::current_dir().unwrap();
         let added = settings.add_schema(&base_dir).unwrap();
         assert!(added);
-        assert_eq!(SETTINGS_AFTER, settings.to_string());
+        let after: String = settings_after(&base_dir.to_string_lossy());
+        assert_eq!(after, settings.to_string());
         let added = settings.add_schema(&base_dir).unwrap();
         assert!(!added);
-        assert_eq!(SETTINGS_AFTER, settings.to_string());
+        assert_eq!(after, settings.to_string());
     }
 }
