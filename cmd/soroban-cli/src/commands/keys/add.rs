@@ -61,7 +61,7 @@ impl Cmd {
 
         let path = self.config_locator.write_key(&self.name, &key)?;
 
-        print.checkln(format!("Key saved with alias {:?} in {path:?}", self.name));
+        print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
         Ok(())
     }
