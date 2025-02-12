@@ -30,7 +30,7 @@ jobs:
         sys:
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          - os: ubuntu-jammy-16-cores-arm64 # Use 22 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
           - os: macos-14
             target: aarch64-apple-darwin
