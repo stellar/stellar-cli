@@ -241,6 +241,9 @@ skip = [
 
     # wasm-gen update
     { crate = "byteorder", reason = "temp", version = "1.5.0" },
+    
+    # async libraries depend on the older version (async-io and hyper)
+    { crate = "socket2", reason = "temp", version = "0.4.10" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate
 # detection. Unlike skip, it also includes the entire tree of transitive
