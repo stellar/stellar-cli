@@ -34,7 +34,7 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
 pub struct Args {
-    /// Sign with a local key. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
+    /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
     pub sign_with_key: Option<String>,
 
@@ -64,7 +64,7 @@ impl Args {
             }
         } else {
             let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
-            let secret = locator.key(key_or_name)?;
+            let secret = locator.get_secret_key(key_or_name)?;
             secret.signer(self.hd_path, print)?
         };
         Ok(signer.sign_tx_env(tx, network)?)

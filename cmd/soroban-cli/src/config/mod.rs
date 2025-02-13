@@ -1,4 +1,3 @@
-use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -17,13 +16,17 @@ use network::Network;
 pub mod address;
 pub mod alias;
 pub mod data;
+pub mod key;
 pub mod locator;
 pub mod network;
+pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
-pub use alias::ContractAddress;
+pub use address::UnresolvedMuxedAccount;
+pub use alias::UnresolvedContract;
+pub use sc_address::UnresolvedScAddress;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -49,14 +52,14 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
     /// or a seed phrase (--source "kite urban…").
     /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
-    pub source_account: Address,
+    pub source_account: UnresolvedMuxedAccount,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
