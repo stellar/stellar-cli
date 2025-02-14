@@ -250,7 +250,7 @@ impl NetworkRunnable for Cmd {
                 .await?;
 
             client
-                .get_account(&config.source_account()?.to_string())
+                .get_account(&config.source_account().await?.to_string())
                 .await?
         } else {
             if should_send == ShouldSend::DefaultNo {
