@@ -71,10 +71,11 @@ pub struct Args {
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path)?)
+            .resolve_muxed_account(&self.locator, self.hd_path)
+            .await?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -94,7 +95,7 @@ impl Args {
             kind: SignerKind::Local(LocalKey { key }),
             print: Print::new(false),
         };
-        Ok(signer.sign_tx(tx, network)?)
+        Ok(signer.sign_tx(tx, network).await?)
     }
 
     pub async fn sign_soroban_authorizations(
@@ -195,7 +196,9 @@ impl Config {
 
     pub fn save(&self) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
-        let mut file = File::create(locator::config_file()?)?;
+        let path = locator::config_file()?;
+        // Depending on the platform, this function may fail if the full directory path does not exist
+        let mut file = File::create(locator::ensure_directory(path)?)?;
         file.write_all(toml_string.as_bytes())?;
 
         Ok(())
