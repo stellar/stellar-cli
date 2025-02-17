@@ -15,6 +15,7 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 pub mod upload;
+pub mod wasm_hash;
 
 use crate::{commands::global, print::Print};
 
@@ -91,6 +92,9 @@ pub enum Cmd {
     ///
     /// If no keys are specificed the contract itself is restored.
     Restore(restore::Cmd),
+
+    /// Get the wasm hash of a deployed contract
+    WasmHash(wasm_hash::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -142,6 +146,9 @@ pub enum Error {
 
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
+    #[error(transparent)]
+    WasmHash(#[from] wasm_hash::Error),
 }
 
 impl Cmd {
@@ -169,6 +176,7 @@ impl Cmd {
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,
+            Cmd::WasmHash(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
