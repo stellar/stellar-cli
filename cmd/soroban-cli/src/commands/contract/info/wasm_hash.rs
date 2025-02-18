@@ -21,7 +21,7 @@ pub struct Cmd {
     pub network: network::Args,
 
     /// Contract ID to get the wasm hash for
-    #[arg(long = "contract-id")]
+    #[arg(long)]
     pub contract_id: stellar_strkey::Contract,
 }
 
@@ -65,9 +65,3 @@ impl Cmd {
     }
 }
 
-pub fn subcommand() -> Command {
-    command!("wasm-hash")
-        .about("Retrieve the wasm hash of a contract")
-        .arg(arg!(--network <NETWORK> "The network to connect to"))
-        .arg(arg!(--contract-id <CONTRACT_ID> "The contract ID"))
-}
