@@ -1827,6 +1827,33 @@ https://developers.stellar.org/docs/learn/glossary#flags
 
 
 
+## `stellar tx set`
+
+Set various options for a transaction
+
+**Usage:** `stellar tx set [OPTIONS]`
+
+###### **Options:**
+
+* `--sequence-number <SEQUENCE_NUMBER>` — Set the transactions sequence number
+* `--fee <FEE>` — Set the transactions fee
+* `--memo-text <MEMO_TEXT>` — Set the transactions memo text
+* `--memo-id <MEMO_ID>` — Set the transactions memo id
+* `--memo-hash <MEMO_HASH>` — Set the transactions memo hash
+* `--memo-return <MEMO_RETURN>` — Set the transactions memo return
+* `--source-account <SOURCE_ACCOUNT>` — Change the source account for the transaction
+* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions max time bound
+* `--min-time-bound <MIN_TIME_BOUND>` — Set the transactions min time bound
+* `--min-ledger <MIN_LEDGER>` — Set the minimum ledger that the transaction is valid
+* `--max-ledger <MAX_LEDGER>` — Set the max ledger that the transaction is valid. 0 or not present means to max
+* `--min-seq-num <MIN_SEQ_NUM>` — set mimimum sequence number
+* `--min-seq-age <MIN_SEQ_AGE>`
+* `--min-seq-ledger-gap <MIN_SEQ_LEDGER_GAP>` — min sequeence ledger gap
+* `--extra-signers <EXTRA_SIGNERS>` — Extra signers
+* `--no-preconditions` — Set precondition to None
+
+
+
 ## `stellar tx operation`
 
 Manipulate the operations in a transaction, including adding new operations
@@ -2160,30 +2187,24 @@ Send a transaction envelope to the network
 
 
 
-## `stellar tx set`
+## `stellar tx sign`
 
-Set various options for a transaction
+Sign a transaction envelope appending the signature to the envelope
 
-**Usage:** `stellar tx set [OPTIONS]`
+**Usage:** `stellar tx sign [OPTIONS]`
 
 ###### **Options:**
 
-* `--sequence-number <SEQUENCE_NUMBER>` — Set the transactions sequence number
-* `--fee <FEE>` — Set the transactions fee
-* `--memo-text <MEMO_TEXT>` — Set the transactions memo text
-* `--memo-id <MEMO_ID>` — Set the transactions memo id
-* `--memo-hash <MEMO_HASH>` — Set the transactions memo hash
-* `--memo-return <MEMO_RETURN>` — Set the transactions memo return
-* `--source-account <SOURCE_ACCOUNT>` — Change the source account for the transaction
-* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions max time bound
-* `--min-time-bound <MIN_TIME_BOUND>` — Set the transactions min time bound
-* `--min-ledger <MIN_LEDGER>` — Set the minimum ledger that the transaction is valid
-* `--max-ledger <MAX_LEDGER>` — Set the max ledger that the transaction is valid. 0 or not present means to max
-* `--min-seq-num <MIN_SEQ_NUM>` — set mimimum sequence number
-* `--min-seq-age <MIN_SEQ_AGE>`
-* `--min-seq-ledger-gap <MIN_SEQ_LEDGER_GAP>` — min sequeence ledger gap
-* `--extra-signers <EXTRA_SIGNERS>` — Extra signers
-* `--no-preconditions` — Set precondition to None
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 

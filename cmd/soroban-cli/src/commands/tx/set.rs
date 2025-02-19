@@ -2,7 +2,7 @@ use soroban_sdk::xdr::WriteXdr;
 
 use crate::{
     commands::global,
-    config::address::{self, Address},
+    config::address::{self, UnresolvedMuxedAccount},
     xdr::{self, TransactionEnvelope},
 };
 
@@ -62,7 +62,7 @@ pub struct Cmd {
     pub memo_return: Option<xdr::Hash>,
     /// Change the source account for the transaction
     #[arg(long, visible_alias = "source")]
-    pub source_account: Option<Address>,
+    pub source_account: Option<UnresolvedMuxedAccount>,
 
     // Time bounds and Preconditions
     /// Set the transactions max time bound
@@ -122,7 +122,7 @@ impl Cmd {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 if let Some(source_account) = self.source_account.as_ref() {
                     transaction_v1_envelope.tx.source_account =
-                        source_account.resolve_muxed_account(&global.locator, None)?;
+                        source_account.resolve_muxed_account_sync(&global.locator, None)?;
                 };
 
                 if let Some(seq_num) = self.sequence_number {
