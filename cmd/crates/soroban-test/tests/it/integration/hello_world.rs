@@ -27,7 +27,7 @@ async fn invoke_view_with_non_existent_source_account() {
 #[allow(clippy::too_many_lines)]
 async fn invoke() {
     let sandbox = &TestEnv::new();
-    let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let c = sandbox.network.rpc_client().unwrap();
     let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
     sandbox
         .new_assert_cmd("keys")
@@ -53,7 +53,7 @@ async fn invoke() {
 
     let secret_key = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("test")
         .assert()
         .stdout_as_str();
@@ -65,7 +65,7 @@ async fn invoke() {
         .stdout_as_str();
     let secret_key_1 = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("test")
         .arg("--hd-path=1")
         .assert()
@@ -115,7 +115,7 @@ async fn invoke() {
     assert_eq!(sk_from_file, format!("secret_key = \"{secret_key_1}\"\n"));
     let secret_key_1_readin = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("testone")
         .assert()
         .stdout_as_str();
@@ -365,7 +365,7 @@ async fn fetch(sandbox: &TestEnv, id: &str) {
     let f = sandbox.dir().join("contract.wasm");
     let cmd = sandbox.cmd_arr::<fetch::Cmd>(&[
         "--rpc-url",
-        &sandbox.rpc_url,
+        &sandbox.network.rpc_url,
         "--network-passphrase",
         LOCAL_NETWORK_PASSPHRASE,
         "--id",
@@ -402,12 +402,9 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stderr(predicates::str::contains(
-            "INFO contract_event: soroban_cli::log::event: 1:",
+            r#"Event: [{"symbol":"hello"},{"symbol":""}] = {"symbol":"world"}"#,
         ))
-        .stderr(predicates::str::contains("hello"))
         .stderr(predicates::str::contains(
-            "INFO log_event: soroban_cli::log::event: 2:",
-        ))
-        .stderr(predicates::str::contains("hello {}"))
-        .stderr(predicates::str::contains("world"));
+            r#"Log: {"vec":[{"string":"hello {}"},{"symbol":"world"}]}"#,
+        ));
 }

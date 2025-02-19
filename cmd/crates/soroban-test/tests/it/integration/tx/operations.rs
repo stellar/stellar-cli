@@ -1,16 +1,18 @@
 use soroban_cli::{
+    config::locator,
     tx::{builder, ONE_XLM},
     utils::contract_id_hash_from_asset,
     xdr::{self, ReadXdr, SequenceNumber},
 };
+use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
     hello_world::invoke_hello_world,
-    util::{deploy_contract, DeployKind, HELLO_WORLD},
+    util::{deploy_contract, DeployOptions, HELLO_WORLD},
 };
 
-fn test_address(sandbox: &TestEnv) -> String {
+pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
         .new_assert_cmd("keys")
         .arg("address")
@@ -22,6 +24,20 @@ fn test_address(sandbox: &TestEnv) -> String {
 
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "--no-fund", name])
+        .assert()
+        .success();
     sandbox
         .new_assert_cmd("keys")
         .args(["address", name])
@@ -51,7 +67,7 @@ async fn create_account() {
         .success()
         .stdout_as_str();
     let test = test_address(sandbox);
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
     let starting_balance = ONE_XLM * 100;
@@ -69,15 +85,96 @@ async fn create_account() {
         .success();
     let test_account_after = client.get_account(&test).await.unwrap();
     assert!(test_account_after.balance < test_account.balance);
-    let id = deploy_contract(sandbox, HELLO_WORLD, DeployKind::Normal, Some("new")).await;
+    let id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some("new".to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
     println!("{id}");
     invoke_hello_world(sandbox, &id);
 }
 
 #[tokio::test]
+async fn create_account_with_alias() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "--no-fund", "new"])
+        .assert()
+        .success();
+    let test = test_address(sandbox);
+    let client = sandbox.client();
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
+    let starting_balance = ONE_XLM * 100;
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-account",
+            "--destination",
+            "new",
+            "--starting-balance",
+            starting_balance.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let test_account_after = client.get_account(&test).await.unwrap();
+    assert!(test_account_after.balance < test_account.balance);
+    let id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some("new".to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
+    println!("{id}");
+    invoke_hello_world(sandbox, &id);
+}
+
+#[tokio::test]
+async fn payment_with_alias() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.client();
+    let (test, test1) = setup_accounts(sandbox);
+    let test_account = client.get_account(&test).await.unwrap();
+    println!("test account has a balance of {}", test_account.balance);
+
+    let before = client.get_account(&test).await.unwrap();
+    let test1_account_entry_before = client.get_account(&test1).await.unwrap();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            "test1",
+            "--amount",
+            ONE_XLM.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let test1_account_entry = client.get_account(&test1).await.unwrap();
+    assert_eq!(
+        ONE_XLM,
+        test1_account_entry.balance - test1_account_entry_before.balance,
+        "Should have One XLM more"
+    );
+    let after = client.get_account(&test).await.unwrap();
+    assert_eq!(before.balance - 10_000_100, after.balance);
+}
+
+#[tokio::test]
 async fn payment() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
@@ -110,7 +207,7 @@ async fn payment() {
 #[tokio::test]
 async fn bump_sequence() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test = test_address(sandbox);
     let before = client.get_account(&test).await.unwrap();
     let amount = 50;
@@ -133,7 +230,7 @@ async fn bump_sequence() {
 #[tokio::test]
 async fn account_merge() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     let before1 = client.get_account(&test1).await.unwrap();
@@ -158,22 +255,53 @@ async fn account_merge() {
 }
 
 #[tokio::test]
+async fn account_merge_with_alias() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.client();
+    let (test, test1) = setup_accounts(sandbox);
+    let before = client.get_account(&test).await.unwrap();
+    let before1 = client.get_account(&test1).await.unwrap();
+    let fee = 100;
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "account-merge",
+            "--source",
+            "test1",
+            "--account",
+            "test",
+            "--fee",
+            fee.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+    let after = client.get_account(&test).await.unwrap();
+    assert!(client.get_account(&test1).await.is_err());
+    assert_eq!(before.balance + before1.balance - fee, after.balance);
+}
+
+#[tokio::test]
 async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
-    let (test, issuer) = setup_accounts(sandbox);
-    let asset = format!("usdc:{issuer}");
-    issue_asset(sandbox, &test, &asset, 100_000, 100).await;
+    let (test, test1_address) = setup_accounts(sandbox);
+    let asset = "usdc:test1";
+    issue_asset(sandbox, &test, asset, 100_000, 100).await;
     sandbox
         .new_assert_cmd("contract")
         .arg("asset")
         .arg("deploy")
         .arg("--asset")
-        .arg(&asset)
+        .arg(asset)
         .assert()
         .success();
     let id = contract_id_hash_from_asset(
-        asset.parse::<builder::Asset>().unwrap(),
-        &sandbox.network_passphrase,
+        &format!("usdc:{test1_address}")
+            .parse::<builder::Asset>()
+            .unwrap()
+            .resolve(&locator::Args::default())
+            .unwrap(),
+        &sandbox.network.network_passphrase,
     );
     // sandbox
     //     .new_assert_cmd("contract")
@@ -209,7 +337,7 @@ async fn set_trustline_flags() {
 #[tokio::test]
 async fn set_options_add_signer() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, test1) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     sandbox
@@ -271,7 +399,7 @@ fn build_and_run(sandbox: &TestEnv, cmd: &str, args: &[&str]) -> String {
 #[tokio::test]
 async fn set_options() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let (test, alice) = setup_accounts(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
@@ -341,7 +469,7 @@ async fn set_options() {
 #[tokio::test]
 async fn set_some_options() {
     let sandbox = &TestEnv::new();
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test = test_address(sandbox);
     let before = client.get_account(&test).await.unwrap();
     assert!(before.inflation_dest.is_none());
@@ -435,8 +563,12 @@ async fn change_trust() {
 
     // wrap_cmd(&asset).run().await.unwrap();
     let id = contract_id_hash_from_asset(
-        asset.parse::<builder::Asset>().unwrap(),
-        &sandbox.network_passphrase,
+        &asset
+            .parse::<builder::Asset>()
+            .unwrap()
+            .resolve(&locator::Args::default())
+            .unwrap(),
+        &sandbox.network.network_passphrase,
     );
     sandbox
         .new_assert_cmd("contract")
@@ -514,7 +646,7 @@ async fn change_trust() {
 async fn manage_data() {
     let sandbox = &TestEnv::new();
     let (test, _) = setup_accounts(sandbox);
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let key = "test";
     let value = "beefface";
     sandbox
@@ -558,7 +690,7 @@ async fn manage_data() {
 }
 
 async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, initial_balance: u64) {
-    let client = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
+    let client = sandbox.network.rpc_client().unwrap();
     let test_before = client.get_account(test).await.unwrap();
     sandbox
         .new_assert_cmd("tx")
@@ -613,4 +745,87 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
         ])
         .assert()
         .success();
+}
+
+#[tokio::test]
+async fn multi_create_accounts() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.network.rpc_client().unwrap();
+    let nums: Vec<u8> = (1..=3).collect();
+    let mut accounts: Vec<(String, String)> = nums
+        .iter()
+        .map(|x| {
+            let name = format!("test_{x}");
+            let address = gen_account_no_fund(sandbox, &name);
+            (name, address)
+        })
+        .collect();
+    let (_, test_99_address) = accounts.pop().unwrap();
+
+    let input = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-account",
+            "--fee=1000000",
+            "--build-only",
+            "--destination",
+            &test_99_address,
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let final_tx = accounts.iter().fold(input, |tx_env, (_, address)| {
+        sandbox
+            .new_assert_cmd("tx")
+            .args(["op", "add", "create-account", "--destination", address])
+            .write_stdin(tx_env.as_bytes())
+            .assert()
+            .success()
+            .stdout_as_str()
+    });
+    let out = sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(
+            sandbox
+                .new_assert_cmd("tx")
+                .arg("sign")
+                .arg("--sign-with-key=test")
+                .write_stdin(final_tx.as_bytes())
+                .assert()
+                .success()
+                .stdout_as_str()
+                .as_bytes(),
+        )
+        .assert()
+        .success()
+        .stdout_as_str();
+    println!("{out}");
+    let keys = accounts
+        .iter()
+        .map(|(_, address)| {
+            xdr::LedgerKey::Account(xdr::LedgerKeyAccount {
+                account_id: address.parse().unwrap(),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let account = client.get_account(&test_99_address).await.unwrap();
+    println!("{account:#?}");
+    let entries = client.get_ledger_entries(&keys).await.unwrap();
+    println!("{entries:#?}");
+    entries
+        .entries
+        .unwrap()
+        .iter()
+        .for_each(|LedgerEntryResult { xdr, .. }| {
+            let xdr::LedgerEntryData::Account(value) =
+                xdr::LedgerEntryData::from_xdr_base64(xdr, xdr::Limits::none()).unwrap()
+            else {
+                panic!("Expected Account");
+            };
+            assert_eq!(value.balance, 10_000_000);
+        });
 }

@@ -30,7 +30,7 @@ jobs:
         sys:
           - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          - os: ubuntu-22.04-arm # Use 22 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
           - os: macos-14
             target: aarch64-apple-darwin
@@ -45,8 +45,8 @@ jobs:
     - run: rustup update
     - run: rustup target add ${{ matrix.sys.target }}
 
-    - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
+    - if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get -y install libudev-dev libdbus-1-dev
 
     - name: Setup vars
       run: |
@@ -66,10 +66,9 @@ jobs:
         echo "BUILD_WORKING_DIR=target/package/${{ matrix.crate.name }}-$VERSION" >> $GITHUB_ENV
 
     - name: Build
-      env:
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
       working-directory: ${{ env.BUILD_WORKING_DIR }}
-      run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
+      run: |
+        cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
 
     - name: Build provenance for attestation (release only)
       if: github.event_name == 'release'
@@ -132,12 +131,13 @@ jobs:
           $Env:Path += ";C:\Users\$Env:UserName\AppData\Local\Programs\Inno Setup 6"
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
+          mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
-          path: Output/stellar-installer.exe
+          path: ${{ env.STELLAR_CLI_INSTALLER }}
 
       - name: Build provenance for attestation (release only)
         if: github.event_name == 'release'
@@ -156,6 +156,6 @@ jobs:
               repo: context.repo.repo,
               release_id: ${{ github.event.release.id }},
               name: '${{ env.STELLAR_CLI_INSTALLER }}',
-              data: fs.readFileSync('Output/stellar-installer.exe'),
+              data: fs.readFileSync('${{ env.STELLAR_CLI_INSTALLER }}'),
             });
 

@@ -129,11 +129,12 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
+        let print = crate::print::Print::new(args.map_or(true, |a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account()?;
+        let source_account = config.source_account().await?;
 
         // Get the account sequence number
         let account_details = client
@@ -184,7 +185,8 @@ impl NetworkRunnable for Cmd {
         let events = res.events()?;
         tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::event::all(&events);
+            crate::log::event::contract(&events, &print);
         }
 
         // The transaction from core will succeed regardless of whether it actually found &

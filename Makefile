@@ -48,7 +48,8 @@ generate-full-help-doc:
 	cargo run --bin doc-gen --features clap-markdown
 
 test: build-test
-	cargo test --workspace
+	cargo test --workspace --exclude soroban-test
+	cargo test -p soroban-test -- --skip integration::
 
 e2e-test:
 	cargo test --features it --test it -- integration
@@ -71,9 +72,11 @@ publish:
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
 					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
-					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
-					--network futurenet \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
+					--overwrite && \
+	cargo run -- contract bindings typescript \
+					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm \
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_constructor \
 					--overwrite
 
 

@@ -36,6 +36,7 @@ use soroban_cli::{
 };
 
 mod wasm;
+
 pub use wasm::Wasm;
 
 pub const TEST_ACCOUNT: &str = "test";
@@ -58,8 +59,7 @@ pub enum Error {
 /// its own `TempDir` where it will save test-specific configuration.
 pub struct TestEnv {
     pub temp_dir: TempDir,
-    pub rpc_url: String,
-    pub network_passphrase: String,
+    pub network: network::Network,
 }
 
 impl Default for TestEnv {
@@ -67,8 +67,11 @@ impl Default for TestEnv {
         let temp_dir = TempDir::new().unwrap();
         Self {
             temp_dir,
-            rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
-            network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
+            network: network::Network {
+                rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
+                network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
+                rpc_headers: [].to_vec(),
+            },
         }
     }
 }
@@ -102,12 +105,21 @@ impl TestEnv {
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
-        let mut env = TestEnv {
-            rpc_url: rpc_url.to_string(),
-            ..Default::default()
-        };
+        let mut env = TestEnv::default();
+        env.network.rpc_url = rpc_url.to_string();
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
-            env.network_passphrase = network_passphrase;
+            env.network.network_passphrase = network_passphrase;
+        };
+        env.generate_account("test", None).assert().success();
+        env
+    }
+
+    pub fn with_rpc_provider(rpc_url: &str, rpc_headers: Vec<(String, String)>) -> TestEnv {
+        let mut env = TestEnv::default();
+        env.network.rpc_url = rpc_url.to_string();
+        env.network.rpc_headers = rpc_headers;
+        if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
+            env.network.network_passphrase = network_passphrase;
         };
         env.generate_account("test", None).assert().success();
         env
@@ -131,13 +143,25 @@ impl TestEnv {
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
         let mut cmd: Command = self.bin();
+
         cmd.arg(subcommand)
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
-            .env("SOROBAN_RPC_URL", &self.rpc_url)
+            .env("SOROBAN_RPC_URL", &self.network.rpc_url)
             .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
             .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
             .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
             .current_dir(&self.temp_dir);
+
+        if !self.network.rpc_headers.is_empty() {
+            cmd.env(
+                "STELLAR_RPC_HEADERS",
+                format!(
+                    "{}:{}",
+                    &self.network.rpc_headers[0].0, &self.network.rpc_headers[0].1
+                ),
+            );
+        }
+
         cmd
     }
 
@@ -204,7 +228,7 @@ impl TestEnv {
         let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str, None);
         self.run_cmd_with(cmd, source)
             .await
-            .map(|r| r.into_result().unwrap())
+            .map(|tx| tx.into_result().unwrap())
     }
 
     /// A convenience method for using the invoke command.
@@ -234,7 +258,7 @@ impl TestEnv {
         let config_dir = Some(self.dir().to_path_buf());
         config::Args {
             network: network::Args {
-                rpc_url: Some(self.rpc_url.clone()),
+                rpc_url: Some(self.network.rpc_url.clone()),
                 rpc_headers: [].to_vec(),
                 network_passphrase: Some(LOCAL_NETWORK_PASSPHRASE.to_string()),
                 network: None,
@@ -276,16 +300,17 @@ impl TestEnv {
     }
 
     /// Returns the public key corresponding to the test keys's `hd_path`
-    pub fn test_address(&self, hd_path: usize) -> String {
-        self.cmd::<keys::address::Cmd>(&format!("--hd-path={hd_path}"))
+    pub async fn test_address(&self, hd_path: usize) -> String {
+        self.cmd::<keys::public_key::Cmd>(&format!("--hd-path={hd_path}"))
             .public_key()
+            .await
             .unwrap()
             .to_string()
     }
 
     /// Returns the private key corresponding to the test keys's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
-        self.cmd::<keys::show::Cmd>(&format!("--hd-path={hd_path}"))
+        self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
             .private_key()
             .unwrap()
             .to_string()
@@ -305,7 +330,22 @@ impl TestEnv {
     }
 
     pub fn client(&self) -> soroban_rpc::Client {
-        soroban_rpc::Client::new(&self.rpc_url).unwrap()
+        self.network.rpc_client().unwrap()
+    }
+
+    #[cfg(feature = "emulator-tests")]
+    pub async fn speculos_container(
+        ledger_device_model: &str,
+    ) -> testcontainers::ContainerAsync<stellar_ledger::emulator_test_support::speculos::Speculos>
+    {
+        use stellar_ledger::emulator_test_support::{
+            enable_hash_signing, get_container, wait_for_emulator_start_text,
+        };
+        let container = get_container(ledger_device_model).await;
+        let ui_host_port: u16 = container.get_host_port_ipv4(5000).await.unwrap();
+        wait_for_emulator_start_text(ui_host_port).await;
+        enable_hash_signing(ui_host_port).await;
+        container
     }
 }
 
