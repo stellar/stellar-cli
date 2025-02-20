@@ -10,11 +10,6 @@ version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 
-# This crate has not yet ever been published. Skip publishing until these
-# security issues are addressed:
-# https://github.com/stellar/stellar-cli/issues/1706
-publish = false
-
 [dependencies]
 thiserror = "1.0.32"
 serde = "1.0.82"
