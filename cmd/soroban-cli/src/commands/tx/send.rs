@@ -1,6 +1,7 @@
 use crate::{print::Print, utils::transaction_hash};
 use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
+use std::ffi::OsString;
 
 use crate::{
     commands::{global, NetworkRunnable},
@@ -24,8 +25,11 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 /// Command to send a transaction envelope to the network
-/// e.g. `cat file.txt | soroban tx send`
+/// e.g. `soroban tx send file.txt`
 pub struct Cmd {
+    /// XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub input: Option<OsString>,
     #[clap(flatten)]
     pub network: network::Args,
     #[clap(flatten)]
@@ -56,7 +60,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)?
         };
         let client = network.rpc_client()?;
-        let tx_env = super::xdr::tx_envelope_from_stdin()?;
+        let tx_env = super::xdr::tx_envelope_from_input(&self.input)?;
 
         if let Ok(Ok(hash)) = super::xdr::unwrap_envelope_v1(tx_env.clone())
             .map(|tx| transaction_hash(&tx, &network.network_passphrase))

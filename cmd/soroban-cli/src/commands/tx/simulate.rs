@@ -3,6 +3,7 @@ use crate::{
     xdr::{self, TransactionEnvelope, WriteXdr},
 };
 use async_trait::async_trait;
+use std::ffi::OsString;
 
 use crate::commands::{config, global, NetworkRunnable};
 
@@ -25,8 +26,11 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
+    /// XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub input: Option<OsString>,
     #[clap(flatten)]
-    pub config: super::super::config::Args,
+    pub config: config::Args,
 }
 
 impl Cmd {
@@ -53,7 +57,7 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
         let client = network.rpc_client()?;
-        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
+        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.input)?)?;
         let tx = simulate_and_assemble_transaction(&client, &tx).await?;
         Ok(tx)
     }

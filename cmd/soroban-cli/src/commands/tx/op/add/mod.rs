@@ -1,4 +1,4 @@
-use super::super::{global, help, xdr::tx_envelope_from_stdin};
+use super::super::{global, help, xdr::tx_envelope_from_input};
 use crate::xdr::{OperationBody, WriteXdr};
 
 pub(crate) use super::super::new;
@@ -64,17 +64,48 @@ impl TryFrom<&Cmd> for OperationBody {
 
 impl Cmd {
     pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
-        let tx_env = tx_envelope_from_stdin()?;
         let op = OperationBody::try_from(self)?;
         let res = match self {
-            Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::BumpSequence(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::ChangeTrust(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::CreateAccount(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::ManageData(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::Payment(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::SetOptions(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
-            Cmd::SetTrustlineFlags(cmd) => cmd.op.tx.add_op(op, tx_env, cmd.args.source()),
+            Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::BumpSequence(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::ChangeTrust(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::CreateAccount(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::ManageData(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::Payment(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::SetOptions(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
+            Cmd::SetTrustlineFlags(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.input)?,
+                cmd.args.source(),
+            ),
         }
         .await?;
         println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
