@@ -88,6 +88,7 @@ pub struct Args {
     /// Name of network to use from config
     #[arg(
         long,
+        short = 'n',
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
@@ -170,7 +171,7 @@ impl Network {
             local_url.set_query(Some(&format!("addr={addr}")));
             Ok(local_url)
         } else {
-            let client = Client::new(&self.rpc_url)?;
+            let client = self.rpc_client()?;
             let network = client.get_network().await?;
             tracing::debug!("network {network:?}");
             let url = client.friendbot_url().await?;

@@ -1,9 +1,13 @@
 use crate::{
     commands::{global, txn_result::TxnEnvelopeResult},
-    config::{self, data, network, secret},
+    config::{
+        self,
+        address::{self, UnresolvedMuxedAccount},
+        data, network, secret,
+    },
     fee,
     rpc::{self, Client, GetTransactionResponse},
-    tx::builder::{self, TxExt},
+    tx::builder::{self, asset, TxExt},
     xdr::{self, Limits, WriteXdr},
 };
 
@@ -32,11 +36,17 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Address(#[from] address::Error),
+    #[error(transparent)]
+    Asset(#[from] asset::Error),
+    #[error(transparent)]
+    TxXdr(#[from] super::xdr::Error),
 }
 
 impl Args {
     pub async fn tx(&self, body: impl Into<xdr::OperationBody>) -> Result<xdr::Transaction, Error> {
-        let source_account = self.source_account()?;
+        let source_account = self.source_account().await?;
         let seq_num = self
             .config
             .next_sequence_number(source_account.clone().account_id())
@@ -64,9 +74,10 @@ impl Args {
         op: impl Into<xdr::OperationBody>,
         global_args: &global::Args,
     ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
-        let tx = self.tx(op.into()).await?;
+        let tx = self.tx(op).await?;
         self.handle_tx(tx, global_args).await
     }
+
     pub async fn handle_and_print(
         &self,
         op: impl Into<xdr::OperationBody>,
@@ -101,7 +112,48 @@ impl Args {
         Ok(TxnEnvelopeResult::Res(txn_resp))
     }
 
-    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self.config.source_account()?)
+    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.config.source_account().await?)
+    }
+
+    pub fn resolve_muxed_address(
+        &self,
+        address: &UnresolvedMuxedAccount,
+    ) -> Result<xdr::MuxedAccount, Error> {
+        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.hd_path)?)
+    }
+
+    pub fn resolve_account_id(
+        &self,
+        address: &UnresolvedMuxedAccount,
+    ) -> Result<xdr::AccountId, Error> {
+        Ok(address
+            .resolve_muxed_account_sync(&self.config.locator, self.config.hd_path)?
+            .account_id())
+    }
+
+    pub async fn add_op(
+        &self,
+        op_body: impl Into<xdr::OperationBody>,
+        tx_env: xdr::TransactionEnvelope,
+        op_source: Option<&address::UnresolvedMuxedAccount>,
+    ) -> Result<xdr::TransactionEnvelope, Error> {
+        let mut source_account = None;
+        if let Some(account) = op_source {
+            source_account = Some(
+                account
+                    .resolve_muxed_account(&self.config.locator, self.config.hd_path)
+                    .await?,
+            );
+        }
+        let op = xdr::Operation {
+            source_account,
+            body: op_body.into(),
+        };
+        Ok(super::xdr::add_op(tx_env, op)?)
+    }
+
+    pub fn resolve_asset(&self, asset: &builder::Asset) -> Result<xdr::Asset, Error> {
+        Ok(asset.resolve(&self.config.locator)?)
     }
 }
