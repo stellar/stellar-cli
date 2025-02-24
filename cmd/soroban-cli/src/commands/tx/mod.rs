@@ -2,6 +2,7 @@ use super::global;
 
 pub mod args;
 
+pub mod edit;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -21,6 +22,8 @@ pub enum Cmd {
     /// Create a new transaction
     #[command(subcommand)]
     New(new::Cmd),
+    #[command(subcommand)]
+    Edit(edit::Cmd),
     /// Set various options for a transaction
     Set(set::Cmd),
     /// Manipulate the operations in a transaction, including adding new operations
@@ -36,6 +39,8 @@ pub enum Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Edit(#[from] edit::Error),
     #[error(transparent)]
     Hash(#[from] hash::Error),
     #[error(transparent)]
@@ -57,6 +62,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
+            Cmd::Edit(cmd) => cmd.run(global_args)?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
             Cmd::Operation(cmd) => cmd.run(global_args).await?,

@@ -21,9 +21,6 @@ pub enum Error {
 #[derive(clap::Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Set the transactions sequence number.
-    #[arg(long, visible_alias = "seq_num")]
-    pub sequence_number: Option<i64>,
     /// Set the transactions fee.
     #[arg(long)]
     pub fee: Option<u32>,
@@ -125,9 +122,6 @@ impl Cmd {
                         source_account.resolve_muxed_account_sync(&global.locator, None)?;
                 };
 
-                if let Some(seq_num) = self.sequence_number {
-                    transaction_v1_envelope.tx.seq_num = seq_num.into();
-                }
                 if let Some(fee) = self.fee {
                     transaction_v1_envelope.tx.fee = fee;
                 }
