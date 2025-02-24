@@ -209,7 +209,7 @@ impl Cmd {
                     target_file_path
                 };
 
-                self.print_build_summary(&print, &final_path)?;
+                Self::print_build_summary(&print, &final_path)?;
             }
         }
 
@@ -311,7 +311,7 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn print_build_summary(&self, print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
+    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
         print.infoln("Build Summary:");
         let rel_target_file_path = target_file_path
             .strip_prefix(env::current_dir().unwrap())
