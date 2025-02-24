@@ -14,13 +14,13 @@ pub enum Error {
 }
 
 // Command to return the transaction hash submitted to a network
-/// e.g. `soroban tx hash file.txt`
+/// e.g. `stellar tx hash file.txt` or `cat file.txt | stellar tx hash`
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
-    /// XDR or file containing XDR to decode, or stdin if empty
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
     #[arg()]
-    pub input: Option<OsString>,
+    pub tx_xdr: Option<OsString>,
 
     #[clap(flatten)]
     pub network: network::Args,
@@ -28,7 +28,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.input)?)?;
+        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
         let network = &self.network.get(&global_args.locator)?;
         println!(
             "{}",

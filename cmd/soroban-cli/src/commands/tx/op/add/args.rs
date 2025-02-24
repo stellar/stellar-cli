@@ -11,9 +11,9 @@ pub struct Args {
         env = "STELLAR_OPERATION_SOURCE_ACCOUNT"
     )]
     pub operation_source_account: Option<address::UnresolvedMuxedAccount>,
-    /// XDR or file containing XDR to decode, or stdin if empty
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
     #[arg()]
-    pub input: Option<OsString>,
+    pub tx_xdr: Option<OsString>,
 }
 
 impl Args {

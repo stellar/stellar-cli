@@ -68,42 +68,42 @@ impl Cmd {
         let res = match self {
             Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::BumpSequence(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::ChangeTrust(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::CreateAccount(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::ManageData(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::Payment(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::SetOptions(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
             Cmd::SetTrustlineFlags(cmd) => cmd.op.tx.add_op(
                 op,
-                tx_envelope_from_input(&cmd.args.input)?,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
         }

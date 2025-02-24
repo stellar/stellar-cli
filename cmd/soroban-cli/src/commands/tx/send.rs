@@ -25,11 +25,11 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 /// Command to send a transaction envelope to the network
-/// e.g. `soroban tx send file.txt`
+/// e.g. `stellar tx send file.txt` or `cat file.txt | stellar tx send`
 pub struct Cmd {
-    /// XDR or file containing XDR to decode, or stdin if empty
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
     #[arg()]
-    pub input: Option<OsString>,
+    pub tx_xdr: Option<OsString>,
     #[clap(flatten)]
     pub network: network::Args,
     #[clap(flatten)]
@@ -60,7 +60,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)?
         };
         let client = network.rpc_client()?;
-        let tx_env = super::xdr::tx_envelope_from_input(&self.input)?;
+        let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
 
         if let Ok(Ok(hash)) = super::xdr::unwrap_envelope_v1(tx_env.clone())
             .map(|tx| transaction_hash(&tx, &network.network_passphrase))
