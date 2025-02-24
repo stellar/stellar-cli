@@ -1,4 +1,5 @@
 use hex;
+use std::ffi::OsString;
 
 use crate::{commands::global, config::network, utils::transaction_hash};
 
@@ -13,17 +14,21 @@ pub enum Error {
 }
 
 // Command to return the transaction hash submitted to a network
-/// e.g. `cat file.txt | soroban tx hash`
+/// e.g. `stellar tx hash file.txt` or `cat file.txt | stellar tx hash`
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub tx_xdr: Option<OsString>,
+
     #[clap(flatten)]
     pub network: network::Args,
 }
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
+        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
         let network = &self.network.get(&global_args.locator)?;
         println!(
             "{}",
