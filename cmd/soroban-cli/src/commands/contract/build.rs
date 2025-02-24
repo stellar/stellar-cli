@@ -1,6 +1,7 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
+use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -311,12 +312,18 @@ impl Cmd {
     }
 
     fn print_build_summary(&self, print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
+        print.infoln("Build Summary:");
         let rel_target_file_path = target_file_path
             .strip_prefix(env::current_dir().unwrap())
             .unwrap_or(target_file_path);
-        print.infoln(format!("Build Summary: {}", rel_target_file_path.display()));
+        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
 
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        print.blankln(format!(
+            "Wasm Hash: {}",
+            hex::encode(Sha256::digest(&wasm_bytes))
+        ));
 
         let parser = wasmparser::Parser::new(0);
         let export_names: Vec<&str> = parser
@@ -336,9 +343,9 @@ impl Cmd {
             .sorted()
             .collect();
         if export_names.is_empty() {
-            print.warnln("Function: None found");
+            print.blankln("Exported Functions: None found");
         } else {
-            print.infoln(format!("Functions: {} found", export_names.len()));
+            print.blankln(format!("Exported Functions: {} found", export_names.len()));
             for name in export_names {
                 print.blankln(format!("  • {name}"));
             }
