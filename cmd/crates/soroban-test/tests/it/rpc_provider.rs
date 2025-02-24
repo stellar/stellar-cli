@@ -7,6 +7,7 @@ use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 async fn test_use_rpc_provider_with_auth_header() {
     // mock out http request to rpc provider
     let server = MockServer::start();
+    #[cfg(feature = "version_lt_23")]
     let generate_account_mock = mock_generate_account(&server);
     let get_network_mock = mock_get_network(&server);
     let get_events_mock = mock_get_events(&server);
@@ -24,12 +25,14 @@ async fn test_use_rpc_provider_with_auth_header() {
         .success();
 
     // generate account is being called in `with_rpc_provider`
+    #[cfg(feature = "version_lt_23")]
     generate_account_mock.assert();
     // get_network and get_events are being called in the `stellar events` command
     get_network_mock.assert();
     get_events_mock.assert();
 }
 
+#[cfg(feature = "version_lt_23")]
 fn mock_generate_account(server: &MockServer) -> Mock {
     let cli_version = soroban_cli::commands::version::pkg();
     let agent = format!("soroban-cli/{cli_version}");
