@@ -31,8 +31,6 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
-        println!("setting source account");
-        
         let mut tx = tx_envelope_from_stdin()?;
         self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);

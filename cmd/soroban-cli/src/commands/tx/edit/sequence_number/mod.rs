@@ -4,6 +4,7 @@ mod set;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Set the transaction's sequence number
     #[command()]
     Set(set::Cmd)
 }
