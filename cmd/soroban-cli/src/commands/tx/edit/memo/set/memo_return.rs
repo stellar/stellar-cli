@@ -34,7 +34,6 @@ impl Cmd {
         Ok(())
     }
 
-
     pub fn update_tx_env(
         &self,
         tx_env: &mut TransactionEnvelope,

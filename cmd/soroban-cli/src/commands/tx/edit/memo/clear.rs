@@ -10,7 +10,6 @@ use crate::{
     }
 };
 
-
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {}
 
