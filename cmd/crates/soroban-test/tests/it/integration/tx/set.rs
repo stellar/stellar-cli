@@ -101,7 +101,6 @@ fn seq_num_set() {
 }
 
 #[test]
-#[ignore]
 //tx edit fee set <FEE>
 fn fee_set() {
     let sandbox = &TestEnv::new();

@@ -1,12 +1,16 @@
 use super::global;
 
+pub mod fee;
 pub mod memo;
 pub mod source_account;
 pub mod sequence_number;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Set the memo fields on a transaction
+    /// Set the fee on a transaction
+    #[command(subcommand)]
+    Fee(fee::Cmd),
+    /// Set the memo on a transaction
     #[command(subcommand)]
     Memo(memo::Cmd),
     /// Change the source account on a transaction
@@ -19,6 +23,8 @@ pub enum Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Fee(#[from] fee::Error),
     #[error(transparent)]
     Memo(#[from] memo::Error),
     #[error(transparent)]
