@@ -1,10 +1,14 @@
 use super::global;
 
+pub mod memo;
 pub mod source_account;
 pub mod sequence_number;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Set the memo fields on a transaction
+    #[command(subcommand)]
+    Memo(memo::Cmd),
     /// Change the source account on a transaction
     #[command(subcommand, visible_alias = "source")]
     SourceAccount(source_account::Cmd),
@@ -15,6 +19,8 @@ pub enum Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Memo(#[from] memo::Error),
     #[error(transparent)]
     SourceAccount(#[from] source_account::Error),
     #[error(transparent)]
