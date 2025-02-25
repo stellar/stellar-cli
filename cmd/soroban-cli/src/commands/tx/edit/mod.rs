@@ -36,6 +36,8 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
+            Cmd::Fee(cmd) => cmd.run(global_args)?,
+            Cmd::Memo(cmd) => cmd.run(global_args)?,
             Cmd::SourceAccount(cmd) => cmd.run(global_args)?,
             Cmd::SequenceNumber(cmd) => cmd.run(global_args)?,
         };
