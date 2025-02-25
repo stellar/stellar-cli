@@ -3,7 +3,6 @@ use crate::{
         global,
         tx::xdr::{tx_envelope_from_stdin, Error as XdrParsingError},
     },
-    config::{address, UnresolvedMuxedAccount},
     xdr::{
         self,
         TransactionEnvelope,
@@ -39,7 +38,7 @@ impl Cmd {
     pub fn update_tx_env(
         &self,
         tx_env: &mut TransactionEnvelope,
-        global: &global::Args,
+        _global: &global::Args,
     ) -> Result<(), Error> {
         match tx_env {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
