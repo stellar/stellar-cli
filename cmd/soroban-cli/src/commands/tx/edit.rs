@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    io::{stdin, Cursor, Write},
+    io::{stdin, Cursor, IsTerminal, Write},
     path::PathBuf,
     process::{self, Stdio},
 };
@@ -53,13 +53,13 @@ pub struct Cmd {}
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let json: String = if atty::isnt(atty::Stream::Stdin) {
+        let json: String = if stdin().is_terminal() {
+            DEFAULT_JSON.to_string()
+        } else {
             let mut input = String::new();
             stdin().read_line(&mut input)?;
             let input = input.trim();
             xdr_to_json::<curr::TransactionEnvelope>(input)?
-        } else {
-            DEFAULT_JSON.to_string()
         };
 
         let path = tmp_file(&json)?;
