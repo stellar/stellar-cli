@@ -114,6 +114,9 @@ jobs:
         shell: wsl-run {0}
       - run: docker container inspect quickstart
         shell: wsl-run {0}
+      - run: curl -v http://localhost:8000/friendbot?addr=GAEXO6GKTWINFBN2PQZPXQIPEA6OTVG2XCUIQQODRKCR7DDZJVXPMGPL
+        shell: wsl-run {0}
+      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GAU5TZM3DP7ESCB6HMMG5UIBOYMWBUTS5EIXWRI3O2MC4VXE625VL5OL
       - run: |
           Write-Host "Generating keys"
           $env:SOROBAN_SECRET_KEY='SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX'
