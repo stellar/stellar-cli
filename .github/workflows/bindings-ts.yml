@@ -118,12 +118,19 @@ jobs:
         shell: wsl-run {0}
       - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GAU5TZM3DP7ESCB6HMMG5UIBOYMWBUTS5EIXWRI3O2MC4VXE625VL5OL
       - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GBCNICNDLG2SQ3AIHJTB3G7AMGR4SZZJISYYQENZR7TETHTZHRCSEAWC
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: |
+          Write-Host "Generating keys"
+          $env:SOROBAN_SECRET_KEY='SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX'
+          cargo run -p stellar-cli -- keys add --secret-key root
+        working-directory: cmd/crates/soroban-spec-typescript/ts-tests
+      - run: Invoke-RestMethod -Uri http://localhost:8000/friendbot?addr=GBGZY2GOHG7SDZTU6Y74T4EIZBL7XKW4MI6OJIQFMF4EUGAHUK5H7HKF
       - run: |
           Write-Host "Generating keys"
           $env:SOROBAN_SECRET_KEY='SC5NRVW24PTAE2TM4M7VVZSCYUNVCBSZOSNRSHFU2XVYZGNMFV6YVLLX'
           cargo run -p stellar-cli -- keys add --secret-key root
           Write-Host "Deploying contract"
-          cargo run -p stellar-cli -- contract deploy --quiet --alias custom-types --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks 
+          cargo run -p stellar-cli -- contract deploy --alias custom-types --source root --wasm ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm --ignore-checks 
           Write-Host "Generating bindings"
           cargo run --quiet -p stellar-cli -- contract bindings typescript --contract-id custom-types --output-dir ./node_modules/test-custom-types --overwrite
           cd ./node_modules/test-custom-types
