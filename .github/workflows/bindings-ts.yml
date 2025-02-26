@@ -29,6 +29,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libdbus-1-dev libudev-dev
+        if: runner.os ==  'Linux'
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
