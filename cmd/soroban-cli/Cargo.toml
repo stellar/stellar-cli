@@ -134,6 +134,7 @@ zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 whoami = "1.5.2"
 serde_with = "3.11.0"
+atty = "0.2.14"
 
 
 [build-dependencies]
