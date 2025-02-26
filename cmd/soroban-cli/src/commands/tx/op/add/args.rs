@@ -1,4 +1,5 @@
-use crate::{commands::tx, config::address, xdr};
+use crate::config::address;
+use std::ffi::OsString;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -10,15 +11,13 @@ pub struct Args {
         env = "STELLAR_OPERATION_SOURCE_ACCOUNT"
     )]
     pub operation_source_account: Option<address::UnresolvedMuxedAccount>,
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub tx_xdr: Option<OsString>,
 }
 
 impl Args {
-    pub fn add_op(
-        &self,
-        op_body: impl Into<xdr::OperationBody>,
-        tx_env: xdr::TransactionEnvelope,
-        tx: &tx::args::Args,
-    ) -> Result<xdr::TransactionEnvelope, tx::args::Error> {
-        tx.add_op(op_body, tx_env, self.operation_source_account.as_ref())
+    pub fn source(&self) -> Option<&address::UnresolvedMuxedAccount> {
+        self.operation_source_account.as_ref()
     }
 }

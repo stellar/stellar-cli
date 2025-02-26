@@ -355,9 +355,11 @@ impl Cmd {
 /// Cargo itself.
 fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
-    let cargo_home = format!("{}", cargo_home.display());
 
-    if cargo_home.find(|c: char| c.is_whitespace()).is_some() {
+    if format!("{}", cargo_home.display())
+        .find(|c: char| c.is_whitespace())
+        .is_some()
+    {
         print.warnln("Cargo home directory contains whitespace. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
@@ -377,8 +379,8 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
         return Ok(None);
     }
 
-    let registry_prefix = format!("{cargo_home}/registry/src/");
-    let new_rustflag = format!("--remap-path-prefix={registry_prefix}=");
+    let registry_prefix = cargo_home.join("registry").join("src");
+    let new_rustflag = format!("--remap-path-prefix={}=", registry_prefix.display());
 
     let mut rustflags = get_rustflags().unwrap_or_default();
     rustflags.push(new_rustflag);

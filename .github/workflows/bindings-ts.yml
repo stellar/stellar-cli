@@ -2,7 +2,7 @@ name: bindings typescript
 
 on:
   push:
-    branches: [main, release/**]
+    branches: [ main, release/** ]
   pull_request:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest-16-cores, macos-13, windows-latest-8-cores]
+        os: [ ubuntu-latest-16-cores, macos-13, windows-latest-8-cores ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-node@v4
@@ -28,7 +28,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update
-      - run: sudo apt update && sudo apt install -y libdbus-1-dev
+      - run: sudo apt update && sudo apt install -y libdbus-1-dev libudev-dev
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms

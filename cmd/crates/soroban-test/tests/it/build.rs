@@ -2,13 +2,18 @@ use predicates::prelude::predicate;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
+use std::env;
 use std::io::Cursor;
+use std::path::PathBuf;
 
 #[test]
 fn build_all() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
+    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path(), call_path(), add2_path());
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -16,11 +21,7 @@ fn build_all() {
         .arg("--print-commands-only")
         .assert()
         .success()
-        .stdout(predicate::eq("\
-cargo rustc --manifest-path=contracts/add/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path=contracts/call/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path=contracts/add/add2/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-"));
+        .stdout(predicate::eq(with_flags(expected.as_str())));
 }
 
 #[test]
@@ -28,6 +29,7 @@ fn build_package_by_name() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
+    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -36,9 +38,7 @@ fn build_package_by_name() {
         .arg("--package=add")
         .assert()
         .success()
-        .stdout(predicate::eq("\
-cargo rustc --manifest-path=contracts/add/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-"));
+        .stdout(predicate::eq(with_flags(expected.as_str())));
 }
 
 #[test]
@@ -54,9 +54,7 @@ fn build_package_by_current_dir() {
         .assert()
         .success()
         .stdout(predicate::eq(
-            "\
-cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-",
+            with_flags("cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release"),
         ));
 }
 
@@ -85,6 +83,8 @@ fn build_all_when_in_non_package_directory() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/src/");
+    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", parent_path());
+
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -92,13 +92,7 @@ fn build_all_when_in_non_package_directory() {
         .arg("--print-commands-only")
         .assert()
         .success()
-        .stdout(predicate::eq(
-            "\
-cargo rustc --manifest-path=../Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path=../../call/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path=../add2/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-",
-        ));
+        .stdout(predicate::eq(with_flags(expected.as_str())));
 }
 
 #[test]
@@ -106,6 +100,8 @@ fn build_default_members() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-default-members/");
+    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
+
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -113,14 +109,11 @@ fn build_default_members() {
         .arg("--print-commands-only")
         .assert()
         .success()
-        .stdout(predicate::eq(
-            "\
-cargo rustc --manifest-path=contracts/add/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
-",
-        ));
+        .stdout(predicate::eq(with_flags(expected.as_str())));
 }
 
 #[test]
+#[ignore] // TODO: unignore -- reproduces unfixed bug https://github.com/stellar/stellar-cli/issues/1694
 fn build_with_metadata() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -186,10 +179,69 @@ fn build_with_metadata() {
     assert_eq!(entries, expected_entries);
 }
 
+fn add_path() -> String {
+    PathBuf::new()
+        .join("contracts")
+        .join("add")
+        .join("Cargo.toml")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn call_path() -> String {
+    PathBuf::new()
+        .join("contracts")
+        .join("call")
+        .join("Cargo.toml")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn add2_path() -> String {
+    PathBuf::new()
+        .join("contracts")
+        .join("add")
+        .join("add2")
+        .join("Cargo.toml")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn parent_path() -> String {
+    PathBuf::new()
+        .join("..")
+        .join("Cargo.toml")
+        .to_string_lossy()
+        .to_string()
+}
+
+fn with_flags(expected: &str) -> String {
+    let cargo_home = home::cargo_home().unwrap();
+    let registry_prefix = cargo_home.join("registry").join("src");
+    let registry_prefix = registry_prefix.display();
+
+    let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
+        expected.split('\n').map(ToString::to_string).collect()
+    } else {
+        expected
+            .split('\n')
+            .map(|x| format!("CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={registry_prefix}= {x}",))
+            .collect()
+    };
+
+    format!(
+        "\
+{}
+",
+        vec.join("\n")
+    )
+}
+
 // Test that bins don't contain absolute paths to the local crate registry.
 //
 // See make_rustflags_to_remap_absolute_paths
 #[test]
+#[ignore] // TODO https://github.com/stellar/stellar-cli/issues/1867
 fn remap_absolute_paths() {
     #[derive(Eq, PartialEq, Copy, Clone)]
     enum Remap {

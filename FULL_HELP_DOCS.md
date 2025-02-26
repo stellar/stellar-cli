@@ -1506,7 +1506,7 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
-* `hash` — Calculate the hash of a transaction envelope from stdin
+* `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
@@ -1517,9 +1517,13 @@ Sign, Simulate, and Send transactions
 
 ## `stellar tx hash`
 
-Calculate the hash of a transaction envelope from stdin
+Calculate the hash of a transaction envelope
 
-**Usage:** `stellar tx hash [OPTIONS]`
+**Usage:** `stellar tx hash [OPTIONS] [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -1875,7 +1879,11 @@ https://developers.stellar.org/docs/learn/glossary#flags
 
 Transfers the XLM balance of an account to another account and removes the source account from the ledger
 
-**Usage:** `stellar tx operation add account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
+**Usage:** `stellar tx operation add account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -1903,7 +1911,11 @@ Transfers the XLM balance of an account to another account and removes the sourc
 
 Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
 
-**Usage:** `stellar tx operation add bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
+**Usage:** `stellar tx operation add bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -1933,7 +1945,11 @@ Creates, updates, or deletes a trustline
 Learn more about trustlines
 https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
 
-**Usage:** `stellar tx operation add change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
+**Usage:** `stellar tx operation add change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -1964,7 +1980,11 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 Creates and funds a new account with the specified starting balance
 
-**Usage:** `stellar tx operation add create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
+**Usage:** `stellar tx operation add create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -1997,7 +2017,11 @@ Sets, modifies, or deletes a data entry (name/value pair) that is attached to an
 Learn more about entries and subentries:
 https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
 
-**Usage:** `stellar tx operation add manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
+**Usage:** `stellar tx operation add manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -2026,7 +2050,11 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 Sends an amount in a specific asset to a destination account
 
-**Usage:** `stellar tx operation add payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
+**Usage:** `stellar tx operation add payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -2064,7 +2092,11 @@ https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
 Learn more about signers operations and key weight:
 https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
 
-**Usage:** `stellar tx operation add set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx operation add set-options [OPTIONS] --source-account <SOURCE_ACCOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -2111,7 +2143,11 @@ If you are modifying a trustline to a pool share, however, this is composed of t
 Learn more about flags:
 https://developers.stellar.org/docs/learn/glossary#flags
 
-**Usage:** `stellar tx operation add set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
+**Usage:** `stellar tx operation add set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -2146,7 +2182,11 @@ https://developers.stellar.org/docs/learn/glossary#flags
 
 Send a transaction envelope to the network
 
-**Usage:** `stellar tx send [OPTIONS]`
+**Usage:** `stellar tx send [OPTIONS] [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
@@ -2163,13 +2203,18 @@ Send a transaction envelope to the network
 
 Sign a transaction envelope appending the signature to the envelope
 
-**Usage:** `stellar tx sign [OPTIONS]`
+**Usage:** `stellar tx sign [OPTIONS] [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR, or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
 * `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
 * `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2183,7 +2228,11 @@ Sign a transaction envelope appending the signature to the envelope
 
 Simulate a transaction envelope from stdin
 
-**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+**Usage:** `stellar tx simulate [OPTIONS] --source-account <SOURCE_ACCOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
