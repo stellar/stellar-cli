@@ -1,9 +1,13 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, File},
     io::{stdin, Cursor, IsTerminal, Write},
     path::PathBuf,
-    process::{self, Stdio},
+    process::{self},
 };
+
+#[cfg(windows)]
+use std::process::Stdio;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use stellar_xdr::curr;
@@ -63,7 +67,9 @@ impl Cmd {
         };
 
         let path = tmp_file(&json)?;
-        open_editor(&print, &path)?;
+        let editor = get_editor();
+
+        open_editor(&print, &editor, &path)?;
 
         let contents = fs::read_to_string(&path)?;
         let xdr = json_to_xdr::<curr::TransactionEnvelope>(&contents)?;
@@ -75,8 +81,14 @@ impl Cmd {
     }
 }
 
+struct Editor {
+    cmd: String,
+    source: String,
+    args: Vec<String>,
+}
+
 fn tmp_file(contents: &str) -> Result<PathBuf, Error> {
-    let temp_dir = env::temp_dir();
+    let temp_dir = env::current_dir().unwrap_or(env::temp_dir());
     let file_name = format!("stellar-json-xdr-{}.json", rand::random::<u64>());
     let path = temp_dir.join(file_name);
 
@@ -86,31 +98,58 @@ fn tmp_file(contents: &str) -> Result<PathBuf, Error> {
     Ok(path)
 }
 
-fn get_editor() -> String {
-    env::var("STELLAR_EDITOR")
-        .or_else(|_| env::var("EDITOR"))
-        .or_else(|_| env::var("VISUAL"))
-        .unwrap_or_else(|_| "vi".to_string())
+fn get_editor() -> Editor {
+    let (source, cmd) = env::var("STELLAR_EDITOR")
+        .map(|val| ("STELLAR_EDITOR", val))
+        .or_else(|_| env::var("EDITOR").map(|val| ("EDITOR", val)))
+        .or_else(|_| env::var("VISUAL").map(|val| ("VISUAL", val)))
+        .unwrap_or_else(|_| ("default", "vim".to_string()));
+
+    let parts: Vec<&str> = cmd.split_whitespace().collect();
+    let cmd = parts[0].to_string();
+    let args = &parts[1..]
+        .iter()
+        .map(|&s| s.to_string())
+        .collect::<Vec<String>>();
+
+    Editor {
+        source: source.to_string(),
+        cmd,
+        args: args.clone(),
+    }
 }
 
-fn open_editor(print: &Print, path: &PathBuf) -> Result<(), Error> {
-    let editor = get_editor();
-    print.infoln(format!("Using `{editor}`"));
+fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Error> {
+    print.infoln(format!(
+        "Using `{source}=\"{cmd}\"`",
+        source = editor.source,
+        cmd = editor.cmd,
+    ));
 
-    let parts: Vec<&str> = editor.split_whitespace().collect();
-    let cmd = parts[0];
-    let args = &parts[1..];
+    print.infoln("Opening editor...".to_string());
 
-    print.infoln("Opening editor to edit the transaction envelope...".to_string());
+    let mut binding = process::Command::new(editor.cmd.clone());
+    let command = binding.args(editor.args.clone()).arg(path);
 
-    let result = process::Command::new(cmd)
-        .stdin(Stdio::null())
-        .args(args)
-        .arg(path)
-        .spawn()?
-        .wait_with_output()?;
+    #[cfg(windows)]
+    let tty = Stdio::null();
 
-    if result.status.success() {
+    #[cfg(unix)]
+    {
+        let tty = File::open("/dev/tty")?;
+        let tty_out = fs::OpenOptions::new().write(true).open("/dev/tty")?;
+        let tty_err = fs::OpenOptions::new().write(true).open("/dev/tty")?;
+
+        command
+            .stdin(tty)
+            .stdout(tty_out)
+            .stderr(tty_err)
+            .env("TERM", "xterm-256color");
+    }
+
+    let status = command.spawn()?.wait()?;
+
+    if status.success() {
         Ok(())
     } else {
         Err(Error::EditorNonZeroStatus)
