@@ -1,3 +1,4 @@
+use crate::print;
 use crate::xdr::{
     Limits, Operation, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope,
 };
@@ -29,6 +30,7 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
             &mut Cursor::new(input.clone().into_encoded_bytes())
         }
     } else {
+        print::Print::new(false).infoln("waiting for transaction input...");
         &mut stdin()
     };
 
