@@ -4,6 +4,7 @@ use soroban_cli::{
 };
 use soroban_test::{TestEnv, Wasm, TEST_ACCOUNT};
 use std::path::Path;
+use assert_cmd::Command;
 
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 
@@ -60,3 +61,16 @@ pub async fn invoke_custom(
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";
 #[allow(dead_code)]
 pub const LOCAL_NETWORK_PASSPHRASE: &str = "Local Sandbox Stellar Network ; September 2022";
+
+pub trait NoFund {
+    fn no_fund(&mut self) -> &mut Self;
+}
+
+impl NoFund for Command {
+    fn no_fund(&mut self) -> &mut Self {
+        #[cfg(feature = "version_lt_23")]
+        return self.arg("--no-fund");
+        #[cfg(not(feature = "version_lt_23"))]
+        return self;
+    }
+}
