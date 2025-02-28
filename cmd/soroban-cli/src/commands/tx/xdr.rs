@@ -30,7 +30,7 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
             &mut Cursor::new(input.clone().into_encoded_bytes())
         }
     } else {
-        print::Print::new(false).infoln("waiting for transaction input...");
+        print::Print::new(false).infoln("Waiting for transaction input...");
         &mut stdin()
     };
 
