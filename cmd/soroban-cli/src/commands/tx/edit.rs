@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{self, File},
+    fs::{self},
     io::{stdin, Cursor, IsTerminal, Write},
     path::PathBuf,
     process::{self},
@@ -128,11 +128,9 @@ fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Err
     let mut binding = process::Command::new(editor.cmd.clone());
     let command = binding.args(editor.args.clone()).arg(path);
 
-    #[cfg(windows)]
-    let tty = Stdio::null();
-
     #[cfg(unix)]
     {
+        use fs::File;
         let tty = File::open("/dev/tty")?;
         let tty_out = fs::OpenOptions::new().write(true).open("/dev/tty")?;
         let tty_err = fs::OpenOptions::new().write(true).open("/dev/tty")?;
