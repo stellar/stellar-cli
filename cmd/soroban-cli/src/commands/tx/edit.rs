@@ -6,9 +6,6 @@ use std::{
     process::{self},
 };
 
-#[cfg(windows)]
-use std::process::Stdio;
-
 use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
