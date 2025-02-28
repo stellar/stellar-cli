@@ -9,7 +9,6 @@ use std::{
 #[cfg(windows)]
 use std::process::Stdio;
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
@@ -89,7 +88,7 @@ struct Editor {
 
 fn tmp_file(contents: &str) -> Result<PathBuf, Error> {
     let temp_dir = env::current_dir().unwrap_or(env::temp_dir());
-    let file_name = format!("stellar-json-xdr-{}.json", rand::random::<u64>());
+    let file_name = format!("stellar-xdr-{}.json", rand::random::<u64>());
     let path = temp_dir.join(file_name);
 
     let mut file = fs::File::create(&path)?;
@@ -121,12 +120,10 @@ fn get_editor() -> Editor {
 
 fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Error> {
     print.infoln(format!(
-        "Using `{source}=\"{cmd}\"`",
+        "Opening editor with `{source}=\"{cmd}\"`...",
         source = editor.source,
         cmd = editor.cmd,
     ));
-
-    print.infoln("Opening editor...".to_string());
 
     let mut binding = process::Command::new(editor.cmd.clone());
     let command = binding.args(editor.args.clone()).arg(path);
@@ -160,11 +157,8 @@ fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
     T: curr::ReadXdr + serde::Serialize,
 {
-    let xdr_bytes = BASE64.decode(xdr_string)?;
-    let cursor = Cursor::new(xdr_bytes);
-    let mut limit = curr::Limited::new(cursor, curr::Limits::none());
-    let value = T::read_xdr(&mut limit)?;
-    let json = serde_json::to_string_pretty(&value)?;
+    let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
+    let json = serde_json::to_string_pretty(&tx)?;
 
     Ok(json)
 }
@@ -179,6 +173,5 @@ where
     let mut limit = curr::Limited::new(cursor, curr::Limits::none());
     value.write_xdr(&mut limit)?;
 
-    let xdr_base64 = BASE64.encode(&data);
-    Ok(xdr_base64)
+    Ok(value.to_xdr_base64(curr::Limits::none())?)
 }
