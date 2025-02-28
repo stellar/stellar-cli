@@ -13,6 +13,7 @@ use std::{
 };
 use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
+use crate::commands::contract::build::Error::DeletingArtifact;
 use crate::{commands::global, print::Print};
 
 /// Build a contract from source
@@ -95,6 +96,8 @@ pub enum Error {
     AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
+    #[error("deleting existing artifact: {0}")]
+    DeletingArtifact(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
@@ -186,10 +189,6 @@ impl Cmd {
                 println!("{cmd_str}");
             } else {
                 print.infoln(cmd_str);
-                let status = cmd.status().map_err(Error::CargoCmd)?;
-                if !status.success() {
-                    return Err(Error::Exit(status));
-                }
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
@@ -197,13 +196,27 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.handle_contract_metadata_args(&target_file_path)?;
-
-                if let Some(out_dir) = &self.out_dir {
-                    fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-                    let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
+                if target_file_path.is_file() {
+                    fs::remove_file(&target_file_path).map_err(DeletingArtifact)?;
                 }
+
+                let status = cmd.status().map_err(Error::CargoCmd)?;
+                if !status.success() {
+                    return Err(Error::Exit(status));
+                }
+
+                let out_file_path = match &self.out_dir {
+                    None => target_file_path,
+                    Some(out_dir) => {
+                        fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+                        let out_file_path = Path::new(out_dir).join(&file);
+                        fs::copy(target_file_path, &out_file_path)
+                            .map_err(Error::CopyingWasmFile)?;
+                        out_file_path
+                    }
+                };
+
+                self.handle_contract_metadata_args(&out_file_path)?;
             }
         }
 
