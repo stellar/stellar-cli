@@ -1517,6 +1517,7 @@ Sign, Simulate, and Send transactions
 
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
+* `set` — Set various options for a transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
@@ -1836,6 +1837,33 @@ https://developers.stellar.org/docs/learn/glossary#flags
 * `--clear-authorize`
 * `--clear-authorize-to-maintain-liabilities`
 * `--clear-trustline-clawback-enabled`
+
+
+
+## `stellar tx set`
+
+Set various options for a transaction
+
+**Usage:** `stellar tx set [OPTIONS]`
+
+###### **Options:**
+
+* `--sequence-number <SEQUENCE_NUMBER>` — Set the transactions sequence number
+* `--fee <FEE>` — Set the transactions fee
+* `--memo-text <MEMO_TEXT>` — Set the transactions memo text
+* `--memo-id <MEMO_ID>` — Set the transactions memo id
+* `--memo-hash <MEMO_HASH>` — Set the transactions memo hash
+* `--memo-return <MEMO_RETURN>` — Set the transactions memo return
+* `--source-account <SOURCE_ACCOUNT>` — Change the source account for the transaction
+* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions max time bound
+* `--min-time-bound <MIN_TIME_BOUND>` — Set the transactions min time bound
+* `--min-ledger <MIN_LEDGER>` — Set the minimum ledger that the transaction is valid
+* `--max-ledger <MAX_LEDGER>` — Set the max ledger that the transaction is valid. 0 or not present means to max
+* `--min-seq-num <MIN_SEQ_NUM>` — set mimimum sequence number
+* `--min-seq-age <MIN_SEQ_AGE>`
+* `--min-seq-ledger-gap <MIN_SEQ_LEDGER_GAP>` — min sequeence ledger gap
+* `--extra-signers <EXTRA_SIGNERS>` — Extra signers
+* `--no-preconditions` — Set precondition to None
 
 
 
