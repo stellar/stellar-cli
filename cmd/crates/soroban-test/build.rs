@@ -1,5 +1,4 @@
 fn main() {
-    crate_git_revision::init();
     set_protocol_features();
 }
 
