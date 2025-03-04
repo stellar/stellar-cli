@@ -261,6 +261,7 @@ Generate code client bindings for a contract
 * `rust` — Generate Rust bindings
 * `typescript` — Generate a TypeScript / JavaScript package
 * `python` — Generate Python bindings
+* `java` — Generate Java bindings
 
 
 
@@ -315,6 +316,14 @@ Generate a TypeScript / JavaScript package
 Generate Python bindings
 
 **Usage:** `stellar contract bindings python`
+
+
+
+## `stellar contract bindings java`
+
+Generate Java bindings
+
+**Usage:** `stellar contract bindings java`
 
 
 
