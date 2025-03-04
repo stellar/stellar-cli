@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, Memo};
+use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, Memo, Preconditions, TimeBounds};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::HELLO_WORLD;
@@ -283,7 +283,7 @@ fn memo_set_return() {
 }
 
 #[test]
-//tx edit memo set return <RETURN>
+//tx edit memo clear 
 fn memo_clear() {
     let sandbox = &TestEnv::new();
     let tx_base64 = sandbox
@@ -338,5 +338,89 @@ fn get_memo_value(memo: Memo) -> String {
         Memo::Id(id) => id.to_string(),
         Memo::Hash(hash) => hash.to_string(),
         Memo::Return(hash) => hash.to_string(),
+    }
+}
+
+#[test]
+// setting max when no timebounds are set
+fn time_bounds_max() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    assert_eq!(tx.cond, Preconditions::None);
+
+    let max = 200;
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("time-bound")
+        .arg("set")
+        .arg("max")
+        .arg(max.to_string())
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    if let Preconditions::V2(preconditions) = &tx.cond { 
+        assert_eq!(
+            preconditions.time_bounds,
+            Some(TimeBounds {min_time: 0.into(), max_time: max.into()})
+        );
+    }
+}
+
+#[test]
+// setting min when no time bounds are set
+fn time_bounds_min() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    assert_eq!(tx.cond, Preconditions::None);
+
+    let min = 200;
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("time-bound")
+        .arg("set")
+        .arg("min")
+        .arg(min.to_string())
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    if let Preconditions::V2(preconditions) = &tx.cond { 
+        assert_eq!(
+            preconditions.time_bounds,
+            Some(TimeBounds {min_time: min.into(), max_time: 0.into()})
+        );
+    } else {
+        assert!(false);
     }
 }

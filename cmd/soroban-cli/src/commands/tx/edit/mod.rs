@@ -4,6 +4,8 @@ pub mod fee;
 pub mod memo;
 pub mod source_account;
 pub mod sequence_number;
+pub mod time_bound;
+mod precondition;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -18,7 +20,9 @@ pub enum Cmd {
     SourceAccount(source_account::Cmd),
     /// Set the sequence number on a transaction
     #[command(subcommand, visible_alias = "seq-num")]
-    SequenceNumber(sequence_number::Cmd)
+    SequenceNumber(sequence_number::Cmd),
+    #[command(subcommand)]
+    TimeBound(time_bound::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,7 +34,9 @@ pub enum Error {
     #[error(transparent)]
     SourceAccount(#[from] source_account::Error),
     #[error(transparent)]
-    SequenceNumber(#[from] sequence_number::Error)
+    SequenceNumber(#[from] sequence_number::Error),
+    #[error(transparent)]
+    TimeBound(#[from] time_bound::Error)
 }
 
 impl Cmd {
