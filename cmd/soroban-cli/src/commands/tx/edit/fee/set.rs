@@ -1,7 +1,7 @@
 use crate::{
     commands:: {
         global,
-        tx::xdr::{tx_envelope_from_stdin, Error as XdrParsingError},
+        tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
     },
     xdr::{
         self,
@@ -28,7 +28,7 @@ pub enum Error {
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
-        let mut tx = tx_envelope_from_stdin()?;
+        let mut tx = tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
         Ok(())

@@ -104,7 +104,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self, global: &global::Args) -> Result<(), Error> {
-        let mut tx = super::xdr::tx_envelope_from_stdin()?;
+        let mut tx = super::xdr::tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
