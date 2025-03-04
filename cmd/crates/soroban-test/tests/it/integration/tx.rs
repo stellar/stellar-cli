@@ -105,7 +105,7 @@ pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_w
             kind: DeployKind::BuildOnly,
             ..Default::default()
         },
-    );
+    ).await;
     let tx_simulated = sandbox
         .new_assert_cmd("tx")
         .arg("simulate")
