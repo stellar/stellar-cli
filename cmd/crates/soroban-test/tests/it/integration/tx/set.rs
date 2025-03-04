@@ -327,8 +327,8 @@ fn memo_clear() {
         .success()
         .stdout_as_str();
     let tx_env = TransactionEnvelope::from_xdr_base64(&clear_tx, Limits::none()).unwrap();
-    // let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-    // assert_eq!(tx.memo, Memo::None);
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    assert_eq!(tx.memo, Memo::None);
 }
 
 fn get_memo_value(memo: Memo) -> String {
