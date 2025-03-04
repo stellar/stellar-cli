@@ -14,7 +14,7 @@ pub use args::Args;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Calculate the hash of a transaction envelope from stdin
+    /// Calculate the hash of a transaction envelope
     Hash(hash::Cmd),
     /// Create a new transaction
     #[command(subcommand)]
