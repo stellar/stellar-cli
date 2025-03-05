@@ -15,7 +15,8 @@ pub use args::Args;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Edit a transaction envelope from stdin
+    /// Edit a transaction envelope from stdin. This command respects the environment variables
+    /// `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
     Edit(edit::Cmd),
     /// Calculate the hash of a transaction envelope
     Hash(hash::Cmd),
