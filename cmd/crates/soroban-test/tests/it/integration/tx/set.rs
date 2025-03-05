@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, Memo, Preconditions, TimeBounds};
+use soroban_cli::xdr::{Limits, Memo, Preconditions, ReadXdr, TimeBounds, TransactionEnvelope};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::HELLO_WORLD;
@@ -26,26 +26,28 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-#[test]
+fn test_tx_string(sandbox: &TestEnv) -> String {
+    sandbox
+    .new_assert_cmd("contract")
+    .arg("install")
+    .args([
+        "--wasm",
+        HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+        "--build-only",
+    ])
+    .assert()
+    .success()
+    .stdout_as_str()
+}
+
+#[tokio::test]
 //tx edit source-account set <SOURCE_ACCOUNT>
-fn source_account_set() {
+async fn source_account_set() {
     let sandbox = &TestEnv::new();
     let test_address = test_address(sandbox); // this returns the address for the account with alias "test"
     let new_address = new_account(sandbox, "new_account");
 
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--source",
-            "test",
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx_before = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx_before.source_account.to_string(), test_address);
@@ -66,21 +68,11 @@ fn source_account_set() {
     assert_eq!(tx.source_account.to_string(), new_address);
 }
 
-#[test]
+#[tokio::test]
 //tx edit sequence-number set <SEQUENCE_NUMBER>
-fn seq_num_set() {
+async fn seq_num_set() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
 
@@ -100,22 +92,11 @@ fn seq_num_set() {
     assert_eq!(tx.seq_num, soroban_cli::xdr::SequenceNumber(test_seq_num));
 }
 
-#[test]
+#[tokio::test]
 //tx edit fee set <FEE>
-fn fee_set() {
+async fn fee_set() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
-
+    let tx_base64 = test_tx_string(sandbox);
     let test_fee = 1000;
     let updated_tx = sandbox
         .new_assert_cmd("tx")
@@ -132,21 +113,11 @@ fn fee_set() {
     assert_eq!(tx.fee, test_fee);
 }
 
-#[test]
+#[tokio::test]
 //tx edit memo set text <MEMO_TEXT>
-fn memo_set_text() {
+async fn memo_set_text() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.memo, Memo::None);
@@ -168,21 +139,11 @@ fn memo_set_text() {
     assert_eq!(get_memo_value(tx.memo), test_memo_text);
 }
 
-#[test]
+#[tokio::test]
 //tx edit memo set id <MEMO_ID>
-fn memo_set_id() {
+async fn memo_set_id() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.memo, Memo::None);
@@ -204,21 +165,11 @@ fn memo_set_id() {
     assert_eq!(get_memo_value(tx.memo), test_memo_id);
 }
 
-#[test]
+#[tokio::test]
 //tx edit memo set hash <HASH>
-fn memo_set_hash() {
+async fn memo_set_hash() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.memo, Memo::None);
@@ -243,21 +194,11 @@ fn memo_set_hash() {
     assert_eq!(get_memo_value(tx.memo), test_memo_hash);
 }
 
-#[test]
+#[tokio::test]
 //tx edit memo set return <RETURN>
-fn memo_set_return() {
+async fn memo_set_return() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.memo, Memo::None);
@@ -282,22 +223,11 @@ fn memo_set_return() {
     assert_eq!(get_memo_value(tx.memo), test_memo_return);
 }
 
-#[test]
-//tx edit memo clear 
-fn memo_clear() {
+#[tokio::test]
+//tx edit memo clear
+async fn memo_clear() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
-
+    let tx_base64 = test_tx_string(sandbox);
     let mut rng = rand::thread_rng();
     let test_memo_return: [u8; 32] = rng.gen();
     let test_memo_return = hex::encode(test_memo_return);
@@ -341,21 +271,11 @@ fn get_memo_value(memo: Memo) -> String {
     }
 }
 
-#[test]
+#[tokio::test]
 // setting max when no timebounds are set
-fn time_bounds_max() {
+async fn time_bounds_max() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.cond, Preconditions::None);
@@ -374,29 +294,22 @@ fn time_bounds_max() {
         .stdout_as_str();
     let tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-    if let Preconditions::V2(preconditions) = &tx.cond { 
+    if let Preconditions::V2(preconditions) = &tx.cond {
         assert_eq!(
             preconditions.time_bounds,
-            Some(TimeBounds {min_time: 0.into(), max_time: max.into()})
+            Some(TimeBounds {
+                min_time: 0.into(),
+                max_time: max.into()
+            })
         );
     }
 }
 
-#[test]
+#[tokio::test]
 // setting min when no time bounds are set
-fn time_bounds_min() {
+async fn time_bounds_min() {
     let sandbox = &TestEnv::new();
-    let tx_base64 = sandbox
-        .new_assert_cmd("contract")
-        .arg("install")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--build-only",
-        ])
-        .assert()
-        .success()
-        .stdout_as_str();
+    let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
     assert_eq!(tx.cond, Preconditions::None);
@@ -415,10 +328,95 @@ fn time_bounds_min() {
         .stdout_as_str();
     let tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-    if let Preconditions::V2(preconditions) = &tx.cond { 
+    if let Preconditions::V2(preconditions) = &tx.cond {
         assert_eq!(
             preconditions.time_bounds,
-            Some(TimeBounds {min_time: min.into(), max_time: 0.into()})
+            Some(TimeBounds {
+                min_time: min.into(),
+                max_time: 0.into()
+            })
+        );
+    } else {
+        assert!(false);
+    }
+}
+
+#[tokio::test]
+// resetting time bounds
+async fn time_bounds() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = test_tx_string(sandbox);
+    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    assert_eq!(tx.cond, Preconditions::None);
+
+    // set min to 200
+    let min = 200;
+    let update_min_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("time-bound")
+        .arg("set")
+        .arg("min")
+        .arg(min.to_string())
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&update_min_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    if let Preconditions::V2(preconditions) = &tx.cond {
+        assert_eq!(
+            preconditions.time_bounds,
+            Some(TimeBounds {min_time: min.into(), max_time: 0.into()}) // check this - should it be max instead?
+        );
+    } else {
+        assert!(false);
+    }
+
+    // verify that we can set max without disrupting min
+    let max = 500;
+    let update_max_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("time-bound")
+        .arg("set")
+        .arg("max")
+        .arg(max.to_string())
+        .write_stdin(update_min_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&update_max_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    if let Preconditions::V2(preconditions) = &tx.cond {
+        assert_eq!(
+            preconditions.time_bounds,
+            Some(TimeBounds {min_time: min.into(), max_time: max.into()})
+        );
+    } else {
+        assert!(false);
+    }
+
+    // verify that we can reset min without disrupting max
+    let new_min = 100;
+    let new_update_min_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("time-bound")
+        .arg("set")
+        .arg("min")
+        .arg(new_min.to_string())
+        .write_stdin(update_max_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_env = TransactionEnvelope::from_xdr_base64(&new_update_min_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    if let Preconditions::V2(preconditions) = &tx.cond {
+        assert_eq!(
+            preconditions.time_bounds,
+            Some(TimeBounds {min_time: new_min.into(), max_time: max.into()})
         );
     } else {
         assert!(false);

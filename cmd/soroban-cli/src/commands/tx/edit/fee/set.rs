@@ -1,19 +1,14 @@
 use crate::{
-    commands:: {
+    commands::{
         global,
         tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
     },
-    xdr::{
-        self,
-        TransactionEnvelope,
-        WriteXdr,
-    }
+    xdr::{self, TransactionEnvelope, WriteXdr},
 };
 
-
 #[derive(clap::Parser, Debug, Clone)]
-pub struct Cmd { 
-    pub fee: u32
+pub struct Cmd {
+    pub fee: u32,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -27,7 +22,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
@@ -41,8 +36,7 @@ impl Cmd {
     ) -> Result<(), Error> {
         match tx_env {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
-                    transaction_v1_envelope.tx.fee =
-                    self.fee.clone();
+                transaction_v1_envelope.tx.fee = self.fee.clone();
             }
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
                 return Err(Error::Unsupported);

@@ -2,7 +2,7 @@ use soroban_sdk::xdr::WriteXdr;
 
 use crate::{
     commands::global,
-    config::address::{self},
+    config::address::{self, UnresolvedMuxedAccount},
     xdr::{self, TransactionEnvelope},
 };
 

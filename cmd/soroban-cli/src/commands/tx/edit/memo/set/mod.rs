@@ -13,7 +13,7 @@ pub enum Cmd {
     /// Set the transaction memo id
     #[command()]
     Id(id::Cmd),
-    /// Set the transaction memo hash 
+    /// Set the transaction memo hash
     #[command()]
     Hash(hash::Cmd),
     /// Set the transaction memo return
@@ -30,11 +30,11 @@ pub enum Error {
     #[error(transparent)]
     Hash(#[from] hash::Error),
     #[error(transparent)]
-    Return(#[from] memo_return::Error)
+    Return(#[from] memo_return::Error),
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::Id(cmd) => cmd.run(global_args)?,

@@ -2,10 +2,10 @@ use super::global;
 
 pub mod fee;
 pub mod memo;
-pub mod source_account;
-pub mod sequence_number;
-pub mod time_bound;
 mod precondition;
+pub mod sequence_number;
+pub mod source_account;
+pub mod time_bound;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -36,7 +36,7 @@ pub enum Error {
     #[error(transparent)]
     SequenceNumber(#[from] sequence_number::Error),
     #[error(transparent)]
-    TimeBound(#[from] time_bound::Error)
+    TimeBound(#[from] time_bound::Error),
 }
 
 impl Cmd {
@@ -46,6 +46,7 @@ impl Cmd {
             Cmd::Memo(cmd) => cmd.run(global_args)?,
             Cmd::SourceAccount(cmd) => cmd.run(global_args)?,
             Cmd::SequenceNumber(cmd) => cmd.run(global_args)?,
+            Cmd::TimeBound(cmd) => cmd.run(global_args)?,
         };
         Ok(())
     }

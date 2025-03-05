@@ -1,19 +1,14 @@
 use crate::{
-    commands:: {
+    commands::{
         global,
         tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
     },
-    xdr::{
-        self,
-        TransactionEnvelope,
-        WriteXdr,
-    }
+    xdr::{self, TransactionEnvelope, WriteXdr},
 };
 
-
 #[derive(clap::Parser, Debug, Clone)]
-pub struct Cmd { 
-    memo_return: xdr::Hash
+pub struct Cmd {
+    memo_return: xdr::Hash,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -27,7 +22,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);

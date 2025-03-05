@@ -1,17 +1,17 @@
 use crate::{
-    commands:: {
+    commands::{
         global,
-        tx::{edit::precondition::{self, update_max}, xdr::{tx_envelope_from_input, Error as XdrParsingError}},
+        tx::{
+            edit::precondition,
+            xdr::{tx_envelope_from_input, Error as XdrParsingError},
+        },
     },
-    xdr::{
-        self, TimeBounds, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr
-    }
+    xdr::{self, TransactionEnvelope, WriteXdr},
 };
 
-
 #[derive(clap::Parser, Debug, Clone)]
-pub struct Cmd { 
-    max_time_bound: u64
+pub struct Cmd {
+    max_time_bound: u64,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -27,13 +27,12 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> { 
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
-
 
     pub fn update_tx_env(
         &self,
@@ -43,7 +42,10 @@ impl Cmd {
         match tx_env {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 let existing_preconditions = &transaction_v1_envelope.tx.cond;
-                let args = precondition::Args{max_time_bound: Some(self.max_time_bound), ..Default::default()};
+                let args = precondition::Args {
+                    max_time_bound: Some(self.max_time_bound),
+                    ..Default::default()
+                };
                 args.update_preconditions(existing_preconditions.clone(), transaction_v1_envelope)?
             }
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
