@@ -106,6 +106,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - run: sudo apt-get update && sudo apt-get -y install libudev-dev libdbus-1-dev libssl1.1
       - uses: actions/checkout@v4
 
       - name: Setup vars
