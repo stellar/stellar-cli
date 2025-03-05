@@ -13,7 +13,6 @@ use std::{
 };
 use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
-use crate::commands::contract::build::Error::DeletingArtifact;
 use crate::{commands::global, print::Print};
 
 /// Build a contract from source
@@ -32,7 +31,7 @@ use crate::{commands::global, print::Print};
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]
-    pub manifest_path: Option<std::path::PathBuf>,
+    pub manifest_path: Option<PathBuf>,
     /// Package to build
     ///
     /// If omitted, all packages that build for crate-type cdylib are built.
@@ -62,12 +61,14 @@ pub struct Cmd {
     ///
     /// If ommitted, wasm files are written only to the cargo target directory.
     #[arg(long)]
-    pub out_dir: Option<std::path::PathBuf>,
+    pub out_dir: Option<PathBuf>,
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
-    #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
+    #[arg(
+        long, num_args = 1, value_parser = parse_meta_arg, action = clap::ArgAction::Append, help_heading = "Metadata"
+    )]
     pub meta: Vec<(String, String)>,
 }
 
@@ -96,8 +97,6 @@ pub enum Error {
     AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
-    #[error("deleting existing artifact: {0}")]
-    DeletingArtifact(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
@@ -110,6 +109,8 @@ pub enum Error {
     WritingWasmFile(io::Error),
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
+    #[error("providing --out-dir is required when --meta is passed")]
+    OutDirRequired,
 }
 
 const WASM_TARGET: &str = "wasm32-unknown-unknown";
@@ -131,6 +132,15 @@ impl Cmd {
                     package: package.clone(),
                 });
             }
+        }
+
+        match &self.out_dir {
+            None => {
+                if !self.meta.is_empty() {
+                    return Err(Error::OutDirRequired);
+                }
+            }
+            Some(out_dir) => fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?,
         }
 
         for p in packages {
@@ -196,10 +206,6 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                if target_file_path.is_file() {
-                    fs::remove_file(&target_file_path).map_err(DeletingArtifact)?;
-                }
-
                 let status = cmd.status().map_err(Error::CargoCmd)?;
                 if !status.success() {
                     return Err(Error::Exit(status));
@@ -208,7 +214,6 @@ impl Cmd {
                 let out_file_path = match &self.out_dir {
                     None => target_file_path,
                     Some(out_dir) => {
-                        fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
                         let out_file_path = Path::new(out_dir).join(&file);
                         fs::copy(target_file_path, &out_file_path)
                             .map_err(Error::CopyingWasmFile)?;
@@ -257,17 +262,17 @@ impl Cmd {
             .packages
             .iter()
             .filter(|p|
-                // Filter by the package name if one is selected based on the above logic.
-                if let Some(name) = &name {
-                    &p.name == name
-                } else {
-                    // Otherwise filter crates that are default members of the
-                    // workspace and that build to cdylib (wasm).
-                    metadata.workspace_default_members.contains(&p.id)
-                        && p.targets
-                            .iter()
-                            .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
-                }
+            // Filter by the package name if one is selected based on the above logic.
+            if let Some(name) = &name {
+                &p.name == name
+            } else {
+                // Otherwise filter crates that are default members of the
+                // workspace and that build to cdylib (wasm).
+                metadata.workspace_default_members.contains(&p.id)
+                    && p.targets
+                    .iter()
+                    .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
+            }
             )
             .cloned()
             .collect();
