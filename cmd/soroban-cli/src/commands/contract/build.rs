@@ -13,7 +13,6 @@ use std::{
 };
 use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
-use crate::commands::contract::build::Error::DeletingArtifact;
 use crate::{commands::global, print::Print};
 
 /// Build a contract from source
@@ -96,8 +95,6 @@ pub enum Error {
     AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
-    #[error("deleting existing artifact: {0}")]
-    DeletingArtifact(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
@@ -169,36 +166,37 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            let mut cmd_str_parts = Vec::<String>::new();
-            cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
-                format!(
-                    "{}={}",
-                    key.to_string_lossy(),
-                    shell_escape::escape(val.unwrap_or_default().to_string_lossy())
-                )
-            }));
-            cmd_str_parts.push("cargo".to_string());
-            cmd_str_parts.extend(
-                cmd.get_args()
-                    .map(OsStr::to_string_lossy)
-                    .map(Cow::into_owned),
-            );
-            let cmd_str = cmd_str_parts.join(" ");
+            let mut clean_cmd = Command::new("cargo");
+            clean_cmd.stdout(Stdio::piped());
+            clean_cmd.arg("clean");
+            clean_cmd.arg(format!(
+                "--manifest-path={}",
+                manifest_path.to_string_lossy()
+            ));
+
+            let cmd_str = Self::cmd_str(&cmd);
+            let clean_cmd_str = Self::cmd_str(&clean_cmd);
 
             if self.print_commands_only {
+                println!("{clean_cmd_str}");
                 println!("{cmd_str}");
             } else {
-                print.infoln(cmd_str);
-
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
                     .join(WASM_TARGET)
                     .join(&self.profile)
                     .join(&file);
 
-                if target_file_path.is_file() {
-                    fs::remove_file(&target_file_path).map_err(DeletingArtifact)?;
+                // Need to clean first to remove existing WASM file.
+                // (That could potentially be modified in handle_contract_metadata_args)
+                print.infoln(clean_cmd_str);
+
+                let status = clean_cmd.status().map_err(Error::CargoCmd)?;
+                if !status.success() {
+                    return Err(Error::Exit(status));
                 }
+
+                print.infoln(cmd_str);
 
                 let status = cmd.status().map_err(Error::CargoCmd)?;
                 if !status.success() {
@@ -221,6 +219,24 @@ impl Cmd {
         }
 
         Ok(())
+    }
+
+    fn cmd_str(cmd: &Command) -> String {
+        let mut cmd_str_parts = Vec::<String>::new();
+        cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
+            format!(
+                "{}={}",
+                key.to_string_lossy(),
+                shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+            )
+        }));
+        cmd_str_parts.push("cargo".to_string());
+        cmd_str_parts.extend(
+            cmd.get_args()
+                .map(OsStr::to_string_lossy)
+                .map(Cow::into_owned),
+        );
+        cmd_str_parts.join(" ")
     }
 
     fn features(&self) -> Option<Vec<String>> {
