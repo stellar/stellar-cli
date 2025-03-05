@@ -1517,6 +1517,7 @@ Sign, Simulate, and Send transactions
 
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
+* `edit` — 
 * `set` — Set various options for a transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
@@ -1840,6 +1841,217 @@ https://developers.stellar.org/docs/learn/glossary#flags
 
 
 
+## `stellar tx edit`
+
+**Usage:** `stellar tx edit <COMMAND>`
+
+###### **Subcommands:**
+
+* `fee` — Set the fee on a transaction
+* `memo` — Set the memo on a transaction
+* `source-account` — Change the source account on a transaction
+* `sequence-number` — Set the sequence number on a transaction
+* `time-bound` — 
+
+
+
+## `stellar tx edit fee`
+
+Set the fee on a transaction
+
+**Usage:** `stellar tx edit fee <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — Set the transaction fee
+
+
+
+## `stellar tx edit fee set`
+
+Set the transaction fee
+
+**Usage:** `stellar tx edit fee set <FEE>`
+
+###### **Arguments:**
+
+* `<FEE>`
+
+
+
+## `stellar tx edit memo`
+
+Set the memo on a transaction
+
+**Usage:** `stellar tx edit memo <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — Set the transaction's memo
+* `clear` — Clear the transaction's memo
+
+
+
+## `stellar tx edit memo set`
+
+Set the transaction's memo
+
+**Usage:** `stellar tx edit memo set <COMMAND>`
+
+###### **Subcommands:**
+
+* `text` — Set the transaction memo text
+* `id` — Set the transaction memo id
+* `hash` — Set the transaction memo hash
+* `return` — Set the transaction memo return
+
+
+
+## `stellar tx edit memo set text`
+
+Set the transaction memo text
+
+**Usage:** `stellar tx edit memo set text <TEXT>`
+
+###### **Arguments:**
+
+* `<TEXT>`
+
+
+
+## `stellar tx edit memo set id`
+
+Set the transaction memo id
+
+**Usage:** `stellar tx edit memo set id <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `stellar tx edit memo set hash`
+
+Set the transaction memo hash
+
+**Usage:** `stellar tx edit memo set hash <HASH>`
+
+###### **Arguments:**
+
+* `<HASH>`
+
+
+
+## `stellar tx edit memo set return`
+
+Set the transaction memo return
+
+**Usage:** `stellar tx edit memo set return <MEMO_RETURN>`
+
+###### **Arguments:**
+
+* `<MEMO_RETURN>`
+
+
+
+## `stellar tx edit memo clear`
+
+Clear the transaction's memo
+
+**Usage:** `stellar tx edit memo clear`
+
+
+
+## `stellar tx edit source-account`
+
+Change the source account on a transaction
+
+**Usage:** `stellar tx edit source-account <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — 
+
+
+
+## `stellar tx edit source-account set`
+
+**Usage:** `stellar tx edit source-account set <SOURCE_ACCOUNT>`
+
+###### **Arguments:**
+
+* `<SOURCE_ACCOUNT>`
+
+
+
+## `stellar tx edit sequence-number`
+
+Set the sequence number on a transaction
+
+**Usage:** `stellar tx edit sequence-number <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — Set the transaction's sequence number
+
+
+
+## `stellar tx edit sequence-number set`
+
+Set the transaction's sequence number
+
+**Usage:** `stellar tx edit sequence-number set <SEQUENCE_NUMBER>`
+
+###### **Arguments:**
+
+* `<SEQUENCE_NUMBER>`
+
+
+
+## `stellar tx edit time-bound`
+
+**Usage:** `stellar tx edit time-bound <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — Set the transaction time bound
+
+
+
+## `stellar tx edit time-bound set`
+
+Set the transaction time bound
+
+**Usage:** `stellar tx edit time-bound set <COMMAND>`
+
+###### **Subcommands:**
+
+* `max` — 
+* `min` — 
+
+
+
+## `stellar tx edit time-bound set max`
+
+**Usage:** `stellar tx edit time-bound set max <MAX_TIME_BOUND>`
+
+###### **Arguments:**
+
+* `<MAX_TIME_BOUND>`
+
+
+
+## `stellar tx edit time-bound set min`
+
+**Usage:** `stellar tx edit time-bound set min <MIN_TIME_BOUND>`
+
+###### **Arguments:**
+
+* `<MIN_TIME_BOUND>`
+
+
+
 ## `stellar tx set`
 
 Set various options for a transaction
@@ -1848,14 +2060,7 @@ Set various options for a transaction
 
 ###### **Options:**
 
-* `--sequence-number <SEQUENCE_NUMBER>` — Set the transactions sequence number
-* `--fee <FEE>` — Set the transactions fee
-* `--memo-text <MEMO_TEXT>` — Set the transactions memo text
-* `--memo-id <MEMO_ID>` — Set the transactions memo id
-* `--memo-hash <MEMO_HASH>` — Set the transactions memo hash
-* `--memo-return <MEMO_RETURN>` — Set the transactions memo return
-* `--source-account <SOURCE_ACCOUNT>` — Change the source account for the transaction
-* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions max time bound
+* `--max-time-bound <MAX_TIME_BOUND>` — Set the transactions memo hash. Set the transactions memo return
 * `--min-time-bound <MIN_TIME_BOUND>` — Set the transactions min time bound
 * `--min-ledger <MIN_LEDGER>` — Set the minimum ledger that the transaction is valid
 * `--max-ledger <MAX_LEDGER>` — Set the max ledger that the transaction is valid. 0 or not present means to max
