@@ -152,6 +152,7 @@ impl NetworkRunnable for Cmd {
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        #[cfg(feature = "version_lt_23")]
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(Box::new(txn)));
         }
