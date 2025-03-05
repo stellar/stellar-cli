@@ -6,6 +6,7 @@ use std::{
     process::{self},
 };
 
+use serde_json::json;
 use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
@@ -152,8 +153,13 @@ fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
     T: curr::ReadXdr + serde::Serialize,
 {
+    let version = env!("CARGO_PKG_VERSION");
     let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
-    let json = serde_json::to_string_pretty(&tx)?;
+    let mut schema: serde_json::Value = serde_json::to_value(tx).unwrap();
+    schema["$schema"] = json!(format!(
+        "https://github.com/stellar/stellar-cli/releases/download/v{version}/stellar-xdr-{version}.json"
+    ));
+    let json = serde_json::to_string_pretty(&schema)?;
 
     Ok(json)
 }
@@ -162,7 +168,15 @@ fn json_to_xdr<T>(json_string: &str) -> Result<String, Error>
 where
     T: serde::de::DeserializeOwned + curr::WriteXdr,
 {
-    let value: T = serde_json::from_str(json_string)?;
+    let mut schema: serde_json::Value = serde_json::from_str(json_string).unwrap();
+
+    if let Some(obj) = schema.as_object_mut() {
+        obj.remove("$schema");
+    }
+
+    let json_string = serde_json::to_string(&schema)?;
+
+    let value: T = serde_json::from_str(json_string.as_str())?;
     let mut data = Vec::new();
     let cursor = Cursor::new(&mut data);
     let mut limit = curr::Limited::new(cursor, curr::Limits::none());
