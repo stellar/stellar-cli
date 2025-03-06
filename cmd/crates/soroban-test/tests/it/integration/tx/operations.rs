@@ -4,23 +4,14 @@ use soroban_cli::{
     utils::contract_id_hash_from_asset,
     xdr::{self, ReadXdr, SequenceNumber},
 };
+
 use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
     hello_world::invoke_hello_world,
-    util::{deploy_contract, DeployOptions, HELLO_WORLD},
+    util::{deploy_contract, DeployOptions, HELLO_WORLD, test_address},
 };
-
-pub fn test_address(sandbox: &TestEnv) -> String {
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test")
-        .assert()
-        .success()
-        .stdout_as_str()
-}
 
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();

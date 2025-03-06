@@ -2,7 +2,7 @@ use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD, test_address};
 
 pub mod operations;
 
@@ -56,26 +56,6 @@ async fn simulate() {
     );
 }
 
-pub fn test_address(sandbox: &TestEnv) -> String {
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test")
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
-fn new_account(sandbox: &TestEnv, name: &str) -> String {
-    sandbox.generate_account(name, None).assert().success();
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["address", name])
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
 fn test_tx_string(sandbox: &TestEnv) -> String {
     sandbox
     .new_assert_cmd("contract")
@@ -93,7 +73,7 @@ fn test_tx_string(sandbox: &TestEnv) -> String {
 #[test]
 fn sequence_number_bump() {
     let sandbox = &TestEnv::new();
-    let test_address = test_address(sandbox); // this returns the address for the account with alias "test"
+    let test_address = test_address(sandbox); // address for the account with alias "test"
     let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
