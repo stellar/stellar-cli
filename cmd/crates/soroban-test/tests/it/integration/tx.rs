@@ -2,7 +2,9 @@ use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD, test_address};
+use crate::integration::util::{
+    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+};
 
 pub mod operations;
 
@@ -62,16 +64,16 @@ async fn simulate() {
 
 fn test_tx_string(sandbox: &TestEnv) -> String {
     sandbox
-    .new_assert_cmd("contract")
-    .arg("install")
-    .args([
-        "--wasm",
-        HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-        "--build-only",
-    ])
-    .assert()
-    .success()
-    .stdout_as_str()
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str()
 }
 
 #[test]
@@ -94,7 +96,10 @@ fn sequence_number_bump() {
         .stdout_as_str();
     let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
-    assert_eq!(tx.seq_num, soroban_cli::xdr::SequenceNumber(current_seq_num + 1));
+    assert_eq!(
+        tx.seq_num,
+        soroban_cli::xdr::SequenceNumber(current_seq_num + 1)
+    );
 }
 
 #[tokio::test]

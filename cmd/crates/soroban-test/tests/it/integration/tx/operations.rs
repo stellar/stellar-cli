@@ -10,7 +10,7 @@ use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
     hello_world::invoke_hello_world,
-    util::{deploy_contract, DeployOptions, HELLO_WORLD, test_address},
+    util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD},
 };
 
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
