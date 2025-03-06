@@ -34,6 +34,7 @@ pub struct Cmd {
     pub name: KeyName,
 
     /// Do not fund address
+    #[cfg(feature = "version_lt_23")]
     #[arg(long)]
     pub no_fund: bool,
 
@@ -86,6 +87,7 @@ impl Cmd {
             print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
         }
 
+        #[cfg(feature = "version_lt_23")]
         if !self.fund {
             print.warnln(
                 "Behavior of `generate` will change in the \
@@ -98,22 +100,32 @@ impl Cmd {
         let path = self.config_locator.write_identity(&self.name, &secret)?;
         print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
+        #[cfg(feature = "version_lt_23")]
         if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            network
-                .fund_address(&addr)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("fund_address failed: {e}");
-                })
-                .unwrap_or_default();
-            print.checkln(format!(
-                "Account {:?} funded on {:?}",
-                self.name, network.network_passphrase
-            ));
+            self.fund(&secret, &print).await?;
+        }
+        #[cfg(feature = "version_gte_23")]
+        if self.fund {
+            self.fund(&secret, &print).await?;
         }
 
+        Ok(())
+    }
+
+    async fn fund(&self, secret: &Secret, print: &Print) -> Result<(), Error> {
+        let addr = secret.public_key(self.hd_path)?;
+        let network = self.network.get(&self.config_locator)?;
+        network
+            .fund_address(&addr)
+            .await
+            .map_err(|e| {
+                tracing::warn!("fund_address failed: {e}");
+            })
+            .unwrap_or_default();
+        print.checkln(format!(
+            "Account {:?} funded on {:?}",
+            self.name, network.network_passphrase
+        ));
         Ok(())
     }
 
@@ -152,6 +164,7 @@ mod tests {
 
         let cmd = super::Cmd {
             name: KeyName("test_name".to_string()),
+            #[cfg(feature = "version_lt_23")]
             no_fund: true,
             seed: None,
             as_secret: false,

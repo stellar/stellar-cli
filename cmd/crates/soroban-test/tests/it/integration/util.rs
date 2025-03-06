@@ -32,6 +32,7 @@ pub enum DeployKind {
     BuildOnly,
     #[default]
     Normal,
+    #[cfg(feature = "version_lt_23")]
     SimOnly,
 }
 
@@ -40,6 +41,7 @@ impl Display for DeployKind {
         match self {
             DeployKind::BuildOnly => write!(f, "--build-only"),
             DeployKind::Normal => write!(f, ""),
+            #[cfg(feature = "version_lt_23")]
             DeployKind::SimOnly => write!(f, "--sim-only"),
         }
     }
@@ -95,13 +97,13 @@ pub async fn deploy_contract(
         .await
         .unwrap();
     match kind {
-        DeployKind::BuildOnly | DeployKind::SimOnly => match res.to_envelope() {
+        DeployKind::Normal => (),
+        _ => match res.to_envelope() {
             commands::txn_result::TxnEnvelopeResult::TxnEnvelope(e) => {
                 return e.to_xdr_base64(Limits::none()).unwrap()
             }
             commands::txn_result::TxnEnvelopeResult::Res(_) => todo!(),
         },
-        DeployKind::Normal => (),
     }
     res.into_result().unwrap().to_string()
 }

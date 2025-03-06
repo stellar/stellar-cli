@@ -20,6 +20,7 @@ async fn simulate() {
         },
     )
     .await;
+    #[cfg(feature = "version_lt_23")]
     let xdr_base64_sim_only = deploy_contract(
         sandbox,
         HELLO_WORLD,
@@ -40,12 +41,15 @@ async fn simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    let tx_env_from_cli_tx =
-        TransactionEnvelope::from_xdr_base64(&assembled_str, Limits::none()).unwrap();
-    let tx_env_sim_only =
-        TransactionEnvelope::from_xdr_base64(&xdr_base64_sim_only, Limits::none()).unwrap();
-    assert_eq!(tx_env_from_cli_tx, tx_env_sim_only);
-    assert_eq!(xdr_base64_sim_only, assembled_str);
+    #[cfg(feature = "version_lt_23")]
+    {
+        let tx_env_from_cli_tx =
+            TransactionEnvelope::from_xdr_base64(&assembled_str, Limits::none()).unwrap();
+        let tx_env_sim_only =
+            TransactionEnvelope::from_xdr_base64(&xdr_base64_sim_only, Limits::none()).unwrap();
+        assert_eq!(tx_env_from_cli_tx, tx_env_sim_only);
+        assert_eq!(xdr_base64_sim_only, assembled_str);
+    }
     let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx)
         .await
         .unwrap();
@@ -131,15 +135,22 @@ pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_w
         .assert()
         .success();
 
-    let tx_simulated = deploy_contract(
+    let xdr_base64_build_only = deploy_contract(
         sandbox,
         HELLO_WORLD,
         DeployOptions {
-            kind: DeployKind::SimOnly,
+            kind: DeployKind::BuildOnly,
             ..Default::default()
         },
     )
     .await;
+    let tx_simulated = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(xdr_base64_build_only.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
     dbg!("{tx_simulated}");
 
     let tx_signed = sandbox
