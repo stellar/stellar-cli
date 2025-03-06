@@ -1,3 +1,5 @@
+use assert_fs::TempDir;
+use fs_extra::dir::CopyOptions;
 use predicates::prelude::predicate;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
@@ -118,10 +120,14 @@ fn build_with_metadata_rewrite() {
     let outdir = sandbox.dir().join("out");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add");
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("contract meta=added on build")
@@ -132,7 +138,7 @@ fn build_with_metadata_rewrite() {
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("meta_replaced=some_new_meta")
@@ -141,7 +147,7 @@ fn build_with_metadata_rewrite() {
         .assert()
         .success();
 
-    let entries = get_entries(&fixture_path, &outdir);
+    let entries = get_entries(&dir_path, &outdir);
     let expected_entries = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
@@ -163,10 +169,14 @@ fn build_with_metadata_diff_dir() {
     let outdir2 = sandbox.dir().join("out-2");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add");
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("contract meta=added on build")
@@ -177,7 +187,7 @@ fn build_with_metadata_diff_dir() {
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("meta_replaced=some_new_meta")
@@ -186,7 +196,7 @@ fn build_with_metadata_diff_dir() {
         .assert()
         .success();
 
-    let entries_dir1 = get_entries(&fixture_path, &outdir1);
+    let entries_dir1 = get_entries(&dir_path, &outdir1);
     let expected_entries_dir1 = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
@@ -198,7 +208,7 @@ fn build_with_metadata_diff_dir() {
         }),
     ];
 
-    let entries_dir2 = get_entries(&fixture_path, &outdir2);
+    let entries_dir2 = get_entries(&dir_path, &outdir2);
     let expected_entries_dir2 = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
