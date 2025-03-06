@@ -6,6 +6,7 @@ pub mod env_meta;
 pub mod interface;
 pub mod meta;
 pub mod shared;
+pub mod wasm_hash;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -49,6 +50,9 @@ pub enum Cmd {
     ///
     /// Outputs no data when no data is present in the contract.
     EnvMeta(env_meta::Cmd),
+
+    /// Get the wasm hash of a deployed contract
+    WasmHash(wasm_hash::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -59,6 +63,8 @@ pub enum Error {
     Meta(#[from] meta::Error),
     #[error(transparent)]
     EnvMeta(#[from] env_meta::Error),
+    #[error(transparent)]
+    WasmHash(#[from] wasm_hash::Error),
 }
 
 impl Cmd {
@@ -67,6 +73,7 @@ impl Cmd {
             Cmd::Interface(interface) => interface.run(global_args).await?,
             Cmd::Meta(meta) => meta.run(global_args).await?,
             Cmd::EnvMeta(env_meta) => env_meta.run(global_args).await?,
+            Cmd::WasmHash(cmd) => cmd.run(global_args).await?,
         };
         println!("{result}");
         Ok(())

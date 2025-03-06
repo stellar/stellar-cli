@@ -16,6 +16,7 @@ pub mod read;
 pub mod restore;
 pub mod upload;
 
+
 use crate::{commands::global, print::Print};
 
 #[derive(Debug, clap::Subcommand)]
@@ -91,6 +92,7 @@ pub enum Cmd {
     ///
     /// If no keys are specificed the contract itself is restored.
     Restore(restore::Cmd),
+
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -142,6 +144,7 @@ pub enum Error {
 
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
 }
 
 impl Cmd {
