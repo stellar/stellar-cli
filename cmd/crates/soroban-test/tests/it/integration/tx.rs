@@ -56,6 +56,63 @@ async fn simulate() {
     );
 }
 
+pub fn test_address(sandbox: &TestEnv) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+fn new_account(sandbox: &TestEnv, name: &str) -> String {
+    sandbox.generate_account(name, None).assert().success();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+fn test_tx_string(sandbox: &TestEnv) -> String {
+    sandbox
+    .new_assert_cmd("contract")
+    .arg("install")
+    .args([
+        "--wasm",
+        HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+        "--build-only",
+    ])
+    .assert()
+    .success()
+    .stdout_as_str()
+}
+
+#[test]
+fn sequence_number_bump() {
+    let sandbox = &TestEnv::new();
+    let test_address = test_address(sandbox); // this returns the address for the account with alias "test"
+    let tx_base64 = test_tx_string(sandbox);
+    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    let current_seq_num = tx.seq_num.as_ref();
+
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("sequence-number")
+        .arg("bump")
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
+    assert_eq!(tx.seq_num, soroban_cli::xdr::SequenceNumber(current_seq_num + 1));
+}
+
 #[tokio::test]
 async fn txn_hash() {
     let sandbox = &TestEnv::new();
