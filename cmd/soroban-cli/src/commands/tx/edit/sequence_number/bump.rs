@@ -22,13 +22,12 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
-        self.update_tx_env(&mut tx, global_args)?;
+        Self::update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
 
     pub fn update_tx_env(
-        &self,
         tx_env: &mut TransactionEnvelope,
         _global: &global::Args,
     ) -> Result<(), Error> {
