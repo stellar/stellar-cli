@@ -10,5 +10,6 @@ mod integration;
 mod log;
 mod plugin;
 mod rpc_provider;
+mod tx;
 mod util;
 mod version;
