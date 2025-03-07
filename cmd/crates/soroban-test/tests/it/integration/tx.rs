@@ -3,7 +3,7 @@ use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::{
-    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+    deploy_contract, DeployKind, DeployOptions, HELLO_WORLD,
 };
 
 pub mod operations;
@@ -77,9 +77,8 @@ fn test_tx_string(sandbox: &TestEnv) -> String {
 }
 
 #[test]
-fn sequence_number_bump() {
+fn sequence_number_bump_default() {
     let sandbox = &TestEnv::new();
-    let test_address = test_address(sandbox); // address for the account with alias "test"
     let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
@@ -99,6 +98,33 @@ fn sequence_number_bump() {
     assert_eq!(
         tx.seq_num,
         soroban_cli::xdr::SequenceNumber(current_seq_num + 1)
+    );
+}
+
+#[test]
+fn sequence_number_bump_with_amount() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = test_tx_string(sandbox);
+    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
+    let current_seq_num = tx.seq_num.as_ref();
+
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("edit")
+        .arg("sequence-number")
+        .arg("bump")
+        .arg("--amount")
+        .arg("2")
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
+    assert_eq!(
+        tx.seq_num,
+        soroban_cli::xdr::SequenceNumber(current_seq_num + 2)
     );
 }
 

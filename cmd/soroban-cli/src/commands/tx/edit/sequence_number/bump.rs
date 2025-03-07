@@ -7,7 +7,11 @@ use crate::{
 };
 
 #[derive(clap::Parser, Debug, Clone)]
-pub struct Cmd {}
+pub struct Cmd {
+    /// Amount to increment the sequence-number
+    #[arg(long, default_value_t = 1)]
+    pub amount: i64,
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,18 +26,19 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
-        Self::update_tx_env(&mut tx, global_args)?;
+        self.update_tx_env(&mut tx, global_args)?;
         println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
 
     pub fn update_tx_env(
+        &self,
         tx_env: &mut TransactionEnvelope,
         _global: &global::Args,
     ) -> Result<(), Error> {
         match tx_env {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
-                let bump = transaction_v1_envelope.tx.seq_num.as_ref() + 1;
+                let bump = transaction_v1_envelope.tx.seq_num.as_ref() + self.amount;
                 transaction_v1_envelope.tx.seq_num = SequenceNumber(bump);
             }
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
