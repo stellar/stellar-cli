@@ -1515,12 +1515,45 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
+* `edit` — Edit the transaction
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx edit`
+
+Edit the transaction
+
+**Usage:** `stellar tx edit <COMMAND>`
+
+###### **Subcommands:**
+
+* `sequence-number` — Set the sequence number on a transaction
+
+
+
+## `stellar tx edit sequence-number`
+
+Set the sequence number on a transaction
+
+**Usage:** `stellar tx edit sequence-number <COMMAND>`
+
+###### **Subcommands:**
+
+* `bump` — Bump the transaction's sequence number
+
+
+
+## `stellar tx edit sequence-number bump`
+
+Bump the transaction's sequence number
+
+**Usage:** `stellar tx edit sequence-number bump`
 
 
 
