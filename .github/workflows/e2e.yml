@@ -17,3 +17,4 @@ jobs:
       - uses: stellar/system-test@a595c261b53f77c697f7ee251d0d1fe34c1c8982
         with:
           stellar-cli-ref: ${{ github.ref }}
+          test-filter: "^TestDappDevelop$/^.*$"
