@@ -280,6 +280,8 @@ impl Cmd {
     }
 
     fn handle_contract_metadata_args(&self, target_file_path: &PathBuf) -> Result<(), Error> {
+        dbg!(&self.meta);
+
         if self.meta.is_empty() {
             return Ok(());
         }
