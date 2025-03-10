@@ -3,8 +3,11 @@ use clap::arg;
 use crate::assembled::Assembled;
 use crate::xdr;
 
-use crate::{commands::HEADING_RPC, deprecated_arg};
+use crate::commands::HEADING_RPC;
+#[cfg(feature = "version_lt_23")]
+use crate::deprecated_arg;
 
+#[cfg(feature = "version_lt_23")]
 const DEPRECATION_MESSAGE: &str = "--sim-only is deprecated and will be removed \
 in the future versions of CLI. The same functionality is offered by `tx simulate` command. To \
 replicate the behaviour, run `stellar <command> --build only | stellar tx simulate`";
@@ -24,6 +27,7 @@ pub struct Args {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
+    #[cfg(feature = "version_lt_23")]
     /// (Deprecated) simulate the transaction and only write the base64 xdr to stdout
     #[arg(
         long,
@@ -65,6 +69,7 @@ impl Default for Args {
             cost: false,
             instructions: None,
             build_only: false,
+            #[cfg(feature = "version_lt_23")]
             sim_only: false,
         }
     }
