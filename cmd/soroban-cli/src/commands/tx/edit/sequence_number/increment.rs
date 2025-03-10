@@ -9,7 +9,7 @@ use crate::{
 #[derive(clap::Parser, Debug, Clone)]
 pub struct Cmd {
     /// Amount to increment the sequence-number
-    #[arg(long, default_value_t = 1)]
+    #[arg(default_value_t = 1)]
     pub amount: i64,
 }
 

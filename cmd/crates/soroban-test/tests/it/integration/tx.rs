@@ -75,7 +75,7 @@ fn test_tx_string(sandbox: &TestEnv) -> String {
 }
 
 #[test]
-fn sequence_number_bump_default() {
+fn sequence_number_increment_default() {
     let sandbox = &TestEnv::new();
     let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
@@ -85,8 +85,8 @@ fn sequence_number_bump_default() {
     let updated_tx = sandbox
         .new_assert_cmd("tx")
         .arg("edit")
-        .arg("sequence-number")
-        .arg("bump")
+        .arg("seq-num")
+        .arg("inc")
         .write_stdin(tx_base64.as_bytes())
         .assert()
         .success()
@@ -100,7 +100,7 @@ fn sequence_number_bump_default() {
 }
 
 #[test]
-fn sequence_number_bump_with_amount() {
+fn sequence_number_increment_with_amount() {
     let sandbox = &TestEnv::new();
     let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
@@ -111,8 +111,7 @@ fn sequence_number_bump_with_amount() {
         .new_assert_cmd("tx")
         .arg("edit")
         .arg("sequence-number")
-        .arg("bump")
-        .arg("--amount")
+        .arg("increment")
         .arg("2")
         .write_stdin(tx_base64.as_bytes())
         .assert()

@@ -1,24 +1,24 @@
 use super::global;
 
-mod bump;
+mod increment;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Bump the transaction's sequence number
-    #[command()]
-    Bump(bump::Cmd),
+    /// Increase the transaction's sequence number
+    #[command(visible_alias = "inc")]
+    Increment(increment::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Bump(#[from] bump::Error),
+    Increment(#[from] increment::Error),
 }
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Bump(cmd) => cmd.run(global_args)?,
+            Cmd::Increment(cmd) => cmd.run(global_args)?,
         };
         Ok(())
     }
