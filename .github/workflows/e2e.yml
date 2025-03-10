@@ -14,7 +14,7 @@ jobs:
     name: System tests
     runs-on: ubuntu-22.04
     steps:
-      - uses: stellar/system-test@a595c261b53f77c697f7ee251d0d1fe34c1c8982
+      - uses: stellar/system-test@0c26feb06833fbc15f4da3eebfd0299aa45cf6a0
         with:
           stellar-cli-ref: ${{ github.ref }}
           test-filter: "^TestDappDevelop$/^.*$"
