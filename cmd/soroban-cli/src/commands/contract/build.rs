@@ -197,7 +197,7 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                dbg!(target_file_path);
+                dbg!(&target_file_path);
 
                 self.handle_contract_metadata_args(&target_file_path)?;
 
