@@ -1545,15 +1545,21 @@ Set the sequence number on a transaction
 
 ###### **Subcommands:**
 
-* `bump` — Bump the transaction's sequence number
+* `increment` — Increase the transaction's sequence number
 
 
 
-## `stellar tx edit sequence-number bump`
+## `stellar tx edit sequence-number increment`
 
-Bump the transaction's sequence number
+Increase the transaction's sequence number
 
-**Usage:** `stellar tx edit sequence-number bump`
+**Usage:** `stellar tx edit sequence-number increment [AMOUNT]`
+
+###### **Arguments:**
+
+* `<AMOUNT>` — Amount to increment the sequence-number
+
+  Default value: `1`
 
 
 
