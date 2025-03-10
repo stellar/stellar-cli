@@ -103,6 +103,8 @@ pub enum Error {
     CargoHome(io::Error),
     #[error("reading wasm file: {0}")]
     ReadingWasmFile(io::Error),
+    #[error("removing wasm file before rewrite: {0}")]
+    RemovingWasmFileBeforeRewrite(io::Error),
     #[error("writing wasm file: {0}")]
     WritingWasmFile(io::Error),
     #[error("invalid meta entry: {0}")]
@@ -306,6 +308,7 @@ impl Cmd {
             wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
         }
 
+        fs::remove_file(target_file_path).map_err(Error::RemovingWasmFileBeforeRewrite)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 }
