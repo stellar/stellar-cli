@@ -13,7 +13,6 @@ use std::{
 };
 use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
-use crate::commands::contract::build::Error::DeletingArtifact;
 use crate::{commands::global, print::Print};
 
 /// Build a contract from source
@@ -189,6 +188,10 @@ impl Cmd {
                 println!("{cmd_str}");
             } else {
                 print.infoln(cmd_str);
+                let status = cmd.status().map_err(Error::CargoCmd)?;
+                if !status.success() {
+                    return Err(Error::Exit(status));
+                }
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
@@ -196,27 +199,13 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                if target_file_path.is_file() {
-                    fs::remove_file(&target_file_path).map_err(DeletingArtifact)?;
+                self.handle_contract_metadata_args(&target_file_path)?;
+
+                if let Some(out_dir) = &self.out_dir {
+                    fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+                    let out_file_path = Path::new(out_dir).join(&file);
+                    fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
                 }
-
-                let status = cmd.status().map_err(Error::CargoCmd)?;
-                if !status.success() {
-                    return Err(Error::Exit(status));
-                }
-
-                let out_file_path = match &self.out_dir {
-                    None => target_file_path,
-                    Some(out_dir) => {
-                        fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-                        let out_file_path = Path::new(out_dir).join(&file);
-                        fs::copy(target_file_path, &out_file_path)
-                            .map_err(Error::CopyingWasmFile)?;
-                        out_file_path
-                    }
-                };
-
-                self.handle_contract_metadata_args(&out_file_path)?;
             }
         }
 
@@ -315,6 +304,9 @@ impl Cmd {
             wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
         }
 
+        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
+        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 }
