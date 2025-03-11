@@ -26,7 +26,7 @@ pub enum Error {
         r#"Access to the network is required
 `--network` or `--rpc-url` and `--network-passphrase` are required if using the network.
 Network configuration can also be set using `network use` subcommand. For example, to use
-testnet simply type `stellar network use testnet`
+testnet, run `stellar network use testnet`.
 Alternatively you can use their corresponding environment variables:
 STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
     )]
