@@ -95,6 +95,8 @@ pub enum Error {
     AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
+    #[error("deleting existing artifact: {0}")]
+    DeletingArtifact(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
@@ -302,6 +304,9 @@ impl Cmd {
             wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
         }
 
+        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
+        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 }
