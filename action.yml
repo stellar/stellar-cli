@@ -32,6 +32,7 @@ runs:
         version=${{steps.latest.outputs.release}}
       fi
       echo "version=$version" >> "$GITHUB_OUTPUT"
+    if: ${{ steps.version.outputs.version == '' }}
   - name: Copy binary to install location
     shell: bash
     run: |
