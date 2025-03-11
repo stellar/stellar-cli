@@ -10,11 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  integration:
-    name: System tests
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: stellar/system-test@0c26feb06833fbc15f4da3eebfd0299aa45cf6a0
-        with:
-          stellar-cli-ref: ${{ github.ref }}
-          test-filter: "^TestDappDevelop$/^.*$"
+  systems-test:
+    uses: stellar/system-test/.github/workflows/test.yml@fb05511b430d8e7900560de2cec0706571309e2b
+    with:
+      stellar-cli-ref: ${{ github.ref }}
+      test-filter: "^TestDappDevelop$/^.*$"
