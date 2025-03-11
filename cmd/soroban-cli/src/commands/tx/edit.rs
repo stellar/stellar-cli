@@ -155,7 +155,7 @@ where
 {
     let version = env!("CARGO_PKG_VERSION");
     let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
-    let mut schema: serde_json::Value = serde_json::to_value(tx).unwrap();
+    let mut schema: serde_json::Value = serde_json::to_value(tx)?;
     schema["$schema"] = json!(format!(
         "https://github.com/stellar/stellar-cli/releases/download/v{version}/stellar-xdr-{version}.json"
     ));
@@ -168,7 +168,7 @@ fn json_to_xdr<T>(json_string: &str) -> Result<String, Error>
 where
     T: serde::de::DeserializeOwned + curr::WriteXdr,
 {
-    let mut schema: serde_json::Value = serde_json::from_str(json_string).unwrap();
+    let mut schema: serde_json::Value = serde_json::from_str(json_string)?;
 
     if let Some(obj) = schema.as_object_mut() {
         obj.remove("$schema");
