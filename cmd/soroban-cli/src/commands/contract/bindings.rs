@@ -1,3 +1,4 @@
+pub mod java;
 pub mod json;
 pub mod python;
 pub mod rust;
@@ -16,6 +17,9 @@ pub enum Cmd {
 
     /// Generate Python bindings
     Python(python::Cmd),
+
+    /// Generate Java bindings
+    Java(java::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,6 +35,9 @@ pub enum Error {
 
     #[error(transparent)]
     Python(#[from] python::Error),
+
+    #[error(transparent)]
+    Java(#[from] java::Error),
 }
 
 impl Cmd {
@@ -40,6 +47,7 @@ impl Cmd {
             Cmd::Rust(rust) => rust.run()?,
             Cmd::Typescript(ts) => ts.run().await?,
             Cmd::Python(python) => python.run()?,
+            Cmd::Java(java) => java.run()?,
         }
         Ok(())
     }

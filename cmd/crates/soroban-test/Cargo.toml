@@ -50,5 +50,8 @@ tracing-subscriber = "0.3.18"
 httpmock = { workspace = true }
 
 [features]
+default = []
 it = []
 emulator-tests = ["stellar-ledger/emulator-tests"]
+version_lt_23 = []
+version_gte_23 = []

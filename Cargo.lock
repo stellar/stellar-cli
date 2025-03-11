@@ -758,12 +758,13 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.8"
+version = "1.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "504bdec147f2cc13c8b57ed9401fd8a147cc66b67ad5cb241394244f2c947549"
+checksum = "be714c154be609ec7f5dad223a33bf1482fff90472de28f7362806e6d4832b8c"
 dependencies = [
  "jobserver",
  "libc",
+ "shlex",
 ]
 
 [[package]]
@@ -3693,15 +3694,14 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.8"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+checksum = "70ac5d832aa16abd7d1def883a8545280c20a60f523a370aa3a9617c2b8550ee"
 dependencies = [
  "cc",
  "cfg-if",
  "getrandom",
  "libc",
- "spin",
  "untrusted",
  "windows-sys 0.52.0",
 ]
@@ -3948,9 +3948,9 @@ dependencies = [
 
 [[package]]
 name = "scc"
-version = "2.1.9"
+version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ff467073ddaff34c3a39e5b454f25dd982484a26fff50254ca793c56a1b714"
+checksum = "ea091f6cac2595aa38993f04f4ee692ed43757035c36e67c180b6828356385b1"
 dependencies = [
  "sdd",
 ]
@@ -4012,9 +4012,9 @@ dependencies = [
 
 [[package]]
 name = "sdd"
-version = "2.1.0"
+version = "3.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "177258b64c0faaa9ffd3c65cd3262c2bc7e2588dbbd9c1641d0346145c1bbda8"
+checksum = "b07779b9b918cc05650cb30f404d4d7835d26df37c235eded8a6832e2fb82cca"
 
 [[package]]
 name = "sec1"
@@ -4382,7 +4382,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -4553,7 +4553,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "22.2.0"
+version = "22.4.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -4625,7 +4625,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "pretty_assertions",
  "serde",
@@ -4655,7 +4655,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
@@ -4673,7 +4673,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "base64 0.21.7",
  "heck 0.4.1",
@@ -4694,7 +4694,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -4778,18 +4778,18 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-bye"
-version = "22.2.0"
+version = "22.4.0"
 
 [[package]]
 name = "stellar-cli"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "async-trait",
  "bollard",
@@ -5143,42 +5143,42 @@ dependencies = [
 
 [[package]]
 name = "test_constructor"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_account"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5186,7 +5186,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "22.2.0"
+version = "22.4.0"
 dependencies = [
  "soroban-sdk",
 ]
