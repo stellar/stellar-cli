@@ -153,12 +153,11 @@ fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
     T: curr::ReadXdr + serde::Serialize,
 {
-    let version = env!("CARGO_PKG_VERSION");
     let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
-    schema["$schema"] = json!(format!(
-        "https://github.com/stellar/stellar-cli/releases/download/v{version}/stellar-xdr-{version}.json"
-    ));
+    schema["$schema"] = json!(
+        "https://github.com/stellar/rs-stellar-xdr/raw/main/xdr-json/curr/TransactionEnvelope.json"
+    );
     let json = serde_json::to_string_pretty(&schema)?;
 
     Ok(json)
