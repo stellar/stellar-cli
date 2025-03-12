@@ -19,6 +19,10 @@ runs:
     id: version
     shell: bash
     run: |
+      echo "${{ inputs.version }}"
+      echo "${{ inputs.version == '' }}"
+      echo "${{ inputs.version != '' && inputs.version || github.action_ref}}"
+      echo "${{ inputs.version || 'test'}}"
       echo "version=${{ inputs.version || github.action_ref }}" >> "$GITHUB_OUTPUT"
   - name: Copy binary to install location
     shell: bash
