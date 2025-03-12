@@ -57,7 +57,6 @@ jobs:
     - name: Package (release only)
       if: github.event_name == 'release'
       run: cargo package --no-verify --package ${{ matrix.crate.name }}
-
     - name: Package Extract (release only)
       if: github.event_name == 'release'
       run: |
@@ -69,42 +68,20 @@ jobs:
       working-directory: ${{ env.BUILD_WORKING_DIR }}
       run: |
         cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
-
-    - name: Build provenance for attestation (release only)
-      if: github.event_name == 'release'
-      uses: actions/attest-build-provenance@v2
-      with:
-        subject-path: target/${{ matrix.sys.target }}/release/${{ matrix.crate.binary }}${{ matrix.sys.ext }}
-
     - name: Compress
       run: |
           cd target/${{ matrix.sys.target }}/release
           tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
 
     - name: Upload to Artifacts
-      uses: actions/upload-artifact@v4
+      uses: ./.github/actions/artifact-upload
       with:
         name: ${{ env.NAME }}.tar.gz
         path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
 
-    - name: Upload to Release (release only)
-      if: github.event_name == 'release'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          await github.rest.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: ${{ github.event.release.id }},
-            name: '${{ env.NAME }}.tar.gz',
-            data: fs.readFileSync('target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'),
-          });
-
   json-schema:
     needs: build
     runs-on: ubuntu-22.04
-
     steps:
       - run: sudo apt-get update && sudo apt-get -y install libudev-dev libdbus-1-dev
       - uses: actions/checkout@v4
@@ -119,44 +96,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
-
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
-
       - name: Export JSON Schema
         run: |
           ./stellar xdr types schema --type TransactionEnvelope > ${{ env.JSON_SCHEMA_NAME }}
-
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/artifact-upload
         with:
           name: ${{ env.JSON_SCHEMA_NAME }}
           path: ${{ env.JSON_SCHEMA_NAME }}
 
-      - name: Build provenance for attestation (release only)
-        if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: ${{ env.JSON_SCHEMA_NAME }}
-
-      - name: Upload to Release (release only)
-        if: github.event_name == 'release'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ github.event.release.id }},
-              name: '${{ env.JSON_SCHEMA_NAME }}',
-              data: fs.readFileSync('${{ env.JSON_SCHEMA_NAME }}'),
-            });
-
   installer:
     needs: build
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -173,10 +126,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
-
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
-
       - name: Build Installer
         shell: powershell
         run: |
@@ -184,30 +135,8 @@ jobs:
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
           mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
-
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/artifact-upload
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
           path: ${{ env.STELLAR_CLI_INSTALLER }}
-
-      - name: Build provenance for attestation (release only)
-        if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: ${{ env.STELLAR_CLI_INSTALLER }}
-
-      - name: Upload to Release (release only)
-        if: github.event_name == 'release'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ github.event.release.id }},
-              name: '${{ env.STELLAR_CLI_INSTALLER }}',
-              data: fs.readFileSync('${{ env.STELLAR_CLI_INSTALLER }}'),
-            });
-
