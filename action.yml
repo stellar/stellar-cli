@@ -19,7 +19,10 @@ runs:
     id: version
     shell: bash
     run: |
-      echo "version=${{ inputs.version || github.action_ref }}" >> "$GITHUB_OUTPUT"
+      echo "using version: $VERSION"
+      echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+    env:
+      VERSION: ${{ inputs.version || github.action_ref }}
   - name: Copy binary to install location
     shell: bash
     run: |
