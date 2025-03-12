@@ -43,7 +43,9 @@ impl Print {
     // we need an additional space.
     pub fn compute_emoji<T: Display + Sized>(&self, emoji: T) -> String {
         if let Ok(term_program) = env::var("TERM_PROGRAM") {
-            if TERMS.contains(&term_program.as_str()) && emoji.to_string().chars().count() == 2 {
+            if TERMS.contains(&term_program.as_str())
+                && (emoji.to_string().chars().count() == 2 || format!("{emoji}") == " ")
+            {
                 return format!("{emoji} ");
             }
         }
@@ -109,3 +111,4 @@ create_print_functions!(exclaim, exclaimln, "❗️");
 create_print_functions!(arrow, arrowln, "➡️");
 create_print_functions!(log, logln, "📔");
 create_print_functions!(event, eventln, "📅");
+create_print_functions!(blank, blankln, " ");
