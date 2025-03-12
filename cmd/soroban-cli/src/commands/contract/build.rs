@@ -1,6 +1,7 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
+use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -201,11 +202,16 @@ impl Cmd {
 
                 self.handle_contract_metadata_args(&target_file_path)?;
 
-                if let Some(out_dir) = &self.out_dir {
+                let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
                     let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
-                }
+                    fs::copy(target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+                    out_file_path
+                } else {
+                    target_file_path
+                };
+
+                Self::print_build_summary(&print, &final_path)?;
             }
         }
 
@@ -308,6 +314,50 @@ impl Cmd {
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+    }
+
+    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
+        print.infoln("Build Summary:");
+        let rel_target_file_path = target_file_path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(target_file_path);
+        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        print.blankln(format!(
+            "Wasm Hash: {}",
+            hex::encode(Sha256::digest(&wasm_bytes))
+        ));
+
+        let parser = wasmparser::Parser::new(0);
+        let export_names: Vec<&str> = parser
+            .parse_all(&wasm_bytes)
+            .filter_map(Result::ok)
+            .filter_map(|payload| {
+                if let wasmparser::Payload::ExportSection(exports) = payload {
+                    Some(exports)
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .filter_map(Result::ok)
+            .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
+            .map(|export| export.name)
+            .sorted()
+            .collect();
+        if export_names.is_empty() {
+            print.blankln("Exported Functions: None found");
+        } else {
+            print.blankln(format!("Exported Functions: {} found", export_names.len()));
+            for name in export_names {
+                print.blankln(format!("  • {name}"));
+            }
+        }
+        print.checkln("Build Complete");
+
+        Ok(())
     }
 }
 
