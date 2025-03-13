@@ -11,7 +11,21 @@ concurrency:
 
 jobs:
   systems-test:
-    uses: stellar/system-test/.github/workflows/test.yml@main
+    strategy:
+      fail-fast: false
+      matrix:
+        sys:
+            # x64
+          - os: ubuntu-latest-16-cores
+            # ARM
+          - os: ubuntu-jammy-16-cores-arm64
+            # Intel
+          - os: macos-13
+            # ARM
+          - os: macos-latest
+            # Not supported yet
+          # - os: windows-latest-8-cores
+    uses: stellar/system-test/.github/workflows/test.yml@1848d134efbab80687b69a3264382fefefc18e74
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
