@@ -11,22 +11,6 @@ use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
 
-const DEFAULT_JSON: &str = r#"{
-  "tx": {
-    "tx": {
-      "source_account": "",
-      "fee": 100,
-      "seq_num": 0,
-      "cond": "none",
-      "memo": "none",
-      "operations": [],
-      "ext": "v0"
-    },
-    "signatures": []
-  }
-}
-"#;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -43,6 +27,9 @@ pub enum Error {
 
     #[error("Editor returned non-zero status")]
     EditorNonZeroStatus,
+
+    #[error("No stdin detected")]
+    NoStdin,
 }
 
 // Command to edit the transaction
@@ -55,7 +42,7 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let json: String = if stdin().is_terminal() {
-            DEFAULT_JSON.to_string()
+            return Err(Error::NoStdin);
         } else {
             let mut input = String::new();
             stdin().read_line(&mut input)?;
