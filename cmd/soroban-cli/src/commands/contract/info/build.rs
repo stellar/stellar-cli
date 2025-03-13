@@ -1,9 +1,6 @@
-use super::info::shared;
-use crate::{
-    commands::{contract::info::shared::fetch_wasm, global},
-    print::Print,
-    utils::http,
-};
+use super::shared::{self, Fetched};
+use crate::commands::contract::info::shared::fetch;
+use crate::{commands::global, print::Print, utils::http};
 use base64::Engine as _;
 use clap::{command, Parser};
 use sha2::{Digest, Sha256};
@@ -23,30 +20,42 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Wasm(#[from] shared::Error),
+
     #[error(transparent)]
     Spec(#[from] contract::Error),
+
     #[error("'source_repo' meta entry is not stored in the contract")]
     SourceRepoNotSpecified,
+
     #[error("'source_repo' meta entry '{0}' has prefix unsupported, only 'github:' supported")]
     SourceRepoUnsupported(String),
+
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
+
     #[error("GitHub attestation not found")]
     AttestationNotFound,
+
     #[error("GitHub attestation invalid")]
     AttestationInvalid,
+
+    #[error("Stellar asset contract doesn't contain meta information")]
+    NoSACMeta(),
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
+        let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
-        print.infoln("Loading wasm...");
-        let Some(bytes) = fetch_wasm(&self.common).await? else {
-            return Err(Error::SourceRepoNotSpecified);
+        let bytes = match contract {
+            shared::Contract::Wasm { wasm_bytes } => wasm_bytes,
+            shared::Contract::StellarAssetContract => return Err(Error::NoSACMeta()),
         };
+
         let wasm_hash = Sha256::digest(&bytes);
         let wasm_hash_hex = hex::encode(wasm_hash);
         print.infoln(format!("Wasm Hash: {wasm_hash_hex}"));
@@ -70,7 +79,7 @@ impl Cmd {
         let url = format!(
             "https://api.github.com/repos/{github_source_repo}/attestations/sha256:{wasm_hash_hex}"
         );
-        print.infoln(format!("Collecting GitHub attestation from {url}..."));
+        print.infoln(format!("Collecting GitHub attestation from {url}"));
         let resp = http::client().get(url).send().await?;
         let resp: gh_attest_resp::Root = resp.json().await?;
         let Some(attestation) = resp.attestations.first() else {
@@ -116,17 +125,17 @@ impl Cmd {
             .github
             .runner_environment
             .as_str();
-        print.checkln(format!(" • Repository: {workflow_repo}"));
-        print.checkln(format!(" • Ref:        {workflow_ref}"));
-        print.checkln(format!(" • Path:       {workflow_path}"));
-        print.checkln(format!(" • Git Commit: {git_commit}"));
+        print.blankln(format!(" \x1b[34mRepository:\x1b[0m {workflow_repo}"));
+        print.blankln(format!(" \x1b[34mRef:\x1b[0m        {workflow_ref}"));
+        print.blankln(format!(" \x1b[34mPath:\x1b[0m       {workflow_path}"));
+        print.blankln(format!(" \x1b[34mGit Commit:\x1b[0m {git_commit}"));
         match runner_environment
         {
-            runner @ "github-hosted" => print.checkln(format!(" • Runner:     {runner}")),
-            runner => print.warnln(format!(" • Runner:     {runner} (runners not hosted by GitHub could have any configuration or environmental changes)")),
+            runner @ "github-hosted" => print.blankln(format!(" \x1b[34mRunner:\x1b[0m     {runner}")),
+            runner => print.warnln(format!(" \x1b[34mRunner:\x1b[0m     {runner} (runners not hosted by GitHub could have any configuration or environmental changes)")),
         }
-        print.checkln(format!(
-            " • Run:        {}",
+        print.blankln(format!(
+            " \x1b[34mRun:\x1b[0m        {}",
             payload.predicate.run_details.metadata.invocation_id
         ));
         print.globeln(format!(
@@ -135,6 +144,9 @@ impl Cmd {
         print.globeln(format!(
             "View the repo at {workflow_repo}/tree/{git_commit}"
         ));
+
+        println!();
+        print.warnln("\x1b[31mThe attestation verifies the build process, but please review the source code yourself.\x1b[0m".to_string());
 
         Ok(())
     }

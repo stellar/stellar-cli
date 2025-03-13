@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use crate::commands::global;
 
+pub mod build;
 pub mod env_meta;
 pub mod interface;
 pub mod meta;
@@ -49,26 +50,39 @@ pub enum Cmd {
     ///
     /// Outputs no data when no data is present in the contract.
     EnvMeta(env_meta::Cmd),
+
+    /// Output the contract build information, if available.
+    ///
+    /// If the contract has a meta entry like `source_repo=github:user/repo`, this command will try
+    /// to fetch the attestation information for the WASM file.
+    #[command(hide = true)]
+    Build(build::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Interface(#[from] interface::Error),
+
     #[error(transparent)]
     Meta(#[from] meta::Error),
+
     #[error(transparent)]
     EnvMeta(#[from] env_meta::Error),
+
+    #[error(transparent)]
+    Build(#[from] build::Error),
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let result = match &self {
+        match &self {
             Cmd::Interface(interface) => interface.run(global_args).await?,
             Cmd::Meta(meta) => meta.run(global_args).await?,
             Cmd::EnvMeta(env_meta) => env_meta.run(global_args).await?,
+            Cmd::Build(build) => build.run(global_args).await?,
         };
-        println!("{result}");
+
         Ok(())
     }
 }
