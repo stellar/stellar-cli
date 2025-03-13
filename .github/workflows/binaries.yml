@@ -54,20 +54,9 @@ jobs:
         echo "VERSION=${version}" >> $GITHUB_ENV
         echo "NAME=${{ matrix.crate.name }}-${version}-${{ matrix.sys.target }}" >> $GITHUB_ENV
 
-    - name: Package (release only)
-      if: github.event_name == 'release'
-      run: cargo package --no-verify --package ${{ matrix.crate.name }}
-    - name: Package Extract (release only)
-      if: github.event_name == 'release'
-      run: |
-        cd target/package
-        tar xvfz ${{ matrix.crate.name }}-$VERSION.crate
-        echo "BUILD_WORKING_DIR=target/package/${{ matrix.crate.name }}-$VERSION" >> $GITHUB_ENV
-
     - name: Build
-      working-directory: ${{ env.BUILD_WORKING_DIR }}
       run: |
-        cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
+        cargo build --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
     - name: Compress
       run: |
           cd target/${{ matrix.sys.target }}/release

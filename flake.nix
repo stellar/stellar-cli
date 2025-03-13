@@ -24,6 +24,7 @@
             openssl
             pkg-config
             jq
+            dbus
             (rust-bin.stable.latest.default.override {
               extensions = [ "rust-src" ];
               targets = [ "wasm32-unknown-unknown" ];
