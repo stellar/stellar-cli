@@ -55,7 +55,6 @@ pub enum Cmd {
     ///
     /// If the contract has a meta entry like `source_repo=github:user/repo`, this command will try
     /// to fetch the attestation information for the WASM file.
-    #[command(hide = true)]
     Build(build::Cmd),
 }
 
