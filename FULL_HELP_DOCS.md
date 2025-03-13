@@ -1515,12 +1515,21 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
+* `edit` — Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx edit`
+
+Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
+
+**Usage:** `stellar tx edit`
 
 
 
