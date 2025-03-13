@@ -49,7 +49,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        print.warnln("\x1b[31mThe attestation verifies the build process, but please review the source code yourself.\x1b[0m".to_string());
+        print.warnln("\x1b[31mThis command displays information about the GitHub Actions run that attested to have built the wasm, and does not verify the source code. Please review the run, its workflow, and source code.\x1b[0m".to_string());
 
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
