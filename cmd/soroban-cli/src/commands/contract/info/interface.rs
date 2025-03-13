@@ -44,7 +44,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<String, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
@@ -72,6 +72,8 @@ impl Cmd {
                 .expect("Unexpected spec format error"),
         };
 
-        Ok(res)
+        println!("{res}");
+
+        Ok(())
     }
 }
