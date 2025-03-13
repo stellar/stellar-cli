@@ -46,7 +46,7 @@ $ nix profile install github:stellar/stellar-cli
 
 Use GitHub Action:
 ```
-uses: stellar/stellar-cli@22.5.0
+uses: stellar/stellar-cli@v22.5.0
 ```
 
 ## Autocomplete
