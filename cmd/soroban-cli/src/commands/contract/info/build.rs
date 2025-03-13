@@ -49,6 +49,8 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
+        print.warnln("\x1b[31mThe attestation verifies the build process, but please review the source code yourself.\x1b[0m".to_string());
+
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
         let bytes = match contract {
@@ -144,9 +146,6 @@ impl Cmd {
         print.globeln(format!(
             "View the repo at {workflow_repo}/tree/{git_commit}"
         ));
-
-        println!();
-        print.warnln("\x1b[31mThe attestation verifies the build process, but please review the source code yourself.\x1b[0m".to_string());
 
         Ok(())
     }
