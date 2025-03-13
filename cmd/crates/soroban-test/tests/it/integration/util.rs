@@ -2,7 +2,7 @@ use soroban_cli::{
     commands,
     xdr::{Limits, WriteXdr},
 };
-use soroban_test::{TestEnv, Wasm};
+use soroban_test::{AssertExt, TestEnv, Wasm};
 use std::fmt::Display;
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
@@ -124,4 +124,14 @@ pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
         .args(args)
         .assert()
         .success();
+}
+
+pub fn test_address(sandbox: &TestEnv) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .assert()
+        .success()
+        .stdout_as_str()
 }
