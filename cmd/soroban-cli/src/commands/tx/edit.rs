@@ -113,6 +113,7 @@ fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Err
     let mut binding = process::Command::new(editor.cmd.clone());
     let command = binding.args(editor.args.clone()).arg(path);
 
+    // Windows doesn't have devices like /dev/tty.
     #[cfg(unix)]
     {
         use fs::File;
