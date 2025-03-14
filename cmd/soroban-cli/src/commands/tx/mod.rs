@@ -17,6 +17,15 @@ pub use args::Args;
 pub enum Cmd {
     /// Edit a transaction envelope from stdin. This command respects the environment variables
     /// `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+    ///
+    /// Example: Start a new edit session
+    ///
+    /// $ stellar tx edit
+    ///
+    /// Example: Pipe an XDR transaction envelope
+    ///
+    /// $ stellar tx new manage-data --data-name hello --build-only | stellar tx edit
+    ///
     Edit(edit::Cmd),
     /// Calculate the hash of a transaction envelope
     Hash(hash::Cmd),
