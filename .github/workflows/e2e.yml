@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   systems-test:
-    uses: stellar/system-test/.github/workflows/test.yml@main
+    uses: stellar/system-test/.github/workflows/test.yml@master
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
