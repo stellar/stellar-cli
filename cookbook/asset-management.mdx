@@ -117,6 +117,32 @@ stellar contract invoke \
   --id user
 ```
 
+### Transfer
+```
+stellar keys generate user2
+stellar keys public-key user2
+```
+```
+stellar keys use user
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  transfer \
+  --from user \
+  --to user2 \
+  --amount 3
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user2
+```
+
 ### Burn
 ```
 stellar keys use user
