@@ -66,14 +66,14 @@ echo ABC:$(stellar keys public-key issuer)
 ```
 stellar contract asset deploy \
   --asset ABC:$(stellar keys public-key issuer) \
-  --alias abc-asset
+  --alias abc
 ```
 
 Run a few commands to get some read only data from the contract to confirm it's there.
 ```
-stellar contract invoke --id abc-asset -- symbol
-stellar contract invoke --id abc-asset -- name
-stellar contract invoke --id abc-asset -- decimals
+stellar contract invoke --id abc -- symbol
+stellar contract invoke --id abc -- name
+stellar contract invoke --id abc -- decimals
 ```
 
 #### Admin Setup
@@ -85,7 +85,7 @@ stellar keys public-key admin
 stellar keys use admin
 ```
 ```
-stellar contract invoke --id abc-asset -- set_admin --new_admin admin
+stellar contract invoke --id abc -- set_admin --new_admin admin
 ```
 
 ### Mint
@@ -94,8 +94,8 @@ stellar keys generate user
 stellar keys public-key user
 ```
 ```
-stellar contract invoke --id abc-asset -- mint --to user --amount 25
-stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc -- mint --to user --amount 25
+stellar contract invoke --id abc -- balance --id user
 ```
 
 ### Transfer
@@ -105,36 +105,36 @@ stellar keys public-key user2
 ```
 ```
 stellar keys use user
-stellar contract invoke --id abc-asset -- transfer --from user --to user2 --amount 3
-stellar contract invoke --id abc-asset -- balance --id user
-stellar contract invoke --id abc-asset -- balance --id user2
+stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
+stellar contract invoke --id abc -- balance --id user
+stellar contract invoke --id abc -- balance --id user2
 ```
 
 ### Burn
 ```
 stellar keys use user
-stellar contract invoke --id abc-asset -- burn --from user --amount 5
-stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc -- burn --from user --amount 5
+stellar contract invoke --id abc -- balance --id user
 ```
 
 ### Freeze (revoke authorisation)
 ```
 stellar keys use admin
-stellar contract invoke --id abc-asset -- set_authorized --id user --authorize false
-stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc -- set_authorized --id user --authorize false
+stellar contract invoke --id abc -- balance --id user
 ```
 ```
 stellar keys generate user2
 stellar keys public-key user2
 stellar keys use user
-stellar contract invoke --id abc-asset -- transfer --from user --to user2 --amount 3
-stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
+stellar contract invoke --id abc -- balance --id user
 ```
 
 ### Clawback
 ```
 stellar keys use admin
-stellar contract invoke --id abc-asset -- clawback --from user --amount 25
-stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc -- clawback --from user --amount 25
+stellar contract invoke --id abc -- balance --id user
 ```
 
