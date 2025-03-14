@@ -46,17 +46,12 @@ stellar keys use issuer
 
 #### Issuer Config
 ```
-stellar tx new set-options \
-  --set-revocable \
-  --set-clawback-enabled
+stellar tx new set-options --set-revocable --set-clawback-enabled
 ```
 
 If you'd like to look at the tx before sending:
 ```
-stellar tx new set-options \
-  --set-revocable \
-  --set-clawback-enabled \
-  --build-only \
+stellar tx new set-options --set-revocable --set-clawback-enabled --build-only \
   | stellar tx edit \
   | stellar sign \
   | stellar send
@@ -90,13 +85,8 @@ stellar keys public-key admin
 stellar keys use admin
 ```
 ```
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  set_admin \
-  --new_admin=issuer
+stellar contract invoke --id abc-asset -- set_admin --new_admin admin
 ```
-
 
 ### Mint
 ```
@@ -104,17 +94,8 @@ stellar keys generate user
 stellar keys public-key user
 ```
 ```
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  mint \
-  --to user \
-  --amount 25
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
+stellar contract invoke --id abc-asset -- mint --to user --amount 25
+stellar contract invoke --id abc-asset -- balance --id user
 ```
 
 ### Transfer
@@ -124,87 +105,36 @@ stellar keys public-key user2
 ```
 ```
 stellar keys use user
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  transfer \
-  --from user \
-  --to user2 \
-  --amount 3
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user2
+stellar contract invoke --id abc-asset -- transfer --from user --to user2 --amount 3
+stellar contract invoke --id abc-asset -- balance --id user
+stellar contract invoke --id abc-asset -- balance --id user2
 ```
 
 ### Burn
 ```
 stellar keys use user
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  burn \
-  --from user
-  --amount 5
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
+stellar contract invoke --id abc-asset -- burn --from user --amount 5
+stellar contract invoke --id abc-asset -- balance --id user
 ```
 
 ### Freeze (revoke authorisation)
 ```
 stellar keys use admin
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  set_authorized \
-  --id user
-  --authorize false
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
+stellar contract invoke --id abc-asset -- set_authorized --id user --authorize false
+stellar contract invoke --id abc-asset -- balance --id user
 ```
 ```
 stellar keys generate user2
 stellar keys public-key user2
 stellar keys use user
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  transfer \
-  --from user
-  --to user2
-  --amount 3
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
+stellar contract invoke --id abc-asset -- transfer --from user --to user2 --amount 3
+stellar contract invoke --id abc-asset -- balance --id user
 ```
 
 ### Clawback
 ```
 stellar keys use admin
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  clawback \
-  --from user \
-  --amount 25
-stellar contract invoke \
-  --id abc-asset \
-  -- \
-  balance \
-  --id user
+stellar contract invoke --id abc-asset -- clawback --from user --amount 25
+stellar contract invoke --id abc-asset -- balance --id user
 ```
 
