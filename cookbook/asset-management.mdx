@@ -110,6 +110,11 @@ stellar contract invoke \
   mint \
   --to user \
   --amount 25
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
 ```
 
 ### Burn
@@ -120,7 +125,12 @@ stellar contract invoke \
   -- \
   burn \
   --from user
-  --amount 25
+  --amount 5
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
 ```
 
 ### Freeze (revoke authorisation)
@@ -132,6 +142,28 @@ stellar contract invoke \
   set_authorized \
   --id user
   --authorize false
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
+```
+```
+stellar keys generate user2
+stellar keys public-key user2
+stellar keys use user
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  transfer \
+  --from user
+  --to user2
+  --amount 3
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
 ```
 
 ### Clawback
@@ -143,5 +175,10 @@ stellar contract invoke \
   clawback \
   --from user
   --amount 25
+stellar contract invoke \
+  --id abc-asset \
+  -- \
+  balance \
+  --id user
 ```
 
