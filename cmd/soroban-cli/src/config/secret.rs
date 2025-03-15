@@ -161,10 +161,6 @@ impl Secret {
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
         Ok(seed_phrase_from_seed(seed)?.into())
     }
-
-    pub fn test_seed_phrase() -> Result<Self, Error> {
-        Self::from_seed(Some("0000000000000000"))
-    }
 }
 
 pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
@@ -173,10 +169,6 @@ pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
     } else {
         sep5::SeedPhrase::random(sep5::MnemonicType::Words24)?
     })
-}
-
-pub fn test_seed_phrase() -> Result<SeedPhrase, Error> {
-    Ok("0000000000000000".parse()?)
 }
 
 #[cfg(test)]

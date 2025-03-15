@@ -40,7 +40,7 @@ pub struct Cmd {
 
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
-    #[arg(long, conflicts_with = "default_seed")]
+    #[arg(long)]
     pub seed: Option<String>,
 
     /// Output the generated identity as a secret key
@@ -57,11 +57,6 @@ pub struct Cmd {
     /// When generating a secret key, which `hd_path` should be used from the original `seed_phrase`.
     #[arg(long)]
     pub hd_path: Option<usize>,
-
-    /// Generate the default seed phrase. Useful for testing.
-    /// Equivalent to --seed 0000000000000000
-    #[arg(long, short = 'd', conflicts_with = "seed")]
-    pub default_seed: bool,
 
     #[command(flatten)]
     pub network: network::Args,
@@ -142,11 +137,7 @@ impl Cmd {
     }
 
     fn seed_phrase(&self) -> Result<SeedPhrase, Error> {
-        Ok(if self.default_seed {
-            secret::test_seed_phrase()
-        } else {
-            secret::seed_phrase_from_seed(self.seed.as_deref())
-        }?)
+        Ok(secret::seed_phrase_from_seed(self.seed.as_deref())?)
     }
 }
 
@@ -171,7 +162,6 @@ mod tests {
             secure_store: false,
             config_locator: locator.clone(),
             hd_path: None,
-            default_seed: false,
             network: super::network::Args::default(),
             fund: false,
             overwrite: false,
