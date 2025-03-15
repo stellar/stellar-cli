@@ -82,7 +82,6 @@ Let's create another account that'll be the admin.
 ```
 stellar keys generate admin
 stellar keys public-key admin
-stellar keys use admin
 ```
 ```
 stellar contract invoke --id abc -- set_admin --new_admin admin
@@ -94,6 +93,7 @@ stellar keys generate user
 stellar keys public-key user
 ```
 ```
+stellar keys use admin
 stellar contract invoke --id abc -- mint --to user --amount 25
 stellar contract invoke --id abc -- balance --id user
 ```
