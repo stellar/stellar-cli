@@ -2,7 +2,9 @@ use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD, test_address};
+use crate::integration::util::{
+    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+};
 
 pub mod operations;
 

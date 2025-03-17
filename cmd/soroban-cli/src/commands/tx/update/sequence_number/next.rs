@@ -2,7 +2,9 @@ use crate::{
     commands::{
         global,
         tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
-    }, config, xdr::{self, SequenceNumber, TransactionEnvelope, WriteXdr}
+    },
+    config,
+    xdr::{self, SequenceNumber, TransactionEnvelope, WriteXdr},
 };
 
 #[derive(clap::Parser, Debug, Clone)]
@@ -53,11 +55,12 @@ impl Cmd {
         Ok(())
     }
 
-    async fn current_seq_num(&self) -> Result<i64, Error>{
+    async fn current_seq_num(&self) -> Result<i64, Error> {
         let network = &self.config.get_network()?;
         let client = network.rpc_client()?;
-        client.verify_network_passphrase(Some(&network.network_passphrase))
-        .await?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
 
         let muxed_account = self.config.source_account().await?;
 
@@ -66,8 +69,8 @@ impl Cmd {
             soroban_sdk::xdr::MuxedAccount::MuxedEd25519(muxed_account) => muxed_account.ed25519.0,
         };
         let address = stellar_strkey::ed25519::PublicKey(bytes).to_string();
-         
+
         let account = client.get_account(&address).await?;
-        Ok(account.seq_num.as_ref().clone())
+        Ok(*account.seq_num.as_ref())
     }
 }

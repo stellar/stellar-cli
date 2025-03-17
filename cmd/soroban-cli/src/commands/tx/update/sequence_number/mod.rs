@@ -4,7 +4,6 @@ mod next;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-
     /// Fetch the source account's seq-num and increment for the given tx
     #[command()]
     Next(next::Cmd),

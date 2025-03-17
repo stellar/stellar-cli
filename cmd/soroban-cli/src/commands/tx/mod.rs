@@ -1,7 +1,6 @@
 use super::global;
 
 pub mod args;
-pub mod update;
 pub mod edit;
 pub mod hash;
 pub mod help;
@@ -10,6 +9,7 @@ pub mod op;
 pub mod send;
 pub mod sign;
 pub mod simulate;
+pub mod update;
 pub mod xdr;
 
 pub use args::Args;
@@ -41,8 +41,6 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Update(#[from] update::Error),
-    #[error(transparent)]
     Hash(#[from] hash::Error),
     #[error(transparent)]
     New(#[from] new::Error),
@@ -58,12 +56,13 @@ pub enum Error {
     Args(#[from] args::Error),
     #[error(transparent)]
     Simulate(#[from] simulate::Error),
+    #[error(transparent)]
+    Update(#[from] update::Error),
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Update(cmd) => cmd.run(global_args).await?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
             Cmd::Edit(cmd) => cmd.run(global_args)?,
@@ -71,6 +70,7 @@ impl Cmd {
             Cmd::Send(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
+            Cmd::Update(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }
