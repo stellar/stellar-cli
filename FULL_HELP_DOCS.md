@@ -983,9 +983,15 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
+Pass a name to get the value of a single environment variable.
+
 If there are no environment variables in use, prints the defaults.
 
-**Usage:** `stellar env [OPTIONS]`
+**Usage:** `stellar env [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Env variable name to get the value of
 
 ###### **Options:**
 
