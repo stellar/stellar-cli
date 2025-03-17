@@ -991,7 +991,9 @@ If there are no environment variables in use, prints the defaults.
 
 ###### **Arguments:**
 
-* `<NAME>` — Env variable name to get the value of
+* `<NAME>` — Env variable name to get the value of.
+
+   E.g.: $ stellar env STELLAR_ACCOUNT
 
 ###### **Options:**
 
