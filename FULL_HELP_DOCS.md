@@ -524,6 +524,7 @@ Access info about contracts
 * `interface` — Output the interface of a contract
 * `meta` — Output the metadata stored in a contract
 * `env-meta` — Output the env required metadata stored in a contract
+* `build` — Output the contract build information, if available
 
 
 
@@ -644,6 +645,28 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted (multiline) JSON output of the info entry
 
+
+
+
+## `stellar contract info build`
+
+Output the contract build information, if available.
+
+If the contract has a meta entry like `source_repo=github:user/repo`, this command will try to fetch the attestation information for the WASM file.
+
+**Usage:** `stellar contract info build [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -1070,7 +1093,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
-* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1515,7 +1537,7 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
-* `edit` — Edit the transaction
+* `edit` — Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
@@ -1527,39 +1549,9 @@ Sign, Simulate, and Send transactions
 
 ## `stellar tx edit`
 
-Edit the transaction
+Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 
-**Usage:** `stellar tx edit <COMMAND>`
-
-###### **Subcommands:**
-
-* `sequence-number` — Set the sequence number on a transaction
-
-
-
-## `stellar tx edit sequence-number`
-
-Set the sequence number on a transaction
-
-**Usage:** `stellar tx edit sequence-number <COMMAND>`
-
-###### **Subcommands:**
-
-* `increment` — Increase the transaction's sequence number
-
-
-
-## `stellar tx edit sequence-number increment`
-
-Increase the transaction's sequence number
-
-**Usage:** `stellar tx edit sequence-number increment [AMOUNT]`
-
-###### **Arguments:**
-
-* `<AMOUNT>` — Amount to increment the sequence-number
-
-  Default value: `1`
+**Usage:** `stellar tx edit`
 
 
 

@@ -2,6 +2,7 @@ use super::global;
 
 pub mod args;
 pub mod update;
+pub mod edit;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -18,6 +19,9 @@ pub enum Cmd {
     /// Update the transaction
     #[command(subcommand)]
     Update(update::Cmd),
+    /// Edit a transaction envelope from stdin. This command respects the environment variables
+    /// `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+    Edit(edit::Cmd),
     /// Calculate the hash of a transaction envelope
     Hash(hash::Cmd),
     /// Create a new transaction
@@ -43,6 +47,8 @@ pub enum Error {
     #[error(transparent)]
     New(#[from] new::Error),
     #[error(transparent)]
+    Edit(#[from] edit::Error),
+    #[error(transparent)]
     Op(#[from] op::Error),
     #[error(transparent)]
     Send(#[from] send::Error),
@@ -60,6 +66,7 @@ impl Cmd {
             Cmd::Update(cmd) => cmd.run(global_args).await?,
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
+            Cmd::Edit(cmd) => cmd.run(global_args)?,
             Cmd::Operation(cmd) => cmd.run(global_args).await?,
             Cmd::Send(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
