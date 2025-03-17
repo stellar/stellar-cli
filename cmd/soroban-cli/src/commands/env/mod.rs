@@ -26,11 +26,11 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let mut lines: Vec<EnvVar> = Vec::new();
 
-        if let Some(data) = get("STELLAR_NETWORK") {
+        if let Some(data) = EnvVar::get("STELLAR_NETWORK") {
             lines.push(data);
         }
 
-        if let Some(data) = get("STELLAR_ACCOUNT") {
+        if let Some(data) = EnvVar::get("STELLAR_ACCOUNT") {
             lines.push(data);
         }
 
@@ -38,7 +38,7 @@ impl Cmd {
             if let Some(entry) = lines.iter().find(|var| &var.key == name) {
                 println!("{}", entry.value);
             }
-            Ok(())
+            return Ok(());
         }
 
         if lines.is_empty() {
@@ -74,7 +74,7 @@ impl EnvVar {
 
         if let Ok(value) = std::env::var(key) {
             return Some(EnvVar {
-                key: env_var.to_string(),
+                key: key.to_string(),
                 value,
                 source,
             });
