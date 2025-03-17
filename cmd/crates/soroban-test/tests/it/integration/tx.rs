@@ -78,9 +78,6 @@ fn test_tx_string(sandbox: &TestEnv) -> String {
 async fn sequence_number_next() {
     let sandbox = &TestEnv::new();
     let tx_base64 = test_tx_string(sandbox);
-    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
-    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-
     let test = test_address(sandbox);
     let client = sandbox.network.rpc_client().unwrap();
     let test_account = client.get_account(&test).await.unwrap();
@@ -88,7 +85,7 @@ async fn sequence_number_next() {
 
     let updated_tx = sandbox
         .new_assert_cmd("tx")
-        .arg("edit")
+        .arg("update")
         .arg("seq-num")
         .arg("next")
         .arg("--source")
