@@ -1537,6 +1537,7 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
+* `update` — Update the transaction
 * `edit` — Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
@@ -1544,6 +1545,49 @@ Sign, Simulate, and Send transactions
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx update`
+
+Update the transaction
+
+**Usage:** `stellar tx update <COMMAND>`
+
+###### **Subcommands:**
+
+* `sequence-number` — Edit the sequence number on a transaction
+
+
+
+## `stellar tx update sequence-number`
+
+Edit the sequence number on a transaction
+
+**Usage:** `stellar tx update sequence-number <COMMAND>`
+
+###### **Subcommands:**
+
+* `next` — Fetch the source account's seq-num and increment for the given tx
+
+
+
+## `stellar tx update sequence-number next`
+
+Fetch the source account's seq-num and increment for the given tx
+
+**Usage:** `stellar tx update sequence-number next [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
