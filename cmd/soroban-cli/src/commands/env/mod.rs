@@ -24,34 +24,34 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let mut lines: Vec<EnvVar> = Vec::new();
+        let mut vars: Vec<EnvVar> = Vec::new();
 
-        if let Some(data) = EnvVar::get("STELLAR_NETWORK") {
-            lines.push(data);
+        if let Some(v) = EnvVar::get("STELLAR_NETWORK") {
+            vars.push(v);
         }
 
-        if let Some(data) = EnvVar::get("STELLAR_ACCOUNT") {
-            lines.push(data);
+        if let Some(v) = EnvVar::get("STELLAR_ACCOUNT") {
+            vars.push(v);
         }
 
         if let Some(name) = &self.name {
-            if let Some(entry) = lines.iter().find(|var| &var.key == name) {
-                println!("{}", entry.value);
+            if let Some(v) = vars.iter().find(|v| &v.key == name) {
+                println!("{}", v.value);
             }
             return Ok(());
         }
 
-        if lines.is_empty() {
+        if vars.is_empty() {
             print.warnln("No defaults or environment variables set".to_string());
             return Ok(());
         }
 
-        let max_len = lines.iter().map(|v| v.str().len()).max().unwrap_or(0);
+        let max_len = vars.iter().map(|v| v.str().len()).max().unwrap_or(0);
 
-        lines.sort();
+        vars.sort();
 
-        for var in lines {
-            println!("{:max_len$} # {}", var.str(), var.source);
+        for v in vars {
+            println!("{:max_len$} # {}", v.str(), v.source);
         }
 
         Ok(())
