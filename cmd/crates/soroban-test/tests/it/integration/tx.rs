@@ -2,7 +2,7 @@ use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD, test_address};
 
 pub mod operations;
 
@@ -74,54 +74,35 @@ fn test_tx_string(sandbox: &TestEnv) -> String {
         .stdout_as_str()
 }
 
-#[test]
-fn sequence_number_increment_default() {
+#[tokio::test]
+async fn sequence_number_next() {
     let sandbox = &TestEnv::new();
     let tx_base64 = test_tx_string(sandbox);
     let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-    let current_seq_num = tx.seq_num.as_ref();
+
+    let test = test_address(sandbox);
+    let client = sandbox.network.rpc_client().unwrap();
+    let test_account = client.get_account(&test).await.unwrap();
+    let test_account_seq_num = test_account.seq_num.as_ref();
 
     let updated_tx = sandbox
         .new_assert_cmd("tx")
         .arg("edit")
         .arg("seq-num")
-        .arg("inc")
+        .arg("next")
+        .arg("--source")
+        .arg("test") // there is an account created in TestEnv with an alias "test"
         .write_stdin(tx_base64.as_bytes())
         .assert()
         .success()
         .stdout_as_str();
+
     let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
     assert_eq!(
         tx.seq_num,
-        soroban_cli::xdr::SequenceNumber(current_seq_num + 1)
-    );
-}
-
-#[test]
-fn sequence_number_increment_with_amount() {
-    let sandbox = &TestEnv::new();
-    let tx_base64 = test_tx_string(sandbox);
-    let tx_env = TransactionEnvelope::from_xdr_base64(&tx_base64, Limits::none()).unwrap();
-    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env).unwrap();
-    let current_seq_num = tx.seq_num.as_ref();
-
-    let updated_tx = sandbox
-        .new_assert_cmd("tx")
-        .arg("edit")
-        .arg("sequence-number")
-        .arg("increment")
-        .arg("2")
-        .write_stdin(tx_base64.as_bytes())
-        .assert()
-        .success()
-        .stdout_as_str();
-    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
-    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
-    assert_eq!(
-        tx.seq_num,
-        soroban_cli::xdr::SequenceNumber(current_seq_num + 2)
+        soroban_cli::xdr::SequenceNumber(test_account_seq_num + 1)
     );
 }
 

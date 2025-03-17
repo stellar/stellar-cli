@@ -1,24 +1,25 @@
 use super::global;
 
-mod increment;
+mod next;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Increase the transaction's sequence number
-    #[command(visible_alias = "inc")]
-    Increment(increment::Cmd),
+
+    /// Fetch the source account's seq-num and increment for the given tx
+    #[command()]
+    Next(next::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Increment(#[from] increment::Error),
+    Next(#[from] next::Error),
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Increment(cmd) => cmd.run(global_args)?,
+            Cmd::Next(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }
