@@ -524,6 +524,7 @@ Access info about contracts
 * `interface` — Output the interface of a contract
 * `meta` — Output the metadata stored in a contract
 * `env-meta` — Output the env required metadata stored in a contract
+* `build` — Output the contract build information, if available
 
 
 
@@ -644,6 +645,28 @@ Outputs no data when no data is present in the contract.
   - `json-formatted`:
     Formatted (multiline) JSON output of the info entry
 
+
+
+
+## `stellar contract info build`
+
+Output the contract build information, if available.
+
+If the contract has a meta entry like `source_repo=github:user/repo`, this command will try to fetch the attestation information for the WASM file.
+
+**Usage:** `stellar contract info build [OPTIONS] <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
+
+###### **Options:**
+
+* `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
+* `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
+* `--contract-id <CONTRACT_ID>` — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
@@ -960,9 +983,17 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
+Pass a name to get the value of a single environment variable.
+
 If there are no environment variables in use, prints the defaults.
 
-**Usage:** `stellar env [OPTIONS]`
+**Usage:** `stellar env [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Env variable name to get the value of.
+
+   E.g.: $ stellar env STELLAR_ACCOUNT
 
 ###### **Options:**
 
@@ -1070,7 +1101,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
-* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1515,12 +1545,29 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
+* `edit` — Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
 * `operation` — Manipulate the operations in a transaction, including adding new operations
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx edit`
+
+Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+
+Example: Start a new edit session
+
+$ stellar tx edit
+
+Example: Pipe an XDR transaction envelope
+
+$ stellar tx new manage-data --data-name hello --build-only | stellar tx edit
+
+**Usage:** `stellar tx edit`
 
 
 

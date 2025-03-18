@@ -63,7 +63,7 @@ jobs:
           target: x86_64-unknown-linux-gnu
         - os: ubuntu-jammy-16-cores-arm64
           target: aarch64-unknown-linux-gnu
-        - os: macos-latest
+        - os: macos-13
           target: x86_64-apple-darwin
         - os: macos-latest
           target: aarch64-apple-darwin
@@ -85,7 +85,7 @@ jobs:
       # Only error on warnings and checks for the msrv, because new versions of
       # Rust will frequently add new warnings and checks.
       if: matrix.rust == 'msrv'
-      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
+      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic -Aclippy::doc_markdown' >> $GITHUB_ENV
     - run: rustup update
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
@@ -130,7 +130,7 @@ jobs:
         #  target: aarch64-unknown-linux-gnu
         #  cargo-hack-feature-options: --feature-powerset
         #  additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
-        - os: macos-latest
+        - os: macos-13
           target: x86_64-apple-darwin
           cargo-hack-feature-options: --feature-powerset
         - os: macos-latest
