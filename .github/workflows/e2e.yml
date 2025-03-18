@@ -25,7 +25,7 @@ jobs:
           - os: macos-latest
             # Not supported yet
           # - os: windows-latest-8-cores
-    uses: stellar/system-test/.github/workflows/test.yml@1848d134efbab80687b69a3264382fefefc18e74
+    uses: stellar/system-test/.github/workflows/test.yml@c895dc10c4f8b1d27d0c760531f2ab2e76b44236
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
