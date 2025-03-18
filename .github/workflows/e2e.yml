@@ -29,3 +29,4 @@ jobs:
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
+      runner: ${{ matrix.sys.os }}
