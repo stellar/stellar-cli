@@ -983,9 +983,17 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
+Pass a name to get the value of a single environment variable.
+
 If there are no environment variables in use, prints the defaults.
 
-**Usage:** `stellar env [OPTIONS]`
+**Usage:** `stellar env [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Env variable name to get the value of.
+
+   E.g.: $ stellar env STELLAR_ACCOUNT
 
 ###### **Options:**
 
@@ -1093,7 +1101,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
-* `-d`, `--default-seed` — Generate the default seed phrase. Useful for testing. Equivalent to --seed 0000000000000000
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
