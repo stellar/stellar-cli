@@ -98,7 +98,7 @@ jobs:
         if: runner.os !=  'windows'
         shell: bash
       - run: |
-          docker run -d --name quickstart -p 8000:8000 -v /tmp/logs:/var/log/supervisor/ -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'" --health-interval 10s --health-timeout 5s --health-retries 50 stellar/quickstart:testing
+          docker run -d --name quickstart -p 8000:8000 -v C:\a\_temp\logs:/var/log/supervisor/ -e ENABLE_LOGS=true -e NETWORK=local -e ENABLE_SOROBAN_RPC=true --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'" --health-interval 10s --health-timeout 5s --health-retries 50 stellar/quickstart:testing
         if: runner.os ==  'windows'
         shell: wsl-run {0}
       - run: |
@@ -162,4 +162,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: quickstart-logs
-          path: /tmp/logs
+          path: C:\a\_temp\logs
