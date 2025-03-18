@@ -983,9 +983,17 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
+Pass a name to get the value of a single environment variable.
+
 If there are no environment variables in use, prints the defaults.
 
-**Usage:** `stellar env [OPTIONS]`
+**Usage:** `stellar env [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Env variable name to get the value of.
+
+   E.g.: $ stellar env STELLAR_ACCOUNT
 
 ###### **Options:**
 
@@ -1593,7 +1601,15 @@ Fetch the source account's seq-num and increment for the given tx
 
 ## `stellar tx edit`
 
-Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
+Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+
+Example: Start a new edit session
+
+$ stellar tx edit
+
+Example: Pipe an XDR transaction envelope
+
+$ stellar tx new manage-data --data-name hello --build-only | stellar tx edit
 
 **Usage:** `stellar tx edit`
 

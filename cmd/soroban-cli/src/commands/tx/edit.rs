@@ -11,6 +11,9 @@ use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
 
+const SCHEMA_URL: &str =
+    "https://github.com/stellar/rs-stellar-xdr/raw/main/xdr-json/curr/TransactionEnvelope.json";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -27,9 +30,6 @@ pub enum Error {
 
     #[error("Editor returned non-zero status")]
     EditorNonZeroStatus,
-
-    #[error("No stdin detected")]
-    NoStdin,
 }
 
 // Command to edit the transaction
@@ -42,7 +42,7 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let json: String = if stdin().is_terminal() {
-            return Err(Error::NoStdin);
+            default_json()
         } else {
             let mut input = String::new();
             stdin().read_line(&mut input)?;
@@ -143,9 +143,7 @@ where
 {
     let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
-    schema["$schema"] = json!(
-        "https://github.com/stellar/rs-stellar-xdr/raw/main/xdr-json/curr/TransactionEnvelope.json"
-    );
+    schema["$schema"] = json!(SCHEMA_URL);
     let json = serde_json::to_string_pretty(&schema)?;
 
     Ok(json)
@@ -170,4 +168,25 @@ where
     value.write_xdr(&mut limit)?;
 
     Ok(value.to_xdr_base64(curr::Limits::none())?)
+}
+
+fn default_json() -> String {
+    format!(
+        r#"{{
+  "$schema": "{SCHEMA_URL}",
+  "tx": {{
+    "tx": {{
+      "source_account": "",
+      "fee": 100,
+      "seq_num": 0,
+      "cond": "none",
+      "memo": "none",
+      "operations": [],
+      "ext": "v0"
+    }},
+    "signatures": []
+  }}
+}}
+"#
+    )
 }

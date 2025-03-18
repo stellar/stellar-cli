@@ -148,6 +148,8 @@ pub enum Cmd {
     /// Prints to stdout in a format that can be used as .env file. Environment
     /// variables have precedence over defaults.
     ///
+    /// Pass a name to get the value of a single environment variable.
+    ///
     /// If there are no environment variables in use, prints the defaults.
     Env(env::Cmd),
 

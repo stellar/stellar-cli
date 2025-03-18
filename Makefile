@@ -1,6 +1,6 @@
 all: check build test
 
-export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
+export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic -Aclippy::doc_markdown
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
 ifeq (${REPOSITORY_COMMIT_HASH},"")
