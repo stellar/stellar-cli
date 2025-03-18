@@ -12,6 +12,8 @@ pub enum Error {
     Keyring(#[from] keyring::Error),
     #[error(transparent)]
     Sep5(#[from] sep5::error::Error),
+    #[error("Secure Store keys are not allowed: additional-libs feature must be enabled")]
+    FeatureNotEnabled,
 }
 
 pub struct StellarEntry {
@@ -20,9 +22,12 @@ pub struct StellarEntry {
 
 impl StellarEntry {
     pub fn new(name: &str) -> Result<Self, Error> {
-        Ok(StellarEntry {
+        #[cfg(feature = "additional-libs")]
+        return Ok(StellarEntry {
             keyring: Entry::new(name, &whoami::username())?,
-        })
+        });
+
+        return Err(Error::FeatureNotEnabled);
     }
 
     pub fn set_seed_phrase(&self, seed_phrase: SeedPhrase) -> Result<(), Error> {
