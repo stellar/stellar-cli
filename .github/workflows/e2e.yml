@@ -24,7 +24,7 @@ jobs:
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
-    uses: stellar/system-test/.github/workflows/test.yml@65f5a3da9f0da94047f1657f6ace7a9622c9802d
+    uses: stellar/system-test/.github/workflows/test.yml@02f8f58a1f9623342596eae5be45d21ecd2b4987
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
