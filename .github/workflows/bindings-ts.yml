@@ -156,6 +156,7 @@ jobs:
         run: |
           docker container inspect quickstart
           docker container logs quickstart -n 1000
+          docker cp quickstart:/var/log/supervisor/ C:\a\_temp\logs
         shell: wsl-run {0}
       - name: logs upload
         if: always() && runner.os == 'windows'
