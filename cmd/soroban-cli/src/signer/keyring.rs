@@ -1,22 +1,30 @@
 use ed25519_dalek::Signer;
-use keyring::Entry;
 use sep5::seed_phrase::SeedPhrase;
 use zeroize::Zeroize;
+use crate::print::Print;
+
+#[cfg(feature = "additional-libs")]
+use keyring::Entry;
 
 pub(crate) const SECURE_STORE_ENTRY_PREFIX: &str = "secure_store:";
 pub(crate) const SECURE_STORE_ENTRY_SERVICE: &str = "org.stellar.cli";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
+
     #[error(transparent)]
     Sep5(#[from] sep5::error::Error),
+
     #[error("Secure Store keys are not allowed: additional-libs feature must be enabled")]
     FeatureNotEnabled,
 }
 
 pub struct StellarEntry {
+    name: String,
+    #[cfg(feature = "additional-libs")]
     keyring: Entry,
 }
 
@@ -24,25 +32,52 @@ impl StellarEntry {
     pub fn new(name: &str) -> Result<Self, Error> {
         #[cfg(feature = "additional-libs")]
         return Ok(StellarEntry {
+            name: name.to_string(),
             keyring: Entry::new(name, &whoami::username())?,
         });
 
         return Err(Error::FeatureNotEnabled);
     }
 
-    pub fn set_seed_phrase(&self, seed_phrase: SeedPhrase) -> Result<(), Error> {
-        let mut data = seed_phrase.seed_phrase.into_phrase();
-        self.keyring.set_password(&data)?;
-        data.zeroize();
+    pub(crate) fn write(&self, seed_phrase: SeedPhrase, print: &Print) -> Result<(), Error> {
+        if let Ok(key) = self.get_public_key(None) {
+            print.warnln(format!(
+                "A key for {0} already exists in your operating system's secure store: {1}",
+            self.name, key));
+        } else {
+            print.infoln(format!(
+                "Saving a new key to your operating system's secure store: {0}", self.name
+            ));
+            self.set_seed_phrase(seed_phrase)?;
+        };
         Ok(())
     }
 
+    fn set_seed_phrase(&self, seed_phrase: SeedPhrase) -> Result<(), Error> {
+        let mut data = seed_phrase.seed_phrase.into_phrase();
+
+        #[cfg(feature = "additional-libs")]
+        {
+            self.keyring.set_password(&data)?;
+            data.zeroize();
+            return Ok(());
+        }
+
+        return Err(Error::FeatureNotEnabled);
+    }
+
     pub fn delete_seed_phrase(&self) -> Result<(), Error> {
-        Ok(self.keyring.delete_credential()?)
+        #[cfg(feature = "additional-libs")]
+        return Ok(self.keyring.delete_credential()?);
+
+        return Err(Error::FeatureNotEnabled);
     }
 
     fn get_seed_phrase(&self) -> Result<SeedPhrase, Error> {
-        Ok(self.keyring.get_password()?.parse()?)
+        #[cfg(feature = "additional-libs")]
+        return Ok(self.keyring.get_password()?.parse()?);
+
+        return Err(Error::FeatureNotEnabled);
     }
 
     fn use_key<T>(
