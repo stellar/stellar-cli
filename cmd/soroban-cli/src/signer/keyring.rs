@@ -66,9 +66,23 @@ impl StellarEntry {
         return Err(Error::FeatureNotEnabled);
     }
 
-    pub fn delete_seed_phrase(&self) -> Result<(), Error> {
+    pub fn delete_seed_phrase(&self, print: &Print) -> Result<(), Error> {
         #[cfg(feature = "additional-libs")]
-        return Ok(self.keyring.delete_credential()?);
+        {
+            return match self.keyring.delete_credential() {
+                Ok(()) => Ok(()),
+                Err(e) => match e {
+                    keyring::Error::NoEntry => {
+                        print.infoln("This key was already removed from the secure store.");
+                        Ok(())
+                    }
+                    _ => {
+                       Err(Error::Keyring(e.into()))
+                    }
+                }
+
+            }
+        }
 
         return Err(Error::FeatureNotEnabled);
     }

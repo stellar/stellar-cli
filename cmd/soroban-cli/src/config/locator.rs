@@ -302,19 +302,10 @@ impl Args {
 
         if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
             let entry = StellarEntry::new(&entry_name)?;
-            match entry.delete_seed_phrase() {
-                Ok(()) => {}
-                Err(e) => match e {
-                    signer::keyring::Error::Keyring(keyring::Error::NoEntry) => {
-                        print.infoln("This key was already removed from the secure store. Removing the cli config file.");
-                    }
-                    _ => {
-                        return Err(Error::Keyring(e));
-                    }
-                },
-            }
+            entry.delete_seed_phrase(&print)?;
         }
 
+        print.infoln("Removing the key's cli config file");
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 
