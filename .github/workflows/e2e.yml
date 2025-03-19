@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   systems-test:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -29,3 +30,10 @@ jobs:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: ${{ matrix.sys.os }}
+  systems-test-linux:
+    if: github.event_name != 'push'
+    uses: stellar/system-test/.github/workflows/test.yml@607c09374ece169f2ad238877b49ebcd3e86cf5b
+    with:
+      stellar-cli-ref: ${{ github.ref }}
+      test-filter: "^TestDappDevelop$/^.*$"
+      runner: "ubuntu-latest"
