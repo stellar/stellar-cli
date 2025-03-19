@@ -26,6 +26,8 @@ bin-dir = "{ bin }{ binary-ext }"
 
 [features]
 default = []
+version_lt_23 = []
+version_gte_23 = []
 opt = ["soroban-cli/opt"]
 emulator-tests = ["soroban-cli/emulator-tests"]
 
