@@ -142,6 +142,8 @@ impl StellarEntry {
 
 #[cfg(test)]
 mod test {
+    use crate::print;
+
     use super::*;
     use keyring::{mock, set_default_credential_builder};
 
@@ -219,7 +221,8 @@ mod test {
         assert!(get_seed_phrase_result.is_ok());
 
         // delete the password
-        let delete_seed_phrase_result = entry.delete_seed_phrase();
+        let print = print::Print::new(true);
+        let delete_seed_phrase_result = entry.delete_seed_phrase(&print);
         assert!(delete_seed_phrase_result.is_ok());
 
         // confirm the entry is gone
