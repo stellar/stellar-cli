@@ -125,7 +125,7 @@ jobs:
           target: x86_64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-private --ignore-unknown-features
           additional-deb-packages: libudev-dev libdbus-1-dev
-        - os: ubuntu-latest-16-cores
+        - os: ubuntu-jammy-16-cores-arm64
           target: aarch64-unknown-linux-gnu
           cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-private --ignore-unknown-features
           additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
