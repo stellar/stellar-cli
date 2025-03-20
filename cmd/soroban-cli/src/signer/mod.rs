@@ -377,7 +377,6 @@ pub struct SecureStoreEntry {
     pub hd_path: Option<usize>,
 }
 
-// move this to secure_store
 impl SecureStoreEntry {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let hint = SignatureHint(secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?);
