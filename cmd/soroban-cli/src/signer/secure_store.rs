@@ -21,6 +21,22 @@ pub enum Error {
     FeatureNotEnabled,
 }
 
+
+pub fn delete_secret(
+    print: &Print,
+    entry_name: &str,
+) -> Result<(), Error> {
+
+    #[cfg(feature = "additional-libs")]
+    {
+        let entry = StellarEntry::new(entry_name)?;
+        entry.delete_seed_phrase(print)?;
+
+        return Ok(())
+    }
+    return Err(Error::FeatureNotEnabled);
+}
+
 pub fn save_secret(
     print: &Print,
     entry_name: &str,
@@ -47,5 +63,4 @@ pub fn save_secret(
         return Ok(entry_name_with_prefix)
     }
     return Err(Error::FeatureNotEnabled);
-
 }
