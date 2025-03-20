@@ -1,7 +1,7 @@
+use crate::print::Print;
 use ed25519_dalek::Signer;
 use sep5::seed_phrase::SeedPhrase;
 use zeroize::Zeroize;
-use crate::print::Print;
 
 use keyring::Entry;
 
@@ -36,10 +36,12 @@ impl StellarEntry {
         if let Ok(key) = self.get_public_key(None) {
             print.warnln(format!(
                 "A key for {0} already exists in your operating system's secure store: {1}",
-            self.name, key));
+                self.name, key
+            ));
         } else {
             print.infoln(format!(
-                "Saving a new key to your operating system's secure store: {0}", self.name
+                "Saving a new key to your operating system's secure store: {0}",
+                self.name
             ));
             self.set_seed_phrase(seed_phrase)?;
         };
@@ -62,11 +64,8 @@ impl StellarEntry {
                     print.infoln("This key was already removed from the secure store.");
                     Ok(())
                 }
-                _ => {
-                    Err(Error::Keyring(e.into()))
-                }
-            }
-
+                _ => Err(Error::Keyring(e)),
+            },
         }
     }
 
