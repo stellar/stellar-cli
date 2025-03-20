@@ -12,8 +12,10 @@ use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
-pub mod keyring;
 pub mod secure_store;
+
+#[cfg(feature = "additional-libs")]
+mod keyring;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
