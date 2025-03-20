@@ -6,9 +6,6 @@ use crate::print::Print;
 #[cfg(feature = "additional-libs")]
 use keyring::Entry;
 
-pub(crate) const SECURE_STORE_ENTRY_PREFIX: &str = "secure_store:";
-pub(crate) const SECURE_STORE_ENTRY_SERVICE: &str = "org.stellar.cli";
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[cfg(feature = "additional-libs")]

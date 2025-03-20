@@ -1,9 +1,13 @@
 use sep5::SeedPhrase;
+use stellar_strkey::ed25519::PublicKey;
 
 use crate::print::Print;
 
 #[cfg(feature = "additional-libs")]
 use crate::signer::keyring::{self, StellarEntry};
+
+pub(crate) const ENTRY_PREFIX: &str = "secure_store:";
+pub(crate) const ENTRY_SERVICE: &str = "org.stellar.cli";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,6 +25,19 @@ pub enum Error {
     FeatureNotEnabled,
 }
 
+//TODO: pass in print to keyring method?
+pub fn get_public_key(
+    entry_name: &str,
+    index: Option<usize>,
+) -> Result<PublicKey, Error> {
+
+    #[cfg(feature = "additional-libs")]
+    {
+        let entry = StellarEntry::new(entry_name)?;
+        return Ok(entry.get_public_key(index)?)
+    }
+    return Err(Error::FeatureNotEnabled);
+}
 
 pub fn delete_secret(
     print: &Print,
@@ -48,8 +65,8 @@ pub fn save_secret(
         // secure_store:org.stellar.cli:<key name>
         let entry_name_with_prefix = format!(
             "{}{}-{}",
-            keyring::SECURE_STORE_ENTRY_PREFIX,
-            keyring::SECURE_STORE_ENTRY_SERVICE,
+            ENTRY_PREFIX,
+            ENTRY_SERVICE,
             entry_name
         );
 
