@@ -120,7 +120,7 @@ jobs:
 
       - name: Compress
         run: |
-          tar czvf ${{ env.NAME }}.tar.gz cookbook
+          tar czvf ${{ env.NAME }}.tar.gz cookbook FULL_HELP_DOCS.md
 
       - name: Upload to Artifacts
         uses: ./.github/actions/artifact-upload
