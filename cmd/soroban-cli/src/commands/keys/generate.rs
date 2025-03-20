@@ -127,7 +127,7 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            let secret = secure_store::save_secret(print, &self.name, seed_phrase)?;
+            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
             Ok(secret.parse()?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
@@ -214,7 +214,6 @@ mod tests {
         let identity = test_locator.read_identity("test_name").unwrap();
         assert!(matches!(identity, Key::Secret(Secret::SecureStore { .. })));
     }
-
 
     #[tokio::test]
     async fn test_storing_in_secure_store_returns_error_when_additional_libs_not_enabled() {
