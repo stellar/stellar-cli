@@ -42,6 +42,9 @@ pub enum Error {
     ReturningSignatureFromLab,
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
+    #[error(transparent)]
+    SecureStore(#[from] secure_store::Error),
+
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -376,10 +379,12 @@ pub struct SecureStoreEntry {
     pub hd_path: Option<usize>,
 }
 
+// move this to secure_store
 impl SecureStoreEntry {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let entry = StellarEntry::new(&self.name)?;
-        let hint = SignatureHint(entry.get_public_key(self.hd_path)?.0[28..].try_into()?);
+
+        let hint = SignatureHint(secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?);
         let signed_tx_hash = entry.sign_data(&tx_hash, self.hd_path)?;
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
