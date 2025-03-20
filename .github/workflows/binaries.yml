@@ -106,3 +106,24 @@ jobs:
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
           path: ${{ env.STELLAR_CLI_INSTALLER }}
+
+  cookbook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup vars
+        run: |
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "NAME=stellar-cli-${version}-docs-cookbook" >> $GITHUB_ENV
+
+      - name: Compress
+        run: |
+          tar czvf ${{ env.NAME }}.tar.gz cookbook
+
+      - name: Upload to Artifacts
+        uses: ./.github/actions/artifact-upload
+        with:
+          name: ${{ env.NAME }}.tar.gz
+          path: ${{ env.NAME }}.tar.gz
