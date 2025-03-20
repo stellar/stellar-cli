@@ -140,6 +140,7 @@ impl StellarEntry {
     }
 }
 
+#[cfg(feature = "additional-libs")]
 #[cfg(test)]
 mod test {
     use crate::print;
