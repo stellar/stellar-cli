@@ -81,3 +81,16 @@ pub fn save_secret(
     }
     return Err(Error::FeatureNotEnabled);
 }
+
+pub fn sign_tx_data(
+    entry_name: &str,
+    hd_path: Option<usize>,
+    data: &[u8],
+) -> Result<Vec<u8>, Error> {
+    #[cfg(feature = "additional-libs")]
+    {
+        let entry = StellarEntry::new(entry_name)?;
+        return Ok(entry.sign_data(data, hd_path)?)
+    }
+    return Err(Error::FeatureNotEnabled);
+}
