@@ -39,7 +39,7 @@ impl StellarEntry {
         return Err(Error::FeatureNotEnabled);
     }
 
-    pub(crate) fn write(&self, seed_phrase: SeedPhrase, print: &Print) -> Result<(), Error> {
+    pub fn write(&self, seed_phrase: SeedPhrase, print: &Print) -> Result<(), Error> {
         if let Ok(key) = self.get_public_key(None) {
             print.warnln(format!(
                 "A key for {0} already exists in your operating system's secure store: {1}",

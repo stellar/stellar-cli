@@ -1,25 +1,12 @@
 use sep5::SeedPhrase;
 
-use crate::{
-    config::{
-        address::KeyName,
-        locator,
-        secret::{self, Secret},
-    },
-    print::Print,
-};
+use crate::print::Print;
 
 #[cfg(feature = "additional-libs")]
 use crate::signer::keyring::{self, StellarEntry};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Config(#[from] locator::Error),
-
-    #[error(transparent)]
-    Secret(#[from] secret::Error),
-
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
@@ -36,9 +23,9 @@ pub enum Error {
 
 pub fn save_secret(
     print: &Print,
-    entry_name: &KeyName,
+    entry_name: &str,
     seed_phrase: SeedPhrase,
-) -> Result<Secret, Error> {
+) -> Result<String, Error> {
 
     #[cfg(feature = "additional-libs")]
     {
@@ -51,14 +38,13 @@ pub fn save_secret(
         );
 
         //checking that the entry name is valid before writing to the secure store
-        let secret: Secret = entry_name_with_prefix.parse()?;
+        // let secret = entry_name_with_prefix.parse()?;
+        // without this, we end up saving to the keychain without verifying that it is a valid secret name. FIXME
 
-        if let Secret::SecureStore { entry_name } = &secret {
-            let entry = StellarEntry::new(entry_name)?;
-            entry.write(seed_phrase, print)?;
-        }
+        let entry = StellarEntry::new(entry_name)?;
+        entry.write(seed_phrase, print)?;
 
-        return Ok(secret)
+        return Ok(entry_name_with_prefix)
     }
     return Err(Error::FeatureNotEnabled);
 

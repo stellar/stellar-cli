@@ -81,7 +81,8 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            Ok(secure_store::save_secret(print, &self.name, seed_phrase)?)
+            let secret = secure_store::save_secret(print, &self.name, seed_phrase)?;
+            Ok(secret.parse()?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
