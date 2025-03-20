@@ -66,7 +66,7 @@ mod secure_store_impl {
         // let secret = entry_name_with_prefix.parse()?;
         // without this, we end up saving to the keychain without verifying that it is a valid secret name. FIXME
 
-        let entry = StellarEntry::new(entry_name)?;
+        let entry = StellarEntry::new(&entry_name_with_prefix)?;
         entry.write(seed_phrase, print)?;
 
         return Ok(entry_name_with_prefix)
