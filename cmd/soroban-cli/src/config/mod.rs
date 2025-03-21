@@ -89,12 +89,17 @@ impl Args {
 
     #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = self.key_pair()?;
+        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let print = Print::new(false);
+        let signer = key.signer(self.hd_path, print).await.unwrap(); // todo: handle unwrap!
+
+
+        // let key = self.key_pair()?;
         let network = &self.get_network()?;
-        let signer = Signer {
-            kind: SignerKind::Local(LocalKey { key }),
-            print: Print::new(false),
-        };
+        // let signer = Signer {
+        //     kind: SignerKind::Local(LocalKey { key }),
+        //     print: Print::new(false),
+        // };
         Ok(signer.sign_tx(tx, network).await?)
     }
 
