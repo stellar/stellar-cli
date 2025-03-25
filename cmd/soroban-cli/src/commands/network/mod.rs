@@ -3,7 +3,7 @@ use clap::Parser;
 
 pub mod add;
 pub mod default;
-mod health;
+pub mod health;
 pub mod ls;
 pub mod rm;
 

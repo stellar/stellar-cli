@@ -42,15 +42,19 @@ impl Cmd {
         match result {
             Ok(resp) => match self.output {
                 OutputFormat::Text => {
-                    print.emoji_println('🟢', "Healthy");
+                    if resp.status.to_ascii_lowercase() == "healthy" {
+                        print.checkln("Healthy");
+                    } else {
+                        print.warnln(format!("Status: {}", resp.status));
+                    }
                     println!("Latest ledger: {}", resp.latest_ledger);
                 }
                 OutputFormat::Json => println!("{}", serde_json::to_string(&resp)?),
                 OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&resp)?),
             },
             Err(err) => {
+                print.errorln("Unhealthy");
                 print.errorln(format!("failed to fetch network health: {err}"));
-                print.emoji_println('🔴', "Unhealthy");
             }
         }
 
