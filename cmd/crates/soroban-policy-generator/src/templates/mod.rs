@@ -49,6 +49,40 @@ inherit = true"#,
     )?;
 
     handlebars.register_template_string(
+        "makefile",
+        r#"SOROBAN_RPC_URL ?= https://soroban-testnet.stellar.org
+SOROBAN_NETWORK_PASSPHRASE ?= "Test SDF Network ; September 2015"
+SOROBAN_SECRET_KEY ?= $(shell cat .soroban/secret_key)
+POLICY_ID ?= $(shell cat .soroban/policy_id)
+
+all: build
+
+build:
+	@cargo build --target wasm32-unknown-unknown --release
+	@mkdir -p .soroban
+	@ls -l target/wasm32-unknown-unknown/release/{{policy_name}}.wasm
+
+optimize: build
+	@soroban contract optimize \
+		--wasm target/wasm32-unknown-unknown/release/{{policy_name}}.wasm \
+		--wasm-out .soroban/{{policy_name}}_optimized.wasm
+
+deploy: optimize
+	@soroban contract deploy \
+		--wasm .soroban/{{policy_name}}_optimized.wasm \
+		--source $(SOROBAN_SECRET_KEY) \
+		--rpc-url $(SOROBAN_RPC_URL) \
+		--network-passphrase $(SOROBAN_NETWORK_PASSPHRASE) \
+		> .soroban/policy_id
+
+clean:
+	@cargo clean
+	@rm -rf .soroban/{{policy_name}}_optimized.wasm
+
+.PHONY: all build optimize deploy clean"#,
+    )?;
+
+    handlebars.register_template_string(
         "lib_rs",
         r#"#![no_std]
 
