@@ -6,7 +6,7 @@ members = [
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
-    "cmd/crates/soroban-test/tests/fixtures/bye",
+    "cmd/crates/soroban-test/tests/fixtures/bye"
 ]
 default-members = [
     "cmd/soroban-cli",
