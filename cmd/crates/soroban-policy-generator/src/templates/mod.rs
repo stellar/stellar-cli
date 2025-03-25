@@ -57,7 +57,7 @@ use soroban_sdk::{
     contract, contracterror, contractimpl, panic_with_error, symbol_short,
     Address, Env, Vec,
 };
-use smart_wallet_interface::{types::SignerKey, PolicyInterface};
+use smart_wallet_interface::{types::SignerKey, PolicyTrait};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -70,8 +70,8 @@ pub enum Error {
 pub struct Contract;
 
 #[contractimpl]
-impl PolicyInterface for Contract {
-    fn policy__(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
+impl PolicyTrait for Contract {
+    fn validate(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
 {{policy_impl}}
     }
 }"#,
