@@ -66,10 +66,10 @@ pub enum Error {
 }
 
 #[contract]
-pub struct Contract;
+pub struct {{policy_name}}Contract;
 
 #[contractimpl]
-impl PolicyInterface for Contract {
+impl PolicyInterface for {{policy_name}}Contract {
     fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
 {{policy_impl}}
     }
