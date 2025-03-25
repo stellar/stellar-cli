@@ -8,7 +8,7 @@ use std::fs;
 
 pub mod error;
 mod policy;
-mod templates;
+pub mod templates;
 mod types;
 
 pub use policy::PolicyType;

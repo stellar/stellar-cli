@@ -3,6 +3,7 @@ pub mod deploy;
 pub mod extend;
 pub mod fetch;
 pub mod id;
+pub mod info;
 pub mod inspect;
 pub mod invoke;
 pub mod optimize;

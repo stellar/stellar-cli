@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
+use futures_util::TryFutureExt;
 
 use crate::config;
 
@@ -107,7 +108,7 @@ impl Root {
         match &self.cmd {
             Cmd::Completion(completion) => completion.run().map_err(Error::from),
             Cmd::Contract(contract) => Ok(contract.run(&self.global_args).await?),
-            Cmd::Policy(policy) => policy.run().map_err(Error::from),
+            Cmd::Policy(policy) => policy.run().await.map_err(Error::from),
         }
     }
 }

@@ -54,6 +54,7 @@ soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
 stellar-ledger = { workspace = true }
 soroban-policy-generator = { path = "../crates/soroban-policy-generator" }
+handlebars = "4.5.0"
 
 clap = { workspace = true, features = [
     "derive",

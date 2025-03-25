@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+
+members = ["aaa"]
+
+[workspace.dependencies]
+soroban-sdk = "22.0.4"
+smart-wallet-interface = { git = "https://github.com/stellar/stellar-smart-wallet", branch = "main" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true

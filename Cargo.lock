@@ -4633,6 +4633,7 @@ dependencies = [
  "futures",
  "futures-util",
  "glob",
+ "handlebars",
  "heck 0.5.0",
  "hex",
  "home",
