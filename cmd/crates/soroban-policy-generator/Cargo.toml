@@ -11,12 +11,11 @@ description = "Policy contract generator for Soroban smart contracts"
 [dependencies]
 soroban-sdk = { workspace = true }
 soroban-spec-tools = { workspace = true }
-thiserror = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+thiserror = "1.0.50"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
 stellar-xdr = { workspace = true }
-sha2 = { workspace = true }
-itertools = { workspace = true }
-handlebars = { workspace = true }
-inquire = { workspace = true }
-smart-wallet-interface = { git = "https://github.com/kalepail/passkey-kit", branch = "next" } 
+sha2 = "0.10"
+itertools = "0.12"
+handlebars = "4.3"
+inquire = "0.6" 

@@ -4,9 +4,8 @@ use soroban_sdk::{
     contract, contracterror, contractimpl,
     symbol_short,
     vec,
-    Address, BytesN, Env, Map, TryFromVal, Vec, Symbol,
+    Address, BytesN, Env, Map, TryFromVal, Vec,
 };
-use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -24,36 +23,6 @@ pub struct PolicyContract;
 impl PolicyContract {
     pub fn init(env: Env, admin: Address) {
         env.storage().instance().set(&symbol_short!("admin"), &admin);
-    }
-
-    pub fn check_policy(env: Env, function_name: Symbol) -> bool {
-        match function_name.to_string().as_str() {
-            {{#each methods}}
-            "{{this}}" => {
-                {{#if (lookup ../method_configs this)}}
-                let config = {{lookup ../method_configs this}};
-                config.enabled
-                {{else}}
-                true
-                {{/if}}
-            },
-            {{/each}}
-            _ => false,
-        }
-    }
-
-    pub fn get_allowed_functions(env: Env) -> Vec<Symbol> {
-        let mut allowed = vec![&env];
-        {{#each methods}}
-        {{#if (lookup ../method_configs this)}}
-        if {{lookup ../method_configs this}}.enabled {
-            allowed.push_back(Symbol::new(&env, "{{this}}"));
-        }
-        {{else}}
-        allowed.push_back(Symbol::new(&env, "{{this}}"));
-        {{/if}}
-        {{/each}}
-        allowed
     }
 }
 
@@ -82,21 +51,12 @@ impl PolicyInterface for PolicyContract {
                     // Method-specific checks
                     match fn_name.to_string().as_str() {
                         {{#each methods}}
-                        "{{this}}" => {
-                            {{#if (lookup ../method_configs this)}}
-                            let config = {{lookup ../method_configs this}};
+                        "{{name}}" => {
+                            {{#if (lookup ../method_configs name)}}
+                            let config = {{lookup ../method_configs name}};
                             if !config.enabled {
                                 panic_with_error!(&env, Error::NotAllowed);
                             }
-                            {{#if (lookup (lookup ../method_configs this) "max_amount")}}
-                            if let Some(amount_val) = args.get(2) {
-                                if let Ok(amount) = i128::try_from_val(&env, &amount_val) {
-                                    if amount > {{lookup (lookup ../method_configs this) "max_amount"}} {
-                                        panic_with_error!(&env, Error::NotAllowed);
-                                    }
-                                }
-                            }
-                            {{/if}}
                             {{/if}}
                         },
                         {{/each}}

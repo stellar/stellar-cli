@@ -4592,6 +4592,7 @@ dependencies = [
  "shell-escape",
  "shlex",
  "soroban-ledger-snapshot",
+ "soroban-policy-generator",
  "soroban-sdk",
  "soroban-spec",
  "soroban-spec-json",
