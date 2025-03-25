@@ -8,7 +8,7 @@ mod smart_wallet_test;
 use crate::error::Error;
 use serde_json::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PolicyType {
     TimeBased,
     FunctionBased,

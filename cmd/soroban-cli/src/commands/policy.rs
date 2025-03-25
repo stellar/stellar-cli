@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use dialoguer::{Input, Select, Confirm};
 use soroban_policy_generator::{PolicyType, generate_policy};
 use serde_json::json;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 pub struct Args {
@@ -20,6 +22,10 @@ pub struct Args {
     /// Policy parameters in JSON format
     #[arg(long)]
     params: Option<String>,
+
+    /// Output directory for the generated policy
+    #[arg(long, default_value = "generated_policy")]
+    output_dir: PathBuf,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,6 +36,8 @@ pub enum Error {
     InvalidPolicyType(String),
     #[error("Interactive mode error: {0}")]
     Interactive(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, Subcommand)]
@@ -39,6 +47,71 @@ pub enum Cmd {
 }
 
 impl Cmd {
+    fn create_project_structure(&self, output_dir: &PathBuf, policy_name: &str, policy_content: &str) -> Result<(), Error> {
+        // Create the main project directory
+        fs::create_dir_all(output_dir)?;
+        
+        // Create src directory
+        let src_dir = output_dir.join("src");
+        fs::create_dir_all(&src_dir)?;
+
+        // Write the policy code to src/lib.rs
+        fs::write(src_dir.join("lib.rs"), policy_content)?;
+
+        // Create Cargo.toml
+        let cargo_toml = format!(
+            r#"[package]
+name = "{}"
+version = "0.0.0"
+authors = ["Stellar Development Foundation <info@stellar.org>"]
+license = "Apache-2.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[features]
+testutils = []
+
+[dependencies]
+soroban-sdk = {{ workspace = true }}
+smart-wallet-interface = {{ workspace = true }}
+
+[dev-dependencies]
+soroban-sdk = {{ workspace = true, features = ["testutils"] }}"#,
+            policy_name
+        );
+
+        fs::write(output_dir.join("Cargo.toml"), cargo_toml)?;
+
+        // Create .gitignore
+        let gitignore = r#"target/
+Cargo.lock
+"#;
+        fs::write(output_dir.join(".gitignore"), gitignore)?;
+
+        Ok(())
+    }
+
+    fn get_policy_name(&self, policy_type: &PolicyType) -> Result<String, Error> {
+        let default_name = match policy_type {
+            PolicyType::SmartWallet => "smart-wallet-policy",
+            PolicyType::TimeBased => "time-based-policy",
+            PolicyType::FunctionBased => "function-based-policy",
+        };
+
+        if let Ok(name) = Input::<String>::new()
+            .with_prompt("Enter policy name")
+            .default(default_name.to_string())
+            .interact() {
+            Ok(name)
+        } else {
+            Ok(default_name.to_string())
+        }
+    }
+
     fn run_interactive_mode(&self) -> Result<(PolicyType, serde_json::Value), Error> {
         let policy_types = vec!["smart-wallet", "time-based", "function-based"];
         let selection = Select::new()
@@ -156,9 +229,17 @@ impl Cmd {
                     (policy_type, params)
                 };
 
-                match generate_policy(policy_type, params) {
+                match generate_policy(policy_type.clone(), params) {
                     Ok(policy) => {
-                        println!("{}", policy);
+                        let policy_name = self.get_policy_name(&policy_type)?;
+                        let output_dir = &args.output_dir;
+                        
+                        self.create_project_structure(output_dir, &policy_name, &policy)?;
+                        
+                        println!("✨ Policy project created successfully at: {}", output_dir.display());
+                        println!("To build the policy:");
+                        println!("  cd {}", output_dir.display());
+                        println!("  cargo build --target wasm32-unknown-unknown --release");
                         Ok(())
                     },
                     Err(e) => Err(Error::PolicyGeneration(e.to_string())),
