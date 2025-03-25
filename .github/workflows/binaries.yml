@@ -116,14 +116,21 @@ jobs:
         run: |
           version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
           echo "VERSION=${version}" >> $GITHUB_ENV
-          echo "NAME=stellar-cli-${version}-docs-cookbook" >> $GITHUB_ENV
+          echo "COOKBOOK=stellar-cli-${version}-docs-cookbook.tar.gz" >> $GITHUB_ENV
+          echo "FULL_HELP_DOCS=stellar-cli-${version}-docs-user-manual.md" >> $GITHUB_ENV
 
       - name: Compress
         run: |
-          tar czvf ${{ env.NAME }}.tar.gz cookbook FULL_HELP_DOCS.md
+          tar czvf ${{ env.COOKBOOK }} cookbook
 
       - name: Upload to Artifacts
         uses: ./.github/actions/artifact-upload
         with:
-          name: ${{ env.NAME }}.tar.gz
-          path: ${{ env.NAME }}.tar.gz
+          name: ${{ env.COOKBOOK }}
+          path: ${{ env.COOKBOOK }}
+
+      - name: Upload to Artifacts
+        uses: ./.github/actions/artifact-upload
+        with:
+          name: ${{ env.FULL_HELP_DOCS }}
+          path: ${{ env.FULL_HELP_DOCS }}
