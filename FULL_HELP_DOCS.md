@@ -1194,6 +1194,7 @@ Configure connection to networks
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — ⚠️ Deprecated: use `stellar container` instead
+* `health` — Gets network health
 
 
 
@@ -1402,6 +1403,35 @@ Stop a network container started with `stellar container start`
 ###### **Options:**
 
 * `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+
+
+
+## `stellar network health`
+
+Gets network health
+
+**Usage:** `stellar network health [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network health status
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
 
 
 

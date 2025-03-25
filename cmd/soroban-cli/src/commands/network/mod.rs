@@ -1,11 +1,9 @@
-use clap::Parser;
-
-use crate::rpc::{self};
-
 use super::{config::locator, global};
+use clap::Parser;
 
 pub mod add;
 pub mod default;
+mod health;
 pub mod ls;
 pub mod rm;
 
@@ -52,6 +50,9 @@ pub enum Cmd {
     #[cfg(feature = "version_lt_23")]
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
+
+    /// Gets network health
+    Health(health::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -67,6 +68,8 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+    #[error(transparent)]
+    Health(#[from] health::Error),
 
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
@@ -79,22 +82,6 @@ pub enum Error {
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Container(#[from] crate::commands::container::Error),
-
-    #[error(transparent)]
-    Config(#[from] locator::Error),
-
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
-    Network,
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    HttpClient(#[from] reqwest::Error),
-    #[error("Failed to parse JSON from {0}, {1}")]
-    FailedToParseJSON(String, serde_json::Error),
-    #[error("Invalid URL {0}")]
-    InvalidUrl(String),
-    #[error("Inproper response {0}")]
-    InproperResponse(String),
 }
 
 impl Cmd {
@@ -119,6 +106,7 @@ impl Cmd {
                 );
                 cmd.run(global_args).await?;
             }
+            Cmd::Health(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }

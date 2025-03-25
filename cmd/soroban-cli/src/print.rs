@@ -30,6 +30,12 @@ impl Print {
         }
     }
 
+    pub fn emoji_println<T: Display + Sized, R: Display + Sized>(&self, icon: R, message: T) {
+        if !self.quiet {
+            eprintln!("{} {}", self.compute_emoji(icon), message);
+        }
+    }
+
     pub fn clear_line(&self) {
         if cfg!(windows) {
             eprint!("\r");
