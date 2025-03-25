@@ -15,6 +15,7 @@ pub mod optimize;
 pub mod read;
 pub mod restore;
 pub mod upload;
+pub mod policy;
 
 use crate::{commands::global, print::Print};
 
@@ -91,6 +92,9 @@ pub enum Cmd {
     ///
     /// If no keys are specificed the contract itself is restored.
     Restore(restore::Cmd),
+
+    /// Generate a policy contract from an existing contract
+    Policy(policy::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -142,6 +146,9 @@ pub enum Error {
 
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
+    #[error(transparent)]
+    Policy(#[from] policy::Error),
 }
 
 impl Cmd {
@@ -169,6 +176,7 @@ impl Cmd {
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,
+            Cmd::Policy(policy) => policy.run(global_args).await?,
         }
         Ok(())
     }

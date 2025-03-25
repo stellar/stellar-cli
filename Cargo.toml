@@ -6,7 +6,7 @@ members = [
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
-    "cmd/crates/soroban-test/tests/fixtures/bye",
+    "cmd/crates/soroban-test/tests/fixtures/bye"
 ]
 default-members = [
     "cmd/soroban-cli",
@@ -128,3 +128,13 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = 'release'
 panic = 'unwind'
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
