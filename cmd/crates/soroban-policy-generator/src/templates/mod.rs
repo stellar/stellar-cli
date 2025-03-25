@@ -51,6 +51,7 @@ inherit = true"#,
     handlebars.register_template_string(
         "lib_rs",
         r#"#![no_std]
+
 use soroban_sdk::{
     auth::{Context, ContractContext},
     contract, contracterror, contractimpl, panic_with_error, symbol_short,
@@ -66,11 +67,11 @@ pub enum Error {
 }
 
 #[contract]
-pub struct {{policy_name}}Contract;
+pub struct Contract;
 
 #[contractimpl]
-impl PolicyInterface for {{policy_name}}Contract {
-    fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
+impl PolicyInterface for Contract {
+    fn policy__(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
 {{policy_impl}}
     }
 }"#,
@@ -78,13 +79,51 @@ impl PolicyInterface for {{policy_name}}Contract {
 
     handlebars.register_template_string(
         "function_based_policy",
-        r#"        for context in contexts.iter() {
+        r#"        for context in _contexts.iter() {
             if let Context::Contract(ContractContext { fn_name, .. }) = context {
-{{#each allowed_methods}}                if fn_name == symbol_short!("{{this}}") { return; }
+{{#each allowed_methods}}                if fn_name == symbol_short!("{{truncate this 9}}") { return; }
 {{/each}}            }
         }
-        panic_with_error!(&env, Error::NotAllowed)"#,
+        panic_with_error!(&_env, Error::NotAllowed)"#,
     )?;
+
+    // Register helper for uppercase first letter
+    handlebars.register_helper(
+        "uppercase_first",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                let param = h.param(0).unwrap().value().as_str().unwrap_or("");
+                if let Some(c) = param.chars().next() {
+                    out.write(&c.to_uppercase().to_string())?;
+                    out.write(&param[c.len_utf8()..])?;
+                }
+                Ok(())
+            },
+        ),
+    );
+
+    // Register helper for truncating strings
+    handlebars.register_helper(
+        "truncate",
+        Box::new(
+            |h: &handlebars::Helper,
+             _: &handlebars::Handlebars,
+             _: &handlebars::Context,
+             _: &mut handlebars::RenderContext,
+             out: &mut dyn handlebars::Output|
+             -> handlebars::HelperResult {
+                let param = h.param(0).unwrap().value().as_str().unwrap_or("");
+                let length = h.param(1).unwrap().value().as_u64().unwrap_or(9) as usize;
+                out.write(&param.chars().take(length).collect::<String>())?;
+                Ok(())
+            },
+        ),
+    );
 
     Ok(())
 }
