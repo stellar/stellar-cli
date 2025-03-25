@@ -2,6 +2,9 @@ use handlebars::Handlebars;
 use serde_json::Value;
 
 pub fn register_templates(handlebars: &mut Handlebars) -> Result<(), handlebars::TemplateError> {
+    // Disable HTML escaping
+    handlebars.register_escape_fn(handlebars::no_escape);
+
     handlebars.register_template_string(
         "workspace_cargo_toml",
         r#"[workspace]
@@ -68,7 +71,7 @@ pub struct Contract;
 #[contractimpl]
 impl PolicyInterface for Contract {
     fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
-        {{policy_impl}}
+{{policy_impl}}
     }
 }"#,
     )?;
