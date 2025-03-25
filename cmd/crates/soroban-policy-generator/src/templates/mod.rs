@@ -72,14 +72,7 @@ pub struct Contract;
 #[contractimpl]
 impl PolicyInterface for Contract {
     fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
-{{policy_impl}}
-    }
-}"#,
-    )?;
-
-    handlebars.register_template_string(
-        "function_based_policy",
-        r#"        for context in contexts.iter() {
+        for context in contexts.iter() {
             match context {
                 Context::Contract(ContractContext { fn_name, args, .. }) => {
 {{#each allowed_methods}}                    if fn_name == symbol_short!("{{truncate this 9}}") { return; }
@@ -87,7 +80,15 @@ impl PolicyInterface for Contract {
                 _ => panic_with_error!(&env, Error::NotAllowed),
             }
         }
-        panic_with_error!(&env, Error::NotAllowed)"#,
+        panic_with_error!(&env, Error::NotAllowed)
+    }
+}"#,
+    )?;
+
+    handlebars.register_template_string(
+        "function_based_policy",
+        r#"{{#each allowed_methods}}                    if fn_name == symbol_short!("{{truncate this 9}}") { return; }
+{{/each}}"#,
     )?;
 
     // Register helper for uppercase first letter
