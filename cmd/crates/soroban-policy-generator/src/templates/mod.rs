@@ -70,17 +70,15 @@ impl PolicyInterface for Contract {
     fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
         {{policy_impl}}
     }
-}}"#,
+}"#,
     )?;
 
     handlebars.register_template_string(
         "function_based_policy",
-        r#"for context in contexts.iter() {
+        r#"        for context in contexts.iter() {
             if let Context::Contract(ContractContext { fn_name, .. }) = context {
-                {{#each allowed_methods}}
-                if fn_name == symbol_short!("{{this}}") { return; }
-                {{/each}}
-            }
+{{#each allowed_methods}}                if fn_name == symbol_short!("{{this}}") { return; }
+{{/each}}            }
         }
         panic_with_error!(&env, Error::NotAllowed)"#,
     )?;
