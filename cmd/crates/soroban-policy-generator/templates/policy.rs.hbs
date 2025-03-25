@@ -1,0 +1,72 @@
+#![no_std]
+use soroban_sdk::{
+    auth::{Context, ContractContext},
+    contract, contracterror, contractimpl,
+    symbol_short,
+    vec,
+    Address, BytesN, Env, Map, TryFromVal, Vec,
+};
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum Error {
+    TooSoon = 1,
+    TooManyRequests = 2,
+    NotAllowed = 3,
+}
+
+#[contract]
+pub struct PolicyContract;
+
+#[contractimpl]
+impl PolicyContract {
+    pub fn init(env: Env, admin: Address) {
+        env.storage().instance().set(&symbol_short!("admin"), &admin);
+    }
+}
+
+#[contractimpl]
+impl PolicyInterface for PolicyContract {
+    fn policy__(env: Env, _source: Address, signer: SignerKey, contexts: Vec<Context>) {
+        if contexts.len() == 1 {
+            if let SignerKey::Ed25519(user) = signer {
+                if let Context::Contract(ContractContext { fn_name, args, .. }) = contexts.get_unchecked(0) {
+                    // Get last call timestamp
+                    let last_call = env
+                        .storage()
+                        .persistent()
+                        .get::<BytesN<32>, u64>(&user)
+                        .unwrap_or(0);
+
+                    // Check time interval
+                    let current = env.ledger().timestamp();
+                    if current - last_call < {{interval}} {
+                        panic_with_error!(&env, Error::TooSoon);
+                    }
+
+                    // Update last call timestamp
+                    env.storage().persistent().set(&user, &current);
+
+                    // Method-specific checks
+                    match fn_name.to_string().as_str() {
+                        {{#each methods}}
+                        "{{name}}" => {
+                            {{#if (lookup ../method_configs name)}}
+                            let config = {{lookup ../method_configs name}};
+                            if !config.enabled {
+                                panic_with_error!(&env, Error::NotAllowed);
+                            }
+                            {{/if}}
+                        },
+                        {{/each}}
+                        _ => panic_with_error!(&env, Error::NotAllowed),
+                    }
+
+                    return;
+                }
+            }
+        }
+        panic_with_error!(&env, Error::NotAllowed);
+    }
+} 
