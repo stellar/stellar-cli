@@ -1,0 +1,77 @@
+#![no_std]
+
+use smart_wallet_interface::{types::SignerKey, PolicyInterface};
+use soroban_sdk::{
+    auth::{Context, ContractContext},
+    contract, contracterror, contractimpl, panic_with_error, symbol_short,
+    Address, Env, TryFromVal, Vec,
+};
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u32)]
+pub enum Error {
+    NotAllowed = 1,
+    InvalidSigner = 2,
+    InvalidAmount = 3,
+    InvalidContext = 4,
+}
+
+#[contract]
+pub struct Contract;
+
+#[contractimpl]
+impl PolicyInterface for Contract {
+    fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
+        {{#if function_rules}}
+        for context in contexts.iter() {
+            match context {
+                Context::Contract(ContractContext { fn_name, args, .. }) => {
+                    {{#each function_rules}}
+                    if fn_name == symbol_short!("{{@key}}") {
+                        {{#if this.amount_limit}}
+                        if let Some(amount_val) = args.get(2) {
+                            if let Ok(amount) = i128::try_from_val(&env, &amount_val) {
+                                if amount > {{this.amount_limit}} {
+                                    panic_with_error!(&env, Error::InvalidAmount)
+                                }
+                            }
+                        }
+                        {{/if}}
+
+                        {{#if this.require_signer}}
+                        {{#if this.allowed_signers}}
+                        let allowed_signers = vec![
+                            {{#each this.allowed_signers}}
+                            "{{this}}",
+                            {{/each}}
+                        ];
+                        if !allowed_signers.contains(&signer.to_string().as_str()) {
+                            panic_with_error!(&env, Error::InvalidSigner)
+                        }
+                        {{/if}}
+                        {{/if}}
+                    }
+                    {{/each}}
+                }
+                _ => panic_with_error!(&env, Error::InvalidContext),
+            }
+        }
+        {{/if}}
+
+        {{#if context_validation}}
+        {{#if context_validation.validate_contract_context}}
+        {{#if context_validation.allowed_contracts}}
+        let allowed_contracts = vec![
+            {{#each context_validation.allowed_contracts}}
+            "{{this}}",
+            {{/each}}
+        ];
+        if !allowed_contracts.contains(&source.to_string().as_str()) {
+            panic_with_error!(&env, Error::InvalidContext)
+        }
+        {{/if}}
+        {{/if}}
+        {{/if}}
+    }
+} 

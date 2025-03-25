@@ -1,41 +1,37 @@
-pub mod time_based;
-pub mod amount_based;
-pub mod multi_sig;
+mod function_based;
+mod time_based;
+mod smart_wallet;
 
+use crate::error::Error;
 use serde_json::Value;
-use stellar_xdr::curr::ScSpecEntry;
-use crate::GenerateError;
 
-/// Common trait for all policy generators
-pub trait PolicyGenerator {
-    /// Generate policy code from contract spec and parameters
-    fn generate(spec: &[ScSpecEntry], params: &Value) -> Result<String, GenerateError>;
+#[derive(Debug)]
+pub enum PolicyType {
+    TimeBased,
+    FunctionBased,
+    SmartWallet,
 }
 
-/// Common functionality for policy generators
-pub(crate) mod utils {
-    use super::*;
-    use crate::types::Entry;
-    use handlebars::Handlebars;
-
-    /// Extract contract methods from spec
-    pub fn extract_methods(spec: &[ScSpecEntry]) -> Vec<Entry> {
-        spec.iter()
-            .filter_map(|entry| match Entry::from(entry) {
-                Entry::Function { .. } = f => Some(f),
-                _ => None,
-            })
-            .collect()
+impl PolicyType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "time-based" => Some(Self::TimeBased),
+            "function-based" => Some(Self::FunctionBased),
+            "smart-wallet" => Some(Self::SmartWallet),
+            _ => None,
+        }
     }
+}
 
-    /// Render template with given data
-    pub fn render_template(
-        template_name: &str,
-        data: &serde_json::Value,
-    ) -> Result<String, GenerateError> {
-        let mut reg = Handlebars::new();
-        reg.register_template_string(template_name, include_str!("../../templates/policy.rs.hbs"))
-            .map_err(GenerateError::Template)?;
-        reg.render(template_name, data).map_err(GenerateError::Template)
+pub fn generate_policy(policy_type: PolicyType, params: &Value) -> Result<String, Error> {
+    match policy_type {
+        PolicyType::TimeBased => time_based::generate_time_based_policy(params),
+        PolicyType::FunctionBased => function_based::generate_function_based_policy(params),
+        PolicyType::SmartWallet => {
+            let policy: smart_wallet::SmartWalletPolicy = serde_json::from_value(params.clone())?;
+            let generator = smart_wallet::SmartWalletPolicyGenerator::new()?;
+            generator.validate_policy(&policy)?;
+            generator.generate(policy)
+        }
     }
-} 
+}
