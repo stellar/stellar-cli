@@ -71,23 +71,27 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
-    pub fn validate(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
+    pub fn validate(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
 {{policy_impl}}
     }
 }
 
 #[contractimpl]
-impl PolicyInterface for Contract {}"#,
+impl PolicyInterface for Contract {
+    fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
+        Self::validate(env, source, signer, contexts)
+    }
+}"#,
     )?;
 
     handlebars.register_template_string(
         "function_based_policy",
-        r#"        for context in _contexts.iter() {
+        r#"        for context in contexts.iter() {
             if let Context::Contract(ContractContext { fn_name, .. }) = context {
 {{#each allowed_methods}}                if fn_name == symbol_short!("{{truncate this 9}}") { return; }
 {{/each}}            }
         }
-        panic_with_error!(&_env, Error::NotAllowed)"#,
+        panic_with_error!(&env, Error::NotAllowed)"#,
     )?;
 
     // Register helper for uppercase first letter
