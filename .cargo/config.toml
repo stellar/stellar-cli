@@ -88,10 +88,10 @@ rustflags = [
 # [install]
 # root = "/some/path"         # `cargo install` destination directory
 
-# [net]
-# retry = 2                   # network retries
-# git-fetch-with-cli = true   # use the `git` executable for git operations
-# offline = true              # do not access the network
+[net]
+retry = 2                   # network retries
+git-fetch-with-cli = true   # use the git executable for git operations
+offline = false             # do not access the network
 
 # [net.ssh]
 # known-hosts = ["..."]       # known SSH host keys
