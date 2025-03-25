@@ -52,12 +52,12 @@ inherit = true"#,
         "lib_rs",
         r#"#![no_std]
 
+use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 use soroban_sdk::{
     auth::{Context, ContractContext},
     contract, contracterror, contractimpl, panic_with_error, symbol_short,
-    Address, Env, Vec,
+    Address, Env, TryFromVal, Vec,
 };
-use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -70,16 +70,9 @@ pub enum Error {
 pub struct Contract;
 
 #[contractimpl]
-impl Contract {
-    pub fn validate(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
-{{policy_impl}}
-    }
-}
-
-#[contractimpl]
 impl PolicyInterface for Contract {
-    fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
-        Self::validate(env, source, signer, contexts)
+    fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
+{{policy_impl}}
     }
 }"#,
     )?;
@@ -87,9 +80,12 @@ impl PolicyInterface for Contract {
     handlebars.register_template_string(
         "function_based_policy",
         r#"        for context in contexts.iter() {
-            if let Context::Contract(ContractContext { fn_name, .. }) = context {
-{{#each allowed_methods}}                if fn_name == symbol_short!("{{truncate this 9}}") { return; }
-{{/each}}            }
+            match context {
+                Context::Contract(ContractContext { fn_name, args, .. }) => {
+{{#each allowed_methods}}                    if fn_name == symbol_short!("{{truncate this 9}}") { return; }
+{{/each}}                }
+                _ => panic_with_error!(&env, Error::NotAllowed),
+            }
         }
         panic_with_error!(&env, Error::NotAllowed)"#,
     )?;
