@@ -6,6 +6,7 @@ use soroban_sdk::{
     vec,
     Address, BytesN, Env, Map, TryFromVal, Vec,
 };
+use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -23,6 +24,36 @@ pub struct PolicyContract;
 impl PolicyContract {
     pub fn init(env: Env, admin: Address) {
         env.storage().instance().set(&symbol_short!("admin"), &admin);
+    }
+
+    pub fn check_policy(env: Env, function_name: Symbol) -> bool {
+        match function_name.to_string().as_str() {
+            {{#each methods}}
+            "{{name}}" => {
+                {{#if (lookup ../method_configs name)}}
+                let config = {{lookup ../method_configs name}};
+                config.enabled
+                {{else}}
+                true
+                {{/if}}
+            },
+            {{/each}}
+            _ => false,
+        }
+    }
+
+    pub fn get_allowed_functions(env: Env) -> Vec<Symbol> {
+        let mut allowed = vec![&env];
+        {{#each methods}}
+        {{#if (lookup ../method_configs name)}}
+        if {{lookup ../method_configs name}}.enabled {
+            allowed.push_back(Symbol::new(&env, "{{name}}"));
+        }
+        {{else}}
+        allowed.push_back(Symbol::new(&env, "{{name}}"));
+        {{/if}}
+        {{/each}}
+        allowed
     }
 }
 

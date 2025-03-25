@@ -9,6 +9,8 @@ use stellar_xdr::curr::{ScSpecEntry, WriteXdr};
 use soroban_spec_tools::contract::{Spec, ScSpecFunctionV0};
 use serde_json::Value;
 use thiserror::Error;
+use handlebars::Handlebars;
+use serde::Serialize;
 
 pub mod policy;
 pub mod templates;
@@ -24,6 +26,24 @@ pub enum Error {
     UnsupportedPolicyType(String),
     #[error(transparent)]
     Spec(#[from] soroban_spec_tools::contract::Error),
+    #[error("Template error: {0}")]
+    Template(#[from] handlebars::TemplateError),
+    #[error("Template render error: {0}")]
+    TemplateRender(#[from] handlebars::RenderError),
+}
+
+#[derive(Serialize)]
+struct MethodConfig {
+    enabled: bool,
+    max_amount: Option<u64>,
+    interval: Option<u64>,
+}
+
+#[derive(Serialize)]
+struct TemplateData {
+    methods: Vec<String>,
+    method_configs: std::collections::HashMap<String, MethodConfig>,
+    interval: u64,
 }
 
 /// Generate a policy contract from a WASM file
@@ -59,156 +79,42 @@ pub fn generate_policy_contract(
     params: Option<&str>,
 ) -> Result<String, Error> {
     let functions = spec.find_functions()?;
-    
-    match policy_type {
-        "time-based" => generate_time_based_policy(&functions, params),
-        "amount-based" => generate_amount_based_policy(&functions, params),
-        "multi-sig" => generate_multi_sig_policy(&functions, params),
-        "function-based" => generate_function_based_policy(&functions, params),
-        _ => Err(Error::UnsupportedPolicyType(policy_type.to_string())),
+    let method_names: Vec<String> = functions.iter()
+        .map(|f| f.name.to_string())
+        .collect();
+
+    let params: Value = params
+        .map(serde_json::from_str)
+        .transpose()?
+        .unwrap_or(serde_json::json!({}));
+
+    let interval = params.get("interval")
+        .and_then(|i| i.as_u64())
+        .unwrap_or(3600); // Default 1 hour
+
+    let mut method_configs = std::collections::HashMap::new();
+    if let Some(configs) = params.get("method_configs") {
+        if let Some(obj) = configs.as_object() {
+            for (name, config) in obj {
+                method_configs.insert(name.clone(), MethodConfig {
+                    enabled: config.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+                    max_amount: config.get("max_amount").and_then(|v| v.as_u64()),
+                    interval: config.get("interval").and_then(|v| v.as_u64()),
+                });
+            }
+        }
     }
-}
 
-pub fn generate_time_based_policy(functions: &[ScSpecFunctionV0], params: Option<&Value>) -> Result<String, Error> {
-    let default_duration = params.and_then(|p| p.get("duration"))
-        .and_then(|d| d.as_u64())
-        .unwrap_or(86400); // Default 24 hours in seconds
+    let template_data = TemplateData {
+        methods: method_names,
+        method_configs,
+        interval,
+    };
 
-    Ok(format!(
-        r#"#![no_std]
-use soroban_sdk::{{contract, contractimpl, Address, Env}};
-
-#[contract]
-pub struct TimeBasedPolicy;
-
-#[contractimpl]
-impl TimeBasedPolicy {{
-    pub fn check_policy(env: Env, target: Address) -> bool {{
-        let now = env.ledger().timestamp();
-        let created = env.storage().instance().get(&target).unwrap_or(0);
-        
-        if created == 0 {{
-            env.storage().instance().set(&target, &now);
-            return true;
-        }}
-        
-        now >= created + {duration}
-    }}
-
-    pub fn get_remaining_time(env: Env, target: Address) -> i64 {{
-        let now = env.ledger().timestamp();
-        let created = env.storage().instance().get(&target).unwrap_or(now);
-        let deadline = created + {duration};
-        
-        if now >= deadline {{
-            0
-        }} else {{
-            deadline - now
-        }}
-    }}
-}}
-"#,
-        duration = default_duration
-    ))
-}
-
-pub fn generate_amount_based_policy(functions: &[ScSpecFunctionV0], params: Option<&Value>) -> Result<String, Error> {
-    let default_limit = params.and_then(|p| p.get("limit"))
-        .and_then(|l| l.as_u64())
-        .unwrap_or(1000); // Default 1000 units
-
-    Ok(format!(
-        r#"#![no_std]
-use soroban_sdk::{{contract, contractimpl, Address, Env}};
-
-#[contract]
-pub struct AmountBasedPolicy;
-
-#[contractimpl]
-impl AmountBasedPolicy {{
-    pub fn check_policy(env: Env, target: Address, amount: i128) -> bool {{
-        let used = env.storage().instance().get(&target).unwrap_or(0_i128);
-        let new_total = used + amount;
-        
-        if new_total <= {limit} {{
-            env.storage().instance().set(&target, &new_total);
-            true
-        }} else {{
-            false
-        }}
-    }}
-
-    pub fn get_remaining_amount(env: Env, target: Address) -> i128 {{
-        let used = env.storage().instance().get(&target).unwrap_or(0_i128);
-        {limit} - used
-    }}
-}}
-"#,
-        limit = default_limit
-    ))
-}
-
-pub fn generate_multi_sig_policy(functions: &[ScSpecFunctionV0], params: Option<&Value>) -> Result<String, Error> {
-    let required_sigs = params.and_then(|p| p.get("required_signatures"))
-        .and_then(|s| s.as_u64())
-        .unwrap_or(2); // Default 2 signatures required
-
-    Ok(format!(
-        r#"#![no_std]
-use soroban_sdk::{{contract, contractimpl, Address, Env, Vec}};
-
-#[contract]
-pub struct MultiSigPolicy;
-
-#[contractimpl]
-impl MultiSigPolicy {{
-    pub fn check_policy(env: Env, target: Address, signatures: Vec<Address>) -> bool {{
-        signatures.len() >= {required_sigs}
-    }}
-
-    pub fn get_required_signatures(_env: Env) -> u32 {{
-        {required_sigs}
-    }}
-}}
-"#,
-        required_sigs = required_sigs
-    ))
-}
-
-pub fn generate_function_based_policy(functions: &[ScSpecFunctionV0], params: Option<&Value>) -> Result<String, Error> {
-    let allowed_function = params.and_then(|p| p.get("function_name"))
-        .and_then(|f| f.as_str())
-        .unwrap_or("do_math"); // Default to "do_math" for compatibility
-
-    Ok(format!(
-        r#"#![no_std]
-use soroban_sdk::{{
-    contract, contracterror, contractimpl, Address, Env, Symbol,
-}};
-
-#[contracterror]
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u32)]
-pub enum Error {{
-    NotAllowed = 1,
-}}
-
-#[contract]
-pub struct FunctionPolicy;
-
-#[contractimpl]
-impl FunctionPolicy {{
-    pub fn check_policy(env: Env, function_name: Symbol) -> bool {{
-        function_name == Symbol::new(&env, "{allowed_function}")
-    }}
-
-    pub fn get_allowed_function(env: Env) -> Symbol {{
-        Symbol::new(&env, "{allowed_function}")
-    }}
-}}
-"#,
-        allowed_function = allowed_function
-    ))
+    let mut handlebars = Handlebars::new();
+    handlebars.register_template_string("policy", include_str!("../templates/policy.rs.hbs"))?;
+    
+    Ok(handlebars.render("policy", &template_data)?)
 }
 
 #[cfg(test)]
@@ -216,17 +122,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_time_based_policy() {
-        // TODO: Add tests
-    }
+    fn test_generate_policy_contract() {
+        let spec = Spec {
+            functions: vec![
+                ScSpecFunctionV0 {
+                    name: "do_math".to_string(),
+                    ..Default::default()
+                },
+                ScSpecFunctionV0 {
+                    name: "transfer".to_string(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
 
-    #[test]
-    fn test_generate_amount_based_policy() {
-        // TODO: Add tests
-    }
+        let params = r#"{
+            "interval": 1800,
+            "method_configs": {
+                "do_math": {"enabled": true},
+                "transfer": {"enabled": true, "max_amount": 1000}
+            }
+        }"#;
 
-    #[test]
-    fn test_generate_multi_sig_policy() {
-        // TODO: Add tests
+        let result = generate_policy_contract(&spec, "function-based", Some(params));
+        assert!(result.is_ok());
     }
 } 
