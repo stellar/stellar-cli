@@ -70,11 +70,14 @@ pub enum Error {
 pub struct Contract;
 
 #[contractimpl]
-impl PolicyInterface for Contract {
-    fn policy__(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
+impl Contract {
+    pub fn validate(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {
 {{policy_impl}}
     }
-}"#,
+}
+
+#[contractimpl]
+impl PolicyInterface for Contract {}"#,
     )?;
 
     handlebars.register_template_string(
