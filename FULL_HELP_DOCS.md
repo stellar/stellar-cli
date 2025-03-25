@@ -1194,7 +1194,7 @@ Configure connection to networks
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — ⚠️ Deprecated: use `stellar container` instead
-* `health` — Gets network health
+* `health` — Checks the health of the configured RPC
 
 
 
@@ -1408,7 +1408,7 @@ Stop a network container started with `stellar container start`
 
 ## `stellar network health`
 
-Gets network health
+Checks the health of the configured RPC
 
 **Usage:** `stellar network health [OPTIONS]`
 

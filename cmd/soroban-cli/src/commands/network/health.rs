@@ -47,7 +47,7 @@ impl Cmd {
                     } else {
                         print.warnln(format!("Status: {}", resp.status));
                     }
-                    println!("Latest ledger: {}", resp.latest_ledger);
+                    print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
                 }
                 OutputFormat::Json => println!("{}", serde_json::to_string(&resp)?),
                 OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&resp)?),
