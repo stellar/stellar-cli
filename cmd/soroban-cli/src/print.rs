@@ -101,14 +101,14 @@ create_print_functions!(bucket, bucketln, "🪣");
 create_print_functions!(check, checkln, "✅");
 create_print_functions!(error, errorln, "❌");
 create_print_functions!(globe, globeln, "🌎");
-create_print_functions!(info, infoln, "ℹ️");
+create_print_functions!(info, infoln, "ℹ️"); // ℹ
 create_print_functions!(link, linkln, "🔗");
 create_print_functions!(plus, plusln, "➕");
 create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
-create_print_functions!(warn, warnln, "⚠️");
-create_print_functions!(exclaim, exclaimln, "❗️");
-create_print_functions!(arrow, arrowln, "➡️");
+create_print_functions!(warn, warnln, "⚠️"); // ⚠
+create_print_functions!(exclaim, exclaimln, "❗️"); // ❗
+create_print_functions!(arrow, arrowln, "➡️"); // ➡
 create_print_functions!(log, logln, "📔");
 create_print_functions!(event, eventln, "📅");
 create_print_functions!(blank, blankln, " ");
