@@ -2,6 +2,9 @@ mod function_based;
 mod time_based;
 mod smart_wallet;
 
+#[cfg(test)]
+mod smart_wallet_test;
+
 use crate::error::Error;
 use serde_json::Value;
 

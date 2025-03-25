@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::policy::smart_wallet::{
+        ContextValidation, FunctionRule, SmartWalletPolicy, SmartWalletPolicyGenerator,
+    };
     use serde_json::json;
+    use std::collections::HashMap;
+
+    const TEST_AMOUNT: i128 = 100_000_000_000;
 
     #[test]
     fn test_basic_policy_generation() {
@@ -10,7 +15,7 @@ mod tests {
                 "transfer".to_string(),
                 FunctionRule {
                     enabled: true,
-                    amount_limit: Some(100000000000),
+                    amount_limit: Some(TEST_AMOUNT),
                     require_signer: Some(false),
                     allowed_signers: None,
                     min_signers: None,
@@ -70,7 +75,7 @@ mod tests {
             "function_rules": {
                 "transfer": {
                     "enabled": true,
-                    "amount_limit": 100000000000,
+                    "amount_limit": TEST_AMOUNT,
                     "require_signer": true,
                     "allowed_signers": ["GDHT...", "GBXG..."]
                 }

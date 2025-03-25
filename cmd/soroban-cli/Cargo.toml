@@ -53,6 +53,7 @@ stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
 stellar-ledger = { workspace = true }
+soroban-policy-generator = { path = "../crates/soroban-policy-generator" }
 
 clap = { workspace = true, features = [
     "derive",
@@ -134,6 +135,8 @@ zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 whoami = "1.5.2"
 serde_with = "3.11.0"
+dialoguer = "0.11.0"
+env_logger = "0.10.1"
 
 
 [build-dependencies]

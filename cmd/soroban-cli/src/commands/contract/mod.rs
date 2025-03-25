@@ -1,186 +1,18 @@
-pub mod alias;
 pub mod arg_parsing;
-pub mod asset;
-pub mod bindings;
-pub mod build;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
 pub mod id;
-pub mod info;
-pub mod init;
 pub mod inspect;
 pub mod invoke;
 pub mod optimize;
+pub mod policy;
 pub mod read;
 pub mod restore;
 pub mod upload;
-pub mod policy;
 
 use crate::{commands::global, print::Print};
-
-#[derive(Debug, clap::Subcommand)]
-pub enum Cmd {
-    /// Utilities to deploy a Stellar Asset Contract or get its id
-    #[command(subcommand)]
-    Asset(asset::Cmd),
-
-    /// Utilities to manage contract aliases
-    #[command(subcommand)]
-    Alias(alias::Cmd),
-
-    /// Generate code client bindings for a contract
-    #[command(subcommand)]
-    Bindings(bindings::Cmd),
-
-    Build(build::Cmd),
-
-    /// Extend the time to live ledger of a contract-data ledger entry.
-    ///
-    /// If no keys are specified the contract itself is extended.
-    Extend(extend::Cmd),
-
-    /// Deploy a wasm contract
-    Deploy(deploy::wasm::Cmd),
-
-    /// Fetch a contract's Wasm binary
-    Fetch(fetch::Cmd),
-
-    /// Generate the contract id for a given contract or asset
-    #[command(subcommand)]
-    Id(id::Cmd),
-
-    /// Access info about contracts
-    #[command(subcommand)]
-    Info(info::Cmd),
-
-    /// Initialize a Soroban contract project.
-    ///
-    /// This command will create a Cargo workspace project and add a sample Stellar contract.
-    /// The name of the contract can be specified by `--name`. It can be run multiple times
-    /// with different names in order to generate multiple contracts, and files won't
-    /// be overwritten unless `--overwrite` is passed.
-    Init(init::Cmd),
-
-    /// (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
-    #[command(display_order = 100)]
-    Inspect(inspect::Cmd),
-
-    /// Install a WASM file to the ledger without creating a contract instance
-    Upload(upload::Cmd),
-
-    /// (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
-    Install(upload::Cmd),
-
-    /// Invoke a contract function
-    ///
-    /// Generates an "implicit CLI" for the specified contract on-the-fly using the contract's
-    /// schema, which gets embedded into every Soroban contract. The "slop" in this command,
-    /// everything after the `--`, gets passed to this implicit CLI. Get in-depth help for a given
-    /// contract:
-    ///
-    ///     stellar contract invoke ... -- --help
-    Invoke(invoke::Cmd),
-
-    /// Optimize a WASM file
-    Optimize(optimize::Cmd),
-
-    /// Print the current value of a contract-data ledger entry
-    Read(read::Cmd),
-
-    /// Restore an evicted value for a contract-data legder entry.
-    ///
-    /// If no keys are specificed the contract itself is restored.
-    Restore(restore::Cmd),
-
-    /// Generate a policy contract from an existing contract
-    Policy(policy::Cmd),
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Asset(#[from] asset::Error),
-
-    #[error(transparent)]
-    Alias(#[from] alias::Error),
-
-    #[error(transparent)]
-    Bindings(#[from] bindings::Error),
-
-    #[error(transparent)]
-    Build(#[from] build::Error),
-
-    #[error(transparent)]
-    Extend(#[from] extend::Error),
-
-    #[error(transparent)]
-    Deploy(#[from] deploy::wasm::Error),
-
-    #[error(transparent)]
-    Fetch(#[from] fetch::Error),
-
-    #[error(transparent)]
-    Init(#[from] init::Error),
-
-    #[error(transparent)]
-    Id(#[from] id::Error),
-
-    #[error(transparent)]
-    Info(#[from] info::Error),
-
-    #[error(transparent)]
-    Inspect(#[from] inspect::Error),
-
-    #[error(transparent)]
-    Install(#[from] upload::Error),
-
-    #[error(transparent)]
-    Invoke(#[from] invoke::Error),
-
-    #[error(transparent)]
-    Optimize(#[from] optimize::Error),
-
-    #[error(transparent)]
-    Read(#[from] read::Error),
-
-    #[error(transparent)]
-    Restore(#[from] restore::Error),
-
-    #[error(transparent)]
-    Policy(#[from] policy::Error),
-}
-
-impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = Print::new(global_args.quiet);
-
-        match &self {
-            Cmd::Asset(asset) => asset.run(global_args).await?,
-            Cmd::Bindings(bindings) => bindings.run().await?,
-            Cmd::Build(build) => build.run(global_args)?,
-            Cmd::Extend(extend) => extend.run().await?,
-            Cmd::Alias(alias) => alias.run(global_args)?,
-            Cmd::Deploy(deploy) => deploy.run(global_args).await?,
-            Cmd::Id(id) => id.run().await?,
-            Cmd::Info(info) => info.run(global_args).await?,
-            Cmd::Init(init) => init.run(global_args)?,
-            Cmd::Inspect(inspect) => inspect.run(global_args)?,
-            Cmd::Install(install) => {
-                print.warnln("`stellar contract install` has been deprecated in favor of `stellar contract upload`");
-                install.run(global_args).await?;
-            }
-            Cmd::Upload(upload) => upload.run(global_args).await?,
-            Cmd::Invoke(invoke) => invoke.run(global_args).await?,
-            Cmd::Optimize(optimize) => optimize.run()?,
-            Cmd::Fetch(fetch) => fetch.run().await?,
-            Cmd::Read(read) => read.run().await?,
-            Cmd::Restore(restore) => restore.run().await?,
-            Cmd::Policy(policy) => policy.run(global_args).await?,
-        }
-        Ok(())
-    }
-}
+use clap::Subcommand;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum)]
 pub enum Durability {
@@ -207,4 +39,65 @@ pub enum SpecOutput {
     XdrBase64Array,
     /// Pretty print of contract spec entries
     Docs,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum Cmd {
+    /// Deploy a contract
+    Deploy(deploy::Cmd),
+    /// Extend a contract's TTL
+    Extend(extend::Cmd),
+    /// Fetch a contract's WASM
+    Fetch(fetch::Cmd),
+    /// Inspect a contract's WASM
+    Inspect(inspect::Cmd),
+    /// Invoke a contract function
+    Invoke(invoke::Cmd),
+    /// Optimize a contract's WASM
+    Optimize(optimize::Cmd),
+    /// Generate a policy contract
+    Policy(policy::Cmd),
+    /// Read a contract's persistent data
+    Read(read::Cmd),
+    /// Restore a contract's persistent data
+    Restore(restore::Cmd),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Deploy(#[from] deploy::Error),
+    #[error(transparent)]
+    Extend(#[from] extend::Error),
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Inspect(#[from] inspect::Error),
+    #[error(transparent)]
+    Invoke(#[from] invoke::Error),
+    #[error(transparent)]
+    Optimize(#[from] optimize::Error),
+    #[error(transparent)]
+    Policy(#[from] policy::Error),
+    #[error(transparent)]
+    Read(#[from] read::Error),
+    #[error(transparent)]
+    Restore(#[from] restore::Error),
+}
+
+impl Cmd {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let _print = Print::new(global_args.quiet);
+        match self {
+            Cmd::Deploy(deploy) => deploy.run(global_args).await.map_err(Error::Deploy),
+            Cmd::Extend(extend) => extend.run().await.map_err(Error::Extend),
+            Cmd::Fetch(fetch) => fetch.run().await.map_err(Error::Fetch),
+            Cmd::Inspect(inspect) => inspect.run(global_args).map_err(Error::Inspect),
+            Cmd::Invoke(invoke) => invoke.run(global_args).await.map_err(Error::Invoke),
+            Cmd::Optimize(optimize) => optimize.run().map_err(Error::Optimize),
+            Cmd::Policy(policy) => policy.run(global_args).await.map_err(Error::Policy),
+            Cmd::Read(read) => read.run().await.map_err(Error::Read),
+            Cmd::Restore(restore) => restore.run().await.map_err(Error::Restore),
+        }
+    }
 }

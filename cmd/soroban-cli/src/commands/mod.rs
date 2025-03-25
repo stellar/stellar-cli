@@ -5,25 +5,17 @@ use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::config;
 
-pub mod cache;
 pub mod completion;
-pub mod container;
 pub mod contract;
-pub mod env;
-pub mod events;
 pub mod global;
-pub mod keys;
-pub mod network;
 pub mod plugin;
-pub mod snapshot;
-pub mod tx;
-pub mod version;
-
 pub mod txn_result;
+pub mod version;
+pub mod policy;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
 pub const HEADING_GLOBAL: &str = "Options (Global)";
-const ABOUT: &str =
+pub const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
 - Generate and manage keys and accounts
@@ -40,8 +32,7 @@ For additional information see:
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
 - CLI Docs: https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli";
 
-// long_about is shown when someone uses `--help`; short help when using `-h`
-const LONG_ABOUT: &str = "
+pub const LONG_ABOUT: &str = "
 
 To get started generate a new identity:
 
@@ -107,22 +98,17 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
-    pub async fn run(&mut self) -> Result<(), Error> {
-        match &mut self.cmd {
-            Cmd::Completion(completion) => completion.run(),
-            Cmd::Contract(contract) => contract.run(&self.global_args).await?,
-            Cmd::Events(events) => events.run().await?,
-            Cmd::Xdr(xdr) => xdr.run()?,
-            Cmd::Network(network) => network.run(&self.global_args).await?,
-            Cmd::Container(container) => container.run(&self.global_args).await?,
-            Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
-            Cmd::Version(version) => version.run(),
-            Cmd::Keys(id) => id.run(&self.global_args).await?,
-            Cmd::Tx(tx) => tx.run(&self.global_args).await?,
-            Cmd::Cache(cache) => cache.run()?,
-            Cmd::Env(env) => env.run(&self.global_args)?,
-        };
-        Ok(())
+
+    pub fn command() -> clap::Command {
+        <Self as clap::CommandFactory>::command()
+    }
+
+    pub async fn run(&self) -> Result<(), Error> {
+        match &self.cmd {
+            Cmd::Completion(completion) => completion.run().map_err(Error::from),
+            Cmd::Contract(contract) => Ok(contract.run(&self.global_args).await?),
+            Cmd::Policy(policy) => policy.run().map_err(Error::from),
+        }
     }
 }
 
@@ -134,98 +120,30 @@ impl FromStr for Root {
     }
 }
 
-#[derive(Parser, Debug)]
+#[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Tools for smart contract developers
+    /// Generate shell completions
+    Completion(completion::Cmd),
+    /// Contract commands
     #[command(subcommand)]
     Contract(contract::Cmd),
-
-    /// Watch the network for contract events
-    Events(events::Cmd),
-
-    /// Prints the environment variables
-    ///
-    /// Prints to stdout in a format that can be used as .env file. Environment
-    /// variables have precedence over defaults.
-    ///
-    /// Pass a name to get the value of a single environment variable.
-    ///
-    /// If there are no environment variables in use, prints the defaults.
-    Env(env::Cmd),
-
-    /// Create and manage identities including keys and addresses
+    /// Policy generator commands
     #[command(subcommand)]
-    Keys(keys::Cmd),
-
-    /// Configure connection to networks
-    #[command(subcommand)]
-    Network(network::Cmd),
-
-    /// Start local networks in containers
-    #[command(subcommand)]
-    Container(container::Cmd),
-
-    /// Download a snapshot of a ledger from an archive.
-    #[command(subcommand)]
-    Snapshot(snapshot::Cmd),
-
-    /// Sign, Simulate, and Send transactions
-    #[command(subcommand)]
-    Tx(tx::Cmd),
-
-    /// Decode and encode XDR
-    Xdr(stellar_xdr::cli::Root),
-
-    /// Print shell completion code for the specified shell.
-    #[command(long_about = completion::LONG_ABOUT)]
-    Completion(completion::Cmd),
-
-    /// Cache for transactions and contract specs
-    #[command(subcommand)]
-    Cache(cache::Cmd),
-
-    /// Print version information
-    Version(version::Cmd),
+    Policy(policy::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // TODO: stop using Debug for displaying errors
     #[error(transparent)]
     Contract(#[from] contract::Error),
-
     #[error(transparent)]
-    Events(#[from] events::Error),
-
-    #[error(transparent)]
-    Keys(#[from] keys::Error),
-
-    #[error(transparent)]
-    Xdr(#[from] stellar_xdr::cli::Error),
-
-    #[error(transparent)]
-    Clap(#[from] clap::error::Error),
-
+    Policy(#[from] policy::Error),
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
-
     #[error(transparent)]
-    Network(#[from] network::Error),
-
+    Clap(#[from] clap::error::Error),
     #[error(transparent)]
-    Container(#[from] container::Error),
-
-    #[error(transparent)]
-    Snapshot(#[from] snapshot::Error),
-
-    #[error(transparent)]
-    Tx(#[from] tx::Error),
-
-    #[error(transparent)]
-    Cache(#[from] cache::Error),
-
-    #[error(transparent)]
-    Env(#[from] env::Error),
+    Io(#[from] std::io::Error),
 }
 
 #[async_trait]

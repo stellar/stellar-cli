@@ -1,8 +1,6 @@
 use clap::{arg, CommandFactory, Parser};
-use clap_complete::{generate, Shell};
+use clap_complete;
 use std::io;
-
-use crate::commands::Root;
 
 pub const LONG_ABOUT: &str = "\
 Print shell completion code for the specified shell
@@ -14,17 +12,44 @@ To enable autocomplete in the current bash shell, run: `source <(stellar complet
 To enable autocomplete permanently, run: `echo \"source <(stellar completion --shell bash)\" >> ~/.bashrc`
 ";
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug)]
 #[group(skip)]
 pub struct Cmd {
     /// The shell type
-    #[arg(long, value_enum)]
-    shell: Shell,
+    #[arg(value_enum)]
+    shell: ShellType,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ShellType {
+    Bash,
+    Fish,
+    Zsh,
+    PowerShell,
+    Elvish,
+}
+
+impl From<ShellType> for clap_complete::Shell {
+    fn from(shell: ShellType) -> Self {
+        match shell {
+            ShellType::Bash => Self::Bash,
+            ShellType::Fish => Self::Fish,
+            ShellType::Zsh => Self::Zsh,
+            ShellType::PowerShell => Self::PowerShell,
+            ShellType::Elvish => Self::Elvish,
+        }
+    }
 }
 
 impl Cmd {
-    pub fn run(&self) {
-        let cmd = &mut Root::command();
-        generate(self.shell, cmd, "stellar", &mut io::stdout());
+    pub fn run(&self) -> Result<(), io::Error> {
+        let shell: clap_complete::Shell = self.shell.clone().into();
+        clap_complete::generate(
+            shell,
+            &mut crate::cli::Cli::command(),
+            "stellar",
+            &mut io::stdout(),
+        );
+        Ok(())
     }
 }

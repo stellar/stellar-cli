@@ -1,7 +1,7 @@
 use std::convert::{Infallible, TryInto};
 use std::ffi::OsString;
 use std::num::ParseIntError;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
@@ -9,7 +9,6 @@ use clap::{arg, command, Parser, ValueEnum};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
-use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
 use crate::{
@@ -30,7 +29,6 @@ use crate::{
         SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
         WriteXdr,
     },
-    Pwd,
 };
 use soroban_spec_tools::contract;
 
@@ -68,12 +66,6 @@ impl FromStr for Cmd {
     }
 }
 
-impl Pwd for Cmd {
-    fn set_pwd(&mut self, pwd: &Path) {
-        self.config.set_pwd(pwd);
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
@@ -83,7 +75,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
-        error: events::Error,
+        error: io::Error,
     },
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),

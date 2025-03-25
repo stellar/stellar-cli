@@ -17,18 +17,13 @@ pub fn pkg() -> &'static str {
 }
 
 pub fn git() -> &'static str {
-    env!("GIT_REVISION")
+    option_env!("GIT_REVISION").unwrap_or("unknown")
 }
 
 pub fn long() -> String {
-    let xdr = stellar_xdr::VERSION;
-    [
-        format!("{} ({})", pkg(), git()),
-        format!(
-            "stellar-xdr {} ({})
-xdr curr ({})",
-            xdr.pkg, xdr.rev, xdr.xdr_curr,
-        ),
-    ]
-    .join("\n")
+    format!(
+        "{} ({})",
+        pkg(),
+        git()
+    )
 }

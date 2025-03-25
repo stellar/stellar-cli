@@ -1,7 +1,6 @@
 use crate::error::Error;
 use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,12 +44,13 @@ pub struct SmartWalletPolicyGenerator {
 impl SmartWalletPolicyGenerator {
     pub fn new() -> Result<Self, Error> {
         let mut handlebars = Handlebars::new();
-        handlebars.register_template_string(
+        match handlebars.register_template_string(
             "smart_wallet_policy",
             include_str!("../../templates/smart-wallet/policy.rs.hbs"),
-        )?;
-
-        Ok(Self { handlebars })
+        ) {
+            Ok(_) => Ok(Self { handlebars }),
+            Err(e) => Err(Error::Template(e.to_string())),
+        }
     }
 
     pub fn generate(&self, policy: SmartWalletPolicy) -> Result<String, Error> {
