@@ -8,6 +8,7 @@ use crate::{
 use crate::commands::txn_result::TxnResult;
 use serde_json::Value;
 use async_trait::async_trait;
+use soroban_policy_generator as policy_gen;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -27,6 +28,8 @@ pub enum Error {
     WriteError(std::io::Error),
     #[error("failed to parse JSON parameters: {0}")]
     JsonParseError(#[from] serde_json::Error),
+    #[error("policy generation error: {0}")]
+    PolicyGeneration(#[from] policy_gen::Error),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -92,17 +95,12 @@ impl NetworkRunnable for Cmd {
         // Create output directory if it doesn't exist
         std::fs::create_dir_all(&self.out_dir).map_err(Error::CreateDirError)?;
 
-        // Generate policy contract based on type
-        let policy_contract = match self.policy_type.as_str() {
-            "time-based" => generate_time_based_policy(&self.params)?,
-            "amount-based" => generate_amount_based_policy(&self.params)?,
-            "multi-sig" => generate_multi_sig_policy(&self.params)?,
-            "function-based" => {
-                let params = parse_params(&self.params)?;
-                generate_function_based_policy(&params)?
-            }
-            _ => return Err(Error::UnsupportedPolicyType(self.policy_type.clone())),
-        };
+        // Generate policy contract
+        let policy_contract = policy_gen::generate_policy_contract(
+            &soroban_spec::read::from_wasm(&[])?, // Empty WASM for now, as we don't need it
+            &self.policy_type,
+            self.params.as_deref(),
+        )?;
 
         // Write the policy contract to the output directory
         let policy_file = self.out_dir.join("policy_contract.rs");
@@ -111,132 +109,4 @@ impl NetworkRunnable for Cmd {
         print.checkln(format!("Generated policy contract in: {}", self.out_dir.display()));
         Ok(TxnResult::Res(format!("Generated policy contract in: {}", self.out_dir.display())))
     }
-}
-
-fn parse_params(params: &Option<String>) -> Result<Value, Error> {
-    match params {
-        Some(p) => Ok(serde_json::from_str(p)?),
-        None => Ok(Value::Null),
-    }
-}
-
-fn generate_time_based_policy(params: &Option<String>) -> Result<String, Error> {
-    let params = parse_params(params)?;
-    let duration = params
-        .get("duration")
-        .and_then(Value::as_u64)
-        .unwrap_or(86400); // Default to 24 hours
-
-    Ok(format!(
-        r#"use soroban_sdk::{{contract, contractimpl, Address, Env}};
-
-#[contract]
-pub struct TimeBasedPolicy;
-
-#[contractimpl]
-impl TimeBasedPolicy {{
-    pub fn check_policy(env: Env, target: Address) -> bool {{
-        let created_at = env.storage().instance().get::<_, u64>(&target).unwrap_or(0);
-        if created_at == 0 {{
-            env.storage().instance().set(&target, &env.ledger().timestamp());
-            return true;
-        }}
-        
-        let elapsed = env.ledger().timestamp() - created_at;
-        elapsed <= {duration}
-    }}
-}}
-"#
-    ))
-}
-
-fn generate_amount_based_policy(params: &Option<String>) -> Result<String, Error> {
-    let params = parse_params(params)?;
-    let limit = params
-        .get("limit")
-        .and_then(Value::as_u64)
-        .unwrap_or(1000); // Default to 1000 units
-
-    Ok(format!(
-        r#"use soroban_sdk::{{contract, contractimpl, Address, Env}};
-
-#[contract]
-pub struct AmountBasedPolicy;
-
-#[contractimpl]
-impl AmountBasedPolicy {{
-    pub fn check_policy(env: Env, target: Address, amount: u64) -> bool {{
-        let used = env.storage().instance().get::<_, u64>(&target).unwrap_or(0);
-        let new_total = used.saturating_add(amount);
-        
-        if new_total <= {limit} {{
-            env.storage().instance().set(&target, &new_total);
-            true
-        }} else {{
-            false
-        }}
-    }}
-}}
-"#
-    ))
-}
-
-fn generate_multi_sig_policy(params: &Option<String>) -> Result<String, Error> {
-    let params = parse_params(params)?;
-    let required_signatures = params
-        .get("required_signatures")
-        .and_then(Value::as_u64)
-        .unwrap_or(2); // Default to 2 signatures
-
-    Ok(format!(
-        r#"use soroban_sdk::{{contract, contractimpl, Address, Env, Vec}};
-
-#[contract]
-pub struct MultiSigPolicy;
-
-#[contractimpl]
-impl MultiSigPolicy {{
-    pub fn check_policy(env: Env, signatures: Vec<Address>) -> bool {{
-        signatures.len() >= {required_signatures}
-    }}
-}}
-"#
-    ))
-}
-
-fn generate_function_based_policy(params: &Value) -> Result<String, Error> {
-    let allowed_function = params
-        .get("function_name")
-        .and_then(Value::as_str)
-        .unwrap_or("do_math"); // Default to "do_math" for compatibility
-
-    Ok(format!(
-        r#"#![no_std]
-use soroban_sdk::{{
-    contract, contracterror, contractimpl, Address, Env, Symbol,
-}};
-
-#[contracterror]
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u32)]
-pub enum Error {{
-    NotAllowed = 1,
-}}
-
-#[contract]
-pub struct FunctionPolicy;
-
-#[contractimpl]
-impl FunctionPolicy {{
-    pub fn check_policy(env: Env, function_name: Symbol) -> bool {{
-        function_name == Symbol::new(&env, "{allowed_function}")
-    }}
-
-    pub fn get_allowed_function(env: Env) -> Symbol {{
-        Symbol::new(&env, "{allowed_function}")
-    }}
-}}
-"#,
-        allowed_function = allowed_function
-    ))
 }

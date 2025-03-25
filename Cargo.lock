@@ -2612,15 +2612,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4494,6 +4485,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "smart-wallet-interface"
+version = "0.4.5"
+source = "git+https://github.com/kalepail/passkey-kit?branch=next#528926c32675900ec89c19d22934a33fa597ed1f"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "snafu"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4732,10 +4731,11 @@ version = "0.1.0"
 dependencies = [
  "handlebars",
  "inquire",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "serde",
  "serde_json",
  "sha2 0.10.8",
+ "smart-wallet-interface",
  "soroban-sdk",
  "soroban-spec-tools",
  "stellar-xdr",

@@ -112,7 +112,9 @@ pub fn generate_policy_contract(
     };
 
     let mut handlebars = Handlebars::new();
-    handlebars.register_template_string("policy", include_str!("../templates/policy.rs.hbs"))?;
+    let template_content = include_str!("../templates/policy.rs.hbs");
+    println!("Template content: {}", template_content);
+    handlebars.register_template_string("policy", template_content)?;
     
     Ok(handlebars.render("policy", &template_data)?)
 }
