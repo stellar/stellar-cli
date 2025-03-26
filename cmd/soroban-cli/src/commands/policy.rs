@@ -187,21 +187,26 @@ impl Cmd {
                     .collect()
             },
             contract_spec::Contract::StellarAssetContract => {
-                // Known SAC functions
+                // Known SAC functions - including only state-modifying and admin functions
                 vec![
+                    // State-modifying functions
                     "transfer".to_string(),
                     "burn".to_string(),
                     "mint".to_string(),
-                    "set_admin".to_string(),
-                    "init".to_string(),
-                    "upgrade".to_string(),
-                    "balance".to_string(),
-                    "allowance".to_string(),
-                    "approve".to_string(),
                     "transfer_from".to_string(),
-                    "decimals".to_string(),
-                    "name".to_string(),
-                    "symbol".to_string(),
+
+                    // Admin/Authorization functions
+                    "set_admin".to_string(),
+                    "approve".to_string(),
+                    "upgrade".to_string(),
+                    "init".to_string(),
+
+                    // Read-only functions (commented out as they don't need policy control)
+                    // "balance".to_string(),
+                    // "allowance".to_string(),
+                    // "decimals".to_string(),
+                    // "name".to_string(),
+                    // "symbol".to_string(),
                 ]
             }
         };
