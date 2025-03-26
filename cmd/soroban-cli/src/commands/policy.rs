@@ -173,22 +173,38 @@ impl Cmd {
         // Fetch the contract spec
         let contract_spec::Fetched { contract, .. } = contract_spec::fetch(&spec_args, &print).await?;
 
-        let spec = match contract {
-            contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
+        let functions = match contract {
+            contract_spec::Contract::Wasm { wasm_bytes } => {
+                let spec = Spec::new(&wasm_bytes)?.spec;
+                spec.iter()
+                    .filter_map(|entry| {
+                        if let ScSpecEntry::FunctionV0(func) = entry {
+                            Some(func.name.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            },
             contract_spec::Contract::StellarAssetContract => {
-                return Err(Error::PolicyGeneration("Cannot generate policy for Stellar Asset Contract".to_string()));
+                // Known SAC functions
+                vec![
+                    "transfer".to_string(),
+                    "burn".to_string(),
+                    "mint".to_string(),
+                    "set_admin".to_string(),
+                    "init".to_string(),
+                    "upgrade".to_string(),
+                    "balance".to_string(),
+                    "allowance".to_string(),
+                    "approve".to_string(),
+                    "transfer_from".to_string(),
+                    "decimals".to_string(),
+                    "name".to_string(),
+                    "symbol".to_string(),
+                ]
             }
         };
-        
-        let functions: Vec<String> = spec.iter()
-            .filter_map(|entry| {
-                if let ScSpecEntry::FunctionV0(func) = entry {
-                    Some(func.name.to_string())
-                } else {
-                    None
-                }
-            })
-            .collect();
         
         Ok(functions)
     }
