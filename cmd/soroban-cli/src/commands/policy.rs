@@ -130,6 +130,14 @@ impl Cmd {
             .map_err(|e| Error::PolicyGeneration(format!("Failed to render lib.rs: {}", e)))?;
         fs::write(src_dir.join("lib.rs"), lib_rs)?;
 
+        // Create Makefile
+        let makefile = handlebars.render("makefile", &workspace_data)
+            .map_err(|e| Error::PolicyGeneration(format!("Failed to render Makefile: {}", e)))?;
+        fs::write(output_dir.join("Makefile"), makefile)?;
+
+        // Create .soroban directory
+        fs::create_dir_all(output_dir.join(".soroban"))?;
+
         Ok(())
     }
 
