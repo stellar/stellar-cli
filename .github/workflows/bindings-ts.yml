@@ -163,3 +163,19 @@ jobs:
         with:
           name: quickstart-logs
           path: C:\a\_temp\logs
+          
+      - name: Export container filesystem
+        if: always()
+        run: |
+          CONTAINER_ID=$(docker ps -aqf "name=quickstart")
+          EXPORT_DIR="container-export"
+          mkdir -p $EXPORT_DIR
+          docker export $CONTAINER_ID | tar -x -C $EXPORT_DIR
+        shell: bash
+        
+      - name: Upload container filesystem
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-filesystem
+          path: container-export
