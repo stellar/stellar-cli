@@ -89,8 +89,8 @@ clean:
 use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 use soroban_sdk::{
     auth::{Context, ContractContext},
-    contract, contracterror, contractimpl, panic_with_error, symbol_short,
-    Address, Env, TryFromVal, Vec,
+    contract, contracterror, contractimpl, panic_with_error, Symbol,
+    Address, Env, Vec,
 };
 
 #[contracterror]
@@ -108,8 +108,8 @@ impl PolicyInterface for Contract {
     fn policy__(env: Env, _source: Address, _signer: SignerKey, contexts: Vec<Context>) {
         for context in contexts.iter() {
             match context {
-                Context::Contract(ContractContext { fn_name, args, .. }) => {
-{{#each allowed_methods}}                    if fn_name == symbol_short!("{{this}}") { return; }
+                Context::Contract(ContractContext { fn_name, .. }) => {
+{{#each allowed_methods}}                    if fn_name == Symbol::new(&env, "{{this}}") { return; }
 {{/each}}                }
                 _ => panic_with_error!(&env, Error::NotAllowed),
             }
@@ -121,7 +121,7 @@ impl PolicyInterface for Contract {
 
     handlebars.register_template_string(
         "function_based_policy",
-        r#"{{#each allowed_methods}}                    if fn_name == symbol_short!("{{this}}") { return; }
+        r#"{{#each allowed_methods}}                    if fn_name == Symbol::new(&env, "{{this}}") { return; }
 {{/each}}"#,
     )?;
 
