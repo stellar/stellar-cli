@@ -167,15 +167,8 @@ jobs:
       - name: Export container filesystem
         if: always()
         run: |
-          docker container export -o C:\a\_temp\container-export.tar quickstart
+          docker container export -o container-export.tar quickstart
         shell: wsl-run {0}
-        
-      - name: Upload container filesystem
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: container-export
-          path: C:\a\_temp\container-export.tar
         
       - name: Upload container filesystem
         if: always()
