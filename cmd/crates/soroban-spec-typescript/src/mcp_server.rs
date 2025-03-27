@@ -274,94 +274,30 @@ import { z } from 'zod';"#,
   "{}",
   "{}",
   {{
-{}    simulate: z.boolean().optional().default(true).describe("If true, simulate the transaction instead of submitting it"),
-    signAndSubmit: z.boolean().optional().default(false).describe("If true, sign and submit the transaction"),
-    publicKey: z.string().describe("Public key in strkey format (G... for public keys) - Converts to: addressToScVal(i)"),
-    secretKey: z.string().optional().describe("Secret key in strkey format (S... for secret keys)")
-  }},
+{}  }},
   async (params) => {{
     try {{
-      const {{ simulate, signAndSubmit, publicKey, secretKey{} }} = params;{}
+      {}
+      // Get the SAC client
+      const sacClient = await createSACClient(config.contractId, config.networkPassphrase, config.rpcUrl);
+
+      let txXdr: string;
+      const functionName = '{}';
+
+      const functionToCall = sacClient[functionName];
+      const result = await functionToCall(params);
+      txXdr = result.toXDR();
+
+      return {{
+        content: [
+          {{ type: "text", text: "UnsignedTransaction XDR:" }},
+          {{ type: "text", text: txXdr }},
+          {{ type: "text", text: "Next steps:" }},
+          {{ type: "text", text: "1. Sign the transaction" }},
+          {{ type: "text", text: "2. Submit the transaction" }},
+        ]
+      }}
       
-      // Get the account
-      const account = await server.getAccount(publicKey);
-      const transaction = new TransactionBuilder(account, {{
-        networkPassphrase: config.networkPassphrase,
-        fee: BASE_FEE,
-      }})
-      .addOperation(contract.call("{}"{}))
-      .setTimeout(30)
-      .build();
-
-      if (!simulate) {{
-        return {{
-          content: [
-            {{ type: "text", text: "Transaction XDR:" }},
-            {{ type: "text", text: transaction.toXDR() }}
-          ]
-        }};
-      }}
-
-      // Prepare the transaction
-      const preparedTx = await server.prepareTransaction(transaction);
-      const preparedXdr = preparedTx.toXDR();
-
-      // Simulate the transaction using the server
-      const simulateResult = await server.simulateTransaction(preparedTx);
-      if(!signAndSubmit) {{
-        return {{
-          content: [
-            {{ type: "text", text: "Transaction XDR" }},
-            {{ type: "text", text: preparedXdr }}
-          ]
-        }};
-      }}
-
-      if(!secretKey) {{
-        throw new Error("secretKey is required when signAndSubmit is true");
-      }}
-
-      const keypair = Keypair.fromSecret(secretKey);
-      const tx = TransactionBuilder.fromXDR(preparedXdr, config.networkPassphrase);
-      tx.sign(keypair);
-      
-      try {{
-        const result = await submitTransaction(tx.toXDR(), {{
-          server,
-          networkPassphrase: config.networkPassphrase
-        }});
-        
-        if (result.status === 'SUCCESS') {{
-          return {{
-            content: [
-              {{ type: "text", text: "Transaction completed successfully!" }},
-              {{ type: "text", text: `Transaction hash: ${{result.hash}}` }},
-              {{ type: "text", text: "Full response:" }},
-              {{ type: "text", text: JSON.stringify(result.response, null, 2) }}
-            ]
-          }};
-        }} else if (result.status === 'FAILED') {{
-          throw new Error(`Transaction failed: ${{result.resultXdr}}`);
-        }} else {{
-          // Instead of throwing an error on timeout, return a message with explorer link
-          return {{
-            content: [
-              {{ type: "text", text: "Transaction submitted but still processing." }},
-              {{ type: "text", text: `Transaction hash: ${{result.hash}}` }},
-              {{ type: "text", text: `You can view the transaction status at: https://stellar.expert/explorer/${{config.network === 'testnet' ? 'testnet' : 'public'}}/tx/${{result.hash}}` }}
-            ]
-          }};
-        }}
-        
-      }} catch (error: any) {{
-        return {{
-          content: [
-            {{ type: "text", text: "Transaction failed!" }},
-            {{ type: "text", text: error.message }},
-            {{ type: "text", text: "Please check the transaction hash on the network explorer." }}
-          ]
-        }};
-      }}
     }} catch (error: any) {{
       return {{
         content: [{{ 
@@ -375,13 +311,12 @@ import { z } from 'zod';"#,
                     name,
                     description,
                     params,
-                    if has_params { ", ...functionParams" } else { "" },
                     if has_params {
                         format!(r#"
       // Ensure parameters are in the correct order as defined in the contract
       const orderedParams = [{}];
       const scValParams = orderedParams.map(paramName => {{
-        const value = functionParams[paramName as keyof typeof functionParams];
+        const value = params[paramName as keyof typeof params];
         if (value === undefined) {{
           throw new Error(`Missing required parameter: ${{paramName}}`);
         }}
@@ -420,7 +355,6 @@ import { z } from 'zod';"#,
                         String::new()
                     },
                     name,
-                    if has_params { ", ...scValParams" } else { "" },
                     name
                 ))
             }
