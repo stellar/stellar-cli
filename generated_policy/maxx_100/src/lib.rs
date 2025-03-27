@@ -4,7 +4,7 @@ use smart_wallet_interface::{types::SignerKey, PolicyInterface};
 use soroban_sdk::{
     auth::{Context, ContractContext},
     contract, contracterror, contractimpl, panic_with_error, Symbol,
-    Address, Env, TryFromVal, Vec,
+    Address, Env, TryFromVal, Vec, BytesN,
 };
 
 #[contracterror]
@@ -23,6 +23,16 @@ pub struct Contract;
 #[contractimpl]
 impl PolicyInterface for Contract {
     fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>) {
+        // First verify the signer
+        if signer != SignerKey::Ed25519(BytesN::from_array(&env, &[
+            // Your signer's public key bytes here
+            0x46, 0x61, 0x20, 0xb2, 0x2a, 0x88, 0x9f, 0x89, 0x6d, 0x1f, 0x71, 0x28,
+            0xc3, 0x9a, 0x32, 0x48, 0x2c, 0x90, 0x44, 0x52, 0x82, 0x86, 0xef, 0xe3,
+            0x0e, 0x35, 0xce, 0x37, 0x3c, 0xc9, 0xc8, 0x66
+        ])) {
+            panic_with_error!(&env, Error::InvalidSigner);
+        }
+
         for context in contexts.iter() {
             match context {
                 Context::Contract(ContractContext { fn_name, args, .. }) => {
@@ -40,7 +50,6 @@ impl PolicyInterface for Contract {
                                 }
                             }
                         }
-
                         
                         return; // Function is allowed and passed all restrictions
                     }
@@ -51,6 +60,5 @@ impl PolicyInterface for Contract {
                 _ => panic_with_error!(&env, Error::InvalidContext),
             }
         }
-
     }
 }
