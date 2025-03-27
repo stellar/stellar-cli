@@ -248,10 +248,10 @@ fn fmt_arg_file_name(name: &str) -> String {
 
 fn arg_file_help(docs: &str) -> String {
     format!(
-        r#"{docs}
+        r"{docs}
 Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
-Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"#
+Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"
     )
 }
 
