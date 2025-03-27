@@ -109,7 +109,7 @@ impl PolicyInterface for Contract {
         for context in contexts.iter() {
             match context {
                 Context::Contract(ContractContext { fn_name, args, .. }) => {
-{{#each allowed_methods}}                    if fn_name == symbol_short!("{{truncate this 9}}") { return; }
+{{#each allowed_methods}}                    if fn_name == symbol_short!("{{this}}") { return; }
 {{/each}}                }
                 _ => panic_with_error!(&env, Error::NotAllowed),
             }
@@ -121,7 +121,7 @@ impl PolicyInterface for Contract {
 
     handlebars.register_template_string(
         "function_based_policy",
-        r#"{{#each allowed_methods}}                    if fn_name == symbol_short!("{{truncate this 9}}") { return; }
+        r#"{{#each allowed_methods}}                    if fn_name == symbol_short!("{{this}}") { return; }
 {{/each}}"#,
     )?;
 
