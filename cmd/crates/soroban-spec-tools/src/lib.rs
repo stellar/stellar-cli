@@ -1212,6 +1212,7 @@ fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
 impl Spec {
     #[must_use]
     pub fn example(&self, type_: &ScType) -> Option<String> {
+        #[allow(clippy::match_same_arms)]
         match type_ {
             ScType::U64 => Some("1".to_string()),
             ScType::I64 => Some("1".to_string()),
