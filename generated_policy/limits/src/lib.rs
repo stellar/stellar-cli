@@ -28,8 +28,16 @@ impl PolicyInterface for Contract {
                 Context::Contract(ContractContext { fn_name, args, .. }) => {
                     // Check if function is explicitly allowed in rules
                     if fn_name == Symbol::new(&env, "add_contact") {
+                        // Function is allowed, apply its specific restrictions if any
+
+
+                        return; // Function is allowed and passed all restrictions
                     }
                     if fn_name == Symbol::new(&env, "edit_contact") {
+                        // Function is allowed, apply its specific restrictions if any
+
+
+                        return; // Function is allowed and passed all restrictions
                     }
                     if fn_name == Symbol::new(&env, "transfer_to_contact") {
                         // Function is allowed, apply its specific restrictions if any
@@ -41,11 +49,11 @@ impl PolicyInterface for Contract {
                             }
                         }
 
-                        
+
                         return; // Function is allowed and passed all restrictions
                     }
                     
-                    // If we get here, either the function wasn't in rules or wasn't enabled
+                    // If we get here, the function wasn't in rules
                     panic_with_error!(&env, Error::NotAllowed);
                 }
                 _ => panic_with_error!(&env, Error::InvalidContext),
