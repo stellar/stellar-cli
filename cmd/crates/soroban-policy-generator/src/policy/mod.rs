@@ -5,6 +5,9 @@ mod smart_wallet;
 #[cfg(test)]
 mod smart_wallet_test;
 
+#[cfg(test)]
+mod function_based_test;
+
 use crate::error::Error;
 use serde_json::Value;
 

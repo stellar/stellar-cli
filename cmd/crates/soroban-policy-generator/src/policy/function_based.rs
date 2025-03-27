@@ -11,22 +11,12 @@ pub fn generate_function_based_policy(params: &Value) -> Result<String, Error> {
     templates::register_templates(&mut handlebars)
         .map_err(|e| Error::Template(e.to_string()))?;
 
-    // First generate the policy implementation
-    let policy_impl = handlebars
-        .render(
-            "function_based_policy",
-            &json!({
-                "allowed_methods": method_configs,
-            }),
-        )
-        .map_err(|e| Error::Render(e))?;
-
-    // Then generate the full contract
+    // Generate the full contract directly with the allowed methods
     handlebars
         .render(
             "lib_rs",
             &json!({
-                "policy_impl": policy_impl,
+                "allowed_methods": method_configs,
             }),
         )
         .map_err(|e| Error::Render(e))
