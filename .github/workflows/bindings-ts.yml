@@ -167,10 +167,7 @@ jobs:
       - name: Export container filesystem
         if: always()
         run: |
-          CONTAINER_ID=$(docker ps -aqf "name=quickstart")
-          EXPORT_DIR="container-export"
-          mkdir -p $EXPORT_DIR
-          docker export $CONTAINER_ID | tar -x -C $EXPORT_DIR
+          docker container export quickstart | tar -x -C container-export
         shell: bash
         
       - name: Upload container filesystem
