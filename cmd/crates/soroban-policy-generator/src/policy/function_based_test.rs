@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::function_based::generate_function_based_policy;
+    use crate::policy::function_based::generate_function_based_policy;
     use serde_json::json;
 
     #[test]

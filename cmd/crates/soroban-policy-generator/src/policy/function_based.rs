@@ -1,4 +1,3 @@
-#![no_std]
 use crate::{error::Error, templates};
 use handlebars::Handlebars;
 use serde_json::{json, Value};
