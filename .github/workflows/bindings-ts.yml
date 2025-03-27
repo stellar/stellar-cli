@@ -167,7 +167,7 @@ jobs:
       - name: Export container filesystem
         if: always()
         run: |
-          docker container export -o C:\a\_temp\container-export.tar quickstart
+          docker container export -o /mnt/a/_temp/container-export.tar quickstart
         shell: wsl-run {0}
         
       - name: Upload container filesystem
