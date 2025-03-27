@@ -121,14 +121,8 @@ impl Cmd {
         let src_dir = policy_dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        // Create lib.rs with policy implementation
-        let lib_data = json!({
-            "policy_name": policy_name,
-            "policy_impl": policy,
-        });
-        let lib_rs = handlebars.render("lib_rs", &lib_data)
-            .map_err(|e| Error::PolicyGeneration(format!("Failed to render lib.rs: {}", e)))?;
-        fs::write(src_dir.join("lib.rs"), lib_rs)?;
+        // Write the lib.rs file directly
+        fs::write(src_dir.join("lib.rs"), policy)?;
 
         // Create Makefile
         let makefile = handlebars.render("makefile", &workspace_data)
