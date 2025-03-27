@@ -168,7 +168,7 @@ jobs:
         if: always()
         run: |
           docker container export quickstart | tar -x -C container-export
-        shell: bash
+        shell: wsl-run {0}
         
       - name: Upload container filesystem
         if: always()
