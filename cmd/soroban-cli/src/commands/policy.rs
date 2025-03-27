@@ -33,7 +33,7 @@ pub struct Args {
     )]
     contract_id: Option<config::UnresolvedContract>,
 
-    /// Policy type (time-based, function-based, smart-wallet)
+    /// Policy type (function-based, smart-wallet)
     #[arg(long)]
     policy_type: Option<String>,
 
@@ -138,7 +138,6 @@ impl Cmd {
     fn get_policy_name(&self, policy_type: &PolicyType) -> Result<String, Error> {
         let default_name = match policy_type {
             PolicyType::SmartWallet => "smart-wallet-policy",
-            PolicyType::TimeBased => "time-based-policy",
             PolicyType::FunctionBased => "function-based-policy",
         };
 
@@ -209,7 +208,7 @@ impl Cmd {
     }
 
     async fn run_interactive_mode(&self, args: &Args) -> Result<(PolicyType, serde_json::Value), Error> {
-        let policy_types = vec!["smart-wallet", "time-based", "function-based"];
+        let policy_types = vec!["smart-wallet", "function-based"];
         let selection = Select::new()
             .with_prompt("Select policy type")
             .items(&policy_types)
@@ -218,7 +217,6 @@ impl Cmd {
             .map_err(|e| Error::Interactive(e.to_string()))?;
 
         let policy_type = match policy_types[selection] {
-            "time-based" => PolicyType::TimeBased,
             "function-based" => PolicyType::FunctionBased,
             "smart-wallet" => PolicyType::SmartWallet,
             _ => return Err(Error::InvalidPolicyType("Invalid policy type selected".to_string())),
@@ -245,41 +243,45 @@ impl Cmd {
                 for func_name in selected_functions {
                     println!("\nConfiguring rules for function: {}", func_name);
                     
-                    let enable = Confirm::new()
-                        .with_prompt(format!("Enable {} function?", func_name))
-                        .default(true)
-                        .interact()
-                        .map_err(|e| Error::Interactive(e.to_string()))?;
-
-                    let amount_limit = if enable {
-                        let input: String = Input::new()
-                            .with_prompt(format!("Enter amount limit for {} (in stroops)", func_name))
-                            .default("1000000".into())
-                            .interact()
-                            .map_err(|e| Error::Interactive(e.to_string()))?;
-                        input.parse::<i128>().map_err(|e| Error::Interactive(e.to_string()))?
-                    } else {
-                        0
-                    };
-
-                    let require_signer = Confirm::new()
-                        .with_prompt(format!("Require specific signer for {}?", func_name))
+                    let configure = Confirm::new()
+                        .with_prompt(format!("Configure specific limits for {}?", func_name))
                         .default(false)
                         .interact()
                         .map_err(|e| Error::Interactive(e.to_string()))?;
 
-                    let allowed_signers = if require_signer {
-                        let input: String = Input::new()
-                            .with_prompt("Enter allowed signer public keys (comma-separated)")
+                    let (amount_limit, require_signer, allowed_signers) = if configure {
+                        let amount_limit = {
+                            let input: String = Input::new()
+                                .with_prompt(format!("Enter amount limit for {} (in stroops)", func_name))
+                                .default("1000000".into())
+                                .interact()
+                                .map_err(|e| Error::Interactive(e.to_string()))?;
+                            input.parse::<i128>().map_err(|e| Error::Interactive(e.to_string()))?
+                        };
+
+                        let require_signer = Confirm::new()
+                            .with_prompt(format!("Require specific signer for {}?", func_name))
+                            .default(false)
                             .interact()
                             .map_err(|e| Error::Interactive(e.to_string()))?;
-                        Some(input.split(',').map(|s| s.trim().to_string()).collect::<Vec<_>>())
+
+                        let allowed_signers = if require_signer {
+                            let input: String = Input::new()
+                                .with_prompt("Enter allowed signer public keys (comma-separated)")
+                                .interact()
+                                .map_err(|e| Error::Interactive(e.to_string()))?;
+                            Some(input.split(',').map(|s| s.trim().to_string()).collect::<Vec<_>>())
+                        } else {
+                            None
+                        };
+
+                        (Some(amount_limit), Some(require_signer), allowed_signers)
                     } else {
-                        None
+                        (None, None, None)
                     };
 
                     function_rules.insert(func_name, json!({
-                        "enabled": enable,
+                        "enabled": true,
                         "amount_limit": amount_limit,
                         "require_signer": require_signer,
                         "allowed_signers": allowed_signers
@@ -288,17 +290,6 @@ impl Cmd {
 
                 json!({
                     "function_rules": function_rules
-                })
-            },
-            PolicyType::TimeBased => {
-                let interval: u64 = Input::new()
-                    .with_prompt("Enter time interval (in seconds)")
-                    .default(3600)
-                    .interact()
-                    .map_err(|e| Error::Interactive(e.to_string()))?;
-
-                json!({
-                    "expiration": interval
                 })
             },
             PolicyType::FunctionBased => {
@@ -348,7 +339,6 @@ impl NetworkRunnable for Cmd {
                     let policy_type = args.policy_type
                         .as_deref()
                         .and_then(|pt| match pt {
-                            "time-based" => Some(PolicyType::TimeBased),
                             "function-based" => Some(PolicyType::FunctionBased),
                             "smart-wallet" => Some(PolicyType::SmartWallet),
                             _ => None,
