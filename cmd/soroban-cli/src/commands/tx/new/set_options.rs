@@ -79,16 +79,16 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
 
         if cmd.set_required {
             set_flag(xdr::AccountFlags::RequiredFlag);
-        };
+        }
         if cmd.set_revocable {
             set_flag(xdr::AccountFlags::RevocableFlag);
-        };
+        }
         if cmd.set_immutable {
             set_flag(xdr::AccountFlags::ImmutableFlag);
-        };
+        }
         if cmd.set_clawback_enabled {
             set_flag(xdr::AccountFlags::ClawbackEnabledFlag);
-        };
+        }
 
         let mut clear_flags = None;
         let mut clear_flag = |flag: xdr::AccountFlags| {
@@ -96,16 +96,16 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
         };
         if cmd.clear_required {
             clear_flag(xdr::AccountFlags::RequiredFlag);
-        };
+        }
         if cmd.clear_revocable {
             clear_flag(xdr::AccountFlags::RevocableFlag);
-        };
+        }
         if cmd.clear_immutable {
             clear_flag(xdr::AccountFlags::ImmutableFlag);
-        };
+        }
         if cmd.clear_clawback_enabled {
             clear_flag(xdr::AccountFlags::ClawbackEnabledFlag);
-        };
+        }
 
         let signer = if let (Some(key), Some(signer_weight)) =
             (cmd.signer.clone(), cmd.signer_weight.as_ref())

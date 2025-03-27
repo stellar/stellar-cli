@@ -80,7 +80,7 @@ impl Cmd {
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Update(cmd) => cmd.run(global_args).await?,
-        };
+        }
         Ok(())
     }
 }

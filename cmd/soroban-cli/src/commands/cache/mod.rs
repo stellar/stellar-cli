@@ -32,7 +32,7 @@ impl Cmd {
             Cmd::Clean(cmd) => cmd.run()?,
             Cmd::Path(cmd) => cmd.run()?,
             Cmd::Actionlog(cmd) => cmd.run()?,
-        };
+        }
         Ok(())
     }
 }

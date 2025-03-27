@@ -40,7 +40,7 @@ build:
 	cargo build
 
 build-test-wasms:
-	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
+	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms install
 
@@ -72,11 +72,11 @@ publish:
 
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
-					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
+					--wasm ./target/wasm32v1-none/test-wasms/test_custom_types.wasm \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
 					--overwrite && \
 	cargo run -- contract bindings typescript \
-					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm \
+					--wasm ./target/wasm32v1-none/test-wasms/test_constructor.wasm \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_constructor \
 					--overwrite
 
