@@ -29,7 +29,7 @@ pub struct Cmd {
     #[arg(long = "id")]
     id: String,
 
-    /// Type of policy to generate (time-based, amount-based, multi-sig)
+    /// Type of policy to generate (smart-wallet, function-based)
     #[arg(long = "policy-type")]
     policy_type: String,
 

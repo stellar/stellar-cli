@@ -1,5 +1,4 @@
 mod function_based;
-mod time_based;
 mod smart_wallet;
 
 #[cfg(test)]
@@ -13,7 +12,6 @@ use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub enum PolicyType {
-    TimeBased,
     FunctionBased,
     SmartWallet,
 }
@@ -21,7 +19,6 @@ pub enum PolicyType {
 impl PolicyType {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "time-based" => Some(Self::TimeBased),
             "function-based" => Some(Self::FunctionBased),
             "smart-wallet" => Some(Self::SmartWallet),
             _ => None,
@@ -31,7 +28,6 @@ impl PolicyType {
 
 pub fn generate_policy(policy_type: PolicyType, params: &Value) -> Result<String, Error> {
     match policy_type {
-        PolicyType::TimeBased => time_based::generate_time_based_policy(params),
         PolicyType::FunctionBased => function_based::generate_function_based_policy(params),
         PolicyType::SmartWallet => {
             let policy: smart_wallet::SmartWalletPolicy = serde_json::from_value(params.clone())?;
