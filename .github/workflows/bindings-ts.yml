@@ -183,3 +183,17 @@ jobs:
         with:
           name: container-export
           path: container-export.tar
+
+      - if: always()
+        run: |
+          ls -lah
+        shell: wsl-run {0}
+
+      - if: always()
+        run: |
+          ls -lah
+        shell: bash
+
+      - if: always()
+        run: |
+          ls -lah
