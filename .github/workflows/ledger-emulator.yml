@@ -44,8 +44,6 @@ jobs:
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
-      - run: >
-          cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml 
-          --features "emulator-tests" -- --nocapture
-      - run: cargo build --features emulator-tests
-      - run: cargo test --features emulator-tests --package soroban-test --test it -- emulator
+      - run: RUST_BACKTRACE=1 cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
+      - run: RUST_BACKTRACE=1 cargo build --features emulator-tests
+      - run: RUST_BACKTRACE=1 cargo test --features emulator-tests --package soroban-test --test it -- emulator
