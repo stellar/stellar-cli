@@ -1,8 +1,24 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Contract, nativeToScVal, xdr, TransactionBuilder, SorobanRpc, Keypair } from '@stellar/stellar-sdk';
+import { Contract, nativeToScVal, xdr, TransactionBuilder, rpc as SorobanRpc, Keypair, Address, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
+import { config as dotenvConfig } from 'dotenv';
+import { 
+  addressToScVal, 
+  i128ToScVal, 
+  u128ToScVal, 
+  stringToSymbol, 
+  numberToU64, 
+  numberToI128, 
+  boolToScVal, 
+  u32ToScVal,
+  submitTransaction,
+  createSACClient
+} from './helper.js';
+
+// Load environment variables
+dotenvConfig();
 
 // Configuration
 const config = {
@@ -11,6 +27,11 @@ const config = {
   rpcUrl: process.env.RPC_URL || 'https://soroban-testnet.stellar.org',
   contractId: process.env.CONTRACT_ID || '',
 };
+
+// Validate required environment variables
+if (!config.contractId) {
+  throw new Error('CONTRACT_ID environment variable is required');
+}
 
 const server = new SorobanRpc.Server(config.rpcUrl);
 

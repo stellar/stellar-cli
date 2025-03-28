@@ -1,4 +1,20 @@
-import { Address, nativeToScVal, xdr, SorobanRpc, TransactionBuilder, Keypair } from '@stellar/stellar-sdk';
+import { Address, nativeToScVal, xdr, rpc as SorobanRpc, TransactionBuilder, contract } from '@stellar/stellar-sdk';
+import { SACClient } from "passkey-kit";
+
+export const createContractClient = async (contractId: string, networkPassphrase: string, rpcUrl: string): Promise<contract.Client> => {
+  return contract.Client.from({
+    contractId,
+    networkPassphrase,
+    rpcUrl
+  })
+}
+
+export const createSACClient = async (contractId: string, networkPassphrase: string, rpcUrl: string): Promise<contract.Client> => {
+  return new SACClient({
+    rpcUrl,
+    networkPassphrase,
+  }).getSACClient(contractId);
+}
 
 /**
  * Convert a string to a Symbol ScVal

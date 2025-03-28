@@ -16,7 +16,8 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@stellar/stellar-sdk": "^11.0.1",
+    "@stellar/stellar-sdk": "^13.0.0",
+    "passkey-kit": "^0.10.19",
     "zod": "^3.22.0"
   },
   "devDependencies": {
