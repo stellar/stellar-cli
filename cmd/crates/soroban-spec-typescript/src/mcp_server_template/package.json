@@ -17,8 +17,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@stellar/stellar-sdk": "^13.0.0",
-    "passkey-kit": "^0.10.19",
-    "zod": "^3.22.0"
+    "sac-sdk": "0.3.6",
+    "zod": "^3.22.0",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

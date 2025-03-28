@@ -1,0 +1,29 @@
+{
+  "name": "blend-mcp-server",
+  "version": "0.0.1",
+  "description": "MCP Server for Soroban Smart Contract",
+  "type": "module",
+  "bin": {
+    "blend-mcp-server": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
+    "start": "node build/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+  },
+  "files": [
+    "build"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@stellar/stellar-sdk": "^13.0.0",
+    "sac-sdk": "0.3.6",
+    "zod": "^3.22.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node-dev": "^2.0.0"
+  }
+} 

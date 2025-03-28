@@ -86,7 +86,7 @@ impl Cmd {
         std::fs::create_dir_all(&self.output_dir)?;
 
         // Generate MCP server code
-        let generator = McpServerGenerator::new();
+        let mut generator = McpServerGenerator::new();
         generator.generate(
             &self.output_dir,
             &self.name,
