@@ -37,4 +37,4 @@ jobs:
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
-      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
+      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration --test-threads=1
