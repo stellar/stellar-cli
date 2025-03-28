@@ -292,7 +292,7 @@ import { z } from 'zod';"#;
     fn generate_tool(&mut self, entry: &ScSpecEntry) -> Option<String> {
         let entry = Entry::from(entry);
         match entry {
-            Entry::Function { name, doc, inputs, .. } => {
+            Entry::Function { name, doc, inputs, outputs } => {
                 let description = if doc.is_empty() {
                     format!("Call the {} function", name)
                 } else {
@@ -344,27 +344,48 @@ import { z } from 'zod';"#;
       // Get the contract client
       const client = await {}(config.contractId, config.networkPassphrase, config.rpcUrl);
 
-      let txXdr: string;
       const functionName = '{}';{}
       const functionToCall = client[functionName];
 
       {}
 
-      return {{
-        content: [
-          {{ type: "text", text: "Unsigned Transaction XDR:" }},
-          {{ type: "text", text: txXdr }},
-          {{ type: "text", text: `<SmartContractID>${{config.contractId}}</SmartContractID>` }},
-          {{ type: "text", text: "Next steps:)" }},
-          {{ type: "text", text: "1. Sign the Stellar transaction XDR\n2. Submit the signed transaction XDR to the Stellar network\n3. Remember to use the smart contract ID when submitting the transaction" }},
-        ]
+      // Get the XDR before simulation
+      const txXdr = result.toXDR();
+
+      // Default to write operation
+      let isReadCall = false;
+
+      // Run simulation and determine if it's a read call
+      try {{
+        await result.simulate();
+        isReadCall = result.isReadCall;
+      }} catch (e) {{
+        // Ignore simulation errors as they might be expected for write operations
       }}
-      
+
+      // Return different responses for read and write operations
+      if (isReadCall) {{
+        return {{
+          content: [
+            {{ type: "text", text: result.result ? JSON.stringify(result.result, null, 2) : "No result returned" }}
+          ]
+        }};
+      }} else {{
+        return {{
+          content: [
+            {{ type: "text", text: "Unsigned Stellar Transaction XDR generated successfully" }},
+            {{ type: "text", text: `<UnsignedXDR>${{txXdr}}</UnsignedXDR>` }},
+            {{ type: "text", text: "Next steps:" }},
+            {{ type: "text", text: "1. Sign the Stellar transaction XDR\n2. Submit the signed transaction XDR to the Stellar network\n3. Remember to use the smart contract ID when submitting the transaction" }},
+            {{ type: "text", text: `<SmartContractID>${{config.contractId}}</SmartContractID>` }}
+          ]
+        }};
+      }}
     }} catch (error: any) {{
       return {{
         content: [{{ 
           type: "text", 
-          text: `Error executing {}: ${{error.message}}${{error.cause ? `\nCause: ${{error.cause}}` : ''}}` 
+          text: `Error executing function '{}': ${{error.message}}${{error.cause ? `\nCause: ${{error.cause}}` : ''}}` 
         }}]
       }};
     }}
@@ -382,8 +403,7 @@ import { z } from 'zod';"#;
                             format!(r#"// For SAC contracts, we can use parameters more directly
       const result = await functionToCall({{
           {}
-      }});
-      txXdr = result.toXDR();"#,
+      }});"#,
                             inputs.iter().map(|input| {
                                 match input.value {
                                     Type::I128 | Type::U128 => format!("{}: BigInt(params.{})", input.name, input.name),
@@ -398,8 +418,7 @@ import { z } from 'zod';"#;
           {}
       }};
 
-      const result = await functionToCall(scValParams);
-      txXdr = result.toXDR();"#,
+      const result = await functionToCall(scValParams);"#,
                             inputs.iter().map(|input| {
                                 let converter = match input.value {
                                     Type::Address => {
@@ -445,7 +464,7 @@ import { z } from 'zod';"#;
                             )
                         }
                     } else {
-                        "const result = await functionToCall();\ntxXdr = result.toXDR();".to_string()
+                        "const result = await functionToCall();".to_string()
                     },
                     name
                 ))
