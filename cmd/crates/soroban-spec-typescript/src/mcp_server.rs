@@ -249,12 +249,6 @@ import { z } from 'zod';"#;
             output_dir.join("build.ts"),
         )?;
 
-        // Copy .env.example
-        fs::copy(
-            template_dir.join(".env.example"),
-            output_dir.join(".env.example"),
-        )?;
-
         // Print success message with next steps
         println!("\n✨ Generated MCP server in {}", output_dir.display());
         println!("\n📝 Next steps:");
@@ -265,10 +259,6 @@ import { z } from 'zod';"#;
         println!("   npm run build");
         println!("   ```");
         println!("\n2. Set up your environment variables:");
-        println!("   ```");
-        println!("   cp .env.example .env");
-        println!("   # Edit .env with your configuration");
-        println!("   ```");
         println!("\n3. Add the following configuration to your MCP config file:");
         println!("   ```json");
         println!("   \"{}\": {{", name);
@@ -367,7 +357,7 @@ import { z } from 'zod';"#;
       if (isReadCall) {{
         return {{
           content: [
-            {{ type: "text", text: result.result ? JSON.stringify(result.result, null, 2) : "No result returned" }}
+            {{ type: "text", text: result.result ? JSON.stringify(result.result, replacer, 2) : "No result returned" }}
           ]
         }};
       }} else {{

@@ -184,3 +184,10 @@ export async function submitTransaction(
     throw new Error(`Transaction submission failed: ${error.message}`);
   }
 }
+
+/**
+ * Replace bigint values with their string representation
+ */
+export const replacer = (key: string, value: any) => {
+  return typeof value === 'bigint' ? `${value}n` : value;
+};
