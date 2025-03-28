@@ -1225,7 +1225,7 @@ impl Spec {
             ScType::Error => Some("Error".to_string()),
             ScType::Bytes => Some("\"0000000000000000\"".to_string()),
             ScType::Address => {
-                Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
+                Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
             }
             ScType::Void => Some("null".to_string()),
             ScType::Timepoint => Some("1743010492".to_string()),
