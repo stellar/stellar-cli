@@ -39,10 +39,11 @@ impl McpServerGenerator {
         if self.used_imports.contains("BASE_FEE") { stellar_imports.push("BASE_FEE"); }
         if self.used_imports.contains("Keypair") { stellar_imports.push("Keypair"); }
         
-        imports.push(&format!(
+        let stellar_import = format!(
             "import {{ {} }} from '@stellar/stellar-sdk';",
             stellar_imports.join(", ")
-        ));
+        );
+        imports.push(&stellar_import);
 
         // Add helper imports based on usage
         let mut helper_imports = vec!["createSACClient"];
@@ -56,10 +57,11 @@ impl McpServerGenerator {
         if self.used_imports.contains("u32ToScVal") { helper_imports.push("u32ToScVal"); }
         if self.used_imports.contains("submitTransaction") { helper_imports.push("submitTransaction"); }
 
-        imports.push(&format!(
+        let helper_import = format!(
             "import {{ {} }} from './helper.js';",
             helper_imports.join(",\n  ")
-        ));
+        );
+        imports.push(&helper_import);
 
         imports.join("\n")
     }
