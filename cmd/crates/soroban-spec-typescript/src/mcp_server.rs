@@ -65,6 +65,11 @@ impl McpServerGenerator {
         );
         imports.push(&helper_import);
 
+        // Add SAC SDK import if it's a SAC contract
+        if self.is_sac {
+            imports.push("import { Client as SacClient } from 'sac-sdk';");
+        }
+
         imports.join("\n")
     }
 
@@ -236,6 +241,12 @@ import { z } from 'zod';"#;
         fs::copy(
             template_dir.join("tsconfig.json"),
             output_dir.join("tsconfig.json"),
+        )?;
+
+        // Copy build.ts
+        fs::copy(
+            template_dir.join("build.ts"),
+            output_dir.join("build.ts"),
         )?;
 
         // Copy .env.example

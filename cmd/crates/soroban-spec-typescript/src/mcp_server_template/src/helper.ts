@@ -1,5 +1,5 @@
 import { Address, nativeToScVal, xdr, rpc as SorobanRpc, TransactionBuilder, contract } from '@stellar/stellar-sdk';
-import { Client as SacClient } from 'sac-sdk'
+import { Client as SacClient } from 'sac-sdk';
 
 export const createContractClient = async (contractId: string, networkPassphrase: string, rpcUrl: string): Promise<contract.Client> => {
   return contract.Client.from({

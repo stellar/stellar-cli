@@ -1,15 +1,25 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "./build",
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "sac-sdk": ["node_modules/sac-sdk/src/index.ts"],
+      "sac-sdk/*": ["node_modules/sac-sdk/src/*"]
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*",
+    "node_modules/sac-sdk/src/**/*"
+  ],
+  "exclude": ["node_modules/**/*", "!node_modules/sac-sdk/**/*"]
 } 
