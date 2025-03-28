@@ -205,7 +205,7 @@ impl McpServerGenerator {
         // Replace imports section with our dynamic imports
         let old_imports = r#"import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Contract, nativeToScVal, xdr, TransactionBuilder, SorobanRpc, Keypair } from '@stellar/stellar-sdk';
+import { Contract, nativeToScVal, xdr, TransactionBuilder, rpc as SorobanRpc, Keypair } from '@stellar/stellar-sdk';
 import { z } from 'zod';"#;
 
         index_content = index_content.replace(old_imports, &self.get_imports());
