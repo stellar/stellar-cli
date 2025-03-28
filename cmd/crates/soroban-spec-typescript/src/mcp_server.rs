@@ -11,12 +11,14 @@ pub enum Error {
 
 pub struct McpServerGenerator {
     used_imports: std::collections::HashSet<String>,
+    is_sac: bool,
 }
 
 impl McpServerGenerator {
-    pub fn new() -> Self {
+    pub fn new(is_sac: bool) -> Self {
         Self {
             used_imports: std::collections::HashSet::new(),
+            is_sac,
         }
     }
 
@@ -328,24 +330,22 @@ import { z } from 'zod';"#;
 {}  }},
   async (params) => {{
     try {{
-      {}
       // Get the SAC client
       const sacClient = await createSACClient(config.contractId, config.networkPassphrase, config.rpcUrl);
 
       let txXdr: string;
       const functionName = '{}';
-
       const functionToCall = sacClient[functionName];
-      const result = await functionToCall(params);
-      txXdr = result.toXDR();
+
+      {}
 
       return {{
         content: [
-          {{ type: "text", text: "UnsignedTransaction XDR:" }},
+          {{ type: "text", text: "Unsigned Transaction XDR:" }},
           {{ type: "text", text: txXdr }},
           {{ type: "text", text: "Next steps:" }},
-          {{ type: "text", text: "1. Sign the transaction" }},
-          {{ type: "text", text: "2. Submit the transaction" }},
+          {{ type: "text", text: "1. Sign the Stellar transaction XDR" }},
+          {{ type: "text", text: "2. Submit the signed transaction XDR to the Stellar network" }},
         ]
       }}
       
@@ -362,9 +362,25 @@ import { z } from 'zod';"#;
                     name,
                     description,
                     params,
+                    name,
                     if has_params {
-                        format!(r#"
-      // Ensure parameters are in the correct order as defined in the contract
+                        if self.is_sac {
+                            // For SAC, we can use parameters directly with minimal conversion
+                            format!(r#"// For SAC contracts, we can use parameters more directly
+      const result = await functionToCall({{
+          {}
+      }});
+      txXdr = result.toXDR();"#,
+                            inputs.iter().map(|input| {
+                                match input.value {
+                                    Type::I128 | Type::U128 => format!("{}: BigInt(params.{})", input.name, input.name),
+                                    _ => format!("{}: params.{}", input.name, input.name)
+                                }
+                            }).collect::<Vec<_>>().join(",\n          ")
+                            )
+                        } else {
+                            // For WASM contracts, we need to convert to ScVal
+                            format!(r#"// Ensure parameters are in the correct order as defined in the contract
       const orderedParams = [{}];
       const scValParams = orderedParams.map(paramName => {{
         const value = params[paramName as keyof typeof params];
@@ -377,7 +393,9 @@ import { z } from 'zod';"#;
           default:
             return nativeToScVal(value);
         }}
-      }});"#,
+      }});
+      const result = await functionToCall(...scValParams);
+      txXdr = result.toXDR();"#,
                             inputs.iter().map(|input| format!("'{}'", input.name)).collect::<Vec<_>>().join(", "),
                             inputs.iter().map(|input| {
                                 let converter = match input.value {
@@ -420,11 +438,11 @@ import { z } from 'zod';"#;
                                     }
                                 )
                             }).collect::<Vec<_>>().join("\n          ")
-                        )
+                            )
+                        }
                     } else {
-                        String::new()
+                        "const result = await functionToCall();\ntxXdr = result.toXDR();".to_string()
                     },
-                    name,
                     name
                 ))
             }

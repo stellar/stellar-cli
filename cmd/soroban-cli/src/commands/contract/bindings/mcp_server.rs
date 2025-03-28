@@ -66,11 +66,12 @@ impl Cmd {
             _ => return Err(Error::WasmOrContract(contract_spec::Error::MissingArg)),
         };
 
-        let spec = match contract {
-            contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
-            contract_spec::Contract::StellarAssetContract => {
-                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
-            }
+        let (spec, is_sac) = match contract {
+            contract_spec::Contract::Wasm { wasm_bytes } => (Spec::new(&wasm_bytes)?.spec, false),
+            contract_spec::Contract::StellarAssetContract => (
+                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?,
+                true
+            ),
         };
 
         if self.output_dir.is_file() {
@@ -86,7 +87,7 @@ impl Cmd {
         std::fs::create_dir_all(&self.output_dir)?;
 
         // Generate MCP server code
-        let mut generator = McpServerGenerator::new();
+        let mut generator = McpServerGenerator::new(is_sac);
         generator.generate(
             &self.output_dir,
             &self.name,
