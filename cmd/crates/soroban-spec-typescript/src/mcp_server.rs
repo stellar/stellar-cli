@@ -9,28 +9,94 @@ pub enum Error {
     Io(#[from] io::Error),
 }
 
-pub struct McpServerGenerator;
+pub struct McpServerGenerator {
+    used_imports: std::collections::HashSet<String>,
+}
 
 impl McpServerGenerator {
     pub fn new() -> Self {
-        Self
+        Self {
+            used_imports: std::collections::HashSet::new(),
+        }
     }
 
-    fn type_to_zod(value: &Type) -> String {
+    fn add_import(&mut self, import: &str) {
+        self.used_imports.insert(import.to_string());
+    }
+
+    fn get_imports(&self) -> String {
+        let mut imports = vec![
+            // Base imports that are always needed
+            "import { McpServer } from \"@modelcontextprotocol/sdk/server/mcp.js\";",
+            "import { StdioServerTransport } from \"@modelcontextprotocol/sdk/server/stdio.js\";",
+            "import { z } from 'zod';",
+            "import { config as dotenvConfig } from 'dotenv';",
+        ];
+
+        // Add stellar-sdk imports based on usage
+        let mut stellar_imports = vec!["Contract", "nativeToScVal", "xdr", "rpc as SorobanRpc"];
+        if self.used_imports.contains("Address") { stellar_imports.push("Address"); }
+        if self.used_imports.contains("BASE_FEE") { stellar_imports.push("BASE_FEE"); }
+        if self.used_imports.contains("Keypair") { stellar_imports.push("Keypair"); }
+        
+        imports.push(&format!(
+            "import {{ {} }} from '@stellar/stellar-sdk';",
+            stellar_imports.join(", ")
+        ));
+
+        // Add helper imports based on usage
+        let mut helper_imports = vec!["createSACClient"];
+        if self.used_imports.contains("addressToScVal") { helper_imports.push("addressToScVal"); }
+        if self.used_imports.contains("i128ToScVal") { helper_imports.push("i128ToScVal"); }
+        if self.used_imports.contains("u128ToScVal") { helper_imports.push("u128ToScVal"); }
+        if self.used_imports.contains("stringToSymbol") { helper_imports.push("stringToSymbol"); }
+        if self.used_imports.contains("numberToU64") { helper_imports.push("numberToU64"); }
+        if self.used_imports.contains("numberToI128") { helper_imports.push("numberToI128"); }
+        if self.used_imports.contains("boolToScVal") { helper_imports.push("boolToScVal"); }
+        if self.used_imports.contains("u32ToScVal") { helper_imports.push("u32ToScVal"); }
+        if self.used_imports.contains("submitTransaction") { helper_imports.push("submitTransaction"); }
+
+        imports.push(&format!(
+            "import {{ {} }} from './helper.js';",
+            helper_imports.join(",\n  ")
+        ));
+
+        imports.join("\n")
+    }
+
+    fn type_to_zod(&mut self, value: &Type) -> String {
         let _xdr_converter = type_to_js_xdr(value);
         match value {
             // Numbers
             Type::U64 | Type::I64 | Type::U32 | Type::I32 | Type::Timepoint | Type::Duration => {
+                self.add_import("numberToU64");
                 "z.number()".to_string()
             },
 
             // Large numbers and addresses as strings
-            Type::U128 | Type::I128 | Type::U256 | Type::I256 | Type::Address | Type::Symbol | Type::String => {
+            Type::U128 => {
+                self.add_import("u128ToScVal");
                 "z.string()".to_string()
             },
+            Type::I128 => {
+                self.add_import("i128ToScVal");
+                "z.string()".to_string()
+            },
+            Type::Address => {
+                self.add_import("addressToScVal");
+                "z.string()".to_string()
+            },
+            Type::Symbol => {
+                self.add_import("stringToSymbol");
+                "z.string()".to_string()
+            },
+            Type::String => "z.string()".to_string(),
 
             // Boolean
-            Type::Bool => "z.boolean()".to_string(),
+            Type::Bool => {
+                self.add_import("boolToScVal");
+                "z.boolean()".to_string()
+            },
 
             // Buffer types
             Type::Bytes => format!(
@@ -66,12 +132,12 @@ impl McpServerGenerator {
             },
 
             // Compound types
-            Type::Option { value } => format!("{}.optional()", Self::type_to_zod(value)),
-            Type::Vec { element } => format!("z.array({})", Self::type_to_zod(element)),
-            Type::Map { key, value } => format!("z.map({}, {})", Self::type_to_zod(key), Self::type_to_zod(value)),
+            Type::Option { value } => format!("{}.optional()", self.type_to_zod(value)),
+            Type::Vec { element } => format!("z.array({})", self.type_to_zod(element)),
+            Type::Map { key, value } => format!("z.map({}, {})", self.type_to_zod(key), self.type_to_zod(value)),
             Type::Tuple { elements } => {
                 let element_types = elements.iter()
-                    .map(Self::type_to_zod)
+                    .map(|e| self.type_to_zod(e))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("z.tuple([{}])", element_types)
@@ -113,7 +179,7 @@ impl McpServerGenerator {
         }
     }
 
-    pub fn generate(&self, output_dir: &Path, name: &str, spec: &[ScSpecEntry], contract_id: &str) -> Result<(), Error> {
+    pub fn generate(&mut self, output_dir: &Path, name: &str, spec: &[ScSpecEntry], contract_id: &str) -> Result<(), Error> {
         // Create the output directory if it doesn't exist
         fs::create_dir_all(output_dir)?;
 
@@ -136,30 +202,13 @@ impl McpServerGenerator {
             .replace("INSERT_NAME_HERE", name)
             .replace("INSERT_TOOLS_HERE", &tools);
 
-        // Replace imports section with our enhanced version
-        let imports = r#"import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Contract, nativeToScVal, xdr, TransactionBuilder, SorobanRpc, Keypair, Address, BASE_FEE } from '@stellar/stellar-sdk';
-import { z } from 'zod';
-import { 
-  addressToScVal, 
-  i128ToScVal, 
-  u128ToScVal, 
-  stringToSymbol, 
-  numberToU64, 
-  numberToI128, 
-  boolToScVal, 
-  u32ToScVal,
-  submitTransaction 
-} from './helper.js';"#;
-
-        index_content = index_content.replace(
-            r#"import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+        // Replace imports section with our dynamic imports
+        let old_imports = r#"import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Contract, nativeToScVal, xdr, TransactionBuilder, SorobanRpc, Keypair } from '@stellar/stellar-sdk';
-import { z } from 'zod';"#,
-            imports
-        );
+import { z } from 'zod';"#;
+
+        index_content = index_content.replace(old_imports, &self.get_imports());
 
         // Write the generated code to index.ts
         let index_path = output_dir.join("src/index.ts");
@@ -225,7 +274,7 @@ import { z } from 'zod';"#,
         Ok(())
     }
 
-    fn generate_tool(&self, entry: &ScSpecEntry) -> Option<String> {
+    fn generate_tool(&mut self, entry: &ScSpecEntry) -> Option<String> {
         let entry = Entry::from(entry);
         match entry {
             Entry::Function { name, doc, inputs, .. } => {
@@ -244,7 +293,7 @@ import { z } from 'zod';"#,
                     let params_str = inputs
                         .iter()
                         .map(|input| {
-                            let type_info = Self::type_to_zod(&input.value);
+                            let type_info = self.type_to_zod(&input.value);
                             let type_desc = Self::get_type_description(&input.value);
                             
                             format!("    {}: {}.describe(\"{}\")", 
@@ -329,17 +378,36 @@ import { z } from 'zod';"#,
       }});"#,
                             inputs.iter().map(|input| format!("'{}'", input.name)).collect::<Vec<_>>().join(", "),
                             inputs.iter().map(|input| {
+                                let converter = match input.value {
+                                    Type::Address => {
+                                        self.add_import("addressToScVal");
+                                        "addressToScVal"
+                                    },
+                                    Type::I128 => {
+                                        self.add_import("i128ToScVal");
+                                        "i128ToScVal"
+                                    },
+                                    Type::U128 => {
+                                        self.add_import("u128ToScVal");
+                                        "u128ToScVal"
+                                    },
+                                    Type::U32 => {
+                                        self.add_import("u32ToScVal");
+                                        "u32ToScVal"
+                                    },
+                                    Type::Bool => {
+                                        self.add_import("boolToScVal");
+                                        "boolToScVal"
+                                    },
+                                    Type::Symbol => {
+                                        self.add_import("stringToSymbol");
+                                        "stringToSymbol"
+                                    },
+                                    _ => "nativeToScVal",
+                                };
                                 format!("case '{}':\n            return {}(value as {});",
                                     input.name,
-                                    match input.value {
-                                        Type::Address => "addressToScVal",
-                                        Type::I128 => "i128ToScVal",
-                                        Type::U128 => "u128ToScVal",
-                                        Type::U32 => "u32ToScVal",
-                                        Type::Bool => "boolToScVal",
-                                        Type::Symbol => "stringToSymbol",
-                                        _ => "nativeToScVal",
-                                    },
+                                    converter,
                                     match input.value {
                                         Type::Address => "string",
                                         Type::I128 | Type::U128 => "string",
