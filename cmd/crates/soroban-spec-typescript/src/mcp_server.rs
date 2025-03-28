@@ -48,7 +48,8 @@ impl McpServerGenerator {
         imports.push(&stellar_import);
 
         // Add helper imports based on usage
-        let mut helper_imports = vec!["createSACClient"];
+        let mut helper_imports = vec![];
+        if self.is_sac { helper_imports.push("createSACClient"); } else { helper_imports.push("createContractClient"); }
         if self.used_imports.contains("addressToScVal") { helper_imports.push("addressToScVal"); }
         if self.used_imports.contains("i128ToScVal") { helper_imports.push("i128ToScVal"); }
         if self.used_imports.contains("u128ToScVal") { helper_imports.push("u128ToScVal"); }
@@ -341,12 +342,12 @@ import { z } from 'zod';"#;
 {}  }},
   async (params) => {{
     try {{
-      // Get the SAC client
-      const sacClient = await createSACClient(config.contractId, config.networkPassphrase, config.rpcUrl);
+      // Get the contract client
+      const client = await {}(config.contractId, config.networkPassphrase, config.rpcUrl);
 
       let txXdr: string;
       const functionName = '{}';
-      const functionToCall = sacClient[functionName];
+      const functionToCall = client[functionName];
 
       {}
 
@@ -354,9 +355,9 @@ import { z } from 'zod';"#;
         content: [
           {{ type: "text", text: "Unsigned Transaction XDR:" }},
           {{ type: "text", text: txXdr }},
-          {{ type: "text", text: "Next steps:" }},
-          {{ type: "text", text: "1. Sign the Stellar transaction XDR" }},
-          {{ type: "text", text: "2. Submit the signed transaction XDR to the Stellar network" }},
+          {{ type: "text", text: `<SmartContractID>${{config.contractId}}</SmartContractID>` }},
+          {{ type: "text", text: "Next steps:)" }},
+          {{ type: "text", text: "1. Sign the Stellar transaction XDR\n2. Submit the signed transaction XDR to the Stellar network\n3. Remember to use the smart contract ID when submitting the transaction" }},
         ]
       }}
       
@@ -373,6 +374,7 @@ import { z } from 'zod';"#;
                     name,
                     description,
                     params,
+                    if self.is_sac { "createSACClient" } else { "createContractClient" },
                     name,
                     if has_params {
                         if self.is_sac {
@@ -391,7 +393,7 @@ import { z } from 'zod';"#;
                             )
                         } else {
                             // For WASM contracts, we need to convert to ScVal
-                            format!(r#"// Ensure parameters are in the correct order as defined in the contract
+                            format!(r#"// For WASM contracts, we need to convert parameters to ScVal
       const orderedParams = [{}];
       const scValParams = orderedParams.map(paramName => {{
         const value = params[paramName as keyof typeof params];
