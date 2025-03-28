@@ -18,10 +18,10 @@ jobs:
           - ubuntu-jammy-16-cores-arm64
           # Intel
           - macos-13
-    #        exclude:
-    #          # Only run Linux x64 tests on pull request to save some time
-    #          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-16-cores-arm64' }}
-    #          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
+        exclude:
+          # Only run Linux x64 tests on pull request to save some time
+          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-16-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
     runs-on: ${{ matrix.sys }}
     steps:
       - uses: stellar/quickstart@main
@@ -31,15 +31,7 @@ jobs:
         with:
           node-version: '22.x'
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libdbus-1-dev libudev-dev
