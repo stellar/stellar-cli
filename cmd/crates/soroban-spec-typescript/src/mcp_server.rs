@@ -48,8 +48,7 @@ impl McpServerGenerator {
         imports.push(&stellar_import);
 
         // Add helper imports based on usage
-        let mut helper_imports = vec![];
-        if self.is_sac { helper_imports.push("createSACClient"); } else { helper_imports.push("createContractClient"); }
+        let mut helper_imports = vec!["createContractClient", "createSACClient"];
         if self.used_imports.contains("addressToScVal") { helper_imports.push("addressToScVal"); }
         if self.used_imports.contains("i128ToScVal") { helper_imports.push("i128ToScVal"); }
         if self.used_imports.contains("u128ToScVal") { helper_imports.push("u128ToScVal"); }
@@ -346,7 +345,7 @@ import { z } from 'zod';"#;
       const client = await {}(config.contractId, config.networkPassphrase, config.rpcUrl);
 
       let txXdr: string;
-      const functionName = '{}';
+      const functionName = '{}';{}
       const functionToCall = client[functionName];
 
       {}
@@ -376,6 +375,7 @@ import { z } from 'zod';"#;
                     params,
                     if self.is_sac { "createSACClient" } else { "createContractClient" },
                     name,
+                    if !self.is_sac { "\n      // @ts-ignore - This is a workaround to allow the function to be called" } else { "" },
                     if has_params {
                         if self.is_sac {
                             // For SAC, we can use parameters directly with minimal conversion
@@ -394,22 +394,12 @@ import { z } from 'zod';"#;
                         } else {
                             // For WASM contracts, we need to convert to ScVal
                             format!(r#"// For WASM contracts, we need to convert parameters to ScVal
-      const orderedParams = [{}];
-      const scValParams = orderedParams.map(paramName => {{
-        const value = params[paramName as keyof typeof params];
-        if (value === undefined) {{
-          throw new Error(`Missing required parameter: ${{paramName}}`);
-        }}
-        // Use appropriate conversion based on parameter type
-        switch(paramName) {{
+      const scValParams = {{
           {}
-          default:
-            return nativeToScVal(value);
-        }}
-      }});
-      const result = await functionToCall(...scValParams);
+      }};
+
+      const result = await functionToCall(scValParams);
       txXdr = result.toXDR();"#,
-                            inputs.iter().map(|input| format!("'{}'", input.name)).collect::<Vec<_>>().join(", "),
                             inputs.iter().map(|input| {
                                 let converter = match input.value {
                                     Type::Address => {
@@ -438,9 +428,10 @@ import { z } from 'zod';"#;
                                     },
                                     _ => "nativeToScVal",
                                 };
-                                format!("case '{}':\n            return {}(value as {});",
+                                format!("{}: {}(params.{} as {})",
                                     input.name,
                                     converter,
+                                    input.name,
                                     match input.value {
                                         Type::Address => "string",
                                         Type::I128 | Type::U128 => "string",
@@ -450,7 +441,7 @@ import { z } from 'zod';"#;
                                         _ => "any",
                                     }
                                 )
-                            }).collect::<Vec<_>>().join("\n          ")
+                            }).collect::<Vec<_>>().join(",\n          ")
                             )
                         }
                     } else {

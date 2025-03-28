@@ -14,7 +14,8 @@ import {
   boolToScVal, 
   u32ToScVal,
   submitTransaction,
-  createSACClient
+  createSACClient,
+  createContractClient
 } from './helper.js';
 
 // Load environment variables
