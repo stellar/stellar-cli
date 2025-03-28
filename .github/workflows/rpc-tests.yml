@@ -30,15 +30,7 @@ jobs:
         with:
           tag: testing
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
