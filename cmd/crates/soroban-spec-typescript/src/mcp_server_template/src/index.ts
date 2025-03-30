@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Contract, nativeToScVal, xdr, TransactionBuilder, rpc as SorobanRpc, Keypair, Address, BASE_FEE } from '@stellar/stellar-sdk';
+import { nativeToScVal, xdr, TransactionBuilder, Keypair, Address, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config as dotenvConfig } from 'dotenv';
 import { 
@@ -34,11 +34,6 @@ const config = {
 if (!config.contractId) {
   throw new Error('CONTRACT_ID environment variable is required');
 }
-
-const server = new SorobanRpc.Server(config.rpcUrl);
-
-// Initialize Stellar connection
-const contract = new Contract(config.contractId);
 
 // Create MCP server instance
 const mcpServer = new McpServer({

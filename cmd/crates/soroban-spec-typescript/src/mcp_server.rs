@@ -194,10 +194,21 @@ impl McpServerGenerator {
 
         // Generate the MCP server code
         let mut tools = String::new();
+        let mut tool_list = String::new();
         for entry in spec {
             if let Some(tool) = self.generate_tool(entry) {
                 tools.push_str(&tool);
                 tools.push('\n');
+                
+                // Add to tool list for README
+                if let Entry::Function { name, doc, .. } = Entry::from(entry) {
+                    let description = if doc.is_empty() {
+                        format!("Call the {} function", name)
+                    } else {
+                        doc.replace('\n', " ")
+                    };
+                    tool_list.push_str(&format!("- **{}**: {}\n", name, description));
+                }
             }
         }
 
@@ -234,7 +245,11 @@ import { z } from 'zod';"#;
 
         // Copy and update README.md
         let readme = fs::read_to_string(template_dir.join("README.md"))?;
-        let readme = readme.replace("INSERT_NAME_HERE", name);
+        let readme = readme
+            .replace("INSERT_NAME_HERE", name)
+            .replace("INSERT_SNAKE_CASE_NAME_HERE", &name.replace('-', "_"))
+            .replace("INSERT_OUTPUT_DIR_HERE", output_dir.file_name().unwrap().to_str().unwrap())
+            .replace("INSERT_TOOL_LIST_HERE", &tool_list);
         fs::write(output_dir.join("README.md"), readme)?;
 
         // Copy tsconfig.json

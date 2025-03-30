@@ -1,79 +1,64 @@
 # INSERT_NAME_HERE
 
-MCP Server for Soroban Smart Contract
+MCP Server for Stellar Smart Contract
 
-This server provides a REST API interface for interacting with a Soroban smart contract. It was automatically generated using the Soroban CLI.
+This server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) and acts as a **tool provider** for a Soroban smart contract deployed on the Stellar blockchain.
 
-## Setup
+It exposes a standardized MCP interface that allows agents (such as AI models, orchestration frameworks, or automation tools) to discover and invoke the smart contract's available functions safely and consistently.
 
-1. Install dependencies:
-```bash
-npm install
+This server was auto-generated using the Soroban CLI and is optimized for plug-and-play integration into any MCP-compatible environment.
+
+---
+
+## 📝 Next steps
+
+1. **Install dependencies and build the project:**
+   ```bash
+   cd INSERT_OUTPUT_DIR_HERE
+   npm install
+   npm run build
+   ```
+
+2. Add the following configuration to your MCP config file (e.g., in claude_desktop_config.json, mcp.config.json, etc.):
+```json
+"INSERT_SNAKE_CASE_NAME_HERE": {
+  "command": "node",
+  "args": [
+    "INSERT_OUTPUT_DIR_HERE/build/index.js"
+  ],
+  "env": {
+    "NETWORK": "testnet",
+    "NETWORK_PASSPHRASE": "Test SDF Network ; September 2015",
+    "RPC_URL": "https://soroban-testnet.stellar.org",
+    "CONTRACT_ID": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+  }
+}
 ```
+This allows MCP runtimes to run your tool seamlessly.
 
-2. Copy the environment file and configure it:
-```bash
-cp .env.example .env
-```
+🧠 What This Server Does
+Implements the MCP spec to serve Soroban contract methods as tools.
 
-Edit the `.env` file and set your configuration values:
-- `NETWORK`: The Stellar network to use (testnet/public)
-- `NETWORK_PASSPHRASE`: The network passphrase
-- `RPC_URL`: Soroban RPC server URL
-- `CONTRACT_ID`: Your contract ID
-- `PORT`: Server port (default: 3000)
-- `HOST`: Server host (default: localhost)
-- `ADMIN_KEY`: (Optional) Key for protected endpoints
-- `RATE_LIMIT_WINDOW`: (Optional) Rate limiting window
-- `RATE_LIMIT_MAX`: (Optional) Maximum requests per window
+Each method is described via a JSON schema (input/output), allowing agents to introspect and invoke them programmatically.
 
-## Development
+All logic is executed via Stellar's Soroban smart contract runtime.
 
-Run in development mode with hot reloading:
-```bash
-npm run dev
-```
+⚠️ There are no REST endpoints exposed. Tool interaction happens via MCP-compatible interfaces.
 
-## Production
 
-Build and run in production:
-```bash
-npm run build
-npm start
-```
 
-## API Endpoints
+🧪 Exposed Contract Tools
+The following contract methods are exposed as MCP tools:
 
-### Health Check
-- `GET /health`: Check server status
+INSERT_TOOL_LIST_HERE
 
-### Contract Methods
-The following endpoints are automatically generated based on your contract's methods:
+Each tool includes parameter validation, metadata, and underlying Soroban invocation logic.
 
-INSERT_ENDPOINTS_HERE
 
-Each endpoint accepts POST requests with a JSON body containing the method parameters.
 
-## Error Handling
+📘 About Model Context Protocol (MCP)
+MCP enables agents to discover and use tools through a structured protocol — no hardcoded APIs, just standardized tool definitions and execution environments.
 
-All endpoints return:
-- 200: Successful operation
-- 400: Invalid parameters
-- 500: Server/contract error
+Learn more at modelcontextprotocol.io.
 
-Error responses include an `error` field with a description of what went wrong.
-
-## Rate Limiting
-
-If configured in the `.env` file, the server implements rate limiting per IP address.
-
-## Security
-
-- CORS is enabled and can be configured in `src/index.ts`
-- Optional admin key for protected endpoints
-- Rate limiting to prevent abuse
-- Input validation for all endpoints
-
-## Contributing
-
-This is an auto-generated server. If you need to modify the contract interface, it's recommended to regenerate the server using the Soroban CLI rather than modifying the generated code directly. 
+This is an auto-generated server. If you need to modify the contract interface, it's recommended to regenerate the server using the Stellar CLI rather than modifying the generated code directly. 
