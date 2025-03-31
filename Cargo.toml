@@ -64,7 +64,7 @@ version = "=22.0.4"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "=22.0.0"
+version = "=22.1.0"
 
 [workspace.dependencies.stellar-ledger]
 version = "=22.6.0"
