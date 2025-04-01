@@ -1,3 +1,10 @@
+use crate::integration::{
+    hello_world::invoke_hello_world,
+    tx::build_sim_sign_send,
+    util::{deploy_contract, DeployOptions, HELLO_WORLD},
+};
+use predicates::prelude::predicate;
+use soroban_cli::signer::keyring::credential_mock;
 use soroban_cli::{
     config::locator,
     tx::{builder, ONE_XLM},
@@ -6,13 +13,6 @@ use soroban_cli::{
 };
 use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
-use predicates::prelude::predicate;
-use crate::integration::{
-    hello_world::invoke_hello_world,
-    util::{deploy_contract, DeployOptions, HELLO_WORLD},
-    tx::build_sim_sign_send 
-};
-use soroban_cli::signer::keyring::credential_mock;
 
 pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
@@ -70,7 +70,6 @@ fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-
 // test that we can create a create-account tx and sign it with a secure-store key
 #[tokio::test]
 async fn create_account() {
@@ -108,7 +107,6 @@ async fn create_account() {
         .assert()
         .success()
         .stdout_as_str();
-
 
     let secure_account_after = client.get_account(&secure_store_address).await.unwrap();
     assert!(secure_account_after.balance < secure_account.balance);
