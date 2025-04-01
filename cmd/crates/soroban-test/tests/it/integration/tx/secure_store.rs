@@ -89,6 +89,9 @@ async fn create_account() {
         .success()
         .stdout_as_str();
 
+    let client = sandbox.network.rpc_client().unwrap();
+    let secure_account = client.get_account(&secure_store_address).await.unwrap();
+
     let starting_balance = ONE_XLM * 100;
     sandbox
         .new_assert_cmd("tx")
@@ -106,4 +109,10 @@ async fn create_account() {
         .success()
         .stdout_as_str();
 
+
+    let secure_account_after = client.get_account(&secure_store_address).await.unwrap();
+    assert!(secure_account_after.balance < secure_account.balance);
+
+    let new_account = client.get_account(&new_address).await.unwrap();
+    assert_eq!(new_account.balance, starting_balance);
 }
