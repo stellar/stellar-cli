@@ -28,12 +28,11 @@ impl StellarEntry {
 
     #[cfg(feature = "ledger-tests")]
     pub fn new(name: &str) -> Result<Self, Error> {
-        use keyring::mock::{self, MockCredential};
         let test_phrase: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";
-        keyring_mock::set_default_credential_builder(keyring_mock::mock::default_credential_builder());
+        credential_mock::set_default_credential_builder(credential_mock::mock::default_credential_builder());
         let entry = Entry::new(name, &whoami::username())?;
-        let mock: &MockCredential = entry.get_credential().downcast_ref().unwrap();
+        let mock: &credential_mock::MockCredential = entry.get_credential().downcast_ref().unwrap();
         entry.set_password(test_phrase);
 
         Ok(StellarEntry {
@@ -102,8 +101,8 @@ impl StellarEntry {
     }
 }
 
-pub mod keyring_mock {
-    pub use keyring::{mock, set_default_credential_builder};
+pub mod credential_mock {
+    pub use keyring::{mock::{self, MockCredential}, set_default_credential_builder};
 }
 
 #[cfg(test)]

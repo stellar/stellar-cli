@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     print::Print,
-    signer::{self, LocalKey, Signer, SignerKind},
+    signer,
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };

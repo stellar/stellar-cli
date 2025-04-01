@@ -12,7 +12,7 @@ use crate::integration::{
     util::{deploy_contract, DeployOptions, HELLO_WORLD},
     tx::build_sim_sign_send 
 };
-use soroban_cli::signer::keyring::keyring_mock;
+use soroban_cli::signer::keyring::credential_mock;
 
 pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
