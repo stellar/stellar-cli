@@ -1,0 +1,16 @@
+name: Docs validation
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-validation:
+    uses: stellar/stellar-docs/.github/workflows/docs-validate.yml@5703a1b72b9679662950293a0befd0c3e248ea9b
+    with:
+      stellar-cli-ref: ${{ github.ref }}
