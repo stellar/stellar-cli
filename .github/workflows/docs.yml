@@ -11,6 +11,6 @@ concurrency:
 
 jobs:
   docs-validation:
-    uses: stellar/stellar-docs/.github/workflows/docs-validate.yml@5703a1b72b9679662950293a0befd0c3e248ea9b
+    uses: stellar/stellar-docs/.github/workflows/build.yml@8e371031738f6c1f66197d1580ebff4c162143d0
     with:
       stellar-cli-ref: ${{ github.ref }}
