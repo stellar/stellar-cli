@@ -39,18 +39,14 @@ jobs:
         if: runner.os == 'macos'
         run: |
           brew install docker
-          brew install colima
-          colima start
-      - name: Log colima, docker & testcontainers info
+      - name: Log docker & testcontainers info
         if: runner.os == 'macos'
         run: |
-          colima status
           docker context ls
-          echo $TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE
-      - name: Set Colima Docker Host
+      - name: Set Docker Host
         if: runner.os == 'macos'
         run: |
-          export DOCKER_HOST="unix:///Users/runner/.colima/default/docker.sock"
+          export DOCKER_HOST=unix:///var/run/docker.sock
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
