@@ -41,6 +41,10 @@ jobs:
           brew install docker
           brew install colima
           colima start
+      - name: Log colima info
+        run: colima status
+      - name: Log docker info
+        run: docker context ls
       - name: Set Colima Docker Host
         if: runner.os == 'macos'
         run: |
