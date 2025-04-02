@@ -41,6 +41,8 @@ jobs:
           brew install docker
           brew install colima
           colima start
+      - name: log docker host
+        run: echo $DOCKER_HOST
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
