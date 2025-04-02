@@ -34,6 +34,23 @@ async fn fund() {
 }
 
 #[tokio::test]
+async fn secret() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test2")
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("test2")
+        .assert()
+        .success();
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn overwrite_identity() {
     let sandbox = &TestEnv::new();
@@ -72,4 +89,38 @@ async fn overwrite_identity() {
         .success();
 
     assert_ne!(initial_pubkey, pubkey_for_identity(sandbox, "test2"));
+}
+
+#[tokio::test]
+async fn secret_with_secure_store_key() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "test2", "--secure-store"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("test2")
+        .assert()
+        .stderr(predicate::str::contains("does not reveal secret key"))
+        .failure();
+}
+
+#[tokio::test]
+async fn public_key_with_secure_store_key() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "test2", "--secure-store"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("public-key")
+        .arg("test2")
+        .assert()
+        .stdout(predicate::str::contains("G"))
+        .success();
 }
