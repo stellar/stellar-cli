@@ -43,7 +43,8 @@ jobs:
           colima start
       - name: Set Colima Docker Host
         if: runner.os == 'macos'
-        run: export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
+        run: |
+          export DOCKER_HOST="/var/run/docker.sock"
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
