@@ -1,5 +1,6 @@
 use soroban_cli::tx::ONE_XLM;
 use soroban_test::{AssertExt, TestEnv};
+use predicates::prelude::predicate;
 
 pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
@@ -101,4 +102,21 @@ async fn create_account() {
 
     let new_account = client.get_account(&new_address).await.unwrap();
     assert_eq!(new_account.balance, starting_balance);
+}
+
+#[tokio::test]
+async fn get_secret_key() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "test2", "--secure-store"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("test2")
+        .assert()
+        .stderr(predicate::str::contains("does not reveal secret key"))
+        .failure();
 }
