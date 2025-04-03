@@ -1,17 +1,4 @@
-use crate::integration::{
-    hello_world::invoke_hello_world,
-    tx::build_sim_sign_send,
-    util::{deploy_contract, DeployOptions, HELLO_WORLD},
-};
-use predicates::prelude::predicate;
-use soroban_cli::signer::keyring::credential_mock;
-use soroban_cli::{
-    config::locator,
-    tx::{builder, ONE_XLM},
-    utils::contract_id_hash_from_asset,
-    xdr::{self, ReadXdr, SequenceNumber},
-};
-use soroban_rpc::LedgerEntryResult;
+use soroban_cli::tx::ONE_XLM;
 use soroban_test::{AssertExt, TestEnv};
 
 pub fn test_address(sandbox: &TestEnv) -> String {
@@ -48,8 +35,8 @@ fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-// todo: move these functions to utils for reusability
-// returns test and test1 addresses
+// // todo: move these functions to utils for reusability
+// // returns test and test1 addresses
 fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
     (test_address(sandbox), new_account(sandbox, "test1"))
 }
@@ -70,7 +57,8 @@ fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-// test that we can create a create-account tx and sign it with a secure-store key
+// // test that we can create a create-account tx and sign it with a secure-store key
+// #[cfg(feature = "ledger-tests")]
 #[tokio::test]
 async fn create_account() {
     let sandbox = &TestEnv::new();
