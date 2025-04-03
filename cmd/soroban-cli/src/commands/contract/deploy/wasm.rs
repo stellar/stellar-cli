@@ -169,12 +169,13 @@ impl NetworkRunnable for Cmd {
     type Result = TxnResult<stellar_strkey::Contract>;
 
     #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let print = Print::new(global_args.map_or(false, |a| a.quiet));
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             #[cfg(feature = "version_lt_23")]
@@ -301,7 +302,7 @@ impl NetworkRunnable for Cmd {
             .await?
             .try_into()?;
 
-        if global_args.map_or(true, |a| !a.no_cache) {
+        if global_args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 

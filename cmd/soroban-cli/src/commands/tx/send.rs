@@ -67,7 +67,7 @@ impl NetworkRunnable for Cmd {
         let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
 
         if let Ok(txn) = super::xdr::unwrap_envelope_v1(tx_env.clone()) {
-            let print = Print::new(globals.map_or(false, |g| g.quiet));
+            let print = Print::new(globals.is_some_and(|g| g.quiet));
             print.log_transaction(&txn, &network, true)?;
         }
 

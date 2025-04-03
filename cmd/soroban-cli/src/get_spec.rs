@@ -67,7 +67,7 @@ pub async fn get_remote_contract_spec(
                 let raw_wasm = get_remote_wasm_from_hash(&client, &hash).await?;
                 let res = contract_spec::Spec::new(&raw_wasm)?;
                 let res = res.spec;
-                if global_args.map_or(true, |a| !a.no_cache) {
+                if global_args.is_none_or(|a| !a.no_cache) {
                     data::write_spec(&hash_str, &res)?;
                 }
                 res

@@ -160,7 +160,7 @@ impl NetworkRunnable for Cmd {
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
             .await?
             .try_into()?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 

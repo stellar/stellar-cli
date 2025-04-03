@@ -5,6 +5,7 @@ use crate::{
 };
 use clap::Parser;
 
+#[allow(clippy::doc_markdown)]
 #[derive(Debug, Parser)]
 pub struct Cmd {
     /// Env variable name to get the value of.

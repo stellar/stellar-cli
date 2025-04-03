@@ -210,7 +210,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+        let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self
@@ -284,7 +284,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
         let sim_res = assembled.sim_response();
-        if global_args.map_or(true, |a| !a.no_cache) {
+        if global_args.is_none_or(|a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
         let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
