@@ -19,14 +19,14 @@ pub struct StellarEntry {
 }
 
 impl StellarEntry {
-    #[cfg(not(feature = "ledger-tests"))]
+    #[cfg(not(feature = "secure-store-tests"))]
     pub fn new(name: &str) -> Result<Self, Error> {
         Ok(StellarEntry {
             keyring: Entry::new(name, &whoami::username())?,
         })
     }
 
-    #[cfg(feature = "ledger-tests")]
+    #[cfg(feature = "secure-store-tests")]
     pub fn new(name: &str) -> Result<Self, Error> {
         let test_phrase: &str =
             "depth decade power loud smile spatial sign movie judge february rate broccoli";
