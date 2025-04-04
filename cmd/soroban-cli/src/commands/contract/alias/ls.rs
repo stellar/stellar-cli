@@ -1,10 +1,12 @@
+use clap::{command, Parser};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::path::Path;
 use std::{fs, process};
 
-use clap::{command, Parser};
-
 use crate::commands::config::network;
+#[cfg(feature = "version_gte_23")]
+use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
 
 #[derive(Parser, Debug, Clone)]
@@ -39,8 +41,27 @@ struct AliasEntry {
 }
 
 impl Cmd {
+    #[cfg(feature = "version_lt_23")]
     pub fn run(&self) -> Result<(), Error> {
-        let config_dir = self.config_locator.config_dir()?;
+        Self::read_from_config_dir(&self.config_locator.config_dir()?, false)
+    }
+
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    pub fn run(&self) -> Result<(), Error> {
+        let config_dirs = self.config_locator.local_and_global()?;
+
+        for cfg in config_dirs {
+            match cfg {
+                Location::Local(config_dir) => Self::read_from_config_dir(&config_dir, true)?,
+                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir, false)?,
+            }
+        }
+
+        Ok(())
+    }
+
+    fn read_from_config_dir(config_dir: &Path, deprecation_mode: bool) -> Result<(), Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")
@@ -85,6 +106,10 @@ impl Cmd {
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
                 for entry in list {
+                    #[cfg(feature = "version_gte_23")]
+                    if !found && deprecation_mode {
+                        print_deprecation_warning();
+                    }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);
                 }
@@ -93,7 +118,7 @@ impl Cmd {
             }
         }
 
-        if !found {
+        if !found && !deprecation_mode {
             eprintln!("⚠️ No aliases defined for network");
 
             process::exit(1);
