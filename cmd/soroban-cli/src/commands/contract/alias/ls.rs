@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{fs, process};
-
+use std::path::PathBuf;
 use clap::{command, Parser};
 
 use crate::commands::config::network;
@@ -39,8 +39,45 @@ struct AliasEntry {
 }
 
 impl Cmd {
+    #[cfg(feature = "version_lt_23")]
     pub fn run(&self) -> Result<(), Error> {
         let config_dir = self.config_locator.config_dir()?;
+
+        if !self.read_from_config_dir(&config_dir)? {
+            eprintln!("⚠️ No aliases defined for network");
+
+            process::exit(1);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    pub fn run(&self) -> Result<(), Error> {
+        let config_dirs = self.config_locator.local_and_global()?;
+
+        for cfg in config_dirs {
+            match cfg {
+                Location::Local(config_dir) => {
+                    if !self.read_from_config_dir(&config_dir)? {
+                        locator::print_deprecation_warning("Move .stellar/contract-ids to $XDR_CONFIG_HOME/stellar")
+                    }
+                }
+                Location::Global(config_dir) => {
+                    if !self.read_from_config_dir(&config_dir) {
+                        eprintln!("⚠️ No aliases defined for network");
+
+                        process::exit(1);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn read_from_config_dir(&self, config_dir: &PathBuf) -> Result<bool, Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")
@@ -93,12 +130,6 @@ impl Cmd {
             }
         }
 
-        if !found {
-            eprintln!("⚠️ No aliases defined for network");
-
-            process::exit(1);
-        }
-
-        Ok(())
+        Ok(found)
     }
 }

@@ -20,13 +20,7 @@ use crate::{
     xdr, Pwd,
 };
 
-use super::{
-    alias,
-    key::{self, Key},
-    network::{self, Network},
-    secret::Secret,
-    Config,
-};
+use super::{alias, key::{self, Key}, network::{self, Network}, secret::Secret, Config};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -104,12 +98,27 @@ pub enum Error {
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
+#[cfg(feature = "version_lt_23")]
 pub struct Args {
     /// Use global config
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
     /// Location of config directory, default is "."
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
+    pub config_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, clap::Args, Default, Clone)]
+#[group(skip)]
+#[cfg(not(feature = "version_lt_23"))]
+#[cfg(feature = "version_gte_23")]
+pub struct Args {
+    /// ⚠️ Deprecated: global config is always on
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
+    pub global: bool,
+
+    /// Location of config directory, default is "$XDG_CONFIG_HOME/.stellar"
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
@@ -152,18 +161,25 @@ impl Location {
 }
 
 impl Args {
+    #[cfg(feature = "version_lt_23")]
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
-            global_config_path()
+            self.global_config_path()
         } else {
             self.local_config()
         }
     }
 
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    pub fn config_dir(&self) -> Result<PathBuf, Error> {
+        global_config_path()
+    }
+
     pub fn local_and_global(&self) -> Result<[Location; 2], Error> {
         Ok([
             Location::Local(self.local_config()?),
-            Location::Global(global_config_path()?),
+            Location::Global(self.global_config_path()?),
         ])
     }
 
@@ -203,16 +219,16 @@ impl Args {
     }
 
     pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_network(name).save()
+        Config::new(&self)?.set_network(name).save(&self)
     }
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_identity(name).save()
+        Config::new(&self)?.set_identity(name).save(&self)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         Ok(KeyType::Identity
-            .list_paths(&self.local_and_global()?)?
+            .list_paths(&self.local_and_global()?, &KeyType::Identity)?
             .into_iter()
             .map(|(name, _)| name)
             .collect())
@@ -220,7 +236,7 @@ impl Args {
 
     pub fn list_identities_long(&self) -> Result<Vec<(String, String)>, Error> {
         Ok(KeyType::Identity
-            .list_paths(&self.local_and_global()?)
+            .list_paths(&self.local_and_global()?, &KeyType::Identity)
             .into_iter()
             .flatten()
             .map(|(name, location)| {
@@ -234,7 +250,7 @@ impl Args {
 
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
         let saved_networks = KeyType::Network
-            .list_paths(&self.local_and_global()?)
+            .list_paths(&self.local_and_global()?, &KeyType::Network)
             .into_iter()
             .flatten()
             .map(|x| x.0);
@@ -244,7 +260,7 @@ impl Args {
 
     pub fn list_networks_long(&self) -> Result<Vec<(String, Network, String)>, Error> {
         let saved_networks = KeyType::Network
-            .list_paths(&self.local_and_global()?)
+            .list_paths(&self.local_and_global()?, &KeyType::Network)
             .into_iter()
             .flatten()
             .filter_map(|(name, location)| {
@@ -261,7 +277,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
-        KeyType::Identity.read_with_global(name, &self.local_config()?)
+        KeyType::Identity.read_with_global(name, &self.local_config()?, &self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -286,7 +302,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        let res = KeyType::Network.read_with_global(name, &self.local_config()?);
+        let res = KeyType::Network.read_with_global(name, &self.local_config()?, &self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
                 return res;
@@ -322,6 +338,7 @@ impl Args {
         KeyType::Network.remove(name, &self.config_dir()?)
     }
 
+    #[cfg(feature = "version_lt_23")]
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
         let path = self.alias_path(alias)?;
 
@@ -333,6 +350,41 @@ impl Args {
         let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
         Ok(Some(data))
+    }
+
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        let file_name = format!("{alias}.json");
+        let config_dirs = self.local_and_global()?;
+        for dir in config_dirs {
+            path = config_dir.join("contract-ids").join(file_name);
+
+            match dir {
+                Location::Local(config_dir) => {
+                    if !path.exists() {
+                        continue;
+                    }
+
+                    print_deprecation_warning("Move .stellar/contract-ids to $XDR_CONFIG_HOME/stellar");
+
+                    let content = fs::read_to_string(path)?;
+                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+                    return Ok(Some(data));
+                }
+                Location::Global(config_dir) => {
+                    if !path.exists() {
+                        return Ok(None);
+                    }
+
+                    let content = fs::read_to_string(path)?;
+                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+                    return Ok(Some(data));
+                }
+            }
+        }
     }
 
     fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
@@ -424,6 +476,54 @@ impl Args {
         };
         Ok(contract)
     }
+
+    pub fn global_config_path(&self) -> Result<PathBuf, Error> {
+        #[cfg(feature = "version_gte_23")]
+        if let Some(config_dir) = &self.config_dir {
+            return Ok(config_dir.clone())
+        }
+
+        let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+            PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
+        } else {
+            UserDirs::new()
+                .ok_or(Error::HomeDirNotFound)?
+                .home_dir()
+                .join(".config")
+        };
+
+        let soroban_dir = config_dir.join("soroban");
+        let stellar_dir = config_dir.join("stellar");
+        let soroban_exists = soroban_dir.exists();
+        let stellar_exists = stellar_dir.exists();
+
+        if stellar_exists && soroban_exists {
+            tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
+        }
+
+        if stellar_exists {
+            return Ok(stellar_dir);
+        }
+
+        if soroban_exists {
+            return Ok(soroban_dir);
+        }
+
+        Ok(stellar_dir)
+    }
+
+    pub fn config_file(&self) -> Result<PathBuf, Error> {
+        Ok(self.global_config_path()?.join("config.toml"))
+    }
+}
+
+#[cfg(feature = "version_gte_23")]
+pub fn print_deprecation_warning<T: Display + Sized>(instruction: T) {
+    let print = Print::new(false);
+    print.warnln("Local config match found");
+    print.warnln("Local config is deprecated and will be removed in the future");
+    print.warnln(format!("To resolve this warning {}", instruction));
+    print.infoln("Tip: if $XDR_CONFIG_HOME is not defined, config is stored in ~/.config/stellar")
 }
 
 impl Pwd for Args {
@@ -490,8 +590,8 @@ impl KeyType {
         Ok(toml::from_str(&data)?)
     }
 
-    pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
-        for path in [pwd, global_config_path()?.as_path()] {
+    pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path, locator: &Args) -> Result<T, Error> {
+        for path in [pwd, locator.global_config_path()?.as_path()] {
             match self.read(key, path) {
                 Ok(t) => return Ok(t),
                 _ => continue,
@@ -525,16 +625,26 @@ impl KeyType {
         path
     }
 
-    pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
+    pub fn list_paths(&self, paths: &[Location], key_type: &KeyType) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .flat_map(|p| self.list(p).unwrap_or_default())
+            .flat_map(|p| self.list(p, key_type).unwrap_or_default())
             .collect())
     }
 
-    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
+    #[allow(unused_variables)]
+    pub fn list(&self, pwd: &Location, key_type: &KeyType) -> Result<Vec<(String, Location)>, Error> {
         let path = self.root(pwd.as_ref());
         if path.exists() {
+            #[cfg(feature = "version_gte_23")]
+            if let Location::Local(_) = pwd {
+                let msg = match key_type {
+                    KeyType::Identity => {"Move .stellar/identity to $XDR_CONFIG_HOME/stellar"}
+                    KeyType::Network => {"Move .stellar/network to $XDR_CONFIG_HOME/stellar"}
+                };
+                print_deprecation_warning(msg);
+            }
+
             let mut files = read_dir(&path)?;
             files.sort();
 
@@ -556,38 +666,4 @@ impl KeyType {
             Ok(())
         }
     }
-}
-
-pub fn global_config_path() -> Result<PathBuf, Error> {
-    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
-        PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
-    } else {
-        UserDirs::new()
-            .ok_or(Error::HomeDirNotFound)?
-            .home_dir()
-            .join(".config")
-    };
-
-    let soroban_dir = config_dir.join("soroban");
-    let stellar_dir = config_dir.join("stellar");
-    let soroban_exists = soroban_dir.exists();
-    let stellar_exists = stellar_dir.exists();
-
-    if stellar_exists && soroban_exists {
-        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
-    }
-
-    if stellar_exists {
-        return Ok(stellar_dir);
-    }
-
-    if soroban_exists {
-        return Ok(soroban_dir);
-    }
-
-    Ok(stellar_dir)
-}
-
-pub fn config_file() -> Result<PathBuf, Error> {
-    Ok(global_config_path()?.join("config.toml"))
 }
