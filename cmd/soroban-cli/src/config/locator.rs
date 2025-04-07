@@ -219,11 +219,11 @@ impl Args {
     }
 
     pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
-        Config::new(&self)?.set_network(name).save(&self)
+        Config::new()?.set_network(name).save()
     }
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
-        Config::new(&self)?.set_identity(name).save(&self)
+        Config::new()?.set_identity(name).save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -366,7 +366,7 @@ impl Args {
                         continue;
                     }
 
-                    print_deprecation_warning("Move .stellar/contract-ids to $XDR_CONFIG_HOME/stellar");
+                    print_deprecation_warning(format!("Move {}/contract-ids to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", config_dir));
 
                     let content = fs::read_to_string(path)?;
                     let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
@@ -483,37 +483,7 @@ impl Args {
             return Ok(config_dir.clone())
         }
 
-        let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
-            PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
-        } else {
-            UserDirs::new()
-                .ok_or(Error::HomeDirNotFound)?
-                .home_dir()
-                .join(".config")
-        };
-
-        let soroban_dir = config_dir.join("soroban");
-        let stellar_dir = config_dir.join("stellar");
-        let soroban_exists = soroban_dir.exists();
-        let stellar_exists = stellar_dir.exists();
-
-        if stellar_exists && soroban_exists {
-            tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
-        }
-
-        if stellar_exists {
-            return Ok(stellar_dir);
-        }
-
-        if soroban_exists {
-            return Ok(soroban_dir);
-        }
-
-        Ok(stellar_dir)
-    }
-
-    pub fn config_file(&self) -> Result<PathBuf, Error> {
-        Ok(self.global_config_path()?.join("config.toml"))
+        global_config_path()
     }
 }
 
@@ -637,10 +607,10 @@ impl KeyType {
         let path = self.root(pwd.as_ref());
         if path.exists() {
             #[cfg(feature = "version_gte_23")]
-            if let Location::Local(_) = pwd {
+            if let Location::Local(dir) = pwd {
                 let msg = match key_type {
-                    KeyType::Identity => {"Move .stellar/identity to $XDR_CONFIG_HOME/stellar"}
-                    KeyType::Network => {"Move .stellar/network to $XDR_CONFIG_HOME/stellar"}
+                    KeyType::Identity => {format!("Move {}/identity to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", dir)}
+                    KeyType::Network => {format!("Move {}/network to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", dir)}
                 };
                 print_deprecation_warning(msg);
             }
@@ -666,4 +636,40 @@ impl KeyType {
             Ok(())
         }
     }
+}
+
+fn global_config_path() -> Result<PathBuf, Error> {
+    let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+        PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
+    } else {
+        UserDirs::new()
+            .ok_or(Error::HomeDirNotFound)?
+            .home_dir()
+            .join(".config")
+    };
+
+    let soroban_dir = config_dir.join("soroban");
+    let stellar_dir = config_dir.join("stellar");
+    let soroban_exists = soroban_dir.exists();
+    let stellar_exists = stellar_dir.exists();
+
+    if stellar_exists && soroban_exists {
+        tracing::warn!("the .stellar and .soroban config directories exist at path {config_dir:?}, using the .stellar");
+    }
+
+    if stellar_exists {
+        return Ok(stellar_dir);
+    }
+
+    if soroban_exists {
+        return Ok(soroban_dir);
+    }
+
+    Ok(stellar_dir)
+}
+
+// Use locator.global_config_path() to save configurations.
+// This is only to be used to fetch global Stellar config (e.g. to use for defaults)
+pub fn cli_config_file() -> Result<PathBuf, Error> {
+    Ok(global_config_path()?.join("config.toml"))
 }

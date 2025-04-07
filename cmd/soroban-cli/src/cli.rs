@@ -7,7 +7,7 @@ use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::commands::contract::Error::{Deploy, Invoke};
 use crate::commands::Error::Contract;
-use crate::config::{Config, locator};
+use crate::config::Config;
 use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
 use crate::{commands, Root};
@@ -40,6 +40,8 @@ pub async fn main() {
         }
     }
 
+    set_env_from_config();
+
     let mut root = Root::new().unwrap_or_else(|e| match e {
         commands::Error::Clap(e) => {
             let mut cmd = Root::command();
@@ -50,8 +52,6 @@ pub async fn main() {
             std::process::exit(1);
         }
     });
-
-    set_env_from_config(&root.global_args.locator);
 
     // Now use root to setup the logger
     if let Some(level) = root.global_args.log_level() {
@@ -109,8 +109,8 @@ pub async fn main() {
 }
 
 // Load ~/.config/stellar/config.toml defaults as env vars.
-fn set_env_from_config(locator: &locator::Args) {
-    if let Ok(config) = Config::new(locator) {
+fn set_env_from_config() {
+    if let Ok(config) = Config::new() {
         set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
         set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
     }

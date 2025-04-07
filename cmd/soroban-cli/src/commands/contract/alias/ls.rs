@@ -61,7 +61,7 @@ impl Cmd {
             match cfg {
                 Location::Local(config_dir) => {
                     if !self.read_from_config_dir(&config_dir)? {
-                        locator::print_deprecation_warning("Move .stellar/contract-ids to $XDR_CONFIG_HOME/stellar")
+                        locator::print_deprecation_warning(format!("Move {}/contract-ids to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", config_dir))
                     }
                 }
                 Location::Global(config_dir) => {
