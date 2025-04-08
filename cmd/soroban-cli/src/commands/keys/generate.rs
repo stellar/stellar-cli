@@ -215,6 +215,7 @@ mod tests {
         assert!(matches!(identity, Key::Secret(Secret::SecureStore { .. })));
     }
 
+    #[cfg(not(feature = "additional-libs"))]
     #[tokio::test]
     async fn test_storing_in_secure_store_returns_error_when_additional_libs_not_enabled() {
         let (test_locator, mut cmd) = set_up_test();
