@@ -23,7 +23,7 @@ pub enum Error {
     XdrStdin(#[from] XdrParsingError),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
-    #[error("only V1 transactions are supported")]
+    #[error("V0 and fee bump transactions are not supported")]
     Unsupported,
     #[error(transparent)]
     RpcClient(#[from] crate::rpc::Error),
