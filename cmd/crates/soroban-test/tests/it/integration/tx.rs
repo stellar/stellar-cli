@@ -90,8 +90,6 @@ async fn sequence_number_next() {
         .arg("update")
         .arg("seq-num")
         .arg("next")
-        .arg("--source")
-        .arg("test") // there is an account created in TestEnv with an alias "test"
         .write_stdin(tx_base64.as_bytes())
         .assert()
         .success()

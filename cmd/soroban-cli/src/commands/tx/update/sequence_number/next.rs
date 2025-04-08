@@ -1,16 +1,20 @@
+use stellar_xdr::curr::MuxedAccount;
+
 use crate::{
     commands::{
         global,
         tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
     },
-    config,
+    config::{self, locator, network},
     xdr::{self, SequenceNumber, TransactionEnvelope, WriteXdr},
 };
 
 #[derive(clap::Parser, Debug, Clone)]
 pub struct Cmd {
     #[command(flatten)]
-    pub config: config::Args,
+    pub network: network::Args,
+    #[command(flatten)]
+    pub locator: locator::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -44,7 +48,8 @@ impl Cmd {
     ) -> Result<(), Error> {
         match tx_env {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
-                let current_seq_num = self.current_seq_num().await?;
+                let tx_source_acct = &transaction_v1_envelope.tx.source_account;
+                let current_seq_num = self.current_seq_num(tx_source_acct).await?;
                 let next_seq_num = current_seq_num + 1;
                 transaction_v1_envelope.tx.seq_num = SequenceNumber(next_seq_num);
             }
@@ -55,20 +60,14 @@ impl Cmd {
         Ok(())
     }
 
-    async fn current_seq_num(&self) -> Result<i64, Error> {
-        let network = &self.config.get_network()?;
+    async fn current_seq_num(&self, tx_source_acct: &MuxedAccount) -> Result<i64, Error> {
+        let network = &self.network.get(&self.locator)?;
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let muxed_account = self.config.source_account().await?;
-
-        let bytes = match muxed_account {
-            soroban_sdk::xdr::MuxedAccount::Ed25519(uint256) => uint256.0,
-            soroban_sdk::xdr::MuxedAccount::MuxedEd25519(muxed_account) => muxed_account.ed25519.0,
-        };
-        let address = stellar_strkey::ed25519::PublicKey(bytes).to_string();
+        let address = tx_source_acct.to_string();
 
         let account = client.get_account(&address).await?;
         Ok(*account.seq_num.as_ref())
