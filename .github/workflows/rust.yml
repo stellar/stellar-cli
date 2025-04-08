@@ -85,7 +85,7 @@ jobs:
       # Only error on warnings and checks for the msrv, because new versions of
       # Rust will frequently add new warnings and checks.
       if: matrix.rust == 'msrv'
-      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
+      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic -Aclippy::doc_markdown' >> $GITHUB_ENV
     - run: rustup update
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
@@ -123,19 +123,18 @@ jobs:
         include:
         - os: ubuntu-latest-16-cores
           target: x86_64-unknown-linux-gnu
-          cargo-hack-feature-options: --feature-powerset
+          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
           additional-deb-packages: libudev-dev libdbus-1-dev
-        # TODO: add back ARM support
-        #- os: ubuntu-latest-16-cores
-        #  target: aarch64-unknown-linux-gnu
-        #  cargo-hack-feature-options: --feature-powerset
-        #  additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
+#        - os: ubuntu-jammy-16-cores-arm64
+#          target: aarch64-unknown-linux-gnu
+#          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
+#          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
         - os: macos-13
           target: x86_64-apple-darwin
-          cargo-hack-feature-options: --feature-powerset
+          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
         - os: macos-latest
           target: aarch64-apple-darwin
-          cargo-hack-feature-options: --feature-powerset
+          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
         # Windows builds notes:
         #
         # The different features that need testing are split over unique

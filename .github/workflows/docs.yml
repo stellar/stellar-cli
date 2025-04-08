@@ -1,4 +1,4 @@
-name: Soroban Tools e2e
+name: Docs validation
 
 on:
   push:
@@ -10,8 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  systems-test:
-    uses: stellar/system-test/.github/workflows/test.yml@master
+  docs-validation:
+    uses: stellar/stellar-docs/.github/workflows/build.yml@main
     with:
       stellar-cli-ref: ${{ github.ref }}
-      test-filter: "^TestDappDevelop$/^.*$"

@@ -983,9 +983,17 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
+Pass a name to get the value of a single environment variable.
+
 If there are no environment variables in use, prints the defaults.
 
-**Usage:** `stellar env [OPTIONS]`
+**Usage:** `stellar env [OPTIONS] [NAME]`
+
+###### **Arguments:**
+
+* `<NAME>` — Env variable name to get the value of.
+
+   E.g.: $ stellar env STELLAR_ACCOUNT
 
 ###### **Options:**
 
@@ -1186,6 +1194,7 @@ Configure connection to networks
 * `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `container` — ⚠️ Deprecated: use `stellar container` instead
+* `health` — Checks the health of the configured RPC
 
 
 
@@ -1397,6 +1406,35 @@ Stop a network container started with `stellar container start`
 
 
 
+## `stellar network health`
+
+Checks the health of the configured RPC
+
+**Usage:** `stellar network health [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network health status
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
+
+
+
 ## `stellar container`
 
 Start local networks in containers
@@ -1593,7 +1631,15 @@ Fetch the source account's seq-num and increment for the given tx
 
 ## `stellar tx edit`
 
-Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
+Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+
+Example: Start a new edit session
+
+$ stellar tx edit
+
+Example: Pipe an XDR transaction envelope
+
+$ stellar tx new manage-data --data-name hello --build-only | stellar tx edit
 
 **Usage:** `stellar tx edit`
 
