@@ -120,3 +120,20 @@ async fn get_secret_key() {
         .stderr(predicate::str::contains("does not reveal secret key"))
         .failure();
 }
+
+#[tokio::test]
+async fn public_key_with_secure_store() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "test2", "--secure-store"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("public-key")
+        .arg("test2")
+        .assert()
+        .stdout(predicate::str::contains("G"))
+        .success();
+}
