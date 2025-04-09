@@ -41,6 +41,9 @@ jobs:
           brew install docker
           brew install colima
           colima start
+      - name: Set DOCKER_HOST to Colima socket
+        if: runner.os == 'macos'
+        run: echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
