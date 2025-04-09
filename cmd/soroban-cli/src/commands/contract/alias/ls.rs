@@ -6,6 +6,8 @@ use clap::{command, Parser};
 
 use crate::commands::config::network;
 use crate::config::{alias, locator};
+#[cfg(feature = "version_gte_23")]
+use crate::config::locator::{print_deprecation_warning, Location};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -41,15 +43,7 @@ struct AliasEntry {
 impl Cmd {
     #[cfg(feature = "version_lt_23")]
     pub fn run(&self) -> Result<(), Error> {
-        let config_dir = self.config_locator.config_dir()?;
-
-        if !self.read_from_config_dir(&config_dir)? {
-            eprintln!("⚠️ No aliases defined for network");
-
-            process::exit(1);
-        }
-
-        Ok(())
+        self.read_from_config_dir(&self.config_locator.config_dir()?, false)
     }
 
     #[cfg(not(feature = "version_lt_23"))]
@@ -60,16 +54,10 @@ impl Cmd {
         for cfg in config_dirs {
             match cfg {
                 Location::Local(config_dir) => {
-                    if !self.read_from_config_dir(&config_dir)? {
-                        locator::print_deprecation_warning(format!("Move {}/contract-ids to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", config_dir))
-                    }
+                    self.read_from_config_dir(&config_dir, true)?
                 }
                 Location::Global(config_dir) => {
-                    if !self.read_from_config_dir(&config_dir) {
-                        eprintln!("⚠️ No aliases defined for network");
-
-                        process::exit(1);
-                    }
+                    self.read_from_config_dir(&config_dir, false)?
                 }
             }
         }
@@ -77,7 +65,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn read_from_config_dir(&self, config_dir: &PathBuf) -> Result<bool, Error> {
+    fn read_from_config_dir(&self, config_dir: &PathBuf, deprecation_mode: bool) -> Result<(), Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")
@@ -122,6 +110,10 @@ impl Cmd {
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
                 for entry in list {
+                    #[cfg(feature = "version_gte_23")]
+                    if !found && deprecation_mode {
+                       print_deprecation_warning()
+                    }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);
                 }
@@ -130,6 +122,12 @@ impl Cmd {
             }
         }
 
-        Ok(found)
+        if !found && !deprecation_mode {
+            eprintln!("⚠️ No aliases defined for network");
+
+            process::exit(1);
+        }
+
+        Ok(())
     }
 }

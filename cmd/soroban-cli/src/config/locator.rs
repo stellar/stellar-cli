@@ -20,7 +20,13 @@ use crate::{
     xdr, Pwd,
 };
 
-use super::{alias, key::{self, Key}, network::{self, Network}, secret::Secret, Config};
+use super::{
+    alias,
+    key::{self, Key},
+    network::{self, Network},
+    secret::Secret,
+    Config,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -173,7 +179,11 @@ impl Args {
     #[cfg(not(feature = "version_lt_23"))]
     #[cfg(feature = "version_gte_23")]
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        global_config_path()
+        if self.global {
+            let print = Print::new(false);
+            print.warnln("Flag --global is deprecated: global config is always used")
+        }
+        self.global_config_path()
     }
 
     pub fn local_and_global(&self) -> Result<[Location; 2], Error> {
@@ -228,7 +238,7 @@ impl Args {
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         Ok(KeyType::Identity
-            .list_paths(&self.local_and_global()?, &KeyType::Identity)?
+            .list_paths(&self.local_and_global()?)?
             .into_iter()
             .map(|(name, _)| name)
             .collect())
@@ -236,7 +246,7 @@ impl Args {
 
     pub fn list_identities_long(&self) -> Result<Vec<(String, String)>, Error> {
         Ok(KeyType::Identity
-            .list_paths(&self.local_and_global()?, &KeyType::Identity)
+            .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
             .map(|(name, location)| {
@@ -250,7 +260,7 @@ impl Args {
 
     pub fn list_networks(&self) -> Result<Vec<String>, Error> {
         let saved_networks = KeyType::Network
-            .list_paths(&self.local_and_global()?, &KeyType::Network)
+            .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
             .map(|x| x.0);
@@ -260,7 +270,7 @@ impl Args {
 
     pub fn list_networks_long(&self) -> Result<Vec<(String, Network, String)>, Error> {
         let saved_networks = KeyType::Network
-            .list_paths(&self.local_and_global()?, &KeyType::Network)
+            .list_paths(&self.local_and_global()?)
             .into_iter()
             .flatten()
             .filter_map(|(name, location)| {
@@ -277,7 +287,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
-        KeyType::Identity.read_with_global(name, &self.local_config()?, &self)
+        KeyType::Identity.read_with_global(name, &self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -302,7 +312,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        let res = KeyType::Network.read_with_global(name, &self.local_config()?, &self);
+        let res = KeyType::Network.read_with_global(name, &self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
                 return res;
@@ -357,26 +367,14 @@ impl Args {
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
         let file_name = format!("{alias}.json");
         let config_dirs = self.local_and_global()?;
-        for dir in config_dirs {
-            path = config_dir.join("contract-ids").join(file_name);
+        let local = &config_dirs[0];
+        let global = &config_dirs[1];
 
-            match dir {
-                Location::Local(config_dir) => {
-                    if !path.exists() {
-                        continue;
-                    }
-
-                    print_deprecation_warning(format!("Move {}/contract-ids to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", config_dir));
-
-                    let content = fs::read_to_string(path)?;
-                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-                    return Ok(Some(data));
-                }
-                Location::Global(config_dir) => {
-                    if !path.exists() {
-                        return Ok(None);
-                    }
+        match local {
+            Location::Local(config_dir) => {
+                let path = config_dir.join("contract-ids").join(&file_name);
+                if path.exists() {
+                    print_deprecation_warning();
 
                     let content = fs::read_to_string(path)?;
                     let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
@@ -384,6 +382,22 @@ impl Args {
                     return Ok(Some(data));
                 }
             }
+            _ => unreachable!(),
+        };
+
+        match global {
+            Location::Global(config_dir) => {
+                let path = config_dir.join("contract-ids").join(&file_name);
+                if !path.exists() {
+                    return Ok(None);
+                }
+
+                let content = fs::read_to_string(path)?;
+                let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+                Ok(Some(data))
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -480,7 +494,7 @@ impl Args {
     pub fn global_config_path(&self) -> Result<PathBuf, Error> {
         #[cfg(feature = "version_gte_23")]
         if let Some(config_dir) = &self.config_dir {
-            return Ok(config_dir.clone())
+            return Ok(config_dir.clone());
         }
 
         global_config_path()
@@ -488,12 +502,10 @@ impl Args {
 }
 
 #[cfg(feature = "version_gte_23")]
-pub fn print_deprecation_warning<T: Display + Sized>(instruction: T) {
+pub fn print_deprecation_warning() {
     let print = Print::new(false);
-    print.warnln("Local config match found");
     print.warnln("Local config is deprecated and will be removed in the future");
-    print.warnln(format!("To resolve this warning {}", instruction));
-    print.infoln("Tip: if $XDR_CONFIG_HOME is not defined, config is stored in ~/.config/stellar")
+    print.warnln("To resolve this warning run 'stellar config migrate'".to_string());
 }
 
 impl Pwd for Args {
@@ -548,11 +560,6 @@ impl Display for KeyType {
 }
 
 impl KeyType {
-    pub fn read<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
-        let path = self.path(pwd, key);
-        Self::read_from_path(&path)
-    }
-
     pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
         let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
@@ -560,10 +567,21 @@ impl KeyType {
         Ok(toml::from_str(&data)?)
     }
 
-    pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path, locator: &Args) -> Result<T, Error> {
-        for path in [pwd, locator.global_config_path()?.as_path()] {
-            match self.read(key, path) {
-                Ok(t) => return Ok(t),
+    pub fn read_with_global<T: DeserializeOwned>(
+        &self,
+        key: &str,
+        locator: &Args,
+    ) -> Result<T, Error> {
+        for location in locator.local_and_global()? {
+            let path = self.path(location.as_ref(), key);
+            match Self::read_from_path(&path) {
+                Ok(t) => {
+                    #[cfg(feature = "version_gte_23")]
+                    if let Location::Local(_) = location {
+                        print_deprecation_warning()
+                    }
+                    return Ok(t)
+                },
                 _ => continue,
             }
         }
@@ -595,24 +613,19 @@ impl KeyType {
         path
     }
 
-    pub fn list_paths(&self, paths: &[Location], key_type: &KeyType) -> Result<Vec<(String, Location)>, Error> {
+    pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .flat_map(|p| self.list(p, key_type).unwrap_or_default())
+            .flat_map(|p| self.list(p).unwrap_or_default())
             .collect())
     }
 
-    #[allow(unused_variables)]
-    pub fn list(&self, pwd: &Location, key_type: &KeyType) -> Result<Vec<(String, Location)>, Error> {
+    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
         let path = self.root(pwd.as_ref());
         if path.exists() {
             #[cfg(feature = "version_gte_23")]
-            if let Location::Local(dir) = pwd {
-                let msg = match key_type {
-                    KeyType::Identity => {format!("Move {}/identity to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", dir)}
-                    KeyType::Network => {format!("Move {}/network to $XDR_CONFIG_HOME/stellar or ~/.config/stellar", dir)}
-                };
-                print_deprecation_warning(msg);
+            if let Location::Local(_) = pwd {
+                print_deprecation_warning();
             }
 
             let mut files = read_dir(&path)?;
