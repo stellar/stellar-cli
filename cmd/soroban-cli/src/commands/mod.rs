@@ -113,6 +113,7 @@ impl Root {
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Strkey(strkey) => strkey.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
@@ -176,6 +177,9 @@ pub enum Cmd {
     /// Decode and encode XDR
     Xdr(stellar_xdr::cli::Root),
 
+    /// Decode and encode Strkeys
+    Strkey(stellar_strkey::cli::Root),
+
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
@@ -202,6 +206,9 @@ pub enum Error {
 
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
+
+    #[error(transparent)]
+    Strkey(#[from] stellar_strkey::cli::Error),
 
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
