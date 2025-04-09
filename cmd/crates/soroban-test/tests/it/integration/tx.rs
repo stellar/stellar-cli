@@ -2,7 +2,9 @@ use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
 use soroban_test::{AssertExt, TestEnv};
 
-use crate::integration::util::{deploy_contract, DeployKind, DeployOptions, HELLO_WORLD};
+use crate::integration::util::{
+    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+};
 
 pub mod operations;
 
@@ -57,6 +59,47 @@ async fn simulate() {
     assert_eq!(
         txn_env.to_xdr_base64(Limits::none()).unwrap(),
         assembled_str
+    );
+}
+
+fn test_tx_string(sandbox: &TestEnv) -> String {
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("install")
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+#[tokio::test]
+async fn sequence_number_next() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = test_tx_string(sandbox);
+    let test = test_address(sandbox);
+    let client = sandbox.network.rpc_client().unwrap();
+    let test_account = client.get_account(&test).await.unwrap();
+    let test_account_seq_num = test_account.seq_num.as_ref();
+
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("update")
+        .arg("seq-num")
+        .arg("next")
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
+    assert_eq!(
+        tx.seq_num,
+        soroban_cli::xdr::SequenceNumber(test_account_seq_num + 1)
     );
 }
 
