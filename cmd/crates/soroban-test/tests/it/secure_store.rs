@@ -1,6 +1,6 @@
+use predicates::prelude::predicate;
 use soroban_cli::tx::ONE_XLM;
 use soroban_test::{AssertExt, TestEnv};
-use predicates::prelude::predicate;
 
 pub fn test_address(sandbox: &TestEnv) -> String {
     sandbox
