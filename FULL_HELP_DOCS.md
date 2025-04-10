@@ -1575,6 +1575,7 @@ Sign, Simulate, and Send transactions
 
 ###### **Subcommands:**
 
+* `update` — Update the transaction
 * `edit` — Edit a transaction envelope from stdin. This command respects the environment variables `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order
 * `hash` — Calculate the hash of a transaction envelope
 * `new` — Create a new transaction
@@ -1582,6 +1583,47 @@ Sign, Simulate, and Send transactions
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+
+
+
+## `stellar tx update`
+
+Update the transaction
+
+**Usage:** `stellar tx update <COMMAND>`
+
+###### **Subcommands:**
+
+* `sequence-number` — Edit the sequence number on a transaction
+
+
+
+## `stellar tx update sequence-number`
+
+Edit the sequence number on a transaction
+
+**Usage:** `stellar tx update sequence-number <COMMAND>`
+
+###### **Subcommands:**
+
+* `next` — Fetch the source account's seq-num and increment for the given tx
+
+
+
+## `stellar tx update sequence-number next`
+
+Fetch the source account's seq-num and increment for the given tx
+
+**Usage:** `stellar tx update sequence-number next [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 
 
 
