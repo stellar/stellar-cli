@@ -22,26 +22,6 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", name])
-        .assert()
-        .success();
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["address", name])
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
-// // todo: move these functions to utils for reusability
-// // returns test and test1 addresses
-fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
-    (test_address(sandbox), new_account(sandbox, "test1"))
-}
-
 fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
     sandbox
         .new_assert_cmd("keys")
@@ -58,8 +38,7 @@ fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-// // test that we can create a create-account tx and sign it with a secure-store key
-// #[cfg(feature = "ledger-tests")]
+// test that we can create a create-account tx and sign it with a secure-store key
 #[tokio::test]
 async fn create_account() {
     let sandbox = &TestEnv::new();
