@@ -9,12 +9,16 @@ pub mod op;
 pub mod send;
 pub mod sign;
 pub mod simulate;
+pub mod update;
 pub mod xdr;
 
 pub use args::Args;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    /// Update the transaction
+    #[command(subcommand)]
+    Update(update::Cmd),
     /// Edit a transaction envelope from stdin. This command respects the environment variables
     /// `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
     ///
@@ -61,6 +65,8 @@ pub enum Error {
     Args(#[from] args::Error),
     #[error(transparent)]
     Simulate(#[from] simulate::Error),
+    #[error(transparent)]
+    Update(#[from] update::Error),
 }
 
 impl Cmd {
@@ -73,6 +79,7 @@ impl Cmd {
             Cmd::Send(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
+            Cmd::Update(cmd) => cmd.run(global_args).await?,
         };
         Ok(())
     }
