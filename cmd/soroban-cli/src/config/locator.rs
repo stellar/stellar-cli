@@ -607,7 +607,6 @@ impl KeyType {
             .collect())
     }
 
-    #[cfg(feature = "version_gte_23")]
     pub fn list_paths_silent(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()

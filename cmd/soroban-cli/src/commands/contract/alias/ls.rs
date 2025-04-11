@@ -61,10 +61,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn read_from_config_dir(
-        config_dir: &Path,
-        deprecation_mode: bool,
-    ) -> Result<(), Error> {
+    fn read_from_config_dir(config_dir: &Path, deprecation_mode: bool) -> Result<(), Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")

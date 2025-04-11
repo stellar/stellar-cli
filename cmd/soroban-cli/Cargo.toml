@@ -35,7 +35,7 @@ path = "src/lib.rs"
 doctest = false
 
 [features]
-default = ["version_gte_23"]
+default = []
 version_lt_23 = []
 version_gte_23 = []
 opt = ["dep:wasm-opt"]

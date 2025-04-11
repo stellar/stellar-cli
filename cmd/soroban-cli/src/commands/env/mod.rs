@@ -9,7 +9,7 @@ use clap::Parser;
 pub struct Cmd {
     /// Env variable name to get the value of.
     ///
-    /// E.g.: $ stellar env `STELLAR_ACCOUNT`
+    /// E.g.: $ stellar env STELLAR_ACCOUNT
     #[arg()]
     pub name: Option<String>,
 

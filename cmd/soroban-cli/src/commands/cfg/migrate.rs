@@ -31,9 +31,9 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let print = Print::new(false);
 
-        let identities = self.local_configs_path(KeyType::Identity)?;
-        let networks = self.local_configs_path(KeyType::Network)?;
-        let contract_ids = self.local_configs_path(KeyType::ContractIds)?;
+        let identities = self.local_configs_path(&KeyType::Identity)?;
+        let networks = self.local_configs_path(&KeyType::Network)?;
+        let contract_ids = self.local_configs_path(&KeyType::ContractIds)?;
 
         if identities.is_empty() && networks.is_empty() && contract_ids.is_empty() {
             print.checkln("Config is already fully migrated");
@@ -49,7 +49,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn local_configs_path(&self, key_type: KeyType) -> Result<Vec<PathBuf>, Error> {
+    fn local_configs_path(&self, key_type: &KeyType) -> Result<Vec<PathBuf>, Error> {
         Ok(key_type
             .list_paths_silent(&self.locator.local_and_global()?)?
             .into_iter()
