@@ -174,7 +174,7 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let print = Print::new(global_args.map_or(false, |a| a.quiet));
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             #[cfg(feature = "version_lt_23")]

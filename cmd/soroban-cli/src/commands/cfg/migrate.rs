@@ -13,7 +13,7 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] locator::Error),
     #[error(transparent)]
-    StripPrefixError(#[from] std::path::StripPrefixError),
+    StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Unexpected invalid file: {0}")]
     InvalidFile(PathBuf),
     #[error(transparent)]
@@ -78,13 +78,13 @@ impl Cmd {
                     .ok_or(InvalidFile(target.clone()))?;
                 let sha256 = Sha256::digest(path.display().to_string().as_bytes());
                 let sha256 = format!("{sha256:x}").chars().take(8).collect::<String>();
-                let name = format!("migrated_{}_{}", original_name, sha256);
+                let name = format!("migrated_{original_name}_{sha256}");
                 print.warnln(format!("Duplicated '{original_name}' {config_type} found: it will be renamed to {name}"));
                 target = target.with_file_name(&name).with_extension(extension);
             }
             create_dir_all(target.parent().unwrap())?;
-            fs::copy(&path, &target)?;
-            fs::remove_file(&path)?;
+            fs::copy(path, &target)?;
+            fs::remove_file(path)?;
             print.infoln(format!(
                 "Moved {} from {} to {}",
                 config_type,

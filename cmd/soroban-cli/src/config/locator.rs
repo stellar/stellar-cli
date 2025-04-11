@@ -124,7 +124,7 @@ pub struct Args {
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
-    /// Location of config directory, default is "$XDG_CONFIG_HOME/.stellar"
+    /// Location of config directory, default is "$`XDG_CONFIG_HOME/.stellar`"
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
@@ -181,7 +181,7 @@ impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
             let print = Print::new(false);
-            print.warnln("Flag --global is deprecated: global config is always used")
+            print.warnln("Flag --global is deprecated: global config is always used");
         }
         self.global_config_path()
     }
@@ -287,7 +287,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
-        KeyType::Identity.read_with_global(name, &self)
+        KeyType::Identity.read_with_global(name, self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -312,7 +312,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        let res = KeyType::Network.read_with_global(name, &self);
+        let res = KeyType::Network.read_with_global(name, self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
                 return res;
@@ -382,7 +382,7 @@ impl Args {
                     return Ok(Some(data));
                 }
             }
-            _ => unreachable!(),
+            Location::Global(_) => unreachable!(),
         };
 
         match global {
@@ -397,7 +397,7 @@ impl Args {
 
                 Ok(Some(data))
             }
-            _ => unreachable!(),
+            Location::Local(_) => unreachable!(),
         }
     }
 
@@ -565,7 +565,7 @@ impl KeyType {
                 Ok(t) => {
                     #[cfg(feature = "version_gte_23")]
                     if let Location::Local(_) = location {
-                        print_deprecation_warning()
+                        print_deprecation_warning();
                     }
                     return Ok(t);
                 }

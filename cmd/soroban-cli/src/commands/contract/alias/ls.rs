@@ -1,7 +1,7 @@
 use clap::{command, Parser};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::Path;
 use std::{fs, process};
 
 use crate::commands::config::network;
@@ -43,7 +43,7 @@ struct AliasEntry {
 impl Cmd {
     #[cfg(feature = "version_lt_23")]
     pub fn run(&self) -> Result<(), Error> {
-        self.read_from_config_dir(&self.config_locator.config_dir()?, false)
+        Self::read_from_config_dir(&self.config_locator.config_dir()?, false)
     }
 
     #[cfg(not(feature = "version_lt_23"))]
@@ -53,8 +53,8 @@ impl Cmd {
 
         for cfg in config_dirs {
             match cfg {
-                Location::Local(config_dir) => self.read_from_config_dir(&config_dir, true)?,
-                Location::Global(config_dir) => self.read_from_config_dir(&config_dir, false)?,
+                Location::Local(config_dir) => Self::read_from_config_dir(&config_dir, true)?,
+                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir, false)?,
             }
         }
 
@@ -62,8 +62,7 @@ impl Cmd {
     }
 
     fn read_from_config_dir(
-        &self,
-        config_dir: &PathBuf,
+        config_dir: &Path,
         deprecation_mode: bool,
     ) -> Result<(), Error> {
         let pattern = config_dir
@@ -112,7 +111,7 @@ impl Cmd {
                 for entry in list {
                     #[cfg(feature = "version_gte_23")]
                     if !found && deprecation_mode {
-                        print_deprecation_warning()
+                        print_deprecation_warning();
                     }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);
