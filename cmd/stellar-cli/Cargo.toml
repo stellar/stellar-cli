@@ -28,6 +28,7 @@ bin-dir = "{ bin }{ binary-ext }"
 default = []
 opt = ["soroban-cli/opt"]
 emulator-tests = ["soroban-cli/emulator-tests"]
+secure-store-tests = ["soroban-cli/secure-store-tests"]
 
 [dependencies]
 soroban-cli = { workspace = true }
