@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   systems-test:
-   # if: github.event_name == 'push'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +25,7 @@ jobs:
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
-    uses: stellar/system-test/.github/workflows/test.yml@12c0f6fdcd0913be1321b7343ea92fb15bcb2770
+    uses: stellar/system-test/.github/workflows/test.yml@master
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
@@ -33,7 +33,7 @@ jobs:
       quickstart-tag: "testing"
   systems-test-linux:
     if: github.event_name != 'push'
-    uses: stellar/system-test/.github/workflows/test.yml@12c0f6fdcd0913be1321b7343ea92fb15bcb2770
+    uses: stellar/system-test/.github/workflows/test.yml@master
     with:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
