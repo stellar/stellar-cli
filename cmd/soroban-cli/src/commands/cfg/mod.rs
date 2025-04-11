@@ -17,7 +17,7 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
-            Cmd::Migrate(cmd) => cmd.run()?
+            Cmd::Migrate(cmd) => cmd.run()?,
         };
         Ok(())
     }

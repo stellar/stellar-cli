@@ -24,10 +24,10 @@ pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
+use crate::config::locator::cli_config_file;
 pub use address::UnresolvedMuxedAccount;
 pub use alias::UnresolvedContract;
 pub use sc_address::UnresolvedScAddress;
-use crate::config::locator::cli_config_file;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

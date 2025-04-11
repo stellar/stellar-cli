@@ -567,8 +567,8 @@ impl KeyType {
                     if let Location::Local(_) = location {
                         print_deprecation_warning()
                     }
-                    return Ok(t)
-                },
+                    return Ok(t);
+                }
                 _ => continue,
             }
         }
@@ -616,7 +616,11 @@ impl KeyType {
     }
 
     #[allow(unused_variables)]
-    pub fn list(&self, pwd: &Location, print_warning: bool) -> Result<Vec<(String, Location)>, Error> {
+    pub fn list(
+        &self,
+        pwd: &Location,
+        print_warning: bool,
+    ) -> Result<Vec<(String, Location)>, Error> {
         let path = self.root(pwd.as_ref());
         if path.exists() {
             let mut files = self.read_dir(&path)?;
@@ -645,7 +649,7 @@ impl KeyType {
             let path = entry.path();
             let extension = match self {
                 KeyType::Identity | KeyType::Network => "toml",
-                KeyType::ContractIds => "json"
+                KeyType::ContractIds => "json",
             };
             if let Some(ext) = path.extension().and_then(OsStr::to_str) {
                 if ext == extension {

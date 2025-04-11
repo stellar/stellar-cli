@@ -6,8 +6,8 @@ use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 use crate::config;
 
 pub mod cache;
-pub mod completion;
 pub mod cfg;
+pub mod completion;
 pub mod container;
 pub mod contract;
 pub mod env;

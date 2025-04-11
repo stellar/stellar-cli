@@ -3,10 +3,10 @@ use crate::commands::cfg::migrate::Error::InvalidFile;
 use crate::config::locator::{KeyType, Location};
 use crate::print::Print;
 use clap::command;
+use sha2::{Digest, Sha256};
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use sha2::{Digest, Sha256};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -37,7 +37,7 @@ impl Cmd {
 
         if identities.is_empty() && networks.is_empty() && contract_ids.is_empty() {
             print.checkln("Config is already fully migrated");
-            return Ok(())
+            return Ok(());
         }
 
         self.migrate(identities, "identity")?;
