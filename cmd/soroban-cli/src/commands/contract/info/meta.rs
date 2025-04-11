@@ -60,7 +60,7 @@ impl Cmd {
                             let val = match key.as_str() {
                                 "rsver" => format!("{val} (Rust version)"),
                                 "rssdkver" => {
-                                    format!("{val} (Soroban SDK version and it's commit hash)")
+                                    format!("{val} (Soroban SDK version and its commit hash)")
                                 }
                                 _ => val.to_string(),
                             };
