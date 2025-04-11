@@ -3,9 +3,9 @@ use serde_json::json;
 use soroban_cli::commands;
 use soroban_test::TestEnv;
 
-use crate::integration::util::{deploy_custom, extend_contract};
-
-use super::util::{invoke, invoke_with_roundtrip};
+use crate::integration::util::{
+    deploy_custom, extend_contract, invoke, invoke_with_roundtrip, test_address,
+};
 
 fn invoke_custom(e: &TestEnv, id: &str, func: &str) -> assert_cmd::Command {
     let mut s = e.new_assert_cmd("contract");
@@ -241,7 +241,7 @@ async fn account_address(sandbox: &TestEnv, id: &str) {
 
 async fn account_address_with_alias(sandbox: &TestEnv, id: &str) {
     let res = invoke(sandbox, id, "addresse", &json!("test").to_string()).await;
-    let test = format!("\"{}\"", super::tx::operations::test_address(sandbox));
+    let test = format!("\"{}\"", test_address(sandbox));
     assert_eq!(test, res);
 }
 
