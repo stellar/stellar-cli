@@ -1,5 +1,4 @@
 use ed25519_dalek::ed25519::signature::Signer as _;
-use keyring::StellarEntry;
 use sha2::{Digest, Sha256};
 
 use crate::xdr::{
@@ -13,8 +12,10 @@ use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
-pub mod keyring;
 pub mod secure_store;
+
+#[cfg(feature = "additional-libs")]
+mod keyring;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -41,7 +42,7 @@ pub enum Error {
     #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
     ReturningSignatureFromLab,
     #[error(transparent)]
-    Keyring(#[from] keyring::Error),
+    SecureStore(#[from] secure_store::Error),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -378,9 +379,12 @@ pub struct SecureStoreEntry {
 
 impl SecureStoreEntry {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let entry = StellarEntry::new(&self.name)?;
-        let hint = SignatureHint(entry.get_public_key(self.hd_path)?.0[28..].try_into()?);
-        let signed_tx_hash = entry.sign_data(&tx_hash, self.hd_path)?;
+        let hint = SignatureHint(
+            secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
+        );
+
+        let signed_tx_hash = secure_store::sign_tx_data(&self.name, self.hd_path, &tx_hash)?;
+
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
