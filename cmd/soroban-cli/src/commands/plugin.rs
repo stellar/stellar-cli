@@ -12,9 +12,9 @@ pub enum Error {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(
-        r#"error: no such command: `{0}`
+        r"error: no such command: `{0}`
         
-        {1}View all installed plugins with `stellar --list`"#
+        {1}View all installed plugins with `stellar --list`"
     )]
     ExecutableNotFound(String, String),
     #[error(transparent)]
@@ -58,8 +58,8 @@ pub fn run() -> Result<(), Error> {
                 suggested_name
             } else {
                 format!(
-                    r#"Did you mean `{suggested_name}`?
-        "#
+                    r"Did you mean `{suggested_name}`?
+        "
                 )
             }
         } else {

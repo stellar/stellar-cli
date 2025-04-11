@@ -130,7 +130,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;

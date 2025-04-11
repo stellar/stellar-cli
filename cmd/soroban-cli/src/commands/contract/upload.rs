@@ -105,7 +105,7 @@ impl NetworkRunnable for Cmd {
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;

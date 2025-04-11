@@ -210,7 +210,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = print::Print::new(global_args.map_or(false, |g| g.quiet));
+        let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let contract_id = self
