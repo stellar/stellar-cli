@@ -7,6 +7,7 @@ use crate::config;
 
 pub mod cache;
 pub mod completion;
+pub mod cfg;
 pub mod container;
 pub mod contract;
 pub mod env;
@@ -111,6 +112,8 @@ impl Root {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
+            #[cfg(feature = "version_gte_23")]
+            Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
@@ -165,6 +168,11 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(container::Cmd),
 
+    /// Manage cli configuration
+    #[cfg(feature = "version_gte_23")]
+    #[command(subcommand)]
+    Config(cfg::Cmd),
+
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
     Snapshot(snapshot::Cmd),
@@ -214,6 +222,9 @@ pub enum Error {
 
     #[error(transparent)]
     Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Config(#[from] cfg::Error),
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),

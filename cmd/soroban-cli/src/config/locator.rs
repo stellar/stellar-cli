@@ -526,24 +526,10 @@ fn dir_creation_failed(p: &Path) -> Error {
     }
 }
 
-fn read_dir(dir: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
-    let contents = std::fs::read_dir(dir)?;
-    let mut res = vec![];
-    for entry in contents.filter_map(Result::ok) {
-        let path = entry.path();
-        if let Some("toml") = path.extension().and_then(OsStr::to_str) {
-            if let Some(os_str) = path.file_stem() {
-                res.push((os_str.to_string_lossy().trim().to_string(), path));
-            }
-        }
-    }
-    res.sort();
-    Ok(res)
-}
-
 pub enum KeyType {
     Identity,
     Network,
+    ContractIds,
 }
 
 impl Display for KeyType {
@@ -554,6 +540,7 @@ impl Display for KeyType {
             match self {
                 KeyType::Identity => "identity",
                 KeyType::Network => "network",
+                KeyType::ContractIds => "contract-ids",
             }
         )
     }
@@ -616,20 +603,31 @@ impl KeyType {
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .flat_map(|p| self.list(p).unwrap_or_default())
+            .flat_map(|p| self.list(p, true).unwrap_or_default())
             .collect())
     }
 
-    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
+    #[cfg(feature = "version_gte_23")]
+    pub fn list_paths_silent(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
+        Ok(paths
+            .iter()
+            .flat_map(|p| self.list(p, false).unwrap_or_default())
+            .collect())
+    }
+
+    #[allow(unused_variables)]
+    pub fn list(&self, pwd: &Location, print_warning: bool) -> Result<Vec<(String, Location)>, Error> {
         let path = self.root(pwd.as_ref());
         if path.exists() {
+            let mut files = self.read_dir(&path)?;
+            files.sort();
+
             #[cfg(feature = "version_gte_23")]
             if let Location::Local(_) = pwd {
-                print_deprecation_warning();
+                if files.len() > 1 && print_warning {
+                    print_deprecation_warning();
+                }
             }
-
-            let mut files = read_dir(&path)?;
-            files.sort();
 
             Ok(files
                 .into_iter()
@@ -638,6 +636,27 @@ impl KeyType {
         } else {
             Ok(vec![])
         }
+    }
+
+    fn read_dir(&self, dir: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
+        let contents = std::fs::read_dir(dir)?;
+        let mut res = vec![];
+        for entry in contents.filter_map(Result::ok) {
+            let path = entry.path();
+            let extension = match self {
+                KeyType::Identity | KeyType::Network => "toml",
+                KeyType::ContractIds => "json"
+            };
+            if let Some(ext) = path.extension().and_then(OsStr::to_str) {
+                if ext == extension {
+                    if let Some(os_str) = path.file_stem() {
+                        res.push((os_str.to_string_lossy().trim().to_string(), path));
+                    }
+                }
+            }
+        }
+        res.sort();
+        Ok(res)
     }
 
     pub fn remove(&self, key: &str, pwd: &Path) -> Result<(), Error> {
