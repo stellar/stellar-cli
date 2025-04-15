@@ -1,7 +1,5 @@
 use ed25519_dalek::ed25519::signature::Signer as _;
-use ledger::GenericExchange;
 use sha2::{Digest, Sha256};
-
 use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
@@ -9,9 +7,6 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-
-#[cfg(feature = "additional-libs")]
-use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
@@ -33,10 +28,6 @@ pub enum Error {
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("User cancelled signing, perhaps need to add -y")]
     UserCancelledSigning,
-    #[cfg(feature = "additional-libs")]
-    #[error(transparent)]
-    Ledger(#[from] stellar_ledger::Error),
-
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("Only Transaction envelope V1 type is supported")]
@@ -49,7 +40,6 @@ pub enum Error {
     ReturningSignatureFromLab,
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
-
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
 }
@@ -226,7 +216,7 @@ pub struct Signer {
 pub enum SignerKind {
     Local(LocalKey),
     #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
-    Ledger(Ledger<stellar_ledger::TransportNativeHID>),
+    Ledger(ledger::Ledger<stellar_ledger::TransportNativeHID>),
     #[cfg(all(feature = "emulator-tests", feature = "additional-libs"))]
     Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
     #[cfg(not(feature = "additional-libs"))]
@@ -280,50 +270,7 @@ pub struct LocalKey {
     pub key: ed25519_dalek::SigningKey,
 }
 
-#[allow(dead_code)]
-#[cfg(feature = "additional-libs")]
-pub struct Ledger<T: Exchange> {
-    pub(crate) index: u32,
-    pub(crate) signer: LedgerSigner<T>,
-}
 
-#[cfg(feature = "additional-libs")]
-impl<T: Exchange> Ledger<T> {
-    pub async fn sign_transaction_hash(
-        &self,
-        tx_hash: &[u8; 32],
-    ) -> Result<DecoratedSignature, Error> {
-        let key = self.public_key().await?;
-        let hint = SignatureHint(key.0[28..].try_into()?);
-        let signature = Signature(
-            self.signer
-                .sign_transaction_hash(self.index, tx_hash)
-                .await?
-                .try_into()?,
-        );
-        Ok(DecoratedSignature { hint, signature })
-    }
-
-    pub async fn sign_transaction(
-        &self,
-        tx: Transaction,
-        network_passphrase: &str,
-    ) -> Result<DecoratedSignature, Error> {
-        let network_id = Hash(Sha256::digest(network_passphrase).into());
-        let signature = self
-            .signer
-            .sign_transaction(self.index, tx, network_id)
-            .await?;
-        let key = self.public_key().await?;
-        let hint = SignatureHint(key.0[28..].try_into()?);
-        let signature = Signature(signature.try_into()?);
-        Ok(DecoratedSignature { hint, signature })
-    }
-
-    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self.signer.get_public_key(&self.index.into()).await?)
-    }
-}
 
 impl LocalKey {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
