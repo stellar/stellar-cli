@@ -35,7 +35,11 @@ impl UpgradeCheck {
     /// Loads the state of the upgrade check from the global configuration directory.
     /// If the file doesn't exist, returns a default instance of `UpgradeCheck`.
     pub fn load() -> Result<Self, locator::Error> {
-        let path = locator::global_config_path()?.join(FILE_NAME);
+        let locator = locator::Args {
+            global: false,
+            config_dir: None,
+        };
+        let path = locator.global_config_path()?.join(FILE_NAME);
         if !path.exists() {
             return Ok(Self::default());
         }
@@ -46,7 +50,11 @@ impl UpgradeCheck {
 
     /// Saves the state of the upgrade check to the `upgrade_check.json` file in the global configuration directory.
     pub fn save(&self) -> Result<(), locator::Error> {
-        let path = locator::global_config_path()?.join(FILE_NAME);
+        let locator = locator::Args {
+            global: false,
+            config_dir: None,
+        };
+        let path = locator.global_config_path()?.join(FILE_NAME);
         let path = locator::ensure_directory(path)?;
         let data = serde_json::to_string(self).map_err(|_| locator::Error::ConfigSerialization)?;
         fs::write(&path, data)
