@@ -53,8 +53,9 @@ mod ledger_impl {
     }
 }
 
-#[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
+#[cfg(feature = "additional-libs")]
 mod ledger_impl {
+    #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
     pub async fn new(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
         let signer = stellar_ledger::native()?;
         Ok(Ledger {
@@ -62,11 +63,8 @@ mod ledger_impl {
             signer,
         })
     }
-}
 
-
-#[cfg(all(feature = "additional-libs", feature = "emulator-tests"))]
-mod ledger_impl {
+    #[cfg(all(feature = "additional-libs", feature = "emulator-tests"))]
     pub async fn new(
         hd_path: u32,
     ) -> Result<Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>, Error> {
