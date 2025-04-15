@@ -32,8 +32,8 @@ function upload() {
   exe eval "(./stellar contract $1 --quiet --source root --wasm $2 --ignore-checks) > $3"
 }
 function deploy_all() {
-  upload deploy ../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
-  upload install ../../../../target/wasm32v1-none/test-wasms/test_constructor.wasm contract-wasm-hash-constructor.txt
+  upload deploy ../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
+  upload install ../../../../target/wasm32-unknown-unknown/test-wasms/test_constructor.wasm contract-wasm-hash-constructor.txt
   exe eval "./stellar contract asset deploy --asset native --source root"
 }
 function bind() {

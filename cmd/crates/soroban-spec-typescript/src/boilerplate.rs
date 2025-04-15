@@ -147,7 +147,7 @@ mod test {
     use super::*;
 
     const EXAMPLE_WASM: &[u8] = include_bytes!(
-        "../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm"
+        "../../../../target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm"
     );
 
     fn init(root: impl AsRef<Path>) -> std::io::Result<Project> {

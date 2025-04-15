@@ -89,7 +89,7 @@ jobs:
     - run: rustup update
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
-    - run: rustup target add wasm32v1-none
+    - run: rustup target add wasm32-unknown-unknown
     - if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}

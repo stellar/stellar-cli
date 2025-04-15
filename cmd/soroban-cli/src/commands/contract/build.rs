@@ -112,7 +112,7 @@ pub enum Error {
     MetaArg(String),
 }
 
-const WASM_TARGET: &str = "wasm32v1-none";
+const WASM_TARGET: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
 impl Cmd {

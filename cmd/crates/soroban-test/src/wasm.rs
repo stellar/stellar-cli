@@ -30,7 +30,7 @@ impl Wasm<'_> {
     ///
     /// # if not found
     pub fn path(&self) -> PathBuf {
-        let path = find_target_dir().unwrap().join("wasm32v1-none");
+        let path = find_target_dir().unwrap().join("wasm32-unknown-unknown");
         let mut path = match self {
             Wasm::Release(name) => path.join("release").join(name),
             Wasm::Custom(profile, name) => path.join(profile).join(name),

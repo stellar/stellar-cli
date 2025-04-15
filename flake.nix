@@ -27,7 +27,7 @@
             dbus
             (rust-bin.stable.latest.default.override {
               extensions = [ "rust-src" ];
-              targets = [ "wasm32v1-none" ];
+              targets = [ "wasm32-unknown-unknown" ];
             })
           ] ++ lib.optionals (stdenv.isLinux) [libudev-zero];
         };
