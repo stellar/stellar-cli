@@ -49,6 +49,7 @@ generate-full-help-doc:
 
 test: build-test
 	cargo test --workspace --exclude soroban-test
+	cargo test --workspace --exclude soroban-test --features additional-libs
 	cargo test -p soroban-test -- --skip integration::
 
 e2e-test:
