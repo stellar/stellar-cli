@@ -1,5 +1,3 @@
-use ed25519_dalek::ed25519::signature::Signer as _;
-use sha2::{Digest, Sha256};
 use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
@@ -7,15 +5,16 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
+use ed25519_dalek::ed25519::signature::Signer as _;
+use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
-#[cfg(not(feature="additional-libs"))]
+pub mod ledger;
+#[cfg(not(feature = "additional-libs"))]
 use ledger::GenericExchange;
 
 pub mod secure_store;
-pub mod ledger;
-
 #[cfg(feature = "additional-libs")]
 mod keyring;
 
@@ -272,8 +271,6 @@ impl Signer {
 pub struct LocalKey {
     pub key: ed25519_dalek::SigningKey,
 }
-
-
 
 impl LocalKey {
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {

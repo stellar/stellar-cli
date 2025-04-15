@@ -35,7 +35,7 @@ pub enum Error {
     SecureStoreDoesNotRevealSecretKey,
 
     #[error(transparent)]
-    Ledger(#[from] signer::ledger::Error) //todo: rename this error?
+    Ledger(#[from] signer::ledger::Error), //todo: rename this error?
 }
 
 #[derive(Debug, clap::Args, Clone)]
