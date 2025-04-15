@@ -10,6 +10,9 @@ use crate::xdr::{
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
+#[cfg(not(feature="additional-libs"))]
+use ledger::GenericExchange;
+
 pub mod secure_store;
 pub mod ledger;
 
@@ -218,7 +221,7 @@ pub enum SignerKind {
     #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
     Ledger(ledger::Ledger<stellar_ledger::TransportNativeHID>),
     #[cfg(all(feature = "emulator-tests", feature = "additional-libs"))]
-    Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
+    Ledger(ledger::Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
     #[cfg(not(feature = "additional-libs"))]
     Ledger(ledger::Ledger<GenericExchange>),
     Lab,
