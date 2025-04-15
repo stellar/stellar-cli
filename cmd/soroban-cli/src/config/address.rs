@@ -87,7 +87,7 @@ impl UnresolvedMuxedAccount {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
-                ledger::ledger(*hd_path).await?.public_key().await?.0.into(),
+                ledger::new(*hd_path).await?.public_key().await?.0.into(),
             )),
             UnresolvedMuxedAccount::Resolved(_) | UnresolvedMuxedAccount::AliasOrSecret(_) => {
                 self.resolve_muxed_account_sync(locator, hd_path)

@@ -146,7 +146,7 @@ impl Secret {
                     .unwrap_or_default()
                     .try_into()
                     .expect("uszie bigger than u32");
-                SignerKind::Ledger(ledger::ledger(hd_path).await?)
+                SignerKind::Ledger(ledger::new(hd_path).await?)
             }
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.to_string(),

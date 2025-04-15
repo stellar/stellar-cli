@@ -48,14 +48,14 @@ mod ledger_impl {
     impl GenericExchange {
     }
 
-    pub async fn ledger(_hd_path: u32) -> Result<Ledger<GenericExchange>, Error> {
+    pub async fn new(_hd_path: u32) -> Result<Ledger<GenericExchange>, Error> {
         Err(Error::FeatureNotEnabled)
     }
 }
 
 #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
 mod ledger_impl {
-    pub async fn ledger(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
+    pub async fn new(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
         let signer = stellar_ledger::native()?;
         Ok(Ledger {
             index: hd_path,
@@ -67,7 +67,7 @@ mod ledger_impl {
 
 #[cfg(all(feature = "additional-libs", feature = "emulator-tests"))]
 mod ledger_impl {
-    pub async fn ledger(
+    pub async fn new(
         hd_path: u32,
     ) -> Result<Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>, Error> {
         use stellar_ledger::emulator_test_support::ledger as emulator_ledger;

@@ -74,8 +74,7 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            // todo: change this to `ledger::new`
-            let ledger = ledger::ledger(
+            let ledger = ledger::new(
                 self.hd_path
                     .unwrap_or_default()
                     .try_into()
