@@ -42,7 +42,7 @@ impl Cmd {
         match result {
             Ok(resp) => match self.output {
                 OutputFormat::Text => {
-                    if resp.status.to_ascii_lowercase() == "healthy" {
+                    if resp.status.eq_ignore_ascii_case("healthy") {
                         print.checkln("Healthy");
                     } else {
                         print.warnln(format!("Status: {}", resp.status));

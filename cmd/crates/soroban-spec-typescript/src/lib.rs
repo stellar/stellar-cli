@@ -159,9 +159,9 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
             )
         };
         return format!(
-            r#"{indent}/**
+            r"{indent}/**
 {indent}   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
-{indent}   */"#
+{indent}   */"
         );
     }
 
@@ -171,10 +171,10 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
 
     let doc = doc.split('\n').join(&format!("\n{indent} * "));
     format!(
-        r#"{indent}/**
+        r"{indent}/**
 {indent} * {doc}
 {indent} */
-"#
+"
     )
 }
 
@@ -244,10 +244,10 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let doc = doc_to_ts_doc(doc, Some(name), 0);
             let return_type = outputs_to_return_type(outputs);
             format!(
-                r#"
+                r"
   {doc}
   {name}: ({input}options?: {METHOD_OPTIONS}) => Promise<AssembledTransaction<{return_type}>>
-"#
+"
             )
         }
 
@@ -255,11 +255,11 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let docs = doc_to_ts_doc(doc, None, 0);
             let fields = fields.iter().map(field_to_ts).join("\n  ");
             format!(
-                r#"
+                r"
 {docs}export interface {name} {{
   {fields}
 }}
-"#
+"
             )
         }
 
@@ -274,8 +274,8 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let cases = cases.iter().map(case_to_ts).join(" | ");
 
             format!(
-                r#"{doc}export type {name} = {cases};
-"#
+                r"{doc}export type {name} = {cases};
+"
             )
         }
         Entry::Enum { doc, name, cases } => {
@@ -285,10 +285,10 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
                 .then(|| format!("{name}s"))
                 .unwrap_or(name.to_string());
             format!(
-                r#"{doc}export enum {name} {{
+                r"{doc}export enum {name} {{
   {cases}
 }}
-"#,
+",
             )
         }
         Entry::ErrorEnum { doc, cases, .. } => {
