@@ -100,12 +100,13 @@ impl NetworkRunnable for Cmd {
     type Result = TxnResult<Hash>;
 
     #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -204,7 +205,7 @@ impl NetworkRunnable for Cmd {
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
 
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
         }
 
@@ -233,7 +234,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         }
 
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
 
