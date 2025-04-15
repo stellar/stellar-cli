@@ -764,9 +764,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
 
         // Number parsing
         (ScType::U128, Value::String(s)) => {
-            let val: u128 = u128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: u128 = u128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::U128(UInt128Parts {
@@ -776,9 +774,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         }
 
         (ScType::I128, Value::String(s)) => {
-            let val: i128 = i128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: i128 = i128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::I128(Int128Parts {
@@ -1313,7 +1309,7 @@ impl Spec {
                     })
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
-                Some(format!(r#"{{ {inner} }}"#))
+                Some(format!(r"{{ {inner} }}"))
             }
             Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
