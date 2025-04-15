@@ -48,6 +48,8 @@ pub enum Error {
     InvalidKeyName(String),
     #[error("Ledger not supported in this context")]
     LedgerNotSupported,
+    #[error(transparent)]
+    Ledger(#[from] signer::ledger::Error) //todo: rename this error?
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -85,7 +87,7 @@ impl UnresolvedMuxedAccount {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
-                ledger(*hd_path).await?.public_key().await?.0.into(),
+                ledger::ledger(*hd_path).await?.public_key().await?.0.into(),
             )),
             UnresolvedMuxedAccount::Resolved(_) | UnresolvedMuxedAccount::AliasOrSecret(_) => {
                 self.resolve_muxed_account_sync(locator, hd_path)

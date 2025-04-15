@@ -33,6 +33,9 @@ pub enum Error {
     SecureStore(#[from] secure_store::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
+
+    #[error(transparent)]
+    Ledger(#[from] signer::ledger::Error) //todo: rename this error?
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -143,7 +146,7 @@ impl Secret {
                     .unwrap_or_default()
                     .try_into()
                     .expect("uszie bigger than u32");
-                SignerKind::Ledger(ledger(hd_path).await?)
+                SignerKind::Ledger(ledger::ledger(hd_path).await?)
             }
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.to_string(),
