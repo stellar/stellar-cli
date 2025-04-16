@@ -25,7 +25,7 @@ jobs:
               run: |
                   sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
             - run: |
-                  cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests,additional-libs" -- --nocapture
-            - run: cargo build --features emulator-tests
+                  cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
+            - run: cargo build --features emulator-tests,additional-libs
             - run: |
                   cargo test --features emulator-tests --package soroban-test --test it -- emulator
