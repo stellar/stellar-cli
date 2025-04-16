@@ -11,12 +11,10 @@ use sha2::{Digest, Sha256};
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
 pub mod ledger;
-#[cfg(not(feature = "additional-libs"))]
-use ledger::GenericExchange;
 
-pub mod secure_store;
 #[cfg(feature = "additional-libs")]
 mod keyring;
+pub mod secure_store;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

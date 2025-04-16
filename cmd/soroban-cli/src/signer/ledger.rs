@@ -18,13 +18,6 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-#[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
-pub type LedgerType = Ledger<stellar_ledger::TransportNativeHID>;
-#[cfg(all(feature = "emulator-tests", feature = "additional-libs"))]
-pub type LedgerType = Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>;
-#[cfg(not(feature = "additional-libs"))]
-pub type LedgerType = Ledger<GenericExchange>;
-
 #[cfg(feature = "additional-libs")]
 mod ledger_impl {
     use super::*;
@@ -32,12 +25,17 @@ mod ledger_impl {
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
+    #[cfg(not(feature = "emulator-tests"))]
+    pub type LedgerType = Ledger<stellar_ledger::TransportNativeHID>;
+    #[cfg(feature = "emulator-tests")]
+    pub type LedgerType = Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>;
+
     pub struct Ledger<T: Exchange> {
         pub(crate) index: u32,
         pub(crate) signer: LedgerSigner<T>,
     }
 
-    #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
+    #[cfg(not(feature = "emulator-tests"))]
     pub async fn new(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
         let signer = stellar_ledger::native()?;
         Ok(Ledger {
@@ -46,7 +44,7 @@ mod ledger_impl {
         })
     }
 
-    #[cfg(all(feature = "additional-libs", feature = "emulator-tests"))]
+    #[cfg(feature = "emulator-tests")]
     pub async fn new(
         hd_path: u32,
     ) -> Result<Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>, Error>
@@ -105,8 +103,10 @@ mod ledger_impl {
 
 #[cfg(not(feature = "additional-libs"))]
 mod ledger_impl {
-    use super::*;
+    use super::{DecoratedSignature, Error, Transaction};
     use std::marker::PhantomData;
+
+    pub type LedgerType = Ledger<GenericExchange>;
 
     pub trait Exchange {}
     pub struct Ledger<T: Exchange> {
@@ -120,15 +120,15 @@ mod ledger_impl {
     impl<T: Exchange> Ledger<T> {
         pub async fn sign_transaction_hash(
             &self,
-            tx_hash: &[u8; 32],
+            _tx_hash: &[u8; 32],
         ) -> Result<DecoratedSignature, Error> {
             Err(Error::FeatureNotEnabled)
         }
 
         pub async fn sign_transaction(
             &self,
-            tx: Transaction,
-            network_passphrase: &str,
+            _tx: Transaction,
+            _network_passphrase: &str,
         ) -> Result<DecoratedSignature, Error> {
             Err(Error::FeatureNotEnabled)
         }
