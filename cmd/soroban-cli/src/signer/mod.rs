@@ -217,12 +217,7 @@ pub struct Signer {
 #[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
 pub enum SignerKind {
     Local(LocalKey),
-    #[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
-    Ledger(ledger::Ledger<stellar_ledger::TransportNativeHID>),
-    #[cfg(all(feature = "emulator-tests", feature = "additional-libs"))]
-    Ledger(ledger::Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
-    #[cfg(not(feature = "additional-libs"))]
-    Ledger(ledger::Ledger<GenericExchange>),
+    Ledger(ledger::LedgerType),
     Lab,
     SecureStore(SecureStoreEntry),
 }

@@ -18,6 +18,13 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
+#[cfg(all(feature = "additional-libs", not(feature = "emulator-tests")))]
+pub type LedgerType = Ledger<stellar_ledger::TransportNativeHID>;
+#[cfg(all(feature = "emulator-tests", feature = "additional-libs"))]
+pub type LedgerType = Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>;
+#[cfg(not(feature = "additional-libs"))]
+pub type LedgerType = Ledger<GenericExchange>;
+
 #[cfg(feature = "additional-libs")]
 mod ledger_impl {
     use super::*;
