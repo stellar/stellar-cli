@@ -20,6 +20,7 @@ pub mod tx;
 pub mod version;
 
 pub mod txn_result;
+pub mod ledger;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
 pub const HEADING_GLOBAL: &str = "Options (Global)";
@@ -117,6 +118,7 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
+            Cmd::Ledger(ledger) => ledger.run().await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
         }
@@ -188,6 +190,10 @@ pub enum Cmd {
     /// The subcommand for CLI plugins
     #[command(subcommand)]
     Plugin(plugin::Cmd),
+
+    /// Fetch ledger information
+    #[command(subcommand)]
+    Ledger(ledger::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -231,6 +237,9 @@ pub enum Error {
 
     #[error(transparent)]
     Env(#[from] env::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
 }
 
 #[async_trait]

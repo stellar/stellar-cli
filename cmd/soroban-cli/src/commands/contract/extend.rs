@@ -207,7 +207,7 @@ impl NetworkRunnable for Cmd {
 
         if operations[0].changes.is_empty() {
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq;
+            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
             if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
                 return Ok(TxnResult::Res(extension));
             }
