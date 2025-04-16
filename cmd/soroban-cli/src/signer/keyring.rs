@@ -1,9 +1,8 @@
 use crate::print::Print;
 use ed25519_dalek::Signer;
+use keyring::Entry;
 use sep5::seed_phrase::SeedPhrase;
 use zeroize::Zeroize;
-
-use keyring::Entry;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

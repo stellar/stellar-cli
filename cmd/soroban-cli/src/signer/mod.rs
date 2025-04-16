@@ -1,6 +1,3 @@
-use ed25519_dalek::ed25519::signature::Signer as _;
-use sha2::{Digest, Sha256};
-
 use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
@@ -8,14 +5,16 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
+use ed25519_dalek::ed25519::signature::Signer as _;
+use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 
-pub mod secure_store;
+pub mod ledger;
 
 #[cfg(feature = "additional-libs")]
 mod keyring;
+pub mod secure_store;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,8 +29,6 @@ pub enum Error {
     #[error("User cancelled signing, perhaps need to add -y")]
     UserCancelledSigning,
     #[error(transparent)]
-    Ledger(#[from] stellar_ledger::Error),
-    #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("Only Transaction envelope V1 type is supported")]
     UnsupportedTransactionEnvelopeType,
@@ -43,6 +40,8 @@ pub enum Error {
     ReturningSignatureFromLab,
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -216,10 +215,7 @@ pub struct Signer {
 #[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
 pub enum SignerKind {
     Local(LocalKey),
-    #[cfg(not(feature = "emulator-tests"))]
-    Ledger(Ledger<stellar_ledger::TransportNativeHID>),
-    #[cfg(feature = "emulator-tests")]
-    Ledger(Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>),
+    Ledger(ledger::LedgerType),
     Lab,
     SecureStore(SecureStoreEntry),
 }
@@ -267,76 +263,6 @@ impl Signer {
 
 pub struct LocalKey {
     pub key: ed25519_dalek::SigningKey,
-}
-
-#[allow(dead_code)]
-pub struct Ledger<T: Exchange> {
-    pub(crate) index: u32,
-    pub(crate) signer: LedgerSigner<T>,
-}
-
-impl<T: Exchange> Ledger<T> {
-    pub async fn sign_transaction_hash(
-        &self,
-        tx_hash: &[u8; 32],
-    ) -> Result<DecoratedSignature, Error> {
-        let key = self.public_key().await?;
-        let hint = SignatureHint(key.0[28..].try_into()?);
-        let signature = Signature(
-            self.signer
-                .sign_transaction_hash(self.index, tx_hash)
-                .await?
-                .try_into()?,
-        );
-        Ok(DecoratedSignature { hint, signature })
-    }
-
-    pub async fn sign_transaction(
-        &self,
-        tx: Transaction,
-        network_passphrase: &str,
-    ) -> Result<DecoratedSignature, Error> {
-        let network_id = Hash(Sha256::digest(network_passphrase).into());
-        let signature = self
-            .signer
-            .sign_transaction(self.index, tx, network_id)
-            .await?;
-        let key = self.public_key().await?;
-        let hint = SignatureHint(key.0[28..].try_into()?);
-        let signature = Signature(signature.try_into()?);
-        Ok(DecoratedSignature { hint, signature })
-    }
-
-    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self.signer.get_public_key(&self.index.into()).await?)
-    }
-}
-
-#[cfg(not(feature = "emulator-tests"))]
-pub async fn ledger(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
-    let signer = stellar_ledger::native()?;
-    Ok(Ledger {
-        index: hd_path,
-        signer,
-    })
-}
-
-#[cfg(feature = "emulator-tests")]
-pub async fn ledger(
-    hd_path: u32,
-) -> Result<Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>, Error> {
-    use stellar_ledger::emulator_test_support::ledger as emulator_ledger;
-    // port from SPECULOS_PORT ENV var
-    let host_port: u16 = std::env::var("SPECULOS_PORT")
-        .expect("SPECULOS_PORT env var not set")
-        .parse()
-        .expect("port must be a number");
-    let signer = emulator_ledger(host_port).await;
-
-    Ok(Ledger {
-        index: hd_path,
-        signer,
-    })
 }
 
 impl LocalKey {
