@@ -113,11 +113,13 @@ mod ledger_impl {
         _marker: PhantomData<T>,
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn new(_hd_path: u32) -> Result<Ledger<GenericExchange>, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
     impl<T: Exchange> Ledger<T> {
+        #[allow(clippy::unused_async)]
         pub async fn sign_transaction_hash(
             &self,
             _tx_hash: &[u8; 32],
@@ -125,6 +127,7 @@ mod ledger_impl {
             Err(Error::FeatureNotEnabled)
         }
 
+        #[allow(clippy::unused_async)]
         pub async fn sign_transaction(
             &self,
             _tx: Transaction,
@@ -133,6 +136,7 @@ mod ledger_impl {
             Err(Error::FeatureNotEnabled)
         }
 
+        #[allow(clippy::unused_async)]
         pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
             Err(Error::FeatureNotEnabled)
         }
