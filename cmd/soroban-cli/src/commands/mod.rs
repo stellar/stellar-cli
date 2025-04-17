@@ -19,6 +19,7 @@ pub mod snapshot;
 pub mod tx;
 pub mod version;
 
+pub mod ledger;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
@@ -119,6 +120,7 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
+            Cmd::Ledger(ledger) => ledger.run().await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
         };
@@ -186,6 +188,10 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// Fetch ledger information
+    #[command(subcommand)]
+    Ledger(ledger::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -226,6 +232,9 @@ pub enum Error {
 
     #[error(transparent)]
     Env(#[from] env::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
 }
 
 #[async_trait]
