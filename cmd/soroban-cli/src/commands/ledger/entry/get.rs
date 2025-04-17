@@ -22,6 +22,7 @@ use stellar_xdr::curr::{
     LedgerKeyLiquidityPool, LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limits, MuxedAccount,
     PoolId, PublicKey, ReadXdr, ScAddress, ScVal, String64, TrustLineAsset, Uint256,
 };
+use crate::config::network::Network;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -139,115 +140,9 @@ impl Cmd {
         let client = network.rpc_client()?;
         let mut ledger_keys = vec![];
 
-        if let Some(contract_id) = &self.contract_id {
-            let contract_id =
-                contract_id.resolve_contract_id(&self.locator, &network.network_passphrase)?;
+        self.insert_contract_keys(&network, &mut ledger_keys)?;
 
-            let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
-
-            if let Some(keys) = &self.key {
-                for key in keys {
-                    let key = LedgerKey::ContractData(LedgerKeyContractData {
-                        contract: contract_address_arg.clone(),
-                        key: soroban_spec_tools::from_string_primitive(
-                            key,
-                            &xdr::ScSpecTypeDef::Symbol,
-                        )?,
-                        durability: ContractDataDurability::Persistent,
-                    });
-
-                    ledger_keys.push(key);
-                }
-            }
-
-            if let Some(keys) = &self.key_xdr {
-                for key in keys {
-                    let key = LedgerKey::ContractData(LedgerKeyContractData {
-                        contract: contract_address_arg.clone(),
-                        key: ScVal::from_xdr_base64(key, Limits::none())?,
-                        durability: ContractDataDurability::Persistent,
-                    });
-
-                    ledger_keys.push(key);
-                }
-            }
-        } else if self.key.is_some() || self.key_xdr.is_some() {
-            return Err(ContractRequired);
-        }
-
-        if let Some(acc) = &self.account {
-            let acc = self.muxed_account(acc)?;
-
-            if let Some(asset) = &self.asset {
-                for asset in asset {
-                    let asset = if asset.to_ascii_uppercase() == "XLM" {
-                        TrustLineAsset::Native
-                    } else if asset.contains(":") {
-                        let mut parts = asset.split(":");
-                        let code = parts.next().ok_or(InvalidAsset(asset.clone()))?;
-                        let issuer = parts.next().ok_or(InvalidAsset(asset.clone()))?;
-                        if !parts.next().is_none() {
-                            Err(InvalidAsset(asset.clone()))?
-                        }
-                        let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
-                        let issuer =
-                            AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
-
-                        match code.len() {
-                            4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
-                                asset_code: AssetCode4(code.as_bytes().try_into()?),
-                                issuer,
-                            }),
-                            12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
-                                asset_code: AssetCode12(code.as_bytes().try_into()?),
-                                issuer,
-                            }),
-                            _ => Err(InvalidAsset(asset.clone()))?,
-                        }
-                    } else {
-                        Err(InvalidAsset(asset.clone()))?
-                    };
-                    let key = LedgerKey::Trustline(LedgerKeyTrustLine {
-                        account_id: acc.clone().account_id(),
-                        asset,
-                    });
-                    ledger_keys.push(key);
-                }
-            }
-
-            if let Some(offer) = &self.offer {
-                for offer in offer {
-                    let key = LedgerKey::Offer(LedgerKeyOffer {
-                        seller_id: acc.clone().account_id(),
-                        offer_id: *offer,
-                    });
-                    ledger_keys.push(key);
-                }
-            }
-
-            if let Some(data_name) = &self.data_name {
-                for data_name in data_name {
-                    let data_name: xdr::StringM<64> = data_name
-                        .parse()
-                        .map_err(|_| InvalidDataName(data_name.clone()))?;
-                    let data_name = String64(data_name);
-                    let key = LedgerKey::Data(LedgerKeyData {
-                        account_id: acc.clone().account_id(),
-                        data_name,
-                    });
-                    ledger_keys.push(key);
-                }
-            }
-
-            if self.asset.is_none() && self.offer.is_none() && self.data_name.is_none() {
-                let key = LedgerKey::Account(LedgerKeyAccount {
-                    account_id: acc.account_id(),
-                });
-                ledger_keys.push(key);
-            }
-        } else if self.asset.is_some() || self.offer.is_some() || self.data_name.is_some() {
-            return Err(AccountRequired);
-        }
+        self.insert_accpount_keys(&mut ledger_keys)?;
 
         if let Some(claimable_id) = &self.claimable_id {
             for x in claimable_id {
@@ -317,7 +212,125 @@ impl Cmd {
             }
         }
 
-        return Ok(());
+        Ok(())
+    }
+
+    fn insert_accpount_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        if let Some(acc) = &self.account {
+            let acc = self.muxed_account(acc)?;
+
+            if let Some(asset) = &self.asset {
+                for asset in asset {
+                    let asset = if asset.eq_ignore_ascii_case("XLM") {
+                        TrustLineAsset::Native
+                    } else if asset.contains(':') {
+                        let mut parts = asset.split(':');
+                        let code = parts.next().ok_or(InvalidAsset(asset.clone()))?;
+                        let issuer = parts.next().ok_or(InvalidAsset(asset.clone()))?;
+                        if parts.next().is_some() {
+                            Err(InvalidAsset(asset.clone()))?;
+                        }
+                        let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
+                        let issuer =
+                            AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
+
+                        match code.len() {
+                            4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
+                                asset_code: AssetCode4(code.as_bytes().try_into()?),
+                                issuer,
+                            }),
+                            12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
+                                asset_code: AssetCode12(code.as_bytes().try_into()?),
+                                issuer,
+                            }),
+                            _ => Err(InvalidAsset(asset.clone()))?,
+                        }
+                    } else {
+                        Err(InvalidAsset(asset.clone()))?
+                    };
+                    let key = LedgerKey::Trustline(LedgerKeyTrustLine {
+                        account_id: acc.clone().account_id(),
+                        asset,
+                    });
+                    ledger_keys.push(key);
+                }
+            }
+
+            if let Some(offer) = &self.offer {
+                for offer in offer {
+                    let key = LedgerKey::Offer(LedgerKeyOffer {
+                        seller_id: acc.clone().account_id(),
+                        offer_id: *offer,
+                    });
+                    ledger_keys.push(key);
+                }
+            }
+
+            if let Some(data_name) = &self.data_name {
+                for data_name in data_name {
+                    let data_name: xdr::StringM<64> = data_name
+                        .parse()
+                        .map_err(|_| InvalidDataName(data_name.clone()))?;
+                    let data_name = String64(data_name);
+                    let key = LedgerKey::Data(LedgerKeyData {
+                        account_id: acc.clone().account_id(),
+                        data_name,
+                    });
+                    ledger_keys.push(key);
+                }
+            }
+
+            if self.asset.is_none() && self.offer.is_none() && self.data_name.is_none() {
+                let key = LedgerKey::Account(LedgerKeyAccount {
+                    account_id: acc.account_id(),
+                });
+                ledger_keys.push(key);
+            }
+        } else if self.asset.is_some() || self.offer.is_some() || self.data_name.is_some() {
+            return Err(AccountRequired);
+        }
+
+        Ok(())
+    }
+
+    fn insert_contract_keys(&self, network: &Network, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        if let Some(contract_id) = &self.contract_id {
+            let contract_id =
+                contract_id.resolve_contract_id(&self.locator, &network.network_passphrase)?;
+
+            let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
+
+            if let Some(keys) = &self.key {
+                for key in keys {
+                    let key = LedgerKey::ContractData(LedgerKeyContractData {
+                        contract: contract_address_arg.clone(),
+                        key: soroban_spec_tools::from_string_primitive(
+                            key,
+                            &xdr::ScSpecTypeDef::Symbol,
+                        )?,
+                        durability: ContractDataDurability::Persistent,
+                    });
+
+                    ledger_keys.push(key);
+                }
+            }
+
+            if let Some(keys) = &self.key_xdr {
+                for key in keys {
+                    let key = LedgerKey::ContractData(LedgerKeyContractData {
+                        contract: contract_address_arg.clone(),
+                        key: ScVal::from_xdr_base64(key, Limits::none())?,
+                        durability: ContractDataDurability::Persistent,
+                    });
+
+                    ledger_keys.push(key);
+                }
+            }
+        } else if self.key.is_some() || self.key_xdr.is_some() {
+            return Err(ContractRequired);
+        }
+
+        Ok(())
     }
 
     fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
