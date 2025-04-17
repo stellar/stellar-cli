@@ -40,7 +40,6 @@ version_lt_23 = []
 version_gte_23 = []
 opt = ["dep:wasm-opt"]
 emulator-tests = ["stellar-ledger/emulator-tests"]
-secure-store-tests = []
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }

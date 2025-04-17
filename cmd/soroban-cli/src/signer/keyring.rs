@@ -19,25 +19,10 @@ pub struct StellarEntry {
 }
 
 impl StellarEntry {
-    #[cfg(not(feature = "secure-store-tests"))]
     pub fn new(name: &str) -> Result<Self, Error> {
         Ok(StellarEntry {
             keyring: Entry::new(name, &whoami::username())?,
         })
-    }
-
-    #[cfg(feature = "secure-store-tests")]
-    pub fn new(name: &str) -> Result<Self, Error> {
-        let test_phrase: &str =
-            "depth decade power loud smile spatial sign movie judge february rate broccoli";
-        credential_mock::set_default_credential_builder(
-            credential_mock::mock::default_credential_builder(),
-        );
-        let entry = Entry::new(name, &whoami::username())?;
-        let mock: &credential_mock::MockCredential = entry.get_credential().downcast_ref().unwrap();
-        entry.set_password(test_phrase);
-
-        Ok(StellarEntry { keyring: entry })
     }
 
     pub fn set_seed_phrase(&self, seed_phrase: SeedPhrase) -> Result<(), Error> {
@@ -99,13 +84,6 @@ impl StellarEntry {
             hd_path,
         )
     }
-}
-
-pub mod credential_mock {
-    pub use keyring::{
-        mock::{self, MockCredential},
-        set_default_credential_builder,
-    };
 }
 
 #[cfg(test)]

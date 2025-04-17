@@ -53,7 +53,6 @@ test: build-test
 
 e2e-test:
 	cargo test --features it --test it -- integration
-	cargo test --features it --test it -- integration --features secure-store-tests
 
 check:
 	cargo clippy --all-targets
