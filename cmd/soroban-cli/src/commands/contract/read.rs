@@ -144,18 +144,19 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default()).map_err(|error| {
-                        Error::CannotPrintJsonResult {
+                    serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default())
+                        .map_err(|error| Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
-                        }
-                    })?,
+                        })?,
                 ],
                 Output::Xdr => [
                     key.to_xdr_base64(Limits::none())?,
                     val.to_xdr_base64(Limits::none())?,
                     last_modified_ledger.to_xdr_base64(Limits::none())?,
-                    live_until_ledger_seq.unwrap_or_default().to_xdr_base64(Limits::none())?,
+                    live_until_ledger_seq
+                        .unwrap_or_default()
+                        .to_xdr_base64(Limits::none())?,
                 ],
             };
             out.write_record(output)

@@ -3,7 +3,8 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Get ledger entries.
+    /// Get ledger entries. This command supports every type of ledger entries supported by the
+    /// RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
     Get(get::Cmd),
 }
 
