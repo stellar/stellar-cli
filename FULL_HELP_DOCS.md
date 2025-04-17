@@ -56,6 +56,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `cache` — Cache for transactions and contract specs
 * `version` — Print version information
 * `plugin` — The subcommand for CLI plugins
+* `ledger` — Fetch ledger information
 
 ###### **Options:**
 
@@ -2690,6 +2691,82 @@ Search for for CLI plugins using GitHub
 List installed plugins
 
 **Usage:** `stellar plugin ls`
+
+
+
+## `stellar ledger`
+
+Fetch ledger information
+
+**Usage:** `stellar ledger <COMMAND>`
+
+###### **Subcommands:**
+
+* `entry` — Work with ledger entries
+
+
+
+## `stellar ledger entry`
+
+Work with ledger entries
+
+**Usage:** `stellar ledger entry <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — Get ledger entries. This command supports every type of ledger entries supported by the RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+
+
+
+## `stellar ledger entry get`
+
+Get ledger entries. This command supports every type of ledger entries supported by the RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+
+**Usage:** `stellar ledger entry get [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--account <ACCOUNT>` — Name of identity to lookup, default is test identity
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--asset <ASSET>` — Assets to get trustline info for
+* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
+* `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
+* `--claimable-id <CLAIMABLE_ID>` — Claimable Balance id
+* `--pool-id <POOL_ID>` — Liquidity pool id
+* `--config-setting-id <CONFIG_SETTING_ID>` — Defines the currently active network configuration
+* `--wasm-hash <WASM_HASH>` — Get WASM bytecode by hash
+* `--ttl <TTL>` — Get the time-to-live of an associated contract data or code entry
+* `--id <CONTRACT_ID>` — Contract id to fetch an info for
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Default value: `persistent`
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
+
+* `--key <KEY>` — Storage key (symbols only)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `original`
+
+  Possible values:
+  - `original`:
+    Original RPC output (containing XDRs)
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+
 
 
 
