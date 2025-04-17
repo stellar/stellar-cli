@@ -2,26 +2,6 @@ use predicates::prelude::predicate;
 use soroban_cli::tx::ONE_XLM;
 use soroban_test::{AssertExt, TestEnv};
 
-pub fn test_address(sandbox: &TestEnv) -> String {
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test")
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
-fn new_account(sandbox: &TestEnv, name: &str) -> String {
-    sandbox.generate_account(name, None).assert().success();
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["address", name])
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
 fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
     sandbox
         .new_assert_cmd("keys")
