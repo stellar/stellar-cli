@@ -68,13 +68,13 @@ async fn get_secret_key() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "secret-test", "--secure-store"])
+        .args(["generate", "secret-key-test", "--secure-store"])
         .assert()
         .success();
     sandbox
         .new_assert_cmd("keys")
         .arg("secret")
-        .arg("test2")
+        .arg("secret-key-test")
         .assert()
         .stderr(predicate::str::contains("does not reveal secret key"))
         .failure();
@@ -85,13 +85,13 @@ async fn public_key_with_secure_store() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "public-test", "--secure-store"])
+        .args(["generate", "public-key-test", "--secure-store"])
         .assert()
         .success();
     sandbox
         .new_assert_cmd("keys")
         .arg("public-key")
-        .arg("test2")
+        .arg("public-key-test")
         .assert()
         .stdout(predicate::str::contains("G"))
         .success();
