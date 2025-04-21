@@ -91,7 +91,7 @@ jobs:
     - run: rustup target add ${{ matrix.sys.target }}
     - run: rustup target add wasm32-unknown-unknown
     - if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev gnome-keyring
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
     - run: make test
       env:
