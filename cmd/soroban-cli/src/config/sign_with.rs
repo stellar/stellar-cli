@@ -29,6 +29,8 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Ledger(#[from] signer::ledger::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -72,7 +74,7 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            let ledger = ledger(
+            let ledger = ledger::new(
                 self.hd_path
                     .unwrap_or_default()
                     .try_into()
