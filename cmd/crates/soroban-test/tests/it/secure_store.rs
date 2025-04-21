@@ -68,7 +68,7 @@ async fn get_secret_key() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "test2", "--secure-store"])
+        .args(["generate", "secret-test", "--secure-store"])
         .assert()
         .success();
     sandbox
@@ -85,7 +85,7 @@ async fn public_key_with_secure_store() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "test2", "--secure-store"])
+        .args(["generate", "public-test", "--secure-store"])
         .assert()
         .success();
     sandbox
