@@ -49,7 +49,7 @@ pub enum Error {
     #[error("Ledger not supported in this context")]
     LedgerNotSupported,
     #[error(transparent)]
-    Ledger(#[from] signer::ledger::Error), //todo: rename this error?
+    Ledger(#[from] signer::ledger::Error),
 }
 
 impl FromStr for UnresolvedMuxedAccount {

@@ -25,17 +25,14 @@ pub enum Error {
     InvalidSecretOrSeedPhrase,
     #[error(transparent)]
     Signer(#[from] signer::Error),
-
     #[error("Ledger does not reveal secret key")]
     LedgerDoesNotRevealSecretKey,
-
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
-
     #[error(transparent)]
-    Ledger(#[from] signer::ledger::Error), //todo: rename this error?
+    Ledger(#[from] signer::ledger::Error),
 }
 
 #[derive(Debug, clap::Args, Clone)]

@@ -30,7 +30,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
-    Ledger(#[from] signer::ledger::Error), //todo: rename this error?
+    Ledger(#[from] signer::ledger::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
