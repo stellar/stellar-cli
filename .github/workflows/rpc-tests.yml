@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
-      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev gnome-keyring
         if: runner.os == 'Linux'
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
