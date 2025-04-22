@@ -37,6 +37,10 @@ jobs:
       - name: Start D-Bus and GNOME Keyring
         if: runner.os == 'Linux'
         run: |
+          mkdir -p /tmp/runtime-dir
+          export XDG_RUNTIME_DIR=/tmp/runtime-dir
+          chmod 700 $XDG_RUNTIME_DIR
+
           export $(dbus-launch)
           eval $(gnome-keyring-daemon --start --components=secrets)
           export DBUS_SESSION_BUS_ADDRESS
