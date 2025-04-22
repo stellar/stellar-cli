@@ -32,8 +32,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
-      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev gnome-keyring
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev gnome-keyring dbus dbus-x11
         if: runner.os == 'Linux'
+      - name: Start D-Bus and GNOME Keyring
+        if: runner.os == 'Linux'
+        run: |
+          export $(dbus-launch)
+          eval $(gnome-keyring-daemon --start --components=secrets)
+          export DBUS_SESSION_BUS_ADDRESS
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> $GITHUB_ENV
       - run: cargo build
       - run: rustup target add wasm32-unknown-unknown
       - run: make build-test-wasms
