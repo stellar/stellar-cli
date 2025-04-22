@@ -20,10 +20,10 @@ jobs:
           - ubuntu-jammy-16-cores-arm64
             # Intel
           - macos-13
-        exclude:
+        # exclude:
           # Only run Linux x64 tests on pull request to save some time
-          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-16-cores-arm64' }}
-          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
+          # - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-16-cores-arm64' }}
+          # - sys: ${{ github.event_name != 'push' && 'macos-13' }}
     runs-on: ${{ matrix.sys }}
     steps:
       - uses: stellar/quickstart@main
