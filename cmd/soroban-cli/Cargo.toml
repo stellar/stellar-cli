@@ -40,6 +40,7 @@ version_lt_23 = []
 version_gte_23 = []
 opt = ["dep:wasm-opt"]
 emulator-tests = ["stellar-ledger/emulator-tests"]
+additional-libs = ["dep:keyring", "dep:stellar-ledger"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
@@ -52,7 +53,7 @@ soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
 soroban-rpc = { workspace = true }
-stellar-ledger = { workspace = true }
+stellar-ledger = { workspace = true, optional = true }
 
 clap = { workspace = true, features = [
     "derive",
@@ -131,7 +132,7 @@ open = "5.3.0"
 url = "2.5.2"
 wasm-gen = "0.1.4"
 zeroize = "1.8.1"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"], optional = true }
 whoami = "1.5.2"
 serde_with = "3.11.0"
 
