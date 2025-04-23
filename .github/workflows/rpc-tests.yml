@@ -32,12 +32,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
-      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev gnome-keyring dbus dbus-x11
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev gnome-keyring
         if: runner.os == 'Linux'
-      - name: Start GNOME Keyring
+      - name: Start gnome-keyring
+        if: runner.os == 'Linux'
+        # run gnome-keyring with 'foobar' as password for the login keyring
+        # this will create a new login keyring and unlock it
+        # the login password doesn't matter, but the keyring must be unlocked for the tests to work
+        # this is based on the ci workflow in the keyring crate repo
+        run: gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+      - name: Check GNOME Keyring
         if: runner.os == 'Linux'
         run: |
-          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
           gnome-keyring-daemon
       - run: cargo build --features additional-libs
       - run: rustup target add wasm32-unknown-unknown
