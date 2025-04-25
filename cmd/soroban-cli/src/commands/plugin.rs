@@ -61,19 +61,18 @@ pub fn list() -> Result<Vec<String>, Error> {
 
 fn find_plugin() -> Option<(PathBuf, Vec<String>)> {
     let args_vec: Vec<String> = std::env::args().skip(1).collect();
-    let chain: Vec<String> = args_vec
+    let mut chain: Vec<String> = args_vec
         .iter()
         .take_while(|arg| !arg.starts_with("--"))
         .map(ToString::to_string)
         .collect();
 
-    let mut index = chain.len() - 1;
-
-    while index > 0 {
-        let name = chain[..index].join("-");
+    while !chain.is_empty() {
+        let name = chain.join("-");
         let bin = find_bin(&name).ok();
 
         if let Some(bin) = &bin {
+            let index = chain.len();
             let args = args_vec[index..]
                 .iter()
                 .map(ToString::to_string)
@@ -82,7 +81,7 @@ fn find_plugin() -> Option<(PathBuf, Vec<String>)> {
             return Some((bin.into(), args));
         }
 
-        index -= 1;
+        chain.pop();
     }
 
     None
