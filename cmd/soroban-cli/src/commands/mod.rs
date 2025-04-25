@@ -83,13 +83,16 @@ impl Root {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
                 let plugins = plugin::list().unwrap_or_default();
+
                 if plugins.is_empty() {
-                    println!("No Plugins installed. E.g. soroban-hello");
+                    println!("No Plugins installed. E.g. stellar-hello");
                 } else {
                     println!("Installed Plugins:\n    {}", plugins.join("\n    "));
                 }
+
                 std::process::exit(0);
             }
+
             match e.kind() {
                 ErrorKind::InvalidSubcommand => match plugin::run() {
                     Ok(()) => Error::Clap(e),
@@ -107,6 +110,7 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
+
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
