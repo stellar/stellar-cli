@@ -1,23 +1,23 @@
-pub mod get;
 use clap::Parser;
+pub mod fetch;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Get ledger entries. This command supports every type of ledger entries supported by the
-    /// RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
-    Get(get::Cmd),
+    /// Fetch ledger entries. This command supports all types of ledger entries supported by the RPC.
+    /// Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+    Fetch(fetch::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Get(#[from] get::Error),
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         match self {
-            Cmd::Get(cmd) => cmd.run().await?,
+            Cmd::Fetch(cmd) => cmd.run().await?,
         };
         Ok(())
     }

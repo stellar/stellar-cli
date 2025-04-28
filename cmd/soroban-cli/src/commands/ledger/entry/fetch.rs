@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use crate::commands::config::network;
 use crate::commands::contract::Durability;
-use crate::commands::ledger::entry::get::Error::{
+use crate::commands::ledger::entry::fetch::Error::{
     AccountRequired, ContractRequired, EmptyKeys, InvalidAsset, InvalidConfigId, InvalidDataName,
     InvalidHash,
 };
