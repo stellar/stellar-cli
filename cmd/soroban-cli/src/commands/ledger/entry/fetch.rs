@@ -142,7 +142,7 @@ impl Cmd {
 
         self.insert_contract_keys(&network, &mut ledger_keys)?;
 
-        self.insert_accpount_keys(&mut ledger_keys)?;
+        self.insert_account_keys(&mut ledger_keys)?;
 
         if let Some(claimable_id) = &self.claimable_id {
             for x in claimable_id {
@@ -215,7 +215,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn insert_accpount_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+    fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         if let Some(acc) = &self.account {
             let acc = self.muxed_account(acc)?;
 
