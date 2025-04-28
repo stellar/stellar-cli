@@ -7,6 +7,7 @@ mod hello_world;
 mod init;
 mod keys;
 mod secure_store;
+mod ledger;
 mod snapshot;
 mod tx;
 mod util;

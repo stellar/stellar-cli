@@ -14,8 +14,8 @@ use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
-use stellar_xdr::curr::ClaimableBalanceId::ClaimableBalanceIdTypeV0;
 use stellar_xdr::curr::{
+    ClaimableBalanceId::ClaimableBalanceIdTypeV0,
     AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, ConfigSettingId,
     ContractDataDurability, Hash, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
     LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
@@ -248,6 +248,7 @@ impl Cmd {
                     } else {
                         Err(InvalidAsset(asset.clone()))?
                     };
+
                     let key = LedgerKey::Trustline(LedgerKeyTrustLine {
                         account_id: acc.clone().account_id(),
                         asset,
