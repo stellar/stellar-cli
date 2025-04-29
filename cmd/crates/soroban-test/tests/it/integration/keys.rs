@@ -34,6 +34,23 @@ async fn fund() {
 }
 
 #[tokio::test]
+async fn secret() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test2")
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("test2")
+        .assert()
+        .success();
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn overwrite_identity() {
     let sandbox = &TestEnv::new();
