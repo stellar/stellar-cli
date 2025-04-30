@@ -1,4 +1,3 @@
-use crate::print;
 use crate::xdr::{
     Limits, Operation, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope,
 };
