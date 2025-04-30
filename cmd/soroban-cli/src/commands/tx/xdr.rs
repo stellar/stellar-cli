@@ -3,8 +3,8 @@ use crate::xdr::{
 };
 use std::ffi::OsString;
 use std::fs::File;
-use std::io::{Cursor, IsTerminal};
 use std::io::{stdin, Read};
+use std::io::{Cursor, IsTerminal};
 use std::path::Path;
 use stellar_xdr::curr::Limited;
 
