@@ -253,6 +253,7 @@ impl Cmd {
                         account_id: acc.clone().account_id(),
                         asset,
                     });
+
                     ledger_keys.push(key);
                 }
             }
@@ -273,20 +274,22 @@ impl Cmd {
                         .parse()
                         .map_err(|_| InvalidDataName(data_name.clone()))?;
                     let data_name = String64(data_name);
+                    println!("data_name: {:?}", data_name);
                     let key = LedgerKey::Data(LedgerKeyData {
                         account_id: acc.clone().account_id(),
                         data_name,
                     });
+                    println!("key: {:?}", key);
                     ledger_keys.push(key);
                 }
             }
 
-            if self.asset.is_none() && self.offer.is_none() && self.data_name.is_none() {
-                let key = LedgerKey::Account(LedgerKeyAccount {
-                    account_id: acc.account_id(),
-                });
-                ledger_keys.push(key);
-            }
+            let key = LedgerKey::Account(LedgerKeyAccount {
+                account_id: acc.account_id(),
+            });
+
+            ledger_keys.push(key);
+
         } else if self.asset.is_some() || self.offer.is_some() || self.data_name.is_some() {
             return Err(AccountRequired);
         }
