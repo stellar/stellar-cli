@@ -32,7 +32,7 @@ impl Cmd {
         let search: SearchResponse = resp.json().await?;
 
         if search.total_count == 0 {
-            print.searchln(format!("No plugins found."));
+            print.searchln("No plugins found.".to_string());
             return Ok(());
         }
 
@@ -59,7 +59,7 @@ impl Cmd {
                 writeln!(&mut stdout, "  {description}")?;
             }
 
-            print.blankln(format!("{url}", url = item.html_url));
+            print.blankln(item.html_url.to_string());
         }
         Ok(())
     }
