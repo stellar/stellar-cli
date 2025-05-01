@@ -82,21 +82,14 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
-                let plugins = plugin::list().unwrap_or_default();
-
-                if plugins.is_empty() {
-                    println!("No Plugins installed. E.g. stellar-hello");
-                } else {
-                    println!("Installed Plugins:\n    {}", plugins.join("\n    "));
-                }
-
+                let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
 
             match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::run() {
+                ErrorKind::InvalidSubcommand => match plugin::default::run() {
                     Ok(()) => Error::Clap(e),
-                    Err(e) => Error::Plugin(e),
+                    Err(e) => Error::PluginDefault(e),
                 },
                 _ => Error::Clap(e),
             }
@@ -114,6 +107,7 @@ impl Root {
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
+            Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
@@ -190,6 +184,10 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// The subcommand for CLI plugins
+    #[command(subcommand)]
+    Plugin(plugin::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -212,6 +210,9 @@ pub enum Error {
 
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
+
+    #[error(transparent)]
+    PluginDefault(#[from] plugin::default::Error),
 
     #[error(transparent)]
     Network(#[from] network::Error),
