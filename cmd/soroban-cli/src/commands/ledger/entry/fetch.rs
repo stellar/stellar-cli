@@ -83,7 +83,7 @@ pub struct Cmd {
     pub key_xdr: Option<Vec<String>>,
 
     /// Format of the output
-    #[arg(long, default_value = "original")]
+    #[arg(long, default_value = "json")]
     pub output: OutputFormat,
 }
 
@@ -125,13 +125,13 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// Original RPC output (containing XDRs)
-    #[default]
-    Original,
     /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+    #[default]
     Json,
     /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
     JsonFormatted,
+    /// Original RPC output (containing XDRs)
+    Xdr,
 }
 
 impl Cmd {
@@ -198,12 +198,12 @@ impl Cmd {
         }
 
         match self.output {
-            OutputFormat::Original => {
-                let resp = client.get_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
             OutputFormat::Json => {
                 let resp = client.get_full_ledger_entries(&ledger_keys).await?;
+                println!("{}", serde_json::to_string(&resp)?);
+            }
+            OutputFormat::Xdr => {
+                let resp = client.get_ledger_entries(&ledger_keys).await?;
                 println!("{}", serde_json::to_string(&resp)?);
             }
             OutputFormat::JsonFormatted => {
