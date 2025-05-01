@@ -26,7 +26,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let url =
-            "https://api.github.com/search/repositories?q=topic:stellar-cli-plugin+fork:false+archived:false&per_page=100&sort=stars&order=desc";
+            "https://api.github.com/search/repositories?q=topic%3Astellar-cli-plugin+fork%3Afalse+archived%3Afalse&per_page=100&sort=stars&order=desc";
 
         let resp = http::client().get(url).send().await?;
         let search: SearchResponse = resp.json().await?;
