@@ -12,7 +12,12 @@ impl Cmd {
         let plugins = default::list().unwrap_or_default();
 
         if plugins.is_empty() {
-            println!("No Plugins installed. E.g. stellar-hello");
+            println!("No plugins installed.");
+            println!();
+            println!("Plugins are commands available on the path");
+            println!("that start with 'stellar-'. E.g. stellar-hello");
+            println!();
+            println!("https://developers.stellar.org/docs/tools/cli/plugins");
         } else {
             println!("Installed Plugins:\n    {}", plugins.join("\n    "));
         }
