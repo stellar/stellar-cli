@@ -274,22 +274,21 @@ impl Cmd {
                         .parse()
                         .map_err(|_| InvalidDataName(data_name.clone()))?;
                     let data_name = String64(data_name);
-                    println!("data_name: {:?}", data_name);
                     let key = LedgerKey::Data(LedgerKeyData {
                         account_id: acc.clone().account_id(),
                         data_name,
                     });
-                    println!("key: {:?}", key);
                     ledger_keys.push(key);
                 }
             }
 
+            // always add the account key into the list
+            // should we allow this to be configurable?
             let key = LedgerKey::Account(LedgerKeyAccount {
                 account_id: acc.account_id(),
             });
 
             ledger_keys.push(key);
-
         } else if self.asset.is_some() || self.offer.is_some() || self.data_name.is_some() {
             return Err(AccountRequired);
         }
