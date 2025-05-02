@@ -4426,6 +4426,7 @@ dependencies = [
  "reqwest",
  "rpassword",
  "rust-embed",
+ "rustc_version",
  "semver",
  "sep5",
  "serde",
