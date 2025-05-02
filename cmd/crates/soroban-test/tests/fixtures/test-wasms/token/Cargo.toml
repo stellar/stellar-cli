@@ -1,6 +1,6 @@
 [package]
 name = "test_token"
-version = "22.6.0"
+version = "22.7.0"
 description = "Soroban standard token contract"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
