@@ -70,7 +70,7 @@ pub struct Cmd {
     pub ttl: Option<Vec<String>>,
 
     /// Contract id to fetch an info for
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
+    #[arg(long = "contract-id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: Option<config::UnresolvedContract>,
     /// Storage entry durability
     #[arg(long, value_enum, default_value = "persistent")]

@@ -183,7 +183,7 @@ async fn ledger_entry_contract_data() {
         .arg("fetch")
         .arg("--network")
         .arg("testnet")
-        .arg("--id")
+        .arg("--contract-id")
         .arg(&contract_id)
         .arg("--key")
         .arg(storage_key)
