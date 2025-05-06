@@ -1,7 +1,7 @@
 use soroban_test::AssertExt;
 use soroban_test::TestEnv;
 use soroban_rpc::FullLedgerEntries;
-use soroban_cli::xdr::{LedgerKey, LedgerKeyTrustLine, LedgerKeyAccount, PublicKey, Uint256, AccountId, LedgerKeyData, LedgerEntryData, AssetCode4, AlphaNum4, TrustLineAsset, LedgerKeyContractData, ScVal, ScAddress, StringM, String64, Hash,  ContractDataDurability };
+use soroban_cli::xdr::{LedgerKey, LedgerKeyTrustLine, LedgerKeyAccount, PublicKey, Uint256, AccountId, LedgerKeyData, LedgerEntryData, AssetCode4, AlphaNum4, TrustLineAsset, LedgerKeyContractData, ScVal, ScAddress, StringM, String64, Hash,  ContractDataDurability, WriteXdr, Limits};
 use stellar_strkey::{
     ed25519::PublicKey as StrkeyPublicKeyEd25519,
     Contract
@@ -52,7 +52,7 @@ async fn ledger_entry_account_asset_xlm(){
         .arg(account_alias)
         .arg("--asset")
         // though xlm does not have, nor need, a trustline, "xlm" is a valid argument to `--asset`
-        // so this test is including it to make sure that the account ledger entry is still included in the output 
+        // this test is including it to make sure that the account ledger entry is still included in the output 
         .arg("xlm")
         .assert()
         .success()
@@ -172,12 +172,16 @@ async fn ledger_entry_contract_data() {
     ).await;
 
     let storage_key = "COUNTER";
+    let storage_key_xdr = ScVal::Symbol(storage_key.try_into().unwrap()).to_xdr_base64(Limits::none()).unwrap();
+
+    // update contract storage
     sandbox
         .invoke_with_test(&["--id", &contract_id, "--", "inc"])
         .await
         .unwrap();
 
-    let output = sandbox
+    // get entry by key
+    let key_output = sandbox
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
@@ -190,20 +194,37 @@ async fn ledger_entry_contract_data() {
         .assert()
         .success()
         .stdout_as_str();
+    let parsed_key_output: FullLedgerEntries = serde_json::from_str(&key_output).expect("Failed to parse JSON");
+    assert!(!parsed_key_output.entries.is_empty());
+    
+    // get entry by key xdr
+    let key_xdr_output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("--network")
+        .arg("testnet")
+        .arg("--contract-id")
+        .arg(&contract_id)
+        .arg("--key-xdr")
+        .arg(storage_key_xdr)
+        .assert()
+        .success()
+        .stdout_as_str();
 
-    let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed.entries.is_empty());
+    let parsed_key_xdr_output: FullLedgerEntries = serde_json::from_str(&key_xdr_output).expect("Failed to parse JSON");
+    assert!(!parsed_key_xdr_output.entries.is_empty());
 
-    let contract_bytes: [u8; 32] = Contract::from_string(&contract_id).unwrap().0;
-    let contract_id = Hash(contract_bytes);
+    let expected_contract_data_key = expected_contract_ledger_key(&contract_id, storage_key).await;
 
-    let expected_contract_data_key = LedgerKey::ContractData(LedgerKeyContractData { 
-        contract: ScAddress::Contract(contract_id),
-        key: ScVal::Symbol(storage_key.try_into().unwrap()),
-        durability: ContractDataDurability::Persistent}
-    );
-    assert_eq!(parsed.entries[0].key, expected_contract_data_key);
-    assert!(matches!(parsed.entries[0].val, LedgerEntryData::ContractData{ .. }));
+    assert_eq!(parsed_key_output.entries[0].key, expected_contract_data_key);
+    assert!(matches!(parsed_key_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
+
+    assert_eq!(parsed_key_xdr_output.entries[0].key, expected_contract_data_key);
+    assert!(matches!(parsed_key_xdr_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
+    
+    // the output should be the same regardless of key format
+    assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
 }
 
 // top level test
@@ -288,6 +309,16 @@ async fn expected_account_ledger_key(account_addr: &str) -> (AccountId, LedgerKe
     let account_id = AccountId(pk);
     let ledger_key = LedgerKey::Account(LedgerKeyAccount { account_id: account_id.clone() });
     (account_id, ledger_key)
+}
+
+async fn expected_contract_ledger_key(contract_id: &str, storage_key: &str) -> LedgerKey{
+    let contract_bytes: [u8; 32] = Contract::from_string(contract_id).unwrap().0;
+    let contract_id = Hash(contract_bytes);
+    LedgerKey::ContractData(LedgerKeyContractData { 
+        contract: ScAddress::Contract(contract_id),
+        key: ScVal::Symbol(storage_key.try_into().unwrap()),
+        durability: ContractDataDurability::Persistent}
+    )
 }
 
 async fn add_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) {
