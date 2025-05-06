@@ -114,8 +114,6 @@ pub enum Error {
     MetaArg(String),
     #[error("rust version {0} cannot be used to build contracts")]
     RustVersion(String),
-    #[error("unable to retrieve the rust version")]
-    UnknownRustVersion,
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -470,7 +468,7 @@ fn get_rustflags() -> Option<Vec<String>> {
 
 fn get_wasm_target() -> Result<String, Error> {
     let Ok(current_version) = version() else {
-        return Err(Error::UnknownRustVersion);
+        return Ok(WASM_TARGET.into());
     };
 
     let v184 = Version::parse("1.84.0").unwrap();
