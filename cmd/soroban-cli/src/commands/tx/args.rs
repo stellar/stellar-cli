@@ -86,7 +86,7 @@ impl Args {
         let res = self.handle(op, global_args).await?;
         if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
             println!("{}", tx.to_xdr_base64(Limits::none())?);
-        };
+        }
         Ok(())
     }
 

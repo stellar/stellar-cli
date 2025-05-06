@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
+use std::fmt::Write;
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -452,7 +453,7 @@ impl Spec {
                 );
             }
             (ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { .. }), Some(_)) => {}
-        };
+        }
         Ok(ScVal::Vec(Some(res.try_into().map_err(Error::Xdr)?)))
     }
 
@@ -465,7 +466,7 @@ impl Spec {
         let ScSpecTypeTuple { value_types } = tuple;
         if items.len() != value_types.len() {
             return Err(Error::InvalidValue(Some(t.clone())));
-        };
+        }
         let parsed: Result<Vec<ScVal>, Error> = items
             .iter()
             .zip(value_types.iter())
@@ -1062,7 +1063,7 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
 fn to_lower_hex(bytes: &[u8]) -> String {
     let mut res = String::with_capacity(bytes.len());
     for b in bytes {
-        res.push_str(&format!("{b:02x}"));
+        let _ = write!(res, "{b:02x}");
     }
     res
 }

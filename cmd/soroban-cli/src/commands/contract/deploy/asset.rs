@@ -93,7 +93,7 @@ impl Cmd {
                         print.warnln(format!(
                             "Overwriting existing contract id: {existing_contract}"
                         ));
-                    };
+                    }
 
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,

@@ -28,7 +28,7 @@ impl Cmd {
         match self {
             Cmd::Search(cmd) => cmd.run(global_args).await?,
             Cmd::Ls(cmd) => cmd.run()?,
-        };
+        }
         Ok(())
     }
 }

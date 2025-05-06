@@ -119,7 +119,7 @@ impl Root {
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-        };
+        }
         Ok(())
     }
 }

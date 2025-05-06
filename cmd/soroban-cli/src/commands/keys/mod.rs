@@ -80,7 +80,7 @@ impl Cmd {
             Cmd::Rm(cmd) => cmd.run(global_args)?,
             Cmd::Secret(cmd) => cmd.run()?,
             Cmd::Default(cmd) => cmd.run(global_args)?,
-        };
+        }
         Ok(())
     }
 }

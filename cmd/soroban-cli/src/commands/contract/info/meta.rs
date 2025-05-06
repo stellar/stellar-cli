@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Write;
 
 use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared::{self, fetch, Fetched, MetasInfoOutput};
@@ -64,7 +65,7 @@ impl Cmd {
                                 }
                                 _ => val.to_string(),
                             };
-                            meta_str.push_str(&format!(" • {key}: {val}\n"));
+                            let _ = writeln!(meta_str, " • {key}: {val}");
                         }
                     }
                 }

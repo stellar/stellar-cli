@@ -20,7 +20,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Create(cmd) => cmd.run(global_args).await?,
-        };
+        }
         Ok(())
     }
 }

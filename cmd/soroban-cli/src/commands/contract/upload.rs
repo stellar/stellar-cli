@@ -89,7 +89,7 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
-        };
+        }
         Ok(())
     }
 }

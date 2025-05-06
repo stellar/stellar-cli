@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Write;
 
 use clap::{command, Parser};
 
@@ -68,9 +69,9 @@ impl Cmd {
                                 pre_release,
                             },
                         ) => {
-                            meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
+                            let _ = writeln!(meta_str, " • Protocol: v{protocol}");
                             if pre_release != &0 {
-                                meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
+                                let _ = writeln!(meta_str, " • Pre-release: v{pre_release}");
                             }
                         }
                     }

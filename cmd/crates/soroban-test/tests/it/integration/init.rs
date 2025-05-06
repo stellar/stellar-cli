@@ -28,9 +28,7 @@ fn init_and_deploy() {
         .assert()
         .success();
 
-    let target_dir = sandbox
-        .dir()
-        .join("project/target/wasm32-unknown-unknown/release");
+    let target_dir = sandbox.dir().join("project/target/wasm32v1-none/release");
     assert!(target_dir.exists());
 
     let assert = sandbox
