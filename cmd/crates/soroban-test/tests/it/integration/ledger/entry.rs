@@ -1,11 +1,12 @@
 use soroban_test::AssertExt;
 use soroban_test::TestEnv;
 use soroban_rpc::FullLedgerEntries;
-use soroban_cli::xdr::{LedgerKey, LedgerKeyTrustLine, LedgerKeyAccount, PublicKey, Uint256, AccountId, LedgerKeyData, LedgerEntryData, AssetCode4, AlphaNum4, TrustLineAsset, LedgerKeyContractData, ScVal, ScAddress, StringM, String64, Hash,  ContractDataDurability, WriteXdr, Limits};
+use soroban_cli::xdr::{LedgerKey, LedgerKeyTrustLine, LedgerKeyAccount, PublicKey, Uint256, AccountId, LedgerKeyData, LedgerEntryData, AssetCode4, AlphaNum4, TrustLineAsset, LedgerKeyContractData, ScVal, ScAddress, StringM, String64, Hash,  ContractDataDurability, WriteXdr, Limits, LedgerKeyContractCode, ConfigSettingId, LedgerKeyConfigSetting};
 use stellar_strkey::{
     ed25519::PublicKey as StrkeyPublicKeyEd25519,
     Contract
 };
+use soroban_spec_tools::utils::padded_hex_from_str;
 
 use crate::integration::util::{deploy_contract, test_address, HELLO_WORLD, DeployOptions};
 
@@ -122,7 +123,7 @@ async fn ledger_entry_account_data() {
     let account_alias = "new_account";
     let new_account_addr = new_account(sandbox, account_alias);
     let data_name = "test_data_key";
-    add_data(sandbox, account_alias, data_name, "abcdef").await;
+    add_account_data(sandbox, account_alias, data_name, "abcdef").await;
  
     let output = sandbox
         .new_assert_cmd("ledger")
@@ -227,7 +228,147 @@ async fn ledger_entry_contract_data() {
     assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
 }
 
+
 // top level test
+// todo: test --ttl, --claimable-id, --pool-id,
+#[tokio::test]
+async fn ledger_entry_wasm_hash() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    let wasm = HELLO_WORLD;
+    let wasm_path = wasm.path();
+    let contract_wasm_hash = sandbox.new_assert_cmd("contract")
+        .arg("upload")
+        .arg("--wasm")
+        .arg(wasm_path)
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some(test_account_alias.to_string()),
+            ..Default::default()
+        },
+    ).await;
+
+    // get the contract's wasm bytecode
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("--network")
+        .arg("testnet")
+        .arg("--wasm-hash")
+        .arg(&contract_wasm_hash)
+        .assert()
+        .success()
+        .stdout_as_str();
+    let parsed_output: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(!parsed_output.entries.is_empty());
+    
+    let hash = Hash(padded_hex_from_str(&contract_wasm_hash, 32).unwrap().try_into().unwrap());
+    let expected_contract_key = LedgerKey::ContractCode(LedgerKeyContractCode {
+        hash
+    });
+
+    assert_eq!(parsed_output.entries[0].key, expected_contract_key);
+    assert!(matches!(parsed_output.entries[0].val, LedgerEntryData::ContractCode{ .. }));
+    // key: ContractCode(LedgerKeyContractCode { hash: Hash(74a0a58bee2730d38dfaa547c0f3e64b1b76cf7d7e430373a9bf7aad122aff9f) }
+
+    // assert_eq!(parsed_key_xdr_output.entries[0].key, expected_contract_data_key);
+    // assert!(matches!(parsed_key_xdr_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
+    
+    // // the output should be the same regardless of key format
+    // assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
+}
+
+#[tokio::test]
+async fn ledger_entry_config_setting_id() {
+    let sandbox = &TestEnv::new();
+    let config_setting_ids = ConfigSettingId::VARIANTS;
+
+    for config_setting_variant in config_setting_ids {
+        let output = sandbox
+            .new_assert_cmd("ledger")
+            .arg("entry")
+            .arg("fetch")
+            .arg("--network")
+            .arg("testnet")
+            .arg("--config-setting-id")
+            .arg((config_setting_variant as i32).to_string())
+            .assert()
+            .success()
+            .stdout_as_str(); 
+        let parsed_output: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
+        assert!(!parsed_output.entries.is_empty());
+
+        let expected_key = LedgerKey::ConfigSetting(
+            LedgerKeyConfigSetting{
+                config_setting_id: config_setting_variant,
+            }
+        );
+        assert_eq!(parsed_output.entries[0].key, expected_key);
+        assert!(matches!(parsed_output.entries[0].val, LedgerEntryData::ConfigSetting{ .. }));
+    }
+}
+
+
+#[ignore]
+#[tokio::test]
+async fn ledger_entry_ttl() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    let contract_id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some(test_account_alias.to_string()),
+            ..Default::default()
+        },
+    ).await;
+
+    let storage_key = "COUNTER";
+    let storage_key_xdr = ScVal::Symbol(storage_key.try_into().unwrap()).to_xdr_base64(Limits::none()).unwrap();
+    println!("storage key: {}", storage_key_xdr);
+
+    // update contract storage
+    sandbox
+        .invoke_with_test(&["--id", &contract_id, "--", "inc"])
+        .await
+        .unwrap();
+
+    // get the data's TTL
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("--network")
+        .arg("testnet")
+        .arg("--ttl")
+        .arg(storage_key_xdr)
+        .assert()
+        .success()
+        .stdout_as_str();
+    let parsed_output: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(!parsed_output.entries.is_empty());
+    
+    // let parsed_key_xdr_output: FullLedgerEntries = serde_json::from_str(&key_xdr_output).expect("Failed to parse JSON");
+    // assert!(!parsed_key_xdr_output.entries.is_empty());
+
+    // let expected_contract_data_key = expected_contract_ledger_key(&contract_id, storage_key).await;
+
+    // assert_eq!(parsed_key_output.entries[0].key, expected_contract_data_key);
+    // assert!(matches!(parsed_key_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
+
+    // assert_eq!(parsed_key_xdr_output.entries[0].key, expected_contract_data_key);
+    // assert!(matches!(parsed_key_xdr_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
+    
+    // // the output should be the same regardless of key format
+    // assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
+}
 
 // Helper Fns
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
@@ -321,7 +462,7 @@ async fn expected_contract_ledger_key(contract_id: &str, storage_key: &str) -> L
     )
 }
 
-async fn add_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) {
+async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) {
     sandbox
     .new_assert_cmd("tx")
     .args([

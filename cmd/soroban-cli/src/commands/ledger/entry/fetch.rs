@@ -175,6 +175,8 @@ impl Cmd {
             }
         }
 
+        // todo: should there be a flag that returns all config settings?
+
         if let Some(config_setting_id) = &self.config_setting_id {
             for x in config_setting_id {
                 let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
