@@ -112,7 +112,7 @@ pub enum Error {
     WritingWasmFile(io::Error),
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
-    #[error("rust version {0} cannot be used to build contracts")]
+    #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
 }
 
