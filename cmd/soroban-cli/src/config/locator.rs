@@ -482,9 +482,8 @@ impl KeyType {
 
     pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
         for path in [pwd, global_config_path()?.as_path()] {
-            match self.read(key, path) {
-                Ok(t) => return Ok(t),
-                _ => continue,
+            if let Ok(t) = self.read(key, path) {
+                return Ok(t);
             }
         }
         Err(Error::ConfigMissing(self.to_string(), key.to_string()))

@@ -147,7 +147,7 @@ impl Cmd {
                         print.warnln(format!(
                             "Overwriting existing contract id: {existing_contract}"
                         ));
-                    };
+                    }
 
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
@@ -246,7 +246,7 @@ impl NetworkRunnable for Cmd {
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone());
         let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
-            if func.inputs.len() == 0 {
+            if func.inputs.is_empty() {
                 None
             } else {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];

@@ -107,7 +107,7 @@ impl Cmd {
                 cmd.run(global_args).await?;
             }
             Cmd::Health(cmd) => cmd.run(global_args).await?,
-        };
+        }
         Ok(())
     }
 }

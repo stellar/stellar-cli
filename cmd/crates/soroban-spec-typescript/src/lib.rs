@@ -281,9 +281,11 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
         Entry::Enum { doc, name, cases } => {
             let doc = doc_to_ts_doc(doc, None, 0);
             let cases = cases.iter().map(enum_case_to_ts).join("\n  ");
-            let name = (name == "Error")
-                .then(|| format!("{name}s"))
-                .unwrap_or(name.to_string());
+            let name = if name == "Error" {
+                format!("{name}s")
+            } else {
+                name.to_string()
+            };
             format!(
                 r"{doc}export enum {name} {{
   {cases}

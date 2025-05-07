@@ -135,6 +135,7 @@ zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"], optional = true }
 whoami = "1.5.2"
 serde_with = "3.11.0"
+rustc_version = "0.4.1"
 
 
 [build-dependencies]

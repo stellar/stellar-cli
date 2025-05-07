@@ -198,7 +198,7 @@ impl NetworkRunnable for Cmd {
 
         // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
+        if operations.is_empty() {
             return Err(Error::LedgerEntryNotFound);
         }
 

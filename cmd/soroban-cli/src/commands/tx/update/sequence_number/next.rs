@@ -56,7 +56,7 @@ impl Cmd {
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
                 return Err(Error::Unsupported);
             }
-        };
+        }
         Ok(())
     }
 

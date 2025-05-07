@@ -55,6 +55,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `completion` — Print shell completion code for the specified shell
 * `cache` — Cache for transactions and contract specs
 * `version` — Print version information
+* `plugin` — The subcommand for CLI plugins
 
 ###### **Options:**
 
@@ -2665,6 +2666,35 @@ Print version information
 
 * `--only-version` — Print only the version
 * `--only-version-major` — Print only the major version
+
+
+
+## `stellar plugin`
+
+The subcommand for CLI plugins
+
+**Usage:** `stellar plugin <COMMAND>`
+
+###### **Subcommands:**
+
+* `search` — Search for for CLI plugins using GitHub
+* `ls` — List installed plugins
+
+
+
+## `stellar plugin search`
+
+Search for for CLI plugins using GitHub
+
+**Usage:** `stellar plugin search`
+
+
+
+## `stellar plugin ls`
+
+List installed plugins
+
+**Usage:** `stellar plugin ls`
 
 
 
