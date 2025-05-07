@@ -12,9 +12,10 @@ use crate::config::network::Network;
 use crate::rpc::{self};
 use crate::{config, xdr};
 use clap::{command, Parser};
-use hex::FromHexError;
+use hex::{FromHex, FromHexError};
 use soroban_spec_tools::utils::padded_hex_from_str;
-use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
+use stellar_strkey::Strkey;
+use stellar_strkey::{ed25519::PublicKey as Ed25519PublicKey, Contract};
 use stellar_xdr::curr::{
     AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4,
     ClaimableBalanceId::ClaimableBalanceIdTypeV0, ConfigSettingId, ContractDataDurability, Hash,
@@ -189,7 +190,25 @@ impl Cmd {
 
         if let Some(ttl) = &self.ttl {
             for x in ttl {
-                let hash = Hash(padded_hex_from_str(x, 32)?.try_into().unwrap());
+                let bytes: [u8; 32] = if x.starts_with('C') && x.len() == 56 {
+                    // Contract ID (StrKey-encoded)
+                    if let stellar_strkey::Strkey::Contract(Contract(contract_id)) =
+                        Strkey::from_string(x).unwrap()
+                    {
+                        contract_id
+                    } else {
+                        //todo: handle this error
+                        panic!("Invalid StrKey type, expected Contract");
+                    }
+                } else {
+                    // Hex-encoded 32-byte hash
+                    let clean = x.trim_start_matches("0x");
+                    // todo: handle this error
+                    let vec = Vec::from_hex(clean).unwrap();
+                    vec.try_into().unwrap()
+                };
+
+                let hash = Hash(bytes);
                 let key = LedgerKey::Ttl(LedgerKeyTtl { key_hash: hash });
                 ledger_keys.push(key);
             }

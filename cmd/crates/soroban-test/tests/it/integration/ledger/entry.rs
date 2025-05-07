@@ -372,19 +372,7 @@ async fn ledger_entry_ttl() {
     )
     .await;
 
-    let storage_key = "COUNTER";
-    let storage_key_xdr = ScVal::Symbol(storage_key.try_into().unwrap())
-        .to_xdr_base64(Limits::none())
-        .unwrap();
-    println!("storage key: {}", storage_key_xdr);
-
-    // update contract storage
-    sandbox
-        .invoke_with_test(&["--id", &contract_id, "--", "inc"])
-        .await
-        .unwrap();
-
-    // get the data's TTL
+    // get the contract's TTL
     let output = sandbox
         .new_assert_cmd("ledger")
         .arg("entry")
@@ -392,27 +380,13 @@ async fn ledger_entry_ttl() {
         .arg("--network")
         .arg("testnet")
         .arg("--ttl")
-        .arg(storage_key_xdr)
+        .arg(contract_id)
         .assert()
         .success()
         .stdout_as_str();
     let parsed_output: FullLedgerEntries =
         serde_json::from_str(&output).expect("Failed to parse JSON");
     assert!(!parsed_output.entries.is_empty());
-
-    // let parsed_key_xdr_output: FullLedgerEntries = serde_json::from_str(&key_xdr_output).expect("Failed to parse JSON");
-    // assert!(!parsed_key_xdr_output.entries.is_empty());
-
-    // let expected_contract_data_key = expected_contract_ledger_key(&contract_id, storage_key).await;
-
-    // assert_eq!(parsed_key_output.entries[0].key, expected_contract_data_key);
-    // assert!(matches!(parsed_key_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
-
-    // assert_eq!(parsed_key_xdr_output.entries[0].key, expected_contract_data_key);
-    // assert!(matches!(parsed_key_xdr_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
-
-    // // the output should be the same regardless of key format
-    // assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
 }
 
 // Helper Fns
