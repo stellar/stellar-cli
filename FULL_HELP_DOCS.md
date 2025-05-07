@@ -2714,15 +2714,15 @@ Work with ledger entries
 
 ###### **Subcommands:**
 
-* `get` — Get ledger entries. This command supports every type of ledger entries supported by the RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+* `fetch` — Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
 
 
 
-## `stellar ledger entry get`
+## `stellar ledger entry fetch`
 
-Get ledger entries. This command supports every type of ledger entries supported by the RPC. Read more about RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
 
-**Usage:** `stellar ledger entry get [OPTIONS]`
+**Usage:** `stellar ledger entry fetch [OPTIONS]`
 
 ###### **Options:**
 
@@ -2742,7 +2742,7 @@ Get ledger entries. This command supports every type of ledger entries supported
 * `--config-setting-id <CONFIG_SETTING_ID>` — Defines the currently active network configuration
 * `--wasm-hash <WASM_HASH>` — Get WASM bytecode by hash
 * `--ttl <TTL>` — Get the time-to-live of an associated contract data or code entry
-* `--id <CONTRACT_ID>` — Contract id to fetch an info for
+* `--contract-id <CONTRACT_ID>` — Contract id to fetch an info for
 * `--durability <DURABILITY>` — Storage entry durability
 
   Default value: `persistent`
@@ -2757,15 +2757,15 @@ Get ledger entries. This command supports every type of ledger entries supported
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `original`
+  Default value: `json`
 
   Possible values:
-  - `original`:
-    Original RPC output (containing XDRs)
   - `json`:
     JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`:
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
 
 
 
