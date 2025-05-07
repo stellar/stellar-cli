@@ -8,6 +8,7 @@ use crate::commands::ledger::entry::fetch::Error::{
     InvalidHash,
 };
 use crate::config::locator;
+use crate::config::network::Network;
 use crate::rpc::{self};
 use crate::{config, xdr};
 use clap::{command, Parser};
@@ -15,14 +16,13 @@ use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 use stellar_xdr::curr::{
-    ClaimableBalanceId::ClaimableBalanceIdTypeV0,
-    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, ConfigSettingId,
-    ContractDataDurability, Hash, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
-    LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
-    LedgerKeyLiquidityPool, LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limits, MuxedAccount,
-    PoolId, PublicKey, ReadXdr, ScAddress, ScVal, String64, TrustLineAsset, Uint256,
+    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4,
+    ClaimableBalanceId::ClaimableBalanceIdTypeV0, ConfigSettingId, ContractDataDurability, Hash,
+    LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance, LedgerKeyConfigSetting,
+    LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool,
+    LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limits, MuxedAccount, PoolId, PublicKey,
+    ReadXdr, ScAddress, ScVal, String64, TrustLineAsset, Uint256,
 };
-use crate::config::network::Network;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -298,7 +298,11 @@ impl Cmd {
         Ok(())
     }
 
-    fn insert_contract_keys(&self, network: &Network, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+    fn insert_contract_keys(
+        &self,
+        network: &Network,
+        ledger_keys: &mut Vec<LedgerKey>,
+    ) -> Result<(), Error> {
         if let Some(contract_id) = &self.contract_id {
             let contract_id =
                 contract_id.resolve_contract_id(&self.locator, &network.network_passphrase)?;
