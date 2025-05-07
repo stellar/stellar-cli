@@ -1,6 +1,6 @@
 all: check build test
 
-export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
+export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic -Aclippy::doc_markdown
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
 ifeq (${REPOSITORY_COMMIT_HASH},"")
@@ -40,7 +40,7 @@ build:
 	cargo build
 
 build-test-wasms:
-	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
+	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms install
 
@@ -48,7 +48,9 @@ generate-full-help-doc:
 	cargo run --bin doc-gen --features clap-markdown
 
 test: build-test
-	cargo test --workspace
+	cargo test --workspace --exclude soroban-test
+	cargo test --workspace --exclude soroban-test --features additional-libs
+	cargo test -p soroban-test -- --skip integration::
 
 e2e-test:
 	cargo test --features it --test it -- integration
@@ -70,10 +72,12 @@ publish:
 
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
-					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
-					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
-					--network futurenet \
+					--wasm ./target/wasm32v1-none/test-wasms/test_custom_types.wasm \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
+					--overwrite && \
+	cargo run -- contract bindings typescript \
+					--wasm ./target/wasm32v1-none/test-wasms/test_constructor.wasm \
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_constructor \
 					--overwrite
 
 

@@ -57,13 +57,14 @@ fn has_no_path() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn has_no_path_failure() {
     // Call soroban with the PATH variable set to include just target/bin directory
     assert_cmd::Command::cargo_bin("stellar")
         .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
         .arg("hello")
         .assert()
-        .stderr(predicates::str::contains("error: no such command: `hello`"));
+        .stderr(predicates::str::contains("unrecognized subcommand 'hello'"));
 }
 
 fn target_bin() -> PathBuf {

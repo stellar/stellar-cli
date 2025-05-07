@@ -1,11 +1,14 @@
-use crate::{print::Print, utils::transaction_hash};
+use crate::print::Print;
 use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
+use std::ffi::OsString;
 
 use crate::{
     commands::{global, NetworkRunnable},
     config::{self, locator, network},
 };
+
+use stellar_xdr::curr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -19,13 +22,18 @@ pub enum Error {
     Rpc(#[from] crate::rpc::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error("xdr processing error: {0}")]
+    Xdr(#[from] curr::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 /// Command to send a transaction envelope to the network
-/// e.g. `cat file.txt | soroban tx send`
+/// e.g. `stellar tx send file.txt` or `cat file.txt | stellar tx send`
 pub struct Cmd {
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub tx_xdr: Option<OsString>,
     #[clap(flatten)]
     pub network: network::Args,
     #[clap(flatten)]
@@ -56,13 +64,11 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)?
         };
         let client = network.rpc_client()?;
-        let tx_env = super::xdr::tx_envelope_from_stdin()?;
+        let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
 
-        if let Ok(Ok(hash)) = super::xdr::unwrap_envelope_v1(tx_env.clone())
-            .map(|tx| transaction_hash(&tx, &network.network_passphrase))
-        {
-            let print = Print::new(globals.map_or(false, |g| g.quiet));
-            print.infoln(format!("Transaction Hash: {}", hex::encode(hash)));
+        if let Ok(txn) = super::xdr::unwrap_envelope_v1(tx_env.clone()) {
+            let print = Print::new(globals.is_some_and(|g| g.quiet));
+            print.log_transaction(&txn, &network, true)?;
         }
 
         Ok(client.send_transaction_polling(&tx_env).await?)

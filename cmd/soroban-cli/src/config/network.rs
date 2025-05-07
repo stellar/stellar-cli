@@ -25,6 +25,8 @@ pub enum Error {
     #[error(
         r#"Access to the network is required
 `--network` or `--rpc-url` and `--network-passphrase` are required if using the network.
+Network configuration can also be set using `network use` subcommand. For example, to use
+testnet, run `stellar network use testnet`.
 Alternatively you can use their corresponding environment variables:
 STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
     )]
@@ -88,6 +90,7 @@ pub struct Args {
     /// Name of network to use from config
     #[arg(
         long,
+        short = 'n',
         env = "STELLAR_NETWORK",
         help_heading = HEADING_RPC,
     )]
@@ -170,7 +173,7 @@ impl Network {
             local_url.set_query(Some(&format!("addr={addr}")));
             Ok(local_url)
         } else {
-            let client = Client::new(&self.rpc_url)?;
+            let client = self.rpc_client()?;
             let network = client.get_network().await?;
             tracing::debug!("network {network:?}");
             let url = client.friendbot_url().await?;

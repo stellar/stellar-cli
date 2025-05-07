@@ -82,18 +82,14 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
-                let plugins = plugin::list().unwrap_or_default();
-                if plugins.is_empty() {
-                    println!("No Plugins installed. E.g. soroban-hello");
-                } else {
-                    println!("Installed Plugins:\n    {}", plugins.join("\n    "));
-                }
+                let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
+
             match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::run() {
+                ErrorKind::InvalidSubcommand => match plugin::default::run() {
                     Ok(()) => Error::Clap(e),
-                    Err(e) => Error::Plugin(e),
+                    Err(e) => Error::PluginDefault(e),
                 },
                 _ => Error::Clap(e),
             }
@@ -107,9 +103,11 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
+
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
+            Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
@@ -121,7 +119,7 @@ impl Root {
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-        };
+        }
         Ok(())
     }
 }
@@ -143,9 +141,14 @@ pub enum Cmd {
     /// Watch the network for contract events
     Events(events::Cmd),
 
-    /// Prints the current environment variables or defaults to the stdout, in
-    /// a format that can be used as .env file. Environment variables have
-    /// precedency over defaults.
+    /// Prints the environment variables
+    ///
+    /// Prints to stdout in a format that can be used as .env file. Environment
+    /// variables have precedence over defaults.
+    ///
+    /// Pass a name to get the value of a single environment variable.
+    ///
+    /// If there are no environment variables in use, prints the defaults.
     Env(env::Cmd),
 
     /// Create and manage identities including keys and addresses
@@ -181,6 +184,10 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// The subcommand for CLI plugins
+    #[command(subcommand)]
+    Plugin(plugin::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -203,6 +210,9 @@ pub enum Error {
 
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
+
+    #[error(transparent)]
+    PluginDefault(#[from] plugin::default::Error),
 
     #[error(transparent)]
     Network(#[from] network::Error),

@@ -1,11 +1,9 @@
-use clap::Parser;
-
-use crate::rpc::{self};
-
 use super::{config::locator, global};
+use clap::Parser;
 
 pub mod add;
 pub mod default;
+pub mod health;
 pub mod ls;
 pub mod rm;
 
@@ -31,11 +29,13 @@ pub enum Cmd {
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     ///
     /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+    #[cfg(feature = "version_lt_23")]
     Start(crate::commands::container::StartCmd),
 
     /// ⚠️ Deprecated: use `stellar container stop` instead
     ///
     /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
+    #[cfg(feature = "version_lt_23")]
     Stop(crate::commands::container::StopCmd),
 
     /// Set the default network that will be used on all commands.
@@ -47,8 +47,12 @@ pub enum Cmd {
     /// ⚠️ Deprecated: use `stellar container` instead
     ///
     /// Commands to start, stop and get logs for a quickstart container
+    #[cfg(feature = "version_lt_23")]
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
+
+    /// Checks the health of the configured RPC
+    Health(health::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,33 +68,20 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+    #[error(transparent)]
+    Health(#[from] health::Error),
 
-    // TODO: remove once `network start` is removed
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Start(#[from] crate::commands::container::start::Error),
 
-    // TODO: remove once `network stop` is removed
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Stop(#[from] crate::commands::container::stop::Error),
 
+    #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Container(#[from] crate::commands::container::Error),
-
-    #[error(transparent)]
-    Config(#[from] locator::Error),
-
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
-    Network,
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    HttpClient(#[from] reqwest::Error),
-    #[error("Failed to parse JSON from {0}, {1}")]
-    FailedToParseJSON(String, serde_json::Error),
-    #[error("Invalid URL {0}")]
-    InvalidUrl(String),
-    #[error("Inproper response {0}")]
-    InproperResponse(String),
 }
 
 impl Cmd {
@@ -100,21 +91,23 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
+            #[cfg(feature = "version_lt_23")]
             Cmd::Container(cmd) => cmd.run(global_args).await?,
 
-            // TODO Remove this once `network start` is removed
+            #[cfg(feature = "version_lt_23")]
             Cmd::Start(cmd) => {
                 eprintln!("⚠️ Warning: `network start` has been deprecated. Use `container start` instead");
                 cmd.run(global_args).await?;
             }
-            // TODO Remove this once `network stop` is removed
+            #[cfg(feature = "version_lt_23")]
             Cmd::Stop(cmd) => {
                 println!(
                     "⚠️ Warning: `network stop` has been deprecated. Use `container stop` instead"
                 );
                 cmd.run(global_args).await?;
             }
-        };
+            Cmd::Health(cmd) => cmd.run(global_args).await?,
+        }
         Ok(())
     }
 }

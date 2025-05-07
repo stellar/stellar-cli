@@ -1,6 +1,7 @@
 use super::global;
 
 pub mod args;
+pub mod edit;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -8,13 +9,29 @@ pub mod op;
 pub mod send;
 pub mod sign;
 pub mod simulate;
+pub mod update;
 pub mod xdr;
 
 pub use args::Args;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Calculate the hash of a transaction envelope from stdin
+    /// Update the transaction
+    #[command(subcommand)]
+    Update(update::Cmd),
+    /// Edit a transaction envelope from stdin. This command respects the environment variables
+    /// `STELLAR_EDITOR`, `EDITOR` and `VISUAL`, in that order.
+    ///
+    /// Example: Start a new edit session
+    ///
+    /// $ stellar tx edit
+    ///
+    /// Example: Pipe an XDR transaction envelope
+    ///
+    /// $ stellar tx new manage-data --data-name hello --build-only | stellar tx edit
+    ///
+    Edit(edit::Cmd),
+    /// Calculate the hash of a transaction envelope
     Hash(hash::Cmd),
     /// Create a new transaction
     #[command(subcommand)]
@@ -37,13 +54,19 @@ pub enum Error {
     #[error(transparent)]
     New(#[from] new::Error),
     #[error(transparent)]
+    Edit(#[from] edit::Error),
+    #[error(transparent)]
     Op(#[from] op::Error),
     #[error(transparent)]
     Send(#[from] send::Error),
     #[error(transparent)]
     Sign(#[from] sign::Error),
     #[error(transparent)]
+    Args(#[from] args::Error),
+    #[error(transparent)]
     Simulate(#[from] simulate::Error),
+    #[error(transparent)]
+    Update(#[from] update::Error),
 }
 
 impl Cmd {
@@ -51,11 +74,13 @@ impl Cmd {
         match self {
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
-            Cmd::Operation(cmd) => cmd.run(global_args)?,
+            Cmd::Edit(cmd) => cmd.run(global_args)?,
+            Cmd::Operation(cmd) => cmd.run(global_args).await?,
             Cmd::Send(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
-        };
+            Cmd::Update(cmd) => cmd.run(global_args).await?,
+        }
         Ok(())
     }
 }

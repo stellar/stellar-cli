@@ -1,10 +1,13 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use crate::xdr::{
-    Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
-    SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-    TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+use crate::{
+    print::Print,
+    xdr::{
+        Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
+        LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
+        SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
+        TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+    },
 };
 use clap::{command, Parser};
 
@@ -127,11 +130,12 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account()?;
+        let source_account = config.source_account().await?;
         let extend_to = self.ledgers_to_extend();
 
         // Get the account sequence number
@@ -178,13 +182,14 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign_with_local_key(tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
         let events = res.events()?;
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::event::all(&events);
+            crate::log::event::contract(&events, &print);
         }
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 
@@ -196,7 +201,7 @@ impl NetworkRunnable for Cmd {
 
         // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
+        if operations.is_empty() {
             return Err(Error::LedgerEntryNotFound);
         }
 

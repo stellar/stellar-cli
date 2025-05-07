@@ -1,3 +1,5 @@
+use soroban_cli::commands::contract::arg_parsing::Error::HelpMessage;
+use soroban_cli::commands::contract::invoke::Error::ArgParsing;
 use soroban_cli::commands::contract::{self, arg_parsing};
 use soroban_test::TestEnv;
 
@@ -5,7 +7,11 @@ use crate::util::{invoke_custom as invoke, CUSTOM_TYPES, DEFAULT_CONTRACT_ID};
 
 async fn invoke_custom(func: &str, args: &str) -> Result<String, contract::invoke::Error> {
     let e = &TestEnv::default();
-    invoke(e, DEFAULT_CONTRACT_ID, func, args, &CUSTOM_TYPES.path()).await
+    let r = invoke(e, DEFAULT_CONTRACT_ID, func, args, &CUSTOM_TYPES.path()).await;
+    if let Err(ArgParsing(HelpMessage(e))) = r {
+        return Ok(e);
+    }
+    r
 }
 
 #[tokio::test]
@@ -35,6 +41,7 @@ async fn tuple_help() {
 #[tokio::test]
 async fn strukt_help() {
     let output = invoke_custom("strukt", "--help").await.unwrap();
+    println!("{output}");
     assert!(output.contains("--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",));
     assert!(output.contains("This is from the rust doc above the struct Test",));
 }
@@ -46,7 +53,7 @@ async fn complex_enum_help() {
     assert!(output.contains(r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,));
     assert!(output.contains(r#"{"Enum":"First"|"Second"|"Third"}"#,));
     assert!(output.contains(
-        r#"{"Asset":["GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4", "-100"]}"#,
+        r#"{"Asset":["GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "1"]}"#,
     ));
     assert!(output.contains(r#""Void"'"#));
 }

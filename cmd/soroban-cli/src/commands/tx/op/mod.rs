@@ -16,10 +16,10 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
-            Cmd::Add(cmd) => cmd.run(global_args)?,
-        };
+            Cmd::Add(cmd) => cmd.run(global_args).await?,
+        }
         Ok(())
     }
 }

@@ -1,4 +1,3 @@
-use address::Address;
 use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,7 +7,7 @@ use std::{
 
 use crate::{
     print::Print,
-    signer::{self, LocalKey, Signer, SignerKind},
+    signer,
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
@@ -17,13 +16,17 @@ use network::Network;
 pub mod address;
 pub mod alias;
 pub mod data;
+pub mod key;
 pub mod locator;
 pub mod network;
+pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
 
-pub use alias::ContractAddress;
+pub use address::UnresolvedMuxedAccount;
+pub use alias::UnresolvedContract;
+pub use sc_address::UnresolvedScAddress;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -49,14 +52,14 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
     /// or a seed phrase (--source "kite urban…").
     /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
-    pub source_account: Address,
+    pub source_account: UnresolvedMuxedAccount,
 
     #[arg(long)]
     /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
@@ -68,10 +71,11 @@ pub struct Args {
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path)?)
+            .resolve_muxed_account(&self.locator, self.hd_path)
+            .await?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -85,13 +89,11 @@ impl Args {
 
     #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = self.key_pair()?;
+        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let signer = key.signer(self.hd_path, Print::new(false)).await?;
         let network = &self.get_network()?;
-        let signer = Signer {
-            kind: SignerKind::Local(LocalKey { key }),
-            print: Print::new(false),
-        };
-        Ok(signer.sign_tx(tx, network)?)
+
+        Ok(signer.sign_tx(tx, network).await?)
     }
 
     pub async fn sign_soroban_authorizations(
@@ -192,7 +194,9 @@ impl Config {
 
     pub fn save(&self) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
-        let mut file = File::create(locator::config_file()?)?;
+        let path = locator::config_file()?;
+        // Depending on the platform, this function may fail if the full directory path does not exist
+        let mut file = File::create(locator::ensure_directory(path)?)?;
         file.write_all(toml_string.as_bytes())?;
 
         Ok(())

@@ -1,6 +1,9 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
+use rustc_version::version;
+use semver::Version;
+use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -95,6 +98,8 @@ pub enum Error {
     AbsolutePath(io::Error),
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
+    #[error("deleting existing artifact: {0}")]
+    DeletingArtifact(io::Error),
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
     #[error("getting the current directory: {0}")]
@@ -107,17 +112,18 @@ pub enum Error {
     WritingWasmFile(io::Error),
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
+    #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
+    RustVersion(String),
 }
 
-const WASM_TARGET: &str = "wasm32-unknown-unknown";
+const WASM_TARGET: &str = "wasm32v1-none";
+const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
-
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
@@ -130,6 +136,8 @@ impl Cmd {
             }
         }
 
+        let wasm_target = get_wasm_target()?;
+
         for p in packages {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
@@ -141,7 +149,7 @@ impl Cmd {
                 manifest_path.to_string_lossy()
             ));
             cmd.arg("--crate-type=cdylib");
-            cmd.arg(format!("--target={WASM_TARGET}"));
+            cmd.arg(format!("--target={wasm_target}"));
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -193,17 +201,22 @@ impl Cmd {
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
-                    .join(WASM_TARGET)
+                    .join(&wasm_target)
                     .join(&self.profile)
                     .join(&file);
 
                 self.handle_contract_metadata_args(&target_file_path)?;
 
-                if let Some(out_dir) = &self.out_dir {
+                let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
                     let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, out_file_path).map_err(Error::CopyingWasmFile)?;
-                }
+                    fs::copy(target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+                    out_file_path
+                } else {
+                    target_file_path
+                };
+
+                Self::print_build_summary(&print, &final_path)?;
             }
         }
 
@@ -302,7 +315,54 @@ impl Cmd {
             wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
         }
 
+        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
+        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+    }
+
+    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
+        print.infoln("Build Summary:");
+        let rel_target_file_path = target_file_path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(target_file_path);
+        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        print.blankln(format!(
+            "Wasm Hash: {}",
+            hex::encode(Sha256::digest(&wasm_bytes))
+        ));
+
+        let parser = wasmparser::Parser::new(0);
+        let export_names: Vec<&str> = parser
+            .parse_all(&wasm_bytes)
+            .filter_map(Result::ok)
+            .filter_map(|payload| {
+                if let wasmparser::Payload::ExportSection(exports) = payload {
+                    Some(exports)
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .filter_map(Result::ok)
+            .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
+            .map(|export| export.name)
+            .sorted()
+            .collect();
+        if export_names.is_empty() {
+            print.blankln("Exported Functions: None found");
+        } else {
+            print.blankln(format!("Exported Functions: {} found", export_names.len()));
+            for name in export_names {
+                print.blankln(format!("  • {name}"));
+            }
+        }
+        print.checkln("Build Complete");
+
+        Ok(())
     }
 }
 
@@ -355,9 +415,11 @@ impl Cmd {
 /// Cargo itself.
 fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
-    let cargo_home = format!("{}", cargo_home.display());
 
-    if cargo_home.find(|c: char| c.is_whitespace()).is_some() {
+    if format!("{}", cargo_home.display())
+        .find(|c: char| c.is_whitespace())
+        .is_some()
+    {
         print.warnln("Cargo home directory contains whitespace. Dependency paths will not be remapped; builds may not be reproducible.");
         return Ok(None);
     }
@@ -377,8 +439,8 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
         return Ok(None);
     }
 
-    let registry_prefix = format!("{cargo_home}/registry/src/");
-    let new_rustflag = format!("--remap-path-prefix={registry_prefix}=");
+    let registry_prefix = cargo_home.join("registry").join("src");
+    let new_rustflag = format!("--remap-path-prefix={}=", registry_prefix.display());
 
     let mut rustflags = get_rustflags().unwrap_or_default();
     rustflags.push(new_rustflag);
@@ -402,4 +464,23 @@ fn get_rustflags() -> Option<Vec<String>> {
     }
 
     None
+}
+
+fn get_wasm_target() -> Result<String, Error> {
+    let Ok(current_version) = version() else {
+        return Ok(WASM_TARGET.into());
+    };
+
+    let v184 = Version::parse("1.84.0").unwrap();
+    let v182 = Version::parse("1.82.0").unwrap();
+
+    if current_version >= v182 && current_version < v184 {
+        return Err(Error::RustVersion(current_version.to_string()));
+    }
+
+    if current_version < v184 {
+        Ok(WASM_TARGET_OLD.into())
+    } else {
+        Ok(WASM_TARGET.into())
+    }
 }

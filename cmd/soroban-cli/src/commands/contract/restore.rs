@@ -129,11 +129,12 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
+        let print = crate::print::Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account()?;
+        let source_account = config.source_account().await?;
 
         // Get the account sequence number
         let account_details = client
@@ -174,7 +175,7 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign_with_local_key(*tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
         let meta = res
@@ -184,7 +185,8 @@ impl NetworkRunnable for Cmd {
         let events = res.events()?;
         tracing::trace!(?meta);
         if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
+            crate::log::event::all(&events);
+            crate::log::event::contract(&events, &print);
         }
 
         // The transaction from core will succeed regardless of whether it actually found &
@@ -196,7 +198,7 @@ impl NetworkRunnable for Cmd {
 
         // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
+        if operations.is_empty() {
             return Err(Error::LedgerEntryNotFound);
         }
 

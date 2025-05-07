@@ -1,3 +1,5 @@
+use crate::config::locator;
+use crate::print::Print;
 use crate::xdr::{
     Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
@@ -21,6 +23,8 @@ use crate::{
     utils::contract_id_hash_from_asset,
 };
 
+use crate::commands::contract::deploy::utils::alias_validator;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("error parsing int: {0}")]
@@ -39,6 +43,10 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Builder(#[from] builder::Error),
+    #[error(transparent)]
+    Asset(#[from] builder::asset::Error),
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
 }
 
 impl From<Infallible> for Error {
@@ -56,16 +64,44 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
+
+    /// The alias that will be used to save the assets's id.
+    /// Whenever used, `--alias` will always overwrite the existing contract id
+    /// configuration without asking for confirmation.
+    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
+    pub alias: Option<String>,
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
+
+                if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    }
+
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
+                }
+
                 println!("{contract}");
             }
         }
@@ -85,14 +121,16 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
-        let asset = &self.asset;
+        let asset = self.asset.resolve(&config.locator)?;
 
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let source_account = config.source_account()?;
+
+        let source_account = config.source_account().await?;
+
         // Get the account sequence number
         // TODO: use symbols for the method names (both here and in serve)
         let account_details = client
@@ -100,7 +138,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(asset, network_passphrase);
+        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
             asset,
             &contract_id,
@@ -114,6 +152,7 @@ impl NetworkRunnable for Cmd {
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        #[cfg(feature = "version_lt_23")]
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(Box::new(txn)));
         }
@@ -121,7 +160,7 @@ impl NetworkRunnable for Cmd {
             .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
             .await?
             .try_into()?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 

@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
+use std::fmt::Write;
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -452,7 +453,7 @@ impl Spec {
                 );
             }
             (ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { .. }), Some(_)) => {}
-        };
+        }
         Ok(ScVal::Vec(Some(res.try_into().map_err(Error::Xdr)?)))
     }
 
@@ -465,7 +466,7 @@ impl Spec {
         let ScSpecTypeTuple { value_types } = tuple;
         if items.len() != value_types.len() {
             return Err(Error::InvalidValue(Some(t.clone())));
-        };
+        }
         let parsed: Result<Vec<ScVal>, Error> = items
             .iter()
             .zip(value_types.iter())
@@ -764,9 +765,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
 
         // Number parsing
         (ScType::U128, Value::String(s)) => {
-            let val: u128 = u128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: u128 = u128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::U128(UInt128Parts {
@@ -776,9 +775,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         }
 
         (ScType::I128, Value::String(s)) => {
-            let val: i128 = i128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: i128 = i128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::I128(Int128Parts {
@@ -1066,7 +1063,7 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
 fn to_lower_hex(bytes: &[u8]) -> String {
     let mut res = String::with_capacity(bytes.len());
     for b in bytes {
-        res.push_str(&format!("{b:02x}"));
+        let _ = write!(res, "{b:02x}");
     }
     res
 }
@@ -1212,25 +1209,26 @@ fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
 impl Spec {
     #[must_use]
     pub fn example(&self, type_: &ScType) -> Option<String> {
+        #[allow(clippy::match_same_arms)]
         match type_ {
-            ScType::U64 => Some("42".to_string()),
-            ScType::I64 => Some("-42".to_string()),
-            ScType::U128 => Some("\"1000\"".to_string()),
-            ScType::I128 => Some("\"-100\"".to_string()),
+            ScType::U64 => Some("1".to_string()),
+            ScType::I64 => Some("1".to_string()),
+            ScType::U128 => Some("\"1\"".to_string()),
+            ScType::I128 => Some("\"1\"".to_string()),
             ScType::U32 => Some("1".to_string()),
-            ScType::I32 => Some("-1".to_string()),
+            ScType::I32 => Some("1".to_string()),
             ScType::Bool => Some("true".to_string()),
             ScType::Symbol => Some("\"hello\"".to_string()),
             ScType::Error => Some("Error".to_string()),
-            ScType::Bytes => Some("\"beefface123\"".to_string()),
+            ScType::Bytes => Some("\"0000000000000000\"".to_string()),
             ScType::Address => {
-                Some("\"GDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCR4W4\"".to_string())
+                Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
             }
             ScType::Void => Some("null".to_string()),
-            ScType::Timepoint => Some("1234".to_string()),
-            ScType::Duration => Some("9999".to_string()),
-            ScType::U256 => Some("\"2000\"".to_string()),
-            ScType::I256 => Some("\"-20000\"".to_string()),
+            ScType::Timepoint => Some("1743010492".to_string()),
+            ScType::Duration => Some("1".to_string()),
+            ScType::U256 => Some("\"1\"".to_string()),
+            ScType::I256 => Some("\"1\"".to_string()),
             ScType::String => Some("\"hello world\"".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
@@ -1275,13 +1273,7 @@ impl Spec {
             }
             ScType::BytesN(n) => {
                 let n = n.n as usize;
-                let res = if n % 2 == 0 {
-                    "ef".repeat(n)
-                } else {
-                    let mut s = "ef".repeat(n - 1);
-                    s.push('e');
-                    s
-                };
+                let res = "00".repeat(n);
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
@@ -1318,7 +1310,7 @@ impl Spec {
                     })
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
-                Some(format!(r#"{{ {inner} }}"#))
+                Some(format!(r"{{ {inner} }}"))
             }
             Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {

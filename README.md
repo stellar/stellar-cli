@@ -44,6 +44,11 @@ or install
 $ nix profile install github:stellar/stellar-cli
 ```
 
+Use GitHub Action:
+```
+uses: stellar/stellar-cli@v22.5.0
+```
+
 ## Autocomplete
 The Stellar CLI supports some autocompletion. To set up, run the following commands:
 
