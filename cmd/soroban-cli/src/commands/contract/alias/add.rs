@@ -64,7 +64,7 @@ impl Cmd {
                     contract,
                 });
             }
-        };
+        }
 
         print.infoln(format!(
             "Contract alias '{alias}' will reference {contract} on network '{network_passphrase}'",

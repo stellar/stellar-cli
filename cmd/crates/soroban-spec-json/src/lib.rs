@@ -72,7 +72,7 @@ mod test {
     use super::generate;
 
     const EXAMPLE_WASM: &[u8] =
-        include_bytes!("../../../../target/wasm32-unknown-unknown/test-wasms/test_udt.wasm");
+        include_bytes!("../../../../target/wasm32v1-none/test-wasms/test_udt.wasm");
 
     #[test]
     fn example() {
