@@ -166,7 +166,7 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"))
+        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
