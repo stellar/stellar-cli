@@ -180,7 +180,7 @@ impl Cmd {
     fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
         Ok(self
             .locator
-            .read_identity(account)?
+            .read_key(account)?
             .muxed_account(self.hd_path)?)
     }
 

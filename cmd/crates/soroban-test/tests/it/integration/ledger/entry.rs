@@ -42,7 +42,6 @@ async fn ledger_entry_account_only_with_account_alias() {
     ));
 }
 
-#[ignore]
 #[tokio::test]
 async fn ledger_entry_account_only_with_account_addr() {
     let sandbox = &TestEnv::new();
