@@ -69,7 +69,6 @@ async fn ledger_entry_account_only_with_account_addr() {
     ));
 }
 
-
 #[tokio::test]
 async fn ledger_entry_account_asset_xlm() {
     let sandbox = &TestEnv::new();
@@ -195,6 +194,46 @@ async fn ledger_entry_account_data() {
     assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
 
     let data_entry = &parsed.entries[1];
+    let name_bounded_string = StringM::<64>::try_from(data_name).unwrap();
+    let expected_data_key = LedgerKey::Data(LedgerKeyData {
+        account_id,
+        data_name: String64::from(name_bounded_string),
+    });
+    assert_eq!(data_entry.key, expected_data_key);
+    assert!(matches!(data_entry.val, LedgerEntryData::Data { .. }));
+}
+
+#[tokio::test]
+async fn ledger_entries_hide_account() {
+    let sandbox = &TestEnv::new();
+    let account_alias = "new_account";
+    let new_account_addr = new_account(sandbox, account_alias);
+    let data_name = "test_data_key";
+    add_account_data(sandbox, account_alias, data_name, "abcdef").await;
+
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("account")
+        .arg(account_alias)
+        .arg("--network")
+        .arg("testnet")
+        .arg("--hide-account")
+        .arg("--data-name")
+        .arg(data_name)
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(!parsed.entries.is_empty());
+    assert_eq!(parsed.entries.len(), 1);
+    
+
+    let (account_id, _) = expected_account_ledger_key(&new_account_addr).await;
+
+    let data_entry = &parsed.entries[0];
     let name_bounded_string = StringM::<64>::try_from(data_name).unwrap();
     let expected_data_key = LedgerKey::Data(LedgerKeyData {
         account_id,

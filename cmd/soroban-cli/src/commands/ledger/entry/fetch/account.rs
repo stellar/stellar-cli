@@ -55,9 +55,10 @@ pub struct Cmd {
     #[arg(long)]
     pub offer: Option<Vec<i64>>,
 
-//     /// ID of an offer made on the Stellar DEX
-//     #[arg(long)]
-//     pub offer: Option<Vec<i64>>,
+    /// Hide the account ledger entry from the output
+    #[arg(long)]
+    pub hide_account: bool
+}
 
 //     /// Claimable Balance id
 //     #[arg(long)]
@@ -173,6 +174,9 @@ impl Cmd {
     }
 
     fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        if self.hide_account {
+            return Ok(())
+        }
         let acc = self.muxed_account(&self.account)?;
         // always add the account key into the list
         // should we allow this to be configurable?
