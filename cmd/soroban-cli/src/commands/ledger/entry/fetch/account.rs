@@ -2,23 +2,15 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 
 use crate::commands::config::network;
-use crate::commands::contract::Durability;
 use crate::config::locator;
-use crate::config::network::Network;
-use crate::rpc::{self};
 use crate::{config, xdr};
 use clap::{command, Parser};
-use hex::{FromHex, FromHexError};
-use soroban_spec_tools::utils::padded_hex_from_str;
-use stellar_strkey::Strkey;
-use stellar_strkey::{ed25519::PublicKey as Ed25519PublicKey, Contract};
+use stellar_strkey::{ed25519::PublicKey as Ed25519PublicKey };
 use stellar_xdr::curr::{
     AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4,
-    ClaimableBalanceId::ClaimableBalanceIdTypeV0, ConfigSettingId, ContractDataDurability, Hash,
-    LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance, LedgerKeyConfigSetting,
-    LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool,
-    LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limits, MuxedAccount, PoolId, PublicKey,
-    ReadXdr, ScAddress, ScVal, String64, TrustLineAsset, Uint256,
+    LedgerKey, LedgerKeyAccount, LedgerKeyData,
+    LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount, PublicKey,
+    String64, TrustLineAsset, Uint256,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -60,41 +52,6 @@ pub struct Cmd {
     pub hide_account: bool
 }
 
-//     /// Claimable Balance id
-//     #[arg(long)]
-//     pub claimable_id: Option<Vec<String>>,
-
-//     /// Liquidity pool id
-//     #[arg(long)]
-//     pub pool_id: Option<Vec<String>>,
-
-//     /// Defines the currently active network configuration
-//     #[arg(long)]
-//     pub config_setting_id: Option<Vec<i32>>,
-
-//     /// Get WASM bytecode by hash
-//     #[arg(long)]
-//     pub wasm_hash: Option<Vec<String>>,
-
-//     /// Get the time-to-live of an associated contract data or code entry
-//     #[arg(long)]
-//     pub ttl: Option<Vec<String>>,
-
-//     /// Contract id to fetch an info for
-//     #[arg(long = "contract-id", env = "STELLAR_CONTRACT_ID")]
-//     pub contract_id: Option<config::UnresolvedContract>,
-//     /// Storage entry durability
-//     #[arg(long, value_enum, default_value = "persistent")]
-//     pub durability: Durability,
-//     /// Storage key (symbols only)
-//     #[arg(long = "key")]
-//     pub key: Option<Vec<String>>,
-//     /// Storage key (base64-encoded XDR)
-//     #[arg(long = "key-xdr")]
-//     pub key_xdr: Option<Vec<String>>,
-
-// }
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -114,24 +71,6 @@ pub enum Error {
     #[error(transparent)]
     TryFromSliceError(#[from] TryFromSliceError),
 } 
-
-//     #[error(transparent)]
-//     StellarXdr(#[from] stellar_xdr::curr::Error),
-//     #[error(transparent)]
-//     Spec(#[from] soroban_spec_tools::Error),
-//     #[error(transparent)]
-//     FromHexError(#[from] FromHexError),
-//     #[error("at least one key must be provided")]
-//     EmptyKeys,
-//     #[error("contract id is required but was not provided")]
-//     ContractRequired,
-//     #[error("account is required but was not provided")]
-//     AccountRequired,
-//     #[error("provided hash value is invalid: {0}")]
-//     InvalidHash(String),
-//     #[error("provided config id is invalid: {0}")]
-//     InvalidConfigId(i32),
-// }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -178,8 +117,6 @@ impl Cmd {
             return Ok(())
         }
         let acc = self.muxed_account(&self.account)?;
-        // always add the account key into the list
-        // should we allow this to be configurable?
         let key = LedgerKey::Account(LedgerKeyAccount {
             account_id: acc.account_id(),
         });
