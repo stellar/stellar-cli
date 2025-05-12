@@ -71,7 +71,6 @@ async fn ledger_entry_account_only_with_account_addr() {
 
 
 #[tokio::test]
-#[ignore]
 async fn ledger_entry_account_asset_xlm() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
@@ -80,10 +79,10 @@ async fn ledger_entry_account_asset_xlm() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("account")
+        .arg(account_alias)
         .arg("--network")
         .arg("testnet")
-        .arg("--account")
-        .arg(account_alias)
         .arg("--asset")
         // though xlm does not have, nor need, a trustline, "xlm" is a valid argument to `--asset`
         // this test is including it to make sure that the account ledger entry is still included in the output
@@ -104,7 +103,6 @@ async fn ledger_entry_account_asset_xlm() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn ledger_entry_account_asset_usdc() {
     let sandbox = &TestEnv::new();
     let test_account_alias = "test";
@@ -127,10 +125,10 @@ async fn ledger_entry_account_asset_usdc() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("account")
+        .arg(test_account_alias)
         .arg("--network")
         .arg("testnet")
-        .arg("--account")
-        .arg(test_account_alias)
         .arg("--asset")
         .arg(asset)
         .assert()
@@ -153,20 +151,19 @@ async fn ledger_entry_account_asset_usdc() {
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
     assert!(!parsed.entries.is_empty());
 
-    let trustline_entry = &parsed.entries[0];
+    let account_entry = &parsed.entries[0];
+    assert_eq!(account_entry.key, expected_account_key);
+    assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
+
+    let trustline_entry = &parsed.entries[1];
     assert_eq!(trustline_entry.key, expected_trustline_key);
     assert!(matches!(
         trustline_entry.val,
         LedgerEntryData::Trustline { .. }
     ));
-
-    let account_entry = &parsed.entries[1];
-    assert_eq!(account_entry.key, expected_account_key);
-    assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
 }
 
 #[tokio::test]
-#[ignore]
 async fn ledger_entry_account_data() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
@@ -178,10 +175,10 @@ async fn ledger_entry_account_data() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("account")
+        .arg(account_alias)
         .arg("--network")
         .arg("testnet")
-        .arg("--account")
-        .arg(account_alias)
         .arg("--data-name")
         .arg(data_name)
         .assert()
@@ -193,7 +190,11 @@ async fn ledger_entry_account_data() {
 
     let (account_id, expected_account_key) = expected_account_ledger_key(&new_account_addr).await;
 
-    let data_entry = &parsed.entries[0];
+    let account_entry = &parsed.entries[0];
+    assert_eq!(account_entry.key, expected_account_key);
+    assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
+
+    let data_entry = &parsed.entries[1];
     let name_bounded_string = StringM::<64>::try_from(data_name).unwrap();
     let expected_data_key = LedgerKey::Data(LedgerKeyData {
         account_id,
@@ -201,10 +202,6 @@ async fn ledger_entry_account_data() {
     });
     assert_eq!(data_entry.key, expected_data_key);
     assert!(matches!(data_entry.val, LedgerEntryData::Data { .. }));
-
-    let account_entry = &parsed.entries[1];
-    assert_eq!(account_entry.key, expected_account_key);
-    assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
 }
 
 // contract data tests
