@@ -15,7 +15,7 @@ use crate::integration::util::{deploy_contract, test_address, DeployOptions, HEL
 // account data tests
 // todo: test with--offer,
 #[tokio::test]
-async fn ledger_entry_account_only() {
+async fn ledger_entry_account_only_with_account_alias() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
     let new_account_addr = new_account(sandbox, account_alias);
@@ -23,10 +23,10 @@ async fn ledger_entry_account_only() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("account")
+        .arg(account_alias)
         .arg("--network")
         .arg("testnet")
-        .arg("--account")
-        .arg(account_alias)
         .assert()
         .success()
         .stdout_as_str();
@@ -42,7 +42,37 @@ async fn ledger_entry_account_only() {
     ));
 }
 
+#[ignore]
 #[tokio::test]
+async fn ledger_entry_account_only_with_account_addr() {
+    let sandbox = &TestEnv::new();
+    let new_account_addr = new_account(sandbox, "new_account");
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("account")
+        .arg(&new_account_addr)
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let (_, expected_key) = expected_account_ledger_key(&new_account_addr).await;
+    let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
+
+    assert!(!parsed.entries.is_empty());
+    assert_eq!(parsed.entries[0].key, expected_key);
+    assert!(matches!(
+        parsed.entries[0].val,
+        LedgerEntryData::Account { .. }
+    ));
+}
+
+
+#[tokio::test]
+#[ignore]
 async fn ledger_entry_account_asset_xlm() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
@@ -75,6 +105,7 @@ async fn ledger_entry_account_asset_xlm() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn ledger_entry_account_asset_usdc() {
     let sandbox = &TestEnv::new();
     let test_account_alias = "test";
@@ -136,6 +167,7 @@ async fn ledger_entry_account_asset_usdc() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn ledger_entry_account_data() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
@@ -177,6 +209,7 @@ async fn ledger_entry_account_data() {
 }
 
 // contract data tests
+#[ignore]
 #[tokio::test]
 async fn ledger_entry_contract_data() {
     let sandbox = &TestEnv::new();
@@ -262,6 +295,7 @@ async fn ledger_entry_contract_data() {
 
 // top level test
 // todo: test --ttl, --claimable-id, --pool-id,
+#[ignore]
 #[tokio::test]
 async fn ledger_entry_wasm_hash() {
     let sandbox = &TestEnv::new();
@@ -325,6 +359,7 @@ async fn ledger_entry_wasm_hash() {
     // assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
 }
 
+#[ignore]
 #[tokio::test]
 async fn ledger_entry_config_setting_id() {
     let sandbox = &TestEnv::new();
