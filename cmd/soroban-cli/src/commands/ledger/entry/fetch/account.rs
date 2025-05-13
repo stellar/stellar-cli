@@ -4,8 +4,9 @@ use std::fmt::Debug;
 use crate::commands::config::network;
 use crate::config::locator;
 use crate::{config, xdr};
+use crate::rpc;
 use clap::{command, Parser};
-use stellar_strkey::{ed25519::PublicKey as Ed25519PublicKey };
+use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 use stellar_xdr::curr::{
     AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4,
     LedgerKey, LedgerKeyAccount, LedgerKeyData,
@@ -85,8 +86,6 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let network = self.network.get(&self.locator)?;
-        let client = network.rpc_client()?;
         let mut ledger_keys = vec![];
 
         self.insert_account_keys(&mut ledger_keys)?;
@@ -94,6 +93,8 @@ impl Cmd {
         self.insert_data_keys(&mut ledger_keys)?;
         self.insert_offer_keys(&mut ledger_keys)?;
 
+        let network = self.network.get(&self.locator)?;
+        let client = network.rpc_client()?;
         match self.output {
             OutputFormat::Json => {
                 let resp = client.get_full_ledger_entries(&ledger_keys).await?;

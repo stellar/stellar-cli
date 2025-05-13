@@ -244,7 +244,6 @@ async fn ledger_entries_hide_account() {
 }
 
 // contract data tests
-#[ignore]
 #[tokio::test]
 async fn ledger_entry_contract_data() {
     let sandbox = &TestEnv::new();
@@ -275,10 +274,10 @@ async fn ledger_entry_contract_data() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("contract")
+        .arg(&contract_id)
         .arg("--network")
         .arg("testnet")
-        .arg("--contract-id")
-        .arg(&contract_id)
         .arg("--key")
         .arg(storage_key)
         .assert()
@@ -293,10 +292,10 @@ async fn ledger_entry_contract_data() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("contract")
+        .arg(&contract_id)
         .arg("--network")
         .arg("testnet")
-        .arg("--contract-id")
-        .arg(&contract_id)
         .arg("--key-xdr")
         .arg(storage_key_xdr)
         .assert()
