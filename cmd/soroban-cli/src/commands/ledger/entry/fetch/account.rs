@@ -17,25 +17,16 @@ use stellar_xdr::curr::{
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
+    /// Account alias or public key to lookup, default is test identity
+    pub account: String,
+
     #[command(flatten)]
     pub network: network::Args,
 
     #[command(flatten)]
     pub locator: locator::Args,
-
-    /// Name of identity to lookup, default is test identity
-    pub account: String,
     
-    /// If identity is a seed phrase use this hd path, default is 0
-    #[arg(long)]
-    pub hd_path: Option<usize>,
-     
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
-
     //Options
-
     /// Assets to get trustline info for
     #[arg(long)]
     pub asset: Option<Vec<String>>,
@@ -50,7 +41,16 @@ pub struct Cmd {
 
     /// Hide the account ledger entry from the output
     #[arg(long)]
-    pub hide_account: bool
+    pub hide_account: bool,
+
+    /// If identity is a seed phrase use this hd path, default is 0
+    #[arg(long)]
+    pub hd_path: Option<usize>,
+     
+    /// Format of the output
+    #[arg(long, default_value = "json")]
+    pub output: OutputFormat,
+
 }
 
 #[derive(thiserror::Error, Debug)]

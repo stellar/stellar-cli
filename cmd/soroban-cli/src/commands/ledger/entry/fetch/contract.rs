@@ -12,19 +12,15 @@ use stellar_xdr::curr::{
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
+    /// Contract alias or address to fetch
+    pub contract: config::UnresolvedContract,
+
     #[command(flatten)]
     pub network: network::Args,
 
     #[command(flatten)]
     pub locator: locator::Args,
-
-    /// Contract to fetch an info for
-    pub contract: config::UnresolvedContract,
      
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
-
     //Options
     /// Storage entry durability
     #[arg(long, value_enum, default_value = "persistent")]
@@ -37,6 +33,10 @@ pub struct Cmd {
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr")]
     pub key_xdr: Option<Vec<String>>,
+
+    /// Format of the output
+    #[arg(long, default_value = "json")]
+    pub output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
