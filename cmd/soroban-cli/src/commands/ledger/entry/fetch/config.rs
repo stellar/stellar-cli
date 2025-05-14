@@ -1,9 +1,11 @@
-use crate::config::{self, locator, network};
-use crate::rpc;
+use crate::{
+    config::{self, locator, network},
+    rpc,
+    xdr::{ConfigSettingId, LedgerKey, LedgerKeyConfigSetting},
+};
 use clap::{command, Parser};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use stellar_xdr::curr::{ConfigSettingId, LedgerKey, LedgerKeyConfigSetting};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -34,9 +36,7 @@ fn long_help() -> String {
 
     let setting_options = config_setting_strings.join("\n");
 
-    format!(
-        "Valid config setting IDs (Config Setting ID => Name):\n{setting_options}",
-    )
+    format!("Valid config setting IDs (Config Setting ID => Name):\n{setting_options}",)
 }
 
 fn config_setting_variants_to_ids() -> HashMap<ConfigSettingId, i32> {

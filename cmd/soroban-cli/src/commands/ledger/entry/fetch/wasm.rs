@@ -1,9 +1,10 @@
-use crate::commands::config::network;
-use crate::config;
-use crate::config::locator;
-use crate::rpc;
+use crate::{
+    config::{self, locator, network},
+    rpc,
+    xdr::{Hash, LedgerKey, LedgerKeyContractCode},
+};
+
 use clap::{command, Parser};
-use stellar_xdr::curr::{Hash, LedgerKey, LedgerKeyContractCode};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

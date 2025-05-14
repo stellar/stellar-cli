@@ -1,11 +1,12 @@
-use crate::commands::config::network;
-use crate::config::locator;
-use crate::rpc;
+use crate::{
+    config::{locator, network},
+    rpc,
+    xdr::{Hash, LedgerKey, LedgerKeyLiquidityPool, PoolId},
+};
 use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use std::fmt::Debug;
-use stellar_xdr::curr::{Hash, LedgerKey, LedgerKeyLiquidityPool, PoolId};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

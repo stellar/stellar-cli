@@ -1,17 +1,17 @@
 use std::array::TryFromSliceError;
 use std::fmt::Debug;
 
-use crate::commands::config::network;
-use crate::config::locator;
-use crate::rpc;
-use crate::{config, xdr};
+use crate::{
+    commands::config::{self, locator, network},
+    rpc,
+    xdr::{
+        self, AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey,
+        LedgerKeyAccount, LedgerKeyData, LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount,
+        PublicKey, String64, TrustLineAsset, Uint256,
+    },
+};
 use clap::{command, Parser};
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
-use stellar_xdr::curr::{
-    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey, LedgerKeyAccount,
-    LedgerKeyData, LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount, PublicKey, String64,
-    TrustLineAsset, Uint256,
-};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

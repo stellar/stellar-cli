@@ -1,14 +1,17 @@
-use crate::commands::config::network;
-use crate::commands::contract::Durability;
-use crate::config::locator;
-use crate::config::network::Network;
-use crate::rpc;
-use crate::{config, xdr};
-use clap::{command, Parser};
-use stellar_xdr::curr::{
-    ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
-    ScVal,
+use crate::{
+    commands::contract::Durability,
+    config,
+    config::{
+        locator,
+        network::{self, Network},
+    },
+    rpc,
+    xdr::{
+        self, ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr,
+        ScAddress, ScVal,
+    },
 };
+use clap::{command, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

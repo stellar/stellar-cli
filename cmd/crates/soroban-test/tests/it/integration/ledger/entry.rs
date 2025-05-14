@@ -394,8 +394,6 @@ async fn ledger_entry_wasm_hash() {
 #[tokio::test]
 async fn ledger_entry_config_setting_id() {
     let sandbox = &TestEnv::new();
-    let config_setting_ids = ConfigSettingId::VARIANTS;
-
     // for individual ids
     let output = sandbox
         .new_assert_cmd("ledger")
