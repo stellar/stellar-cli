@@ -118,7 +118,7 @@ impl CustomAccountInterface for Contract {
                 Context::CreateContractWithCtorHostFn(_) | Context::CreateContractHostFn(_) => {
                     return Err(Error::InvalidContext)
                 }
-            };
+            }
         }
 
         // Dummy public key verification check
