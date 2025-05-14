@@ -2722,7 +2722,28 @@ Work with ledger entries
 
 Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
 
-**Usage:** `stellar ledger entry fetch [OPTIONS]`
+**Usage:** `stellar ledger entry fetch <COMMAND>`
+
+###### **Subcommands:**
+
+* `account` — Fetch account entry by public key or alias. Additional account-related keys are available with optional flags
+* `contract` — Fetch contract ledger entry by address or alias and storage key
+* `config` — Fetch the current network config by ConfigSettingId. All config settings are returned if no id is provided
+* `claimable-balance` — Fetch a claimable balance ledger entry by id
+* `liquidity-pool` — Fetch a liquidity pool ledger entry by id
+* `wasm` — Fetch WASM bytecode by hash
+
+
+
+## `stellar ledger entry fetch account`
+
+Fetch account entry by public key or alias. Additional account-related keys are available with optional flags
+
+**Usage:** `stellar ledger entry fetch account [OPTIONS] <ACCOUNT>`
+
+###### **Arguments:**
+
+* `<ACCOUNT>` — Account alias or public key to lookup, default is test identity
 
 ###### **Options:**
 
@@ -2732,17 +2753,44 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--account <ACCOUNT>` — Name of identity to lookup, default is test identity
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--asset <ASSET>` — Assets to get trustline info for
-* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
 * `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
-* `--claimable-id <CLAIMABLE_ID>` — Claimable Balance id
-* `--pool-id <POOL_ID>` — Liquidity pool id
-* `--config-setting-id <CONFIG_SETTING_ID>` — Defines the currently active network configuration
-* `--wasm-hash <WASM_HASH>` — Get WASM bytecode by hash
-* `--ttl <TTL>` — Get the time-to-live of an associated contract data or code entry
-* `--contract-id <CONTRACT_ID>` — Contract id to fetch an info for
+* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
+* `--hide-account` — Hide the account ledger entry from the output
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger entry fetch contract`
+
+Fetch contract ledger entry by address or alias and storage key
+
+**Usage:** `stellar ledger entry fetch contract [OPTIONS] <CONTRACT>`
+
+###### **Arguments:**
+
+* `<CONTRACT>` — Contract alias or address to fetch
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--durability <DURABILITY>` — Storage entry durability
 
   Default value: `persistent`
@@ -2755,6 +2803,152 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 
 * `--key <KEY>` — Storage key (symbols only)
 * `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger entry fetch config`
+
+Fetch the current network config by ConfigSettingId. All config settings are returned if no id is provided
+
+**Usage:** `stellar ledger entry fetch config [OPTIONS] [CONFIG_SETTING_IDS]...`
+
+###### **Arguments:**
+
+* `<CONFIG_SETTING_IDS>` — Valid config setting IDs (Config Setting ID => Name):
+   0 => ContractMaxSizeBytes
+   1 => ContractComputeV0
+   2 => ContractLedgerCostV0
+   3 => ContractHistoricalDataV0
+   4 => ContractEventsV0
+   5 => ContractBandwidthV0
+   6 => ContractCostParamsCpuInstructions
+   7 => ContractCostParamsMemoryBytes
+   8 => ContractDataKeySizeBytes
+   9 => ContractDataEntrySizeBytes
+   10 => StateArchival
+   11 => ContractExecutionLanes
+   12 => BucketlistSizeWindow
+   13 => EvictionIterator
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger entry fetch claimable-balance`
+
+Fetch a claimable balance ledger entry by id
+
+**Usage:** `stellar ledger entry fetch claimable-balance [OPTIONS] [IDS]...`
+
+###### **Arguments:**
+
+* `<IDS>` — Claimable Balance Ids to fetch an entry for
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger entry fetch liquidity-pool`
+
+Fetch a liquidity pool ledger entry by id
+
+**Usage:** `stellar ledger entry fetch liquidity-pool [OPTIONS] [IDS]...`
+
+###### **Arguments:**
+
+* `<IDS>` — Liquidity pool ids
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger entry fetch wasm`
+
+Fetch WASM bytecode by hash
+
+**Usage:** `stellar ledger entry fetch wasm [OPTIONS] [WASM_HASHES]...`
+
+###### **Arguments:**
+
+* `<WASM_HASHES>` — Get WASM bytecode by hash
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
