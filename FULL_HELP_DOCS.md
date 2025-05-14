@@ -2753,11 +2753,6 @@ Fetch account entry by public key or alias. Additional account-related keys are 
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--asset <ASSET>` — Assets to get trustline info for
-* `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
-* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
-* `--hide-account` — Hide the account ledger entry from the output
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -2770,6 +2765,11 @@ Fetch account entry by public key or alias. Additional account-related keys are 
   - `xdr`:
     Original RPC output (containing XDRs)
 
+* `--asset <ASSET>` — Assets to get trustline info for
+* `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
+* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
+* `--hide-account` — Hide the account ledger entry from the output
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
 
 
@@ -2791,18 +2791,6 @@ Fetch contract ledger entry by address or alias and storage key
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-* `--durability <DURABILITY>` — Storage entry durability
-
-  Default value: `persistent`
-
-  Possible values:
-  - `persistent`:
-    Persistent
-  - `temporary`:
-    Temporary
-
-* `--key <KEY>` — Storage key (symbols only)
-* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -2815,6 +2803,18 @@ Fetch contract ledger entry by address or alias and storage key
   - `xdr`:
     Original RPC output (containing XDRs)
 
+* `--durability <DURABILITY>` — Storage entry durability
+
+  Default value: `persistent`
+
+  Possible values:
+  - `persistent`:
+    Persistent
+  - `temporary`:
+    Temporary
+
+* `--key <KEY>` — Storage key (symbols only)
+* `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 
 
 
