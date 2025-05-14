@@ -8,6 +8,7 @@ use crate::{
 use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
+use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -38,17 +39,6 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }
 
 impl Cmd {

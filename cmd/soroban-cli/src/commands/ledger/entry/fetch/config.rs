@@ -6,6 +6,7 @@ use crate::{
 use clap::{command, Parser};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -60,17 +61,6 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("provided config id is invalid: {0}")]
     InvalidConfigId(i32),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }
 
 impl Cmd {

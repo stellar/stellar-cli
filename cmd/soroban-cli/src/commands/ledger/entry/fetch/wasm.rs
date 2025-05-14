@@ -5,6 +5,7 @@ use crate::{
 };
 
 use clap::{command, Parser};
+use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -41,17 +42,6 @@ pub enum Error {
     StellarXdr(#[from] stellar_xdr::curr::Error),
     #[error("provided hash value is invalid: {0}")]
     InvalidHash(String),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }
 
 impl Cmd {

@@ -7,6 +7,7 @@ use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use std::fmt::Debug;
+use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -37,17 +38,6 @@ pub enum Error {
     FromHexError(#[from] FromHexError),
     #[error("provided hash value is invalid: {0}")]
     InvalidHash(String),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }
 
 impl Cmd {

@@ -2,7 +2,7 @@ use std::array::TryFromSliceError;
 use std::fmt::Debug;
 
 use crate::{
-    commands::config::{self, locator, network},
+    commands::{config::{self, locator, network}},
     rpc,
     xdr::{
         self, AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey,
@@ -12,6 +12,7 @@ use crate::{
 };
 use clap::{command, Parser};
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
+use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -69,17 +70,6 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     TryFromSliceError(#[from] TryFromSliceError),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }
 
 impl Cmd {
