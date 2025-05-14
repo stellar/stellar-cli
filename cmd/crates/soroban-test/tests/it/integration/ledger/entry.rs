@@ -327,7 +327,7 @@ async fn ledger_entry_contract_data() {
 }
 
 // top level test
-// todo: test --ttl, --claimable-id, --pool-id,
+// todo: test --claimable-id, --pool-id,
 #[tokio::test]
 async fn ledger_entry_wasm_hash() {
     let sandbox = &TestEnv::new();
@@ -382,13 +382,6 @@ async fn ledger_entry_wasm_hash() {
         parsed_output.entries[0].val,
         LedgerEntryData::ContractCode { .. }
     ));
-    // key: ContractCode(LedgerKeyContractCode { hash: Hash(74a0a58bee2730d38dfaa547c0f3e64b1b76cf7d7e430373a9bf7aad122aff9f) }
-
-    // assert_eq!(parsed_key_xdr_output.entries[0].key, expected_contract_data_key);
-    // assert!(matches!(parsed_key_xdr_output.entries[0].val, LedgerEntryData::ContractData{ .. }));
-
-    // // the output should be the same regardless of key format
-    // assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
 }
 
 #[tokio::test]
@@ -446,38 +439,6 @@ async fn ledger_entry_config_setting_id() {
         parsed_output.entries.len(),
         ConfigSettingId::variants().len()
     );
-}
-
-#[ignore]
-#[tokio::test]
-async fn ledger_entry_ttl() {
-    let sandbox = &TestEnv::new();
-    let test_account_alias = "test";
-    let contract_id = deploy_contract(
-        sandbox,
-        HELLO_WORLD,
-        DeployOptions {
-            deployer: Some(test_account_alias.to_string()),
-            ..Default::default()
-        },
-    )
-    .await;
-
-    // get the contract's TTL
-    let output = sandbox
-        .new_assert_cmd("ledger")
-        .arg("entry")
-        .arg("fetch")
-        .arg("--network")
-        .arg("testnet")
-        .arg("--ttl")
-        .arg(contract_id)
-        .assert()
-        .success()
-        .stdout_as_str();
-    let parsed_output: FullLedgerEntries =
-        serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
 }
 
 // Helper Fns
