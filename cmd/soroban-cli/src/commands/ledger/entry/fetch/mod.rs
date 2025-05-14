@@ -2,6 +2,7 @@ use clap::Parser;
 use std::fmt::Debug;
 
 pub mod account;
+pub mod args;
 pub mod claimable_balance;
 pub mod config;
 pub mod contract;
@@ -54,15 +55,4 @@ impl Cmd {
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
 }

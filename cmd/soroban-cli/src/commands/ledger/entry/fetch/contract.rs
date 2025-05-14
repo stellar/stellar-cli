@@ -1,18 +1,13 @@
+use super::args::Args;
 use crate::{
     commands::contract::Durability,
-    config,
-    config::{
-        locator,
-        network::{self, Network},
-    },
-    rpc,
+    config::{self, locator},
     xdr::{
         self, ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr,
         ScAddress, ScVal,
     },
 };
 use clap::{command, Parser};
-use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,10 +16,7 @@ pub struct Cmd {
     pub contract: config::UnresolvedContract,
 
     #[command(flatten)]
-    pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
+    pub args: Args,
 
     //Options
     /// Storage entry durability
@@ -38,24 +30,14 @@ pub struct Cmd {
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr")]
     pub key_xdr: Option<Vec<String>>,
-
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Config(#[from] config::key::Error),
+    Run(#[from] super::args::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Spec(#[from] soroban_spec_tools::Error),
     #[error(transparent)]
@@ -64,38 +46,16 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let network = self.network.get(&self.locator)?;
-        let client = network.rpc_client()?;
         let mut ledger_keys = vec![];
-
-        self.insert_keys(&network, &mut ledger_keys)?;
-
-        match self.output {
-            OutputFormat::Json => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::Xdr => {
-                let resp = client.get_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::JsonFormatted => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string_pretty(&resp)?);
-            }
-        }
-
-        Ok(())
+        self.insert_keys(&mut ledger_keys)?;
+        Ok(self.args.run(ledger_keys).await?)
     }
 
-    fn insert_keys(
-        &self,
-        network: &Network,
-        ledger_keys: &mut Vec<LedgerKey>,
-    ) -> Result<(), Error> {
+    fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        let network = self.args.network()?;
         let contract_id = self
             .contract
-            .resolve_contract_id(&self.locator, &network.network_passphrase)?;
+            .resolve_contract_id(&self.args.locator, &network.network_passphrase)?;
         let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
 
         if let Some(keys) = &self.key {

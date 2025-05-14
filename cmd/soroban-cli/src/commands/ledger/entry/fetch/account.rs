@@ -1,9 +1,9 @@
 use std::array::TryFromSliceError;
 use std::fmt::Debug;
 
+use super::args::Args;
 use crate::{
-    commands::{config::{self, locator, network}},
-    rpc,
+    commands::config::{self, locator},
     xdr::{
         self, AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey,
         LedgerKeyAccount, LedgerKeyData, LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount,
@@ -12,7 +12,6 @@ use crate::{
 };
 use clap::{command, Parser};
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
-use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,10 +20,7 @@ pub struct Cmd {
     pub account: String,
 
     #[command(flatten)]
-    pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
+    pub args: Args,
 
     //Options
     /// Assets to get trustline info for
@@ -46,10 +42,6 @@ pub struct Cmd {
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
-
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -63,42 +55,20 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error(transparent)]
     TryFromSliceError(#[from] TryFromSliceError),
+    #[error(transparent)]
+    Run(#[from] super::args::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let mut ledger_keys = vec![];
-
         self.insert_account_keys(&mut ledger_keys)?;
         self.insert_asset_keys(&mut ledger_keys)?;
         self.insert_data_keys(&mut ledger_keys)?;
         self.insert_offer_keys(&mut ledger_keys)?;
 
-        let network = self.network.get(&self.locator)?;
-        let client = network.rpc_client()?;
-        match self.output {
-            OutputFormat::Json => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::Xdr => {
-                let resp = client.get_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::JsonFormatted => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string_pretty(&resp)?);
-            }
-        }
-
-        Ok(())
+        Ok(self.args.run(ledger_keys).await?)
     }
 
     fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
@@ -193,6 +163,7 @@ impl Cmd {
 
     fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
         Ok(self
+            .args
             .locator
             .read_key(account)?
             .muxed_account(self.hd_path)?)

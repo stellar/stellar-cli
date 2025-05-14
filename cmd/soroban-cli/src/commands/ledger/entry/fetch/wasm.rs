@@ -1,73 +1,30 @@
-use crate::{
-    config::{self, locator, network},
-    rpc,
-    xdr::{Hash, LedgerKey, LedgerKeyContractCode},
-};
-
+use super::args::Args;
+use crate::xdr::{Hash, LedgerKey, LedgerKeyContractCode};
 use clap::{command, Parser};
-use super::OutputFormat;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    #[command(flatten)]
-    pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
-
     /// Get WASM bytecode by hash
     pub wasm_hashes: Vec<String>,
 
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
+    #[command(flatten)]
+    pub args: Args,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Config(#[from] config::key::Error),
-    #[error(transparent)]
-    Locator(#[from] locator::Error),
-    #[error(transparent)]
-    Network(#[from] network::Error),
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error(transparent)]
-    Spec(#[from] soroban_spec_tools::Error),
-    #[error(transparent)]
-    StellarXdr(#[from] stellar_xdr::curr::Error),
     #[error("provided hash value is invalid: {0}")]
     InvalidHash(String),
+    #[error(transparent)]
+    Run(#[from] super::args::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let network = self.network.get(&self.locator)?;
-        let client = network.rpc_client()?;
         let mut ledger_keys = vec![];
-
         self.insert_keys(&mut ledger_keys)?;
-
-        match self.output {
-            OutputFormat::Json => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::Xdr => {
-                let resp = client.get_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string(&resp)?);
-            }
-            OutputFormat::JsonFormatted => {
-                let resp = client.get_full_ledger_entries(&ledger_keys).await?;
-                println!("{}", serde_json::to_string_pretty(&resp)?);
-            }
-        }
-
-        Ok(())
+        Ok(self.args.run(ledger_keys).await?)
     }
 
     fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
