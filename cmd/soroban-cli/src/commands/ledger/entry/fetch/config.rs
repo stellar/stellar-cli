@@ -38,16 +38,6 @@ fn config_setting_variants_to_ids() -> HashMap<ConfigSettingId, i32> {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // #[error(transparent)]
-    // Config(#[from] config::key::Error),
-    // #[error(transparent)]
-    // Locator(#[from] locator::Error),
-    // #[error(transparent)]
-    // Network(#[from] network::Error),
-    // #[error(transparent)]
-    // Rpc(#[from] rpc::Error),
-    // #[error(transparent)]
-    // Serde(#[from] serde_json::Error),
     #[error("provided config id is invalid: {0}")]
     InvalidConfigId(i32),
     #[error(transparent)]
