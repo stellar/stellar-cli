@@ -10,11 +10,19 @@ pub mod wasm;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
+    /// Fetch account entry by public key or alias.
+    /// Additional account-related keys are available with optional flags.
     Account(account::Cmd),
+    /// Fetch contract ledger entry by address or alias and storage key.
     Contract(contract::Cmd),
+    /// Fetch the current network config by ConfigSettingId.
+    /// All config settings are returned if no id is provided.
     Config(config::Cmd),
+    ///Fetch a claimable balance ledger entry by id
     ClaimableBalance(claimable_balance::Cmd),
+    ///Fetch a liquidity pool ledger entry by id
     LiquidityPool(liquidity_pool::Cmd),
+    /// Fetch WASM bytecode by hash
     Wasm(wasm::Cmd),
 }
 
