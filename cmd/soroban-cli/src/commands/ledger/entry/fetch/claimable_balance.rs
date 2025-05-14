@@ -5,8 +5,7 @@ use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use stellar_xdr::curr::{
-    ClaimableBalanceId::ClaimableBalanceIdTypeV0,  Hash,
-    LedgerKey, LedgerKeyClaimableBalance,
+    ClaimableBalanceId::ClaimableBalanceIdTypeV0, Hash, LedgerKey, LedgerKeyClaimableBalance,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -20,11 +19,10 @@ pub struct Cmd {
 
     /// Claimable Balance Ids to fetch an entry for
     pub ids: Vec<String>,
-     
+
     /// Format of the output
     #[arg(long, default_value = "json")]
     pub output: OutputFormat,
-
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -39,7 +37,7 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -78,12 +76,9 @@ impl Cmd {
         Ok(())
     }
 
-    fn insert_keys(
-        &self,
-        ledger_keys: &mut Vec<LedgerKey>,
-    ) -> Result<(), Error> {
+    fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         for x in &self.ids {
-            let padded_hex = padded_hex_from_str(&x, 32)?;
+            let padded_hex = padded_hex_from_str(x, 32)?;
             let hash_bytes: [u8; 32] = padded_hex
                 .try_into()
                 .map_err(|_| Error::InvalidHash(x.to_string()))?;

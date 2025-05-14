@@ -1,10 +1,10 @@
-use std::fmt::Debug;
 use clap::Parser;
+use std::fmt::Debug;
 
 pub mod account;
-pub mod contract;
-pub mod config;
 pub mod claimable_balance;
+pub mod config;
+pub mod contract;
 pub mod liquidity_pool;
 pub mod wasm;
 

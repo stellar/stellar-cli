@@ -1,11 +1,11 @@
-use std::fmt::Debug;
 use crate::commands::config::network;
 use crate::config::locator;
 use crate::rpc;
 use clap::{command, Parser};
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
-use stellar_xdr::curr::{ Hash, LedgerKey, LedgerKeyLiquidityPool, PoolId, };
+use std::fmt::Debug;
+use stellar_xdr::curr::{Hash, LedgerKey, LedgerKeyLiquidityPool, PoolId};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -18,12 +18,11 @@ pub struct Cmd {
 
     /// Liquidity pool ids
     pub ids: Vec<String>,
-     
+
     /// Format of the output
     #[arg(long, default_value = "json")]
     pub output: OutputFormat,
 }
-
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -37,7 +36,7 @@ pub enum Error {
     FromHexError(#[from] FromHexError),
     #[error("provided hash value is invalid: {0}")]
     InvalidHash(String),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -76,12 +75,9 @@ impl Cmd {
         Ok(())
     }
 
-    fn insert_keys(
-        &self,
-        ledger_keys: &mut Vec<LedgerKey>,
-    ) -> Result<(), Error> {
+    fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         for x in &self.ids {
-            let padded_hex = padded_hex_from_str(&x, 32)?;
+            let padded_hex = padded_hex_from_str(x, 32)?;
             let hash_bytes: [u8; 32] = padded_hex
                 .try_into()
                 .map_err(|_| Error::InvalidHash(x.to_string()))?;

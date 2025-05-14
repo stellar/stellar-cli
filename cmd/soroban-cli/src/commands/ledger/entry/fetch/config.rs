@@ -1,13 +1,9 @@
-use std::fmt::Debug;
-use std::collections::HashMap;
+use crate::config::{self, locator, network};
 use crate::rpc;
-use crate::config::{
-    self, locator, network
-};
 use clap::{command, Parser};
-use stellar_xdr::curr::{
-    ConfigSettingId, LedgerKey, LedgerKeyConfigSetting,
-};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use stellar_xdr::curr::{ConfigSettingId, LedgerKey, LedgerKeyConfigSetting};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -32,22 +28,22 @@ fn long_help() -> String {
     config_settings.sort_by_key(|v| *v as i32);
 
     let config_setting_strings: Vec<String> = config_settings
-    .iter()
-    .map(|v| format!("{} => {:?}", *v as i32, v))
-    .collect();
+        .iter()
+        .map(|v| format!("{} => {:?}", *v as i32, v))
+        .collect();
 
     let setting_options = config_setting_strings.join("\n");
-    
+
     format!(
-        "Valid config setting IDs (Config Setting ID => Name):\n{}",
-        setting_options
+        "Valid config setting IDs (Config Setting ID => Name):\n{setting_options}",
     )
 }
 
-fn config_setting_variants_to_ids() -> HashMap<ConfigSettingId, i32>{
-    ConfigSettingId::variants().iter()
-    .map(|v| (*v, *v as i32))
-    .collect()
+fn config_setting_variants_to_ids() -> HashMap<ConfigSettingId, i32> {
+    ConfigSettingId::variants()
+        .iter()
+        .map(|v| (*v, *v as i32))
+        .collect()
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -64,7 +60,7 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error("provided config id is invalid: {0}")]
     InvalidConfigId(i32),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -121,9 +117,7 @@ impl Cmd {
                 ledger_keys.push(key);
             }
         }
-    
+
         Ok(())
     }
-
 }
-

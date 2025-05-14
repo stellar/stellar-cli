@@ -3,15 +3,14 @@ use std::fmt::Debug;
 
 use crate::commands::config::network;
 use crate::config::locator;
-use crate::{config, xdr};
 use crate::rpc;
+use crate::{config, xdr};
 use clap::{command, Parser};
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 use stellar_xdr::curr::{
-    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4,
-    LedgerKey, LedgerKeyAccount, LedgerKeyData,
-    LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount, PublicKey,
-    String64, TrustLineAsset, Uint256,
+    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey, LedgerKeyAccount,
+    LedgerKeyData, LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount, PublicKey, String64,
+    TrustLineAsset, Uint256,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -25,7 +24,7 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub locator: locator::Args,
-    
+
     //Options
     /// Assets to get trustline info for
     #[arg(long)]
@@ -46,11 +45,10 @@ pub struct Cmd {
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
-     
+
     /// Format of the output
     #[arg(long, default_value = "json")]
     pub output: OutputFormat,
-
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -71,7 +69,7 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     TryFromSliceError(#[from] TryFromSliceError),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -115,7 +113,7 @@ impl Cmd {
 
     fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         if self.hide_account {
-            return Ok(())
+            return Ok(());
         }
         let acc = self.muxed_account(&self.account)?;
         let key = LedgerKey::Account(LedgerKeyAccount {
@@ -123,7 +121,6 @@ impl Cmd {
         });
 
         ledger_keys.push(key);
-
 
         Ok(())
     }
@@ -142,8 +139,7 @@ impl Cmd {
                         Err(Error::InvalidAsset(asset.clone()))?;
                     }
                     let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
-                    let issuer =
-                        AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
+                    let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
 
                     match code.len() {
                         4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {

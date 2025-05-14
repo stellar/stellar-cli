@@ -6,7 +6,8 @@ use crate::rpc;
 use crate::{config, xdr};
 use clap::{command, Parser};
 use stellar_xdr::curr::{
-    ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr, ScAddress, ScVal
+    ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
+    ScVal,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -20,7 +21,7 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub locator: locator::Args,
-     
+
     //Options
     /// Storage entry durability
     #[arg(long, value_enum, default_value = "persistent")]
@@ -29,7 +30,7 @@ pub struct Cmd {
     /// Storage key (symbols only)
     #[arg(long = "key")]
     pub key: Option<Vec<String>>,
-    
+
     /// Storage key (base64-encoded XDR)
     #[arg(long = "key-xdr")]
     pub key_xdr: Option<Vec<String>>,
@@ -55,7 +56,7 @@ pub enum Error {
     Spec(#[from] soroban_spec_tools::Error),
     #[error(transparent)]
     StellarXdr(#[from] stellar_xdr::curr::Error),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -99,8 +100,9 @@ impl Cmd {
         network: &Network,
         ledger_keys: &mut Vec<LedgerKey>,
     ) -> Result<(), Error> {
-        let contract_id =
-            self.contract.resolve_contract_id(&self.locator, &network.network_passphrase)?;
+        let contract_id = self
+            .contract
+            .resolve_contract_id(&self.locator, &network.network_passphrase)?;
         let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
 
         if let Some(keys) = &self.key {

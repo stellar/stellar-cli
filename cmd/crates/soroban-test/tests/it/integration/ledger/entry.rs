@@ -229,7 +229,6 @@ async fn ledger_entries_hide_account() {
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
     assert!(!parsed.entries.is_empty());
     assert_eq!(parsed.entries.len(), 1);
-    
 
     let (account_id, _) = expected_account_ledger_key(&new_account_addr).await;
 
@@ -445,7 +444,10 @@ async fn ledger_entry_config_setting_id() {
     let parsed_output: FullLedgerEntries =
         serde_json::from_str(&output).expect("Failed to parse JSON");
     assert!(!parsed_output.entries.is_empty());
-    assert_eq!(parsed_output.entries.len(), ConfigSettingId::variants().len());
+    assert_eq!(
+        parsed_output.entries.len(),
+        ConfigSettingId::variants().len()
+    );
 }
 
 #[ignore]

@@ -1,10 +1,9 @@
 use crate::commands::config::network;
+use crate::config;
 use crate::config::locator;
 use crate::rpc;
-use crate::config;
 use clap::{command, Parser};
-use stellar_xdr::curr::{ Hash, LedgerKey, LedgerKeyContractCode, 
-};
+use stellar_xdr::curr::{Hash, LedgerKey, LedgerKeyContractCode};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -17,7 +16,7 @@ pub struct Cmd {
 
     /// Get WASM bytecode by hash
     pub wasm_hashes: Vec<String>,
-     
+
     /// Format of the output
     #[arg(long, default_value = "json")]
     pub output: OutputFormat,
@@ -41,7 +40,7 @@ pub enum Error {
     StellarXdr(#[from] stellar_xdr::curr::Error),
     #[error("provided hash value is invalid: {0}")]
     InvalidHash(String),
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
@@ -80,13 +79,10 @@ impl Cmd {
         Ok(())
     }
 
-    fn insert_keys(
-        &self,
-        ledger_keys: &mut Vec<LedgerKey>,
-    ) -> Result<(), Error> {
+    fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         for wasm_hash in &self.wasm_hashes {
             let hash = Hash(
-                soroban_spec_tools::utils::contract_id_from_str(&wasm_hash)
+                soroban_spec_tools::utils::contract_id_from_str(wasm_hash)
                     .map_err(|_| Error::InvalidHash(wasm_hash.clone()))?,
             );
             let key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
