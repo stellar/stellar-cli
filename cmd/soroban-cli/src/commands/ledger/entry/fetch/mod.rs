@@ -6,6 +6,7 @@ pub mod contract;
 pub mod config;
 pub mod claimable_balance;
 pub mod liquidity_pool;
+pub mod wasm;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -14,6 +15,7 @@ pub enum Cmd {
     Config(config::Cmd),
     ClaimableBalance(claimable_balance::Cmd),
     LiquidityPool(liquidity_pool::Cmd),
+    Wasm(wasm::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -28,6 +30,8 @@ pub enum Error {
     ClaimableBalance(#[from] claimable_balance::Error),
     #[error(transparent)]
     LiquidityPool(#[from] liquidity_pool::Error),
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 impl Cmd {
@@ -38,6 +42,7 @@ impl Cmd {
             Cmd::Config(cmd) => cmd.run().await?,
             Cmd::ClaimableBalance(cmd) => cmd.run().await?,
             Cmd::LiquidityPool(cmd) => cmd.run().await?,
+            Cmd::Wasm(cmd) => cmd.run().await?,
         }
         Ok(())
     }

@@ -329,7 +329,6 @@ async fn ledger_entry_contract_data() {
 
 // top level test
 // todo: test --ttl, --claimable-id, --pool-id,
-#[ignore]
 #[tokio::test]
 async fn ledger_entry_wasm_hash() {
     let sandbox = &TestEnv::new();
@@ -360,10 +359,10 @@ async fn ledger_entry_wasm_hash() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
+        .arg("wasm")
+        .arg(&contract_wasm_hash)
         .arg("--network")
         .arg("testnet")
-        .arg("--wasm-hash")
-        .arg(&contract_wasm_hash)
         .assert()
         .success()
         .stdout_as_str();
