@@ -11,4 +11,4 @@ cargo clippy --all -- -Dwarnings
 cargo build
 cargo test --all || (echo "might need to rebuild make build-snapshot" && exit 1)
 
-cargo run --bin doc-gen --features clap-markdown
+cargo run --bin doc-gen

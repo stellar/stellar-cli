@@ -27,7 +27,6 @@ bin-dir = "{ bin }{ binary-ext }"
 [[bin]]
 name = "doc-gen"
 path = "src/bin/doc-gen.rs"
-required-features = ["clap-markdown"]
 
 [lib]
 name = "soroban_cli"
