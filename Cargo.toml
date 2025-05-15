@@ -45,6 +45,13 @@ path = "./cmd/crates/soroban-spec-tools"
 version = "=22.1.0"
 default-features = true
 
+# Dependencies from the rs-stellar-strkey repo:
+[workspace.dependencies.stellar-strkey]
+version = "=0.0.13"
+default-features = true
+git = "https://github.com/stellar/rs-stellar-strkey"
+branch = "refactor-cli-structure-to-module"
+
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
 version = "=22.0.4"
@@ -72,7 +79,6 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
-stellar-strkey = "0.0.11"
 sep5 = "0.0.4"
 base64 = "0.21.2"
 thiserror = "1.0.46"
