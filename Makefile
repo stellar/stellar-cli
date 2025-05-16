@@ -45,7 +45,7 @@ build-test-wasms:
 build-test: build-test-wasms install
 
 generate-full-help-doc:
-	cargo run --bin doc-gen --features clap-markdown
+	cargo run --bin doc-gen
 
 test: build-test
 	cargo test --workspace --exclude soroban-test

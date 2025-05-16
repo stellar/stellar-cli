@@ -3,4 +3,6 @@
 set -ex
 
 cargo fmt --check || (cargo fmt && exit 1)
-cargo run --bin doc-gen --features clap-markdown
+
+echo '+cargo md-gen'
+cargo md-gen
