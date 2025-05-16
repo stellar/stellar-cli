@@ -112,10 +112,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[error(
-        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
-    )]
-    InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
