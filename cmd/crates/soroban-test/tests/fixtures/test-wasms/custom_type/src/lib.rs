@@ -52,6 +52,16 @@ pub enum Error {
     /// Please provide an odd number
     NumberMustBeOdd = 1,
 }
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum Erroneous {
+    /// Some contract libraries contain extra #[contracterror] definitions that end up compiled
+    /// into the main contract types. We need to make sure tooling deals with this properly.
+    HowCouldYou = 100,
+}
+
 #[contractimpl]
 impl Contract {
     pub fn hello(_env: Env, hello: Symbol) -> Symbol {
