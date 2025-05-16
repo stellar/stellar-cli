@@ -121,14 +121,7 @@ export class Client extends ContractClient {{
 }
 
 pub fn generate(spec: &[ScSpecEntry]) -> String {
-    let mut collected: Vec<_> = spec.iter().map(Entry::from).collect();
-    if !spec.iter().any(is_error_enum) {
-        collected.push(Entry::ErrorEnum {
-            doc: String::new(),
-            name: "Error".to_string(),
-            cases: vec![],
-        });
-    }
+    let collected: Vec<_> = spec.iter().map(Entry::from).collect();
     let mut constructor_args: Option<Vec<types::FunctionInput>> = None;
     // Filter out function entries with names that start with "__" and partition the results
     collected.iter().for_each(|entry| match entry {
@@ -141,9 +134,9 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
         .into_iter()
         .filter(|entry| !matches!(entry, Entry::Function { name, .. } if name.starts_with("__")))
         .partition(|entry| matches!(entry, Entry::Function { .. }));
-    let top = other.iter().map(entry_to_method_type).join("\n");
-    let bottom = generate_class(&fns, constructor_args, spec);
-    format!("{top}\n\n{bottom}")
+    let other = other.iter().map(entry_to_method_type).join("\n");
+    let methods = generate_class(&fns, constructor_args, spec);
+    format!("{other}\n\n{methods}")
 }
 
 fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String {
@@ -176,10 +169,6 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
 {indent} */
 "
     )
-}
-
-fn is_error_enum(entry: &ScSpecEntry) -> bool {
-    matches!(entry, ScSpecEntry::UdtErrorEnumV0(_))
 }
 
 const METHOD_OPTIONS: &str = r"{
@@ -293,31 +282,10 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 ",
             )
         }
-        Entry::ErrorEnum { doc, cases, .. } => {
-            let doc = doc_to_ts_doc(doc, None, 0);
-            let cases = cases
-                .iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    if c.doc.is_empty() {
-                        format!(
-                            "{}  {}: {{message:\"{}\"}}",
-                            if i == 0 { "" } else { "\n" },
-                            c.value,
-                            c.name
-                        )
-                    } else {
-                        format!(
-                            "{}{}  {}: {{message:\"{}\"}}",
-                            if i == 0 { "" } else { "\n" },
-                            doc_to_ts_doc(&c.doc, None, 1),
-                            c.value,
-                            c.name
-                        )
-                    }
-                })
-                .join(",\n");
-            format!("{doc}export const Errors = {{\n{cases}\n}}")
+        Entry::ErrorEnum { .. } => {
+            // Generated file does not need to error types; they are parsed at runtime:
+            // https://github.com/stellar/js-stellar-sdk/blob/f1f81f7870affb444c1d2a289c1a272f01410346/src/contract/client.ts#L34-L40
+            String::new()
         }
     }
 }
