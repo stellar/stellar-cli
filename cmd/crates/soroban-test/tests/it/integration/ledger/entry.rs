@@ -1,9 +1,21 @@
-use soroban_cli::xdr::{
-    AccountId, AlphaNum4, AssetCode4, ConfigSettingId, ContractDataDurability, Hash,
-    LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyConfigSetting, LedgerKeyContractCode,
-    LedgerKeyContractData, LedgerKeyData, LedgerKeyTrustLine, Limits, PublicKey, ScAddress, ScVal,
-    String64, StringM, TrustLineAsset, Uint256, WriteXdr,
+use soroban_cli::{
+        xdr::{
+        self,
+        AccountId, AlphaNum4, AssetCode4, ConfigSettingId, ContractDataDurability, Hash,
+        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyConfigSetting, LedgerKeyContractCode,
+        LedgerKeyContractData, LedgerKeyData, LedgerKeyTrustLine, Limits, PublicKey, ScAddress, ScVal,
+        String64, StringM, TrustLineAsset, Uint256, WriteXdr,ClaimantV0, Claimant, Operation,ClaimPredicate, Asset, CreateClaimableBalanceOp, OperationBody, ClaimantType, VecM, Transaction, TransactionEnvelope, TransactionResult, TransactionResultResult, ClaimableBalanceId, OperationResultTr, OperationResult, CreateClaimableBalanceResult, LedgerKeyClaimableBalance
+    },
+    tx::builder::{self, asset, TxExt},
+    config::{
+        self,
+        address::{self, UnresolvedMuxedAccount},
+        locator,
+        data, network, secret,
+    },
 };
+
+use soroban_rpc::GetTransactionResponse;
 use soroban_rpc::FullLedgerEntries;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use soroban_test::AssertExt;
@@ -327,7 +339,7 @@ async fn ledger_entry_contract_data() {
 }
 
 // top level test
-// todo: test --claimable-id, --pool-id,
+// todo: test  --pool-id,
 #[tokio::test]
 async fn ledger_entry_wasm_hash() {
     let sandbox = &TestEnv::new();
@@ -441,6 +453,47 @@ async fn ledger_entry_config_setting_id() {
     );
 }
 
+#[tokio::test]
+async fn ledger_entry_claimable_balance() {
+    let sandbox = &TestEnv::new();
+    // create a claimable balance
+    let sender_alias = "test";
+    let sender = test_address(sandbox);
+    let claimant = new_account(sandbox, "claimant");
+    let tx = claimable_balance_tx_env(&sender, &claimant);
+    let tx_xdr = tx.to_xdr_base64(Limits::none()).unwrap();
+    let updated_tx = update_seq_number(sandbox, &tx_xdr);
+    let tx_output = sign_and_send(sandbox, &sender, sender_alias, &updated_tx).await;
+    let response: GetTransactionResponse = serde_json::from_str(&tx_output).expect("Failed to parse JSON");
+    let id = extract_claimable_balance_id(response).unwrap();
+
+    // fetch the claimable-balance
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("claimable-balance")
+        .arg(id.to_string())
+        .arg("--network")
+        .arg("local")
+        .assert()
+        .success()
+        .stdout_as_str();
+    let parsed_output: FullLedgerEntries =
+        serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(!parsed_output.entries.is_empty());
+    let expected_key = LedgerKey::ClaimableBalance(LedgerKeyClaimableBalance {
+        balance_id: ClaimableBalanceId::ClaimableBalanceIdTypeV0(id),
+    });
+   assert_eq!(parsed_output.entries[0].key, expected_key);
+    assert!(matches!(
+        parsed_output.entries[0].val,
+        LedgerEntryData::ClaimableBalance { .. }
+    ));
+}
+
+
+
 // Helper Fns
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
@@ -514,15 +567,19 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
 }
 
 async fn expected_account_ledger_key(account_addr: &str) -> (AccountId, LedgerKey) {
-    let strkey = StrkeyPublicKeyEd25519::from_string(account_addr).unwrap().0;
-
-    let uint256 = Uint256(strkey);
-    let pk = PublicKey::PublicKeyTypeEd25519(uint256);
-    let account_id = AccountId(pk);
+    let account_id = account_id(account_addr);
     let ledger_key = LedgerKey::Account(LedgerKeyAccount {
         account_id: account_id.clone(),
     });
     (account_id, ledger_key)
+}
+
+fn account_id(account_addr: &str) -> AccountId {
+    let strkey = StrkeyPublicKeyEd25519::from_string(account_addr).unwrap().0;
+
+    let uint256 = Uint256(strkey);
+    let pk = PublicKey::PublicKeyTypeEd25519(uint256);
+    AccountId(pk)
 }
 
 async fn expected_contract_ledger_key(contract_id: &str, storage_key: &str) -> LedgerKey {
@@ -550,4 +607,83 @@ async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, val
         ])
         .assert()
         .success();
+}
+
+fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvelope{
+    let destination_id = account_id(&destination);
+    let claimant  = Claimant::ClaimantTypeV0(
+        ClaimantV0{
+            destination: destination_id,
+            predicate: ClaimPredicate::Unconditional
+        }
+    );
+    let claimants = VecM::try_from(vec![claimant]).unwrap();
+    let create_op = Operation {
+        source_account: None,
+        body: OperationBody::CreateClaimableBalance(CreateClaimableBalanceOp {
+            asset: Asset::Native,
+            amount: 10_000_000,
+            claimants: claimants,
+        }),
+    };
+
+    let source: UnresolvedMuxedAccount = sender.parse().unwrap();
+    let resolved_source = source.resolve_muxed_account_sync(&locator::Args::default(), None).unwrap();
+
+    xdr::Transaction::new_tx(resolved_source, 1000, 1, create_op).into()
+}
+
+fn update_seq_number(sandbox: &TestEnv, tx_xdr: &str) -> String {
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("update")
+        .arg("seq-num")
+        .arg("next")
+        .write_stdin(tx_xdr.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+async fn sign_and_send(sandbox: &TestEnv, account: &str, sign_with: &str, tx: &str) -> String {
+    let tx_signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg("--sign-with-key")
+        .arg(sign_with)
+        .write_stdin(tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    dbg!("{tx_signed}");
+
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(tx_signed.as_bytes())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("SUCCESS"))
+        .stdout_as_str()
+}
+
+fn extract_claimable_balance_id(response: GetTransactionResponse) -> Option<Hash> {
+    if let Some(result) = response.result {
+        if let TransactionResult{
+            result: TransactionResultResult::TxSuccess(results),
+            ..
+        } = result
+        {
+            if let Some(OperationResult::OpInner(
+                    OperationResultTr::CreateClaimableBalance(CreateClaimableBalanceResult::Success(
+                        ClaimableBalanceId::ClaimableBalanceIdTypeV0(hash),
+                    )),
+                )) 
+             = results.first()
+            {
+                return Some(hash.clone())
+            }
+        }
+    }
+    None
 }
