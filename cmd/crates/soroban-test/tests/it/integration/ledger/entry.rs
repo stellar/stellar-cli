@@ -4,16 +4,16 @@ use soroban_cli::{
         AccountId, AlphaNum4, AssetCode4, ConfigSettingId, ContractDataDurability, Hash,
         LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyConfigSetting, LedgerKeyContractCode,
         LedgerKeyContractData, LedgerKeyData, LedgerKeyTrustLine, Limits, PublicKey, ScAddress, ScVal,
-        String64, StringM, TrustLineAsset, Uint256, WriteXdr,ClaimantV0, Claimant, Operation,ClaimPredicate, Asset, CreateClaimableBalanceOp, OperationBody, ClaimantType, VecM, Transaction, TransactionEnvelope, TransactionResult, TransactionResultResult, ClaimableBalanceId, OperationResultTr, OperationResult, CreateClaimableBalanceResult, LedgerKeyClaimableBalance
+        String64, StringM, TrustLineAsset, Uint256, WriteXdr,ClaimantV0, Claimant, Operation,ClaimPredicate, Asset, CreateClaimableBalanceOp, OperationBody, VecM, TransactionEnvelope, TransactionResult, TransactionResultResult, ClaimableBalanceId, OperationResultTr, OperationResult, CreateClaimableBalanceResult, LedgerKeyClaimableBalance,ChangeTrustOp, ChangeTrustAsset, LiquidityPoolParameters, LiquidityPoolConstantProductParameters, LedgerKeyLiquidityPool, PoolId
     },
-    tx::builder::{self, asset, TxExt},
+    tx::builder::TxExt,
     config::{
-        self,
-        address::{self, UnresolvedMuxedAccount},
+        address::UnresolvedMuxedAccount,
         locator,
-        data, network, secret,
     },
 };
+use sha2::{Digest, Sha256};
+
 
 use soroban_rpc::GetTransactionResponse;
 use soroban_rpc::FullLedgerEntries;
@@ -25,7 +25,7 @@ use stellar_strkey::{ed25519::PublicKey as StrkeyPublicKeyEd25519, Contract};
 use crate::integration::util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD};
 
 // account data tests
-// todo: test with--offer,
+// todo: test with --offer,
 #[tokio::test]
 async fn ledger_entry_account_only_with_account_alias() {
     let sandbox = &TestEnv::new();
@@ -126,6 +126,7 @@ async fn ledger_entry_account_asset_usdc() {
     issue_asset(
         sandbox,
         &test_account_address,
+        &issuer_alias,
         asset,
         limit,
         initial_balance,
@@ -148,7 +149,7 @@ async fn ledger_entry_account_asset_usdc() {
 
     let (account_id, expected_account_key) =
         expected_account_ledger_key(&test_account_address).await;
-    let (issuer_account_id, _) = expected_account_ledger_key(&issuer_address).await;
+    let issuer_account_id = get_account_id(&issuer_address);
 
     let trustline_asset = TrustLineAsset::CreditAlphanum4(AlphaNum4 {
         asset_code: AssetCode4(*b"usdc"),
@@ -339,7 +340,6 @@ async fn ledger_entry_contract_data() {
 }
 
 // top level test
-// todo: test  --pool-id,
 #[tokio::test]
 async fn ledger_entry_wasm_hash() {
     let sandbox = &TestEnv::new();
@@ -460,10 +460,10 @@ async fn ledger_entry_claimable_balance() {
     let sender_alias = "test";
     let sender = test_address(sandbox);
     let claimant = new_account(sandbox, "claimant");
-    let tx = claimable_balance_tx_env(&sender, &claimant);
-    let tx_xdr = tx.to_xdr_base64(Limits::none()).unwrap();
+    let tx_env = claimable_balance_tx_env(&sender, &claimant);
+    let tx_xdr = tx_env.to_xdr_base64(Limits::none()).unwrap();
     let updated_tx = update_seq_number(sandbox, &tx_xdr);
-    let tx_output = sign_and_send(sandbox, &sender, sender_alias, &updated_tx).await;
+    let tx_output = sign_and_send(sandbox, sender_alias, &updated_tx).await;
     let response: GetTransactionResponse = serde_json::from_str(&tx_output).expect("Failed to parse JSON");
     let id = extract_claimable_balance_id(response).unwrap();
 
@@ -492,7 +492,57 @@ async fn ledger_entry_claimable_balance() {
     ));
 }
 
+#[tokio::test]
+async fn ledger_entry_liquidity_pool() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    let test_account_address = test_address(sandbox);
+    // issue usdc
+    let issuer_alias = "test1";
+    let issuer_address = new_account(sandbox, issuer_alias);
+    let asset = &format!("usdc:{issuer_address}");
+    let limit = 100_000;
+    let initial_balance = 100;
+    issue_asset(
+        sandbox,
+        &test_account_address,
+        &issuer_alias,
+        asset,
+        limit,
+        initial_balance,
+    )
+    .await;
 
+    // create liquidity pool
+    let (tx_env, pool_id) = liquidity_pool_tx_env(&test_account_address, &issuer_address);
+    let tx_xdr = tx_env.to_xdr_base64(Limits::none()).unwrap();
+    let updated_tx = update_seq_number(sandbox, &tx_xdr);
+    sign_and_send(sandbox, test_account_alias, &updated_tx).await;
+
+    // fetch the liquidity pool
+    let output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("liquidity-pool")
+        .arg(pool_id.to_string())
+        .arg("--network")
+        .arg("local")
+        .assert()
+        .success()
+        .stdout_as_str();
+    let parsed_output: FullLedgerEntries =
+        serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(!parsed_output.entries.is_empty());
+    let expected_key = LedgerKey::LiquidityPool(LedgerKeyLiquidityPool {
+        liquidity_pool_id: PoolId(Hash(pool_id.0)),
+    });
+   assert_eq!(parsed_output.entries[0].key, expected_key);
+    assert!(matches!(
+        parsed_output.entries[0].val,
+        LedgerEntryData::LiquidityPool { .. }
+    ));
+}
 
 // Helper Fns
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
@@ -507,9 +557,9 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, initial_balance: u64) {
+async fn issue_asset(sandbox: &TestEnv, test_addr: &str, issuer_alias: &str, asset: &str, limit: u64, initial_balance: u64) {
     let client = sandbox.network.rpc_client().unwrap();
-    let test_before = client.get_account(test).await.unwrap();
+    let test_before = client.get_account(test_addr).await.unwrap();
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -524,57 +574,37 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
         .success()
         .stdout_as_str();
 
-    sandbox
-        .new_assert_cmd("tx")
-        .args(["new", "set-options", "--set-required"])
-        .assert()
-        .success();
-    sandbox
-        .new_assert_cmd("tx")
-        .args([
-            "new",
-            "set-trustline-flags",
-            "--asset",
-            asset,
-            "--trustor",
-            test,
-            "--set-authorize",
-            "--source",
-            "test1",
-        ])
-        .assert()
-        .success();
-
-    let after = client.get_account(test).await.unwrap();
+    let after = client.get_account(test_addr).await.unwrap();
     assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
 
-    // Send a payment to the issuer
+    // Send asset to the test
     sandbox
         .new_assert_cmd("tx")
         .args([
             "new",
             "payment",
             "--destination",
-            test,
+            test_addr,
             "--asset",
             asset,
             "--amount",
             initial_balance.to_string().as_str(),
-            "--source=test1",
+            "--source",
+            issuer_alias
         ])
         .assert()
         .success();
 }
 
 async fn expected_account_ledger_key(account_addr: &str) -> (AccountId, LedgerKey) {
-    let account_id = account_id(account_addr);
+    let account_id = get_account_id(account_addr);
     let ledger_key = LedgerKey::Account(LedgerKeyAccount {
         account_id: account_id.clone(),
     });
     (account_id, ledger_key)
 }
 
-fn account_id(account_addr: &str) -> AccountId {
+fn get_account_id(account_addr: &str) -> AccountId {
     let strkey = StrkeyPublicKeyEd25519::from_string(account_addr).unwrap().0;
 
     let uint256 = Uint256(strkey);
@@ -610,7 +640,7 @@ async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, val
 }
 
 fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvelope{
-    let destination_id = account_id(&destination);
+    let destination_id = get_account_id(&destination);
     let claimant  = Claimant::ClaimantTypeV0(
         ClaimantV0{
             destination: destination_id,
@@ -633,6 +663,46 @@ fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvel
     xdr::Transaction::new_tx(resolved_source, 1000, 1, create_op).into()
 }
 
+fn liquidity_pool_tx_env(test_account_address: &str, usdc_issuer_address: &str) -> (TransactionEnvelope, Uint256){
+    let issuer_account_id = get_account_id(&usdc_issuer_address);
+    let usdc_asset =  Asset::CreditAlphanum4(AlphaNum4 {
+        asset_code: AssetCode4(*b"usdc"),
+        issuer: issuer_account_id,
+    });
+
+    let asset_a = Asset::Native;
+    let asset_b = usdc_asset;
+    let fee = 30;
+
+    let line = ChangeTrustAsset::PoolShare(
+        LiquidityPoolParameters::LiquidityPoolConstantProduct(
+            LiquidityPoolConstantProductParameters{
+                asset_a: asset_a.clone(),
+                asset_b: asset_b.clone(),
+                fee
+            }
+        )
+    );
+    let op = Operation {
+        source_account: None,
+        body: OperationBody::ChangeTrust(
+        ChangeTrustOp {
+            line: line,
+            limit: i64::MAX
+            }
+        )
+    };
+
+    let source: UnresolvedMuxedAccount = test_account_address.parse().unwrap();
+    let resolved_source = source.resolve_muxed_account_sync(&locator::Args::default(), None).unwrap();
+
+    let tx = xdr::Transaction::new_tx(resolved_source, 1000, 1, op).into();
+
+    let pool_id = compute_pool_id(asset_a.clone(), asset_b.clone(), fee);
+
+    (tx, pool_id)
+}
+
 fn update_seq_number(sandbox: &TestEnv, tx_xdr: &str) -> String {
     sandbox
         .new_assert_cmd("tx")
@@ -645,7 +715,7 @@ fn update_seq_number(sandbox: &TestEnv, tx_xdr: &str) -> String {
         .stdout_as_str()
 }
 
-async fn sign_and_send(sandbox: &TestEnv, account: &str, sign_with: &str, tx: &str) -> String {
+async fn sign_and_send(sandbox: &TestEnv, sign_with: &str, tx: &str) -> String {
     let tx_signed = sandbox
         .new_assert_cmd("tx")
         .arg("sign")
@@ -655,7 +725,6 @@ async fn sign_and_send(sandbox: &TestEnv, account: &str, sign_with: &str, tx: &s
         .assert()
         .success()
         .stdout_as_str();
-    dbg!("{tx_signed}");
 
     sandbox
         .new_assert_cmd("tx")
@@ -686,4 +755,26 @@ fn extract_claimable_balance_id(response: GetTransactionResponse) -> Option<Hash
         }
     }
     None
+}
+
+fn compute_pool_id(asset_a: Asset, asset_b: Asset, fee: i32) -> Uint256 {
+    let (asset_a, asset_b) = if asset_a < asset_b {
+        (asset_a, asset_b)
+    } else {
+        (asset_b, asset_a)
+    };
+
+    let pool_params = LiquidityPoolParameters::LiquidityPoolConstantProduct(
+        LiquidityPoolConstantProductParameters {
+            asset_a,
+            asset_b,
+            fee,
+        },
+    );
+
+    let mut hasher = Sha256::new();
+    hasher.update(pool_params.to_xdr(Limits::none()).unwrap());
+    let hash = hasher.finalize();
+
+    Uint256(hash.into())
 }
