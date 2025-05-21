@@ -2661,7 +2661,12 @@ Read cached action
 
 Print version information
 
-**Usage:** `stellar version`
+**Usage:** `stellar version [OPTIONS]`
+
+###### **Options:**
+
+* `--only-version` — Print only the version
+* `--only-version-major` — Print only the major version
 
 
 
