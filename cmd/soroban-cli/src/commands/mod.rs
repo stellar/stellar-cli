@@ -18,6 +18,7 @@ pub mod plugin;
 pub mod snapshot;
 pub mod tx;
 pub mod version;
+pub mod rpc;
 
 pub mod txn_result;
 
@@ -119,6 +120,7 @@ impl Root {
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
+            Cmd::Rpc(rpc) => rpc.run(&self.global_args).await?,
         }
         Ok(())
     }
@@ -188,6 +190,10 @@ pub enum Cmd {
     /// The subcommand for CLI plugins
     #[command(subcommand)]
     Plugin(plugin::Cmd),
+
+    /// Fetch information from the RPC
+    #[command(subcommand)]
+    Rpc(rpc::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -231,6 +237,9 @@ pub enum Error {
 
     #[error(transparent)]
     Env(#[from] env::Error),
+
+    #[error(transparent)]
+    Rpc(#[from] rpc::Error),
 }
 
 #[async_trait]
