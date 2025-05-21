@@ -123,7 +123,7 @@ impl Cmd {
                         error: e,
                     })?,
                     last_modified_ledger.to_string(),
-                    live_until_ledger_seq.to_string(),
+                    live_until_ledger_seq.unwrap_or_default().to_string(),
                 ],
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
@@ -144,7 +144,7 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&live_until_ledger_seq).map_err(|error| {
+                    serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default()).map_err(|error| {
                         Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
