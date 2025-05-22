@@ -1,22 +1,22 @@
+use sha2::{Digest, Sha256};
 use soroban_cli::{
-        xdr::{
-        self,
-        AccountId, AlphaNum4, AssetCode4, ConfigSettingId, ContractDataDurability, Hash,
-        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyConfigSetting, LedgerKeyContractCode,
-        LedgerKeyContractData, LedgerKeyData, LedgerKeyTrustLine, Limits, PublicKey, ScAddress, ScVal,
-        String64, StringM, TrustLineAsset, Uint256, WriteXdr,ClaimantV0, Claimant, Operation,ClaimPredicate, Asset, CreateClaimableBalanceOp, OperationBody, VecM, TransactionEnvelope, TransactionResult, TransactionResultResult, ClaimableBalanceId, OperationResultTr, OperationResult, CreateClaimableBalanceResult, LedgerKeyClaimableBalance,ChangeTrustOp, ChangeTrustAsset, LiquidityPoolParameters, LiquidityPoolConstantProductParameters, LedgerKeyLiquidityPool, PoolId
-    },
+    config::{address::UnresolvedMuxedAccount, locator},
     tx::builder::TxExt,
-    config::{
-        address::UnresolvedMuxedAccount,
-        locator,
+    xdr::{
+        self, AccountId, AlphaNum4, Asset, AssetCode4, ChangeTrustAsset, ChangeTrustOp,
+        ClaimPredicate, ClaimableBalanceId, Claimant, ClaimantV0, ConfigSettingId,
+        ContractDataDurability, CreateClaimableBalanceOp, CreateClaimableBalanceResult, Hash,
+        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
+        LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
+        LedgerKeyLiquidityPool, LedgerKeyTrustLine, Limits, LiquidityPoolConstantProductParameters,
+        LiquidityPoolParameters, Operation, OperationBody, OperationResult, OperationResultTr,
+        PoolId, PublicKey, ScAddress, ScVal, String64, StringM, TransactionEnvelope,
+        TransactionResult, TransactionResultResult, TrustLineAsset, Uint256, VecM, WriteXdr,
     },
 };
-use sha2::{Digest, Sha256};
 
-
-use soroban_rpc::GetTransactionResponse;
 use soroban_rpc::FullLedgerEntries;
+use soroban_rpc::GetTransactionResponse;
 use soroban_spec_tools::utils::padded_hex_from_str;
 use soroban_test::AssertExt;
 use soroban_test::TestEnv;
@@ -464,7 +464,8 @@ async fn ledger_entry_claimable_balance() {
     let tx_xdr = tx_env.to_xdr_base64(Limits::none()).unwrap();
     let updated_tx = update_seq_number(sandbox, &tx_xdr);
     let tx_output = sign_and_send(sandbox, sender_alias, &updated_tx).await;
-    let response: GetTransactionResponse = serde_json::from_str(&tx_output).expect("Failed to parse JSON");
+    let response: GetTransactionResponse =
+        serde_json::from_str(&tx_output).expect("Failed to parse JSON");
     let id = extract_claimable_balance_id(response).unwrap();
 
     // fetch the claimable-balance
@@ -485,7 +486,7 @@ async fn ledger_entry_claimable_balance() {
     let expected_key = LedgerKey::ClaimableBalance(LedgerKeyClaimableBalance {
         balance_id: ClaimableBalanceId::ClaimableBalanceIdTypeV0(id),
     });
-   assert_eq!(parsed_output.entries[0].key, expected_key);
+    assert_eq!(parsed_output.entries[0].key, expected_key);
     assert!(matches!(
         parsed_output.entries[0].val,
         LedgerEntryData::ClaimableBalance { .. }
@@ -537,7 +538,7 @@ async fn ledger_entry_liquidity_pool() {
     let expected_key = LedgerKey::LiquidityPool(LedgerKeyLiquidityPool {
         liquidity_pool_id: PoolId(Hash(pool_id.0)),
     });
-   assert_eq!(parsed_output.entries[0].key, expected_key);
+    assert_eq!(parsed_output.entries[0].key, expected_key);
     assert!(matches!(
         parsed_output.entries[0].val,
         LedgerEntryData::LiquidityPool { .. }
@@ -557,7 +558,14 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
         .stdout_as_str()
 }
 
-async fn issue_asset(sandbox: &TestEnv, test_addr: &str, issuer_alias: &str, asset: &str, limit: u64, initial_balance: u64) {
+async fn issue_asset(
+    sandbox: &TestEnv,
+    test_addr: &str,
+    issuer_alias: &str,
+    asset: &str,
+    limit: u64,
+    initial_balance: u64,
+) {
     let client = sandbox.network.rpc_client().unwrap();
     let test_before = client.get_account(test_addr).await.unwrap();
     sandbox
@@ -590,7 +598,7 @@ async fn issue_asset(sandbox: &TestEnv, test_addr: &str, issuer_alias: &str, ass
             "--amount",
             initial_balance.to_string().as_str(),
             "--source",
-            issuer_alias
+            issuer_alias,
         ])
         .assert()
         .success();
@@ -639,14 +647,12 @@ async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, val
         .success();
 }
 
-fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvelope{
+fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvelope {
     let destination_id = get_account_id(&destination);
-    let claimant  = Claimant::ClaimantTypeV0(
-        ClaimantV0{
-            destination: destination_id,
-            predicate: ClaimPredicate::Unconditional
-        }
-    );
+    let claimant = Claimant::ClaimantTypeV0(ClaimantV0 {
+        destination: destination_id,
+        predicate: ClaimPredicate::Unconditional,
+    });
     let claimants = VecM::try_from(vec![claimant]).unwrap();
     let create_op = Operation {
         source_account: None,
@@ -658,14 +664,19 @@ fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvel
     };
 
     let source: UnresolvedMuxedAccount = sender.parse().unwrap();
-    let resolved_source = source.resolve_muxed_account_sync(&locator::Args::default(), None).unwrap();
+    let resolved_source = source
+        .resolve_muxed_account_sync(&locator::Args::default(), None)
+        .unwrap();
 
     xdr::Transaction::new_tx(resolved_source, 1000, 1, create_op).into()
 }
 
-fn liquidity_pool_tx_env(test_account_address: &str, usdc_issuer_address: &str) -> (TransactionEnvelope, Uint256){
+fn liquidity_pool_tx_env(
+    test_account_address: &str,
+    usdc_issuer_address: &str,
+) -> (TransactionEnvelope, Uint256) {
     let issuer_account_id = get_account_id(&usdc_issuer_address);
-    let usdc_asset =  Asset::CreditAlphanum4(AlphaNum4 {
+    let usdc_asset = Asset::CreditAlphanum4(AlphaNum4 {
         asset_code: AssetCode4(*b"usdc"),
         issuer: issuer_account_id,
     });
@@ -674,27 +685,25 @@ fn liquidity_pool_tx_env(test_account_address: &str, usdc_issuer_address: &str) 
     let asset_b = usdc_asset;
     let fee = 30;
 
-    let line = ChangeTrustAsset::PoolShare(
-        LiquidityPoolParameters::LiquidityPoolConstantProduct(
-            LiquidityPoolConstantProductParameters{
-                asset_a: asset_a.clone(),
-                asset_b: asset_b.clone(),
-                fee
-            }
-        )
-    );
+    let line = ChangeTrustAsset::PoolShare(LiquidityPoolParameters::LiquidityPoolConstantProduct(
+        LiquidityPoolConstantProductParameters {
+            asset_a: asset_a.clone(),
+            asset_b: asset_b.clone(),
+            fee,
+        },
+    ));
     let op = Operation {
         source_account: None,
-        body: OperationBody::ChangeTrust(
-        ChangeTrustOp {
+        body: OperationBody::ChangeTrust(ChangeTrustOp {
             line: line,
-            limit: i64::MAX
-            }
-        )
+            limit: i64::MAX,
+        }),
     };
 
     let source: UnresolvedMuxedAccount = test_account_address.parse().unwrap();
-    let resolved_source = source.resolve_muxed_account_sync(&locator::Args::default(), None).unwrap();
+    let resolved_source = source
+        .resolve_muxed_account_sync(&locator::Args::default(), None)
+        .unwrap();
 
     let tx = xdr::Transaction::new_tx(resolved_source, 1000, 1, op).into();
 
@@ -738,19 +747,18 @@ async fn sign_and_send(sandbox: &TestEnv, sign_with: &str, tx: &str) -> String {
 
 fn extract_claimable_balance_id(response: GetTransactionResponse) -> Option<Hash> {
     if let Some(result) = response.result {
-        if let TransactionResult{
+        if let TransactionResult {
             result: TransactionResultResult::TxSuccess(results),
             ..
         } = result
         {
-            if let Some(OperationResult::OpInner(
-                    OperationResultTr::CreateClaimableBalance(CreateClaimableBalanceResult::Success(
-                        ClaimableBalanceId::ClaimableBalanceIdTypeV0(hash),
-                    )),
-                )) 
-             = results.first()
+            if let Some(OperationResult::OpInner(OperationResultTr::CreateClaimableBalance(
+                CreateClaimableBalanceResult::Success(
+                    ClaimableBalanceId::ClaimableBalanceIdTypeV0(hash),
+                ),
+            ))) = results.first()
             {
-                return Some(hash.clone())
+                return Some(hash.clone());
             }
         }
     }
