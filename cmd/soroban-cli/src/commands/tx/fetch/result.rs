@@ -1,6 +1,7 @@
 use clap::{command, Parser};
+use soroban_rpc::GetTransactionResponseRaw;
 use crate::{
-    xdr::Hash,
+    xdr::{self, Hash},
     config::{
         locator,
         network::{self, Network},
@@ -32,6 +33,8 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error(transparent)]
+    Xdr(#[from] xdr::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -53,15 +56,19 @@ impl Cmd {
         match self.output {
             OutputFormat::Json => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                println!("{}", serde_json::to_string(&resp)?);
+                let result = resp.result.unwrap();
+                println!("{}", serde_json::to_string(&result)?);
             }
             OutputFormat::Xdr => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                println!("{}", serde_json::to_string(&resp)?);
+                let resp_as_xdr: GetTransactionResponseRaw = resp.clone().try_into()?;
+                let result = resp_as_xdr.result_xdr;
+                println!("{}", serde_json::to_string(&result)?);
             }
             OutputFormat::JsonFormatted => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                println!("{}", serde_json::to_string_pretty(&resp)?);
+                let result = resp.result.unwrap();
+                println!("{}", serde_json::to_string_pretty(&result)?);
             }
         }
 
