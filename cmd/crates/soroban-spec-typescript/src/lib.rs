@@ -11,7 +11,7 @@ use itertools::Itertools;
 use sha2::{Digest, Sha256};
 use stellar_xdr::curr::{Limits, ScSpecEntry, WriteXdr};
 
-use types::Entry;
+use types::{Entry, ErrorEnumCase};
 
 use soroban_spec::read::{from_wasm, FromWasmError};
 
@@ -94,7 +94,7 @@ fn generate_class(
 }}
 export class Client extends ContractClient {{
   static async deploy<T = Client>({constructor_args_in}
-    /** Options for initalizing a Client as well as for calling a method, with extras specific to deploying. */
+    /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {{
         /** The hash of the Wasm blob, which must already be installed on-chain. */
@@ -121,14 +121,7 @@ export class Client extends ContractClient {{
 }
 
 pub fn generate(spec: &[ScSpecEntry]) -> String {
-    let mut collected: Vec<_> = spec.iter().map(Entry::from).collect();
-    if !spec.iter().any(is_error_enum) {
-        collected.push(Entry::ErrorEnum {
-            doc: String::new(),
-            name: "Error".to_string(),
-            cases: vec![],
-        });
-    }
+    let collected: Vec<_> = spec.iter().map(Entry::from).collect();
     let mut constructor_args: Option<Vec<types::FunctionInput>> = None;
     // Filter out function entries with names that start with "__" and partition the results
     collected.iter().for_each(|entry| match entry {
@@ -143,7 +136,7 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
         .partition(|entry| matches!(entry, Entry::Function { .. }));
     let top = other.iter().map(entry_to_method_type).join("\n");
     let bottom = generate_class(&fns, constructor_args, spec);
-    format!("{top}\n\n{bottom}")
+    format!("{top}\n{bottom}")
 }
 
 fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String {
@@ -176,10 +169,6 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
 {indent} */
 "
     )
-}
-
-fn is_error_enum(entry: &ScSpecEntry) -> bool {
-    matches!(entry, ScSpecEntry::UdtErrorEnumV0(_))
 }
 
 const METHOD_OPTIONS: &str = r"{
@@ -266,7 +255,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
         Entry::TupleStruct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc, None, 0);
             let fields = fields.iter().map(type_to_ts).join(",  ");
-            format!("{docs}export type {name} = readonly [{fields}];")
+            format!("{docs}export type {name} = readonly [{fields}];\n")
         }
 
         Entry::Union { name, doc, cases } => {
@@ -293,33 +282,27 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 ",
             )
         }
-        Entry::ErrorEnum { doc, cases, .. } => {
+        Entry::ErrorEnum { doc, cases, name } => {
             let doc = doc_to_ts_doc(doc, None, 0);
-            let cases = cases
-                .iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    if c.doc.is_empty() {
-                        format!(
-                            "{}  {}: {{message:\"{}\"}}",
-                            if i == 0 { "" } else { "\n" },
-                            c.value,
-                            c.name
-                        )
-                    } else {
-                        format!(
-                            "{}{}  {}: {{message:\"{}\"}}",
-                            if i == 0 { "" } else { "\n" },
-                            doc_to_ts_doc(&c.doc, None, 1),
-                            c.value,
-                            c.name
-                        )
-                    }
-                })
-                .join(",\n");
-            format!("{doc}export const Errors = {{\n{cases}\n}}")
+            let cases = cases.iter().map(error_case_to_ts).join(",\n");
+            let name = if name == "Error" {
+                format!("{name}s")
+            } else {
+                name.to_string()
+            };
+            format!(
+                r"{doc}export const {name} = {{
+{cases}
+}}
+",
+            )
         }
     }
+}
+
+fn error_case_to_ts(ErrorEnumCase { doc, value, name }: &types::ErrorEnumCase) -> String {
+    let doc = doc_to_ts_doc(doc, None, 1);
+    format!("{doc}  {value}: {{message:\"{name}\"}}")
 }
 
 fn enum_case_to_ts(case: &types::EnumCase) -> String {
