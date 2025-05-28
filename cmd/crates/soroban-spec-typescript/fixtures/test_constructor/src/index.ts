@@ -33,9 +33,6 @@ if (typeof window !== 'undefined') {
 
 
 
-export const Errors = {
-
-}
 
 export interface Client {
   /**
