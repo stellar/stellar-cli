@@ -7,6 +7,7 @@ use crate::integration::util::{
 };
 
 pub mod operations;
+pub mod fetch;
 
 #[tokio::test]
 async fn simulate() {

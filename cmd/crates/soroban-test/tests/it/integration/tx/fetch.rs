@@ -1,0 +1,128 @@
+use sha2::{Digest, Sha256};
+use soroban_cli::{
+    config::{address::UnresolvedMuxedAccount, locator},
+    utils::transaction_hash,
+    tx::builder::TxExt,
+    xdr::{
+        self, AccountId, AlphaNum4, Asset, AssetCode4, ChangeTrustAsset, ChangeTrustOp,
+        ClaimPredicate, ClaimableBalanceId, Claimant, ClaimantV0, ConfigSettingId,
+        ContractDataDurability, CreateClaimableBalanceOp, CreateClaimableBalanceResult, Hash,
+        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
+        LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
+        LedgerKeyLiquidityPool, LedgerKeyTrustLine, Limits, LiquidityPoolConstantProductParameters,
+        LiquidityPoolParameters, Operation, OperationBody, OperationResult, OperationResultTr,
+        PoolId, PublicKey, ScAddress, ScVal, String64, StringM, TransactionEnvelope,
+        TransactionResult, TransactionResultResult, TrustLineAsset, Uint256, VecM, WriteXdr, ReadXdr, TransactionMeta, TransactionResultExt
+    },
+};
+
+use soroban_rpc::FullLedgerEntries;
+use soroban_rpc::GetTransactionResponse;
+use soroban_spec_tools::utils::padded_hex_from_str;
+use soroban_test::AssertExt;
+use soroban_test::TestEnv;
+use stellar_strkey::{ed25519::PublicKey as StrkeyPublicKeyEd25519, Contract};
+
+use crate::integration::util::{deploy_hello, invoke, test_address, DeployOptions, HELLO_WORLD};
+
+
+#[tokio::test]
+async fn tx_fetch() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    // create a tx
+    let data_name = "test_data_key";
+    let data_value = "abcdef";
+    let tx_hash = add_account_data(sandbox, test_account_alias, data_name, data_value).await;
+ 
+    // fetch the tx result
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("result")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: TransactionResult = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert_eq!(parsed.fee_charged, 100);
+    assert!(matches!(parsed.result, TransactionResultResult::TxSuccess{..}));
+    assert_eq!(parsed.ext, TransactionResultExt::V0);
+
+    // fetch the tx meta
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("meta")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: TransactionMeta = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(matches!(parsed, TransactionMeta::V3{ .. }));
+
+    // fetch the tx envelope
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("envelope")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: TransactionEnvelope = serde_json::from_str(&output).expect("Failed to parse JSON");
+    assert!(matches!(parsed, TransactionEnvelope::Tx(TransactionV1Envelope)));
+}
+    
+async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) -> String {
+    let tx_xdr = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "manage-data",
+            "--data-name",
+            key,
+            "--data-value",
+            value,
+            "--source",
+            account_alias,
+            "--build-only"
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let tx_env = TransactionEnvelope::from_xdr_base64(tx_xdr.clone(), Limits::none()).unwrap();
+    let tx =  if let TransactionEnvelope::Tx(env) = tx_env {
+        env.tx
+    } else {
+        panic!("Expected TransactionEnvelope::Tx, got something else");
+    };
+    
+        let tx_xdr = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "manage-data",
+            "--data-name",
+            key,
+            "--data-value",
+            value,
+            "--source",
+            account_alias,
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    hex::encode(transaction_hash(&tx, &sandbox.network.network_passphrase).unwrap())
+}
