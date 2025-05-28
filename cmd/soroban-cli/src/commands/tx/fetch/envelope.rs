@@ -1,11 +1,8 @@
 use clap::{command, Parser};
 use crate::{
-    xdr::{Limits, WriteXdr, self, Hash},
-    config::{
-        locator,
-        network::{self, Network},
-    },
-    rpc,
+    commands::global, config::{
+        network,
+    }, rpc, xdr::{self, Hash, Limits, WriteXdr}
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -15,9 +12,6 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
 
     /// Format of the output
     #[arg(long, default_value = "json")]
@@ -48,26 +42,29 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let network = self.network.get(&self.locator)?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
         match self.output {
             OutputFormat::Json => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let envelope = resp.envelope.unwrap();
-                println!("{}", serde_json::to_string(&envelope)?);
+                if let Some(envelope) = resp.envelope {
+                    println!("{}", serde_json::to_string(&envelope)?);
+                }
             }
             OutputFormat::Xdr => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let envelope = resp.envelope.unwrap();
-                let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
-                println!("{}", envelope_xdr);
+                if let Some(envelope) = resp.envelope {
+                    let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
+                    println!("{}", envelope_xdr);
+                }
             }
             OutputFormat::JsonFormatted => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let envelope = resp.envelope.unwrap();
-                println!("{}", serde_json::to_string_pretty(&envelope)?);
+                if let Some(envelope) = resp.envelope {
+                    println!("{}", serde_json::to_string_pretty(&envelope)?);
+                }
             }
         }
 

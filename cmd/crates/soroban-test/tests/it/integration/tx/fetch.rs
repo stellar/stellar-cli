@@ -1,30 +1,12 @@
-use sha2::{Digest, Sha256};
 use soroban_cli::{
-    config::{address::UnresolvedMuxedAccount, locator},
     utils::transaction_hash,
-    tx::builder::TxExt,
     xdr::{
-        self, AccountId, AlphaNum4, Asset, AssetCode4, ChangeTrustAsset, ChangeTrustOp,
-        ClaimPredicate, ClaimableBalanceId, Claimant, ClaimantV0, ConfigSettingId,
-        ContractDataDurability, CreateClaimableBalanceOp, CreateClaimableBalanceResult, Hash,
-        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
-        LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
-        LedgerKeyLiquidityPool, LedgerKeyTrustLine, Limits, LiquidityPoolConstantProductParameters,
-        LiquidityPoolParameters, Operation, OperationBody, OperationResult, OperationResultTr,
-        PoolId, PublicKey, ScAddress, ScVal, String64, StringM, TransactionEnvelope,
-        TransactionResult, TransactionResultResult, TrustLineAsset, Uint256, VecM, WriteXdr, ReadXdr, TransactionMeta, TransactionResultExt
+        Limits, TransactionEnvelope,TransactionV1Envelope,
+        TransactionResult, TransactionResultResult, ReadXdr, TransactionMeta, TransactionResultExt
     },
 };
 
-use soroban_rpc::FullLedgerEntries;
-use soroban_rpc::GetTransactionResponse;
-use soroban_spec_tools::utils::padded_hex_from_str;
-use soroban_test::AssertExt;
-use soroban_test::TestEnv;
-use stellar_strkey::{ed25519::PublicKey as StrkeyPublicKeyEd25519, Contract};
-
-use crate::integration::util::{deploy_hello, invoke, test_address, DeployOptions, HELLO_WORLD};
-
+use soroban_test::{AssertExt, TestEnv };
 
 #[tokio::test]
 async fn tx_fetch() {
@@ -80,7 +62,7 @@ async fn tx_fetch() {
         .stdout_as_str();
 
     let parsed: TransactionEnvelope = serde_json::from_str(&output).unwrap();
-    assert!(matches!(parsed, TransactionEnvelope::Tx(TransactionV1Envelope)));
+    assert!(matches!(parsed, TransactionEnvelope::Tx(TransactionV1Envelope{ .. })));
 }
     
 #[tokio::test]
@@ -143,7 +125,7 @@ async fn tx_fetch_xdr_output() {
         .stdout_as_str();
 
     let parsed_xdr = TransactionEnvelope::from_xdr_base64(&output, Limits::none()).unwrap();
-    assert!(matches!(parsed_xdr, TransactionEnvelope::Tx(TransactionV1Envelope)));
+    assert!(matches!(parsed_xdr, TransactionEnvelope::Tx(TransactionV1Envelope{ .. })));
 }
 
 async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) -> String {
@@ -171,7 +153,8 @@ async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, val
         panic!("Expected TransactionEnvelope::Tx, got something else");
     };
     
-        let tx_xdr = sandbox
+    // submit the tx
+    sandbox
         .new_assert_cmd("tx")
         .args([
             "new",

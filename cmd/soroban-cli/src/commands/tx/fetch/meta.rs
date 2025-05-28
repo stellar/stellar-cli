@@ -1,11 +1,8 @@
 use clap::{command, Parser};
 use crate::{
-    xdr::{Limits, WriteXdr, self, Hash},
-    config::{
-        locator,
-        network::{self, Network},
-    },
-    rpc,
+    commands::global, config::{
+        network,
+    }, rpc, xdr::{self, Hash, Limits, WriteXdr}
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -15,9 +12,6 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: network::Args,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
 
     /// Format of the output
     #[arg(long, default_value = "json")]
@@ -48,26 +42,29 @@ pub enum OutputFormat {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let network = self.network.get(&self.locator)?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
         match self.output {
             OutputFormat::Json => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let meta = resp.result_meta.unwrap();
-                println!("{}", serde_json::to_string(&meta)?);
+                if let Some(meta) = resp.result_meta {
+                    println!("{}", serde_json::to_string(&meta)?);
+                }
             }
             OutputFormat::Xdr => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let meta = resp.result_meta.unwrap();
-                let meta_xdr = meta.to_xdr_base64(Limits::none()).unwrap();
-                println!("{}", meta_xdr);
+                if let Some(meta) = resp.result_meta {
+                    let meta_xdr = meta.to_xdr_base64(Limits::none()).unwrap();
+                    println!("{}", meta_xdr);
+                }
             }
             OutputFormat::JsonFormatted => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let meta = resp.result_meta.unwrap();
-                println!("{}", serde_json::to_string_pretty(&meta)?);
+                if let Some(meta) = resp.result_meta {
+                    println!("{}", serde_json::to_string_pretty(&meta)?);
+                }
             }
         }
 
