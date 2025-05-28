@@ -1,7 +1,6 @@
 use clap::{command, Parser};
-use soroban_rpc::GetTransactionResponseRaw;
 use crate::{
-    xdr::{self, Hash},
+    xdr::{Limits, WriteXdr, self, Hash},
     config::{
         locator,
         network::{self, Network},
@@ -61,9 +60,9 @@ impl Cmd {
             }
             OutputFormat::Xdr => {
                 let resp = client.get_transaction(&tx_hash).await?;
-                let resp_as_xdr: GetTransactionResponseRaw = resp.clone().try_into()?;
-                let result = resp_as_xdr.result_xdr;
-                println!("{}", serde_json::to_string(&result)?);
+                let result = resp.result.unwrap();
+                let result_xdr = result.to_xdr_base64(Limits::none()).unwrap();
+                println!("{}", &result_xdr);
             }
             OutputFormat::JsonFormatted => {
                 let resp = client.get_transaction(&tx_hash).await?;
