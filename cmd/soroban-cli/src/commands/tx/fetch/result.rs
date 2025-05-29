@@ -9,6 +9,7 @@ use clap::{command, Parser};
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
+    /// Transaction hash to fetch
     pub hash: Hash,
 
     #[command(flatten)]

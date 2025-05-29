@@ -9,8 +9,11 @@ mod result;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
+    /// Fetch the transaction result
     Result(result::Cmd),
+    /// Fetch the transaction meta
     Meta(meta::Cmd),
+    /// Fetch the transaction envelope
     Envelope(envelope::Cmd),
 }
 

@@ -2385,19 +2385,21 @@ Fetch a transaction from the network by hash
 
 ###### **Subcommands:**
 
-* `result` — 
-* `meta` — 
-* `envelope` — 
+* `result` — Fetch the transaction result
+* `meta` — Fetch the transaction meta
+* `envelope` — Fetch the transaction envelope
 
 
 
 ## `stellar tx fetch result`
 
+Fetch the transaction result
+
 **Usage:** `stellar tx fetch result [OPTIONS] <HASH>`
 
 ###### **Arguments:**
 
-* `<HASH>`
+* `<HASH>` — Transaction hash to fetch
 
 ###### **Options:**
 
@@ -2422,11 +2424,13 @@ Fetch a transaction from the network by hash
 
 ## `stellar tx fetch meta`
 
+Fetch the transaction meta
+
 **Usage:** `stellar tx fetch meta [OPTIONS] <HASH>`
 
 ###### **Arguments:**
 
-* `<HASH>`
+* `<HASH>` — Transaction hash to fetch
 
 ###### **Options:**
 
@@ -2451,11 +2455,13 @@ Fetch a transaction from the network by hash
 
 ## `stellar tx fetch envelope`
 
+Fetch the transaction envelope
+
 **Usage:** `stellar tx fetch envelope [OPTIONS] <HASH>`
 
 ###### **Arguments:**
 
-* `<HASH>`
+* `<HASH>` — Transaction hash to fetch
 
 ###### **Options:**
 
