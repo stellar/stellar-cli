@@ -58,7 +58,7 @@ impl Cmd {
                 let resp = client.get_transaction(&tx_hash).await?;
                 if let Some(meta) = resp.result_meta {
                     let meta_xdr = meta.to_xdr_base64(Limits::none()).unwrap();
-                    println!("{}", meta_xdr);
+                    println!("{meta_xdr}");
                 }
             }
             OutputFormat::JsonFormatted => {

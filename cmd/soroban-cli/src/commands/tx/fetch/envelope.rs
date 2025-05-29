@@ -58,7 +58,7 @@ impl Cmd {
                 let resp = client.get_transaction(&tx_hash).await?;
                 if let Some(envelope) = resp.envelope {
                     let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
-                    println!("{}", envelope_xdr);
+                    println!("{envelope_xdr}");
                 }
             }
             OutputFormat::JsonFormatted => {
