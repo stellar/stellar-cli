@@ -47,7 +47,6 @@ pub enum Cmd {
     /// Simulate a transaction envelope from stdin
     Simulate(simulate::Cmd),
     /// Fetch a transaction from the network by hash
-    #[command(subcommand)]
     Fetch(fetch::Cmd),
 }
 

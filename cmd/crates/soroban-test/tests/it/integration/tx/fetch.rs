@@ -22,6 +22,7 @@ async fn tx_fetch() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("result")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")
@@ -42,6 +43,7 @@ async fn tx_fetch() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("meta")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")
@@ -57,6 +59,35 @@ async fn tx_fetch() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("envelope")
+        .arg("--hash")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: TransactionEnvelope = serde_json::from_str(&output).unwrap();
+    assert!(matches!(
+        parsed,
+        TransactionEnvelope::Tx(TransactionV1Envelope { .. })
+    ));
+}
+
+#[tokio::test]
+async fn tx_fetch_default_to_envelope() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    // create a tx
+    let data_name = "test_data_key";
+    let data_value = "abcdef";
+    let tx_hash = add_account_data(sandbox, test_account_alias, data_name, data_value).await;
+
+    // fetch the tx envelope when no subcommand is given
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")
@@ -85,6 +116,7 @@ async fn tx_fetch_xdr_output() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("result")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")
@@ -107,6 +139,7 @@ async fn tx_fetch_xdr_output() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("meta")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")
@@ -124,6 +157,7 @@ async fn tx_fetch_xdr_output() {
         .new_assert_cmd("tx")
         .arg("fetch")
         .arg("envelope")
+        .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
         .arg("testnet")

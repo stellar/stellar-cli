@@ -6,10 +6,13 @@ use crate::{
 };
 use clap::{command, Parser};
 
+use super::args;
+
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Transaction hash to fetch
+    #[arg(long)]
     pub hash: Hash,
 
     #[command(flatten)]
@@ -17,8 +20,9 @@ pub struct Cmd {
 
     /// Format of the output
     #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
+    pub output: args::OutputFormat,
 }
+
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -32,37 +36,26 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
-}
-
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
         match self.output {
-            OutputFormat::Json => {
+            args::OutputFormat::Json => {
                 let resp = client.get_transaction(&tx_hash).await?;
                 if let Some(envelope) = resp.envelope {
                     println!("{}", serde_json::to_string(&envelope)?);
                 }
             }
-            OutputFormat::Xdr => {
+            args::OutputFormat::Xdr => {
                 let resp = client.get_transaction(&tx_hash).await?;
                 if let Some(envelope) = resp.envelope {
                     let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
                     println!("{envelope_xdr}");
                 }
             }
-            OutputFormat::JsonFormatted => {
+            args::OutputFormat::JsonFormatted => {
                 let resp = client.get_transaction(&tx_hash).await?;
                 if let Some(envelope) = resp.envelope {
                     println!("{}", serde_json::to_string_pretty(&envelope)?);

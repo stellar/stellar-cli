@@ -10,6 +10,7 @@ use clap::{command, Parser};
 #[group(skip)]
 pub struct Cmd {
     /// Transaction hash to fetch
+    #[arg(long)]
     pub hash: Hash,
 
     #[command(flatten)]
