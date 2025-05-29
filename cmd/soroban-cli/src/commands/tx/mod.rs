@@ -2,6 +2,7 @@ use super::global;
 
 pub mod args;
 pub mod edit;
+pub mod fetch;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -11,7 +12,6 @@ pub mod sign;
 pub mod simulate;
 pub mod update;
 pub mod xdr;
-pub mod fetch;
 
 pub use args::Args;
 

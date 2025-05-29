@@ -3,9 +3,9 @@ use std::fmt::Debug;
 
 use crate::commands::global;
 
-mod result;
-mod meta;
 mod envelope;
+mod meta;
+mod result;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {

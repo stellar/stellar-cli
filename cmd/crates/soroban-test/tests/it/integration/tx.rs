@@ -6,8 +6,8 @@ use crate::integration::util::{
     deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
 };
 
-pub mod operations;
 pub mod fetch;
+pub mod operations;
 
 #[tokio::test]
 async fn simulate() {

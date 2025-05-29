@@ -1,12 +1,12 @@
 use soroban_cli::{
     utils::transaction_hash,
     xdr::{
-        Limits, TransactionEnvelope,TransactionV1Envelope,
-        TransactionResult, TransactionResultResult, ReadXdr, TransactionMeta, TransactionResultExt
+        Limits, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
+        TransactionResultExt, TransactionResultResult, TransactionV1Envelope,
     },
 };
 
-use soroban_test::{AssertExt, TestEnv };
+use soroban_test::{AssertExt, TestEnv};
 
 #[tokio::test]
 async fn tx_fetch() {
@@ -16,7 +16,7 @@ async fn tx_fetch() {
     let data_name = "test_data_key";
     let data_value = "abcdef";
     let tx_hash = add_account_data(sandbox, test_account_alias, data_name, data_value).await;
- 
+
     // fetch the tx result
     let output = sandbox
         .new_assert_cmd("tx")
@@ -31,7 +31,10 @@ async fn tx_fetch() {
 
     let parsed: TransactionResult = serde_json::from_str(&output).unwrap();
     assert_eq!(parsed.fee_charged, 100);
-    assert!(matches!(parsed.result, TransactionResultResult::TxSuccess{..}));
+    assert!(matches!(
+        parsed.result,
+        TransactionResultResult::TxSuccess { .. }
+    ));
     assert_eq!(parsed.ext, TransactionResultExt::V0);
 
     // fetch the tx meta
@@ -47,7 +50,7 @@ async fn tx_fetch() {
         .stdout_as_str();
 
     let parsed: TransactionMeta = serde_json::from_str(&output).unwrap();
-    assert!(matches!(parsed, TransactionMeta::V3{ .. }));
+    assert!(matches!(parsed, TransactionMeta::V3 { .. }));
 
     // fetch the tx envelope
     let output = sandbox
@@ -62,9 +65,12 @@ async fn tx_fetch() {
         .stdout_as_str();
 
     let parsed: TransactionEnvelope = serde_json::from_str(&output).unwrap();
-    assert!(matches!(parsed, TransactionEnvelope::Tx(TransactionV1Envelope{ .. })));
+    assert!(matches!(
+        parsed,
+        TransactionEnvelope::Tx(TransactionV1Envelope { .. })
+    ));
 }
-    
+
 #[tokio::test]
 async fn tx_fetch_xdr_output() {
     let sandbox = &TestEnv::new();
@@ -73,7 +79,7 @@ async fn tx_fetch_xdr_output() {
     let data_name = "test_data_key";
     let data_value = "abcdef";
     let tx_hash = add_account_data(sandbox, test_account_alias, data_name, data_value).await;
- 
+
     // fetch the tx result
     let output = sandbox
         .new_assert_cmd("tx")
@@ -90,7 +96,10 @@ async fn tx_fetch_xdr_output() {
 
     let parsed_xdr = TransactionResult::from_xdr_base64(output, Limits::none()).unwrap();
     assert_eq!(parsed_xdr.fee_charged, 100);
-    assert!(matches!(parsed_xdr.result, TransactionResultResult::TxSuccess{..}));
+    assert!(matches!(
+        parsed_xdr.result,
+        TransactionResultResult::TxSuccess { .. }
+    ));
     assert_eq!(parsed_xdr.ext, TransactionResultExt::V0);
 
     // fetch the tx meta
@@ -108,7 +117,7 @@ async fn tx_fetch_xdr_output() {
         .stdout_as_str();
 
     let parsed_xdr = TransactionMeta::from_xdr_base64(output, Limits::none()).unwrap();
-    assert!(matches!(parsed_xdr, TransactionMeta::V3{ .. }));
+    assert!(matches!(parsed_xdr, TransactionMeta::V3 { .. }));
 
     // fetch the tx envelope
     let output = sandbox
@@ -125,10 +134,18 @@ async fn tx_fetch_xdr_output() {
         .stdout_as_str();
 
     let parsed_xdr = TransactionEnvelope::from_xdr_base64(&output, Limits::none()).unwrap();
-    assert!(matches!(parsed_xdr, TransactionEnvelope::Tx(TransactionV1Envelope{ .. })));
+    assert!(matches!(
+        parsed_xdr,
+        TransactionEnvelope::Tx(TransactionV1Envelope { .. })
+    ));
 }
 
-async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, value: &str) -> String {
+async fn add_account_data(
+    sandbox: &TestEnv,
+    account_alias: &str,
+    key: &str,
+    value: &str,
+) -> String {
     let tx_xdr = sandbox
         .new_assert_cmd("tx")
         .args([
@@ -140,19 +157,19 @@ async fn add_account_data(sandbox: &TestEnv, account_alias: &str, key: &str, val
             value,
             "--source",
             account_alias,
-            "--build-only"
+            "--build-only",
         ])
         .assert()
         .success()
         .stdout_as_str();
 
     let tx_env = TransactionEnvelope::from_xdr_base64(tx_xdr.clone(), Limits::none()).unwrap();
-    let tx =  if let TransactionEnvelope::Tx(env) = tx_env {
+    let tx = if let TransactionEnvelope::Tx(env) = tx_env {
         env.tx
     } else {
         panic!("Expected TransactionEnvelope::Tx, got something else");
     };
-    
+
     // submit the tx
     sandbox
         .new_assert_cmd("tx")

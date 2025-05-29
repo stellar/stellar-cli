@@ -1,9 +1,10 @@
-use clap::{command, Parser};
 use crate::{
-    commands::global, config::{
-        network,
-    }, rpc, xdr::{self, Hash, Limits, WriteXdr}
+    commands::global,
+    config::network,
+    rpc,
+    xdr::{self, Hash, Limits, WriteXdr},
 };
+use clap::{command, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
