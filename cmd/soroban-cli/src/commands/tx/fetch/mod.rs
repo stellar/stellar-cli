@@ -64,11 +64,11 @@ impl Cmd {
                     args: args::Args {
                         hash: self.default.hash.clone().unwrap(),
                         network: self.default.network.clone().unwrap(),
-                        output: self.default.output.clone().unwrap(),
+                        output: self.default.output.unwrap(),
                     },
                 }
                 .run(global_args)
-                .await?
+                .await?;
             }
         }
         Ok(())
