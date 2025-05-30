@@ -17,12 +17,13 @@
         stellardev = {
           name = "stellar";
           src = ./.;
-          nativeBuildInputs = pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
+          nativeBuildInputs = (pkgs.lib.optionals (pkgs.stdenv.isDarwin) [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-          ];
+          ]) ++ (with pkgs; [
+            pkg-config
+          ]);
           buildInputs = with pkgs; [
             openssl
-            pkg-config
             jq
             dbus
             (rust-bin.stable.latest.default.override {
