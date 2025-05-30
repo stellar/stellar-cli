@@ -1584,7 +1584,7 @@ Sign, Simulate, and Send transactions
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
-* `fetch` — Fetch a transaction from the network by hash
+* `fetch` — Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
 
 
 
@@ -2379,15 +2379,35 @@ Simulate a transaction envelope from stdin
 
 ## `stellar tx fetch`
 
-Fetch a transaction from the network by hash
+Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
 
-**Usage:** `stellar tx fetch <COMMAND>`
+**Usage:** `stellar tx fetch [OPTIONS]
+       fetch <COMMAND>`
 
 ###### **Subcommands:**
 
 * `result` — Fetch the transaction result
 * `meta` — Fetch the transaction meta
-* `envelope` — Fetch the transaction envelope
+
+###### **Options:**
+
+* `--hash <HASH>`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
 
 
 
@@ -2395,14 +2415,11 @@ Fetch a transaction from the network by hash
 
 Fetch the transaction result
 
-**Usage:** `stellar tx fetch result [OPTIONS] <HASH>`
-
-###### **Arguments:**
-
-* `<HASH>` — Transaction hash to fetch
+**Usage:** `stellar tx fetch result [OPTIONS] --hash <HASH>`
 
 ###### **Options:**
 
+* `--hash <HASH>` — Transaction hash to fetch
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2426,45 +2443,11 @@ Fetch the transaction result
 
 Fetch the transaction meta
 
-**Usage:** `stellar tx fetch meta [OPTIONS] <HASH>`
-
-###### **Arguments:**
-
-* `<HASH>` — Transaction hash to fetch
+**Usage:** `stellar tx fetch meta [OPTIONS] --hash <HASH>`
 
 ###### **Options:**
 
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `-n`, `--network <NETWORK>` — Name of network to use from config
-* `--output <OUTPUT>` — Format of the output
-
-  Default value: `json`
-
-  Possible values:
-  - `json`:
-    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`:
-    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-  - `xdr`:
-    Original RPC output (containing XDRs)
-
-
-
-
-## `stellar tx fetch envelope`
-
-Fetch the transaction envelope
-
-**Usage:** `stellar tx fetch envelope [OPTIONS] <HASH>`
-
-###### **Arguments:**
-
-* `<HASH>` — Transaction hash to fetch
-
-###### **Options:**
-
+* `--hash <HASH>` — Transaction hash to fetch
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server

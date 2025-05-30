@@ -23,7 +23,6 @@ pub struct Cmd {
     pub output: args::OutputFormat,
 }
 
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]

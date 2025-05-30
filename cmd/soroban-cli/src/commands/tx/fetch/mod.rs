@@ -1,19 +1,12 @@
 use clap::{command, Parser, Subcommand};
 use std::fmt::Debug;
 
-use crate::{
-    commands::global,
-    config::network,
-    rpc,
-    xdr::{self, Hash, Limits, WriteXdr},
-};
+use crate::{commands::global, config::network, xdr::Hash};
 
+mod args;
 mod envelope;
 mod meta;
 mod result;
-mod args;
-
-
 
 #[derive(Debug, clap::Args)]
 #[command(args_conflicts_with_subcommands = true)]
@@ -32,6 +25,7 @@ pub enum FetchCommands {
     /// Fetch the transaction meta
     Meta(meta::Cmd),
     /// Fetch the transaction envelope
+    #[command(hide = true)]
     Envelope(envelope::Cmd),
 }
 
@@ -65,13 +59,14 @@ impl Cmd {
             Some(FetchCommands::Meta(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
             None => {
-                envelope::Cmd{ 
-                    hash: self.default.hash.clone().unwrap(), 
+                envelope::Cmd {
+                    hash: self.default.hash.clone().unwrap(),
                     network: self.default.network.clone().unwrap(),
-                    output: self.default.output.clone().unwrap()
-                }.run(global_args).await?
-                
-            },
+                    output: self.default.output.clone().unwrap(),
+                }
+                .run(global_args)
+                .await?
+            }
         }
         Ok(())
     }
