@@ -1,15 +1,13 @@
+use soroban_rpc::GetTransactionResponse;
+
 use crate::{
-    config::{
-        locator,
-        network::{self, Network},
-    },
-    rpc,
-    xdr::{self, Hash},
+    commands::global, config::network, rpc, xdr::{self, Hash}
 };
 
 #[derive(Debug, Clone, clap::Parser)]
 // #[group(skip)]
 pub struct Args {
+    /// Transaction hash to fetch
     #[arg(long)]
     pub hash: Hash,
 
@@ -45,28 +43,10 @@ pub enum OutputFormat {
 }
 
 impl Args {
-    // pub async fn run(&self) -> Result<(), Error> {
-    //         let network = self.network.get(&self.locator)?;
-    //         let client = network.rpc_client()?;
-    //         let tx_hash = self.hash.clone();
-    //         match self.output {
-    //             OutputFormat::Json => {
-    //                 let resp = client.get_transaction(&tx_hash).await?;
-    //                 let envelope = resp.envelope.unwrap();
-    //                 println!("{}", serde_json::to_string(&envelope)?);
-    //             }
-    //             OutputFormat::Xdr => {
-    //                 let resp = client.get_transaction(&tx_hash).await?;
-    //                 let resp_as_xdr: GetTransactionResponseRaw = resp.clone().try_into()?;
-    //                 let envelope = resp_as_xdr.envelope_xdr;
-    //                 println!("{}", serde_json::to_string(&envelope)?);
-    //             }
-    //             OutputFormat::JsonFormatted => {
-    //                 let resp = client.get_transaction(&tx_hash).await?;
-    //                 let envelope = resp.envelope.unwrap();
-    //                 println!("{}", serde_json::to_string_pretty(&envelope)?);
-    //             }
-    //         }
-    //         Ok(())
-    //     }
+    pub async fn fetch_transaction(&self, global_args: &global::Args) -> Result<GetTransactionResponse, Error> {
+        let network = self.network.get(&global_args.locator)?;
+        let client = network.rpc_client()?;
+        let tx_hash = self.hash.clone();
+        Ok(client.get_transaction(&tx_hash).await?)
+    }
 }

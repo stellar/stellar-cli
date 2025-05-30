@@ -1,4 +1,4 @@
-use clap::{command, Parser, Subcommand};
+use clap::{command, Subcommand};
 use std::fmt::Debug;
 
 use crate::{commands::global, config::network, xdr::Hash};
@@ -31,6 +31,7 @@ pub enum FetchCommands {
 
 #[derive(Debug, clap::Args)]
 struct DefaultArgs {
+    /// Hash of transaction to fetch
     #[arg(long)]
     pub hash: Option<Hash>,
 
@@ -60,9 +61,11 @@ impl Cmd {
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
             None => {
                 envelope::Cmd {
-                    hash: self.default.hash.clone().unwrap(),
-                    network: self.default.network.clone().unwrap(),
-                    output: self.default.output.clone().unwrap(),
+                    args: args::Args{
+                        hash: self.default.hash.clone().unwrap(),
+                        network: self.default.network.clone().unwrap(),
+                        output: self.default.output.clone().unwrap(),
+                    }
                 }
                 .run(global_args)
                 .await?
