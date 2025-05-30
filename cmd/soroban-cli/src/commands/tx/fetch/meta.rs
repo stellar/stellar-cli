@@ -1,8 +1,6 @@
 use crate::{
     commands::global,
-    config::network,
-    rpc,
-    xdr::{self, Hash, Limits, WriteXdr},
+    xdr::{self, Limits, WriteXdr},
 };
 use clap::{command, Parser};
 
@@ -12,7 +10,7 @@ use super::args;
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    args: args::Args
+    args: args::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -22,7 +20,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
-    Args(#[from] args::Error)
+    Args(#[from] args::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]

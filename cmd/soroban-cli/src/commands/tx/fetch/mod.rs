@@ -61,11 +61,11 @@ impl Cmd {
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
             None => {
                 envelope::Cmd {
-                    args: args::Args{
+                    args: args::Args {
                         hash: self.default.hash.clone().unwrap(),
                         network: self.default.network.clone().unwrap(),
                         output: self.default.output.clone().unwrap(),
-                    }
+                    },
                 }
                 .run(global_args)
                 .await?

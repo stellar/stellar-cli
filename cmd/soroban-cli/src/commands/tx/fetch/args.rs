@@ -1,7 +1,10 @@
 use soroban_rpc::GetTransactionResponse;
 
 use crate::{
-    commands::global, config::network, rpc, xdr::{self, Hash}
+    commands::global,
+    config::network,
+    rpc,
+    xdr::{self, Hash},
 };
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -43,7 +46,10 @@ pub enum OutputFormat {
 }
 
 impl Args {
-    pub async fn fetch_transaction(&self, global_args: &global::Args) -> Result<GetTransactionResponse, Error> {
+    pub async fn fetch_transaction(
+        &self,
+        global_args: &global::Args,
+    ) -> Result<GetTransactionResponse, Error> {
         let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();

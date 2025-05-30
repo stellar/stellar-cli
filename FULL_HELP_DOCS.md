@@ -2391,7 +2391,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 
 ###### **Options:**
 
-* `--hash <HASH>`
+* `--hash <HASH>` — Hash of transaction to fetch
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
