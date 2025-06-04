@@ -174,6 +174,27 @@ async fn tx_fetch_xdr_output() {
     ));
 }
 
+#[tokio::test]
+async fn tx_fetch_tx_not_found() {
+    let sandbox = &TestEnv::new();
+    let tx_hash_not_found = "15f755560cc6e8c4f49b6651dbc3d4b9590df7d6c01670dba604f1f52496141b";
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("result")
+        .arg("--hash")
+        .arg(&tx_hash_not_found)
+        .arg("--network")
+        .arg("testnet")
+        .arg("--output")
+        .arg("xdr")
+        .assert()
+        .failure()
+        .stderr(format!(
+            "❌ error: transaction {tx_hash_not_found} not found on testnet network\n"
+        ));
+}
+
 async fn add_account_data(
     sandbox: &TestEnv,
     account_alias: &str,

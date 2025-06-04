@@ -32,6 +32,8 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error("transaction {tx_hash} not found on {network} network")]
+    NotFound { tx_hash: Hash, network: String },
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -53,6 +55,18 @@ impl Args {
         let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
+        let tx = client.get_transaction(&tx_hash).await?;
+        match tx.status {
+            val if val == "NOT_FOUND".to_string() => {
+                if let Some(n) = &self.network.network {
+                    return Err(Error::NotFound {
+                        tx_hash,
+                        network: n.to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
         Ok(client.get_transaction(&tx_hash).await?)
     }
 }
