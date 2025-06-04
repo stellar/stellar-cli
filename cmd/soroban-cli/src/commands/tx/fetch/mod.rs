@@ -62,7 +62,11 @@ impl Cmd {
             None => {
                 envelope::Cmd {
                     args: args::Args {
-                        hash: self.default.hash.clone().expect("Transaction hash is required but was not provided."),
+                        hash: self
+                            .default
+                            .hash
+                            .clone()
+                            .expect("Transaction hash is required but was not provided."),
                         network: self.default.network.clone().unwrap(),
                         output: self.default.output.unwrap(),
                     },
