@@ -56,7 +56,7 @@ impl Args {
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
         let tx = client.get_transaction(&tx_hash).await?;
-        match tx.status {
+        match tx.status.clone() {
             val if val == "NOT_FOUND".to_string() => {
                 if let Some(n) = &self.network.network {
                     return Err(Error::NotFound {
@@ -67,6 +67,6 @@ impl Args {
             }
             _ => {}
         }
-        Ok(client.get_transaction(&tx_hash).await?)
+        Ok(tx)
     }
 }
