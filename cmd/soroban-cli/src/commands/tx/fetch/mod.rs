@@ -58,15 +58,15 @@ struct DefaultArgs {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Args(#[from] args::Error),
+    #[error(transparent)]
     Result(#[from] result::Error),
     #[error(transparent)]
     Meta(#[from] meta::Error),
     #[error(transparent)]
     Envelope(#[from] envelope::Error),
-    #[error("transaction meta extension type not supported: {ext_type}")]
-    MetaExtNotSupported { ext_type: String },
-    #[error("transaction meta version not supported: {version}")]
-    MetaVersionNotSupported { version: String },
+    #[error("{message}")]
+    NotSupported { message: String },
 }
 
 impl Cmd {
@@ -105,28 +105,32 @@ impl Cmd {
             output: self.default.output.unwrap(),
         };
 
-        let resp = args.fetch_transaction(global_args).await.unwrap();
+        let resp = args.fetch_transaction(global_args).await?;
         let tx_result = resp.clone().result.unwrap();
         let tx_meta = resp.clone().result_meta.unwrap();
         let fee = tx_result.fee_charged;
         let (non_refundable_resource_fee, refundable_resource_fee) = match tx_meta.clone() {
            TransactionMeta::V0(_) => {
-                return Err(Error::MetaVersionNotSupported { version: "TransactionMeta::V0".to_string() });
+                return Err(Error::NotSupported { message: "TransactionMeta::V0 not supported".to_string() });
             },
             TransactionMeta::V1(_) => {
-                return Err(Error::MetaVersionNotSupported { version: "TransactionMeta::V1".to_string() });
+                return Err(Error::NotSupported { message: "TransactionMeta::V1 not supported".to_string() });
             },
             TransactionMeta::V2(_) => {
-                return Err(Error::MetaVersionNotSupported { version: "TransactionMeta::V2".to_string() });
+                return Err(Error::NotSupported { message: "TransactionMeta::V2 not supported".to_string() });
             },
             TransactionMeta::V3(meta) => {
-                match meta.soroban_meta.unwrap().ext {
-                    SorobanTransactionMetaExt::V0 => {
-                        return Err(Error::MetaExtNotSupported { ext_type: "SorobanTransactionMetaExt::V0".to_string() })
-                    },
-                    SorobanTransactionMetaExt::V1(v1) => {
-                        (v1.total_non_refundable_resource_fee_charged, v1.total_refundable_resource_fee_charged)
-                    },
+                if let Some(soroban_meta) = meta.soroban_meta {
+                    match soroban_meta.ext {
+                        SorobanTransactionMetaExt::V0 => {
+                            return Err(Error::NotSupported { message: "SorobanTransactionMetaExt::V0 not supported".to_string() })
+                        },
+                        SorobanTransactionMetaExt::V1(v1) => {
+                            (v1.total_non_refundable_resource_fee_charged, v1.total_refundable_resource_fee_charged)
+                        },
+                    }
+                } else {
+                    return Err(Error::NotSupported { message: "cannot get fee when soroban_meta is None".to_string()})
                 }
             },
         };
