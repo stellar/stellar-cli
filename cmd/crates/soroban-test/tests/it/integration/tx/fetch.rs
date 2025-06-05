@@ -7,7 +7,7 @@ use soroban_cli::{
     },
 };
 
-use crate::integration::util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD};
+use crate::integration::util::{deploy_contract, DeployOptions, HELLO_WORLD};
 
 use soroban_test::{AssertExt, TestEnv};
 

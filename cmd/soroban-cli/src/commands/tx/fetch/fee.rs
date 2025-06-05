@@ -3,7 +3,7 @@ use crate::{
     commands::global,
     config::network,
     rpc,
-    xdr::{self, Hash, Limits, SorobanTransactionMetaExt, TransactionMeta, WriteXdr},
+    xdr::{self, Hash, SorobanTransactionMetaExt, TransactionMeta},
 };
 use clap::{command, Parser};
 use prettytable::{
@@ -44,7 +44,7 @@ impl FeeArgs {
         let tx_hash = self.hash.clone();
         let tx = client.get_transaction(&tx_hash).await?;
         match tx.status.clone() {
-            val if val == "NOT_FOUND".to_string() => {
+            val if val == *"NOT_FOUND" => {
                 if let Some(n) = &self.network.network {
                     return Err(Error::NotFound {
                         tx_hash,

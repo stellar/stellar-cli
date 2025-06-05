@@ -1,14 +1,9 @@
 use crate::{
     commands::global,
     config::network,
-    xdr::{Hash, SorobanTransactionMetaExt, TransactionMeta},
+    xdr::Hash,
 };
 use clap::{command, Subcommand};
-use prettytable::{
-    format::{self, FormatBuilder, LinePosition, LineSeparator},
-    Cell, Row, Table,
-};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 mod args;
