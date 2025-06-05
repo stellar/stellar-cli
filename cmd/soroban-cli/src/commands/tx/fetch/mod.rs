@@ -1,22 +1,21 @@
-use clap::{command, Subcommand};
-use std::fmt::Debug;
-use prettytable::{format::{self, FormatBuilder, LinePosition, LineSeparator}, Cell, Row, Table};
-use serde::{Deserialize, Serialize};
 use crate::{
     commands::global,
     config::network,
-    xdr::{
-        Hash,
-        TransactionMeta,
-        SorobanTransactionMetaExt,
-    },
+    xdr::{Hash, SorobanTransactionMetaExt, TransactionMeta},
 };
+use clap::{command, Subcommand};
+use prettytable::{
+    format::{self, FormatBuilder, LinePosition, LineSeparator},
+    Cell, Row, Table,
+};
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 mod args;
 mod envelope;
+pub mod fee;
 mod meta;
 mod result;
-mod fee;
 
 #[derive(Debug, clap::Args)]
 #[command(args_conflicts_with_subcommands = true)]

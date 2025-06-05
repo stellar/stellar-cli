@@ -1,14 +1,13 @@
 use soroban_cli::{
+    commands::tx::fetch::fee::FeeTable,
     utils::transaction_hash,
     xdr::{
         Limits, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
-        TransactionResultExt, TransactionResultResult, TransactionV1Envelope, 
+        TransactionResultExt, TransactionResultResult, TransactionV1Envelope,
     },
-    commands::tx::fetch::FeeTable
 };
 
 use crate::integration::util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD};
-
 
 use soroban_test::{AssertExt, TestEnv};
 
@@ -210,7 +209,8 @@ async fn tx_fetch_fee_only() {
             deployer: Some(test_account_alias.to_string()),
             ..Default::default()
         },
-    ).await;
+    )
+    .await;
 
     let tx_xdr = sandbox
         .new_assert_cmd("contract")
@@ -252,7 +252,6 @@ async fn tx_fetch_fee_only() {
         .success()
         .stdout_as_str();
 
-
     let tx_env = TransactionEnvelope::from_xdr_base64(signed.clone(), Limits::none()).unwrap();
     let tx = if let TransactionEnvelope::Tx(env) = tx_env {
         env.tx
@@ -271,19 +270,14 @@ async fn tx_fetch_fee_only() {
         .arg(&tx_hash)
         .arg("--network")
         .arg("local")
-        .arg("--fee-only")
         .assert()
         .success()
         .stdout_as_str();
 
-    println!("output: {:?}", output)
-    // let parsed: TransactionResult = serde_json::from_str(&output).unwrap();
-    // assert_eq!(parsed.fee_charged, 100);
-    // assert!(matches!(
-    //     parsed.result,
-    //     TransactionResultResult::TxSuccess { .. }
-    // ));
-    // assert_eq!(parsed.ext, TransactionResultExt::V0);
+    let parsed: FeeTable = serde_json::from_str(&output).unwrap();
+    println!("{:?}", parsed);
+    assert_eq!(parsed.inclusion_fee, 100);
+    assert_eq!(parsed.resource_fee + parsed.inclusion_fee, parsed.fee);
 }
 
 async fn add_account_data(
