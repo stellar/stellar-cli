@@ -2,9 +2,12 @@ use soroban_cli::{
     utils::transaction_hash,
     xdr::{
         Limits, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
-        TransactionResultExt, TransactionResultResult, TransactionV1Envelope,
+        TransactionResultExt, TransactionResultResult, TransactionV1Envelope, 
     },
 };
+
+use crate::integration::util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD};
+
 
 use soroban_test::{AssertExt, TestEnv};
 
@@ -193,6 +196,92 @@ async fn tx_fetch_tx_not_found() {
         .stderr(format!(
             "❌ error: transaction {tx_hash_not_found} not found on testnet network\n"
         ));
+}
+
+#[tokio::test]
+async fn tx_fetch_fee_only() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    let contract_id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some(test_account_alias.to_string()),
+            ..Default::default()
+        },
+    ).await;
+
+    let tx_xdr = sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--build-only")
+        .arg("--id")
+        .arg(contract_id.clone())
+        .arg("--network")
+        .arg("local")
+        .arg("--")
+        .arg("inc")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let tx_simulated = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(tx_xdr.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg("--sign-with-key")
+        .arg("test")
+        .write_stdin(tx_simulated.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(signed.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+
+    let tx_env = TransactionEnvelope::from_xdr_base64(signed.clone(), Limits::none()).unwrap();
+    let tx = if let TransactionEnvelope::Tx(env) = tx_env {
+        env.tx
+    } else {
+        panic!("Expected TransactionEnvelope::Tx, got something else");
+    };
+
+    let tx_hash = hex::encode(transaction_hash(&tx, &sandbox.network.network_passphrase).unwrap());
+
+    // fetch the tx result
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("--hash")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("local")
+        .arg("--fee-only")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    println!("output: {:?}", output)
+    // let parsed: TransactionResult = serde_json::from_str(&output).unwrap();
+    // assert_eq!(parsed.fee_charged, 100);
+    // assert!(matches!(
+    //     parsed.result,
+    //     TransactionResultResult::TxSuccess { .. }
+    // ));
+    // assert_eq!(parsed.ext, TransactionResultExt::V0);
 }
 
 async fn add_account_data(
