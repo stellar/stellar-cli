@@ -4,6 +4,7 @@ use soroban_cli::{
         Limits, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
         TransactionResultExt, TransactionResultResult, TransactionV1Envelope, 
     },
+    commands::tx::fetch::FeeTable
 };
 
 use crate::integration::util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD};
@@ -265,6 +266,7 @@ async fn tx_fetch_fee_only() {
     let output = sandbox
         .new_assert_cmd("tx")
         .arg("fetch")
+        .arg("fee")
         .arg("--hash")
         .arg(&tx_hash)
         .arg("--network")
