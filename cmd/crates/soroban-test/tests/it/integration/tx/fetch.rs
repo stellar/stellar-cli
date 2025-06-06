@@ -199,7 +199,7 @@ async fn tx_fetch_tx_not_found() {
 }
 
 #[tokio::test]
-async fn tx_fetch_fee_only() {
+async fn tx_fetch_fee() {
     let sandbox = &TestEnv::new();
     let test_account_alias = "test";
     let contract_id = deploy_contract(
@@ -261,7 +261,7 @@ async fn tx_fetch_fee_only() {
 
     let tx_hash = hex::encode(transaction_hash(&tx, &sandbox.network.network_passphrase).unwrap());
 
-    // fetch the tx result
+    // fetch the tx fee
     let output = sandbox
         .new_assert_cmd("tx")
         .arg("fetch")
@@ -270,12 +270,13 @@ async fn tx_fetch_fee_only() {
         .arg(&tx_hash)
         .arg("--network")
         .arg("local")
+        .arg("--output")
+        .arg("json")
         .assert()
         .success()
         .stdout_as_str();
 
     let parsed: FeeTable = serde_json::from_str(&output).unwrap();
-    println!("{:?}", parsed);
     assert_eq!(parsed.inclusion_fee, 100);
     assert_eq!(parsed.resource_fee + parsed.inclusion_fee, parsed.fee);
 }

@@ -30,7 +30,7 @@ pub struct FeeArgs {
     pub network: network::Args,
 
     /// Output format for fee command
-    #[arg(long, default_value = "json")]
+    #[arg(long, default_value = "table")]
     pub output: FeeOutputFormat,
 }
 
@@ -61,13 +61,13 @@ impl FeeArgs {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum FeeOutputFormat {
     /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
     Json,
     /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
     JsonFormatted,
     /// Original RPC output (containing XDRs)
     Xdr,
     /// Formatted in a table comparing fee types
+    #[default]
     Table,
 }
 
