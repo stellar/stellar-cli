@@ -1,8 +1,4 @@
-use crate::{
-    commands::global,
-    config::network,
-    xdr::Hash,
-};
+use crate::{commands::global, config::network, xdr::Hash};
 use clap::{command, Subcommand};
 use std::fmt::Debug;
 
