@@ -43,7 +43,7 @@ impl Cmd {
             wasm_size
         );
 
-        let wasm_out = self.wasm_out.as_ref().cloned().unwrap_or_else(|| {
+        let wasm_out = self.wasm_out.cloned().unwrap_or_else(|| {
             let mut wasm_out = self.wasm.wasm.clone();
             wasm_out.set_extension("optimized.wasm");
             wasm_out
