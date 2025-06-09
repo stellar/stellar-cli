@@ -21,7 +21,7 @@ pub enum Error {
 #[cfg(feature = "additional-libs")]
 mod ledger_impl {
     use super::Error;
-    use crate::xdr::{Hash, Signature, SignatureHint, DecoratedSignature, Transaction};
+    use crate::xdr::{DecoratedSignature, Hash, Signature, SignatureHint, Transaction};
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
