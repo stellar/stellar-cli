@@ -64,8 +64,6 @@ pub enum FeeOutputFormat {
     Json,
     /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
     JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
     /// Formatted in a table comparing fee types
     #[default]
     Table,
@@ -137,11 +135,6 @@ impl Cmd {
         match self.args.output {
             FeeOutputFormat::Json => {
                 println!("{}", serde_json::to_string(&fee_table)?);
-            }
-            FeeOutputFormat::Xdr => {
-                return Err(Error::NotSupported {
-                    message: "xdr output is not available for the fee subcommand".to_string(),
-                })
             }
             FeeOutputFormat::JsonFormatted => {
                 println!("{}", serde_json::to_string_pretty(&fee_table)?);
