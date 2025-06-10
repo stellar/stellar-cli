@@ -1329,9 +1329,11 @@ Checks the health of the configured RPC
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
 * `--output <OUTPUT>` — Format of the output
 
-  Default value: `json-formatted`
+  Default value: `text`
 
   Possible values:
+  - `text`:
+    Text output of network info
   - `json`:
     JSON result of the RPC request
   - `json-formatted`:
