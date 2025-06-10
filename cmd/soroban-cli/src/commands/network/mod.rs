@@ -6,6 +6,7 @@ pub mod default;
 pub mod health;
 pub mod ls;
 pub mod rm;
+pub mod info;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -53,6 +54,9 @@ pub enum Cmd {
 
     /// Checks the health of the configured RPC
     Health(health::Cmd),
+
+    /// Checks the health of the configured RPC
+    Info(info::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -68,8 +72,12 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+
     #[error(transparent)]
     Health(#[from] health::Error),
+
+    #[error(transparent)]
+    Info(#[from] info::Error),
 
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
@@ -107,6 +115,7 @@ impl Cmd {
                 cmd.run(global_args).await?;
             }
             Cmd::Health(cmd) => cmd.run(global_args).await?,
+            Cmd::Info(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
