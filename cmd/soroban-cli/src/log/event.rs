@@ -64,7 +64,7 @@ fn parse_event(event: &xdr::DiagnosticEvent) -> Option<Event> {
         .event
         .contract_id
         .clone()
-        .map(|hash| Contract(hash.0))?;
+        .map(|hash| Contract(hash.0.into()))?;
     Some(Event { contract, r#type })
 }
 
