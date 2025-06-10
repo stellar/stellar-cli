@@ -17,10 +17,12 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
+    /// Text output of network info
+    #[default]
+    Text,
     /// JSON result of the RPC request
     Json,
     /// Formatted (multiline) JSON output of the RPC request
-    #[default]
     JsonFormatted,
 }
 
@@ -30,19 +32,48 @@ pub struct Cmd {
     #[command(flatten)]
     pub config: config::ArgsLocatorAndNetwork,
     /// Format of the output
-    #[arg(long, default_value = "json-formatted")]
+    #[arg(long, default_value = "text")]
     pub output: OutputFormat,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct Info {
     pub version: String,
-    pub commmit_hash: String,
+    pub commit_hash: String,
     pub build_timestamp: String,
     pub captive_core_version: String,
     pub protocol_version: u32,
-    pub friendbot_url: Option<String>,
     pub passphrase: String,
+    pub friendbot_url: Option<String>,
+}
+
+impl Info {
+    fn print_text(&self, print: &print::Print) {
+        print.infoln(format!("Version: {}", self.version));
+        print.infoln(format!("Commit Hash: {}", self.commit_hash));
+        print.infoln(format!("Build Timestamp: {}", self.build_timestamp));
+        print.infoln(format!(
+            "Captive Core Version: {}",
+            self.captive_core_version
+        ));
+        print.infoln(format!("Protocol Version: {}", self.protocol_version));
+        print.infoln(format!("Passphrase: {}", self.passphrase));
+        if let Some(friendbot_url) = &self.friendbot_url {
+            print.infoln(format!("Friendbot Url: {friendbot_url}"));
+        }
+    }
+
+    fn print_json(&self) -> Result<(), serde_json::Error> {
+        let json = serde_json::to_string(&self)?;
+        println!("{json}");
+        Ok(())
+    }
+
+    fn print_json_formatted(&self) -> Result<(), serde_json::Error> {
+        let json = serde_json::to_string_pretty(&self)?;
+        println!("{json}");
+        Ok(())
+    }
 }
 
 impl Cmd {
@@ -51,10 +82,9 @@ impl Cmd {
         let rpc_client = self.config.get_network()?.rpc_client()?;
         let network_result = rpc_client.get_network().await?;
         let version_result = rpc_client.get_version_info().await?;
-        println!("version_result: {version_result:?}");
         let info = Info {
             version: version_result.version,
-            commmit_hash: version_result.commmit_hash,
+            commit_hash: version_result.commmit_hash,
             build_timestamp: version_result.build_timestamp,
             captive_core_version: version_result.captive_core_version,
             protocol_version: network_result.protocol_version,
@@ -63,8 +93,9 @@ impl Cmd {
         };
 
         match self.output {
-            OutputFormat::Json => println!("{}", serde_json::to_string(&info)?),
-            OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&info)?),
+            OutputFormat::Text => info.print_text(&print),
+            OutputFormat::Json => info.print_json()?,
+            OutputFormat::JsonFormatted => info.print_json_formatted()?,
         }
 
         Ok(())
