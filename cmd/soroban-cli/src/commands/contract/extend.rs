@@ -5,8 +5,8 @@ use crate::{
     xdr::{
         Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
         LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
-        SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-        TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
+        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
     },
 };
 use clap::{command, Parser};
@@ -159,14 +159,14 @@ impl NetworkRunnable for Cmd {
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
-                ext: ExtensionPoint::V0,
+                ext: SorobanTransactionDataExt::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
-                    read_bytes: 0,
+                    disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,

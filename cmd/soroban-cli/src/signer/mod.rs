@@ -105,8 +105,11 @@ pub fn sign_soroban_authorizations(
             // See if we have a signer for this authorizationEntry
             // If not, then we Error
             let needle = match address {
+                ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported yet"),
+                ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported yet"),
+                ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported yet"),
                 ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
-                ScAddress::Contract(Hash(c)) => {
+                ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
                     // This address is for a contract. This means we're using a custom
                     // smart-contract account. Currently the CLI doesn't support that yet.
                     return Err(Error::MissingSignerForAddress {
