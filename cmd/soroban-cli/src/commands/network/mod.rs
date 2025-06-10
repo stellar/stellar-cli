@@ -4,9 +4,9 @@ use clap::Parser;
 pub mod add;
 pub mod default;
 pub mod health;
+pub mod info;
 pub mod ls;
 pub mod rm;
-pub mod info;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
