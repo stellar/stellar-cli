@@ -1212,6 +1212,7 @@ Configure connection to networks
 * `ls` — List networks
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `health` — Checks the health of the configured RPC
+* `info` — Checks the health of the configured RPC
 
 
 
@@ -1304,6 +1305,33 @@ Checks the health of the configured RPC
   Possible values:
   - `text`:
     Text output of network health status
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
+
+
+
+## `stellar network info`
+
+Checks the health of the configured RPC
+
+**Usage:** `stellar network info [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — Use global config
+* `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json-formatted`
+
+  Possible values:
   - `json`:
     JSON result of the RPC request
   - `json-formatted`:
