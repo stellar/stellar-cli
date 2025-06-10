@@ -8,7 +8,6 @@ use stellar_xdr::curr::{
 };
 
 use soroban_rpc::{Error, RestorePreamble, SimulateTransactionResponse};
-
 use soroban_rpc::{LogEvents, LogResources};
 
 pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
@@ -291,11 +290,10 @@ mod tests {
     use soroban_rpc::SimulateHostFunctionResultRaw;
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
     use stellar_xdr::curr::{
-        AccountId, ChangeTrustAsset, ChangeTrustOp, ExtensionPoint, Hash, HostFunction,
-        InvokeContractArgs, InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation,
-        Preconditions, PublicKey, ScAddress, ScSymbol, ScVal, SequenceNumber,
-        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanResources,
-        SorobanTransactionData, Uint256, WriteXdr,
+        AccountId, ChangeTrustAsset, ChangeTrustOp, Hash, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, Preconditions,
+        PublicKey, ScAddress, ScSymbol, ScVal, SequenceNumber, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
     };
 
     const SOURCE: &str = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
@@ -308,11 +306,11 @@ mod tests {
                     read_write: VecM::default(),
                 },
                 instructions: 0,
-                read_bytes: 5,
+                disk_read_bytes: 5,
                 write_bytes: 0,
             },
             resource_fee: 0,
-            ext: ExtensionPoint::V0,
+            ext: xdr::SorobanTransactionDataExt::V0,
         }
     }
 
@@ -329,7 +327,9 @@ mod tests {
             }),
             root_invocation: SorobanAuthorizedInvocation {
                 function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-                    contract_address: ScAddress::Contract(Hash([0; 32])),
+                    contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(
+                        [0; 32],
+                    ))),
                     function_name: ScSymbol("fn".try_into().unwrap()),
                     args: VecM::default(),
                 }),
@@ -361,7 +361,9 @@ mod tests {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                     host_function: HostFunction::InvokeContract(InvokeContractArgs {
-                        contract_address: ScAddress::Contract(Hash([0x0; 32])),
+                        contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(
+                            [0x0; 32],
+                        ))),
                         function_name: ScSymbol::default(),
                         args: VecM::default(),
                     }),

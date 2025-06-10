@@ -8,7 +8,7 @@ impl Debug for Cost<'_> {
         // TODO: Should we output the footprint here?
         writeln!(f, "==================== Cost ====================")?;
         writeln!(f, "CPU used: {}", self.0.instructions,)?;
-        writeln!(f, "Bytes read: {}", self.0.read_bytes,)?;
+        writeln!(f, "Bytes read: {}", self.0.disk_read_bytes,)?;
         writeln!(f, "Bytes written: {}", self.0.write_bytes,)?;
         writeln!(f, "==============================================")?;
         Ok(())

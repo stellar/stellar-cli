@@ -42,29 +42,34 @@ path = "./cmd/crates/soroban-spec-tools"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "=22.1.0"
-default-features = true
+version = "=23.0.0-rc.2"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "=22.0.4"
+version = "=23.0.0-rc.2.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=22.0.4"
+version = "=23.0.0-rc.2.1"
 
 [workspace.dependencies.soroban-sdk]
-version = "=22.0.4"
+version = "=23.0.0-rc.2.1"
+features = ["testutils"]
+
+[workspace.dependencies.soroban-env-host]
+version = "=23.0.0-rc.2.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "=22.0.4"
+version = "=23.0.0-rc.2.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "=22.0.4"
+version = "=23.0.0-rc.2.1"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "=22.1.0"
+# version = "=22.1.0"
+git = "https://github.com/stellar/rs-stellar-rpc-client.git"
+branch = "main"
 
 [workspace.dependencies.stellar-ledger]
 version = "=22.8.2"
