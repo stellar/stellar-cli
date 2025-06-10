@@ -12,7 +12,7 @@ pub enum Error {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    Rpc(#[from] rpc::Error)
+    Rpc(#[from] rpc::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -51,8 +51,8 @@ impl Cmd {
         let rpc_client = self.config.get_network()?.rpc_client()?;
         let network_result = rpc_client.get_network().await?;
         let version_result = rpc_client.get_version_info().await?;
-        println!("version_result: {:?}", version_result);
-        let info = Info{
+        println!("version_result: {version_result:?}");
+        let info = Info {
             version: version_result.version,
             commmit_hash: version_result.commmit_hash,
             build_timestamp: version_result.build_timestamp,
@@ -62,12 +62,10 @@ impl Cmd {
             passphrase: network_result.passphrase,
         };
 
-        
-
         match self.output {
             OutputFormat::Json => println!("{}", serde_json::to_string(&info)?),
             OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&info)?),
-        };
+        }
 
         Ok(())
     }
