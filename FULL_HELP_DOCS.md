@@ -2494,8 +2494,6 @@ Fetch the transaction meta
     JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`:
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-  - `xdr`:
-    Original RPC output (containing XDRs)
   - `table`:
     Formatted in a table comparing fee types
 
