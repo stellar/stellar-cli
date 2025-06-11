@@ -138,3 +138,23 @@ pub async fn fetch_from_contract(
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
 }
+
+#[cfg(feature = "opt")]
+pub fn optimize_wasm(input: &Path, output: &Path) -> Result<(), wasm_opt::OptimizationError> {
+    use wasm_opt::{Feature, OptimizationOptions};
+
+    let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
+    options.converge = true;
+
+    // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
+    // also be the default featureset, but just to be extra clear we set it
+    // explicitly.
+    //
+    // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
+    // well as Clang generate code with sign-ext + mutable-globals enabled,
+    // so Soroban has taken a change to support them also.
+    options.mvp_features_only();
+    options.enable_feature(Feature::MutableGlobals);
+    options.enable_feature(Feature::SignExt);
+    options.run(input, output)
+}
