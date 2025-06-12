@@ -392,7 +392,7 @@ impl Cmd {
             print.infoln("Build Summary:");
         }
 
-        Self::print_file_summary(print, "Wasm File", target_file_path, true)?;
+        Self::print_file_summary(print, "Wasm File", target_file_path)?;
 
         if let Some((before, after)) = cost_savings {
             print.blankln(format!("Optimized: {before} → {after} bytes"));
@@ -402,12 +402,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn print_file_summary(
-        print: &Print,
-        label: &str,
-        file_path: &PathBuf,
-        show_exports: bool,
-    ) -> Result<(), Error> {
+    fn print_file_summary(print: &Print, label: &str, file_path: &PathBuf) -> Result<(), Error> {
         let rel_file_path = file_path
             .strip_prefix(env::current_dir().unwrap())
             .unwrap_or(file_path);
@@ -421,31 +416,29 @@ impl Cmd {
         ));
         print.blankln(format!("Wasm Size: {} bytes", wasm_bytes.len()));
 
-        if show_exports {
-            let parser = wasmparser::Parser::new(0);
-            let export_names: Vec<&str> = parser
-                .parse_all(&wasm_bytes)
-                .filter_map(Result::ok)
-                .filter_map(|payload| {
-                    if let wasmparser::Payload::ExportSection(exports) = payload {
-                        Some(exports)
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
-                .filter_map(Result::ok)
-                .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
-                .map(|export| export.name)
-                .sorted()
-                .collect();
-            if export_names.is_empty() {
-                print.blankln("Exported Functions: None found");
-            } else {
-                print.blankln(format!("Exported Functions: {} found", export_names.len()));
-                for name in export_names {
-                    print.blankln(format!("  • {name}"));
+        let parser = wasmparser::Parser::new(0);
+        let export_names: Vec<&str> = parser
+            .parse_all(&wasm_bytes)
+            .filter_map(Result::ok)
+            .filter_map(|payload| {
+                if let wasmparser::Payload::ExportSection(exports) = payload {
+                    Some(exports)
+                } else {
+                    None
                 }
+            })
+            .flatten()
+            .filter_map(Result::ok)
+            .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
+            .map(|export| export.name)
+            .sorted()
+            .collect();
+        if export_names.is_empty() {
+            print.blankln("Exported Functions: None found");
+        } else {
+            print.blankln(format!("Exported Functions: {} found", export_names.len()));
+            for name in export_names {
+                print.blankln(format!("  • {name}"));
             }
         }
 
