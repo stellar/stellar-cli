@@ -148,7 +148,7 @@ jobs:
         # [2]: https://github.com/brson/wasm-opt-rs/issues/116
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options: '--no-default-features'
+          cargo-hack-feature-options: --no-default-features
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: --features additional-libs --ignore-unknown-features
