@@ -24,7 +24,7 @@ pub enum FetchCommands {
     Result(result::Cmd),
     /// Fetch the transaction meta
     Meta(meta::Cmd),
-    // Fetch the transaction fee information
+    /// Fetch the transaction fee information
     Fee(fee::Cmd),
     /// Fetch the transaction envelope
     #[command(hide = true)]
