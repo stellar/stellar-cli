@@ -1,8 +1,4 @@
-use crate::{
-    commands::global,
-    config::network,
-    rpc,
-};
+use crate::{commands::global, config::network, rpc};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,10 +44,10 @@ impl Cmd {
                 println!("Sequence: {}", ledger.sequence);
                 println!("Protocol Version: {}", ledger.protocol_version);
                 println!("ID: {}", ledger.id);
-            },
+            }
             OutputFormat::Json => println!("{}", serde_json::to_string(&ledger)?),
             OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&ledger)?),
-        };
+        }
 
         Ok(())
     }
