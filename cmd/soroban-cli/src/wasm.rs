@@ -50,6 +50,9 @@ pub enum Error {
     ContractIsStellarAsset,
     #[error(transparent)]
     Network(#[from] NetworkError),
+    #[cfg(feature = "opt")]
+    #[error("optimization error: {0}")]
+    OptimizationError(#[from] wasm_opt::OptimizationError),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -91,6 +94,29 @@ impl Args {
 
     pub fn hash(&self) -> Result<Hash, Error> {
         Ok(Hash(Sha256::digest(self.read()?).into()))
+    }
+
+    #[cfg(feature = "opt")]
+    /// Optimizes the wasm file in place or outputs to another file.
+    pub fn optimize(&self, output: &Path) -> Result<(), Error> {
+        use wasm_opt::{Feature, OptimizationOptions};
+
+        let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
+
+        // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
+        // also be the default featureset, but just to be extra clear we set it
+        // explicitly.
+        //
+        // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
+        // well as Clang generate code with sign-ext + mutable-globals enabled,
+        // so Soroban has taken a change to support them also.
+        options.converge = true;
+        options.mvp_features_only();
+        options.enable_feature(Feature::MutableGlobals);
+        options.enable_feature(Feature::SignExt);
+        options
+            .run(&self.wasm, output)
+            .map_err(Error::OptimizationError)
     }
 }
 
@@ -137,24 +163,4 @@ pub async fn fetch_from_contract(
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
-}
-
-#[cfg(feature = "opt")]
-pub fn optimize_wasm(input: &Path, output: &Path) -> Result<(), wasm_opt::OptimizationError> {
-    use wasm_opt::{Feature, OptimizationOptions};
-
-    let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
-    options.converge = true;
-
-    // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
-    // also be the default featureset, but just to be extra clear we set it
-    // explicitly.
-    //
-    // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
-    // well as Clang generate code with sign-ext + mutable-globals enabled,
-    // so Soroban has taken a change to support them also.
-    options.mvp_features_only();
-    options.enable_feature(Feature::MutableGlobals);
-    options.enable_feature(Feature::SignExt);
-    options.run(input, output)
 }

@@ -128,8 +128,8 @@ pub enum Error {
     MetaArg(String),
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
-    #[error("optimization error: {0}")]
-    OptimizationError(String),
+    #[error(transparent)]
+    Wasm(#[from] crate::wasm::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -254,11 +254,13 @@ impl Cmd {
         if self.build_options.optimize {
             #[cfg(feature = "opt")]
             {
-                use crate::wasm::optimize_wasm;
+                use crate::wasm::Args as WasmArgs;
                 let orig_size = fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
                 let tmp_optimized = final_path.with_extension("optimized.wasm");
-                optimize_wasm(&final_path, &tmp_optimized)
-                    .map_err(|e| Error::OptimizationError(e.to_string()))?;
+                let wasm_args = WasmArgs {
+                    wasm: final_path.clone(),
+                };
+                wasm_args.optimize(&tmp_optimized)?;
                 let opt_size = fs::metadata(&tmp_optimized).map(|m| m.len()).unwrap_or(0);
                 // Overwrite original file with optimized artifact:
                 fs::rename(&tmp_optimized, &final_path).map_err(Error::WritingWasmFile)?;
