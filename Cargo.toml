@@ -21,7 +21,7 @@ exclude = [
 
 [workspace.package]
 version = "22.8.1"
-rust-version = "1.84.0"
+rust-version = "1.85.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
