@@ -1,7 +1,5 @@
 use clap::{arg, command, Parser};
 use std::fmt::Debug;
-#[cfg(feature = "opt")]
-use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
 use crate::wasm;
 
@@ -19,9 +17,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[cfg(feature = "opt")]
-    #[error("optimization error: {0}")]
-    OptimizationError(OptimizationError),
     #[cfg(not(feature = "opt"))]
     #[error("Must install with \"opt\" feature, e.g. `cargo install --locked soroban-cli --features opt")]
     Install,
@@ -43,29 +38,13 @@ impl Cmd {
             wasm_size
         );
 
-        let wasm_out = self.wasm_out.as_ref().cloned().unwrap_or_else(|| {
+        let wasm_out = self.wasm_out.clone().unwrap_or_else(|| {
             let mut wasm_out = self.wasm.wasm.clone();
             wasm_out.set_extension("optimized.wasm");
             wasm_out
         });
 
-        let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
-        options.converge = true;
-
-        // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
-        // also be the default featureset, but just to be extra clear we set it
-        // explicitly.
-        //
-        // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
-        // well as Clang generate code with sign-ext + mutable-globals enabled,
-        // so Soroban has taken a change to support them also.
-        options.mvp_features_only();
-        options.enable_feature(Feature::MutableGlobals);
-        options.enable_feature(Feature::SignExt);
-
-        options
-            .run(&self.wasm.wasm, &wasm_out)
-            .map_err(Error::OptimizationError)?;
+        self.wasm.optimize(&wasm_out)?;
 
         let wasm_out_size = wasm::len(&wasm_out)?;
         println!(

@@ -1,4 +1,4 @@
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use cargo_metadata::{camino::Utf8PathBuf, Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
 use rustc_version::version;
@@ -46,6 +46,25 @@ pub struct Cmd {
     /// Build with the list of features activated, space or comma separated
     #[arg(long, help_heading = "Features")]
     pub features: Option<String>,
+    #[clap(flatten)]
+    pub feature_flags: FeatureFlags,
+    #[clap(flatten)]
+    pub build_options: BuildOptions,
+    /// Directory to copy wasm files to
+    ///
+    /// If provided, wasm files can be found in the cargo target directory, and
+    /// the specified directory.
+    ///
+    /// If ommitted, wasm files are written only to the cargo target directory.
+    #[arg(long)]
+    pub out_dir: Option<std::path::PathBuf>,
+    /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+    #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
+    pub meta: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct FeatureFlags {
     /// Build with the all features activated
     #[arg(
         long,
@@ -57,20 +76,15 @@ pub struct Cmd {
     /// Build with the default feature not activated
     #[arg(long, help_heading = "Features")]
     pub no_default_features: bool,
-    /// Directory to copy wasm files to
-    ///
-    /// If provided, wasm files can be found in the cargo target directory, and
-    /// the specified directory.
-    ///
-    /// If ommitted, wasm files are written only to the cargo target directory.
-    #[arg(long)]
-    pub out_dir: Option<std::path::PathBuf>,
+}
+#[derive(Debug, Clone, Parser)]
+pub struct BuildOptions {
+    /// Additionally optimize the built WASM file(s)
+    #[arg(long, help_heading = "Other")]
+    pub optimize: bool,
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
-    /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
-    #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
-    pub meta: Vec<(String, String)>,
 }
 
 fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
@@ -114,6 +128,8 @@ pub enum Error {
     MetaArg(String),
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
+    #[error(transparent)]
+    Wasm(#[from] crate::wasm::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -155,10 +171,10 @@ impl Cmd {
             } else {
                 cmd.arg(format!("--profile={}", self.profile));
             }
-            if self.all_features {
+            if self.feature_flags.all_features {
                 cmd.arg("--all-features");
             }
-            if self.no_default_features {
+            if self.feature_flags.no_default_features {
                 cmd.arg("--no-default-features");
             }
             if let Some(features) = self.features() {
@@ -190,7 +206,7 @@ impl Cmd {
             );
             let cmd_str = cmd_str_parts.join(" ");
 
-            if self.print_commands_only {
+            if self.build_options.print_commands_only {
                 println!("{cmd_str}");
             } else {
                 print.infoln(cmd_str);
@@ -199,26 +215,71 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
-                let file = format!("{}.wasm", p.name.replace('-', "_"));
-                let target_file_path = Path::new(target_dir)
-                    .join(&wasm_target)
-                    .join(&self.profile)
-                    .join(&file);
-
-                self.handle_contract_metadata_args(&target_file_path)?;
-
-                let final_path = if let Some(out_dir) = &self.out_dir {
-                    fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-                    let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
-                    out_file_path
-                } else {
-                    target_file_path
-                };
-
-                Self::print_build_summary(&print, &final_path)?;
+                self.build_package(&print, &p, target_dir, &wasm_target)?;
             }
         }
+
+        Ok(())
+    }
+
+    fn build_package(
+        &self,
+        print: &Print,
+        package: &Package,
+        target_dir: &Utf8PathBuf,
+        wasm_target: &str,
+    ) -> Result<(), Error> {
+        let file = format!("{}.wasm", package.name.replace('-', "_"));
+        let target_file_path = Path::new(target_dir)
+            .join(wasm_target)
+            .join(&self.profile)
+            .join(&file);
+
+        self.handle_contract_metadata_args(&target_file_path)?;
+
+        let final_path = if let Some(out_dir) = &self.out_dir {
+            fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+            let out_file_path = Path::new(out_dir).join(&file);
+            fs::copy(&target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+            out_file_path
+        } else {
+            target_file_path.clone()
+        };
+
+        #[cfg(feature = "opt")]
+        let mut cost_savings = None;
+        #[cfg(not(feature = "opt"))]
+        let cost_savings = None;
+
+        if self.build_options.optimize {
+            #[cfg(feature = "opt")]
+            {
+                use crate::wasm::Args as WasmArgs;
+                let orig_size = fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
+                let tmp_optimized = final_path.with_extension("optimized.wasm");
+                let wasm_args = WasmArgs {
+                    wasm: final_path.clone(),
+                };
+                wasm_args.optimize(&tmp_optimized)?;
+                let opt_size = fs::metadata(&tmp_optimized).map(|m| m.len()).unwrap_or(0);
+                // Overwrite original file with optimized artifact:
+                fs::rename(&tmp_optimized, &final_path).map_err(Error::WritingWasmFile)?;
+                cost_savings = Some((orig_size, opt_size));
+            }
+            #[cfg(not(feature = "opt"))]
+            {
+                print.warnln(
+                "Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",
+            );
+            }
+        }
+
+        Self::print_build_summary(
+            print,
+            &final_path,
+            self.build_options.optimize,
+            cost_savings,
+        )?;
 
         Ok(())
     }
@@ -321,19 +382,41 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
-        print.infoln("Build Summary:");
-        let rel_target_file_path = target_file_path
-            .strip_prefix(env::current_dir().unwrap())
-            .unwrap_or(target_file_path);
-        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
+    fn print_build_summary(
+        print: &Print,
+        target_file_path: &PathBuf,
+        optimized: bool,
+        cost_savings: Option<(u64, u64)>,
+    ) -> Result<(), Error> {
+        if optimized {
+            print.infoln("Build Summary (Optimized):");
+        } else {
+            print.infoln("Build Summary:");
+        }
 
-        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        Self::print_file_summary(print, "Wasm File", target_file_path)?;
+
+        if let Some((before, after)) = cost_savings {
+            print.blankln(format!("Optimized: {before} → {after} bytes"));
+        }
+
+        print.checkln("Build Complete");
+        Ok(())
+    }
+
+    fn print_file_summary(print: &Print, label: &str, file_path: &PathBuf) -> Result<(), Error> {
+        let rel_file_path = file_path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(file_path);
+        print.blankln(format!("{label}: {}", rel_file_path.display()));
+
+        let wasm_bytes = fs::read(file_path).map_err(Error::ReadingWasmFile)?;
 
         print.blankln(format!(
             "Wasm Hash: {}",
             hex::encode(Sha256::digest(&wasm_bytes))
         ));
+        print.blankln(format!("Wasm Size: {} bytes", wasm_bytes.len()));
 
         let parser = wasmparser::Parser::new(0);
         let export_names: Vec<&str> = parser
@@ -360,7 +443,6 @@ impl Cmd {
                 print.blankln(format!("  • {name}"));
             }
         }
-        print.checkln("Build Complete");
 
         Ok(())
     }
