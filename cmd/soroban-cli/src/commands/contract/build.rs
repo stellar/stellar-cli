@@ -247,28 +247,37 @@ impl Cmd {
         };
 
         #[cfg(feature = "opt")]
-        let mut final_optimized_path = None;
+        let mut cost_savings = None;
         #[cfg(not(feature = "opt"))]
-        let final_optimized_path = None;
+        let cost_savings = None;
 
         if self.build_options.optimize {
             #[cfg(feature = "opt")]
             {
                 use crate::wasm::optimize_wasm;
-                let optimized_path = final_path.with_extension("optimized.wasm");
-                optimize_wasm(&final_path, &optimized_path)
+                let orig_size = fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
+                let tmp_optimized = final_path.with_extension("optimized.wasm");
+                optimize_wasm(&final_path, &tmp_optimized)
                     .map_err(|e| Error::OptimizationError(e.to_string()))?;
-                final_optimized_path = Some(optimized_path);
+                let opt_size = fs::metadata(&tmp_optimized).map(|m| m.len()).unwrap_or(0);
+                // Overwrite original file with optimized artifact:
+                fs::rename(&tmp_optimized, &final_path).map_err(Error::WritingWasmFile)?;
+                cost_savings = Some((orig_size, opt_size));
             }
             #[cfg(not(feature = "opt"))]
             {
                 print.warnln(
-                    "Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",
-                );
+                "Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",
+            );
             }
         }
 
-        Self::print_build_summary(print, &final_path, final_optimized_path.as_ref())?;
+        Self::print_build_summary(
+            print,
+            &final_path,
+            self.build_options.optimize,
+            cost_savings,
+        )?;
 
         Ok(())
     }
@@ -374,16 +383,19 @@ impl Cmd {
     fn print_build_summary(
         print: &Print,
         target_file_path: &PathBuf,
-        optimized_path: Option<&PathBuf>,
+        optimized: bool,
+        cost_savings: Option<(u64, u64)>,
     ) -> Result<(), Error> {
-        print.infoln("Build Summary:");
+        if optimized {
+            print.infoln("Build Summary (Optimized):");
+        } else {
+            print.infoln("Build Summary:");
+        }
 
-        // Print full summary (with exports) for the unoptimized file
         Self::print_file_summary(print, "Wasm File", target_file_path, true)?;
 
-        // Print only basic info for optimized file
-        if let Some(opt_path) = optimized_path {
-            Self::print_file_summary(print, "Optimized Wasm File", opt_path, false)?;
+        if let Some((before, after)) = cost_savings {
+            print.blankln(format!("Optimized: {before} → {after} bytes"));
         }
 
         print.checkln("Build Complete");
