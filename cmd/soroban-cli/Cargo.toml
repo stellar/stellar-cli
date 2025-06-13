@@ -34,12 +34,11 @@ path = "src/lib.rs"
 doctest = false
 
 [features]
-default = []
+default = ["additional-libs"]
+additional-libs = ["dep:wasm-opt", "dep:keyring", "dep:stellar-ledger"]
 version_lt_23 = []
 version_gte_23 = []
-opt = ["dep:wasm-opt"]
 emulator-tests = ["stellar-ledger/emulator-tests"]
-additional-libs = ["dep:keyring", "dep:stellar-ledger"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
