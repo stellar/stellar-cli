@@ -87,36 +87,30 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
 }
 
+const DEFAULT_FEE_VALUE: i64 = 0;
+
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let resp = self.args.fetch_transaction(global_args).await?;
-        let tx_result = resp.clone().result.unwrap();
-        let tx_meta = resp.clone().result_meta.unwrap();
+        let tx_result = resp.result.clone().unwrap();
+        let tx_meta = resp.result_meta.clone().unwrap();
 
         let fee = tx_result.fee_charged;
         let (non_refundable_resource_fee, refundable_resource_fee) = match tx_meta.clone() {
             TransactionMeta::V0(_) => {
-                return Err(Error::NotSupported {
-                    message: "TransactionMeta::V0 not supported".to_string(),
-                });
+                (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
             }
             TransactionMeta::V1(_) => {
-                return Err(Error::NotSupported {
-                    message: "TransactionMeta::V1 not supported".to_string(),
-                });
+                (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
             }
             TransactionMeta::V2(_) => {
-                return Err(Error::NotSupported {
-                    message: "TransactionMeta::V2 not supported".to_string(),
-                });
+                (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
             }
             TransactionMeta::V3(meta) => {
                 if let Some(soroban_meta) = meta.soroban_meta {
                     match soroban_meta.ext {
                         SorobanTransactionMetaExt::V0 => {
-                            return Err(Error::NotSupported {
-                                message: "SorobanTransactionMetaExt::V0 not supported".to_string(),
-                            })
+                            (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
                         }
                         SorobanTransactionMetaExt::V1(v1) => (
                             v1.total_non_refundable_resource_fee_charged,
@@ -124,9 +118,7 @@ impl Cmd {
                         ),
                     }
                 } else {
-                    return Err(Error::NotSupported {
-                        message: "cannot get fee when soroban_meta is None".to_string(),
-                    });
+                    (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
                 }
             }
         };
