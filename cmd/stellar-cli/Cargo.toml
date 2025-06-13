@@ -21,10 +21,9 @@ pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target
 bin-dir = "{ bin }{ binary-ext }"
 
 [features]
-default = []
-opt = ["soroban-cli/opt"]
-emulator-tests = ["soroban-cli/emulator-tests"]
+default = ["additional-libs"]
 additional-libs = ["soroban-cli/additional-libs"]
+emulator-tests = ["soroban-cli/emulator-tests"]
 
 [dependencies]
 soroban-cli = { workspace = true }
