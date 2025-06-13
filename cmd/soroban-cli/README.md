@@ -10,10 +10,10 @@ Docs: https://developers.stellar.org
 cargo install --locked stellar-cli
 ```
 
-To install with the `opt` feature, which includes a WASM optimization feature and wasm-opt built in:
+To install without features that depend on additional libraries:
 
 ```
-cargo install --locked stellar-cli --features opt
+cargo install --locked stellar-cli --no-default-features
 ```
 
 ## Usage

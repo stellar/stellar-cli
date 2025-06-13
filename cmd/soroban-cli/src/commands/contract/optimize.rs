@@ -1,6 +1,6 @@
 use clap::{arg, command, Parser};
 use std::fmt::Debug;
-#[cfg(feature = "opt")]
+#[cfg(feature = "additional-libs")]
 use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
 use crate::wasm;
@@ -19,21 +19,21 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[cfg(feature = "opt")]
+    #[cfg(feature = "additional-libs")]
     #[error("optimization error: {0}")]
     OptimizationError(OptimizationError),
-    #[cfg(not(feature = "opt"))]
-    #[error("Must install with \"opt\" feature, e.g. `cargo install --locked soroban-cli --features opt")]
+    #[cfg(not(feature = "additional-libs"))]
+    #[error("must install with \"additional-libs\" feature.")]
     Install,
 }
 
 impl Cmd {
-    #[cfg(not(feature = "opt"))]
+    #[cfg(not(feature = "additional-libs"))]
     pub fn run(&self) -> Result<(), Error> {
         Err(Error::Install)
     }
 
-    #[cfg(feature = "opt")]
+    #[cfg(feature = "additional-libs")]
     pub fn run(&self) -> Result<(), Error> {
         let wasm_size = self.wasm.len()?;
 
@@ -43,7 +43,7 @@ impl Cmd {
             wasm_size
         );
 
-        let wasm_out = self.wasm_out.as_ref().cloned().unwrap_or_else(|| {
+        let wasm_out = self.wasm_out.clone().unwrap_or_else(|| {
             let mut wasm_out = self.wasm.wasm.clone();
             wasm_out.set_extension("optimized.wasm");
             wasm_out

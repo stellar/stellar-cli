@@ -12,9 +12,10 @@ Install with Homebrew (macOS, Linux):
 brew install stellar-cli
 ```
 
-Install the latest version from source:
+To install without features that depend on additional libraries:
+
 ```
-cargo install --locked stellar-cli --features opt
+cargo install --locked stellar-cli --no-default-features
 ```
 
 ## Usage

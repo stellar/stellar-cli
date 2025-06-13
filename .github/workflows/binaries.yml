@@ -56,7 +56,7 @@ jobs:
 
     - name: Build
       run: |
-        cargo build --package ${{ matrix.crate.name }} --features opt,additional-libs --release --target ${{ matrix.sys.target }}
+        cargo build --package ${{ matrix.crate.name }} --release --target ${{ matrix.sys.target }}
     - name: Build provenance for binary attestation (release only)
       if: github.event_name == 'release'
       uses: actions/attest-build-provenance@v2
