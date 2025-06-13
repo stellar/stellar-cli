@@ -133,6 +133,7 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
+prettytable = "0.10.0"
 clap-markdown = "0.1.5"
 
 [build-dependencies]

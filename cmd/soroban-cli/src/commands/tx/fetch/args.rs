@@ -8,7 +8,6 @@ use crate::{
 };
 
 #[derive(Debug, Clone, clap::Parser)]
-// #[group(skip)]
 pub struct Args {
     /// Transaction hash to fetch
     #[arg(long)]
