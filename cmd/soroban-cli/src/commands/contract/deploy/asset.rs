@@ -176,7 +176,7 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(Hash(contract_id.0));
+    let contract = ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract_id.0)));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),

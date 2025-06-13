@@ -168,6 +168,7 @@ impl Display for Spec {
                     ScSpecEntry::UdtStructV0(udt) => write_struct(f, udt)?,
                     ScSpecEntry::UdtEnumV0(udt) => write_enum(f, udt)?,
                     ScSpecEntry::UdtErrorEnumV0(udt) => write_error(f, udt)?,
+                    ScSpecEntry::EventV0(_) => {}
                 }
             }
         } else {

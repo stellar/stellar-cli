@@ -240,7 +240,7 @@ impl NetworkRunnable for Cmd {
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
-        let res = soroban_spec_tools::Spec::new(entries.clone());
+        let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
         let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
             if func.inputs.is_empty() {
                 None
