@@ -92,6 +92,7 @@ impl Cmd {
         let resp = self.args.fetch_transaction(global_args).await?;
         let tx_result = resp.clone().result.unwrap();
         let tx_meta = resp.clone().result_meta.unwrap();
+
         let fee = tx_result.fee_charged;
         let (non_refundable_resource_fee, refundable_resource_fee) = match tx_meta.clone() {
             TransactionMeta::V0(_) => {
@@ -139,7 +140,9 @@ impl Cmd {
             FeeOutputFormat::JsonFormatted => {
                 println!("{}", serde_json::to_string_pretty(&fee_table)?);
             }
-            FeeOutputFormat::Table => fee_table.print(),
+            FeeOutputFormat::Table => {
+                fee_table.print();
+            }
         }
 
         Ok(())
@@ -185,16 +188,12 @@ impl FeeTable {
 
         let mut table = Table::new();
 
-        // Optional: customize borders
-        // table.set_format(*format::consts::FORMAT_BOX_CHARS);
         table.set_format(table_format);
 
-        // First row: single wide cell (horizontally spans 2 columns)
         table.add_row(Row::new(vec![Cell::new(&format!("tx.fee: {}", self.fee))
             .style_spec("b")
             .with_hspan(3)]));
 
-        // Second row: two separate cells
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "tx.v1.sorobanData.resourceFee: {}",
@@ -207,12 +206,12 @@ impl FeeTable {
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
-                "fixed resource fee: {}",
+                "non-refundable resource fee: {}\n\ncalculated based on tx.v1.sorobanData.resources.*\n\ninstructions\nread\nwrite\nbandwidth (size of tx)",
                 self.non_refundable_resource_fee
             ))
             .style_spec("FY"),
             Cell::new(&format!(
-                "refundable resource fee: {}",
+                "refundable resource fee: {}\n\n\n\nrent\nevents\nreturn value",
                 self.refundable_resource_fee
             ))
             .style_spec("FY"),
