@@ -143,6 +143,11 @@ impl FeeTable {
             .style_spec("b")
             .with_hspan(3)]));
 
+        if self.resource_fee == 0 {
+            table.printstd();
+            return
+
+        }
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "tx.v1.sorobanData.resourceFee: {}",
