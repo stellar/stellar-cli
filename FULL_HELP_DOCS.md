@@ -2394,7 +2394,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 
 * `result` — Fetch the transaction result
 * `meta` — Fetch the transaction meta
-* `fee` — 
+* `fee` — Fetch the transaction fee information
 
 ###### **Options:**
 
@@ -2475,6 +2475,8 @@ Fetch the transaction meta
 
 
 ## `stellar tx fetch fee`
+
+Fetch the transaction fee information
 
 **Usage:** `stellar tx fetch fee [OPTIONS] --hash <HASH>`
 
