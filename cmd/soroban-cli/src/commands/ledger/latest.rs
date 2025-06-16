@@ -23,8 +23,6 @@ pub enum OutputFormat {
 
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
-    pub seq: Option<i64>,
-
     #[command(flatten)]
     pub network: network::Args,
 

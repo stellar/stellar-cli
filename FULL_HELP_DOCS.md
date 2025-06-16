@@ -2719,11 +2719,7 @@ Fetch ledger information
 
 ## `stellar ledger latest`
 
-**Usage:** `stellar ledger latest [OPTIONS] [SEQ]`
-
-###### **Arguments:**
-
-* `<SEQ>`
+**Usage:** `stellar ledger latest [OPTIONS]`
 
 ###### **Options:**
 
