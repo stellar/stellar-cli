@@ -75,8 +75,8 @@ impl Cmd {
                             .clone()
                             .expect("Transaction hash is required but was not provided."),
                         network: self.default.network.clone().unwrap(),
-                        output: self.default.output.unwrap(),
                     },
+                    output: self.default.output.unwrap(),
                 }
                 .run(global_args)
                 .await?;

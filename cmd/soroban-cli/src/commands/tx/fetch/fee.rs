@@ -11,51 +11,16 @@ use prettytable::{
     Cell, Row, Table,
 };
 use serde::{Deserialize, Serialize};
-use soroban_rpc::GetTransactionResponse;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
-    pub(crate) args: FeeArgs,
-}
-
-#[derive(Debug, Clone, clap::Args)]
-pub struct FeeArgs {
-    /// Transaction hash to fetch
-    #[arg(long)]
-    pub hash: Hash,
-
-    #[command(flatten)]
-    pub network: network::Args,
+    args: args::Args,
 
     /// Output format for fee command
     #[arg(long, default_value = "table")]
     pub output: FeeOutputFormat,
-}
-
-impl FeeArgs {
-    pub async fn fetch_transaction(
-        &self,
-        global_args: &global::Args,
-    ) -> Result<GetTransactionResponse, Error> {
-        let network = self.network.get(&global_args.locator)?;
-        let client = network.rpc_client()?;
-        let tx_hash = self.hash.clone();
-        let tx = client.get_transaction(&tx_hash).await?;
-        match tx.status.clone() {
-            val if val == *"NOT_FOUND" => {
-                if let Some(n) = &self.network.network {
-                    return Err(Error::NotFound {
-                        tx_hash,
-                        network: n.to_string(),
-                    });
-                }
-            }
-            _ => {}
-        }
-        Ok(tx)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -97,21 +62,13 @@ impl Cmd {
 
         let fee = tx_result.fee_charged;
         let (non_refundable_resource_fee, refundable_resource_fee) = match tx_meta.clone() {
-            TransactionMeta::V0(_) => {
-                (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
-            }
-            TransactionMeta::V1(_) => {
-                (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
-            }
-            TransactionMeta::V2(_) => {
+            TransactionMeta::V0(_) | TransactionMeta::V1(_) | TransactionMeta::V2(_) => {
                 (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
             }
             TransactionMeta::V3(meta) => {
                 if let Some(soroban_meta) = meta.soroban_meta {
                     match soroban_meta.ext {
-                        SorobanTransactionMetaExt::V0 => {
-                            (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
-                        }
+                        SorobanTransactionMetaExt::V0 => (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE),
                         SorobanTransactionMetaExt::V1(v1) => (
                             v1.total_non_refundable_resource_fee_charged,
                             v1.total_refundable_resource_fee_charged,
@@ -125,7 +82,7 @@ impl Cmd {
 
         let fee_table = FeeTable::new(fee, non_refundable_resource_fee, refundable_resource_fee);
 
-        match self.args.output {
+        match self.output {
             FeeOutputFormat::Json => {
                 println!("{}", serde_json::to_string(&fee_table)?);
             }

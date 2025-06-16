@@ -15,10 +15,6 @@ pub struct Args {
 
     #[command(flatten)]
     pub network: network::Args,
-
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
