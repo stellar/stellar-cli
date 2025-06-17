@@ -51,6 +51,8 @@ pub enum Error {
     NotFound { tx_hash: Hash, network: String },
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+    #[error("{field} is None, expected it to be Some")]
+    None { field: String }
 }
 
 const DEFAULT_FEE_VALUE: i64 = 0;
@@ -88,9 +90,9 @@ pub struct FeeTable {
 
 impl FeeTable {
     fn new_from_transaction_response(resp: GetTransactionResponse) -> Result<Self, Error> {
-        let tx_result = resp.result.clone().unwrap(); // fee charged
-        let tx_meta = resp.result_meta.clone().unwrap(); // resource fees
-        let tx_envelope = resp.envelope.clone().unwrap(); // max fees
+        let tx_result = resp.result.clone().ok_or(Error::None{field: "tx_result".to_string()})?; // fee charged
+        let tx_meta = resp.result_meta.clone().ok_or(Error::None{field: "tx_meta".to_string()})?; // resource fees
+        let tx_envelope = resp.envelope.clone().ok_or(Error::None{field: "tx_envelope".to_string()})?; // max fees
 
         let fee_charged = tx_result.fee_charged;
         let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
@@ -251,7 +253,7 @@ mod test {
     #[test]
     fn soroban_tx_fee_table() {
         let resp = soroban_tx_response().unwrap();
-        let fee_table = NewFeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
 
         let expected_fee_charged = 185119;
         let expected_non_refundable_charged = 59343;
@@ -286,7 +288,7 @@ mod test {
     #[test]
     fn classic_tx_fee_table() {
         let resp = classic_tx_response().unwrap();
-        let fee_table = NewFeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
 
         let expected_fee_charged = 100;
         let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
@@ -321,7 +323,7 @@ mod test {
     #[test]
     fn fee_bump_tx_fee_table() {
         let resp = fee_bump_tx_response().unwrap();
-        let fee_table = NewFeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
 
         let expected_fee_charged = 200;
         let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
