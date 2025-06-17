@@ -4,6 +4,7 @@ mod latest;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
+    /// Get the latest ledger sequence formation from the network
     Latest(latest::Cmd),
 }
 

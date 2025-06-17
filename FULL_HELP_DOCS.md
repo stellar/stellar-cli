@@ -2713,11 +2713,13 @@ Fetch ledger information
 
 ###### **Subcommands:**
 
-* `latest` — 
+* `latest` — Get the latest ledger sequence formation from the network
 
 
 
 ## `stellar ledger latest`
+
+Get the latest ledger sequence formation from the network
 
 **Usage:** `stellar ledger latest [OPTIONS]`
 
