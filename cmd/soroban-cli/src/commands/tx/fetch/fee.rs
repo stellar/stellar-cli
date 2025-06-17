@@ -52,10 +52,17 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error("{field} is None, expected it to be Some")]
-    None { field: String }
+    None { field: String },
 }
 
 const DEFAULT_FEE_VALUE: i64 = 0;
+const FEE_CHARGED_TITLE: &str = "Transaction Fee Charged";
+const RESOURCE_FEE_CHARGED_TITLE: &str = "Resource Fee Charged";
+const INCLUSION_FEE_TITLE: &str = "Inclusion Fee";
+const NON_REFUNDABLE_TITLE: &str = "Non-refundable Resource Fee";
+const REFUNDABLE_TITLE: &str = "Refundable Resource Fee";
+const MAX_FEE_TITLE: &str = "Max Fee Set";
+const MAX_RESOURCE_FEE_TITLE: &str = "Max Resource Fee";
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
@@ -90,9 +97,15 @@ pub struct FeeTable {
 
 impl FeeTable {
     fn new_from_transaction_response(resp: GetTransactionResponse) -> Result<Self, Error> {
-        let tx_result = resp.result.clone().ok_or(Error::None{field: "tx_result".to_string()})?; // fee charged
-        let tx_meta = resp.result_meta.clone().ok_or(Error::None{field: "tx_meta".to_string()})?; // resource fees
-        let tx_envelope = resp.envelope.clone().ok_or(Error::None{field: "tx_envelope".to_string()})?; // max fees
+        let tx_result = resp.result.clone().ok_or(Error::None {
+            field: "tx_result".to_string(),
+        })?; // fee charged
+        let tx_meta = resp.result_meta.clone().ok_or(Error::None {
+            field: "tx_meta".to_string(),
+        })?; // resource fees
+        let tx_envelope = resp.envelope.clone().ok_or(Error::None {
+            field: "tx_envelope".to_string(),
+        })?; // max fees
 
         let fee_charged = tx_result.fee_charged;
         let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
@@ -175,7 +188,7 @@ impl FeeTable {
         table.set_format(Self::table_format());
 
         table.add_row(Row::new(vec![Cell::new(&format!(
-            "tx.fee: {}",
+            "{FEE_CHARGED_TITLE}: {}",
             self.fee_charged
         ))
         .style_spec("b")
@@ -184,31 +197,34 @@ impl FeeTable {
         if self.should_include_resource_fees() {
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
-                    "tx.v1.sorobanData.resourceFee: {}",
-                    self.resource_fee_charged
+                    "{}: {}",
+                    RESOURCE_FEE_CHARGED_TITLE, self.resource_fee_charged
                 ))
                 .style_spec("FY")
                 .with_hspan(2),
-                Cell::new(&format!("inclusion fee: {}", self.inclusion_fee_charged)),
+                Cell::new(&format!(
+                    "{INCLUSION_FEE_TITLE}: {}",
+                    self.inclusion_fee_charged
+                )),
             ]));
 
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
-                    "non-refundable resource fee: {}\n\ncalculated based on tx.v1.sorobanData.resources.*\n\ninstructions\nread\nwrite\nbandwidth (size of tx)",
+                    "{NON_REFUNDABLE_TITLE}: {}\n\ncalculated based on tx.v1.sorobanData.resources.*\n\ninstructions\nread\nwrite\nbandwidth (size of tx)",
                     self.non_refundable_resource_fee_charged
                 ))
                 .style_spec("FY"),
                 Cell::new(&format!(
-                    "refundable resource fee: {}\n\n\n\nrent\nevents\nreturn value",
+                    "{REFUNDABLE_TITLE}: {}\n\n\n\nrent\nevents\nreturn value",
                     self.refundable_resource_fee_charged
                 ))
                 .style_spec("FY"),
-                Cell::new(&format!("inclusion fee: {}", self.inclusion_fee_charged)),
+                Cell::new(&format!("{INCLUSION_FEE_TITLE}: {}", self.inclusion_fee_charged)),
             ]));
         }
 
         table.add_row(Row::new(vec![Cell::new(&format!(
-            "max fee set: {}",
+            "{MAX_FEE_TITLE}: {}",
             self.max_fee
         ))
         .style_spec("FY")
@@ -216,10 +232,16 @@ impl FeeTable {
 
         if self.should_include_resource_fees() {
             table.add_row(Row::new(vec![
-                Cell::new(&format!("max resource fee: {}", self.max_resource_fee))
-                    .style_spec("FY")
-                    .with_hspan(2),
-                Cell::new(&format!("inclusion fee: {}", self.inclusion_fee_charged)),
+                Cell::new(&format!(
+                    "{MAX_RESOURCE_FEE_TITLE}: {}",
+                    self.max_resource_fee
+                ))
+                .style_spec("FY")
+                .with_hspan(2),
+                Cell::new(&format!(
+                    "{INCLUSION_FEE_TITLE}: {}",
+                    self.inclusion_fee_charged
+                )),
             ]));
         }
 
