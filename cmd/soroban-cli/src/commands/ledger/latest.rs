@@ -27,7 +27,7 @@ pub struct Cmd {
     pub network: network::Args,
 
     /// Format of the output
-    #[arg(long, default_value = "text")]
+    #[arg(long, value_enum, default_value_t)]
     pub output: OutputFormat,
 }
 
@@ -41,7 +41,7 @@ impl Cmd {
             OutputFormat::Text => {
                 println!("Sequence: {}", ledger.sequence);
                 println!("Protocol Version: {}", ledger.protocol_version);
-                println!("ID: {}", ledger.id);
+                println!("Hash: {}", ledger.id);
             }
             OutputFormat::Json => println!("{}", serde_json::to_string(&ledger)?),
             OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&ledger)?),
