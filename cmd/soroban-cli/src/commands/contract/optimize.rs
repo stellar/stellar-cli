@@ -1,7 +1,5 @@
 use clap::{arg, command, Parser};
 use std::fmt::Debug;
-#[cfg(feature = "additional-libs")]
-use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
 use crate::wasm;
 
@@ -19,9 +17,6 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[cfg(feature = "additional-libs")]
-    #[error("optimization error: {0}")]
-    OptimizationError(OptimizationError),
     #[cfg(not(feature = "additional-libs"))]
     #[error("must install with \"additional-libs\" feature.")]
     Install,

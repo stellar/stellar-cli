@@ -236,13 +236,13 @@ impl Cmd {
             target_file_path.clone()
         };
 
-        #[cfg(feature = "opt")]
+        #[cfg(feature = "additional-libs")]
         let mut optimized_path = None;
-        #[cfg(not(feature = "opt"))]
+        #[cfg(not(feature = "additional-libs"))]
         let optimized_path = None;
 
         if self.optimize {
-            #[cfg(feature = "opt")]
+            #[cfg(feature = "additional-libs")]
             {
                 use crate::wasm::Args as WasmArgs;
                 let optimized_file_path = final_path.with_extension("optimized.wasm");
@@ -252,7 +252,7 @@ impl Cmd {
                 wasm_args.optimize(&optimized_file_path)?;
                 optimized_path = Some(optimized_file_path);
             }
-            #[cfg(not(feature = "opt"))]
+            #[cfg(not(feature = "additional-libs"))]
             {
                 print.warnln(
                 "Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",

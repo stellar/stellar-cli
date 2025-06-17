@@ -50,7 +50,7 @@ pub enum Error {
     ContractIsStellarAsset,
     #[error(transparent)]
     Network(#[from] NetworkError),
-    #[cfg(feature = "opt")]
+    #[cfg(feature = "additional-libs")]
     #[error("optimization error: {0}")]
     OptimizationError(#[from] wasm_opt::OptimizationError),
 }
@@ -96,7 +96,7 @@ impl Args {
         Ok(Hash(Sha256::digest(self.read()?).into()))
     }
 
-    #[cfg(feature = "opt")]
+    #[cfg(feature = "additional-libs")]
     /// Optimizes the wasm file in place or outputs to another file.
     pub fn optimize(&self, output: &Path) -> Result<(), Error> {
         use wasm_opt::{Feature, OptimizationOptions};
