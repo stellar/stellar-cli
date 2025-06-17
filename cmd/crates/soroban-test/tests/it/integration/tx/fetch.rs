@@ -277,8 +277,8 @@ async fn tx_fetch_fee() {
         .stdout_as_str();
 
     let parsed: FeeTable = serde_json::from_str(&output).unwrap();
-    assert_eq!(parsed.inclusion_fee, 100);
-    assert_eq!(parsed.resource_fee + parsed.inclusion_fee, parsed.fee);
+    assert_eq!(parsed.inclusion_fee_charged, 100);
+    assert_eq!(parsed.resource_fee_charged + parsed.inclusion_fee_charged, parsed.fee_charged);
 }
 
 async fn add_account_data(
