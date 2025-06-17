@@ -34,7 +34,12 @@ brew install stellar-cli
 
 Install the latest version from source:
 ```
-cargo install --locked stellar-cli --features opt
+cargo install --locked stellar-cli
+```
+
+Install without features that depend on additional libraries:
+```
+cargo install --locked stellar-cli --no-default-features
 ```
 
 Install or run the unreleased main branch with nix:
