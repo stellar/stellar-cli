@@ -67,7 +67,7 @@ const MAX_RESOURCE_FEE_TITLE: &str = "Max Resource Fee";
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let resp = self.args.fetch_transaction(global_args).await?;
-        let fee_table = FeeTable::new_from_transaction_response(resp)?;
+        let fee_table = FeeTable::new_from_transaction_response(&resp)?;
         match self.output {
             FeeOutputFormat::Json => {
                 println!("{}", serde_json::to_string(&fee_table)?);
@@ -96,7 +96,7 @@ pub struct FeeTable {
 }
 
 impl FeeTable {
-    fn new_from_transaction_response(resp: GetTransactionResponse) -> Result<Self, Error> {
+    fn new_from_transaction_response(resp: &GetTransactionResponse) -> Result<Self, Error> {
         let tx_result = resp.result.clone().ok_or(Error::None {
             field: "tx_result".to_string(),
         })?; // fee charged
@@ -109,9 +109,9 @@ impl FeeTable {
 
         let fee_charged = tx_result.fee_charged;
         let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
-            Self::resource_fees_charged(tx_meta);
+            Self::resource_fees_charged(&tx_meta);
 
-        let (max_fee, max_resource_fee) = Self::max_fees(tx_envelope);
+        let (max_fee, max_resource_fee) = Self::max_fees(&tx_envelope);
 
         let resource_fee_charged =
             non_refundable_resource_fee_charged + refundable_resource_fee_charged;
@@ -127,14 +127,14 @@ impl FeeTable {
         })
     }
 
-    fn max_fees(tx_envelope: TransactionEnvelope) -> (i64, i64) {
+    fn max_fees(tx_envelope: &TransactionEnvelope) -> (i64, i64) {
         match tx_envelope {
             TransactionEnvelope::TxV0(transaction_v0_envelope) => {
                 let fee = transaction_v0_envelope.tx.fee;
                 (fee.into(), DEFAULT_FEE_VALUE)
             }
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
-                let tx = transaction_v1_envelope.tx;
+                let tx = transaction_v1_envelope.tx.clone();
                 let fee = tx.fee;
                 let resource_fee = match tx.ext {
                     xdr::TransactionExt::V0 => DEFAULT_FEE_VALUE,
@@ -152,7 +152,7 @@ impl FeeTable {
         }
     }
 
-    fn resource_fees_charged(tx_meta: TransactionMeta) -> (i64, i64) {
+    fn resource_fees_charged(tx_meta: &TransactionMeta) -> (i64, i64) {
         let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
             match tx_meta.clone() {
                 TransactionMeta::V0(_) | TransactionMeta::V1(_) | TransactionMeta::V2(_) => {
@@ -275,16 +275,16 @@ mod test {
     #[test]
     fn soroban_tx_fee_table() {
         let resp = soroban_tx_response().unwrap();
-        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
-        let expected_fee_charged = 185119;
-        let expected_non_refundable_charged = 59343;
-        let expected_refundable_charged = 125676;
+        let expected_fee_charged = 185_119;
+        let expected_non_refundable_charged = 59_343;
+        let expected_refundable_charged = 125_676;
         let expected_resource_fee_charged =
             expected_non_refundable_charged + expected_refundable_charged;
         let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
-        let expected_max_fee = 248869;
-        let expected_max_resource_fee = 248769;
+        let expected_max_fee = 248_869;
+        let expected_max_resource_fee = 248_769;
 
         assert_eq!(fee_table.fee_charged, expected_fee_charged);
         assert_eq!(
@@ -310,7 +310,7 @@ mod test {
     #[test]
     fn classic_tx_fee_table() {
         let resp = classic_tx_response().unwrap();
-        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
         let expected_fee_charged = 100;
         let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
@@ -345,7 +345,7 @@ mod test {
     #[test]
     fn fee_bump_tx_fee_table() {
         let resp = fee_bump_tx_response().unwrap();
-        let fee_table = FeeTable::new_from_transaction_response(resp).unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
         let expected_fee_charged = 200;
         let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
