@@ -11,6 +11,10 @@ use super::args;
 pub struct Cmd {
     #[command(flatten)]
     pub(crate) args: args::Args,
+
+    /// Format of the output
+    #[arg(long, default_value = "json")]
+    pub(crate) output: args::OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -27,7 +31,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let resp = self.args.fetch_transaction(global_args).await?;
         if let Some(envelope) = resp.envelope {
-            match self.args.output {
+            match self.output {
                 args::OutputFormat::Json => {
                     println!("{}", serde_json::to_string(&envelope)?);
                 }
