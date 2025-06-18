@@ -364,7 +364,6 @@ impl Cmd {
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
         print.infoln("Build Summary:");
-
         let rel_target_file_path = target_file_path
             .strip_prefix(env::current_dir().unwrap())
             .unwrap_or(target_file_path);
