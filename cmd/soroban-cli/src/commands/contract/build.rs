@@ -253,7 +253,7 @@ impl Cmd {
             }
             #[cfg(not(feature = "additional-libs"))]
             {
-                print.warnln("Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",);
+                print.warnln("Optimization not available. Install with \"additional-libs\" feature to use --optimize.");
                 Self::print_build_summary(print, &final_path)?;
             }
         } else {
