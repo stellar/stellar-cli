@@ -197,59 +197,12 @@ impl FeeTable {
         self.max_resource_fee - self.non_refundable_resource_fee_charged
     }
 
-    fn proposed_table(&self) -> Table {
-        let mut proposed = Table::new();
-        proposed.set_format(Self::table_format());
-        proposed.add_row(Row::new(vec![Cell::new(&format!(
-            "{FEE_PROPOSED_TITLE}: {}",
-            self.max_fee
-        ))
-        .style_spec("FY")
-        .with_hspan(3)]));
-
-        proposed.add_row(Row::new(vec![
-            Cell::new(&format!(
-                "{}: {}",
-                INCLUSION_FEE_TITLE, self.proposed_inclusion_fee()
-            ))
-            .style_spec("FY")
-            .with_hspan(1),
-            Cell::new(&format!(
-                "{RESOURCE_FEE_TITLE}: {}",
-                self.max_resource_fee
-            ))
-            .with_hspan(2)
-        ]));
-
-        proposed
-    }
-
-// ┌────────────────────────────────────────────────────────────────────────────────────┐
-// │ Fee Proposed: 185119                                                               │
-// ├────────────────────────────────────────────────────────────────────────────────────┤
-// │ Inclusion Fee: 100 │ Resource Fee: 185019                                          │
-// ├────────────────────────────────────────────────────────────────────────────────────┤
-// │ Inclusion Fee: 100 │ Non-Refundable: 59343 │ Refundable: 125676                    │
-// │                    │                       │                                       │
-// │                    │ cpu instructions      │ return value                          │
-// │                    │ storage read/write    │ storage rent                          │
-// │                    │ tx size               │ events                                │
-// └────────────────────────────────────────────────────────────────────────────────────┘
-//                            👆 Proposed Fee  👇 Final Fee
-// ┌─────────────────────────────────────────────────────────────────┐┌─────────────────┐
-// │ Inclusion Fee: 100 │ Non-refundable: 59343 │ Refundable: 105676 ││ Refunded: 20000 │
-// ├─────────────────────────────────────────────────────────────────││─────────────────┤
-// │ Inclusion Fee: 100 │ Resource Fee: 165019                       ││ Refunded: 20000 │
-// ├─────────────────────────────────────────────────────────────────││─────────────────┤
-// │ Fee Charged: 165119                                             ││ Refunded: 20000 │
-// └─────────────────────────────────────────────────────────────────┘└─────────────────┘
-
-    fn one_table(&self) -> Table {
+    fn table(&self) -> Table {
         let mut table = Table::new();
         table.set_format(Self::table_format());
-        
+
         // Proposed
-       table.add_row(Row::new(vec![Cell::new(&format!(
+        table.add_row(Row::new(vec![Cell::new(&format!(
             "{FEE_PROPOSED_TITLE}: {}",
             self.max_fee
         ))
@@ -258,44 +211,42 @@ impl FeeTable {
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE, self.proposed_inclusion_fee() 
+                INCLUSION_FEE_TITLE,
+                self.proposed_inclusion_fee()
             )),
-            Cell::new(&format!(
-                "{RESOURCE_FEE_TITLE}: {}",
-                self.max_resource_fee
-            ))
-            .with_hspan(3)
-        ])); 
+            Cell::new(&format!("{RESOURCE_FEE_TITLE}: {}", self.max_resource_fee)).with_hspan(3),
+        ]));
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE, self.proposed_inclusion_fee() 
+                INCLUSION_FEE_TITLE,
+                self.proposed_inclusion_fee()
             )),
             Cell::new(&format!(
                 "{NON_REFUNDABLE_TITLE}: {}{}",
-                self.non_refundable_resource_fee_charged,
-                NON_REFUNDABLE_COMPONENTS
+                self.non_refundable_resource_fee_charged, NON_REFUNDABLE_COMPONENTS
             )),
             Cell::new(&format!(
                 "{REFUNDABLE_TITLE}: {}{}",
                 self.refundable_fee_proposed(),
                 REFUNDABLE_COMPONENTS
             ))
-            .with_hspan(2)
-        ])); 
+            .with_hspan(2),
+        ]));
 
         // Info
-        table.add_row(Row::new(vec![
-            Cell::new("👆 Proposed Fee  👇 Final Fee")
+        table.add_row(Row::new(vec![Cell::new("👆 Proposed Fee  👇 Final Fee")
             .style_spec("c")
-            .with_hspan(4),
-        ]));
+            .with_hspan(4)]));
 
         // Fees Charged
         if self.should_include_resource_fees() {
             table.add_row(Row::new(vec![
-                Cell::new(&format!("{INCLUSION_FEE_TITLE}: {}", self.inclusion_fee_charged)),
+                Cell::new(&format!(
+                    "{INCLUSION_FEE_TITLE}: {}",
+                    self.inclusion_fee_charged
+                )),
                 Cell::new(&format!(
                     "{NON_REFUNDABLE_TITLE}: {}",
                     self.non_refundable_resource_fee_charged
@@ -304,10 +255,7 @@ impl FeeTable {
                     "{REFUNDABLE_TITLE}: {}",
                     self.refundable_resource_fee_charged
                 )),
-                Cell::new(&format!(
-                    "{REFUNDED_TITLE}: {}",
-                    self.refunded()
-                ))
+                Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
             ]));
 
             table.add_row(Row::new(vec![
@@ -320,99 +268,20 @@ impl FeeTable {
                     RESOURCE_FEE_TITLE, self.resource_fee_charged
                 ))
                 .with_hspan(2),
-
-                Cell::new(&format!(
-                    "{REFUNDED_TITLE}: {}",
-                    self.refunded()
-                ))
+                Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
             ]));
         }
 
         table.add_row(Row::new(vec![
-            Cell::new(&format!(
-                "{FEE_CHARGED_TITLE}: {}",
-                self.fee_charged
-            ))
-            .with_hspan(3),
-
-            Cell::new(&format!(
-                    "{REFUNDED_TITLE}: {}",
-                    self.refunded()
-                ))
+            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.fee_charged)).with_hspan(3),
+            Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
         ]));
-
-
-        table
-    }
-
-
-
-
-    fn final_fee_table(&self) -> Table {
-        let mut table = Table::new();
-        table.set_format(Self::table_format());
-        if self.should_include_resource_fees() {
-            table.add_row(Row::new(vec![
-                Cell::new(&format!("{INCLUSION_FEE_TITLE}: {}", self.inclusion_fee_charged)),
-                Cell::new(&format!(
-                    "{NON_REFUNDABLE_TITLE}: {}",
-                    self.non_refundable_resource_fee_charged
-                ))
-                .style_spec("FY"),
-                Cell::new(&format!(
-                    "{REFUNDABLE_TITLE}: {}",
-                    self.refundable_resource_fee_charged
-                ))
-                .style_spec("FY"),
-            ]));
-
-            table.add_row(Row::new(vec![
-                Cell::new(&format!(
-                    "{INCLUSION_FEE_TITLE}: {}",
-                    self.inclusion_fee_charged
-                )),
-                Cell::new(&format!(
-                    "{}: {}",
-                    RESOURCE_FEE_TITLE, self.resource_fee_charged
-                ))
-                .style_spec("FY")
-                .with_hspan(2),
-            ]));
-        }
-
-        table.add_row(Row::new(vec![Cell::new(&format!(
-            "{FEE_CHARGED_TITLE}: {}",
-            self.fee_charged
-        ))
-        .style_spec("b")
-        .with_hspan(3)]));
-
 
         table
     }
 
     fn print(&self) {
-        let one = self.one_table();
-        one.printstd();
-        // let proposed = self.proposed_table();
-        // proposed.printstd();
-
-        // // let mut info = Table::new();
-        // // info.add_row(Row::new(vec![
-        // //     Cell::new("👆 Proposed Fee  👇 Final Fee")
-        // //     .with_hspan(3)
-        // //     .style_spec("c")
-        // // ]));
-        // // info.printstd();
-        // println!("                           👆 Proposed Fee  👇 Final Fee");
-        // // table::        proposed.add_row(Row::new(vec![
-        // //     Cell::new("👆 Proposed Fee  👇 Final Fee")
-        // //     .with_hspan(3)
-        // //     .style_spec("c")
-        // // ]));
-
-        // let final_fee = self.final_fee_table();
-        // final_fee.printstd();
+        self.table().printstd();
     }
 
     fn table_format() -> TableFormat {
