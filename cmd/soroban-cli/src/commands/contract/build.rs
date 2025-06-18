@@ -205,14 +205,14 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
-                self.build_package(&print, &p, target_dir, &wasm_target)?;
+                self.post_build_steps(&print, &p, target_dir, &wasm_target)?;
             }
         }
 
         Ok(())
     }
 
-    fn build_package(
+    fn post_build_steps(
         &self,
         print: &Print,
         package: &Package,
@@ -245,16 +245,16 @@ impl Cmd {
                     wasm: final_path.clone(),
                 };
                 wasm_args.optimize(&optimized_file_path)?;
-                optimized_path = Some(optimized_file_path);
+                Some(optimized_file_path)
             }
             #[cfg(not(feature = "additional-libs"))]
             {
-                print.warnln(
-                "Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",
-            );
+                print.warnln("Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",);
+                None
             }
-        }
-
+        } else {
+            None
+        };
         Self::print_build_summary(print, &final_path, optimized_path.as_ref())?;
 
         Ok(())
@@ -363,11 +363,7 @@ impl Cmd {
         target_file_path: &PathBuf,
         optimized_path: Option<&PathBuf>,
     ) -> Result<(), Error> {
-        if optimized_path.is_some() {
-            print.infoln("Build Summary (Optimized):");
-        } else {
-            print.infoln("Build Summary:");
-        }
+        print.infoln("Build Summary:");
 
         Self::print_file_summary(print, "Wasm File", target_file_path, false, None)?;
 
