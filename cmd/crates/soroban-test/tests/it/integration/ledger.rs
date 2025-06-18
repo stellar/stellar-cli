@@ -12,5 +12,5 @@ async fn ledger_latest() {
         .success()
         .stdout(predicates::str::contains("Sequence:"))
         .stdout(predicates::str::contains("Protocol Version:"))
-        .stdout(predicates::str::contains("ID:"));
+        .stdout(predicates::str::contains("Hash:"));
 }
