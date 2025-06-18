@@ -102,6 +102,7 @@ impl Args {
         use wasm_opt::{Feature, OptimizationOptions};
 
         let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
+        options.converge = true;
 
         // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
         // also be the default featureset, but just to be extra clear we set it
@@ -110,10 +111,10 @@ impl Args {
         // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
         // well as Clang generate code with sign-ext + mutable-globals enabled,
         // so Soroban has taken a change to support them also.
-        options.converge = true;
         options.mvp_features_only();
         options.enable_feature(Feature::MutableGlobals);
         options.enable_feature(Feature::SignExt);
+
         options
             .run(&self.wasm, output)
             .map_err(Error::OptimizationError)
