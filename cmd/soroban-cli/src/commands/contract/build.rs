@@ -236,7 +236,7 @@ impl Cmd {
             target_file_path.clone()
         };
 
-        let optimized_path = if self.optimize {
+        if self.optimize {
             #[cfg(feature = "additional-libs")]
             {
                 use crate::wasm::Args as WasmArgs;
@@ -245,18 +245,22 @@ impl Cmd {
                     wasm: final_path.clone(),
                 };
                 wasm_args.optimize(&optimized_file_path)?;
-                Some(optimized_file_path)
+                Self::print_build_summary_with_optimization(
+                    print,
+                    &final_path,
+                    &optimized_file_path,
+                )?;
             }
             #[cfg(not(feature = "additional-libs"))]
             {
                 print.warnln("Must install with \"opt\" feature (e.g. `cargo install --locked soroban-cli --features opt`) to use --optimize",);
-                None
+                Self::print_build_summary(print, &final_path)?;
             }
         } else {
-            None
-        };
-        Self::print_build_summary(print, &final_path, optimized_path.as_ref())?;
+            Self::print_build_summary(print, &final_path)?;
+        }
 
+        print.checkln("Build Complete");
         Ok(())
     }
 
@@ -358,90 +362,81 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn print_build_summary(
-        print: &Print,
-        target_file_path: &PathBuf,
-        optimized_path: Option<&PathBuf>,
-    ) -> Result<(), Error> {
+    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
         print.infoln("Build Summary:");
 
-        Self::print_file_summary(print, "Wasm File", target_file_path, false, None)?;
-
-        if let Some(optimized_path) = optimized_path {
-            let orig_size = fs::metadata(target_file_path).map(|m| m.len()).unwrap_or(0);
-            let opt_size = fs::metadata(optimized_path).map(|m| m.len()).unwrap_or(0);
-
-            Self::print_file_summary(
-                print,
-                "Optimized Wasm File",
-                optimized_path,
-                true,
-                Some((orig_size, opt_size)),
-            )?;
-        }
-
-        print.checkln("Build Complete");
-        Ok(())
-    }
-
-    fn print_file_summary(
-        print: &Print,
-        label: &str,
-        file_path: &PathBuf,
-        show_size: bool,
-        size_savings: Option<(u64, u64)>,
-    ) -> Result<(), Error> {
-        let rel_file_path = file_path
+        let rel_target_file_path = target_file_path
             .strip_prefix(env::current_dir().unwrap())
-            .unwrap_or(file_path);
-        print.blankln(format!("{label}: {}", rel_file_path.display()));
+            .unwrap_or(target_file_path);
+        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
 
-        let wasm_bytes = fs::read(file_path).map_err(Error::ReadingWasmFile)?;
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
 
         print.blankln(format!(
             "Wasm Hash: {}",
             hex::encode(Sha256::digest(&wasm_bytes))
         ));
 
-        if show_size {
-            if let Some((orig_size, opt_size)) = size_savings {
-                let savings = orig_size - opt_size;
-                print.blankln(format!(
-                    "Wasm Size: {opt_size} bytes (reduced by {savings} bytes)",
-                ));
-            } else {
-                print.blankln(format!("Wasm Size: {} bytes", wasm_bytes.len()));
+        let parser = wasmparser::Parser::new(0);
+        let export_names: Vec<&str> = parser
+            .parse_all(&wasm_bytes)
+            .filter_map(Result::ok)
+            .filter_map(|payload| {
+                if let wasmparser::Payload::ExportSection(exports) = payload {
+                    Some(exports)
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .filter_map(Result::ok)
+            .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
+            .map(|export| export.name)
+            .sorted()
+            .collect();
+        if export_names.is_empty() {
+            print.blankln("Exported Functions: None found");
+        } else {
+            print.blankln(format!("Exported Functions: {} found", export_names.len()));
+            for name in export_names {
+                print.blankln(format!("  • {name}"));
             }
         }
 
-        // Only show exported functions for non-optimized files
-        if !show_size || size_savings.is_none() {
-            let parser = wasmparser::Parser::new(0);
-            let export_names: Vec<&str> = parser
-                .parse_all(&wasm_bytes)
-                .filter_map(Result::ok)
-                .filter_map(|payload| {
-                    if let wasmparser::Payload::ExportSection(exports) = payload {
-                        Some(exports)
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
-                .filter_map(Result::ok)
-                .filter(|export| matches!(export.kind, wasmparser::ExternalKind::Func))
-                .map(|export| export.name)
-                .sorted()
-                .collect();
-            if export_names.is_empty() {
-                print.blankln("Exported Functions: None found");
-            } else {
-                print.blankln(format!("Exported Functions: {} found", export_names.len()));
-                for name in export_names {
-                    print.blankln(format!("  • {name}"));
-                }
-            }
-        }
+        Ok(())
+    }
+
+    fn print_build_summary_with_optimization(
+        print: &Print,
+        original_path: &PathBuf,
+        optimized_path: &PathBuf,
+    ) -> Result<(), Error> {
+        Self::print_build_summary(print, original_path)?;
+        // Print optimization info
+        let original_bytes = fs::read(original_path).map_err(Error::ReadingWasmFile)?;
+        let orig_size = original_bytes.len() as u64;
+        let optimized_bytes = fs::read(optimized_path).map_err(Error::ReadingWasmFile)?;
+        let opt_size = optimized_bytes.len() as u64;
+
+        let savings = orig_size - opt_size;
+
+        print.blankln(format!("Optimized: reduced by {savings} bytes"));
+
+        // Print optimized file info
+        let rel_optimized_path = optimized_path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(optimized_path);
+
+        print.blankln(format!(
+            "Wasm File: {} ({} bytes)",
+            rel_optimized_path.display(),
+            opt_size
+        ));
+
+        print.blankln(format!(
+            "Wasm Hash: {}",
+            hex::encode(Sha256::digest(&optimized_bytes))
+        ));
 
         Ok(())
     }
