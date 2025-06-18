@@ -236,12 +236,7 @@ impl Cmd {
             target_file_path.clone()
         };
 
-        #[cfg(feature = "additional-libs")]
-        let mut optimized_path = None;
-        #[cfg(not(feature = "additional-libs"))]
-        let optimized_path = None;
-
-        if self.optimize {
+        let optimized_path = if self.optimize {
             #[cfg(feature = "additional-libs")]
             {
                 use crate::wasm::Args as WasmArgs;
