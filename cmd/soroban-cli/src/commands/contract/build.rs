@@ -110,6 +110,8 @@ pub enum Error {
     GettingCurrentDir(io::Error),
     #[error("retreiving CARGO_HOME: {0}")]
     CargoHome(io::Error),
+    #[error("--optimize requires installation with the \"additional-libs\" feature")]
+    OptimizeWithoutAdditionalLibs,
     #[error("reading wasm file: {0}")]
     ReadingWasmFile(io::Error),
     #[error("writing wasm file: {0}")]
@@ -253,8 +255,7 @@ impl Cmd {
             }
             #[cfg(not(feature = "additional-libs"))]
             {
-                print.warnln("Optimization not available. Install with \"additional-libs\" feature to use --optimize.");
-                Self::print_build_summary(print, &final_path)?;
+                return Err(Error::OptimizeWithoutAdditionalLibs);
             }
         } else {
             Self::print_build_summary(print, &final_path)?;
