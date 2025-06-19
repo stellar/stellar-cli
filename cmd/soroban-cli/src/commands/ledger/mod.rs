@@ -1,7 +1,7 @@
 use crate::commands::global;
 use clap::Subcommand;
-mod latest;
 pub mod entry;
+mod latest;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
