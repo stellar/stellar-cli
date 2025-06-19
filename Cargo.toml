@@ -20,72 +20,60 @@ exclude = [
 ]
 
 [workspace.package]
-version = "22.8.2"
+version = "22.8.1"
 rust-version = "1.85.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
-version = "=22.8.2"
+version = "=22.8.1"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-spec-json]
-version = "=22.8.2"
+version = "=22.8.1"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "22.8.2"
+version = "22.8.1"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "22.8.2"
+version = "22.8.1"
 path = "./cmd/crates/soroban-spec-tools"
+
+[workspace.dependencies.stellar-ledger]
+version = "=22.8.1"
+path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "=23.0.0-rc.2"
+version = "23.0.0-rc.2"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "=23.0.0-rc.2.1"
+version = "23.0.0-rc.2"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "=23.0.0-rc.2.1"
+version = "23.0.0-rc.2"
 
 [workspace.dependencies.soroban-sdk]
-<<<<<<< HEAD
-version = "=23.0.0-rc.2.1"
-features = ["testutils"]
-=======
-version = "=23.0.0-rc.1.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "fix-testutils-incompat"
->>>>>>> 9de81342 (use fixed soroban-sdk from stellar/rs-soroban-sdk#1476)
+version = "23.0.0-rc.2.1"
 
 [workspace.dependencies.soroban-env-host]
-version = "=23.0.0-rc.2.1"
+version = "23.0.0-rc.2"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "=23.0.0-rc.2.1"
+version = "23.0.0-rc.2"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-<<<<<<< HEAD
-version = "=23.0.0-rc.2.1"
-=======
-version = "=23.0.0-rc.1.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "fix-testutils-incompat"
->>>>>>> 9de81342 (use fixed soroban-sdk from stellar/rs-soroban-sdk#1476)
+version = "23.0.0-rc.2"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-# version = "=22.1.0"
+version = "23.0.0-rc.4"
 git = "https://github.com/stellar/rs-stellar-rpc-client.git"
 branch = "main"
-
-[workspace.dependencies.stellar-ledger]
-version = "=22.8.2"
-path = "cmd/crates/stellar-ledger"
+# path = "../rs-stellar-rpc-client"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
@@ -143,5 +131,5 @@ codegen-units = 1
 lto = true
 
 [profile.release-with-panic-unwind]
-inherits = 'release'
-panic = 'unwind'
+inherits = "release"
+panic = "unwind"
