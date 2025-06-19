@@ -13,13 +13,13 @@ pub mod env;
 pub mod events;
 pub mod global;
 pub mod keys;
+pub mod ledger;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
 pub mod tx;
 pub mod version;
 
-pub mod ledger;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
@@ -118,7 +118,7 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
-            Cmd::Ledger(ledger) => ledger.run().await?,
+            Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
         }

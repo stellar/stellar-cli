@@ -2714,6 +2714,7 @@ Fetch ledger information
 ###### **Subcommands:**
 
 * `entry` — Work with ledger entries
+* `latest` — Get the latest ledger sequence and information from the network
 
 
 
@@ -2971,6 +2972,33 @@ Fetch WASM bytecode by hash
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `xdr`:
     Original RPC output (containing XDRs)
+
+
+
+
+## `stellar ledger latest`
+
+Get the latest ledger sequence and information from the network
+
+**Usage:** `stellar ledger latest [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
 
 
 
