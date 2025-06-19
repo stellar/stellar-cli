@@ -53,7 +53,8 @@ version = "=23.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-sdk]
 version = "=23.0.0-rc.1.1"
-features = ["testutils"]
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "fix-testutils-incompat"
 
 [workspace.dependencies.soroban-env-host]
 version = "=23.0.0-rc.1.1"
@@ -63,6 +64,8 @@ version = "=23.0.0-rc.1.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "=23.0.0-rc.1.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "fix-testutils-incompat"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]

@@ -4633,10 +4633,10 @@ dependencies = [
  "shell-escape",
  "shlex",
  "soroban-ledger-snapshot",
- "soroban-sdk",
- "soroban-spec",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "soroban-spec-json",
- "soroban-spec-rust",
+ "soroban-spec-rust 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-ledger",
@@ -4755,8 +4755,7 @@ version = "22.8.1"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "23.0.0-rc.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c4e32bde0264477b27951a5d2562d10bdce23eb27958d67a0705008ae8cedf7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
 dependencies = [
  "serde",
  "serde_json",
@@ -4772,6 +4771,22 @@ version = "23.0.0-rc.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35104ef83e7a8dd24a865288b7906058af0687ea6ff6b40d04f0c2bc76987c3b"
 dependencies = [
+ "bytes-lit",
+ "rand 0.8.5",
+ "rustc_version",
+ "serde",
+ "serde_json",
+ "soroban-env-guest",
+ "soroban-env-host",
+ "soroban-sdk-macros 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stellar-strkey 0.0.13",
+]
+
+[[package]]
+name = "soroban-sdk"
+version = "23.0.0-rc.1.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+dependencies = [
  "arbitrary",
  "bytes-lit",
  "ctor",
@@ -4784,7 +4799,7 @@ dependencies = [
  "soroban-env-guest",
  "soroban-env-host",
  "soroban-ledger-snapshot",
- "soroban-sdk-macros",
+ "soroban-sdk-macros 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
  "stellar-strkey 0.0.13",
 ]
 
@@ -4802,8 +4817,27 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.9",
  "soroban-env-common",
- "soroban-spec",
- "soroban-spec-rust",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "soroban-spec-rust 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stellar-xdr",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "soroban-sdk-macros"
+version = "23.0.0-rc.1.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+dependencies = [
+ "crate-git-revision",
+ "darling",
+ "itertools 0.10.5",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "sha2 0.10.9",
+ "soroban-env-common",
+ "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
+ "soroban-spec-rust 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
  "stellar-xdr",
  "syn 2.0.104",
 ]
@@ -4821,6 +4855,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-spec"
+version = "23.0.0-rc.1.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+dependencies = [
+ "base64 0.22.1",
+ "stellar-xdr",
+ "thiserror 1.0.69",
+ "wasmparser",
+]
+
+[[package]]
 name = "soroban-spec-json"
 version = "22.8.1"
 dependencies = [
@@ -4829,7 +4874,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stellar-xdr",
  "thiserror 1.0.69",
 ]
@@ -4844,7 +4889,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.9",
- "soroban-spec",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stellar-xdr",
+ "syn 2.0.104",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "soroban-spec-rust"
+version = "23.0.0-rc.1.1"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.9",
+ "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
  "stellar-xdr",
  "syn 2.0.104",
  "thiserror 1.0.69",
@@ -4859,7 +4919,7 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-spec",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
  "thiserror 1.0.69",
@@ -4882,7 +4942,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stellar-xdr",
  "temp-dir",
  "thiserror 1.0.69",
@@ -4906,7 +4966,7 @@ dependencies = [
  "sha2 0.10.9",
  "soroban-cli",
  "soroban-ledger-snapshot",
- "soroban-spec",
+ "soroban-spec 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
@@ -4929,7 +4989,7 @@ version = "23.0.0-rc.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef02e92637c6c787a642534116fc5309440e9bbe6f35419af0dba974d947cab"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5352,42 +5412,42 @@ dependencies = [
 name = "test_constructor"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
 name = "test_custom_account"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
 name = "test_custom_types"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
 name = "test_hello_world"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
 name = "test_swap"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
 name = "test_token"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
  "soroban-token-sdk",
 ]
 
@@ -5395,7 +5455,7 @@ dependencies = [
 name = "test_udt"
 version = "22.8.1"
 dependencies = [
- "soroban-sdk",
+ "soroban-sdk 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
 ]
 
 [[package]]
