@@ -50,7 +50,7 @@ impl Project {
         contract_id: Option<&str>,
         rpc_url: Option<&str>,
         network_passphrase: Option<&str>,
-        spec: &Vec<ScSpecEntry>,
+        spec: &[ScSpecEntry],
     ) -> std::io::Result<()> {
         self.replace_placeholder_patterns(contract_name, contract_id, rpc_url, network_passphrase)?;
         self.append_index_ts(spec, contract_id, network_passphrase)
