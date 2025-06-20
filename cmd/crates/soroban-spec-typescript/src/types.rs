@@ -207,12 +207,11 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Symbol => Type::Symbol,
             ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
-            ScSpecTypeDef::String => Type::String,
+            ScSpecTypeDef::String | ScSpecTypeDef::MuxedAddress => Type::String,
             ScSpecTypeDef::Address => Type::Address,
             ScSpecTypeDef::Void => Type::Void,
             ScSpecTypeDef::Timepoint => Type::Timepoint,
             ScSpecTypeDef::Duration => Type::Duration,
-            ScSpecTypeDef::MuxedAddress => Type::String,
         }
     }
 }
