@@ -43,7 +43,7 @@ impl StellarEntry {
                 self.name
             ));
             self.set_seed_phrase(seed_phrase)?;
-        };
+        }
         Ok(())
     }
 
