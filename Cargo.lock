@@ -2576,6 +2576,23 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
+version = "0.20.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "beef",
+ "futures-util",
+ "hyper 0.14.30",
+ "jsonrpsee-types 0.20.1",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-core"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da2327ba8df2fdbd5e897e2b5ed25ce7f299d345b9736b6828814c3dbd1fd47b"
@@ -2585,12 +2602,30 @@ dependencies = [
  "beef",
  "futures-util",
  "hyper 0.14.30",
- "jsonrpsee-types",
+ "jsonrpsee-types 0.20.3",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-http-client"
+version = "0.20.1"
+dependencies = [
+ "async-trait",
+ "hyper 0.14.30",
+ "hyper-rustls 0.24.2",
+ "jsonrpsee-core 0.20.1",
+ "jsonrpsee-types 0.20.1",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -2602,8 +2637,8 @@ dependencies = [
  "async-trait",
  "hyper 0.14.30",
  "hyper-rustls 0.24.2",
- "jsonrpsee-core",
- "jsonrpsee-types",
+ "jsonrpsee-core 0.20.3",
+ "jsonrpsee-types 0.20.3",
  "serde",
  "serde_json",
  "thiserror",
@@ -2611,6 +2646,18 @@ dependencies = [
  "tower",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "jsonrpsee-types"
+version = "0.20.1"
+dependencies = [
+ "anyhow",
+ "beef",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -4412,8 +4459,8 @@ dependencies = [
  "home",
  "humantime",
  "itertools 0.10.5",
- "jsonrpsee-core",
- "jsonrpsee-http-client",
+ "jsonrpsee-core 0.20.3",
+ "jsonrpsee-http-client 0.20.3",
  "keyring",
  "mockito",
  "num-bigint",
@@ -4825,15 +4872,13 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "22.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3ce469900dde4426b3456692fd2778ac9c50d55195aed93188f153358b71f63"
 dependencies = [
  "clap",
  "hex",
  "http 1.1.0",
  "itertools 0.10.5",
- "jsonrpsee-core",
- "jsonrpsee-http-client",
+ "jsonrpsee-core 0.20.1",
+ "jsonrpsee-http-client 0.20.1",
  "serde",
  "serde-aux",
  "serde_json",
