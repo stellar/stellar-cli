@@ -65,7 +65,8 @@ version = "=22.0.4"
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
 #version = "=22.1.0"
-path = "../rs-stellar-rpc-client"
+branch = "feat/get-ledgers"
+git = "https://github.com/stellar/rs-stellar-rpc-client.git"
 
 [workspace.dependencies.stellar-ledger]
 version = "=22.8.1"
