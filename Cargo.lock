@@ -4916,8 +4916,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "23.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68db799e1a626da3b2ab34d8e3ddca9657f83552588154f0a68b6071199b691f"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client.git?branch=feat%2Fget-ledgers#bf85afacc0f54d43319a93485f689e20b6c39767"
 dependencies = [
  "clap",
  "hex",
