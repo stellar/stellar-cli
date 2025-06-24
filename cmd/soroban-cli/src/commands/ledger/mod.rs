@@ -1,14 +1,13 @@
 use crate::commands::global;
 use clap::Subcommand;
-mod latest;
 mod fetch;
+mod latest;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
     /// Get the latest ledger sequence and information from the network
     Latest(latest::Cmd),
     Fetch(fetch::Cmd),
-
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -24,7 +23,6 @@ impl Cmd {
         match &self {
             Cmd::Latest(cmd) => cmd.run(global_args).await?,
             Cmd::Fetch(cmd) => cmd.run(global_args).await?,
-
         }
         Ok(())
     }
