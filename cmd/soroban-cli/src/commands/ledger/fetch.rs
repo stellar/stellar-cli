@@ -30,6 +30,25 @@ pub enum OutputFormat {
     JsonFormatted,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum XdrFormat {
+    /// XDR fields will be fetched as json and accessible via the headerJson and metadataJson fields
+    #[default]
+    Json,
+
+    /// XDR fields will be fetched as xdr and accessible via the headerXdr and metadataXdr fields
+    Xdr,
+}
+
+impl std::fmt::Display for XdrFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            XdrFormat::Json => write!(f, "json"),
+            XdrFormat::Xdr => write!(f, "base64"),
+        }
+    }
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Ledger Sequence to start fetch (inclusive)
@@ -45,6 +64,10 @@ pub struct Cmd {
     /// Format of the output
     #[arg(long, value_enum, default_value_t)]
     pub output: OutputFormat,
+
+    /// Format of the xdr in the output
+    #[arg(long, value_enum, default_value_t)]
+    pub xdr_format: XdrFormat
 }
 
 impl Cmd {
@@ -52,7 +75,7 @@ impl Cmd {
         let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let start = rpc::LedgerStart::Ledger(self.seq);
-        let result = client.get_ledgers(start, Some(self.limit)).await?;
+        let result = client.get_ledgers(start, Some(self.limit), Some(self.xdr_format.to_string())).await?;
 
         match self.output {
             OutputFormat::Text => {
@@ -67,19 +90,19 @@ impl Cmd {
                 println!("Ledgers (limit {} starting at {} )", self.limit, self.seq);
                 println!("----------------------------------------------------\n");
                 for ledger in result.ledgers.clone() {
-                    let ledger_header = xdr::LedgerHeaderHistoryEntry::from_xdr_base64(
-                        &ledger.header_xdr,
-                        xdr::Limits::none(),
-                    )?;
-                    let ledger_meta = xdr::LedgerCloseMeta::from_xdr_base64(
-                        &ledger.metadata_xdr,
-                        xdr::Limits::none(),
-                    )?;
                     println!("Ledger Sequence: {}", ledger.sequence);
                     println!("Hash: {}", ledger.hash);
                     println!("Close Time: {}", ledger.ledger_close_time);
-                    println!("Header: {}", serde_json::to_string_pretty(&ledger_header)?);
-                    println!("Meta XDR: {}", serde_json::to_string_pretty(&ledger_meta)?);
+                    match self.xdr_format {
+                        XdrFormat::Json => {
+                            println!("Header: {}", serde_json::to_string_pretty(&ledger.header_json)?);
+                            println!("MetaData: {}", serde_json::to_string_pretty(&ledger.metadata_json)?);
+                        },
+                        XdrFormat::Xdr => {
+                            println!("Header: {}", serde_json::to_string_pretty(&ledger.header_xdr)?);
+                            println!("MetaData: {}", serde_json::to_string_pretty(&ledger.metadata_xdr)?);
+                        },
+                    }
                     println!("----------------------------------------------------\n");
                 }
             }
