@@ -2395,6 +2395,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 
 * `result` — Fetch the transaction result
 * `meta` — Fetch the transaction meta
+* `fee` — Fetch the transaction fee information
 
 ###### **Options:**
 
@@ -2470,6 +2471,34 @@ Fetch the transaction meta
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `xdr`:
     Original RPC output (containing XDRs)
+
+
+
+
+## `stellar tx fetch fee`
+
+Fetch the transaction fee information
+
+**Usage:** `stellar tx fetch fee [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+* `--hash <HASH>` — Transaction hash to fetch
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Output format for fee command
+
+  Default value: `table`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `table`:
+    Formatted in a table comparing fee types
 
 
 

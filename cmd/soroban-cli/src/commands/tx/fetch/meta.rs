@@ -11,6 +11,10 @@ use super::args;
 pub struct Cmd {
     #[command(flatten)]
     args: args::Args,
+
+    /// Format of the output
+    #[arg(long, default_value = "json")]
+    output: args::OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -23,22 +27,11 @@ pub enum Error {
     Args(#[from] args::Error),
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-    #[default]
-    Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-    JsonFormatted,
-    /// Original RPC output (containing XDRs)
-    Xdr,
-}
-
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let resp = self.args.fetch_transaction(global_args).await?;
         if let Some(meta) = resp.result_meta {
-            match self.args.output {
+            match self.output {
                 args::OutputFormat::Json => {
                     println!("{}", serde_json::to_string(&meta)?);
                 }

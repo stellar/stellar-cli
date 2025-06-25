@@ -1,10 +1,10 @@
+use crate::{commands::global, config::network, xdr::Hash};
 use clap::{command, Subcommand};
 use std::fmt::Debug;
 
-use crate::{commands::global, config::network, xdr::Hash};
-
 mod args;
 mod envelope;
+pub mod fee;
 mod meta;
 mod result;
 
@@ -24,6 +24,8 @@ pub enum FetchCommands {
     Result(result::Cmd),
     /// Fetch the transaction meta
     Meta(meta::Cmd),
+    /// Fetch the transaction fee information
+    Fee(fee::Cmd),
     /// Fetch the transaction envelope
     #[command(hide = true)]
     Envelope(envelope::Cmd),
@@ -46,11 +48,15 @@ struct DefaultArgs {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Args(#[from] args::Error),
+    #[error(transparent)]
     Result(#[from] result::Error),
     #[error(transparent)]
     Meta(#[from] meta::Error),
     #[error(transparent)]
     Envelope(#[from] envelope::Error),
+    #[error(transparent)]
+    NotSupported(#[from] fee::Error),
 }
 
 impl Cmd {
@@ -59,6 +65,7 @@ impl Cmd {
             Some(FetchCommands::Result(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Meta(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
+            Some(FetchCommands::Fee(cmd)) => cmd.run(global_args).await?,
             None => {
                 envelope::Cmd {
                     args: args::Args {
@@ -68,8 +75,8 @@ impl Cmd {
                             .clone()
                             .expect("Transaction hash is required but was not provided."),
                         network: self.default.network.clone().unwrap(),
-                        output: self.default.output.unwrap(),
                     },
+                    output: self.default.output.unwrap(),
                 }
                 .run(global_args)
                 .await?;
