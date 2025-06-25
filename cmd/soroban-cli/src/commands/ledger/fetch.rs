@@ -1,10 +1,9 @@
-use soroban_rpc::GetLedgersResponse;
 
 use crate::{
     commands::global,
     config::network,
     rpc,
-    xdr::{self, Hash, ReadXdr},
+    xdr::{self},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -67,7 +66,7 @@ pub struct Cmd {
 
     /// Format of the xdr in the output
     #[arg(long, value_enum, default_value_t)]
-    pub xdr_format: XdrFormat
+    pub xdr_format: XdrFormat,
 }
 
 impl Cmd {
@@ -75,7 +74,9 @@ impl Cmd {
         let network = self.network.get(&global_args.locator)?;
         let client = network.rpc_client()?;
         let start = rpc::LedgerStart::Ledger(self.seq);
-        let result = client.get_ledgers(start, Some(self.limit), Some(self.xdr_format.to_string())).await?;
+        let result = client
+            .get_ledgers(start, Some(self.limit), Some(self.xdr_format.to_string()))
+            .await?;
 
         match self.output {
             OutputFormat::Text => {
@@ -95,13 +96,25 @@ impl Cmd {
                     println!("Close Time: {}", ledger.ledger_close_time);
                     match self.xdr_format {
                         XdrFormat::Json => {
-                            println!("Header: {}", serde_json::to_string_pretty(&ledger.header_json)?);
-                            println!("MetaData: {}", serde_json::to_string_pretty(&ledger.metadata_json)?);
-                        },
+                            println!(
+                                "Header: {}",
+                                serde_json::to_string_pretty(&ledger.header_json)?
+                            );
+                            println!(
+                                "MetaData: {}",
+                                serde_json::to_string_pretty(&ledger.metadata_json)?
+                            );
+                        }
                         XdrFormat::Xdr => {
-                            println!("Header: {}", serde_json::to_string_pretty(&ledger.header_xdr)?);
-                            println!("MetaData: {}", serde_json::to_string_pretty(&ledger.metadata_xdr)?);
-                        },
+                            println!(
+                                "Header: {}",
+                                serde_json::to_string_pretty(&ledger.header_xdr)?
+                            );
+                            println!(
+                                "MetaData: {}",
+                                serde_json::to_string_pretty(&ledger.metadata_xdr)?
+                            );
+                        }
                     }
                     println!("----------------------------------------------------\n");
                 }
