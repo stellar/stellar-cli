@@ -1,5 +1,5 @@
-use soroban_test::{ TestEnv, AssertExt };
 use soroban_rpc::{GetLatestLedgerResponse, GetLedgersResponse};
+use soroban_test::{AssertExt, TestEnv};
 
 #[tokio::test]
 async fn ledger_latest() {
@@ -28,12 +28,14 @@ async fn ledger_fetch() {
         .success()
         .stdout_as_str();
 
-    let latest_ledger: GetLatestLedgerResponse = serde_json::from_str(&latest_ledger_response).unwrap();
+    let latest_ledger: GetLatestLedgerResponse =
+        serde_json::from_str(&latest_ledger_response).unwrap();
     let latest_ledger_seq = latest_ledger.sequence;
     let ledger_to_fetch = latest_ledger.sequence - 1;
 
     let ledger_limit = 2;
-    let ledger_response = sandbox.new_assert_cmd("ledger")
+    let ledger_response = sandbox
+        .new_assert_cmd("ledger")
         .arg("fetch")
         .arg(ledger_to_fetch.to_string())
         .arg("--output")
@@ -45,10 +47,13 @@ async fn ledger_fetch() {
         .stdout_as_str();
 
     let ledger: GetLedgersResponse = serde_json::from_str(&ledger_response).unwrap();
-    assert!(matches!(ledger, GetLedgersResponse{
-        latest_ledger: latest_ledger_seq,
-        ..
-    }));
+    assert!(matches!(
+        ledger,
+        GetLedgersResponse {
+            latest_ledger: latest_ledger_seq,
+            ..
+        }
+    ));
     assert_eq!(ledger.ledgers.len(), ledger_limit);
 }
 
@@ -64,11 +69,13 @@ async fn ledger_fetch_xdr_fields() {
         .success()
         .stdout_as_str();
 
-    let latest_ledger: GetLatestLedgerResponse = serde_json::from_str(&latest_ledger_response).unwrap();
+    let latest_ledger: GetLatestLedgerResponse =
+        serde_json::from_str(&latest_ledger_response).unwrap();
     let latest_ledger_seq = latest_ledger.sequence;
 
     // when xdr-format is json, the headerXdr and metadataXdr fields are empty strings
-    let ledger_response = sandbox.new_assert_cmd("ledger")
+    let ledger_response = sandbox
+        .new_assert_cmd("ledger")
         .arg("fetch")
         .arg(latest_ledger_seq.to_string())
         .arg("--output")
@@ -84,7 +91,8 @@ async fn ledger_fetch_xdr_fields() {
     assert_eq!(ledger.ledgers[0].metadata_xdr, "");
 
     // when xdr-format is xdr, the headerJson and metadataJson fields are null
-    let ledger_response = sandbox.new_assert_cmd("ledger")
+    let ledger_response = sandbox
+        .new_assert_cmd("ledger")
         .arg("fetch")
         .arg(latest_ledger_seq.to_string())
         .arg("--output")
@@ -98,5 +106,4 @@ async fn ledger_fetch_xdr_fields() {
     let ledger: GetLedgersResponse = serde_json::from_str(&ledger_response).unwrap();
     assert!(ledger.ledgers[0].header_json.is_none());
     assert!(ledger.ledgers[0].metadata_json.is_none());
-
 }
