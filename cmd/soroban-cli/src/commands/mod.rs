@@ -11,6 +11,7 @@ pub mod container;
 pub mod contract;
 pub mod env;
 pub mod events;
+pub mod fee_stats;
 pub mod global;
 pub mod keys;
 pub mod ledger;
@@ -121,6 +122,7 @@ impl Root {
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
             Cmd::Ledger(env) => env.run(&self.global_args).await?,
+            Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
     }
@@ -194,6 +196,9 @@ pub enum Cmd {
     /// Fetch ledger information
     #[command(subcommand)]
     Ledger(ledger::Cmd),
+
+    /// Fetch network feestats
+    FeeStats(fee_stats::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -240,6 +245,9 @@ pub enum Error {
 
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
+
+    #[error(transparent)]
+    FeeStats(#[from] fee_stats::Error),
 }
 
 #[async_trait]
