@@ -1,4 +1,5 @@
 use soroban_test::TestEnv;
+mod entry;
 
 #[tokio::test]
 async fn ledger_latest() {
