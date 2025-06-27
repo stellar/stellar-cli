@@ -158,6 +158,10 @@ impl Cmd {
 
         let response = self.run_against_rpc_server(None, None).await?;
 
+        if response.events.is_empty() {
+            eprintln!("No events");
+        }
+
         for event in &response.events {
             match self.output {
                 // Should we pretty-print the JSON like we're doing here or just

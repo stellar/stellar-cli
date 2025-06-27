@@ -207,7 +207,7 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Symbol => Type::Symbol,
             ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
-            ScSpecTypeDef::String => Type::String,
+            ScSpecTypeDef::String | ScSpecTypeDef::MuxedAddress => Type::String,
             ScSpecTypeDef::Address => Type::Address,
             ScSpecTypeDef::Void => Type::Void,
             ScSpecTypeDef::Timepoint => Type::Timepoint,
@@ -250,6 +250,7 @@ impl From<&ScSpecEntry> for Entry {
                 name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
             },
+            ScSpecEntry::EventV0(_) => todo!("EventV0 is not implemented yet"),
         }
     }
 }
