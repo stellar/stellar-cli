@@ -1,12 +1,13 @@
+---
 name: RPC Tests
 on:
-    push:
-        branches: [main, release/**]
-    pull_request:
+  push:
+    branches: [main, release/**]
+  pull_request:
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -14,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         sys:
-            # x64
+          # x64
           - ubuntu-latest-16-cores
-            # ARM
+          # ARM
           - ubuntu-jammy-16-cores-arm64
-            # Intel
+          # Intel
           - macos-13
         exclude:
           # Only run Linux x64 tests on pull request to save some time
@@ -26,9 +27,9 @@ jobs:
           - sys: ${{ github.event_name != 'push' && 'macos-13' }}
     runs-on: ${{ matrix.sys }}
     steps:
-      - uses: stellar/quickstart@p23
+      - uses: stellar/quickstart
         with:
-          tag: testing
+          tag: pr692-v492-future-amd64
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
