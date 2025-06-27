@@ -5043,8 +5043,8 @@ dependencies = [
 
 [[package]]
 name = "stellar-rpc-client"
-version = "22.1.0"
-source = "git+https://github.com/stellar/rs-stellar-rpc-client.git?branch=p23#33ffd9b0bfa256d47a507de903c6dfdb4fbd965e"
+version = "23.0.0-rc.2"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client.git?branch=p23-transaction-meta#3a895108df3d39391b8a6b32f711e890137b2084"
 dependencies = [
  "clap",
  "hex",
