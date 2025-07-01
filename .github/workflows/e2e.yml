@@ -16,11 +16,11 @@ jobs:
       fail-fast: false
       matrix:
         sys:
-            # x64
+          # x64
           - os: ubuntu-latest-16-cores
-            # ARM
+          # ARM
           - os: ubuntu-jammy-16-cores-arm64
-            # Intel
+          # Intel
           - os: macos-13
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
           # Windows is not yet supported due to issues with running quickstart image

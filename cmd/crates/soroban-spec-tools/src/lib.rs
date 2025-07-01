@@ -121,7 +121,7 @@ impl Spec {
             | ScType::I256
             | ScType::String
             | ScType::Bool => String::new(),
-            ScType::MuxedAddress => todo!("MuxedAddress is not supported yet"),
+            ScType::MuxedAddress => String::from("Can be a muxed account (M13..)"),
             ScType::Address => String::from(
                 "Can be public key (G13..), a contract hash (6c45307) or an identity (alice), ",
             ),

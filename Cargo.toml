@@ -77,7 +77,7 @@ branch = "fix-testutils-incompat"
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
 git = "https://github.com/stellar/rs-stellar-rpc-client.git"
-branch = "p23-transaction-meta"
+branch = "main"
 # path = "../rs-stellar-rpc-client"
 
 [workspace.dependencies.stellar-ledger]
@@ -140,5 +140,5 @@ codegen-units = 1
 lto = true
 
 [profile.release-with-panic-unwind]
-inherits = 'release'
-panic = 'unwind'
+inherits = "release"
+panic = "unwind"
