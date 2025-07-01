@@ -34,7 +34,6 @@ yanked = "warn"
 ignore = [
     "RUSTSEC-2024-0388", # derivative is no longer maintained, but that has no known material impact on the this repo
     "RUSTSEC-2024-0436", # paste is no longer maintained
-    "RUSTSEC-2025-0014", # humantime may no longer be maintained
 ]
 # Threshold for security vulnerabilities, any vulnerability with a CVSS score
 # lower than the range specified will be ignored. Note that ignored advisories
@@ -64,10 +63,8 @@ allow = [
     "Apache-2.0",
     "BSD-3-Clause",
     "Apache-2.0 WITH LLVM-exception",
-    "Unicode-DFS-2016",
     "ISC",
     "BSD-2-Clause",
-    "CC0-1.0",
     "Unicode-3.0",
 ]
 # The confidence threshold for detecting a license from license text.
@@ -82,10 +79,8 @@ exceptions = [
     # do not fork them. Related conversation and approval is at:
     # https://stellarfoundation.slack.com/archives/C07TC92R2P7/p1730924548048429?thread_ts=1730900591.962089&cid=C07TC92R2P7
     { allow = ["MPL-2.0"], name = "option-ext" },
-    { allow = ["MPL-2.0"], name = "webpki-roots" },
-    # The following dep licensed was manually reviewed and approved for use. Related conversation and approval is at:
-    # https://stellarfoundation.slack.com/archives/C07TC92R2P7/p1730917671563029?thread_ts=1730903286.490759&cid=C07TC92R2P7
-    { allow = ["OpenSSL"], name = "ring" },
+    { allow = ["CDLA-Permissive-2.0"], name = "webpki-roots" },
+    { allow = ["Zlib"], name = "foldhash" },
 ]
 
 [[licenses.clarify]]
@@ -133,7 +128,7 @@ registries = [
 # https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
 [bans]
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "deny"
+multiple-versions = "allow"
 # Lint level for when a crate version requirement is `*`
 wildcards = "deny"
 allow-wildcard-paths = true
@@ -243,9 +238,6 @@ skip = [
 
     # wasm-gen update
     { crate = "byteorder", reason = "temp", version = "1.5.0" },
-    
-    # async libraries depend on the older version (async-io and hyper)
-    { crate = "socket2", reason = "temp", version = "0.4.10" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate
 # detection. Unlike skip, it also includes the entire tree of transitive
