@@ -65,7 +65,6 @@ pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
-    println!("Writing action to {:?}", file);
     std::fs::write(file, serde_json::to_string(&data)?)?;
     Ok(id)
 }

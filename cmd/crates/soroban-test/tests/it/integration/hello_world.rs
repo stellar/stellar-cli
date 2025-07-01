@@ -5,12 +5,10 @@ use soroban_cli::{
     },
     config::{locator, secret},
 };
-use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
-use crate::integration::util::extend_contract;
-
 use super::util::{deploy_hello, extend, HELLO_WORLD};
+use crate::integration::util::extend_contract;
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
@@ -25,10 +23,9 @@ async fn invoke_view_with_non_existent_source_account() {
 
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
-async fn invoke() {
+async fn invoke_contract() {
     let sandbox = &TestEnv::new();
-    let c = sandbox.network.rpc_client().unwrap();
-    let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
+
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -76,30 +73,28 @@ async fn invoke() {
     let secret::Secret::SeedPhrase { seed_phrase } = s else {
         panic!("Expected seed phrase")
     };
-    let id = &deploy_hello(sandbox).await;
 
-    // 😬 nothing is being printed here, so there's no ulid to parse.
-    // let uid = sandbox
-    //     .new_assert_cmd("cache")
-    //     .arg("actionlog")
-    //     .arg("ls")
-    //     .assert()
-    //     .stdout_as_str();
-    // ulid::Ulid::from_string(&uid).expect(format!("invalid ulid: {uid:?}").as_str());
+    sandbox
+        .new_assert_cmd("cache")
+        .arg("clean")
+        .assert()
+        .success();
+
+    let id = &deploy_hello(sandbox).await;
+    extend_contract(sandbox, id).await;
+
+    let output = sandbox
+        .new_assert_cmd("cache")
+        .arg("actionlog")
+        .arg("ls")
+        .assert()
+        .stdout_as_str();
+    let lines = output.split('\n').collect::<Vec<&str>>();
+    let uid = lines.last().expect("uid should be present");
+    ulid::Ulid::from_string(&uid).expect(format!("invalid ulid: {uid:?}").as_str());
 
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
-
-    // 😬 No events are being returned here.
-    // sandbox
-    //     .new_assert_cmd("events")
-    //     .arg("--start-ledger")
-    //     .arg(sequence.to_string())
-    //     .arg("--id")
-    //     .arg(id)
-    //     .assert()
-    //     .stdout(predicates::str::contains(id))
-    //     .success();
 
     invoke_hello_world_with_lib(sandbox, id).await;
 
@@ -149,8 +144,7 @@ async fn invoke() {
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
 
-    // 😬 this is failing because no events are being logged
-    // invoke_log(sandbox, id);
+    invoke_log(sandbox, id);
 }
 
 pub(crate) fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
@@ -274,10 +268,7 @@ async fn contract_data_read() {
         .unwrap();
     assert_eq!(res.trim(), "1");
 
-    // 😬 THIS IS FAILING (ledger not found), but without it,
-    // tests pass. 😵‍💫
-    // Is it important? Do we care about extending contracts here?
-    // extend(sandbox, id, Some(KEY)).await;
+    extend(sandbox, id, Some(KEY)).await;
 
     sandbox
         .new_assert_cmd("contract")
@@ -406,6 +397,7 @@ async fn invoke_prng_u64_in_range_test(sandbox: &TestEnv, id: &str) {
         .await
         .is_ok());
 }
+
 fn invoke_log(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
