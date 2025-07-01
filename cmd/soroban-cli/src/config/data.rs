@@ -28,7 +28,9 @@ pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
     std::env::var(XDG_DATA_HOME)
         .map_or_else(
             |_| ProjectDirs::from("org", "stellar", "stellar-cli"),
-            |data_home| ProjectDirs::from_path(std::path::PathBuf::from(data_home)),
+            |data_home| {
+                ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
+            },
         )
         .ok_or(Error::FailedToFindProjectDirs)
 }
@@ -63,6 +65,7 @@ pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
+    println!("Writing action to {:?}", file);
     std::fs::write(file, serde_json::to_string(&data)?)?;
     Ok(id)
 }
