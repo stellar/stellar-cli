@@ -27,9 +27,9 @@ jobs:
           - sys: ${{ github.event_name != 'push' && 'macos-13' }}
     runs-on: ${{ matrix.sys }}
     steps:
-      - uses: stellar/quickstart
+      - uses: stellar/quickstart@main
         with:
-          tag: pr692-v492-future-amd64
+          tag: pr692-future
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
