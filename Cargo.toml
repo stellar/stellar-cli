@@ -76,8 +76,9 @@ rev = "ac4ea91798db83efe4840421bd048ec14f1c14a5"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-git = "https://github.com/stellar/rs-stellar-rpc-client.git"
-branch = "main"
+version = "23.0.0-rc.3"
+# git = "https://github.com/stellar/rs-stellar-rpc-client.git"
+# branch = "main"
 # path = "../rs-stellar-rpc-client"
 
 [workspace.dependencies.stellar-ledger]
