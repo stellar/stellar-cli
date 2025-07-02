@@ -494,7 +494,7 @@ mod tests {
         // Override environment variables to prevent reading real user config
         let original_home = env::var("HOME").ok();
         let original_stellar_config_home = env::var("STELLAR_CONFIG_HOME").ok();
-        
+
         // Set to a non-existent directory to ensure Config::new() fails and we test the fallback
         env::set_var("HOME", "/dev/null");
         env::set_var("STELLAR_CONFIG_HOME", "/dev/null");
