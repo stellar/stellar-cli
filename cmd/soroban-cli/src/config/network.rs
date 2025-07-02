@@ -104,7 +104,16 @@ impl Args {
             self.rpc_url.clone(),
             self.network_passphrase.clone(),
         ) {
-            (None, None, None) => Err(Error::Network),
+            (None, None, None) => {
+                // Try to read default network from config first
+                if let Ok(config) = crate::config::Config::new() {
+                    if let Some(default_network) = config.defaults.network {
+                        return Ok(locator.read_network(&default_network)?);
+                    }
+                }
+                // Fall back to testnet as the default network if no config default is set
+                Ok(DEFAULTS.get("testnet").unwrap().into())
+            },
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
@@ -457,5 +466,20 @@ mod tests {
             result.unwrap_err().to_string(),
             format!("invalid HTTP header: must be in the form 'key:value'")
         );
+    }
+
+    #[tokio::test]
+    async fn test_default_to_testnet_when_no_network_specified() {
+        use super::super::locator;
+        
+        let args = Args::default(); // No network, rpc_url, or network_passphrase specified
+        let locator_args = locator::Args::default();
+        
+        let result = args.get(&locator_args);
+        assert!(result.is_ok());
+        
+        let network = result.unwrap();
+        assert_eq!(network.network_passphrase, passphrase::TESTNET);
+        assert_eq!(network.rpc_url, "https://soroban-testnet.stellar.org");
     }
 }
