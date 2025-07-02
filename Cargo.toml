@@ -66,11 +66,11 @@ version = "=23.0.0-rc.1.1"
 
 [patch.crates-io.soroban-sdk]
 git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "fix-testutils-incompat"
+rev = "ac4ea91798db83efe4840421bd048ec14f1c14a5"
 
 [patch.crates-io.soroban-ledger-snapshot]
 git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "fix-testutils-incompat"
+rev = "ac4ea91798db83efe4840421bd048ec14f1c14a5"
 
 
 # Dependencies from the rs-stellar-rpc-client repo:

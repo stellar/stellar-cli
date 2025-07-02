@@ -4755,7 +4755,7 @@ version = "22.8.1"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "23.0.0-rc.1.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5#ac4ea91798db83efe4840421bd048ec14f1c14a5"
 dependencies = [
  "serde",
  "serde_json",
@@ -4768,7 +4768,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "23.0.0-rc.1.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5#ac4ea91798db83efe4840421bd048ec14f1c14a5"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -4789,7 +4789,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "23.0.0-rc.1.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5#ac4ea91798db83efe4840421bd048ec14f1c14a5"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -4799,8 +4799,8 @@ dependencies = [
  "rustc_version",
  "sha2 0.10.9",
  "soroban-env-common",
- "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
- "soroban-spec-rust 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
+ "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5)",
+ "soroban-spec-rust 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5)",
  "stellar-xdr",
  "syn 2.0.104",
 ]
@@ -4820,7 +4820,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "23.0.0-rc.1.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5#ac4ea91798db83efe4840421bd048ec14f1c14a5"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -4861,13 +4861,13 @@ dependencies = [
 [[package]]
 name = "soroban-spec-rust"
 version = "23.0.0-rc.1.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat#c9f0991d56932271fd1c86a78e5262c5b77234bf"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5#ac4ea91798db83efe4840421bd048ec14f1c14a5"
 dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
  "sha2 0.10.9",
- "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?branch=fix-testutils-incompat)",
+ "soroban-spec 23.0.0-rc.1.1 (git+https://github.com/stellar/rs-soroban-sdk?rev=ac4ea91798db83efe4840421bd048ec14f1c14a5)",
  "stellar-xdr",
  "syn 2.0.104",
  "thiserror 1.0.69",
