@@ -488,27 +488,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_user_config_default_overrides_automatic_testnet() {
-        use std::fs;
-        use tempfile::TempDir;
+        use super::super::locator;
+        use std::env;
 
-        // Create a temporary directory for test config
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("config.toml");
+        // Override environment variables to prevent reading real user config
+        let original_home = env::var("HOME").ok();
+        let original_stellar_config_home = env::var("STELLAR_CONFIG_HOME").ok();
+        
+        // Set to a non-existent directory to ensure Config::new() fails and we test the fallback
+        env::set_var("HOME", "/dev/null");
+        env::set_var("STELLAR_CONFIG_HOME", "/dev/null");
 
-        // Write a config that sets futurenet as default
-        let config_content = r#"
-[defaults]
-network = "futurenet"
-"#;
-        fs::write(&config_path, config_content).unwrap();
+        let args = Args::default(); // No network, rpc_url, or network_passphrase specified
+        let locator_args = locator::Args::default();
 
-        // Note: This test would require more complex setup to actually test the config file reading
-        // since the Config::new() method uses a fixed path. This test documents the intended behavior
-        // but may not fully exercise the code path without additional test infrastructure.
+        let result = args.get(&locator_args);
+        assert!(result.is_ok());
 
-        // For now, we verify that the behavior would work correctly by checking that if a user
-        // has configured a default network via "stellar network use <network>", that would
-        // take precedence over our automatic testnet default.
-        assert!(true); // Placeholder - proper integration test would go here
+        let network = result.unwrap();
+        // Should still default to testnet when config reading fails
+        assert_eq!(network.network_passphrase, passphrase::TESTNET);
+        assert_eq!(network.rpc_url, "https://soroban-testnet.stellar.org");
+
+        // Restore original environment variables
+        if let Some(home) = original_home {
+            env::set_var("HOME", home);
+        } else {
+            env::remove_var("HOME");
+        }
+        if let Some(config_home) = original_stellar_config_home {
+            env::set_var("STELLAR_CONFIG_HOME", config_home);
+        } else {
+            env::remove_var("STELLAR_CONFIG_HOME");
+        }
     }
 }
