@@ -60,13 +60,13 @@ fn move_token(
     // maximum spend amount to the swap contract's address in order to decouple
     // the signature from `to` address (so that parties don't need to know each
     // other).
-    token.transfer(from, &contract_address, &max_spend_amount);
+    token.transfer(from, &contract_address.clone().into(), &max_spend_amount);
     // Transfer the necessary amount to `to`.
-    token.transfer(&contract_address, to, &transfer_amount);
+    token.transfer(&contract_address, &to.clone().into(), &transfer_amount);
     // Refund the remaining balance to `from`.
     token.transfer(
         &contract_address,
-        from,
+        &from.into(),
         &(max_spend_amount - transfer_amount),
     );
 }
