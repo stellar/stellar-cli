@@ -1874,7 +1874,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = 10_000_000 stroops).
 
 
 
