@@ -2,6 +2,7 @@ use super::global;
 
 pub mod args;
 pub mod edit;
+pub mod fetch;
 pub mod hash;
 pub mod help;
 pub mod new;
@@ -45,6 +46,9 @@ pub enum Cmd {
     Sign(sign::Cmd),
     /// Simulate a transaction envelope from stdin
     Simulate(simulate::Cmd),
+    /// Fetch a transaction from the network by hash
+    /// If no subcommand is passed in, the transaction envelope will be returned
+    Fetch(fetch::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -67,6 +71,8 @@ pub enum Error {
     Simulate(#[from] simulate::Error),
     #[error(transparent)]
     Update(#[from] update::Error),
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -80,6 +86,7 @@ impl Cmd {
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Update(cmd) => cmd.run(global_args).await?,
+            Cmd::Fetch(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
