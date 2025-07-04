@@ -11,6 +11,8 @@ pub use footprint::*;
 
 pub fn extract_events(tx_meta: &xdr::TransactionMeta) -> Vec<xdr::DiagnosticEvent> {
     match tx_meta {
+        xdr::TransactionMeta::V4(meta) => meta.diagnostic_events.to_vec(),
+
         xdr::TransactionMeta::V3(xdr::TransactionMetaV3 {
             soroban_meta: Some(meta),
             ..
