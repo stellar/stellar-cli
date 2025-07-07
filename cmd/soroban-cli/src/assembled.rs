@@ -7,8 +7,10 @@ use stellar_xdr::curr::{
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
-use soroban_rpc::{Error, RestorePreamble, SimulateTransactionResponse};
-use soroban_rpc::{LogEvents, LogResources};
+use soroban_rpc::{
+    Error, GetTransactionEvents, LogEvents, LogResources, RestorePreamble,
+    SimulateTransactionResponse,
+};
 
 pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
 
@@ -23,8 +25,14 @@ pub async fn simulate_and_assemble_transaction(
         }))
         .await?;
     tracing::trace!("{sim_res:#?}");
+
     if let Some(e) = &sim_res.error {
-        crate::log::event::all(&sim_res.events()?);
+        crate::log::event::all(&GetTransactionEvents {
+            contract_events: vec![],
+            transaction_events: vec![],
+            diagnostic_events: sim_res.events()?,
+        });
+
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
         Ok(Assembled::new(tx, sim_res)?)
@@ -134,6 +142,7 @@ impl Assembled {
             if let Some(log) = log_resources {
                 log(resources);
             }
+
             if let Some(log) = log_events {
                 log(footprint, &[self.auth_entries()], &self.sim_res.events()?);
             }

@@ -264,10 +264,11 @@ impl NetworkRunnable for Cmd {
             }
 
             let sim_res = assembled.sim_response();
-            let (return_value, events) = (sim_res.results()?, sim_res.events()?);
+            let return_value = sim_res.results()?;
 
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
+            // TODO: move to new GetTransactionEvents shape
+            // crate::log::event::all(&events);
+            // crate::log::event::contract(&events, &print);
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
@@ -316,15 +317,10 @@ impl NetworkRunnable for Cmd {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        let events = res
-            .result_meta
-            .as_ref()
-            .map(crate::log::extract_events)
-            .unwrap_or_default();
         let return_value = res.return_value()?;
 
-        crate::log::event::all(&events);
-        crate::log::event::contract(&events, &print);
+        crate::log::event::all(&res.events);
+        crate::log::event::contract(&res.events, &print);
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
