@@ -1707,4 +1707,35 @@ mod tests {
         let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
         assert_eq!(to_json(&scval).unwrap(), json_val);
     }
+
+    #[test]
+    fn test_string_primitive_integration() {
+        // Test that from_string_primitive works with various types
+        // U128
+        let val = "42";
+        let scval = from_string_primitive(val, &ScType::U128).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"42\"");
+
+        // I128
+        let val = "-42";
+        let scval = from_string_primitive(val, &ScType::I128).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"-42\"");
+
+        // U256
+        let val = "12345678901234567890123456789012345678901234567890";
+        let scval = from_string_primitive(val, &ScType::U256).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"12345678901234567890123456789012345678901234567890\"");
+
+        // I256
+        let val = "-12345678901234567890123456789012345678901234567890";
+        let scval = from_string_primitive(val, &ScType::I256).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"-12345678901234567890123456789012345678901234567890\"");
+
+        // Boolean
+        let scval = from_string_primitive("true", &ScType::Bool).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "true");
+
+        let scval = from_string_primitive("false", &ScType::Bool).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "false");
+    }
 }
