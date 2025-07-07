@@ -3,7 +3,7 @@
 use crate::storage_types::{INSTANCE_BUMP_AMOUNT, INSTANCE_LIFETIME_THRESHOLD};
 use crate::{admin, allowance, balance, metadata};
 use soroban_sdk::token::{self, Interface as _};
-use soroban_sdk::{contract, contractimpl, Address, Env, MuxedAddress, String};
+use soroban_sdk::{contract, contractimpl, Address, Env, String};
 use soroban_token_sdk::metadata::TokenMetadata;
 use soroban_token_sdk::TokenUtils;
 
@@ -88,7 +88,7 @@ impl token::Interface for Token {
         balance::read(&e, id)
     }
 
-    fn transfer(e: Env, from: Address, to: MuxedAddress, amount: i128) {
+    fn transfer(e: Env, from: Address, to: Address, amount: i128) {
         from.require_auth();
 
         check_nonnegative_amount(amount);
@@ -98,10 +98,8 @@ impl token::Interface for Token {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 
         balance::spend(&e, from.clone(), amount);
-        balance::receive(&e, to.address(), amount);
-        TokenUtils::new(&e)
-            .events()
-            .transfer(from, to.address(), amount);
+        balance::receive(&e, to.clone(), amount);
+        TokenUtils::new(&e).events().transfer(from, to, amount);
     }
 
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
