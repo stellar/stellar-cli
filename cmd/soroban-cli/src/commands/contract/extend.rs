@@ -187,11 +187,9 @@ impl NetworkRunnable for Cmd {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        let events = res.events()?;
-        if !events.is_empty() {
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
-        }
+        crate::log::event::all(&res.events);
+        crate::log::event::contract(&res.events, &print);
+
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
 
         // The transaction from core will succeed regardless of whether it actually found & extended

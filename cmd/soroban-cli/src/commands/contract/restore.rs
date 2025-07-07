@@ -183,12 +183,11 @@ impl NetworkRunnable for Cmd {
             .result_meta
             .as_ref()
             .ok_or(Error::MissingOperationResult)?;
-        let events = res.events()?;
+
         tracing::trace!(?meta);
-        if !events.is_empty() {
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
-        }
+
+        crate::log::event::all(&res.events);
+        crate::log::event::contract(&res.events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found &
         // restored the entry, so we have to inspect the result meta to tell if it worked or not.
