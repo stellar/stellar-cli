@@ -19,10 +19,13 @@ pub async fn simulate_and_assemble_transaction(
     tx: &Transaction,
 ) -> Result<Assembled, Error> {
     let sim_res = client
-        .simulate_transaction_envelope(&TransactionEnvelope::Tx(TransactionV1Envelope {
-            tx: tx.clone(),
-            signatures: VecM::default(),
-        }))
+        .simulate_transaction_envelope(
+            &TransactionEnvelope::Tx(TransactionV1Envelope {
+                tx: tx.clone(),
+                signatures: VecM::default(),
+            }),
+            None,
+        )
         .await?;
     tracing::trace!("{sim_res:#?}");
 
