@@ -29,7 +29,7 @@ impl Cmd {
         let network = self.network.get(&self.address.locator)?;
         network.fund_address(&addr).await?;
         print.checkln(format!(
-            "Account {:?} funded on {:?}",
+            "Account {} funded on {:?}",
             self.address.name, network.network_passphrase
         ));
         Ok(())
