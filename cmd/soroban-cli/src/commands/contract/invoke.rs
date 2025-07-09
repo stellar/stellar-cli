@@ -266,10 +266,10 @@ impl NetworkRunnable for Cmd {
 
             let sim_res = assembled.sim_response();
             let return_value = sim_res.results()?;
+            let events = sim_res.events()?;
 
-            // TODO: move to new GetTransactionEvents shape
-            // crate::log::event::all(&events);
-            // crate::log::event::contract(&events, &print);
+            crate::log::event::all(&events);
+            crate::log::event::contract(&events, &print);
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
