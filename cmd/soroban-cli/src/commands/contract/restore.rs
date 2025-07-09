@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
-    log::event::get_diagnostic_events,
+    log::extract_events,
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
         LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
@@ -189,7 +189,7 @@ impl NetworkRunnable for Cmd {
 
         tracing::trace!(?meta);
 
-        let events = get_diagnostic_events(meta);
+        let events = extract_events(meta);
 
         crate::log::event::all(&events);
         crate::log::event::contract(&events, &print);
