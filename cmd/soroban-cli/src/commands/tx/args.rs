@@ -120,7 +120,7 @@ impl Args {
         &self,
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::MuxedAccount, Error> {
-        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.sign_with.hd_path)?)
+        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?)
     }
 
     pub fn resolve_account_id(
@@ -128,7 +128,7 @@ impl Args {
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::AccountId, Error> {
         Ok(address
-            .resolve_muxed_account_sync(&self.config.locator, self.config.sign_with.hd_path)?
+            .resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?
             .account_id())
     }
 
@@ -142,7 +142,7 @@ impl Args {
         if let Some(account) = op_source {
             source_account = Some(
                 account
-                    .resolve_muxed_account(&self.config.locator, self.config.sign_with.hd_path)
+                    .resolve_muxed_account(&self.config.locator, self.config.hd_path())
                     .await?,
             );
         }
