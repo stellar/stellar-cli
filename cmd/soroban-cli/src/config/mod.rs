@@ -61,12 +61,15 @@ pub struct Args {
     /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: UnresolvedMuxedAccount,
 
-    #[arg(long)]
-    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
+    // #[arg(long)]
+    // /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+    // pub hd_path: Option<usize>,
 
     #[command(flatten)]
     pub locator: locator::Args,
+
+    #[command(flatten)]
+    pub sign_with: sign_with::Args,
 }
 
 impl Args {
@@ -74,23 +77,20 @@ impl Args {
     pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path)
+            .resolve_muxed_account(&self.locator, self.sign_with.hd_path)
             .await?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = &self.source_account.resolve_secret(&self.locator)?;
-        Ok(key.key_pair(self.hd_path)?)
+        Ok(key.key_pair(self.sign_with.hd_path)?)
     }
 
+    // have this use sign_with
+    // change the name of this
     pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        self.sign(tx).await
-    }
-
-    #[allow(clippy::unused_async)]
-    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let key = &self.source_account.resolve_secret(&self.locator)?;
-        let signer = key.signer(self.hd_path, Print::new(false)).await?;
+        let signer = key.signer(self.sign_with.hd_path, Print::new(false)).await?;
         let network = &self.get_network()?;
 
         Ok(signer.sign_tx(tx, network).await?)
