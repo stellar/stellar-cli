@@ -105,12 +105,6 @@ impl Args {
             self.network_passphrase.clone(),
         ) {
             (None, None, None) => {
-                // Try to read default network from config first
-                if let Ok(config) = crate::config::Config::new() {
-                    if let Some(default_network) = config.defaults.network {
-                        return Ok(locator.read_network(&default_network)?);
-                    }
-                }
                 // Fall back to testnet as the default network if no config default is set
                 Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
             }
