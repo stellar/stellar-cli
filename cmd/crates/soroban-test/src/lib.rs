@@ -268,7 +268,12 @@ impl TestEnv {
                 global: false,
                 config_dir,
             },
-            hd_path: None,
+            sign_with: config::sign_with::Args {
+                sign_with_key: None, 
+                hd_path: None,
+                sign_with_lab: false,
+                sign_with_ledger: false
+            },
         }
     }
 
