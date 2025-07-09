@@ -24,7 +24,7 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Key(#[from] key::Error),
-    #[error("Account alias not Found{0}")]
+    #[error("Account alias \"{0}\" not Found")]
     AccountAliasNotFound(String),
 }
 
