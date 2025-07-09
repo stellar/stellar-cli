@@ -6,14 +6,10 @@ use xdr::{
 };
 
 pub fn all(events: &[DiagnosticEvent]) {
-    let mut index = 0;
-
-    for event in events {
+    for (index, event) in events.iter().enumerate() {
         let json = serde_json::to_string(event).unwrap();
         let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
         print_event(&xdr, &json, index);
-
-        index += 1;
     }
 }
 
@@ -61,6 +57,6 @@ fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     xdr::ScSymbol(inner)
 }
 
-fn print_event(xdr: &str, json: &str, index: u32) {
+fn print_event(xdr: &str, json: &str, index: usize) {
     debug!("{index}: {xdr} {json}");
 }
