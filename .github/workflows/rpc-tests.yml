@@ -49,4 +49,4 @@ jobs:
       - run: cargo build --features additional-libs
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
-      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration --test-threads=1
+      - run: cargo test --features it --package soroban-test --test it -- integration --test-threads=1
