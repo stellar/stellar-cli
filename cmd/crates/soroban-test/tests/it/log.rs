@@ -1,5 +1,4 @@
 use soroban_cli::xdr::{self, ReadXdr};
-use soroban_rpc::GetTransactionEvents;
 use std::sync::{Arc, Mutex};
 use tracing::{Event, Subscriber};
 use tracing_subscriber::layer::{Context, SubscriberExt};
@@ -27,11 +26,7 @@ fn test_diagnostic_events_logging() {
                 "AAAAAAAAAAAAAAABfKvD/pIJPlRnGd3RKaBZSHfoq/nJbJSYxkVTScSbhuYAAAACAAAAAAAAAAEAAAAPAAAAA2xvZwAAAAAQAAAAAQAAAAIAAAAOAAAACWNvdW50OiB7fQAAAAAAAAMAAAAA",
                 "AAAAAAAAAAAAAAABfKvD/pIJPlRnGd3RKaBZSHfoq/nJbJSYxkVTScSbhuYAAAACAAAAAAAAAAIAAAAPAAAABWVycm9yAAAAAAAAAgAAAAEAAAAGAAAAEAAAAAEAAAACAAAADgAAACdWTSBjYWxsIHRyYXBwZWQ6IFVucmVhY2hhYmxlQ29kZVJlYWNoZWQAAAAADwAAAARkZWNy",
             ].iter().map(|event| xdr::DiagnosticEvent::from_xdr_base64(event,xdr::Limits::none()).unwrap()).collect::<Vec<_>>();
-        soroban_cli::log::event::all(&GetTransactionEvents {
-            diagnostic_events: events,
-            contract_events: vec![],
-            transaction_events: vec![],
-        });
+        soroban_cli::log::event::all(&events);
     });
 
     let captured_logs = logs.lock().unwrap();

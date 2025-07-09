@@ -1,6 +1,7 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
+    log::event::get_diagnostic_events,
     print::Print,
     xdr::{
         Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
@@ -187,10 +188,11 @@ impl NetworkRunnable for Cmd {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        crate::log::event::all(&res.events);
-        crate::log::event::contract(&res.events, &print);
-
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
+        let events = get_diagnostic_events(&meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.

@@ -1,11 +1,14 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use crate::xdr::{
-    Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
-    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
-    SorobanTransactionDataExt, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
-    TtlEntry, WriteXdr,
+use crate::{
+    log::event::get_diagnostic_events,
+    xdr::{
+        Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+        LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
+        RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
+        SorobanTransactionDataExt, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+        TtlEntry, WriteXdr,
+    },
 };
 use clap::{command, Parser};
 use stellar_strkey::DecodeError;
@@ -186,8 +189,10 @@ impl NetworkRunnable for Cmd {
 
         tracing::trace!(?meta);
 
-        crate::log::event::all(&res.events);
-        crate::log::event::contract(&res.events, &print);
+        let events = get_diagnostic_events(meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found &
         // restored the entry, so we have to inspect the result meta to tell if it worked or not.

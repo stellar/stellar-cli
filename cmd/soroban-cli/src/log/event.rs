@@ -1,41 +1,36 @@
-use soroban_rpc::GetTransactionEvents;
 use tracing::debug;
 
 use crate::{print::Print, xdr};
 use xdr::{
-    ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
+    ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent,
+    TransactionMeta, WriteXdr,
 };
 
-pub fn all(events: &GetTransactionEvents) {
+pub fn all(events: &Vec<DiagnosticEvent>) {
     let mut index = 0;
 
-    for event in &events.diagnostic_events {
+    for event in events {
         index += 1;
 
         let json = serde_json::to_string(event).unwrap();
         let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
-        print_event("diagnostic", &xdr, &json, index);
-    }
-
-    for event in &events.transaction_events {
-        index += 1;
-
-        let json = serde_json::to_string(event).unwrap();
-        let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
-        print_event("transaction", &xdr, &json, index);
-    }
-
-    for event in &events.contract_events {
-        index += 1;
-
-        let json = serde_json::to_string(event).unwrap();
-        let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
-        print_event("contract", &xdr, &json, index);
+        print_event(&xdr, &json, index);
     }
 }
 
-pub fn contract(events: &GetTransactionEvents, print: &Print) {
-    for event in &events.diagnostic_events {
+pub fn get_diagnostic_events(meta: &TransactionMeta) -> Vec<DiagnosticEvent> {
+    match meta {
+        TransactionMeta::V4(meta) => meta.diagnostic_events.clone().into(),
+        TransactionMeta::V3(xdr::TransactionMetaV3 {
+            soroban_meta: Some(meta),
+            ..
+        }) => meta.diagnostic_events.clone().into(),
+        _ => vec![],
+    }
+}
+
+pub fn contract(events: &[DiagnosticEvent], print: &Print) {
+    for event in events.iter().cloned() {
         match event {
             DiagnosticEvent {
                 event:
@@ -71,21 +66,6 @@ pub fn contract(events: &GetTransactionEvents, print: &Print) {
             _ => {}
         }
     }
-
-    for event in &events.contract_events {
-        match event {
-            ContractEvent {
-                contract_id: Some(contract_id),
-                body: ContractEventBody::V0(ContractEventV0 { topics, data, .. }),
-                ..
-            } => {
-                let topics = serde_json::to_string(&topics).unwrap();
-                let data = serde_json::to_string(&data).unwrap();
-                print.eventln(format!("{contract_id} - Event: {topics} = {data}"));
-            }
-            _ => panic!("Unhandled contract event: {event:?}"),
-        }
-    }
 }
 
 fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
@@ -93,6 +73,6 @@ fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     xdr::ScSymbol(inner)
 }
 
-fn print_event(event_type: &str, xdr: &str, json: &str, index: u32) {
-    debug!("{index}: [{event_type}] {xdr} {json}");
+fn print_event(xdr: &str, json: &str, index: u32) {
+    debug!("{index}: {xdr} {json}");
 }
