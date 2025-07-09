@@ -2,8 +2,7 @@ use tracing::debug;
 
 use crate::{print::Print, xdr};
 use xdr::{
-    ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent,
-    TransactionMeta, WriteXdr,
+    ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
 };
 
 pub fn all(events: &Vec<DiagnosticEvent>) {
@@ -15,17 +14,6 @@ pub fn all(events: &Vec<DiagnosticEvent>) {
         let json = serde_json::to_string(event).unwrap();
         let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
         print_event(&xdr, &json, index);
-    }
-}
-
-pub fn get_diagnostic_events(meta: &TransactionMeta) -> Vec<DiagnosticEvent> {
-    match meta {
-        TransactionMeta::V4(meta) => meta.diagnostic_events.clone().into(),
-        TransactionMeta::V3(xdr::TransactionMetaV3 {
-            soroban_meta: Some(meta),
-            ..
-        }) => meta.diagnostic_events.clone().into(),
-        _ => vec![],
     }
 }
 
