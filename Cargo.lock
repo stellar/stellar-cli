@@ -4605,7 +4605,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -4849,7 +4849,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "pretty_assertions",
  "serde",
@@ -4879,7 +4879,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
@@ -4897,7 +4897,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "base64 0.21.7",
  "heck 0.4.1",
@@ -4918,7 +4918,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5006,14 +5006,14 @@ version = "22.8.2"
 
 [[package]]
 name = "stellar-cli"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "async-trait",
  "bollard",
@@ -5421,7 +5421,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "22.8.1"
+version = "22.8.2"
 dependencies = [
  "soroban-sdk",
 ]
