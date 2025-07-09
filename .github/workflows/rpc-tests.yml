@@ -1,12 +1,13 @@
+---
 name: RPC Tests
 on:
-    push:
-        branches: [main, release/**]
-    pull_request:
+  push:
+    branches: [main, release/**]
+  pull_request:
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -14,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         sys:
-            # x64
+          # x64
           - ubuntu-latest-16-cores
-            # ARM
+          # ARM
           - ubuntu-jammy-16-cores-arm64
-            # Intel
+          # Intel
           - macos-13
         exclude:
           # Only run Linux x64 tests on pull request to save some time
@@ -28,7 +29,7 @@ jobs:
     steps:
       - uses: stellar/quickstart@main
         with:
-          tag: testing
+          tag: pr692-future
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
@@ -48,4 +49,4 @@ jobs:
       - run: cargo build --features additional-libs
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
-      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration --test-threads=1
+      - run: cargo test --features it --package soroban-test --test it -- integration --test-threads=1

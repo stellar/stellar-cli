@@ -58,6 +58,7 @@ impl Contract {
 
     #[allow(unused_variables)]
     pub fn multi_word_cmd(env: Env, contract_owner: String) {}
+
     /// Logs a string with `hello ` in front.
     pub fn log(env: Env, str: Symbol) {
         env.events().publish(
