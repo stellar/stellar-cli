@@ -1,4 +1,4 @@
-use crate::xdr::{self, DecoratedSignature, Transaction};
+use crate::xdr;
 
 pub use ledger_impl::*;
 
@@ -20,8 +20,8 @@ pub enum Error {
 
 #[cfg(feature = "additional-libs")]
 mod ledger_impl {
-    use super::*;
-    use crate::xdr::{Hash, Signature, SignatureHint};
+    use super::Error;
+    use crate::xdr::{DecoratedSignature, Hash, Signature, SignatureHint, Transaction};
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
@@ -36,6 +36,7 @@ mod ledger_impl {
     }
 
     #[cfg(not(feature = "emulator-tests"))]
+    #[allow(clippy::unused_async)]
     pub async fn new(hd_path: u32) -> Result<Ledger<stellar_ledger::TransportNativeHID>, Error> {
         let signer = stellar_ledger::native()?;
         Ok(Ledger {
@@ -103,7 +104,8 @@ mod ledger_impl {
 
 #[cfg(not(feature = "additional-libs"))]
 mod ledger_impl {
-    use super::{DecoratedSignature, Error, Transaction};
+    use super::Error;
+    use crate::xdr::{DecoratedSignature, Transaction};
     use std::marker::PhantomData;
 
     pub type LedgerType = Ledger<GenericExchange>;

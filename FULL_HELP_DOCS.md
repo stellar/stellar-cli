@@ -56,6 +56,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `cache` — Cache for transactions and contract specs
 * `version` — Print version information
 * `plugin` — The subcommand for CLI plugins
+* `ledger` — Fetch ledger information
 
 ###### **Options:**
 
@@ -1874,7 +1875,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = 10_000_000 stroops)
 
 
 
@@ -2214,7 +2215,7 @@ Sends an amount in a specific asset to a destination account
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = 10_000_000 stroops)
 
 
 
@@ -2821,6 +2822,45 @@ Search for for CLI plugins using GitHub
 List installed plugins
 
 **Usage:** `stellar plugin ls`
+
+
+
+## `stellar ledger`
+
+Fetch ledger information
+
+**Usage:** `stellar ledger <COMMAND>`
+
+###### **Subcommands:**
+
+* `latest` — Get the latest ledger sequence and information from the network
+
+
+
+## `stellar ledger latest`
+
+Get the latest ledger sequence and information from the network
+
+**Usage:** `stellar ledger latest [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
 
 
 

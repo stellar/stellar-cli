@@ -149,9 +149,10 @@ jobs:
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: ''
+          cargo-hack-package-options: --no-default-features
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options: --features opt --ignore-unknown-features
+          cargo-hack-feature-options: --features additional-libs --ignore-unknown-features
 
     uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:
