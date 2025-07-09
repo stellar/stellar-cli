@@ -8,7 +8,7 @@ use std::{
 use crate::{
     print::Print,
     signer,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
 };
 use network::Network;
@@ -40,6 +40,8 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    SignWith(#[from] sign_with::Error),
     #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
@@ -82,14 +84,21 @@ impl Args {
         Ok(key.key_pair(self.hd_path())?)
     }
 
-    // have this use sign_with
+    // have this use sign_with ✅
     // change the name of this
     pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = &self.source_account.resolve_secret(&self.locator)?;
-        let signer = key.signer(self.hd_path(), Print::new(false)).await?;
-        let network = &self.get_network()?;
-
-        Ok(signer.sign_tx(tx, network).await?)
+        let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self.sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                false
+                // global_args.quiet,
+            ).await?)
     }
 
     pub async fn sign_soroban_authorizations(
