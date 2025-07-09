@@ -55,7 +55,7 @@ async fn tx_fetch() {
         .stdout_as_str();
 
     let parsed: TransactionMeta = serde_json::from_str(&output).unwrap();
-    assert!(matches!(parsed, TransactionMeta::V3 { .. }));
+    assert!(matches!(parsed, TransactionMeta::V4 { .. }));
 
     // fetch the tx envelope
     let output = sandbox
@@ -153,7 +153,7 @@ async fn tx_fetch_xdr_output() {
         .stdout_as_str();
 
     let parsed_xdr = TransactionMeta::from_xdr_base64(output, Limits::none()).unwrap();
-    assert!(matches!(parsed_xdr, TransactionMeta::V3 { .. }));
+    assert!(matches!(parsed_xdr, TransactionMeta::V4 { .. }));
 
     // fetch the tx envelope
     let output = sandbox
