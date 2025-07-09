@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::{
-    print::Print,
     signer,
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
@@ -90,12 +89,12 @@ impl Args {
             signatures: VecM::default(),
         });
         Ok(self.sign_with
-            .sign_tx_env(
+            .sign_tx_env_with_default_signer(
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
-                false
-                // global_args.quiet,
+                false,
+                self.source_account.clone()
             ).await?)
     }
 
