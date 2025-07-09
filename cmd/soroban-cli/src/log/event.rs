@@ -5,15 +5,15 @@ use xdr::{
     ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
 };
 
-pub fn all(events: &Vec<DiagnosticEvent>) {
+pub fn all(events: &[DiagnosticEvent]) {
     let mut index = 0;
 
     for event in events {
-        index += 1;
-
         let json = serde_json::to_string(event).unwrap();
         let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
         print_event(&xdr, &json, index);
+
+        index += 1;
     }
 }
 
