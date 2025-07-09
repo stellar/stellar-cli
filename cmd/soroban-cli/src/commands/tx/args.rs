@@ -102,7 +102,7 @@ impl Args {
         }
 
         let txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&self.config.sign(tx).await?)
             .await?;
 
         if !args.no_cache {

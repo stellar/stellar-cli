@@ -84,9 +84,7 @@ impl Args {
         Ok(key.key_pair(self.hd_path())?)
     }
 
-    // have this use sign_with ✅
-    // change the name of this
-    pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
             tx,
             signatures: VecM::default(),
