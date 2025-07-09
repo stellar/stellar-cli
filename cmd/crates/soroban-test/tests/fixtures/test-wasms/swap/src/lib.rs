@@ -62,11 +62,11 @@ fn move_token(
     // other).
     token.transfer(from, &contract_address, &max_spend_amount);
     // Transfer the necessary amount to `to`.
-    token.transfer(&contract_address, &to, &transfer_amount);
+    token.transfer(&contract_address, to, &transfer_amount);
     // Refund the remaining balance to `from`.
     token.transfer(
         &contract_address,
-        &from,
+        from,
         &(max_spend_amount - transfer_amount),
     );
 }

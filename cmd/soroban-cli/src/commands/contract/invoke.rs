@@ -12,6 +12,7 @@ use soroban_spec::read::FromWasmError;
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
+use crate::log::event::get_diagnostic_events;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -318,9 +319,10 @@ impl NetworkRunnable for Cmd {
         }
 
         let return_value = res.return_value()?;
+        let events = get_diagnostic_events(&res.result_meta.unwrap_or_default());
 
-        crate::log::event::all(&res.events);
-        crate::log::event::contract(&res.events, &print);
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
