@@ -104,7 +104,8 @@ mod ledger_impl {
 
 #[cfg(not(feature = "additional-libs"))]
 mod ledger_impl {
-    use super::{DecoratedSignature, Error, Transaction};
+    use super::Error;
+    use crate::xdr::{DecoratedSignature, Transaction};
     use std::marker::PhantomData;
 
     pub type LedgerType = Ledger<GenericExchange>;
