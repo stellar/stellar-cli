@@ -60,7 +60,7 @@ STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
-#[group(skip)]
+#[group(id = "network-args")]
 pub struct Args {
     /// RPC server endpoint
     #[arg(
