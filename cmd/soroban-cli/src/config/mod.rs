@@ -88,14 +88,16 @@ impl Args {
             tx,
             signatures: VecM::default(),
         });
-        Ok(self.sign_with
+        Ok(self
+            .sign_with
             .sign_tx_env_with_default_signer(
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
                 false,
-                self.source_account.clone()
-            ).await?)
+                self.source_account.clone(),
+            )
+            .await?)
     }
 
     pub async fn sign_soroban_authorizations(

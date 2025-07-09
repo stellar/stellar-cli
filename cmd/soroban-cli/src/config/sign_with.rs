@@ -1,5 +1,8 @@
 use crate::{
-    config::UnresolvedMuxedAccount, print::Print, signer::{self, ledger, Signer, SignerKind}, xdr::{self, TransactionEnvelope}
+    config::UnresolvedMuxedAccount,
+    print::Print,
+    signer::{self, ledger, Signer, SignerKind},
+    xdr::{self, TransactionEnvelope},
 };
 use clap::arg;
 
@@ -65,7 +68,7 @@ impl Args {
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
-        Ok(self.sign_env(tx, locator, network, quiet, None).await?)
+        self.sign_env(tx, locator, network, quiet, None).await
     }
 
     pub async fn sign_tx_env_with_default_signer(
@@ -76,7 +79,8 @@ impl Args {
         quiet: bool,
         source_account: UnresolvedMuxedAccount,
     ) -> Result<TransactionEnvelope, Error> {
-        Ok(self.sign_env(tx, locator, network, quiet, Some(source_account)).await?)
+        self.sign_env(tx, locator, network, quiet, Some(source_account))
+            .await
     }
 
     async fn sign_env(
@@ -111,8 +115,8 @@ impl Args {
                 Some(k) => k,
                 None => match source_account {
                     Some(UnresolvedMuxedAccount::AliasOrSecret(ref s)) => s.as_str(),
-                    _ => return Err(Error::NoSignWithKey)
-                }
+                    _ => return Err(Error::NoSignWithKey),
+                },
             };
 
             let secret = locator.get_secret_key(key_or_name)?;
