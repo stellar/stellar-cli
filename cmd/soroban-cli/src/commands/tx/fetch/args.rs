@@ -8,7 +8,6 @@ use crate::{
 };
 
 #[derive(Debug, Clone, clap::Parser)]
-// #[group(skip)]
 pub struct Args {
     /// Transaction hash to fetch
     #[arg(long)]
@@ -16,10 +15,6 @@ pub struct Args {
 
     #[command(flatten)]
     pub network: network::Args,
-
-    /// Format of the output
-    #[arg(long, default_value = "json")]
-    pub output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
