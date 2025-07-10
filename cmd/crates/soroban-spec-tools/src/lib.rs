@@ -1724,12 +1724,18 @@ mod tests {
         // U256
         let val = "12345678901234567890123456789012345678901234567890";
         let scval = from_string_primitive(val, &ScType::U256).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "\"12345678901234567890123456789012345678901234567890\"");
+        assert_eq!(
+            to_string(&scval).unwrap(),
+            "\"12345678901234567890123456789012345678901234567890\""
+        );
 
         // I256
         let val = "-12345678901234567890123456789012345678901234567890";
         let scval = from_string_primitive(val, &ScType::I256).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "\"-12345678901234567890123456789012345678901234567890\"");
+        assert_eq!(
+            to_string(&scval).unwrap(),
+            "\"-12345678901234567890123456789012345678901234567890\""
+        );
 
         // Boolean
         let scval = from_string_primitive("true", &ScType::Bool).unwrap();
