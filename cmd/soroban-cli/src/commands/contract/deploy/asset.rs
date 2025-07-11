@@ -120,10 +120,20 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
-        // Parse asset
-        let asset = self.asset.resolve(&config.locator)?;
-
         let network = config.get_network()?;
+        
+        tracing::debug!(
+            "Deploy command: network_passphrase={}, asset={:?}",
+            network.network_passphrase,
+            self.asset
+        );
+        
+        // Parse asset - use the same order as ID command for consistency
+        let asset = self.asset.resolve(&config.locator)?;
+        
+        // Compute contract ID using the same logic as ID command
+        let contract_id = contract_id_hash_from_asset(&asset, &network.network_passphrase);
+
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -138,7 +148,6 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
             asset,
             &contract_id,
