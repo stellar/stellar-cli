@@ -180,7 +180,7 @@ impl NetworkRunnable for Cmd {
             .transaction()
             .clone();
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
         if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

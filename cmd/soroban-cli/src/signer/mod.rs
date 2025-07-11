@@ -220,6 +220,8 @@ pub enum SignerKind {
     SecureStore(SecureStoreEntry),
 }
 
+// Instead of using `sign_tx` and `sign_tx_env` directly, it is advised to instead use the sign_with module
+// which allows for signing with a local key, lab or a ledger device
 impl Signer {
     pub async fn sign_tx(
         &self,

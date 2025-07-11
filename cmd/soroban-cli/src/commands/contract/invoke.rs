@@ -293,7 +293,7 @@ impl NetworkRunnable for Cmd {
             txn = Box::new(tx);
         }
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
+            .send_transaction_polling(&config.sign(*txn).await?)
             .await?;
         if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

@@ -290,7 +290,7 @@ impl NetworkRunnable for Cmd {
         }
 
         print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign_with_local_key(*txn).await?;
+        let signed_txn = &config.sign(*txn).await?;
         print.globeln("Submitting deploy transaction…");
 
         let get_txn_resp = client

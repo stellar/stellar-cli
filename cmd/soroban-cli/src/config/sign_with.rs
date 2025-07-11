@@ -1,4 +1,5 @@
 use crate::{
+    config::UnresolvedMuxedAccount,
     print::Print,
     signer::{self, ledger, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
@@ -67,6 +68,29 @@ impl Args {
         network: &Network,
         quiet: bool,
     ) -> Result<TransactionEnvelope, Error> {
+        self.sign_env(tx, locator, network, quiet, None).await
+    }
+
+    pub async fn sign_tx_env_with_default_signer(
+        &self,
+        tx: &TransactionEnvelope,
+        locator: &locator::Args,
+        network: &Network,
+        quiet: bool,
+        source_account: UnresolvedMuxedAccount,
+    ) -> Result<TransactionEnvelope, Error> {
+        self.sign_env(tx, locator, network, quiet, Some(source_account))
+            .await
+    }
+
+    async fn sign_env(
+        &self,
+        tx: &TransactionEnvelope,
+        locator: &locator::Args,
+        network: &Network,
+        quiet: bool,
+        source_account: Option<UnresolvedMuxedAccount>,
+    ) -> Result<TransactionEnvelope, Error> {
         let print = Print::new(quiet);
         let signer = if self.sign_with_lab {
             Signer {
@@ -86,7 +110,15 @@ impl Args {
                 print,
             }
         } else {
-            let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+            // default to using the source account local key, if the user did not pass in a key
+            let key_or_name = match self.sign_with_key.as_deref() {
+                Some(k) => k,
+                None => match source_account {
+                    Some(UnresolvedMuxedAccount::AliasOrSecret(ref s)) => s.as_str(),
+                    _ => return Err(Error::NoSignWithKey),
+                },
+            };
+
             let secret = locator.get_secret_key(key_or_name)?;
             secret.signer(self.hd_path, print).await?
         };
