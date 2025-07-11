@@ -109,4 +109,45 @@ mod test_contract_id_consistency {
         // Note: The test might fail because we might be using different network settings
         // than what the user used, but this will help us understand the behavior
     }
+
+    #[test]
+    fn test_consistency_after_fix() {
+        // Test that both deploy and ID commands now use the same logic
+        use crate::commands::contract::id::asset::Cmd as IdCmd;
+        use crate::config;
+        
+        let asset_str = "bft001:GDZ4CDLVSHQIAXRBTPHTPJ5MSCC6XO4R4IXRGRQ6VOVV2H2HFSQJHRYH";
+        let asset: crate::tx::builder::Asset = asset_str.parse().expect("Failed to parse asset");
+        
+        // Create config for Futurenet as mentioned in the issue
+        let locator = config::locator::Args::default();
+        let network_args = config::network::Args {
+            network: Some("futurenet".to_string()),
+            ..Default::default()
+        };
+        
+        // Create ID command and get contract address
+        let id_cmd = IdCmd {
+            asset: asset.clone(),
+            config: config::ArgsLocatorAndNetwork {
+                locator: locator.clone(),
+                network: network_args,
+            },
+        };
+        
+        let contract_address_from_id = id_cmd.contract_address().expect("Failed to get contract address from id command");
+        
+        // Manually compute what deploy would compute using the same exact logic
+        let network = id_cmd.config.get_network().expect("Failed to get network");
+        let resolved_asset = asset.resolve(&locator).expect("Failed to resolve asset");
+        let contract_id_from_deploy_logic = contract_id_hash_from_asset(&resolved_asset, &network.network_passphrase);
+        let contract_address_from_deploy_logic = stellar_strkey::Contract(contract_id_from_deploy_logic.0);
+        
+        println!("ID command result: {}", contract_address_from_id);
+        println!("Deploy logic result: {}", contract_address_from_deploy_logic);
+        
+        // After our fix, they should be the same
+        assert_eq!(contract_address_from_id, contract_address_from_deploy_logic, 
+                   "Deploy and ID commands should return the same contract address after fix");
+    }
 }

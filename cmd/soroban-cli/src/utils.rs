@@ -136,7 +136,17 @@ pub fn contract_id_hash_from_asset(
     let preimage_xdr = preimage
         .to_xdr(Limits::none())
         .expect("HashIdPreimage should not fail encoding to xdr");
-    stellar_strkey::Contract(Sha256::digest(preimage_xdr).into())
+    let contract_id = stellar_strkey::Contract(Sha256::digest(preimage_xdr).into());
+    
+    // Log the inputs and output for debugging consistency issues
+    tracing::debug!(
+        "contract_id_hash_from_asset: asset={:?}, network_passphrase={}, contract_id={}",
+        asset,
+        network_passphrase,
+        contract_id
+    );
+    
+    contract_id
 }
 
 pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<String> {
