@@ -1677,34 +1677,20 @@ Create a new transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
-* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-* `change-trust` — Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
-* `create-account` — Creates and funds a new account with the specified starting balance
-* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
-* `payment` — Sends an amount in a specific asset to a destination account
-* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
-* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+* `account-merge` — Transfer XLM balance to another account and remove source account
+* `bump-sequence` — Bump sequence number to invalidate older transactions
+* `change-trust` — Create, update, or delete a trustline
+* `create-account` — Create and fund a new account
+* `manage-data` — Set, modify, or delete account data entries
+* `payment` — Send asset to destination account
+* `set-options` — Set account options like flags, signers, and home domain
+* `set-trustline-flags` — Configure authorization and trustline flags for an asset
 
 
 
 ## `stellar tx new account-merge`
 
-Transfers the XLM balance of an account to another account and removes the source account from the ledger
+Transfer XLM balance to another account and remove source account
 
 **Usage:** `stellar tx new account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
 
@@ -1731,7 +1717,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 
 ## `stellar tx new bump-sequence`
 
-Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+Bump sequence number to invalidate older transactions
 
 **Usage:** `stellar tx new bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
 
@@ -1758,9 +1744,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 
 ## `stellar tx new change-trust`
 
-Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+Create, update, or delete a trustline
 
 **Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
 
@@ -1790,7 +1774,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx new create-account`
 
-Creates and funds a new account with the specified starting balance
+Create and fund a new account
 
 **Usage:** `stellar tx new create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
 
@@ -1820,9 +1804,7 @@ Creates and funds a new account with the specified starting balance
 
 ## `stellar tx new manage-data`
 
-Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+Set, modify, or delete account data entries
 
 **Usage:** `stellar tx new manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
 
@@ -1850,7 +1832,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx new payment`
 
-Sends an amount in a specific asset to a destination account
+Send asset to destination account
 
 **Usage:** `stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
 
@@ -1881,13 +1863,7 @@ Sends an amount in a specific asset to a destination account
 
 ## `stellar tx new set-options`
 
-Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+Set account options like flags, signers, and home domain
 
 **Usage:** `stellar tx new set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
@@ -1929,11 +1905,7 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 
 ## `stellar tx new set-trustline-flags`
 
-Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+Configure authorization and trustline flags for an asset
 
 **Usage:** `stellar tx new set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
 
@@ -1987,34 +1959,20 @@ Add Operation to a transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
-* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-* `change-trust` — Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
-* `create-account` — Creates and funds a new account with the specified starting balance
-* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
-* `payment` — Sends an amount in a specific asset to a destination account
-* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
-* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+* `account-merge` — Transfer XLM balance to another account and remove source account
+* `bump-sequence` — Bump sequence number to invalidate older transactions
+* `change-trust` — Create, update, or delete a trustline
+* `create-account` — Create and fund a new account
+* `manage-data` — Set, modify, or delete account data entries
+* `payment` — Send asset to destination account
+* `set-options` — Set account options like flags, signers, and home domain
+* `set-trustline-flags` — Configure authorization and trustline flags for an asset
 
 
 
 ## `stellar tx operation add account-merge`
 
-Transfers the XLM balance of an account to another account and removes the source account from the ledger
+Transfer XLM balance to another account and remove source account
 
 **Usage:** `stellar tx operation add account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT> [TX_XDR]`
 
@@ -2046,7 +2004,7 @@ Transfers the XLM balance of an account to another account and removes the sourc
 
 ## `stellar tx operation add bump-sequence`
 
-Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+Bump sequence number to invalidate older transactions
 
 **Usage:** `stellar tx operation add bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO> [TX_XDR]`
 
@@ -2078,9 +2036,7 @@ Bumps forward the sequence number of the source account to the given sequence nu
 
 ## `stellar tx operation add change-trust`
 
-Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+Create, update, or delete a trustline
 
 **Usage:** `stellar tx operation add change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE> [TX_XDR]`
 
@@ -2115,7 +2071,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx operation add create-account`
 
-Creates and funds a new account with the specified starting balance
+Create and fund a new account
 
 **Usage:** `stellar tx operation add create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> [TX_XDR]`
 
@@ -2150,9 +2106,7 @@ Creates and funds a new account with the specified starting balance
 
 ## `stellar tx operation add manage-data`
 
-Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+Set, modify, or delete account data entries
 
 **Usage:** `stellar tx operation add manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME> [TX_XDR]`
 
@@ -2185,7 +2139,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx operation add payment`
 
-Sends an amount in a specific asset to a destination account
+Send asset to destination account
 
 **Usage:** `stellar tx operation add payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT> [TX_XDR]`
 
@@ -2221,13 +2175,7 @@ Sends an amount in a specific asset to a destination account
 
 ## `stellar tx operation add set-options`
 
-Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+Set account options like flags, signers, and home domain
 
 **Usage:** `stellar tx operation add set-options [OPTIONS] --source-account <SOURCE_ACCOUNT> [TX_XDR]`
 
@@ -2274,11 +2222,7 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 
 ## `stellar tx operation add set-trustline-flags`
 
-Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+Configure authorization and trustline flags for an asset
 
 **Usage:** `stellar tx operation add set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET> [TX_XDR]`
 
