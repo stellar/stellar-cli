@@ -28,6 +28,9 @@ pub mod wasm;
 
 pub use commands::Root;
 
+#[cfg(test)]
+mod test_contract_id_consistency;
+
 pub fn parse_cmd<T>(s: &str) -> Result<T, clap::Error>
 where
     T: clap::CommandFactory + clap::FromArgMatches,
