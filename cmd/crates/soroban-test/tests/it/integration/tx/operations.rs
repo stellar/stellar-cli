@@ -277,6 +277,7 @@ async fn set_trustline_flags() {
     let sandbox = &TestEnv::new();
     let (test, test1_address) = setup_accounts(sandbox);
     let asset = "usdc:test1";
+
     issue_asset(sandbox, &test, asset, 100_000, 100).await;
     sandbox
         .new_assert_cmd("contract")
@@ -694,7 +695,8 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
             limit.to_string().as_str(),
         ])
         .assert()
-        .success();
+        .success()
+        .stdout_as_str();
 
     sandbox
         .new_assert_cmd("tx")
@@ -719,7 +721,7 @@ async fn issue_asset(sandbox: &TestEnv, test: &str, asset: &str, limit: u64, ini
 
     let after = client.get_account(test).await.unwrap();
     assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
-    println!("aa");
+
     // Send a payment to the issuer
     sandbox
         .new_assert_cmd("tx")
