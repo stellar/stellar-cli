@@ -13,6 +13,7 @@ pub mod env;
 pub mod events;
 pub mod global;
 pub mod keys;
+pub mod ledger;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
@@ -82,18 +83,14 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
-                let plugins = plugin::list().unwrap_or_default();
-                if plugins.is_empty() {
-                    println!("No Plugins installed. E.g. soroban-hello");
-                } else {
-                    println!("Installed Plugins:\n    {}", plugins.join("\n    "));
-                }
+                let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
+
             match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::run() {
+                ErrorKind::InvalidSubcommand => match plugin::default::run() {
                     Ok(()) => Error::Clap(e),
-                    Err(e) => Error::Plugin(e),
+                    Err(e) => Error::PluginDefault(e),
                 },
                 _ => Error::Clap(e),
             }
@@ -107,9 +104,11 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
+
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
+            Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
@@ -121,7 +120,8 @@ impl Root {
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-        };
+            Cmd::Ledger(env) => env.run(&self.global_args).await?,
+        }
         Ok(())
     }
 }
@@ -186,6 +186,14 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// The subcommand for CLI plugins
+    #[command(subcommand)]
+    Plugin(plugin::Cmd),
+
+    /// Fetch ledger information
+    #[command(subcommand)]
+    Ledger(ledger::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -210,6 +218,9 @@ pub enum Error {
     Plugin(#[from] plugin::Error),
 
     #[error(transparent)]
+    PluginDefault(#[from] plugin::default::Error),
+
+    #[error(transparent)]
     Network(#[from] network::Error),
 
     #[error(transparent)]
@@ -226,6 +237,9 @@ pub enum Error {
 
     #[error(transparent)]
     Env(#[from] env::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
 }
 
 #[async_trait]

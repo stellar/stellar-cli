@@ -137,7 +137,7 @@ impl Assembled {
             }
             if let Some(log) = log_events {
                 log(footprint, &[self.auth_entries()], &self.sim_res.events()?);
-            };
+            }
         }
         Ok(())
     }

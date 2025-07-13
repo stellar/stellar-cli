@@ -6,6 +6,8 @@ mod dotenv;
 mod hello_world;
 mod init;
 mod keys;
+mod ledger;
+mod secure_store;
 mod snapshot;
 mod tx;
 mod util;

@@ -13,9 +13,14 @@ fn build_all() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path(), call_path(), add2_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path(),
+        call_path(),
+        add2_path()
+    );
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -31,7 +36,10 @@ fn build_package_by_name() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path()
+    );
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -56,7 +64,7 @@ fn build_package_by_current_dir() {
         .assert()
         .success()
         .stdout(predicate::eq(
-            with_flags("cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release"),
+            with_flags("cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32v1-none --release"),
         ));
 }
 
@@ -85,7 +93,10 @@ fn build_all_when_in_non_package_directory() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/src/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", parent_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        parent_path()
+    );
 
     sandbox
         .new_assert_cmd("contract")
@@ -102,7 +113,10 @@ fn build_default_members() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-default-members/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path()
+    );
 
     sandbox
         .new_assert_cmd("contract")
@@ -336,7 +350,7 @@ fn remap_absolute_paths() {
             .success();
 
         let wasm_path = manifest_path
-            .join("target/wasm32-unknown-unknown/release")
+            .join("target/wasm32v1-none/release")
             .join(format!("{contract_name}.wasm"));
 
         let cargo_home = home::cargo_home().unwrap();

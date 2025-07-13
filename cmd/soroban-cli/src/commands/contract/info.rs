@@ -80,7 +80,7 @@ impl Cmd {
             Cmd::Meta(meta) => meta.run(global_args).await?,
             Cmd::EnvMeta(env_meta) => env_meta.run(global_args).await?,
             Cmd::Build(build) => build.run(global_args).await?,
-        };
+        }
 
         Ok(())
     }

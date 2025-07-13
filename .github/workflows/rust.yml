@@ -39,7 +39,7 @@ jobs:
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
     - uses: actions/checkout@v4
-    - uses: EmbarkStudios/cargo-deny-action@8d73959fce1cdc8989f23fdf03bec6ae6a6576ef
+    - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
       with:
         command: check ${{ matrix.check }}
 
@@ -89,7 +89,7 @@ jobs:
     - run: rustup update
     - run: cargo version
     - run: rustup target add ${{ matrix.sys.target }}
-    - run: rustup target add wasm32-unknown-unknown
+    - run: rustup target add wasm32v1-none
     - if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
     - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
@@ -149,9 +149,10 @@ jobs:
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
           cargo-hack-feature-options: ''
+          cargo-hack-package-options: --no-default-features
         - os: windows-latest-8-cores
           target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options: --features opt --ignore-unknown-features
+          cargo-hack-feature-options: --features additional-libs --ignore-unknown-features
 
     uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:

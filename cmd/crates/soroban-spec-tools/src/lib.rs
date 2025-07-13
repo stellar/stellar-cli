@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
+use std::fmt::Write;
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -452,7 +453,7 @@ impl Spec {
                 );
             }
             (ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { .. }), Some(_)) => {}
-        };
+        }
         Ok(ScVal::Vec(Some(res.try_into().map_err(Error::Xdr)?)))
     }
 
@@ -465,7 +466,7 @@ impl Spec {
         let ScSpecTypeTuple { value_types } = tuple;
         if items.len() != value_types.len() {
             return Err(Error::InvalidValue(Some(t.clone())));
-        };
+        }
         let parsed: Result<Vec<ScVal>, Error> = items
             .iter()
             .zip(value_types.iter())
@@ -764,9 +765,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
 
         // Number parsing
         (ScType::U128, Value::String(s)) => {
-            let val: u128 = u128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: u128 = u128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::U128(UInt128Parts {
@@ -776,9 +775,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         }
 
         (ScType::I128, Value::String(s)) => {
-            let val: i128 = i128::from_str(s)
-                .map(Into::into)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let val: i128 = i128::from_str(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
             let bytes = val.to_be_bytes();
             let (hi, lo) = bytes.split_at(8);
             ScVal::I128(Int128Parts {
@@ -1066,7 +1063,7 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
 fn to_lower_hex(bytes: &[u8]) -> String {
     let mut res = String::with_capacity(bytes.len());
     for b in bytes {
-        res.push_str(&format!("{b:02x}"));
+        let _ = write!(res, "{b:02x}");
     }
     res
 }
@@ -1313,7 +1310,7 @@ impl Spec {
                     })
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
-                Some(format!(r#"{{ {inner} }}"#))
+                Some(format!(r"{{ {inner} }}"))
             }
             Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
@@ -1457,5 +1454,294 @@ mod tests {
             ),
             Err(e) => panic!("Unexpected error: {e}"),
         }
+    }
+
+    #[test]
+    fn test_u128_conversions() {
+        // Test basic positive value
+        let val = 42u128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test zero
+        let val = 0u128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test maximum value
+        let val = u128::MAX;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test large value
+        let val = 340_282_366_920_938_463_463_374_607_431_768_211_455u128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+    }
+
+    #[test]
+    fn test_i128_conversions() {
+        // Test basic positive value
+        let val = 42i128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test basic negative value
+        let val = -42i128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test zero
+        let val = 0i128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test maximum value
+        let val = i128::MAX;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test minimum value
+        let val = i128::MIN;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test large negative value
+        let val = -170_141_183_460_469_231_731_687_303_715_884_105_728i128;
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I128).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+    }
+
+    #[test]
+    fn test_u256_conversions() {
+        // Test basic positive value
+        let val = "42";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test zero
+        let val = "0";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test large value
+        let val = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test hex format
+        let val = "0xff";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U256).unwrap();
+        let expected = Value::String("255".to_string());
+        assert_eq!(to_json(&scval).unwrap(), expected);
+
+        // Test hex format with 0x prefix
+        let val = "0x1234567890abcdef";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::U256).unwrap();
+        let expected = Value::String("1311768467294899695".to_string());
+        assert_eq!(to_json(&scval).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_i256_conversions() {
+        // Test basic positive value
+        let val = "42";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test basic negative value
+        let val = "-42";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test zero
+        let val = "0";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test large positive value
+        let val = "57896044618658097711785492504343953926634992332820282019728792003956564819967";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test large negative value
+        let val = "-57896044618658097711785492504343953926634992332820282019728792003956564819968";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test hex format
+        let val = "0xff";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        let expected = Value::String("255".to_string());
+        assert_eq!(to_json(&scval).unwrap(), expected);
+
+        // Test negative hex format
+        let val = "-0xff";
+        let json_val = Value::String(val.to_string());
+        let scval = from_json_primitives(&json_val, &ScType::I256).unwrap();
+        let expected = Value::String("-255".to_string());
+        assert_eq!(to_json(&scval).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_integer_conversion_edge_cases() {
+        // Test invalid string for U128
+        let json_val = Value::String("not_a_number".to_string());
+        let result = from_json_primitives(&json_val, &ScType::U128);
+        assert!(result.is_err());
+
+        // Test invalid string for I128
+        let json_val = Value::String("not_a_number".to_string());
+        let result = from_json_primitives(&json_val, &ScType::I128);
+        assert!(result.is_err());
+
+        // Test invalid string for U256
+        let json_val = Value::String("not_a_number".to_string());
+        let result = from_json_primitives(&json_val, &ScType::U256);
+        assert!(result.is_err());
+
+        // Test invalid string for I256
+        let json_val = Value::String("not_a_number".to_string());
+        let result = from_json_primitives(&json_val, &ScType::I256);
+        assert!(result.is_err());
+
+        // Test negative value for U128 (should fail)
+        let json_val = Value::String("-42".to_string());
+        let result = from_json_primitives(&json_val, &ScType::U128);
+        assert!(result.is_err());
+
+        // Test negative value for U256 (should fail)
+        let json_val = Value::String("-42".to_string());
+        let result = from_json_primitives(&json_val, &ScType::U256);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_basic_numeric_conversions() {
+        // Test U32
+        let val = 42u32;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::U32).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test I32
+        let val = -42i32;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I32).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test U64
+        let val = 42u64;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::U64).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test I64
+        let val = -42i64;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test boolean
+        let scval = from_json_primitives(&Value::Bool(true), &ScType::Bool).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), Value::Bool(true));
+
+        let scval = from_json_primitives(&Value::Bool(false), &ScType::Bool).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), Value::Bool(false));
+    }
+
+    #[test]
+    fn test_numeric_extremes() {
+        // Test U32 maximum
+        let val = u32::MAX;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::U32).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test I32 minimum and maximum
+        let val = i32::MIN;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I32).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        let val = i32::MAX;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I32).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test U64 maximum
+        let val = u64::MAX;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::U64).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        // Test I64 minimum and maximum
+        let val = i64::MIN;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+
+        let val = i64::MAX;
+        let json_val = Value::Number(val.into());
+        let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
+        assert_eq!(to_json(&scval).unwrap(), json_val);
+    }
+
+    #[test]
+    fn test_string_primitive_integration() {
+        // Test that from_string_primitive works with various types
+        // U128
+        let val = "42";
+        let scval = from_string_primitive(val, &ScType::U128).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"42\"");
+
+        // I128
+        let val = "-42";
+        let scval = from_string_primitive(val, &ScType::I128).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "\"-42\"");
+
+        // U256
+        let val = "12345678901234567890123456789012345678901234567890";
+        let scval = from_string_primitive(val, &ScType::U256).unwrap();
+        assert_eq!(
+            to_string(&scval).unwrap(),
+            "\"12345678901234567890123456789012345678901234567890\""
+        );
+
+        // I256
+        let val = "-12345678901234567890123456789012345678901234567890";
+        let scval = from_string_primitive(val, &ScType::I256).unwrap();
+        assert_eq!(
+            to_string(&scval).unwrap(),
+            "\"-12345678901234567890123456789012345678901234567890\""
+        );
+
+        // Boolean
+        let scval = from_string_primitive("true", &ScType::Bool).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "true");
+
+        let scval = from_string_primitive("false", &ScType::Bool).unwrap();
+        assert_eq!(to_string(&scval).unwrap(), "false");
     }
 }

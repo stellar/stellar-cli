@@ -59,7 +59,7 @@ impl Spec {
                 } else {
                     *out = Some(section.data().to_vec());
                 }
-            };
+            }
         }
 
         let mut env_meta_base64 = None;
@@ -179,7 +179,7 @@ impl Display for Spec {
 
 fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::fmt::Result {
     writeln!(f, " • Function: {}", func.name.to_utf8_string_lossy())?;
-    if func.doc.len() > 0 {
+    if !func.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
@@ -202,7 +202,7 @@ fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::
 
 fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::fmt::Result {
     writeln!(f, " • Union: {}", format_name(&udt.lib, &udt.name))?;
-    if udt.doc.len() > 0 {
+    if !udt.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
@@ -219,7 +219,7 @@ fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::
 
 fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std::fmt::Result {
     writeln!(f, " • Struct: {}", format_name(&udt.lib, &udt.name))?;
-    if udt.doc.len() > 0 {
+    if !udt.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
@@ -234,7 +234,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
             field.name.to_utf8_string_lossy(),
             indent(&format!("{:#?}", field.type_), 8).trim()
         )?;
-        if field.doc.len() > 0 {
+        if !field.doc.is_empty() {
             writeln!(f, "{}", indent(&format!("{:#?}", field.doc), 8))?;
         }
     }
@@ -244,7 +244,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
 
 fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fmt::Result {
     writeln!(f, " • Enum: {}", format_name(&udt.lib, &udt.name))?;
-    if udt.doc.len() > 0 {
+    if !udt.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
@@ -261,7 +261,7 @@ fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fm
 
 fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> std::fmt::Result {
     writeln!(f, " • Error: {}", format_name(&udt.lib, &udt.name))?;
-    if udt.doc.len() > 0 {
+    if !udt.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
@@ -285,13 +285,13 @@ fn indent(s: &str, n: usize) -> String {
 }
 
 fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
-    if lib.len() > 0 {
+    if lib.is_empty() {
+        name.to_utf8_string_lossy()
+    } else {
         format!(
             "{}::{}",
             lib.to_utf8_string_lossy(),
             name.to_utf8_string_lossy()
         )
-    } else {
-        name.to_utf8_string_lossy()
     }
 }

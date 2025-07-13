@@ -9,13 +9,13 @@
 //! - `TestEnv` is a test environment for running tests isolated from each other.
 //! - `TestEnv::with_default` invokes a closure, which is passed a reference to a random `TestEnv`.
 //! - `TestEnv::new_assert_cmd` creates an `assert_cmd::Command` for a given subcommand and sets the current
-//!    directory to be the same as `TestEnv`.
+//!   directory to be the same as `TestEnv`.
 //! - `TestEnv::cmd` is a generic function which parses a command from a string.
-//!    Note, however, that it uses `shlex` to tokenize the string. This can cause issues
-//!    for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
-//!    `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arr` instead.
+//!   Note, however, that it uses `shlex` to tokenize the string. This can cause issues
+//!   for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
+//!   `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arr` instead.
 //! - `TestEnv::cmd_arr` is a generic function which takes an array of `&str` which is passed directly to clap.
-//!    This is the preferred way since it ensures no string parsing footguns.
+//!   This is the preferred way since it ensures no string parsing footguns.
 //! - `TestEnv::invoke` a convenience function for using the invoke command.
 //!
 #![allow(
@@ -109,7 +109,7 @@ impl TestEnv {
         env.network.rpc_url = rpc_url.to_string();
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
-        };
+        }
         env.generate_account("test", None).assert().success();
         env
     }
@@ -120,7 +120,7 @@ impl TestEnv {
         env.network.rpc_headers = rpc_headers;
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
-        };
+        }
         env.generate_account("test", None).assert().success();
         env
     }
@@ -166,7 +166,7 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"))
+        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {

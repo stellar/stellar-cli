@@ -3,17 +3,34 @@ use std::fmt::Debug;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
-pub struct Cmd;
+pub struct Cmd {
+    /// Print only the version.
+    #[arg(long)]
+    only_version: bool,
+    /// Print only the major version.
+    #[arg(long)]
+    only_version_major: bool,
+}
 
 impl Cmd {
     #[allow(clippy::unused_self)]
     pub fn run(&self) {
-        println!("stellar {}", long());
+        if self.only_version {
+            println!("{}", pkg());
+        } else if self.only_version_major {
+            println!("{}", major());
+        } else {
+            println!("stellar {}", long());
+        }
     }
 }
 
 pub fn pkg() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+pub fn major() -> &'static str {
+    env!("CARGO_PKG_VERSION_MAJOR")
 }
 
 pub fn git() -> &'static str {

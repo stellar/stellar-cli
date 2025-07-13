@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     print::Print,
-    signer::{self, LocalKey, Signer, SignerKind},
+    signer,
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
     Pwd,
 };
@@ -89,12 +89,10 @@ impl Args {
 
     #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = self.key_pair()?;
+        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let signer = key.signer(self.hd_path, Print::new(false)).await?;
         let network = &self.get_network()?;
-        let signer = Signer {
-            kind: SignerKind::Local(LocalKey { key }),
-            print: Print::new(false),
-        };
+
         Ok(signer.sign_tx(tx, network).await?)
     }
 

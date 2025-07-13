@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Write;
 
 use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared::{self, fetch, Fetched, MetasInfoOutput};
@@ -60,11 +61,11 @@ impl Cmd {
                             let val = match key.as_str() {
                                 "rsver" => format!("{val} (Rust version)"),
                                 "rssdkver" => {
-                                    format!("{val} (Soroban SDK version and it's commit hash)")
+                                    format!("{val} (Soroban SDK version and its commit hash)")
                                 }
                                 _ => val.to_string(),
                             };
-                            meta_str.push_str(&format!(" • {key}: {val}\n"));
+                            let _ = writeln!(meta_str, " • {key}: {val}");
                         }
                     }
                 }

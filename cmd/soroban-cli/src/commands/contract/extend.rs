@@ -130,7 +130,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
@@ -182,7 +182,7 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign_with_local_key(tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
@@ -201,7 +201,7 @@ impl NetworkRunnable for Cmd {
 
         // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
+        if operations.is_empty() {
             return Err(Error::LedgerEntryNotFound);
         }
 

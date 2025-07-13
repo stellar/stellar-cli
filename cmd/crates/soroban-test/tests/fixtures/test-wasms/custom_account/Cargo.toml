@@ -1,6 +1,6 @@
 [package]
 name = "test_custom_account"
-version = "22.6.0"
+version = "22.8.2"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
