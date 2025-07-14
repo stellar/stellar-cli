@@ -104,7 +104,10 @@ impl Args {
             self.rpc_url.clone(),
             self.network_passphrase.clone(),
         ) {
-            (None, None, None) => Err(Error::Network),
+            (None, None, None) => {
+                // Fall back to testnet as the default network if no config default is set
+                Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
+            }
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
@@ -233,6 +236,9 @@ impl Network {
         Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
     }
 }
+
+/// Default network key to use when no network is specified
+pub const DEFAULT_NETWORK_KEY: &str = "testnet";
 
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
     "local" => (
@@ -457,5 +463,57 @@ mod tests {
             result.unwrap_err().to_string(),
             format!("invalid HTTP header: must be in the form 'key:value'")
         );
+    }
+
+    #[tokio::test]
+    async fn test_default_to_testnet_when_no_network_specified() {
+        use super::super::locator;
+
+        let args = Args::default(); // No network, rpc_url, or network_passphrase specified
+        let locator_args = locator::Args::default();
+
+        let result = args.get(&locator_args);
+        assert!(result.is_ok());
+
+        let network = result.unwrap();
+        assert_eq!(network.network_passphrase, passphrase::TESTNET);
+        assert_eq!(network.rpc_url, "https://soroban-testnet.stellar.org");
+    }
+
+    #[tokio::test]
+    async fn test_user_config_default_overrides_automatic_testnet() {
+        use super::super::locator;
+        use std::env;
+
+        // Override environment variables to prevent reading real user config
+        let original_home = env::var("HOME").ok();
+        let original_stellar_config_home = env::var("STELLAR_CONFIG_HOME").ok();
+
+        // Set to a non-existent directory to ensure Config::new() fails and we test the fallback
+        env::set_var("HOME", "/dev/null");
+        env::set_var("STELLAR_CONFIG_HOME", "/dev/null");
+
+        let args = Args::default(); // No network, rpc_url, or network_passphrase specified
+        let locator_args = locator::Args::default();
+
+        let result = args.get(&locator_args);
+        assert!(result.is_ok());
+
+        let network = result.unwrap();
+        // Should still default to testnet when config reading fails
+        assert_eq!(network.network_passphrase, passphrase::TESTNET);
+        assert_eq!(network.rpc_url, "https://soroban-testnet.stellar.org");
+
+        // Restore original environment variables
+        if let Some(home) = original_home {
+            env::set_var("HOME", home);
+        } else {
+            env::remove_var("HOME");
+        }
+        if let Some(config_home) = original_stellar_config_home {
+            env::set_var("STELLAR_CONFIG_HOME", config_home);
+        } else {
+            env::remove_var("STELLAR_CONFIG_HOME");
+        }
     }
 }
