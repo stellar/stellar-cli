@@ -173,6 +173,19 @@ impl FeeTable {
                         (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
                     }
                 }
+                TransactionMeta::V4(meta) => {
+                    if let Some(soroban_meta) = meta.soroban_meta {
+                        match soroban_meta.ext {
+                            SorobanTransactionMetaExt::V0 => (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE),
+                            SorobanTransactionMetaExt::V1(v1) => (
+                                v1.total_non_refundable_resource_fee_charged,
+                                v1.total_refundable_resource_fee_charged,
+                            ),
+                        }
+                    } else {
+                        (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
+                    }
+                }
             };
 
         (
