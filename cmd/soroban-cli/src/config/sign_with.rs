@@ -68,7 +68,7 @@ impl Args {
         locator: &locator::Args,
         network: &Network,
         quiet: bool,
-        default_signer_account: Option<UnresolvedMuxedAccount>,
+        default_signer_account: Option<&UnresolvedMuxedAccount>,
     ) -> Result<TransactionEnvelope, Error> {
         let print = Print::new(quiet);
         let signer = if self.sign_with_lab {

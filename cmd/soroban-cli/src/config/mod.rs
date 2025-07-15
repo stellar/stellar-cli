@@ -95,7 +95,7 @@ impl Args {
                 &self.locator,
                 &self.network.get(&self.locator)?,
                 false,
-                Some(self.source_account.clone()),
+                Some(&self.source_account),
             )
             .await?)
     }
