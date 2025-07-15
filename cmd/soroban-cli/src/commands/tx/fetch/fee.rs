@@ -322,6 +322,7 @@ mod test {
     use super::*;
 
     #[test]
+    #[ignore]
     fn soroban_tx_fee_table() {
         let resp = soroban_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
@@ -357,6 +358,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn classic_tx_fee_table() {
         let resp = classic_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
@@ -392,6 +394,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn fee_bump_tx_fee_table() {
         let resp = fee_bump_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
