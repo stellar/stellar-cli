@@ -79,8 +79,8 @@ exceptions = [
     # do not fork them. Related conversation and approval is at:
     # https://stellarfoundation.slack.com/archives/C07TC92R2P7/p1730924548048429?thread_ts=1730900591.962089&cid=C07TC92R2P7
     { allow = ["MPL-2.0"], name = "option-ext" },
-    { allow = ["CDLA-Permissive-2.0"], name = "webpki-roots" },
-    { allow = ["Zlib"], name = "foldhash" },
+    { allow = ["MPL-2.0"], name = "webpki-roots" },
+    { allow = ["Unicode-DFS-2016"], name = "unicode-ident"},
 ]
 
 [[licenses.clarify]]
