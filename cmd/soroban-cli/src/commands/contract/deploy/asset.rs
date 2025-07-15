@@ -157,7 +157,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(txn)));
         }
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&self.config.sign(txn).await?)
             .await?
             .try_into()?;
         if args.is_none_or(|a| !a.no_cache) {

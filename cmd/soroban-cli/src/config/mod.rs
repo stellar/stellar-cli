@@ -6,9 +6,8 @@ use std::{
 };
 
 use crate::{
-    print::Print,
     signer,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
 };
 use network::Network;
@@ -41,6 +40,8 @@ pub enum Error {
     #[error(transparent)]
     Signer(#[from] signer::Error),
     #[error(transparent)]
+    SignWith(#[from] sign_with::Error),
+    #[error(transparent)]
     StellarStrkey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Address(#[from] address::Error),
@@ -61,12 +62,11 @@ pub struct Args {
     /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: UnresolvedMuxedAccount,
 
-    #[arg(long)]
-    /// If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
-
     #[command(flatten)]
     pub locator: locator::Args,
+
+    #[command(flatten)]
+    pub sign_with: sign_with::Args,
 }
 
 impl Args {
@@ -74,26 +74,30 @@ impl Args {
     pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path)
+            .resolve_muxed_account(&self.locator, self.hd_path())
             .await?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = &self.source_account.resolve_secret(&self.locator)?;
-        Ok(key.key_pair(self.hd_path)?)
+        Ok(key.key_pair(self.hd_path())?)
     }
 
-    pub async fn sign_with_local_key(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        self.sign(tx).await
-    }
-
-    #[allow(clippy::unused_async)]
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        let key = &self.source_account.resolve_secret(&self.locator)?;
-        let signer = key.signer(self.hd_path, Print::new(false)).await?;
-        let network = &self.get_network()?;
-
-        Ok(signer.sign_tx(tx, network).await?)
+        let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self
+            .sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                false,
+                Some(&self.source_account),
+            )
+            .await?)
     }
 
     pub async fn sign_soroban_authorizations(
@@ -132,6 +136,10 @@ impl Args {
             .0
             + 1)
         .into())
+    }
+
+    pub fn hd_path(&self) -> Option<usize> {
+        self.sign_with.hd_path
     }
 }
 
