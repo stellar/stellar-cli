@@ -61,35 +61,14 @@ pub struct Args {
 }
 
 impl Args {
+    // when a default_signer_account is provided, it will be used as the tx signer if the user does not specify a signer. The default signer should be the tx's source_account.
     pub async fn sign_tx_env(
         &self,
         tx: &TransactionEnvelope,
         locator: &locator::Args,
         network: &Network,
         quiet: bool,
-    ) -> Result<TransactionEnvelope, Error> {
-        self.sign_env(tx, locator, network, quiet, None).await
-    }
-
-    pub async fn sign_tx_env_with_default_signer(
-        &self,
-        tx: &TransactionEnvelope,
-        locator: &locator::Args,
-        network: &Network,
-        quiet: bool,
-        source_account: UnresolvedMuxedAccount,
-    ) -> Result<TransactionEnvelope, Error> {
-        self.sign_env(tx, locator, network, quiet, Some(source_account))
-            .await
-    }
-
-    async fn sign_env(
-        &self,
-        tx: &TransactionEnvelope,
-        locator: &locator::Args,
-        network: &Network,
-        quiet: bool,
-        source_account: Option<UnresolvedMuxedAccount>,
+        default_signer_account: Option<UnresolvedMuxedAccount>,
     ) -> Result<TransactionEnvelope, Error> {
         let print = Print::new(quiet);
         let signer = if self.sign_with_lab {
@@ -113,7 +92,7 @@ impl Args {
             // default to using the source account local key, if the user did not pass in a key
             let key_or_name = match self.sign_with_key.as_deref() {
                 Some(k) => k,
-                None => match source_account {
+                None => match default_signer_account {
                     Some(UnresolvedMuxedAccount::AliasOrSecret(ref s)) => s.as_str(),
                     _ => return Err(Error::NoSignWithKey),
                 },

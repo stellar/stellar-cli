@@ -90,12 +90,12 @@ impl Args {
         });
         Ok(self
             .sign_with
-            .sign_tx_env_with_default_signer(
+            .sign_tx_env(
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
                 false,
-                self.source_account.clone(),
+                Some(self.source_account.clone()),
             )
             .await?)
     }
