@@ -15,6 +15,7 @@ use std::env;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::path::PathBuf;
+use stellar_xdr::curr::ContractId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,6 +49,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("")]
     HelpMessage(String),
+    #[error("Unsupported ScAddress {0}")]
+    UnsupportedScAddress(String),
 }
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
@@ -151,7 +154,7 @@ pub fn build_host_function_parameters(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let contract_address_arg = xdr::ScAddress::Contract(Hash(contract_id.0));
+    let contract_address_arg = xdr::ScAddress::Contract(ContractId(Hash(contract_id.0)));
     let function_symbol_arg = function
         .try_into()
         .map_err(|()| Error::FunctionNameTooLong(function.clone()))?;
@@ -282,6 +285,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
+                stellar_xdr::curr::ScAddress::MuxedAccount(account) => account.to_string(),
+                stellar_xdr::curr::ScAddress::ClaimableBalance(_)
+                | stellar_xdr::curr::ScAddress::LiquidityPool(_) => {
+                    return Err(Error::UnsupportedScAddress(addr.to_string()))
+                }
             }
         }
     };

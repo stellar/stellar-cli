@@ -2535,6 +2535,7 @@ Decode and encode XDR
 * `decode` — Decode XDR
 * `encode` — Encode XDR
 * `compare` — Compare two XDR values with each other
+* `generate` — Generate XDR values
 * `version` — Print version information
 
 ###### **Arguments:**
@@ -2558,6 +2559,7 @@ View information about types
 
 * `list` — 
 * `schema` — 
+* `schema-files` — Generate JSON schema files for the XDR types, writing a file for each type to the out directory
 
 
 
@@ -2587,30 +2589,50 @@ View information about types
 
   Default value: `json-schema-draft201909`
 
-  Possible values: `json-schema-draft7`, `json-schema-draft201909`
+  Possible values: `json-schema-draft201909`
+
+
+
+
+## `stellar xdr types schema-files`
+
+Generate JSON schema files for the XDR types, writing a file for each type to the out directory
+
+**Usage:** `stellar xdr types schema-files [OPTIONS] --out-dir <OUT_DIR>`
+
+###### **Options:**
+
+* `--out-dir <OUT_DIR>`
+* `--output <OUTPUT>`
+
+  Default value: `json-schema-draft201909`
+
+  Possible values: `json-schema-draft201909`
 
 
 
 
 ## `stellar xdr guess`
 
-Guess the XDR type
+Guess the XDR type.
 
-**Usage:** `stellar xdr guess [OPTIONS] [FILE]`
+Prints a list of types that the XDR values can be decoded into.
+
+**Usage:** `stellar xdr guess [OPTIONS] [INPUT]`
 
 ###### **Arguments:**
 
-* `<FILE>` — File to decode, or stdin if omitted
+* `<INPUT>` — XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `list`
 
@@ -2626,26 +2648,26 @@ Guess the XDR type
 
 Decode XDR
 
-**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [INPUT]...`
 
 ###### **Arguments:**
 
-* `<FILES>` — Files to decode, or stdin if omitted
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
 * `--type <TYPE>` — XDR type to decode
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `stream-base64`
 
   Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `json`
 
-  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
+  Possible values: `json`, `json-formatted`, `text`, `rust-debug`, `rust-debug-formatted`
 
 
 
@@ -2654,22 +2676,22 @@ Decode XDR
 
 Encode XDR
 
-**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [INPUT]...`
 
 ###### **Arguments:**
 
-* `<FILES>` — Files to encode, or stdin if omitted
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
 * `--type <TYPE>` — XDR type to encode
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `json`
 
   Possible values: `json`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `single-base64`
 
@@ -2699,6 +2721,55 @@ Outputs: `-1` when the left XDR value is less than the right XDR value, `0` when
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`
+
+
+
+
+## `stellar xdr generate`
+
+Generate XDR values
+
+**Usage:** `stellar xdr generate <COMMAND>`
+
+###### **Subcommands:**
+
+* `default` — Generate default XDR values
+* `arbitrary` — Generate arbitrary XDR values
+
+
+
+## `stellar xdr generate default`
+
+Generate default XDR values
+
+**Usage:** `stellar xdr generate default [OPTIONS] --type <TYPE>`
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to generate
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
+
+
+
+
+## `stellar xdr generate arbitrary`
+
+Generate arbitrary XDR values
+
+**Usage:** `stellar xdr generate arbitrary [OPTIONS] --type <TYPE>`
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to generate
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
 
 
 
