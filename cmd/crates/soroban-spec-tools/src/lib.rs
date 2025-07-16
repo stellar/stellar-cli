@@ -122,7 +122,7 @@ impl Spec {
             | ScType::String
             | ScType::Bool => String::new(),
             ScType::MuxedAddress => {
-                String::from("Can be public key (G13..) or a muxed account (M13..)")
+                String::from("Can be public key (G13..), contract ID (C13...), or a muxed account (M13..), or an identity")
             }
             ScType::Address => String::from(
                 "Can be public key (G13..), a contract ID (C13...) or an identity (alice), ",
