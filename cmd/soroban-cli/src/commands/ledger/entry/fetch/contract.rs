@@ -4,7 +4,7 @@ use crate::{
     config::{self, locator},
     xdr::{
         self, ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr,
-        ScAddress, ScVal,
+        ScAddress, ScVal, ContractId
     },
 };
 use clap::{command, Parser};
@@ -56,7 +56,7 @@ impl Cmd {
         let contract_id = self
             .contract
             .resolve_contract_id(&self.args.locator, &network.network_passphrase)?;
-        let contract_address_arg = ScAddress::Contract(Hash(contract_id.0));
+        let contract_address_arg = ScAddress::Contract(ContractId(Hash(contract_id.0)));
 
         if let Some(keys) = &self.key {
             for key in keys {
