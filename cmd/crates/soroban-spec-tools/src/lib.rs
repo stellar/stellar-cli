@@ -125,7 +125,7 @@ impl Spec {
                 String::from("Can be public key (G13..) or a muxed account (M13..)")
             }
             ScType::Address => String::from(
-                "Can be public key (G13..), a contract hash (6c45307) or an identity (alice), ",
+                "Can be public key (G13..), a contract ID (C13...) or an identity (alice), ",
             ),
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
             ScType::Udt(ScSpecTypeUdt { name }) => {
