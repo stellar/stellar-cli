@@ -7,11 +7,11 @@ use serde_json::{json, Value};
 use stellar_xdr::curr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
     Int256Parts, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey,
-    ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
-    ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
-    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
-    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
-    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+    ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap,
+    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec,
+    ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
+    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
+    ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -135,8 +135,8 @@ impl Spec {
                     | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
                     | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
                     | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
-                    | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. }) => doc,
-                    ScSpecEntry::EventV0(_) => todo!("EventV0 not supported yet"),
+                    | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
+                    | ScSpecEntry::EventV0(ScSpecEventV0 { doc, .. }) => doc,
                 }
                 .to_utf8_string_lossy()
             }
@@ -1157,8 +1157,9 @@ impl Spec {
                     ScSpecEntry::UdtStructV0(strukt) => self.arg_value_udt(strukt, depth),
                     ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth),
                     ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
-                    ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
-                    ScSpecEntry::EventV0(_) => None,
+                    ScSpecEntry::FunctionV0(_)
+                    | ScSpecEntry::UdtErrorEnumV0(_)
+                    | ScSpecEntry::EventV0(_) => None,
                 }
             }
             // No specific value name for these yet.
@@ -1331,8 +1332,12 @@ impl Spec {
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
-            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
-            Some(ScSpecEntry::EventV0(_)) => None,
+            Some(
+                ScSpecEntry::FunctionV0(_)
+                | ScSpecEntry::UdtErrorEnumV0(_)
+                | ScSpecEntry::EventV0(_),
+            )
+            | None => None,
         }
     }
 
