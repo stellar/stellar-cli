@@ -1,6 +1,6 @@
 [package]
 name = "stellar-bye"
-version = "22.8.2"
+version = "23.0.0"
 edition = "2021"
 publish = false
 
