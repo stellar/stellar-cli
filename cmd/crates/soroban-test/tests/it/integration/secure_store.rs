@@ -26,7 +26,7 @@ async fn create_account() {
 
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
     let new_address = sandbox
