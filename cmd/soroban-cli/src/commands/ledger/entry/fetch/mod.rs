@@ -16,7 +16,7 @@ pub enum Cmd {
     Account(account::Cmd),
     /// Fetch contract ledger entry by address or alias and storage key.
     Contract(contract::Cmd),
-    /// Fetch the current network config by ConfigSettingId.
+    /// Fetch the current network config by `ConfigSettingId`.
     /// All config settings are returned if no id is provided.
     Config(config::Cmd),
     ///Fetch a claimable balance ledger entry by id

@@ -3,8 +3,8 @@ use crate::{
     commands::contract::Durability,
     config::{self, locator},
     xdr::{
-        self, ContractDataDurability, Hash, LedgerKey, LedgerKeyContractData, Limits, ReadXdr,
-        ScAddress, ScVal, ContractId
+        self, ContractDataDurability, ContractId, Hash, LedgerKey, LedgerKeyContractData, Limits,
+        ReadXdr, ScAddress, ScVal,
     },
 };
 use clap::{command, Parser};
