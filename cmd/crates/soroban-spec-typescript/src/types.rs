@@ -131,6 +131,7 @@ pub enum Type {
     Tuple { elements: Vec<Type> },
     Error { message: Option<String> },
     Custom { name: String },
+    MuxedAddress,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -207,7 +208,8 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Symbol => Type::Symbol,
             ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
-            ScSpecTypeDef::String | ScSpecTypeDef::MuxedAddress => Type::String,
+            ScSpecTypeDef::String => Type::String,
+            ScSpecTypeDef::MuxedAddress => Type::MuxedAddress,
             ScSpecTypeDef::Address => Type::Address,
             ScSpecTypeDef::Void => Type::Void,
             ScSpecTypeDef::Timepoint => Type::Timepoint,
