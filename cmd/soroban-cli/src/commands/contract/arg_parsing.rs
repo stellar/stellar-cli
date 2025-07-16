@@ -49,6 +49,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("")]
     HelpMessage(String),
+    #[error("Unsupported ScAddress {0}")]
+    UnsupportedScAddress(String),
 }
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
@@ -283,9 +285,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
-                stellar_xdr::curr::ScAddress::MuxedAccount(_)
-                | stellar_xdr::curr::ScAddress::ClaimableBalance(_)
-                | stellar_xdr::curr::ScAddress::LiquidityPool(_) => todo!(),
+                stellar_xdr::curr::ScAddress::MuxedAccount(account) => account.to_string(),
+                stellar_xdr::curr::ScAddress::ClaimableBalance(_)
+                | stellar_xdr::curr::ScAddress::LiquidityPool(_) => {
+                    return Err(Error::UnsupportedScAddress(addr.to_string()))
+                }
             }
         }
     };

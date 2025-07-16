@@ -121,7 +121,9 @@ impl Spec {
             | ScType::I256
             | ScType::String
             | ScType::Bool => String::new(),
-            ScType::MuxedAddress => String::from("Can be a muxed account (M13..)"),
+            ScType::MuxedAddress => {
+                String::from("Can be public key (G13..) or a muxed account (M13..)")
+            }
             ScType::Address => String::from(
                 "Can be public key (G13..), a contract hash (6c45307) or an identity (alice), ",
             ),
@@ -1048,8 +1050,8 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
             Value::String(stellar_strkey::Contract(h.clone().into()).to_string())
         }
         ScAddress::MuxedAccount(_) => todo!("MuxedAddress is not supported yet"),
-        ScAddress::ClaimableBalance(_) => todo!("ClaimableBalance is not supported yet"),
-        ScAddress::LiquidityPool(_) => todo!("LiquidityPool is not supported yet"),
+        ScAddress::ClaimableBalance(_) => todo!("ClaimableBalance is not supported"),
+        ScAddress::LiquidityPool(_) => todo!("LiquidityPool is not supported"),
     }
 }
 
@@ -1097,7 +1099,7 @@ impl Spec {
             ScType::U256 => Some("u256".to_string()),
             ScType::I256 => Some("i256".to_string()),
             ScType::String => Some("String".to_string()),
-            ScType::MuxedAddress => todo!("MuxedAddress is not supported yet"),
+            ScType::MuxedAddress => Some("MuxedAddress".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
                 let inner = self.arg_value_name(value_type.as_ref(), depth + 1)?;
@@ -1289,7 +1291,9 @@ impl Spec {
             ScType::Udt(ScSpecTypeUdt { name }) => {
                 self.example_udts(name.to_utf8_string_lossy().as_ref())
             }
-            ScType::MuxedAddress => todo!("MuxedAddress is not supported yet"),
+            ScType::MuxedAddress => {
+                Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
+            }
             // No specific value name for these yet.
             ScType::Val => None,
         }
