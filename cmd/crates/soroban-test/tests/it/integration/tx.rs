@@ -6,6 +6,7 @@ use crate::integration::util::{
     deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
 };
 
+pub mod fetch;
 pub mod operations;
 
 #[tokio::test]
@@ -65,7 +66,7 @@ async fn simulate() {
 fn test_tx_string(sandbox: &TestEnv) -> String {
     sandbox
         .new_assert_cmd("contract")
-        .arg("install")
+        .arg("upload")
         .args([
             "--wasm",
             HELLO_WORLD.path().as_os_str().to_str().unwrap(),
@@ -131,7 +132,7 @@ async fn build_simulate_sign_send() {
 pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_with: &str) {
     sandbox
         .new_assert_cmd("contract")
-        .arg("install")
+        .arg("upload")
         .args([
             "--wasm",
             HELLO_WORLD.path().as_os_str().to_str().unwrap(),

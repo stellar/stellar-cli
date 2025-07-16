@@ -157,7 +157,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(txn)));
         }
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&self.config.sign(txn).await?)
             .await?
             .try_into()?;
         if args.is_none_or(|a| !a.no_cache) {
@@ -176,7 +176,7 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(Hash(contract_id.0));
+    let contract = ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract_id.0)));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),

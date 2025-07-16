@@ -376,7 +376,7 @@ pub fn type_to_ts(value: &types::Type) -> String {
         // ahalabs have added in the bindings, so.. maybe rename that?
         types::Type::Val => "any".to_owned(),
         types::Type::Error { .. } => "Error_".to_owned(),
-        types::Type::Address => "string".to_string(),
+        types::Type::Address | types::Type::MuxedAddress => "string".to_string(),
         types::Type::Bytes | types::Type::BytesN { .. } => "Buffer".to_string(),
         types::Type::Void => "void".to_owned(),
         types::Type::U256 => "u256".to_string(),

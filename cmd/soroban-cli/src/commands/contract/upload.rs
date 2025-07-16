@@ -200,7 +200,7 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        let signed_txn = &self.config.sign_with_local_key(*txn).await?;
+        let signed_txn = &self.config.sign(*txn).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;

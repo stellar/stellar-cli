@@ -68,7 +68,7 @@ impl Default for TestEnv {
         Self {
             temp_dir,
             network: network::Network {
-                rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
+                rpc_url: "http://localhost:8000/rpc".to_string(),
                 network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
                 rpc_headers: [].to_vec(),
             },
@@ -101,7 +101,7 @@ impl TestEnv {
     }
 
     pub fn with_port(host_port: u16) -> TestEnv {
-        Self::with_rpc_url(&format!("http://localhost:{host_port}/soroban/rpc"))
+        Self::with_rpc_url(&format!("http://localhost:{host_port}/rpc"))
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
@@ -268,7 +268,12 @@ impl TestEnv {
                 global: false,
                 config_dir,
             },
-            hd_path: None,
+            sign_with: config::sign_with::Args {
+                sign_with_key: None,
+                hd_path: None,
+                sign_with_lab: false,
+                sign_with_ledger: false,
+            },
         }
     }
 
