@@ -1158,7 +1158,7 @@ impl Spec {
                     ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth),
                     ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
                     ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
-                    ScSpecEntry::EventV0(_) => todo!("EventV0 is not supported yet"),
+                    ScSpecEntry::EventV0(_) => None,
                 }
             }
             // No specific value name for these yet.
@@ -1332,7 +1332,7 @@ impl Spec {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
             Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
-            Some(ScSpecEntry::EventV0(_)) => todo!("EventV0 is not supported yet"),
+            Some(ScSpecEntry::EventV0(_)) => None,
         }
     }
 
