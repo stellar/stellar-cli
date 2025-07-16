@@ -169,6 +169,12 @@ pub enum Entry {
         name: String,
         cases: Vec<ErrorEnumCase>,
     },
+    EventV0 {
+        doc: String,
+        name: String,
+        prefix_topics: Vec<String>,
+        params: Vec<Type>,
+    },
 }
 
 impl From<&ScSpecTypeDef> for Type {
@@ -227,7 +233,7 @@ impl From<&ScSpecEntry> for Entry {
                 inputs: f.inputs.iter().map(Into::into).collect(),
                 outputs: f.outputs.iter().map(Into::into).collect(),
             },
-            ScSpecEntry::UdtStructV0(s) if is_tuple_strukt(s) => Entry::TupleStruct {
+            ScSpecEntry::UdtStructV0(s) if is_tuple_struct(s) => Entry::TupleStruct {
                 doc: s.doc.to_utf8_string_lossy(),
                 name: s.name.to_utf8_string_lossy(),
                 fields: s.fields.iter().map(|f| &f.type_).map(Into::into).collect(),
@@ -252,11 +258,21 @@ impl From<&ScSpecEntry> for Entry {
                 name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
             },
-            ScSpecEntry::EventV0(_) => todo!("EventV0 is not implemented yet"),
+            ScSpecEntry::EventV0(e) => Entry::EventV0 {
+                doc: e.doc.to_utf8_string_lossy(),
+                name: e.name.to_utf8_string_lossy(),
+                // TODO: Handle params properly
+                params: vec![],
+                prefix_topics: e
+                    .prefix_topics
+                    .iter()
+                    .map(|s| s.to_utf8_string_lossy())
+                    .collect(),
+            },
         }
     }
 }
 
-fn is_tuple_strukt(s: &ScSpecUdtStructV0) -> bool {
+fn is_tuple_struct(s: &ScSpecUdtStructV0) -> bool {
     !s.fields.is_empty() && s.fields[0].name.to_utf8_string_lossy() == "0"
 }
