@@ -11,6 +11,7 @@ fn snapshot() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
+        .arg("--fund")
         .arg("a")
         .assert()
         .success();
@@ -24,6 +25,7 @@ fn snapshot() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
+        .arg("--fund")
         .arg("b")
         .assert()
         .success();
@@ -56,6 +58,7 @@ fn snapshot() {
         sandbox
             .new_assert_cmd("keys")
             .arg("generate")
+            .arg("--fund")
             .arg(format!("k{i}"))
             .assert()
             .success();
