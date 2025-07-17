@@ -171,7 +171,7 @@ impl TestEnv {
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
         let mut cmd = self.new_assert_cmd("keys");
-        cmd.arg("generate").arg(account);
+        cmd.arg("generate").arg(account).arg("--fund");
         if let Some(seed) = seed {
             cmd.arg(format!("--seed={seed}"));
         }
