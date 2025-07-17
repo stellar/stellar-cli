@@ -12,6 +12,7 @@ use soroban_spec::read::FromWasmError;
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
+use crate::log::extract_events;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -212,16 +213,20 @@ impl NetworkRunnable for Cmd {
         let config = config.unwrap_or(&self.config);
         let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
         let network = config.get_network()?;
+
         tracing::trace!(?network);
+
         let contract_id = self
             .contract_id
             .resolve_contract_id(&config.locator, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
+
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
             build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
+
         let client = network.rpc_client()?;
 
         let spec_entries = get_remote_contract_spec(
@@ -258,12 +263,17 @@ impl NetworkRunnable for Cmd {
                     "Simulation identified as read-only. Send by rerunning with `--send=yes`.",
                 );
             }
+
             let sim_res = assembled.sim_response();
-            let (return_value, events) = (sim_res.results()?, sim_res.events()?);
+            let return_value = sim_res.results()?;
+            let events = sim_res.events()?;
+
             crate::log::event::all(&events);
             crate::log::event::contract(&events, &print);
+
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
+
         let sequence: i64 = account_details.seq_num.into();
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) = account_details.account_id;
 
@@ -273,40 +283,47 @@ impl NetworkRunnable for Cmd {
             self.fee.fee,
             account_id,
         )?);
+
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
+
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
+
         #[cfg(feature = "version_lt_23")]
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));
         }
+
         let sim_res = assembled.sim_response();
+
         if global_args.is_none_or(|a| !a.no_cache) {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
+
         let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
+
         // Need to sign all auth entries
         if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
             txn = Box::new(tx);
         }
+
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(*txn).await?)
+            .send_transaction_polling(&config.sign(*txn).await?)
             .await?;
+
         if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
-        let events = res
-            .result_meta
-            .as_ref()
-            .map(crate::log::extract_events)
-            .unwrap_or_default();
+
         let return_value = res.return_value()?;
+        let events = extract_events(&res.result_meta.unwrap_or_default());
 
         crate::log::event::all(&events);
         crate::log::event::contract(&events, &print);
+
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
 }

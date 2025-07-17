@@ -1,3 +1,4 @@
+---
 name: Soroban Tools e2e
 
 on:
@@ -6,7 +7,9 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  group:
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,26 +19,28 @@ jobs:
       fail-fast: false
       matrix:
         sys:
-            # x64
+          # x64
           - os: ubuntu-latest-16-cores
-            # ARM
+          # ARM
           - os: ubuntu-jammy-16-cores-arm64
-            # Intel
+          # Intel
           - os: macos-13
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
     uses: stellar/system-test/.github/workflows/test.yml@master
     with:
+      js-stellar-sdk-npm-version: v14.0.0-rc.1
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: ${{ matrix.sys.os }}
-      quickstart-tag: "testing"
+      quickstart-tag: "future"
   systems-test-linux:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
     with:
+      js-stellar-sdk-npm-version: v14.0.0-rc.1
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"
-      quickstart-tag: "testing"
+      quickstart-tag: "future"

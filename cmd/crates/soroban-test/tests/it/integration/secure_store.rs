@@ -26,7 +26,7 @@ async fn create_account() {
 
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
     let new_address = sandbox
@@ -68,7 +68,7 @@ async fn get_secret_key() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "secret-key-test", "--secure-store"])
+        .args(["generate", "secret-key-test", "--secure-store", "--fund"])
         .assert()
         .success();
     sandbox
@@ -85,7 +85,7 @@ async fn public_key_with_secure_store() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "public-key-test", "--secure-store"])
+        .args(["generate", "public-key-test", "--secure-store", "--fund"])
         .assert()
         .success();
     sandbox

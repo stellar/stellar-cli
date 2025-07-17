@@ -26,7 +26,7 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
 fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", name])
+        .args(["generate", name])
         .assert()
         .success();
     sandbox
@@ -47,7 +47,7 @@ async fn create_account() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
 
@@ -94,7 +94,7 @@ async fn create_account_with_alias() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
     let test = test_address(sandbox);

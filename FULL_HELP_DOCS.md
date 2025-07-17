@@ -56,6 +56,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `cache` — Cache for transactions and contract specs
 * `version` — Print version information
 * `plugin` — The subcommand for CLI plugins
+* `ledger` — Fetch ledger information
 
 ###### **Options:**
 
@@ -143,16 +144,18 @@ Deploy builtin Soroban Asset Contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
@@ -394,16 +397,18 @@ If no keys are specified the contract itself is extended.
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -427,16 +432,18 @@ Deploy a wasm contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -508,9 +515,12 @@ Deploy normal Wasm Contract
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 
 
 
@@ -731,16 +741,18 @@ Install a WASM file to the ledger without creating a contract instance
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -761,16 +773,18 @@ Install a WASM file to the ledger without creating a contract instance
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -801,16 +815,18 @@ stellar contract invoke ... -- --help
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
   Default value: `default`
@@ -915,16 +931,18 @@ If no keys are specificed the contract itself is restored.
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -1097,7 +1115,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
 ###### **Options:**
 
-* `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--secure-store` — Save in OS-specific secure store
@@ -1193,10 +1210,7 @@ Configure connection to networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `stellar container start` instead
-* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
-* `container` — ⚠️ Deprecated: use `stellar container` instead
 * `health` — Checks the health of the configured RPC
 
 
@@ -1252,62 +1266,6 @@ List networks
 
 
 
-## `stellar network start`
-
-⚠️ Deprecated: use `stellar container start` instead
-
-Start network
-
-Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-
-`stellar network start NETWORK [OPTIONS]`
-
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-
-**Usage:** `stellar network start [OPTIONS] [NETWORK]`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to start. Default is `local`
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `--name <NAME>` — Optional argument to specify the container name
-* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
-
-  Default value: `8000:8000`
-* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
-
-
-
-## `stellar network stop`
-
-⚠️ Deprecated: use `stellar container stop` instead
-
-Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
-
-**Usage:** `stellar network stop [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to stop
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-
-
-
 ## `stellar network use`
 
 Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
@@ -1322,90 +1280,6 @@ Set the default network that will be used on all commands. This allows you to sk
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `stellar network container`
-
-⚠️ Deprecated: use `stellar container` instead
-
-Commands to start, stop and get logs for a quickstart container
-
-**Usage:** `stellar network container <COMMAND>`
-
-###### **Subcommands:**
-
-* `logs` — Get logs from a running network container
-* `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `stellar container start`
-
-
-
-## `stellar network container logs`
-
-Get logs from a running network container
-
-**Usage:** `stellar network container logs [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to get logs from
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-
-
-
-## `stellar network container start`
-
-Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-
-`stellar container start NETWORK [OPTIONS]`
-
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-
-**Usage:** `stellar network container start [OPTIONS] [NETWORK]`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to start. Default is `local`
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `--name <NAME>` — Optional argument to specify the container name
-* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
-
-  Default value: `8000:8000`
-* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
-
-
-
-## `stellar network container stop`
-
-Stop a network container started with `stellar container start`
-
-**Usage:** `stellar network container stop [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to stop
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
@@ -1586,6 +1460,7 @@ Sign, Simulate, and Send transactions
 * `send` — Send a transaction envelope to the network
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
+* `fetch` — Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
 
 
 
@@ -1675,34 +1550,20 @@ Create a new transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
-* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-* `change-trust` — Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
-* `create-account` — Creates and funds a new account with the specified starting balance
-* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
-* `payment` — Sends an amount in a specific asset to a destination account
-* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
-* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+* `account-merge` — Transfer XLM balance to another account and remove source account
+* `bump-sequence` — Bump sequence number to invalidate older transactions
+* `change-trust` — Create, update, or delete a trustline
+* `create-account` — Create and fund a new account
+* `manage-data` — Set, modify, or delete account data entries
+* `payment` — Send asset to destination account
+* `set-options` — Set account options like flags, signers, and home domain
+* `set-trustline-flags` — Configure authorization and trustline flags for an asset
 
 
 
 ## `stellar tx new account-merge`
 
-Transfers the XLM balance of an account to another account and removes the source account from the ledger
+Transfer XLM balance to another account and remove source account
 
 **Usage:** `stellar tx new account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT>`
 
@@ -1714,22 +1575,24 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--account <ACCOUNT>` — Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
 
 
 
 ## `stellar tx new bump-sequence`
 
-Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+Bump sequence number to invalidate older transactions
 
 **Usage:** `stellar tx new bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO>`
 
@@ -1741,24 +1604,24 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--bump-to <BUMP_TO>` — Sequence number to bump to
 
 
 
 ## `stellar tx new change-trust`
 
-Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+Create, update, or delete a trustline
 
 **Usage:** `stellar tx new change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE>`
 
@@ -1770,15 +1633,17 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--line <LINE>`
 * `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
 
@@ -1788,7 +1653,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx new create-account`
 
-Creates and funds a new account with the specified starting balance
+Create and fund a new account
 
 **Usage:** `stellar tx new create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION>`
 
@@ -1800,15 +1665,17 @@ Creates and funds a new account with the specified starting balance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
@@ -1818,9 +1685,7 @@ Creates and funds a new account with the specified starting balance
 
 ## `stellar tx new manage-data`
 
-Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+Set, modify, or delete account data entries
 
 **Usage:** `stellar tx new manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME>`
 
@@ -1832,15 +1697,17 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
 
@@ -1848,7 +1715,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx new payment`
 
-Sends an amount in a specific asset to a destination account
+Send asset to destination account
 
 **Usage:** `stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>`
 
@@ -1860,32 +1727,28 @@ Sends an amount in a specific asset to a destination account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--destination <DESTINATION>` — Account to send to, e.g. `GBX...`
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
 
 
 
 ## `stellar tx new set-options`
 
-Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+Set account options like flags, signers, and home domain
 
 **Usage:** `stellar tx new set-options [OPTIONS] --source-account <SOURCE_ACCOUNT>`
 
@@ -1897,15 +1760,17 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--inflation-dest <INFLATION_DEST>` — Account of the inflation destination
 * `--master-weight <MASTER_WEIGHT>` — A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled
 * `--low-threshold <LOW_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a low threshold. https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
@@ -1927,11 +1792,7 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 
 ## `stellar tx new set-trustline-flags`
 
-Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+Configure authorization and trustline flags for an asset
 
 **Usage:** `stellar tx new set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET>`
 
@@ -1943,15 +1804,17 @@ https://developers.stellar.org/docs/learn/glossary#flags
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--trustor <TRUSTOR>` — Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
 * `--asset <ASSET>` — Asset to set trustline flags for
 * `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders
@@ -1985,34 +1848,20 @@ Add Operation to a transaction
 
 ###### **Subcommands:**
 
-* `account-merge` — Transfers the XLM balance of an account to another account and removes the source account from the ledger
-* `bump-sequence` — Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
-* `change-trust` — Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
-* `create-account` — Creates and funds a new account with the specified starting balance
-* `manage-data` — Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
-* `payment` — Sends an amount in a specific asset to a destination account
-* `set-options` — Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
-* `set-trustline-flags` — Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+* `account-merge` — Transfer XLM balance to another account and remove source account
+* `bump-sequence` — Bump sequence number to invalidate older transactions
+* `change-trust` — Create, update, or delete a trustline
+* `create-account` — Create and fund a new account
+* `manage-data` — Set, modify, or delete account data entries
+* `payment` — Send asset to destination account
+* `set-options` — Set account options like flags, signers, and home domain
+* `set-trustline-flags` — Configure authorization and trustline flags for an asset
 
 
 
 ## `stellar tx operation add account-merge`
 
-Transfers the XLM balance of an account to another account and removes the source account from the ledger
+Transfer XLM balance to another account and remove source account
 
 **Usage:** `stellar tx operation add account-merge [OPTIONS] --source-account <SOURCE_ACCOUNT> --account <ACCOUNT> [TX_XDR]`
 
@@ -2029,22 +1878,24 @@ Transfers the XLM balance of an account to another account and removes the sourc
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--account <ACCOUNT>` — Muxed Account to merge with, e.g. `GBX...`, 'MBX...'
 
 
 
 ## `stellar tx operation add bump-sequence`
 
-Bumps forward the sequence number of the source account to the given sequence number, invalidating any transaction with a smaller sequence number
+Bump sequence number to invalidate older transactions
 
 **Usage:** `stellar tx operation add bump-sequence [OPTIONS] --source-account <SOURCE_ACCOUNT> --bump-to <BUMP_TO> [TX_XDR]`
 
@@ -2061,24 +1912,24 @@ Bumps forward the sequence number of the source account to the given sequence nu
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--bump-to <BUMP_TO>` — Sequence number to bump to
 
 
 
 ## `stellar tx operation add change-trust`
 
-Creates, updates, or deletes a trustline
-Learn more about trustlines
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines
+Create, update, or delete a trustline
 
 **Usage:** `stellar tx operation add change-trust [OPTIONS] --source-account <SOURCE_ACCOUNT> --line <LINE> [TX_XDR]`
 
@@ -2095,15 +1946,17 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--line <LINE>`
 * `--limit <LIMIT>` — Limit for the trust line, 0 to remove the trust line
 
@@ -2113,7 +1966,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx operation add create-account`
 
-Creates and funds a new account with the specified starting balance
+Create and fund a new account
 
 **Usage:** `stellar tx operation add create-account [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> [TX_XDR]`
 
@@ -2130,15 +1983,17 @@ Creates and funds a new account with the specified starting balance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--destination <DESTINATION>` — Account Id to create, e.g. `GBX...`
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
@@ -2148,9 +2003,7 @@ Creates and funds a new account with the specified starting balance
 
 ## `stellar tx operation add manage-data`
 
-Sets, modifies, or deletes a data entry (name/value pair) that is attached to an account
-Learn more about entries and subentries:
-https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#subentries
+Set, modify, or delete account data entries
 
 **Usage:** `stellar tx operation add manage-data [OPTIONS] --source-account <SOURCE_ACCOUNT> --data-name <DATA_NAME> [TX_XDR]`
 
@@ -2167,15 +2020,17 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
 
@@ -2183,7 +2038,7 @@ https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/a
 
 ## `stellar tx operation add payment`
 
-Sends an amount in a specific asset to a destination account
+Send asset to destination account
 
 **Usage:** `stellar tx operation add payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT> [TX_XDR]`
 
@@ -2200,32 +2055,28 @@ Sends an amount in a specific asset to a destination account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--destination <DESTINATION>` — Account to send to, e.g. `GBX...`
 * `--asset <ASSET>` — Asset to send, default native, e.i. XLM
 
   Default value: `native`
-* `--amount <AMOUNT>` — Amount of the aforementioned asset to send. e.g. `10_000_000` (1 XLM)
+* `--amount <AMOUNT>` — Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
 
 
 
 ## `stellar tx operation add set-options`
 
-Set option for an account such as flags, inflation destination, signers, home domain, and master key weight
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
-Learn more about the home domain:
-https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
-Learn more about signers operations and key weight:
-https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
+Set account options like flags, signers, and home domain
 
 **Usage:** `stellar tx operation add set-options [OPTIONS] --source-account <SOURCE_ACCOUNT> [TX_XDR]`
 
@@ -2242,15 +2093,17 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--inflation-dest <INFLATION_DEST>` — Account of the inflation destination
 * `--master-weight <MASTER_WEIGHT>` — A number from 0-255 (inclusive) representing the weight of the master key. If the weight of the master key is updated to 0, it is effectively disabled
 * `--low-threshold <LOW_THRESHOLD>` — A number from 0-255 (inclusive) representing the threshold this account sets on all operations it performs that have a low threshold. https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multisig#multisig
@@ -2272,11 +2125,7 @@ https://developers.stellar.org/docs/learn/encyclopedia/security/signatures-multi
 
 ## `stellar tx operation add set-trustline-flags`
 
-Allows issuing account to configure authorization and trustline flags to an asset
-The Asset parameter is of the `TrustLineAsset` type. If you are modifying a trustline to a regular asset (i.e. one in a Code:Issuer format), this is equivalent to the Asset type.
-If you are modifying a trustline to a pool share, however, this is composed of the liquidity pool's unique ID.
-Learn more about flags:
-https://developers.stellar.org/docs/learn/glossary#flags
+Configure authorization and trustline flags for an asset
 
 **Usage:** `stellar tx operation add set-trustline-flags [OPTIONS] --source-account <SOURCE_ACCOUNT> --trustor <TRUSTOR> --asset <ASSET> [TX_XDR]`
 
@@ -2293,15 +2142,17 @@ https://developers.stellar.org/docs/learn/glossary#flags
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
 * `--trustor <TRUSTOR>` — Account to set trustline flags for, e.g. `GBX...`, or alias, or muxed account, `M123...``
 * `--asset <ASSET>` — Asset to set trustline flags for
 * `--set-authorize` — Signifies complete authorization allowing an account to transact freely with the asset to make and receive payments and place orders
@@ -2376,9 +2227,131 @@ Simulate a transaction envelope from stdin
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
-* `--hd-path <HD_PATH>` — If using a seed phrase, which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+
+
+
+## `stellar tx fetch`
+
+Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
+
+**Usage:** `stellar tx fetch [OPTIONS]
+       fetch <COMMAND>`
+
+###### **Subcommands:**
+
+* `result` — Fetch the transaction result
+* `meta` — Fetch the transaction meta
+* `fee` — Fetch the transaction fee information
+
+###### **Options:**
+
+* `--hash <HASH>` — Hash of transaction to fetch
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar tx fetch result`
+
+Fetch the transaction result
+
+**Usage:** `stellar tx fetch result [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+* `--hash <HASH>` — Transaction hash to fetch
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar tx fetch meta`
+
+Fetch the transaction meta
+
+**Usage:** `stellar tx fetch meta [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+* `--hash <HASH>` — Transaction hash to fetch
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+
+
+
+## `stellar tx fetch fee`
+
+Fetch the transaction fee information
+
+**Usage:** `stellar tx fetch fee [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+* `--hash <HASH>` — Transaction hash to fetch
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Output format for fee command
+
+  Default value: `table`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `table`:
+    Formatted in a table comparing fee types
+
 
 
 
@@ -2395,6 +2368,7 @@ Decode and encode XDR
 * `decode` — Decode XDR
 * `encode` — Encode XDR
 * `compare` — Compare two XDR values with each other
+* `generate` — Generate XDR values
 * `version` — Print version information
 
 ###### **Arguments:**
@@ -2418,6 +2392,7 @@ View information about types
 
 * `list` — 
 * `schema` — 
+* `schema-files` — Generate JSON schema files for the XDR types, writing a file for each type to the out directory
 
 
 
@@ -2447,30 +2422,50 @@ View information about types
 
   Default value: `json-schema-draft201909`
 
-  Possible values: `json-schema-draft7`, `json-schema-draft201909`
+  Possible values: `json-schema-draft201909`
+
+
+
+
+## `stellar xdr types schema-files`
+
+Generate JSON schema files for the XDR types, writing a file for each type to the out directory
+
+**Usage:** `stellar xdr types schema-files [OPTIONS] --out-dir <OUT_DIR>`
+
+###### **Options:**
+
+* `--out-dir <OUT_DIR>`
+* `--output <OUTPUT>`
+
+  Default value: `json-schema-draft201909`
+
+  Possible values: `json-schema-draft201909`
 
 
 
 
 ## `stellar xdr guess`
 
-Guess the XDR type
+Guess the XDR type.
 
-**Usage:** `stellar xdr guess [OPTIONS] [FILE]`
+Prints a list of types that the XDR values can be decoded into.
+
+**Usage:** `stellar xdr guess [OPTIONS] [INPUT]`
 
 ###### **Arguments:**
 
-* `<FILE>` — File to decode, or stdin if omitted
+* `<INPUT>` — XDR or file containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `list`
 
@@ -2486,26 +2481,26 @@ Guess the XDR type
 
 Decode XDR
 
-**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr decode [OPTIONS] --type <TYPE> [INPUT]...`
 
 ###### **Arguments:**
 
-* `<FILES>` — Files to decode, or stdin if omitted
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
 * `--type <TYPE>` — XDR type to decode
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `stream-base64`
 
   Possible values: `single`, `single-base64`, `stream`, `stream-base64`, `stream-framed`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `json`
 
-  Possible values: `json`, `json-formatted`, `rust-debug`, `rust-debug-formatted`
+  Possible values: `json`, `json-formatted`, `text`, `rust-debug`, `rust-debug-formatted`
 
 
 
@@ -2514,22 +2509,22 @@ Decode XDR
 
 Encode XDR
 
-**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [FILES]...`
+**Usage:** `stellar xdr encode [OPTIONS] --type <TYPE> [INPUT]...`
 
 ###### **Arguments:**
 
-* `<FILES>` — Files to encode, or stdin if omitted
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
 
 ###### **Options:**
 
 * `--type <TYPE>` — XDR type to encode
-* `--input <INPUT>`
+* `--input <INPUT_FORMAT>`
 
   Default value: `json`
 
   Possible values: `json`
 
-* `--output <OUTPUT>`
+* `--output <OUTPUT_FORMAT>`
 
   Default value: `single-base64`
 
@@ -2559,6 +2554,55 @@ Outputs: `-1` when the left XDR value is less than the right XDR value, `0` when
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`
+
+
+
+
+## `stellar xdr generate`
+
+Generate XDR values
+
+**Usage:** `stellar xdr generate <COMMAND>`
+
+###### **Subcommands:**
+
+* `default` — Generate default XDR values
+* `arbitrary` — Generate arbitrary XDR values
+
+
+
+## `stellar xdr generate default`
+
+Generate default XDR values
+
+**Usage:** `stellar xdr generate default [OPTIONS] --type <TYPE>`
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to generate
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
+
+
+
+
+## `stellar xdr generate arbitrary`
+
+Generate arbitrary XDR values
+
+**Usage:** `stellar xdr generate arbitrary [OPTIONS] --type <TYPE>`
+
+###### **Options:**
+
+* `--type <TYPE>` — XDR type to generate
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
 
 
 
@@ -2701,6 +2745,45 @@ Search for for CLI plugins using GitHub
 List installed plugins
 
 **Usage:** `stellar plugin ls`
+
+
+
+## `stellar ledger`
+
+Fetch ledger information
+
+**Usage:** `stellar ledger <COMMAND>`
+
+###### **Subcommands:**
+
+* `latest` — Get the latest ledger sequence and information from the network
+
+
+
+## `stellar ledger latest`
+
+Get the latest ledger sequence and information from the network
+
+**Usage:** `stellar ledger latest [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
 
 
 
