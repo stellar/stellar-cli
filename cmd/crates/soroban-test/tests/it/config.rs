@@ -165,7 +165,7 @@ fn generate_key() {
         .assert()
         .stdout(predicates::str::contains("test_2\n"));
     let file_contents =
-        fs::read_to_string(sandbox.config_dir().join("stellar/identity/test_2.toml")).unwrap();
+        fs::read_to_string(sandbox.config_dir().join("identity/test_2.toml")).unwrap();
     assert_eq!(
         file_contents,
         format!("seed_phrase = \"{DEFAULT_SEED_PHRASE}\"\n")
