@@ -14,7 +14,7 @@ pub enum Cmd {
     /// The location will depend on how your system is configured.
     ///
     /// - It looks up for `XDG_CONFIG_HOME` environment variable. If it's set,
-    ///  `$XDG_CONFIG_HOME/stellar` will be used.
+    ///   `$XDG_CONFIG_HOME/stellar` will be used.
     /// - If not set, it defaults to `$HOME/.config`.
     /// - Can be overridden by `--config-dir` flag.
     Show(show::Cmd),
