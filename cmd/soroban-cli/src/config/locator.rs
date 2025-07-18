@@ -125,7 +125,8 @@ pub struct Args {
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
-    /// Location of config directory, default is "$`XDG_CONFIG_HOME/.stellar`"
+    /// Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise.
+    /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
