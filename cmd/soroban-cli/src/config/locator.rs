@@ -183,6 +183,7 @@ impl Args {
             let print = Print::new(false);
             print.warnln("Flag --global is deprecated: global config is always used");
         }
+
         self.global_config_path()
     }
 
@@ -653,6 +654,7 @@ impl KeyType {
 
     pub fn remove(&self, key: &str, pwd: &Path) -> Result<(), Error> {
         let path = self.path(pwd, key);
+
         if path.exists() {
             std::fs::remove_file(&path)
                 .map_err(|_| Error::ConfigRemoval(self.to_string(), key.to_string()))

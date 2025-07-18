@@ -68,11 +68,8 @@ pub fn setup_env_for_sandbox(sandbox: &TestEnv) {
     env::set_var("SOROBAN_RPC_URL", sandbox.network.rpc_url.clone());
     env::set_var("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE);
 
-    env::set_var(
-        "XDG_CONFIG_HOME",
-        sandbox.temp_dir.join("config").as_os_str(),
-    );
-    env::set_var("XDG_DATA_HOME", sandbox.temp_dir.join("data").as_os_str());
+    env::set_var("XDG_CONFIG_HOME", sandbox.config_dir().as_os_str());
+    env::set_var("XDG_DATA_HOME", sandbox.data_dir().as_os_str());
 }
 
 #[derive(Default)]
@@ -109,6 +106,7 @@ pub async fn deploy_contract(
         .run_cmd_with(cmd, deployer.as_deref().unwrap_or("test"))
         .await
         .unwrap();
+
     match kind {
         DeployKind::Normal => (),
         _ => match res.to_envelope() {

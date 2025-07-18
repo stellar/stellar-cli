@@ -1,10 +1,9 @@
 use crate::util::{add_key, add_test_id, NoFund, SecretKind, DEFAULT_SEED_PHRASE};
-use assert_fs::TempDir;
 use predicates::prelude::predicate;
 use soroban_cli::commands::network;
 use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
 use soroban_test::{AssertExt, TestEnv};
-use std::{fs, path::Path};
+use std::fs;
 
 fn ls(sandbox: &TestEnv) -> Vec<String> {
     sandbox
@@ -28,7 +27,7 @@ testnet
 fn set_and_remove_network() {
     TestEnv::with_default(|sandbox| {
         add_network(sandbox, "custom");
-        let dir = sandbox.dir().join(".stellar").join("network");
+        let dir = sandbox.config_dir().join("network");
         let mut read_dir = std::fs::read_dir(dir).unwrap();
         let file = read_dir.next().unwrap().unwrap();
         assert_eq!(file.file_name().to_str().unwrap(), "custom.toml");
@@ -63,53 +62,6 @@ fn add_network(sandbox: &TestEnv, name: &str) {
         .success()
         .stderr("")
         .stdout("");
-}
-
-fn add_network_global(sandbox: &TestEnv, dir: &Path, name: &str) {
-    sandbox
-        .new_assert_cmd("network")
-        .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("add")
-        .arg("--global")
-        .arg("--rpc-url")
-        .arg("https://127.0.0.1")
-        .arg("--network-passphrase")
-        .arg("Local Sandbox Stellar Network ; September 2022")
-        .arg(name)
-        .assert()
-        .success();
-}
-
-#[test]
-fn set_and_remove_global_network() {
-    let sandbox = TestEnv::default();
-    let dir = TempDir::new().unwrap();
-
-    add_network_global(&sandbox, &dir, "global");
-
-    sandbox
-        .new_assert_cmd("network")
-        .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("ls")
-        .arg("--global")
-        .assert()
-        .stdout(format!("global\n{NETWORKS}"));
-
-    sandbox
-        .new_assert_cmd("network")
-        .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("rm")
-        .arg("--global")
-        .arg("global")
-        .assert()
-        .stdout("");
-
-    sandbox
-        .new_assert_cmd("network")
-        .env("XDG_CONFIG_HOME", dir.to_str().unwrap())
-        .arg("ls")
-        .assert()
-        .stdout(NETWORKS);
 }
 
 #[test]
@@ -147,33 +99,36 @@ fn multiple_networks() {
         ]
     );
 
-    let sub_dir = sandbox.dir().join("sub_directory");
-    fs::create_dir(&sub_dir).unwrap();
+    #[cfg(feature = "version_lt_23")]
+    {
+        let sub_dir = sandbox.dir().join("sub_directory");
+        fs::create_dir(&sub_dir).unwrap();
 
-    TestEnv::cmd_arr_with_pwd::<network::add::Cmd>(
-        &[
-            "--rpc-url",
-            "https://127.0.0.1",
-            "--network-passphrase",
-            "Local Sandbox Stellar Network ; September 2022",
-            "local3",
-        ],
-        &sub_dir,
-    )
-    .run()
-    .unwrap();
+        TestEnv::cmd_arr_with_pwd::<network::add::Cmd>(
+            &[
+                "--rpc-url",
+                "https://127.0.0.1",
+                "--network-passphrase",
+                "Local Sandbox Stellar Network ; September 2022",
+                "local3",
+            ],
+            &sub_dir,
+        )
+        .run()
+        .unwrap();
 
-    assert_eq!(
-        ls().as_slice(),
-        [
-            "local2".to_owned(),
-            "local3".to_owned(),
-            "local".to_owned(),
-            "futurenet".to_owned(),
-            "mainnet".to_owned(),
-            "testnet".to_owned()
-        ]
-    );
+        assert_eq!(
+            ls().as_slice(),
+            [
+                "local2".to_owned(),
+                "local3".to_owned(),
+                "local".to_owned(),
+                "futurenet".to_owned(),
+                "mainnet".to_owned(),
+                "testnet".to_owned()
+            ]
+        );
+    }
 }
 
 #[test]
@@ -210,7 +165,7 @@ fn generate_key() {
         .assert()
         .stdout(predicates::str::contains("test_2\n"));
     let file_contents =
-        fs::read_to_string(sandbox.dir().join(".stellar/identity/test_2.toml")).unwrap();
+        fs::read_to_string(sandbox.config_dir().join("stellar/identity/test_2.toml")).unwrap();
     assert_eq!(
         file_contents,
         format!("seed_phrase = \"{DEFAULT_SEED_PHRASE}\"\n")
@@ -295,6 +250,7 @@ fn use_env() {
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
 }
 
+#[cfg(feature = "version_lt_23")]
 #[test]
 fn config_dirs_precedence() {
     let sandbox = TestEnv::default();
