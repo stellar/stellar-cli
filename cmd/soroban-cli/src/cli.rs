@@ -83,13 +83,6 @@ pub async fn main() {
             .expect("Failed to set the global tracing subscriber");
     }
 
-    // Spawn a thread to check if a new version exists.
-    // It depends on logger, so we need to place it after
-    // the code block that initializes the logger.
-    tokio::spawn(async move {
-        upgrade_check(root.global_args.quiet).await;
-    });
-
     let printer = Print::new(root.global_args.quiet);
     if let Err(e) = root.run().await {
         // TODO: source is None (should be HelpMessage)
@@ -106,6 +99,11 @@ pub async fn main() {
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);
     }
+
+    // Check if a new version exists.
+    // This cannot be a fire and forget thread, otherwise we risk killing the thread before it
+    // finishes when the program exits.
+    upgrade_check(root.global_args.quiet).await;
 }
 
 // Load ~/.config/stellar/config.toml defaults as env vars.

@@ -7,7 +7,7 @@ use std::error::Error;
 use std::io::IsTerminal;
 use std::time::Duration;
 
-const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
+const CHECK_TTL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
 const CRATES_IO_API_URL: &str = "https://crates.io/api/v1/crates/";
 const NO_UPDATE_CHECK_ENV_VAR: &str = "STELLAR_NO_UPDATE_CHECK";
 
@@ -29,13 +29,13 @@ struct Crate {
 async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
     let crate_name = env!("CARGO_PKG_NAME");
     let url = format!("{CRATES_IO_API_URL}{crate_name}");
-    let resp = http::client()
-        .get(url)
-        .send()
-        .await?
-        .json::<CrateResponse>()
-        .await?;
-    Ok(resp.crate_)
+    tracing::debug!("Fetching crate info from {url}");
+
+    let resp = http::client().get(url).send().await?;
+    tracing::debug!("Response status: {}", resp.status());
+
+    let data = resp.json::<CrateResponse>().await?;
+    Ok(data.crate_)
 }
 
 /// Print a warning if a new version of the CLI is available
@@ -51,18 +51,24 @@ pub async fn upgrade_check(quiet: bool) {
         return;
     }
 
-    tracing::debug!("start upgrade check");
+    tracing::debug!("Start upgrade check");
 
     let current_version = crate::commands::version::pkg();
+    let now = chrono::Utc::now();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
         tracing::debug!("Failed to load upgrade check data: {e}");
         UpgradeCheck::default()
     });
 
-    let now = chrono::Utc::now();
-    // Skip fetch from crates.io if we've checked recently
-    if now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
+    let next_check = stats.latest_check_time + CHECK_TTL;
+    let must_check = next_check < now;
+
+    tracing::debug!("Last checked at: {}", stats.latest_check_time);
+    tracing::debug!("Next checked at: {next_check}");
+    tracing::debug!("Eligible for check: {must_check}");
+
+    if must_check {
         match fetch_latest_crate_info().await {
             Ok(c) => {
                 stats = UpgradeCheck {
@@ -87,14 +93,20 @@ pub async fn upgrade_check(quiet: bool) {
     let current_version = Version::parse(current_version).unwrap();
     let latest_version = get_latest_version(&current_version, &stats);
 
+    tracing::debug!(
+        "Current version: {}, Latest version: {}",
+        current_version,
+        latest_version
+    );
+
     if *latest_version > current_version {
         let printer = Print::new(quiet);
         printer.warnln(format!(
-            "A new release of stellar-cli is available: {current_version} -> {latest_version}"
+            "A new Stellar CLI version is available: {current_version} -> {latest_version}"
         ));
     }
 
-    tracing::debug!("finished upgrade check");
+    tracing::debug!("Finished upgrade check");
 }
 
 fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) -> &'a Version {
