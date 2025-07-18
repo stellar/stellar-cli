@@ -3,6 +3,7 @@ use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
+    env::current_dir,
     ffi::OsStr,
     fmt::Display,
     fs::{self, create_dir_all, OpenOptions},
@@ -495,8 +496,21 @@ impl Args {
 #[cfg(feature = "version_gte_23")]
 pub fn print_deprecation_warning() {
     let print = Print::new(false);
-    print.warnln("Local config is deprecated and will be removed in the future");
-    print.warnln("To resolve this warning run 'stellar config migrate'".to_string());
+    let pwd = current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let local_dir = if pwd.join(".stellar").exists() {
+        ".stellar"
+    } else {
+        ".soroban"
+    };
+
+    let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
+
+    print.warnln(format!("A local config was found at {local_dir:?}."));
+    print.blankln(" This behavior is deprecated and will be removed in the future.".to_string());
+    print.blankln(format!(
+        " Run `stellar config migrate` to move the configuration to {global_dir:?}."
+    ));
 }
 
 impl Pwd for Args {
