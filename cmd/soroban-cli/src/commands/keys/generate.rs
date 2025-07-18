@@ -118,7 +118,7 @@ impl Cmd {
             })
             .unwrap_or_default();
         print.checkln(format!(
-            "Account {:?} funded on {:?}",
+            "Account {} funded on {:?}",
             self.name, network.network_passphrase
         ));
         Ok(())
