@@ -23,7 +23,11 @@
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
-use std::{ffi::OsString, fmt::Display, path::Path};
+use std::{
+    ffi::OsString,
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
@@ -65,6 +69,7 @@ pub struct TestEnv {
 impl Default for TestEnv {
     fn default() -> Self {
         let temp_dir = TempDir::new().unwrap();
+
         Self {
             temp_dir,
             network: network::Network {
@@ -139,6 +144,15 @@ impl TestEnv {
             .unwrap_or(8000);
         Self::with_port(host_port)
     }
+
+    pub fn config_dir(&self) -> PathBuf {
+        self.temp_dir.join("config").join("stellar")
+    }
+
+    pub fn data_dir(&self) -> PathBuf {
+        self.temp_dir.join("data")
+    }
+
     /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
@@ -148,9 +162,9 @@ impl TestEnv {
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
             .env("SOROBAN_RPC_URL", &self.network.rpc_url)
             .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
-            .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
-            .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
-            .current_dir(&self.temp_dir);
+            .env("XDG_CONFIG_HOME", self.config_dir().as_os_str())
+            .env("XDG_DATA_HOME", self.data_dir().as_os_str())
+            .current_dir(self.dir());
 
         if !self.network.rpc_headers.is_empty() {
             cmd.env(
@@ -189,12 +203,8 @@ impl TestEnv {
     /// Uses shlex under the hood and thus has issues parsing strings with embedded `"`s.
     /// Thus `TestEnv::cmd_arr` is recommended to instead.
     pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
-        Self::cmd_with_pwd(args, self.dir())
-    }
-
-    /// Same as `TestEnv::cmd` but sets the pwd can be used instead of the current `TestEnv`.
-    pub fn cmd_with_pwd<T: CommandParser<T>>(args: &str, pwd: &Path) -> T {
-        let args = format!("--config-dir={pwd:?} {args}");
+        let config_dir = self.config_dir();
+        let args = format!("--config-dir={config_dir:?} {args}");
         T::parse(&args).unwrap()
     }
 
@@ -208,7 +218,7 @@ impl TestEnv {
     /// Parse a command using an array of `&str`s, which passes the strings directly to clap
     /// avoiding some issues `cmd` has with shlex. Use the current `TestEnv` pwd.
     pub fn cmd_arr<T: CommandParser<T>>(&self, args: &[&str]) -> T {
-        Self::cmd_arr_with_pwd(args, self.dir())
+        Self::cmd_arr_with_pwd(args, &self.config_dir())
     }
 
     /// A convenience method for using the invoke command.
@@ -255,7 +265,7 @@ impl TestEnv {
     }
 
     pub fn clone_config(&self, account: &str) -> config::Args {
-        let config_dir = Some(self.dir().to_path_buf());
+        let config_dir = Some(self.config_dir().clone());
         config::Args {
             network: network::Args {
                 rpc_url: Some(self.network.rpc_url.clone()),
@@ -284,6 +294,7 @@ impl TestEnv {
         account: &str,
     ) -> Result<T::Result, T::Error> {
         let config = self.clone_config(account);
+
         cmd.run_against_rpc_server(
             Some(&global::Args {
                 locator: config.locator.clone(),
@@ -324,13 +335,13 @@ impl TestEnv {
     /// Copy the contents of the current `TestEnv` to another `TestEnv`
     pub fn fork(&self) -> Result<TestEnv, Error> {
         let this = TestEnv::new();
-        self.save(&this.temp_dir)?;
+        self.save(this.dir())?;
         Ok(this)
     }
 
     /// Save the current state of the `TestEnv` to the given directory.
     pub fn save(&self, dst: &Path) -> Result<(), Error> {
-        fs_extra::dir::copy(&self.temp_dir, dst, &CopyOptions::new())?;
+        fs_extra::dir::copy(self.dir(), dst, &CopyOptions::new())?;
         Ok(())
     }
 
