@@ -1,4 +1,4 @@
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use cargo_metadata::{camino::Utf8PathBuf, Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
 use rustc_version::version;
@@ -31,6 +31,7 @@ use crate::{commands::global, print::Print};
 /// To view the commands that will be executed, without executing them, use the
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]
@@ -57,6 +58,9 @@ pub struct Cmd {
     /// Build with the default feature not activated
     #[arg(long, help_heading = "Features")]
     pub no_default_features: bool,
+    /// Additionally optimize the built WASM file(s)
+    #[arg(long, help_heading = "Other")]
+    pub optimize: bool,
     /// Directory to copy wasm files to
     ///
     /// If provided, wasm files can be found in the cargo target directory, and
@@ -106,6 +110,8 @@ pub enum Error {
     GettingCurrentDir(io::Error),
     #[error("retreiving CARGO_HOME: {0}")]
     CargoHome(io::Error),
+    #[error("--optimize requires installation with the \"additional-libs\" feature")]
+    OptimizeWithoutAdditionalLibs,
     #[error("reading wasm file: {0}")]
     ReadingWasmFile(io::Error),
     #[error("writing wasm file: {0}")]
@@ -114,6 +120,8 @@ pub enum Error {
     MetaArg(String),
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
+    #[error(transparent)]
+    Wasm(#[from] crate::wasm::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -199,27 +207,61 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
-                let file = format!("{}.wasm", p.name.replace('-', "_"));
-                let target_file_path = Path::new(target_dir)
-                    .join(&wasm_target)
-                    .join(&self.profile)
-                    .join(&file);
-
-                self.handle_contract_metadata_args(&target_file_path)?;
-
-                let final_path = if let Some(out_dir) = &self.out_dir {
-                    fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
-                    let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
-                    out_file_path
-                } else {
-                    target_file_path
-                };
-
-                Self::print_build_summary(&print, &final_path)?;
+                self.post_build_steps(&print, &p, target_dir, &wasm_target)?;
             }
         }
 
+        Ok(())
+    }
+
+    fn post_build_steps(
+        &self,
+        print: &Print,
+        package: &Package,
+        target_dir: &Utf8PathBuf,
+        wasm_target: &str,
+    ) -> Result<(), Error> {
+        let file = format!("{}.wasm", package.name.replace('-', "_"));
+        let target_file_path = Path::new(target_dir)
+            .join(wasm_target)
+            .join(&self.profile)
+            .join(&file);
+
+        self.handle_contract_metadata_args(&target_file_path)?;
+
+        let final_path = if let Some(out_dir) = &self.out_dir {
+            fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+            let out_file_path = Path::new(out_dir).join(&file);
+            fs::copy(&target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+            out_file_path
+        } else {
+            target_file_path.clone()
+        };
+
+        if self.optimize {
+            #[cfg(feature = "additional-libs")]
+            {
+                use crate::wasm::Args as WasmArgs;
+                let optimized_file_path = final_path.with_extension("optimized.wasm");
+                let wasm_args = WasmArgs {
+                    wasm: final_path.clone(),
+                };
+                wasm_args.optimize(&optimized_file_path)?;
+                Self::print_build_summary_with_optimization(
+                    print,
+                    &final_path,
+                    &optimized_file_path,
+                )?;
+            }
+            #[cfg(not(feature = "additional-libs"))]
+            {
+                return Err(Error::OptimizeWithoutAdditionalLibs);
+            }
+        } else {
+            Self::print_build_summary(print, &final_path)?;
+        }
+
+        print.checkln("Build Complete");
         Ok(())
     }
 
@@ -360,7 +402,41 @@ impl Cmd {
                 print.blankln(format!("  • {name}"));
             }
         }
-        print.checkln("Build Complete");
+
+        Ok(())
+    }
+
+    fn print_build_summary_with_optimization(
+        print: &Print,
+        original_path: &PathBuf,
+        optimized_path: &PathBuf,
+    ) -> Result<(), Error> {
+        Self::print_build_summary(print, original_path)?;
+        // Print optimization info
+        let original_bytes = fs::read(original_path).map_err(Error::ReadingWasmFile)?;
+        let orig_size = original_bytes.len() as u64;
+        let optimized_bytes = fs::read(optimized_path).map_err(Error::ReadingWasmFile)?;
+        let opt_size = optimized_bytes.len() as u64;
+
+        let savings = orig_size - opt_size;
+
+        print.blankln(format!("Optimized: reduced by {savings} bytes"));
+
+        // Print optimized file info
+        let rel_optimized_path = optimized_path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(optimized_path);
+
+        print.blankln(format!(
+            "Wasm File: {} ({} bytes)",
+            rel_optimized_path.display(),
+            opt_size
+        ));
+
+        print.blankln(format!(
+            "Wasm Hash: {}",
+            hex::encode(Sha256::digest(&optimized_bytes))
+        ));
 
         Ok(())
     }
