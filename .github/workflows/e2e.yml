@@ -1,5 +1,5 @@
 ---
-name: Soroban Tools e2e 
+name: Soroban Tools e2e
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           # - os: windows-latest-8-cores
     uses: elizabethengelman/system-test/.github/workflows/test.yml@update-e2e
     with:
-      js-stellar-sdk-npm-version: v14.0.0-rc.1
+      js-stellar-sdk-npm-version: v14.0.0-rc.3
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: ${{ matrix.sys.os }}
@@ -39,7 +39,7 @@ jobs:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
     with:
-      js-stellar-sdk-npm-version: v14.0.0-rc.1
+      js-stellar-sdk-npm-version: v14.0.0-rc.3
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"
