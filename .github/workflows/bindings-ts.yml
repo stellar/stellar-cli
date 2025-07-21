@@ -1,9 +1,9 @@
 name: bindings typescript
 
 on:
-    push:
-        branches: [main, release/**]
-    pull_request:
+  push:
+    branches: [main, release/**]
+  pull_request:
 
 jobs:
   test:
@@ -13,14 +13,15 @@ jobs:
       matrix:
         sys:
           # x64
-          - ubuntu-latest-16-cores
+          - ubuntu-latest-8-cores
           # ARM
-          - ubuntu-jammy-16-cores-arm64
+          - ubuntu-jammy-8-cores-arm64
           # Intel
           - macos-13
         exclude:
           # Only run Linux x64 tests on pull request to save some time
-          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-16-cores-arm64' }}
+          - sys:
+              ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
           - sys: ${{ github.event_name != 'push' && 'macos-13' }}
     runs-on: ${{ matrix.sys }}
     steps:
@@ -29,7 +30,7 @@ jobs:
           tag: testing
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: "20.x"
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
@@ -41,4 +42,3 @@ jobs:
       - run: make build-test-wasms
       - run: npm ci && npm run test
         working-directory: cmd/crates/soroban-spec-typescript/ts-tests
-

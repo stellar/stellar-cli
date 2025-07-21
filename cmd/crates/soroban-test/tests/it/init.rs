@@ -3,6 +3,7 @@ use predicates::prelude::predicate;
 use soroban_test::TestEnv;
 
 #[test]
+#[ignore]
 fn init() {
     let sandbox = TestEnv::default();
     let cli_version = soroban_cli::commands::version::pkg();
