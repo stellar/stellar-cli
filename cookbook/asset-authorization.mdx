@@ -1,0 +1,491 @@
+---
+title: Control Asset Access with Authorization Flags
+hide_table_of_contents: true
+description: Use the Stellar CLI to control asset access using authorization flags for compliance and security
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/asset-authorization.mdx
+---
+
+Learn how to control access to your assets using Stellar's authorization flags. These flags allow asset issuers to maintain control over who can hold and trade their assets for compliance, security, and operational requirements.
+
+## Prerequisites
+
+Set up accounts for testing authorization operations:
+
+```bash
+# Generate and fund the asset issuer account
+stellar keys generate issuer
+stellar keys fund issuer
+
+# Generate and fund user accounts
+stellar keys generate alice
+stellar keys fund alice
+
+stellar keys generate bob
+stellar keys fund bob
+
+stellar keys generate charlie
+stellar keys fund charlie
+```
+
+## Authorization Flags Overview
+
+### AUTH_REQUIRED_FLAG
+
+Requires issuer authorization before accounts can hold the asset:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-required
+```
+
+### AUTH_REVOCABLE_FLAG
+
+Allows issuer to freeze/unfreeze accounts:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-revocable
+```
+
+### AUTH_CLAWBACK_ENABLED_FLAG
+
+Enables asset clawback functionality:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-clawback-enabled
+```
+
+### Combined Authorization Setup
+
+Enable all authorization features:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-required \
+    --set-revocable \
+    --set-clawback-enabled
+```
+
+## Managing Asset Authorization
+
+### Authorize Account to Hold Asset
+
+Allow an account to hold your asset:
+
+```bash
+# Account must create trustline first
+stellar tx new change-trust \
+    --source alice \
+    --asset "AUTHORIZED:issuer" \
+    --limit 10000
+
+# Then issuer authorizes the account
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset "AUTHORIZED:issuer" \
+    --set-authorize
+```
+
+### Revoke Asset Authorization
+
+Remove authorization from an account:
+
+```bash
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset "AUTHORIZED:issuer" \
+    --clear-authorize
+```
+
+### Batch Authorization Management
+
+Authorize multiple accounts at once:
+
+```bash
+# Authorize multiple users for KYC-compliant asset
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset COMPLIANT \
+    --set-authorize
+
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor bob \
+    --asset COMPLIANT \
+    --set-authorize
+
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor charlie \
+    --asset COMPLIANT \
+    --set-authorize
+```
+
+## Conditional Authorization Workflows
+
+### KYC/AML Compliance Workflow
+
+Implement Know Your Customer requirements:
+
+```bash
+# 1. Enable authorization requirements
+stellar tx new set-options \
+    --source issuer \
+    --set-required \
+    --home-domain "kyc.example.com"
+
+# 2. User creates trustline
+stellar tx new change-trust \
+    --source alice \
+    --asset "KYCTOKEN:issuer" \
+    --limit 50000
+
+# 3. After KYC verification (external process), authorize user
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset KYCTOKEN \
+    --set-authorize
+
+# 4. Issue tokens to authorized user
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "KYCTOKEN:issuer" \
+    --amount 10000
+```
+
+### Tiered Access Control
+
+Implement different authorization levels:
+
+```bash
+# Basic tier - limited amount
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset TIERED \
+    --set-authorize
+
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "TIERED:issuer" \
+    --amount 1000
+
+# Premium tier - higher amount (external verification required)
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor bob \
+    --asset TIERED \
+    --set-authorize
+
+stellar tx new payment \
+    --source issuer \
+    --destination bob \
+    --asset "TIERED:issuer" \
+    --amount 50000
+```
+
+### Time-based Authorization
+
+Implement temporary authorization:
+
+```bash
+# Grant temporary authorization
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset TEMPORARY \
+    --authorize \
+    --memo-text "Authorized until 2025-12-31"
+
+# Later: Revoke when expired (manual process)
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset TEMPORARY \
+    --clear-authorize \
+    --memo-text "Authorization expired"
+```
+
+## Advanced Authorization Patterns
+
+### Whitelist Management
+
+Maintain an authorized user whitelist:
+
+```bash
+# Pre-approve known good actors
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset WHITELIST \
+    --authorize \
+    --memo-text "Institutional partner - pre-approved"
+
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor bob \
+    --asset WHITELIST \
+    --authorize \
+    --memo-text "Verified individual - high trust score"
+```
+
+### Geographic Restrictions
+
+Implement location-based access control:
+
+```bash
+# Authorize US-based account
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset USONLY \
+    --authorize \
+    --memo-text "US jurisdiction verified"
+
+# Revoke for non-compliant jurisdiction
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor charlie \
+    --asset USONLY \
+    --clear-authorize \
+    --memo-text "Geographic restriction - non-US account"
+```
+
+### Multi-Signature Authorization
+
+Require multiple approvals for authorization:
+
+```bash
+# Set up multi-sig for authorization decisions
+stellar tx new set-options \
+    --source issuer \
+    --signer "COMPLIANCE_OFFICER:1" \
+    --signer "LEGAL_OFFICER:1" \
+    --med-threshold 2  # Require 2 signatures for set-trustline-flags operations
+
+# Now authorization requires multiple signatures
+```
+
+## Monitoring and Compliance
+
+### Track Authorization Status
+
+Monitor which accounts are authorized:
+
+```bash
+# Check account authorization status
+stellar account get alice --network testnet
+
+# Look for trustline authorization in the output
+stellar account get alice --network testnet --output json
+```
+
+### Audit Authorization History
+
+Track authorization changes over time:
+
+```bash
+# View issuer account transaction history
+stellar account get issuer --network testnet
+
+# Check specific authorization transaction
+stellar tx hash <AUTHORIZATION_TX_ID> --network testnet
+```
+
+### Compliance Reporting
+
+Generate authorization reports:
+
+```bash
+# Export issuer account data for compliance
+stellar account get issuer --network testnet --output json > authorization_report.json
+```
+
+## Authorization Best Practices
+
+### Clear Authorization Policies
+
+Document your authorization requirements:
+
+```bash
+# Set informative home domain
+stellar tx new set-options \
+    --source issuer \
+    --home-domain "authorization-policy.example.com"
+```
+
+### Prompt Authorization Processing
+
+Minimize delays in authorization decisions:
+
+```bash
+# Use descriptive memos for authorization decisions
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset PROMPT \
+    --authorize \
+    --memo-text "Auto-approved: Verified partner account"
+```
+
+### Regular Authorization Reviews
+
+Periodically review authorized accounts:
+
+```bash
+# Regular review process (example workflow)
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset REVIEWED \
+    --authorize \
+    --memo-text "Annual review completed - reauthorized"
+```
+
+## Example: Regulated Stablecoin
+
+Complete setup for a regulated USD stablecoin:
+
+```bash
+# 1. Set up issuer with all compliance features
+stellar tx new set-options \
+    --source issuer \
+    --set-required \
+    --set-revocable \
+    --set-clawback-enabled \
+    --home-domain "regulatedstable.example.com"
+
+# 2. Add compliance officers as signers
+stellar tx new set-options \
+    --source issuer \
+    --signer "COMPLIANCE_OFFICER_1:1" \
+    --signer "COMPLIANCE_OFFICER_2:1" \
+    --med-threshold 2 \
+    --high-threshold 2
+
+# 3. User onboarding process
+stellar tx new change-trust \
+    --source alice \
+    --asset "RUSD:issuer" \
+    --limit 100000
+
+# 4. KYC verification and authorization
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset RUSD \
+    --authorize \
+    --memo-text "KYC verified - Level 2 authorization"
+
+# 5. Initial asset issuance
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "RUSD:issuer" \
+    --amount 50000 \
+    --memo-text "Initial issuance - verified customer"
+```
+
+## Troubleshooting Authorization Issues
+
+### Common Authorization Problems
+
+**User cannot receive assets:**
+```bash
+# Check if asset requires authorization
+stellar account get issuer --network testnet
+
+# Authorize the user if needed
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset TOKEN \
+    --set-authorize
+```
+
+**Authorization transactions failing:**
+```bash
+# Check if you have proper signing authority
+stellar account get issuer --network testnet
+
+# Verify transaction thresholds match your signing setup
+```
+
+**Asset transfers blocked:**
+```bash
+# Check if account authorization was revoked
+stellar account get alice --network testnet
+
+# Re-authorize if appropriate
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset TOKEN \
+    --set-authorize
+```
+
+## Emergency Procedures
+
+### Mass Authorization Revocation
+
+Quickly revoke multiple authorizations:
+
+```bash
+# Emergency revocation for security incident
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset EMERGENCY \
+    --clear-authorize \
+    --memo-text "EMERGENCY: Security incident - access revoked"
+
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor bob \
+    --asset EMERGENCY \
+    --clear-authorize \
+    --memo-text "EMERGENCY: Security incident - access revoked"
+```
+
+### Authorization Recovery
+
+Restore authorizations after resolving issues:
+
+```bash
+# After security incident resolution
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset RECOVERED \
+    --authorize \
+    --memo-text "Security incident resolved - access restored"
+```
+
+:::note
+
+Authorization flags must be set before issuing any assets. Once assets are in circulation, some flags cannot be easily changed without affecting existing holders.
+
+:::
+
+:::warning
+
+Use authorization features responsibly. Frequent revocations or arbitrary authorization decisions can harm user trust and asset adoption.
+
+:::
+
+:::tip
+
+Implement clear, transparent policies for authorization decisions and communicate them through your asset's home domain documentation.
+
+:::

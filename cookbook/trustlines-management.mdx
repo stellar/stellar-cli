@@ -1,0 +1,354 @@
+---
+title: Set Up and Manage Trustlines Between Accounts
+hide_table_of_contents: true
+description: Use the Stellar CLI to create, modify, and manage trustlines for custom assets
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/trustlines-management.mdx
+---
+
+Learn how to set up and manage trustlines between accounts on the Stellar network. Trustlines are required for accounts to hold custom assets and define the relationship between asset holders and issuers.
+
+## Prerequisites
+
+Set up accounts for testing trustline operations:
+
+```bash
+# Generate and fund accounts
+stellar keys generate issuer
+stellar keys fund issuer
+
+stellar keys generate holder
+stellar keys fund holder
+
+stellar keys generate trader
+stellar keys fund trader
+```
+
+## Creating Trustlines
+
+### Basic Trustline Creation
+
+Create a trustline to hold a custom asset:
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "TOKEN:issuer" \
+    --limit 10000
+```
+
+### Trustline with Custom Limit
+
+Set a specific limit for how much of the asset you're willing to hold:
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "GOLD:issuer" \
+    --limit 5000
+```
+
+### Multiple Trustlines
+
+Create trustlines for multiple assets from the same account:
+
+```bash
+# Trust multiple assets
+stellar tx new change-trust \
+    --source holder \
+    --line "USD:issuer" \
+    --limit 50000
+
+stellar tx new change-trust \
+    --source holder \
+    --line "EUR:issuer" \
+    --limit 40000
+
+stellar tx new change-trust \
+    --source holder \
+    --line "BTC:issuer" \
+    --limit 10
+```
+
+## Modifying Trustlines
+
+### Increase Trustline Limit
+
+Increase the amount of an asset you're willing to hold:
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "TOKEN:issuer" \
+    --limit 20000  # Increased from 10000
+```
+
+### Decrease Trustline Limit
+
+Reduce the trustline limit (must be above current balance):
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "TOKEN:issuer" \
+    --limit 5000   # Decreased limit
+```
+
+### Unlimited Trustline
+
+Set maximum possible limit for a trustline:
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "STABLE:issuer" \
+    --limit 922337203685.4775807  # Maximum possible limit
+```
+
+## Removing Trustlines
+
+### Remove Empty Trustline
+
+Remove a trustline when balance is zero:
+
+```bash
+stellar tx new change-trust \
+    --source holder \
+    --line "OLDTOKEN:issuer" \
+    --limit 0
+```
+
+### Clear Balance Before Removal
+
+Send all tokens back before removing trustline:
+
+```bash
+# First, send all tokens back to issuer
+stellar tx new payment \
+    --source holder \
+    --destination issuer \
+    --line "TOKEN:issuer" \
+    --amount 1000  # Your entire balance
+
+# Then remove the trustline
+stellar tx new change-trust \
+    --source holder \
+    --line "TOKEN:issuer" \
+    --limit 0
+```
+
+## Trustline Management Strategies
+
+### Portfolio Diversification
+
+Set up trustlines for a diversified asset portfolio:
+
+```bash
+# Stablecoins
+stellar tx new change-trust \
+    --source trader \
+    --line "USDC:issuer" \
+    --limit 100000
+
+# Commodities
+stellar tx new change-trust \
+    --source trader \
+    --line "GOLD:issuer" \
+    --limit 1000
+
+# Utility tokens
+stellar tx new change-trust \
+    --source trader \
+    --line "UTIL:issuer" \
+    --limit 50000
+```
+
+### Risk Management with Limits
+
+Set conservative limits based on risk tolerance:
+
+```bash
+# High-risk experimental token - low limit
+stellar tx new change-trust \
+    --source holder \
+    --line "EXPERIMENTAL:issuer" \
+    --limit 100
+
+# Established stablecoin - higher limit
+stellar tx new change-trust \
+    --source holder \
+    --line "STABLE:issuer" \
+    --limit 10000
+
+# Known asset with good track record - high limit
+stellar tx new change-trust \
+    --source holder \
+    --line "ESTABLISHED:issuer" \
+    --limit 50000
+```
+
+## Viewing Trustline Information
+
+### Check Account Trustlines
+
+View all trustlines for an account:
+
+```bash
+stellar account get holder --network testnet
+```
+
+### Filter Trustline Information
+
+Parse specific trustline data:
+
+```bash
+# View account in JSON format for easier parsing
+stellar account get holder --network testnet --output json
+```
+
+### Monitor Trustline Changes
+
+Track trustline modifications over time by monitoring account transactions:
+
+```bash
+# Check recent transactions that might include trustline changes
+stellar tx hash <TRANSACTION_ID> --network testnet
+```
+
+## Advanced Trustline Operations
+
+### Conditional Trustlines
+
+Create trustlines only when certain conditions are met:
+
+```bash
+# Example: Create trustline only after verifying asset issuer
+# First verify the issuer has proper setup
+stellar account get issuer --network testnet
+
+# Then create trustline if issuer looks legitimate
+stellar tx new change-trust \
+    --source holder \
+    --line "VERIFIED:issuer" \
+    --limit 10000
+```
+
+### Batch Trustline Operations
+
+Create multiple trustlines in sequence for efficiency:
+
+```bash
+# Create trustlines for a DEX trading setup
+stellar tx new change-trust \
+    --source trader \
+    --line "USDC:issuer1" \
+    --limit 100000
+
+stellar tx new change-trust \
+    --source trader \
+    --line "USDT:issuer2" \
+    --limit 100000
+
+stellar tx new change-trust \
+    --source trader \
+    --line "EUROC:issuer3" \
+    --limit 50000
+```
+
+### Trustline Authorization Workflows
+
+Handle authorized assets that require issuer approval:
+
+```bash
+# 1. Create trustline for authorized asset
+stellar tx new change-trust \
+    --source holder \
+    --line "AUTHORIZED:issuer" \
+    --limit 10000
+
+# 2. Issuer must authorize the trustline (done by asset issuer)
+# stellar tx new allow-trust \
+#     --source issuer \
+#     --trustor holder \
+#     --line AUTHORIZED \
+#     --authorize
+
+# 3. Now holder can receive the asset
+```
+
+## Trustline Best Practices
+
+1. **Set appropriate limits**: Don't set limits higher than you're comfortable holding
+2. **Research asset issuers**: Verify issuer credibility before creating trustlines
+3. **Monitor asset performance**: Keep track of asset value and issuer behavior
+4. **Clean up unused trustlines**: Remove trustlines for assets you no longer need
+5. **Consider authorization requirements**: Some assets require issuer authorization
+6. **Plan for liquidity**: Ensure you can convert assets back if needed
+
+## Example: DEX Trading Setup
+
+Complete setup for decentralized exchange trading:
+
+```bash
+# Set up trustlines for major trading pairs
+stellar tx new change-trust \
+    --source trader \
+    --line "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN" \
+    --limit 100000
+
+stellar tx new change-trust \
+    --source trader \
+    --line "USDT:GCQTGZQQ5G4PTM2GL7CDIFKUBIPEC52BROAQIAPW53XBRJVN6ZJVTG6V" \
+    --limit 100000
+
+stellar tx new change-trust \
+    --source trader \
+    --line "BTC:GAUTUYY2THLF7SGITDFMXJVYH3LHDSMGEAKSBU267M2K7A3W543CKUEF" \
+    --limit 10
+
+stellar tx new change-trust \
+    --source trader \
+    --line "ETH:GBSTRH4QOTWNSVA6E4HFERETX4ZLSR3CIUBLK7AXYII277PFJC4BBYOG" \
+    --limit 100
+```
+
+## Trustline Troubleshooting
+
+### Common Issues and Solutions
+
+**Trustline limit too low for payment:**
+```bash
+# Increase the limit
+stellar tx new change-trust \
+    --source holder \
+    --line "TOKEN:issuer" \
+    --limit 20000  # Increase limit
+```
+
+**Cannot remove trustline with balance:**
+```bash
+# Send balance back to issuer first
+stellar tx new payment \
+    --source holder \
+    --destination issuer \
+    --line "TOKEN:issuer" \
+    --amount <FULL_BALANCE>
+```
+
+**Asset requires authorization:**
+```bash
+# Contact asset issuer to authorize your account
+# Or check if asset has AUTH_REQUIRED_FLAG set
+stellar account get issuer --network testnet
+```
+
+:::note
+
+Trustlines are required for holding any custom asset on Stellar. Each trustline consumes one reserve requirement (0.5 XLM) that is returned when the trustline is removed.
+
+:::
+
+:::tip
+
+Always research asset issuers and their policies before creating trustlines. Set reasonable limits based on your risk tolerance and intended use of the asset.
+
+:::

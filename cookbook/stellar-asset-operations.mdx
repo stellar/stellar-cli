@@ -1,0 +1,266 @@
+---
+title: Create, Issue, and Manage Stellar Assets
+hide_table_of_contents: true
+description: Use the Stellar CLI to create custom assets, issue them, and manage their properties
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/stellar-asset-operations.mdx
+---
+
+Learn how to create, issue, and manage custom assets on the Stellar network using the Stellar CLI. This guide covers the complete lifecycle of asset management from creation to ongoing administration.
+
+## Prerequisites
+
+First, set up accounts for the asset issuer and a recipient:
+
+```bash
+# Generate and fund the issuer account
+stellar keys generate asset-issuer
+stellar keys fund asset-issuer
+
+# Generate and fund a recipient account for testing
+stellar keys generate alice
+stellar keys fund alice
+```
+
+## Creating and Issuing Assets
+
+### Create a Basic Asset
+
+Issue a simple asset to another account:
+
+```bash
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "MYTOKEN:asset-issuer" \
+    --amount 1000
+```
+
+### Issue Asset with Custom Properties
+
+Create an asset with specific properties and metadata:
+
+```bash
+# First, set asset authorization flags (optional)
+stellar tx new set-options \
+    --source asset-issuer \
+    --set-flags AUTH_REQUIRED_FLAG
+
+# Issue the asset
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "GOLD:asset-issuer" \
+    --amount 5000
+```
+
+### Create Multiple Assets
+
+Issue different assets from the same issuer:
+
+```bash
+# Create a USD-pegged stablecoin
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "USD:asset-issuer" \
+    --amount 10000
+
+# Create a utility token
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "UTIL:asset-issuer" \
+    --amount 50000
+```
+
+## Asset Configuration
+
+### Set Asset Authorization Flags
+
+Control who can hold and trade your asset:
+
+```bash
+# Require authorization for all holders
+stellar tx new set-options \
+    --source asset-issuer \
+    --set-required
+
+# Allow asset to be clawed back
+stellar tx new set-options \
+    --source asset-issuer \
+    --set-clawback-enabled
+
+# Make asset transfers revocable
+stellar tx new set-options \
+    --source asset-issuer \
+    --set-revocable
+```
+
+### Set Asset Home Domain
+
+Link your asset to a website with additional information:
+
+```bash
+stellar tx new set-options \
+    --source asset-issuer \
+    --home-domain "myasset.example.com"
+```
+
+### Configure Asset Limits
+
+Set inflation and other asset properties:
+
+```bash
+# Set master key weight to 0 to make asset immutable (optional)
+stellar tx new set-options \
+    --source asset-issuer \
+    --master-weight 0 \
+    --low-threshold 1 \
+    --med-threshold 1 \
+    --high-threshold 1
+```
+
+## Managing Asset Supply
+
+### Monitor Asset Supply
+
+Check the current supply of your asset:
+
+```bash
+stellar account get asset-issuer --network testnet
+```
+
+### Burn Assets (Reduce Supply)
+
+Send assets back to the issuer to remove them from circulation:
+
+```bash
+stellar tx new payment \
+    --source alice \
+    --destination asset-issuer \
+    --asset "MYTOKEN:asset-issuer" \
+    --amount 100
+```
+
+### Lock Asset Supply
+
+Make your asset have a fixed supply by disabling the issuer account:
+
+```bash
+# Remove all signing power from the issuer account
+stellar tx new set-options \
+    --source asset-issuer \
+    --master-weight 0 \
+    --signer "GABC123...:0"  # Remove any additional signers
+```
+
+## Asset Information and Analytics
+
+### View Asset Details
+
+Get comprehensive information about your asset:
+
+```bash
+# View issuer account details
+stellar account get asset-issuer --network testnet
+
+# Check asset holders (requires horizon API)
+stellar account get alice --network testnet
+```
+
+### Track Asset Transactions
+
+Monitor payments and trades involving your asset:
+
+```bash
+# View recent transactions for the issuer account
+stellar tx hash <TRANSACTION_ID> --network testnet
+```
+
+## Advanced Asset Operations
+
+### Multi-Signature Asset Management
+
+Set up multi-signature control for asset management:
+
+```bash
+# Add additional signers to the issuer account
+stellar tx new set-options \
+    --source asset-issuer \
+    --signer "GDEF456...:1"  # Add co-signer
+    --med-threshold 2        # Require 2 signatures for most operations
+    --high-threshold 2       # Require 2 signatures for high-threshold operations
+```
+
+### Asset Anchoring
+
+Link your asset to external value (like fiat currency):
+
+```bash
+# Set home domain pointing to stellar.toml with asset information
+stellar tx new set-options \
+    --source asset-issuer \
+    --home-domain "anchor.example.com"
+```
+
+### Create Asset with Memo
+
+Include additional information when issuing assets:
+
+```bash
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "REWARD:asset-issuer" \
+    --amount 1000 \
+    --memo-text "Welcome bonus"
+```
+
+## Best Practices
+
+1. **Use descriptive asset codes**: Choose clear, recognizable names for your assets
+2. **Set appropriate authorization flags**: Consider your use case when setting authorization flags (--set-required, --set-revocable, and --set-clawback-enabled)
+3. **Maintain stellar.toml**: Provide asset information via home domain
+4. **Monitor supply carefully**: Track issuance and circulation
+5. **Consider multi-sig**: Use multiple signatures for important asset operations
+6. **Document your asset**: Provide clear information about purpose and backing
+
+## Example: Complete Stablecoin Creation
+
+Here's a complete example of creating a USD-pegged stablecoin:
+
+```bash
+# 1. Set authorization flags
+stellar tx new set-options \
+    --source asset-issuer \
+    --set-required \
+    --set-revocable \
+    --home-domain "stablecoin.example.com"
+
+# 2. Issue initial supply
+stellar tx new payment \
+    --source asset-issuer \
+    --destination alice \
+    --asset "USDX:asset-issuer" \
+    --amount 100000 \
+    --memo-text "Initial issuance"
+
+# 3. Authorize the recipient (since --set-required flag is set)
+stellar tx new set-trustline-flags \
+    --source asset-issuer \
+    --trustor alice \
+    --asset "USDX:asset-issuer" \
+    --set-authorize
+```
+
+:::note
+
+Asset creation happens automatically when you first issue the asset. The asset code can be up to 12 characters for custom assets, and the issuer account becomes the canonical issuer for that asset code.
+
+:::
+
+:::tip
+
+Test your asset operations on testnet first, and consider the implications of authorization flags before setting them, as some changes cannot be easily reversed.
+
+:::

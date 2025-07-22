@@ -1,0 +1,393 @@
+---
+title: Implement Asset Clawback Functionality
+hide_table_of_contents: true
+description: Use the Stellar CLI to implement and manage asset clawback operations for compliance and asset control
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/clawback-operations.mdx
+---
+
+Learn how to implement asset clawback functionality on the Stellar network. Clawback allows asset issuers to reclaim assets from holders for regulatory compliance, security, or other operational needs.
+
+## Prerequisites
+
+Set up accounts for testing clawback operations:
+
+```bash
+# Generate and fund the asset issuer account
+stellar keys generate issuer
+stellar keys fund issuer
+
+# Generate and fund asset holder accounts
+stellar keys generate alice
+stellar keys fund alice
+
+stellar keys generate bob
+stellar keys fund bob
+```
+
+## Enable Clawback on Assets
+
+### Enable Clawback Flag
+
+Before assets can be clawed back, the issuer must enable the clawback flag:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-clawback-enabled
+```
+
+### Create Clawback-Enabled Asset
+
+Issue an asset with clawback capability:
+
+```bash
+# Enable clawback flag first
+stellar tx new set-options \
+    --source issuer \
+    --set-clawback-enabled
+
+# Issue the asset to holders
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "REGULATED:issuer" \
+    --amount 10000
+```
+
+### Enable Multiple Compliance Flags
+
+Combine clawback with other authorization flags:
+
+```bash
+stellar tx new set-options \
+    --source issuer \
+    --set-required \
+    --set-revocable \
+    --set-clawback-enabled
+```
+
+## Performing Clawback Operations
+
+### Basic Asset Clawback
+
+Claw back assets from a holder:
+
+```bash
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000
+```
+
+### Partial Clawback
+
+Claw back only a portion of assets:
+
+```bash
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 500  # Partial clawback
+```
+
+### Complete Balance Clawback
+
+Claw back all assets from an account:
+
+```bash
+# First check the account balance
+stellar account get alice --network testnet
+
+# Then claw back the full amount
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 9500  # Full remaining balance
+```
+
+### Clawback with Memo
+
+Include reasoning for the clawback operation:
+
+```bash
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 2000 \
+    --memo-text "Compliance violation - KYC expired"
+```
+
+## Advanced Clawback Scenarios
+
+### Batch Clawback Operations
+
+Claw back assets from multiple holders:
+
+```bash
+# Clawback from multiple accounts for the same reason
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000 \
+    --memo-text "Regulatory compliance"
+
+stellar tx new clawback \
+    --source issuer \
+    --from bob \
+    --asset "REGULATED:issuer" \
+    --amount 1500 \
+    --memo-text "Regulatory compliance"
+```
+
+### Emergency Clawback
+
+Rapid asset recovery in emergency situations:
+
+```bash
+# Emergency clawback with urgent memo
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "EMERGENCY:issuer" \
+    --amount 10000 \
+    --memo-text "EMERGENCY: Security breach detected"
+```
+
+### Conditional Clawback
+
+Implement clawback based on specific conditions:
+
+```bash
+# Example: Clawback due to failed compliance check
+# First verify the account status (external process)
+# Then execute clawback if needed
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "COMPLIANCE:issuer" \
+    --amount 5000 \
+    --memo-text "Failed quarterly compliance review"
+```
+
+## Clawback Authorization Management
+
+### Authorize After Clawback
+
+Re-authorize an account after clawback if appropriate:
+
+```bash
+# Perform clawback
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000
+
+# Re-authorize the account if issues are resolved
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset "REGULATED:issuer" \
+    --set-authorize
+```
+
+### Revoke and Clawback
+
+Revoke authorization and then clawback:
+
+```bash
+# First revoke authorization to prevent new transactions
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset "REGULATED:issuer" \
+    --clear-authorize
+
+# Then perform clawback
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 5000
+```
+
+## Monitoring and Compliance
+
+### Track Clawback Operations
+
+Monitor clawback transactions for compliance records:
+
+```bash
+# View recent transactions to track clawbacks
+stellar tx hash <CLAWBACK_TRANSACTION_ID> --network testnet
+```
+
+### Audit Asset Holdings
+
+Regularly check asset distribution:
+
+```bash
+# Check issuer account to see clawed back assets
+stellar account get issuer --network testnet
+
+# Verify holder balances
+stellar account get alice --network testnet
+stellar account get bob --network testnet
+```
+
+### Compliance Reporting
+
+Generate reports on clawback activities:
+
+```bash
+# Export account details for compliance reporting
+stellar account get issuer --network testnet --output json > issuer_report.json
+```
+
+## Clawback Best Practices
+
+### Implement Proper Governance
+
+Set up multi-signature requirements for clawback operations:
+
+```bash
+# Add multiple signers for clawback operations
+stellar tx new set-options \
+    --source issuer \
+    --signer "SIGNER1_PUBLIC_KEY:1" \
+    --signer "SIGNER2_PUBLIC_KEY:1" \
+    --high-threshold 2  # Require 2 signatures for clawback
+```
+
+### Document Clawback Policies
+
+Maintain clear documentation of when clawbacks will be performed:
+
+```bash
+# Set home domain with clawback policy
+stellar tx new set-options \
+    --source issuer \
+    --home-domain "compliance.example.com"
+```
+
+### Gradual Enforcement
+
+Implement warnings before clawback:
+
+```bash
+# Send warning payment (small amount)
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset native \
+    --amount 0.0000001 \
+    --memo-text "WARNING: Compliance issue - contact support"
+
+# Wait for resolution period
+# Then perform clawback if not resolved
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000 \
+    --memo-text "Compliance deadline expired"
+```
+
+## Example: Complete Compliance Setup
+
+Here's a complete example for a regulated stablecoin with clawback:
+
+```bash
+# 1. Enable all compliance flags
+stellar tx new set-options \
+    --source issuer \
+    --set-required \
+    --set-revocable \
+    --set-clawback-enabled \
+    --home-domain "stablecoin-compliance.example.com"
+
+# 2. Set up multi-signature for clawback operations
+stellar tx new set-options \
+    --source issuer \
+    --signer "COMPLIANCE_OFFICER_KEY:1" \
+    --signer "LEGAL_OFFICER_KEY:1" \
+    --high-threshold 2
+
+# 3. Issue asset to authorized holder
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "USDCOMPLIANT:issuer" \
+    --amount 100000
+
+# 4. Authorize the holder
+stellar tx new set-trustline-flags \
+    --source issuer \
+    --trustor alice \
+    --asset "USDCOMPLIANT:issuer" \
+    --set-authorize
+
+# 5. Later: Perform clawback if needed
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "USDCOMPLIANT:issuer" \
+    --amount 10000 \
+    --memo-text "Monthly compliance review - excess holdings"
+```
+
+## Clawback Limitations and Considerations
+
+### Technical Limitations
+
+- Clawback only works for assets with AUTH_CLAWBACK_ENABLED_FLAG set
+- Cannot claw back native XLM
+- Cannot claw back more than the account's balance
+- Requires sufficient XLM for transaction fees
+
+### Legal and Ethical Considerations
+
+```bash
+# Always include clear reasoning in memos
+stellar tx new clawback \
+    --source issuer \
+    --from alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000 \
+    --memo-text "AML/KYC violation - case #12345"
+```
+
+### Recovery and Reissuance
+
+```bash
+# After resolving issues, reissue assets if appropriate
+stellar tx new payment \
+    --source issuer \
+    --destination alice \
+    --asset "REGULATED:issuer" \
+    --amount 1000 \
+    --memo-text "Compliance resolved - asset returned"
+```
+
+:::warning
+
+Clawback is a powerful feature that should be used responsibly. Always ensure you have proper legal authority and clear policies before implementing clawback functionality.
+
+:::
+
+:::note
+
+The AUTH_CLAWBACK_ENABLED_FLAG must be set before any assets are issued. It cannot be added to existing assets that were issued without this flag.
+
+:::
+
+:::tip
+
+Implement comprehensive logging and audit trails for all clawback operations to maintain compliance and transparency with regulators and users.
+
+:::
