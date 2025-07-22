@@ -68,11 +68,14 @@ stellar tx new set-options \
 
 ## Performing Clawback Operations
 
+> **⚠️ Important Note:** The direct clawback command (`stellar tx new clawback`) shown in this recipe is not available in stellar-cli v23.0.0. To perform clawback operations currently, you'll need to use [Stellar Laboratory](https://laboratory.stellar.org/) or other Stellar SDKs. The examples below show the expected syntax for clawback operations and are included for documentation purposes.
+
 ### Basic Asset Clawback
 
 Claw back assets from a holder:
 
 ```bash
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -85,6 +88,7 @@ stellar tx new clawback \
 Claw back only a portion of assets:
 
 ```bash
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -101,6 +105,7 @@ Claw back all assets from an account:
 stellar account get alice --network testnet
 
 # Then claw back the full amount
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -113,6 +118,7 @@ stellar tx new clawback \
 Include reasoning for the clawback operation:
 
 ```bash
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -128,6 +134,7 @@ stellar tx new clawback \
 Claw back assets from multiple holders:
 
 ```bash
+# Note: These commands are not available in stellar-cli v23.0.0
 # Clawback from multiple accounts for the same reason
 stellar tx new clawback \
     --source issuer \
@@ -149,6 +156,7 @@ stellar tx new clawback \
 Rapid asset recovery in emergency situations:
 
 ```bash
+# Note: This command is not available in stellar-cli v23.0.0
 # Emergency clawback with urgent memo
 stellar tx new clawback \
     --source issuer \
@@ -163,6 +171,7 @@ stellar tx new clawback \
 Implement clawback based on specific conditions:
 
 ```bash
+# Note: This command is not available in stellar-cli v23.0.0
 # Example: Clawback due to failed compliance check
 # First verify the account status (external process)
 # Then execute clawback if needed
@@ -182,6 +191,7 @@ Re-authorize an account after clawback if appropriate:
 
 ```bash
 # Perform clawback
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -209,6 +219,7 @@ stellar tx new set-trustline-flags \
     --clear-authorize
 
 # Then perform clawback
+# Note: This command is not available in stellar-cli v23.0.0
 stellar tx new clawback \
     --source issuer \
     --from alice \
@@ -345,7 +356,8 @@ stellar tx new clawback \
 
 ### Technical Limitations
 
-- Clawback only works for assets with AUTH_CLAWBACK_ENABLED_FLAG set
+- **CLI Support:** As of stellar-cli v23.0.0, direct clawback operations via CLI are not supported. Use Stellar Laboratory or SDKs instead.
+- Clawback only works for assets with the `--set-clawback-enabled` flag set on the issuer account
 - Cannot claw back native XLM
 - Cannot claw back more than the account's balance
 - Requires sufficient XLM for transaction fees
