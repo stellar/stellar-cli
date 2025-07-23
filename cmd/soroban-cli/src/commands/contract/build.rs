@@ -318,14 +318,11 @@ impl Cmd {
 
         let mut buf = Vec::new();
         let mut writer = Limited::new(std::io::Cursor::new(&mut buf), Limits::none());
-        (new_metas.len() as u32).write_xdr(&mut writer).unwrap();
-
         for entry in new_metas {
             entry.write_xdr(&mut writer).unwrap();
         }
-        let xdr = writer.inner.into_inner();
 
-        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &buf);
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
