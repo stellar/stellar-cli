@@ -219,7 +219,12 @@ fn test_mdx_file(
         for (cmd_i, command) in commands.iter().enumerate() {
             // Clean up any remaining backslashes at the end of lines
             let clean_command = command.replace(" \\", "").replace("\\", "");
-            println!("Running block {} command {}: {}", block_i + 1, cmd_i + 1, clean_command);
+            println!(
+                "Running block {} command {}: {}",
+                block_i + 1,
+                cmd_i + 1,
+                clean_command
+            );
             run_command(
                 sandbox,
                 &clean_command,
