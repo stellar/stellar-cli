@@ -7,6 +7,7 @@ pub mod env_meta;
 pub mod interface;
 pub mod meta;
 pub mod shared;
+pub mod wasm_hash;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -56,6 +57,12 @@ pub enum Cmd {
     /// If the contract has a meta entry like `source_repo=github:user/repo`, this command will try
     /// to fetch the attestation information for the WASM file.
     Build(build::Cmd),
+
+    /// Output the wasm hash for a given contract or wasm file.
+    ///
+    /// Given a contract ID, this command will fetch the contract's WASM blob 
+    /// and compute its hash. It can also accept a local WASM file or a WASM hash.
+    WasmHash(wasm_hash::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -71,6 +78,9 @@ pub enum Error {
 
     #[error(transparent)]
     Build(#[from] build::Error),
+
+    #[error(transparent)]
+    WasmHash(#[from] wasm_hash::Error),
 }
 
 impl Cmd {
@@ -80,6 +90,7 @@ impl Cmd {
             Cmd::Meta(meta) => meta.run(global_args).await?,
             Cmd::EnvMeta(env_meta) => env_meta.run(global_args).await?,
             Cmd::Build(build) => build.run(global_args).await?,
+            Cmd::WasmHash(wasm_hash) => wasm_hash.run(global_args).await?,
         }
 
         Ok(())
