@@ -63,6 +63,16 @@ fn run_command(
                 modified_args.push(source.to_string());
                 skip_next = true;
             }
+            "--trustor" => {
+                modified_args.push(arg.to_string());
+                // Use bob_id for alice, or the source for other trustors
+                if index + 1 < args[2..].len() && args[2..][index + 1] == "alice" {
+                    modified_args.push(bob_id.to_string());
+                } else {
+                    modified_args.push(source.to_string());
+                }
+                skip_next = true;
+            }
             "--contract-id" | "--id" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(contract_id.to_string());
@@ -117,7 +127,9 @@ fn run_command(
             .stderr(
                 predicate::str::is_empty().or(predicates::str::contains("Generated new key for")
                     .or(predicates::str::contains("The identity")
-                        .and(predicates::str::contains("already exists")))),
+                        .and(predicates::str::contains("already exists")))
+                    .or(predicates::str::contains("Key saved with alias"))
+                    .or(predicates::str::contains("already exists"))),
             );
     } else if command.contains("contract invoke") {
         result
@@ -127,6 +139,11 @@ fn run_command(
         result
             .failure()
             .stderr(predicates::str::contains("TxSorobanInvalid"));
+    } else if command.contains("change-trust") && command.contains("--asset") {
+        // This command syntax has changed - --asset and --limit are no longer supported
+        result
+            .failure()
+            .stderr(predicates::str::contains("unexpected argument"));
     } else if command.contains("keys fund") {
         result
             .code(predicates::ord::eq(0).or(predicates::ord::eq(1)))
