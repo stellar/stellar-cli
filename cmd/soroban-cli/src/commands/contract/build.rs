@@ -4,17 +4,18 @@ use itertools::Itertools;
 use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
+use soroban_spec_tools::contract::Spec;
 use std::{
     borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
     fmt::Debug,
-    fs, io,
+    fs, io::{self, Cursor},
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::curr::{Limits, Limited, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 use crate::{commands::global, print::Print};
 
@@ -295,8 +296,15 @@ impl Cmd {
             return Ok(());
         }
 
+        // get existing wasm bytes
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
 
+
+        // get existing meta entry
+        let contract_spec = Spec::new(&wasm_bytes).unwrap();
+        let mut existing_meta: Vec<ScMetaEntry> = contract_spec.meta;
+
+        // collect meta args passed in
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -308,18 +316,33 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            let xdr: Vec<u8> = meta_entry
-                .to_xdr(Limits::none())
-                .map_err(|e| Error::MetaArg(format!("failed to encode metadata entry: {e}")))?;
-
-            wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+            existing_meta.push(meta_entry);
         }
+
+        // this puts them into a new section, but should probably put them into the existing meta section``
+        let mut buf = Vec::new();
+        let mut writer = Limited::new(std::io::Cursor::new(&mut buf), Limits::none());
+
+        println!("existing_meta.leng() {}", existing_meta.len());
+
+        (existing_meta.len() as u32).write_xdr(&mut writer).unwrap();
+
+        for entry in existing_meta {
+            entry.write_xdr(&mut writer).unwrap();
+        }
+        let xdr = writer.inner.into_inner();
+
+        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
+
+
+
+
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
         print.infoln("Build Summary:");
