@@ -2769,13 +2769,13 @@ Work with ledger entries
 
 ###### **Subcommands:**
 
-* `fetch` — Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+* `fetch` — Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys>
 
 
 
 ## `stellar ledger entry fetch`
 
-Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys
+Fetch ledger entries. This command supports all types of ledger entries supported by the RPC. Read more about the RPC command here: <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries#types-of-ledgerkeys>
 
 **Usage:** `stellar ledger entry fetch <COMMAND>`
 
@@ -2783,7 +2783,7 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 
 * `account` — Fetch account entry by public key or alias. Additional account-related keys are available with optional flags
 * `contract` — Fetch contract ledger entry by address or alias and storage key
-* `config` — Fetch the current network config by ConfigSettingId. All config settings are returned if no id is provided
+* `config` — Fetch the current network config by `ConfigSettingId`. All config settings are returned if no id is provided
 * `claimable-balance` — Fetch a claimable balance ledger entry by id
 * `liquidity-pool` — Fetch a liquidity pool ledger entry by id
 * `wasm` — Fetch WASM bytecode by hash
@@ -2875,7 +2875,7 @@ Fetch contract ledger entry by address or alias and storage key
 
 ## `stellar ledger entry fetch config`
 
-Fetch the current network config by ConfigSettingId. All config settings are returned if no id is provided
+Fetch the current network config by `ConfigSettingId`. All config settings are returned if no id is provided
 
 **Usage:** `stellar ledger entry fetch config [OPTIONS] [CONFIG_SETTING_IDS]...`
 
@@ -2894,8 +2894,11 @@ Fetch the current network config by ConfigSettingId. All config settings are ret
    9 => ContractDataEntrySizeBytes
    10 => StateArchival
    11 => ContractExecutionLanes
-   12 => BucketlistSizeWindow
+   12 => LiveSorobanStateSizeWindow
    13 => EvictionIterator
+   14 => ContractParallelComputeV0
+   15 => ContractLedgerCostExtV0
+   16 => ScpTiming
 
 ###### **Options:**
 
