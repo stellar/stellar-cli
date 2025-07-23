@@ -40,3 +40,24 @@ impl Cmd {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wasm_hash_calculation() {
+        // Test that we can calculate hash correctly for test wasm bytes
+        let test_wasm = b"test wasm content";
+        let hash = crate::utils::contract_hash(test_wasm).expect("hash calculation should work");
+        let hex_hash = hex::encode(hash.0);
+        
+        // The hash should be a 64-character hex string (32 bytes)
+        assert_eq!(hex_hash.len(), 64);
+        
+        // Test that same input produces same hash
+        let hash2 = crate::utils::contract_hash(test_wasm).expect("hash calculation should work");
+        let hex_hash2 = hex::encode(hash2.0);
+        assert_eq!(hex_hash, hex_hash2);
+    }
+}
