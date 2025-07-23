@@ -11,11 +11,12 @@ use std::{
     env,
     ffi::OsStr,
     fmt::Debug,
-    fs, io::{self, Cursor},
+    fs,
+    io::{self, Cursor},
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limits, Limited, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 use crate::{commands::global, print::Print};
 
@@ -299,12 +300,8 @@ impl Cmd {
         // get existing wasm bytes
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
 
-
-        // get existing meta entry
-        let contract_spec = Spec::new(&wasm_bytes).unwrap();
-        let mut existing_meta: Vec<ScMetaEntry> = contract_spec.meta;
-
         // collect meta args passed in
+        let mut new_metas: Vec<ScMetaEntry> = Vec::new();
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -316,18 +313,14 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            existing_meta.push(meta_entry);
+            new_metas.push(meta_entry);
         }
 
-        // this puts them into a new section, but should probably put them into the existing meta section``
         let mut buf = Vec::new();
         let mut writer = Limited::new(std::io::Cursor::new(&mut buf), Limits::none());
+        (new_metas.len() as u32).write_xdr(&mut writer).unwrap();
 
-        println!("existing_meta.leng() {}", existing_meta.len());
-
-        (existing_meta.len() as u32).write_xdr(&mut writer).unwrap();
-
-        for entry in existing_meta {
+        for entry in new_metas {
             entry.write_xdr(&mut writer).unwrap();
         }
         let xdr = writer.inner.into_inner();
@@ -339,10 +332,6 @@ impl Cmd {
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
-
-
-
-
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
         print.infoln("Build Summary:");
