@@ -24,6 +24,18 @@ impl Default for UnresolvedMuxedAccount {
     }
 }
 
+impl Display for UnresolvedMuxedAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => write!(f, "{muxed_account}"),
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                write!(f, "{alias_or_secret}")
+            }
+            UnresolvedMuxedAccount::Ledger(hd_path) => write!(f, "ledger:{hd_path}"),
+        }
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]

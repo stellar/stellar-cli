@@ -156,7 +156,6 @@ Deploy builtin Soroban Asset Contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
 
@@ -410,7 +409,6 @@ If no keys are specified the contract itself is extended.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -446,7 +444,6 @@ Deploy a wasm contract
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -756,7 +753,6 @@ Install a WASM file to the ledger without creating a contract instance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -789,7 +785,6 @@ Install a WASM file to the ledger without creating a contract instance
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--wasm <WASM>` — Path to wasm binary
 * `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -832,7 +827,6 @@ stellar contract invoke ... -- --help
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--send <SEND>` — Whether or not to send a transaction
 
   Default value: `default`
@@ -949,7 +943,6 @@ If no keys are specificed the contract itself is restored.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 
 
 
@@ -1122,7 +1115,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
 ###### **Options:**
 
-* `--no-fund` — Do not fund address
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
 * `--secure-store` — Save in OS-specific secure store
@@ -1218,10 +1210,7 @@ Configure connection to networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `start` — ⚠️ Deprecated: use `stellar container start` instead
-* `stop` — ⚠️ Deprecated: use `stellar container stop` instead
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
-* `container` — ⚠️ Deprecated: use `stellar container` instead
 * `health` — Checks the health of the configured RPC
 
 
@@ -1277,62 +1266,6 @@ List networks
 
 
 
-## `stellar network start`
-
-⚠️ Deprecated: use `stellar container start` instead
-
-Start network
-
-Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-
-`stellar network start NETWORK [OPTIONS]`
-
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-
-**Usage:** `stellar network start [OPTIONS] [NETWORK]`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to start. Default is `local`
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `--name <NAME>` — Optional argument to specify the container name
-* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
-
-  Default value: `8000:8000`
-* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
-
-
-
-## `stellar network stop`
-
-⚠️ Deprecated: use `stellar container stop` instead
-
-Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
-
-**Usage:** `stellar network stop [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to stop
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-
-
-
 ## `stellar network use`
 
 Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
@@ -1347,90 +1280,6 @@ Set the default network that will be used on all commands. This allows you to sk
 
 * `--global` — Use global config
 * `--config-dir <CONFIG_DIR>` — Location of config directory, default is "."
-
-
-
-## `stellar network container`
-
-⚠️ Deprecated: use `stellar container` instead
-
-Commands to start, stop and get logs for a quickstart container
-
-**Usage:** `stellar network container <COMMAND>`
-
-###### **Subcommands:**
-
-* `logs` — Get logs from a running network container
-* `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
-* `stop` — Stop a network container started with `stellar container start`
-
-
-
-## `stellar network container logs`
-
-Get logs from a running network container
-
-**Usage:** `stellar network container logs [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to get logs from
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-
-
-
-## `stellar network container start`
-
-Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-
-`stellar container start NETWORK [OPTIONS]`
-
-By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-
-**Usage:** `stellar network container start [OPTIONS] [NETWORK]`
-
-###### **Arguments:**
-
-* `<NETWORK>` — Network to start. Default is `local`
-
-  Possible values: `local`, `testnet`, `futurenet`, `pubnet`
-
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-* `--name <NAME>` — Optional argument to specify the container name
-* `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
-* `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
-
-  Default value: `8000:8000`
-* `-t`, `--image-tag-override <IMAGE_TAG_OVERRIDE>` — Optional argument to override the default docker image tag for the given network
-* `--protocol-version <PROTOCOL_VERSION>` — Optional argument to specify the protocol version for the local network only
-
-
-
-## `stellar network container stop`
-
-Stop a network container started with `stellar container start`
-
-**Usage:** `stellar network container stop [OPTIONS] [NAME]`
-
-###### **Arguments:**
-
-* `<NAME>` — Container to stop
-
-  Default value: `local`
-
-###### **Options:**
-
-* `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 
 
@@ -1726,7 +1575,6 @@ Transfer XLM balance to another account and remove source account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1756,7 +1604,6 @@ Bump sequence number to invalidate older transactions
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1786,7 +1633,6 @@ Create, update, or delete a trustline
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1819,7 +1665,6 @@ Create and fund a new account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1852,7 +1697,6 @@ Set, modify, or delete account data entries
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1883,7 +1727,6 @@ Send asset to destination account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1917,7 +1760,6 @@ Set account options like flags, signers, and home domain
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -1962,7 +1804,6 @@ Configure authorization and trustline flags for an asset
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2037,7 +1878,6 @@ Transfer XLM balance to another account and remove source account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2072,7 +1912,6 @@ Bump sequence number to invalidate older transactions
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2107,7 +1946,6 @@ Create, update, or delete a trustline
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2145,7 +1983,6 @@ Create and fund a new account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2183,7 +2020,6 @@ Set, modify, or delete account data entries
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2219,7 +2055,6 @@ Send asset to destination account
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2258,7 +2093,6 @@ Set account options like flags, signers, and home domain
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -2308,7 +2142,6 @@ Configure authorization and trustline flags for an asset
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
-* `--sim-only` — (Deprecated) simulate the transaction and only write the base64 xdr to stdout
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server

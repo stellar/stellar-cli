@@ -1,6 +1,6 @@
 [package]
 name = "test_custom_types"
-version = "22.8.2"
+version = "23.0.0"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
