@@ -60,7 +60,7 @@ pub enum Cmd {
 
     /// Output the wasm hash for a given contract or wasm file.
     ///
-    /// Given a contract ID, this command will fetch the contract's WASM blob 
+    /// Given a contract ID, this command will fetch the contract's WASM blob
     /// and compute its hash. It can also accept a local WASM file or a WASM hash.
     WasmHash(wasm_hash::Cmd),
 }
