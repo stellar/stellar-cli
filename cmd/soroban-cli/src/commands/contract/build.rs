@@ -299,9 +299,9 @@ impl Cmd {
 
         // get existing wasm bytes
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let mut existing_meta: Vec<ScMetaEntry> = Spec::new(&wasm_bytes).unwrap().meta;
 
         // collect meta args passed in
-        let mut new_metas: Vec<ScMetaEntry> = Vec::new();
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -313,12 +313,12 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            new_metas.push(meta_entry);
+            existing_meta.push(meta_entry);
         }
 
         let mut buf = Vec::new();
         let mut writer = Limited::new(std::io::Cursor::new(&mut buf), Limits::none());
-        for entry in new_metas {
+        for entry in existing_meta {
             entry.write_xdr(&mut writer).unwrap();
         }
 
