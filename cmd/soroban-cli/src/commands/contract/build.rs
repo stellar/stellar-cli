@@ -17,7 +17,8 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
-use wasm_encoder::{Module, RawSection, SectionId};
+use wasm_encoder::{CustomSection, Module, RawSection};
+use wasmparser::{Parser as WasmParser, Payload};
 
 use crate::{commands::global, print::Print};
 
@@ -299,38 +300,33 @@ impl Cmd {
         }
 
         // get existing wasm bytes
-        let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let existing_meta: Vec<ScMetaEntry> = Spec::new(&wasm_bytes).unwrap().meta;
 
+        let mut module = Module::new();
 
-        let mut module = wasm_encoder::Module::new();
-
-        for payload in wasmparser::Parser::new(0).parse_all(&wasm_bytes) {
+        for payload in WasmParser::new(0).parse_all(&wasm_bytes) {
             match payload.unwrap() {
-                wasmparser::Payload::CustomSection(section) => {
+                Payload::CustomSection(section) => {
                     if section.name() == META_CUSTOM_SECTION_NAME {
                         let updated_meta = self.append_new_meta(&existing_meta).unwrap();
-                        let custom = wasm_encoder::CustomSection {
+                        let custom = CustomSection {
                             name: section.name().into(),
                             data: updated_meta.into(),
                         };
                         module.section(&custom);
                     } else {
-                        let custom = wasm_encoder::CustomSection {
+                        let custom = CustomSection {
                             name: section.name().into(),
                             data: section.data().into(),
                         };
                         module.section(&custom);
                     }
                 }
-                wasmparser::Payload::Version { .. } => {
-                    // wasm_encoder automatically handles the version header
-                    continue;
-                }
                 other => {
                     // Reconstruct raw section bytes and add them to the new module
                     if let Some((id, range)) = other.as_section() {
-                        let raw = wasm_encoder::RawSection {
+                        let raw = RawSection {
                             id,
                             data: &wasm_bytes[range.start..range.end],
                         };
@@ -348,8 +344,8 @@ impl Cmd {
         fs::write(target_file_path, updated_wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn append_new_meta(&self, existing_meta: &Vec<ScMetaEntry>)  -> Result<Vec<u8>, Error> {
-        let mut updated_meta = existing_meta.clone();
+    fn append_new_meta(&self, existing_meta: &[ScMetaEntry]) -> Result<Vec<u8>, Error> {
+        let mut updated_meta = existing_meta.to_owned();
         // collect meta args passed in
         for (k, v) in self.meta.clone() {
             let key: StringM = k
@@ -366,7 +362,7 @@ impl Cmd {
         }
 
         let mut meta_custom_section_buffer = Vec::new();
-        let mut writer = Limited::new(std::io::Cursor::new(&mut meta_custom_section_buffer), Limits::none());
+        let mut writer = Limited::new(Cursor::new(&mut meta_custom_section_buffer), Limits::none());
         for entry in updated_meta {
             entry.write_xdr(&mut writer).unwrap();
         }
