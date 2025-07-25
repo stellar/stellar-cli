@@ -45,7 +45,6 @@ impl Cmd {
                 );
                 println!("Max Inclusion Fee: {}", fee_stats.inclusion_fee.max);
                 println!("Latest Ledger: {}", fee_stats.latest_ledger);
-                println!("\nFor more details use --output flag with 'json' or 'json-formatted'");
             }
             OutputFormat::Json => println!("{}", serde_json::to_string(&fee_stats)?),
             OutputFormat::JsonFormatted => {
