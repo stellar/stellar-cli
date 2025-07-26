@@ -297,6 +297,8 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 ",
             )
         }
+
+        types::Entry::EventV0 { .. } => todo!("implement event"),
     }
 }
 
