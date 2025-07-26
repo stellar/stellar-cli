@@ -4,17 +4,21 @@ use itertools::Itertools;
 use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
+use soroban_spec_tools::contract::Spec;
 use std::{
     borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
     fmt::Debug,
-    fs, io,
+    fs,
+    io::{self, Cursor},
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use wasm_encoder::{CustomSection, Module, RawSection};
+use wasmparser::{Parser as WasmParser, Payload};
 
 use crate::{commands::global, print::Print};
 
@@ -295,8 +299,54 @@ impl Cmd {
             return Ok(());
         }
 
-        let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        // get existing wasm bytes
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let existing_meta: Vec<ScMetaEntry> = Spec::new(&wasm_bytes).unwrap().meta;
 
+        let mut module = Module::new();
+
+        for payload in WasmParser::new(0).parse_all(&wasm_bytes) {
+            match payload.unwrap() {
+                Payload::CustomSection(section) => {
+                    if section.name() == META_CUSTOM_SECTION_NAME {
+                        let updated_meta = self.append_new_meta(&existing_meta).unwrap();
+                        let custom = CustomSection {
+                            name: section.name().into(),
+                            data: updated_meta.into(),
+                        };
+                        module.section(&custom);
+                    } else {
+                        let custom = CustomSection {
+                            name: section.name().into(),
+                            data: section.data().into(),
+                        };
+                        module.section(&custom);
+                    }
+                }
+                other => {
+                    // Reconstruct raw section bytes and add them to the new module
+                    if let Some((id, range)) = other.as_section() {
+                        let raw = RawSection {
+                            id,
+                            data: &wasm_bytes[range.start..range.end],
+                        };
+                        module.section(&raw);
+                    }
+                }
+            }
+        }
+
+        let updated_wasm_bytes = module.finish();
+
+        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
+        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, updated_wasm_bytes).map_err(Error::WritingWasmFile)
+    }
+
+    fn append_new_meta(&self, existing_meta: &[ScMetaEntry]) -> Result<Vec<u8>, Error> {
+        let mut updated_meta = existing_meta.to_owned();
+        // collect meta args passed in
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -308,17 +358,16 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            let xdr: Vec<u8> = meta_entry
-                .to_xdr(Limits::none())
-                .map_err(|e| Error::MetaArg(format!("failed to encode metadata entry: {e}")))?;
-
-            wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+            updated_meta.push(meta_entry);
         }
 
-        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
-        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
-        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+        let mut meta_custom_section_buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut meta_custom_section_buffer), Limits::none());
+        for entry in updated_meta {
+            entry.write_xdr(&mut writer).unwrap();
+        }
+
+        Ok(meta_custom_section_buffer)
     }
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
