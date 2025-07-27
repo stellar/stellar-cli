@@ -49,8 +49,6 @@ pub enum Error {
     StellarStrkey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Address(#[from] address::Error),
-    // #[error(transparent)]
-    // Generate(#[from] generate::Error), // Handles generate::Error from generate_cmd.run
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
