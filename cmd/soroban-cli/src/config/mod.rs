@@ -11,8 +11,8 @@ use crate::{
     Pwd,
 };
 
-use crate::commands::keys::generate;
 use crate::commands::global;
+use crate::commands::keys::generate;
 use crate::config::address::KeyName;
 use network::Network;
 
@@ -57,7 +57,13 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT", default_value = "default")]
+    #[arg(
+        long,
+        short = 's',
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        default_value = "default"
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
@@ -96,31 +102,36 @@ impl Args {
                         fund: should_fund,
                         overwrite: false, // Prevent overwriting
                     };
-                    let _ = generate_cmd.run(&global::Args { quiet: true, ..Default::default() }).await;
+                    let _ = generate_cmd
+                        .run(&global::Args {
+                            quiet: true,
+                            ..Default::default()
+                        })
+                        .await;
                 }
                 Ok(UnresolvedMuxedAccount::AliasOrSecret("default".to_string())
                     .resolve_muxed_account(&self.locator, self.hd_path())
                     .await?)
             }
-            _ => {
-                Ok(self
-                    .source_account
-                    .as_ref()
-                    .unwrap()
-                    .resolve_muxed_account(&self.locator, self.hd_path())
-                    .await?)
-            }
+            _ => Ok(self
+                .source_account
+                .as_ref()
+                .unwrap()
+                .resolve_muxed_account(&self.locator, self.hd_path())
+                .await?),
         }
     }
-    
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = &self.source_account.as_ref().unwrap().resolve_secret(&self.locator)?;
+        let key = &self
+            .source_account
+            .as_ref()
+            .unwrap()
+            .resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path())?)
     }
 
     pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
-        println!("&self.source_account.as_ref().unwrap(): {:?}", &self.source_account.as_ref().unwrap());
-
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
             tx,
             signatures: VecM::default(),
