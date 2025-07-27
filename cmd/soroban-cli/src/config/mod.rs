@@ -85,30 +85,27 @@ impl Args {
         match &self.source_account {
             Some(UnresolvedMuxedAccount::AliasOrSecret(alias)) if alias == "default" => {
                 let default_name = KeyName("default".to_string());
-                if self.locator.read_identity(&default_name).is_err() {
-                    println!("Generating new default account");
-                    let network = self.network.get(&self.locator)?;
-                    let should_fund = network.network_passphrase == network::passphrase::TESTNET;
-                    let generate_cmd = generate::Cmd {
-                        name: default_name.clone(),
-                        // #[cfg(feature = "version_lt_23")]
-                        // no_fund: !should_fund,
-                        seed: None, // Random seed for security
-                        as_secret: false,
-                        secure_store: false,
-                        config_locator: self.locator.clone(),
-                        hd_path: None,
-                        network: self.network.clone(),
-                        fund: should_fund,
-                        overwrite: false, // Prevent overwriting
-                    };
-                    let _ = generate_cmd
-                        .run(&global::Args {
-                            quiet: true,
-                            ..Default::default()
-                        })
-                        .await;
-                }
+                let network = self.network.get(&self.locator)?;
+                let should_fund = network.network_passphrase == network::passphrase::TESTNET;
+                let generate_cmd = generate::Cmd {
+                    name: default_name.clone(),
+                    // #[cfg(feature = "version_lt_23")]
+                    // no_fund: !should_fund,
+                    seed: None, // Random seed for security
+                    as_secret: false,
+                    secure_store: false,
+                    config_locator: self.locator.clone(),
+                    hd_path: None,
+                    network: self.network.clone(),
+                    fund: should_fund,
+                    overwrite: true,
+                };
+                let _ = generate_cmd
+                    .run(&global::Args {
+                        quiet: true,
+                        ..Default::default()
+                    })
+                    .await;
                 Ok(UnresolvedMuxedAccount::AliasOrSecret("default".to_string())
                     .resolve_muxed_account(&self.locator, self.hd_path())
                     .await?)
