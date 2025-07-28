@@ -10,6 +10,10 @@ use crate::{
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
 };
+
+use crate::commands::global;
+use crate::commands::keys::generate;
+use crate::config::address::KeyName;
 use network::Network;
 
 pub mod address;
@@ -53,14 +57,20 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(
+        long,
+        short = 's',
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        default_value = "default"
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
     /// or a seed phrase (--source "kite urban…").
     /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
-    pub source_account: UnresolvedMuxedAccount,
+    pub source_account: Option<UnresolvedMuxedAccount>,
 
     #[command(flatten)]
     pub locator: locator::Args,
@@ -72,14 +82,49 @@ pub struct Args {
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
     pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self
-            .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path())
-            .await?)
+        match &self.source_account {
+            Some(UnresolvedMuxedAccount::AliasOrSecret(alias)) if alias == "default" => {
+                let default_name = KeyName("default".to_string());
+                let network = self.network.get(&self.locator)?;
+                let should_fund = network.network_passphrase == network::passphrase::TESTNET;
+                let generate_cmd = generate::Cmd {
+                    name: default_name.clone(),
+                    // #[cfg(feature = "version_lt_23")]
+                    // no_fund: !should_fund,
+                    seed: None, // Random seed for security
+                    as_secret: false,
+                    secure_store: false,
+                    config_locator: self.locator.clone(),
+                    hd_path: None,
+                    network: self.network.clone(),
+                    fund: should_fund,
+                    overwrite: true,
+                };
+                let _ = generate_cmd
+                    .run(&global::Args {
+                        quiet: true,
+                        ..Default::default()
+                    })
+                    .await;
+                Ok(UnresolvedMuxedAccount::AliasOrSecret("default".to_string())
+                    .resolve_muxed_account(&self.locator, self.hd_path())
+                    .await?)
+            }
+            _ => Ok(self
+                .source_account
+                .as_ref()
+                .unwrap()
+                .resolve_muxed_account(&self.locator, self.hd_path())
+                .await?),
+        }
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let key = &self
+            .source_account
+            .as_ref()
+            .unwrap()
+            .resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path())?)
     }
 
@@ -95,7 +140,7 @@ impl Args {
                 &self.locator,
                 &self.network.get(&self.locator)?,
                 false,
-                Some(&self.source_account),
+                Some(&self.source_account.as_ref().unwrap()),
             )
             .await?)
     }
