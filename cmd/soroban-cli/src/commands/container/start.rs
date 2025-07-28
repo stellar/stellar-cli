@@ -215,12 +215,12 @@ impl Runner {
         let tail = format!("{container_name} {additional_flags}");
 
         self.print.searchln(format!(
-            "Watch logs with `stellar network container logs {}`",
+            "Watch logs with `stellar container logs {}`",
             tail.trim()
         ));
 
         self.print.infoln(format!(
-            "Stop the container with `stellar network container stop {}`",
+            "Stop the container with `stellar container stop {}`",
             tail.trim()
         ));
     }
