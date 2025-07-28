@@ -20,9 +20,9 @@ jobs:
       matrix:
         sys:
           # x64
-          - os: ubuntu-latest-16-cores
+          - os: ubuntu-latest-8-cores
           # ARM
-          - os: ubuntu-jammy-16-cores-arm64
+          - os: ubuntu-jammy-8-cores-arm64
           # Intel
           - os: macos-13
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
@@ -39,7 +39,7 @@ jobs:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
     with:
-      js-stellar-sdk-npm-version: v14.0.0-rc.1
+      js-stellar-sdk-npm-version: v14.0.0-rc.3
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"

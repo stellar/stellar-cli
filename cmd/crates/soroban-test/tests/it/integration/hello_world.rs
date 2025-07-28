@@ -67,8 +67,8 @@ async fn invoke_contract() {
         .arg("--hd-path=1")
         .assert()
         .stdout_as_str();
-    let dir = sandbox.dir();
-    let seed_phrase = std::fs::read_to_string(dir.join(".stellar/identity/test.toml")).unwrap();
+    let dir = sandbox.config_dir();
+    let seed_phrase = std::fs::read_to_string(dir.join("identity/test.toml")).unwrap();
     let s = toml::from_str::<secret::Secret>(&seed_phrase).unwrap();
     let secret::Secret::SeedPhrase { seed_phrase } = s else {
         panic!("Expected seed phrase")
@@ -112,7 +112,7 @@ async fn invoke_contract() {
         )
         .unwrap();
 
-    let sk_from_file = std::fs::read_to_string(dir.join(".stellar/identity/testone.toml")).unwrap();
+    let sk_from_file = std::fs::read_to_string(dir.join("identity/testone.toml")).unwrap();
 
     assert_eq!(sk_from_file, format!("secret_key = \"{secret_key_1}\"\n"));
 

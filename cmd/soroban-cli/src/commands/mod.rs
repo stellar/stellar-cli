@@ -6,11 +6,13 @@ use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 use crate::config;
 
 pub mod cache;
+pub mod cfg;
 pub mod completion;
 pub mod container;
 pub mod contract;
 pub mod env;
 pub mod events;
+pub mod fee_stats;
 pub mod global;
 pub mod keys;
 pub mod ledger;
@@ -110,6 +112,8 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
+            #[cfg(feature = "version_gte_23")]
+            Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
@@ -121,6 +125,7 @@ impl Root {
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
             Cmd::Ledger(env) => env.run(&self.global_args).await?,
+            Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
     }
@@ -165,6 +170,11 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(container::Cmd),
 
+    /// Manage cli configuration
+    #[cfg(feature = "version_gte_23")]
+    #[command(subcommand)]
+    Config(cfg::Cmd),
+
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
     Snapshot(snapshot::Cmd),
@@ -194,6 +204,9 @@ pub enum Cmd {
     /// Fetch ledger information
     #[command(subcommand)]
     Ledger(ledger::Cmd),
+
+    /// Fetch network feestats
+    FeeStats(fee_stats::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -227,6 +240,9 @@ pub enum Error {
     Container(#[from] container::Error),
 
     #[error(transparent)]
+    Config(#[from] cfg::Error),
+
+    #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
 
     #[error(transparent)]
@@ -240,6 +256,9 @@ pub enum Error {
 
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
+
+    #[error(transparent)]
+    FeeStats(#[from] fee_stats::Error),
 }
 
 #[async_trait]
