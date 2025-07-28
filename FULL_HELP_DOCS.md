@@ -57,6 +57,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `version` — Print version information
 * `plugin` — The subcommand for CLI plugins
 * `ledger` — Fetch ledger information
+* `fee-stats` — Fetch network feestats
 
 ###### **Options:**
 
@@ -2795,6 +2796,33 @@ Fetch ledger information
 Get the latest ledger sequence and information from the network
 
 **Usage:** `stellar ledger latest [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
+
+
+
+## `stellar fee-stats`
+
+Fetch network feestats
+
+**Usage:** `stellar fee-stats [OPTIONS]`
 
 ###### **Options:**
 
