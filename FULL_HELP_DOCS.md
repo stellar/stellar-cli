@@ -1405,7 +1405,7 @@ Manage cli configuration
 ###### **Subcommands:**
 
 * `migrate` — Migrate the local configuration to the global directory
-* `show` — Show the global configuration directory
+* `dir` — Show the global configuration directory
 
 
 
@@ -1422,7 +1422,7 @@ Migrate the local configuration to the global directory
 
 
 
-## `stellar config show`
+## `stellar config dir`
 
 Show the global configuration directory.
 
@@ -1430,7 +1430,7 @@ The location will depend on how your system is configured.
 
 - It looks up for `XDG_CONFIG_HOME` environment variable. If it's set, `$XDG_CONFIG_HOME/stellar` will be used. - If not set, it defaults to `$HOME/.config`. - Can be overridden by `--config-dir` flag.
 
-**Usage:** `stellar config show [OPTIONS]`
+**Usage:** `stellar config dir [OPTIONS]`
 
 ###### **Options:**
 

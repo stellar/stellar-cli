@@ -1,5 +1,5 @@
+mod dir;
 mod migrate;
-mod show;
 
 use clap::Parser;
 
@@ -17,7 +17,7 @@ pub enum Cmd {
     ///   `$XDG_CONFIG_HOME/stellar` will be used.
     /// - If not set, it defaults to `$HOME/.config`.
     /// - Can be overridden by `--config-dir` flag.
-    Show(show::Cmd),
+    Dir(dir::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -26,14 +26,14 @@ pub enum Error {
     Migrate(#[from] migrate::Error),
 
     #[error(transparent)]
-    Show(#[from] show::Error),
+    Dir(#[from] dir::Error),
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Migrate(cmd) => cmd.run()?,
-            Cmd::Show(cmd) => cmd.run()?,
+            Cmd::Dir(cmd) => cmd.run()?,
         }
         Ok(())
     }
