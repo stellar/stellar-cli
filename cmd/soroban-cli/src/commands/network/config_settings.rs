@@ -1,7 +1,5 @@
-use crate::commands::global;
+use crate::config;
 use crate::config::network;
-use crate::rpc::FullLedgerEntries;
-use crate::{config, print};
 use clap::command;
 use stellar_xdr::curr::{
     ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting,
@@ -15,6 +13,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
+    #[error(transparent)]
+    Rpc(#[from] soroban_rpc::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -37,40 +37,31 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = print::Print::new(global_args.quiet);
-        let result = self
+    pub async fn run(&self) -> Result<(), Error> {
+        let keys = self.config_settings_keys();
+        let settings = self
             .config
             .get_network()?
             .rpc_client()?
-            .get_full_ledger_entries(&self.config_settings_keys())
-            .await;
-
-        match result {
-            Ok(FullLedgerEntries { entries, .. }) => {
-                let entries = entries
-                    .into_iter()
-                    .filter_map(|e| match e.val {
-                        LedgerEntryData::ConfigSetting(setting) => Some(setting),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>();
-                let set = ConfigUpgradeSet {
-                    updated_entry: entries.try_into().unwrap(),
-                };
-                match self.output {
-                    OutputFormat::Json => println!("{}", serde_json::to_string(&set)?),
-                    OutputFormat::JsonFormatted => {
-                        println!("{}", serde_json::to_string_pretty(&set)?)
-                    }
-                }
-            }
-            Err(err) => {
-                print.errorln(format!("failed to fetch network config settings: {err}"));
-                return Err(err.into());
+            .get_full_ledger_entries(&keys)
+            .await?
+            .entries
+            .into_iter()
+            .filter_map(|e| match e.val {
+                LedgerEntryData::ConfigSetting(setting) => Some(setting),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let set = ConfigUpgradeSet {
+            updated_entry: settings.try_into().unwrap(),
+        };
+        match self.output {
+            OutputFormat::Json => println!("{}", serde_json::to_string(&set)?),
+            OutputFormat::JsonFormatted => {
+                println!("{}", serde_json::to_string_pretty(&set)?)
             }
         }
-    }
+        Ok(())
     }
 
     fn config_settings_keys(&self) -> Vec<LedgerKey> {
