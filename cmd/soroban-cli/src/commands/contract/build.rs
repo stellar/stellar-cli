@@ -303,19 +303,13 @@ impl Cmd {
 
         let mut module = Module::new();
 
+        let mut existing_meta: Vec<u8> = Vec::new();
         for payload in WasmParser::new(0).parse_all(&wasm_bytes) {
             match payload.unwrap() {
                 Payload::CustomSection(section) => {
                     if section.name() == META_CUSTOM_SECTION_NAME {
-                        let mut new_meta = self.encode_new_meta().unwrap();
-                        let mut updated_meta: Vec<u8> = section.data().into();
-                        updated_meta.append(&mut new_meta);
-
-                        let custom = CustomSection {
-                            name: section.name().into(),
-                            data: updated_meta.into(),
-                        };
-                        module.section(&custom);
+                        // collect all existing meta data into one collection to merge with new meta, and then add to the module at the end
+                        existing_meta.append(&mut section.data().into())
                     } else {
                         let custom = CustomSection {
                             name: section.name().into(),
@@ -337,6 +331,15 @@ impl Cmd {
             }
         }
 
+        // append new contract meta with existing contract meta
+        let mut new_meta = self.encoded_new_meta().unwrap();
+        existing_meta.append(&mut new_meta);
+        let meta_section = CustomSection {
+            name: META_CUSTOM_SECTION_NAME.into(),
+            data: existing_meta.into(),
+        };
+        module.section(&meta_section);
+
         let updated_wasm_bytes = module.finish();
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
@@ -345,7 +348,7 @@ impl Cmd {
         fs::write(target_file_path, updated_wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn encode_new_meta(&self) -> Result<Vec<u8>, Error> {
+    fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
         for (k, v) in self.meta.clone() {
             let key: StringM = k
