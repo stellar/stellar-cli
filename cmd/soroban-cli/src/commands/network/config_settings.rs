@@ -67,10 +67,10 @@ impl Cmd {
             }
             Err(err) => {
                 print.errorln(format!("failed to fetch network config settings: {err}"));
+                return Err(err.into());
             }
         }
-
-        Ok(())
+    }
     }
 
     fn config_settings_keys(&self) -> Vec<LedgerKey> {
