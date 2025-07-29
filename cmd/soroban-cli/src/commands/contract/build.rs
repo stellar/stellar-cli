@@ -120,7 +120,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
     #[error(transparent)]
-    BinaryRead(#[from] BinaryReaderError)
+    BinaryRead(#[from] BinaryReaderError),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
