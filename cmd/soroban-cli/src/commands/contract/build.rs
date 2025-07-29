@@ -17,7 +17,7 @@ use std::{
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 use wasm_encoder::{CustomSection, Module, RawSection};
-use wasmparser::{Parser as WasmParser, Payload};
+use wasmparser::{BinaryReaderError, Parser as WasmParser, Payload};
 
 use crate::{commands::global, print::Print};
 
@@ -117,6 +117,10 @@ pub enum Error {
     MetaArg(String),
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
+    #[error(transparent)]
+    Xdr(#[from] stellar_xdr::curr::Error),
+    #[error(transparent)]
+    BinaryRead(#[from] BinaryReaderError)
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -305,11 +309,11 @@ impl Cmd {
 
         let mut existing_meta: Vec<u8> = Vec::new();
         for payload in WasmParser::new(0).parse_all(&wasm_bytes) {
-            match payload.unwrap() {
+            match payload? {
                 Payload::CustomSection(section) => {
                     if section.name() == META_CUSTOM_SECTION_NAME {
                         // collect all existing meta data into one collection to merge with new meta, and then add to the module at the end
-                        existing_meta.append(&mut section.data().into())
+                        existing_meta.extend_from_slice(section.data());
                     } else {
                         let custom = CustomSection {
                             name: section.name().into(),
@@ -332,7 +336,7 @@ impl Cmd {
         }
 
         // append new contract meta with existing contract meta
-        let mut new_meta = self.encoded_new_meta().unwrap();
+        let mut new_meta = self.encoded_new_meta()?;
         existing_meta.append(&mut new_meta);
         let meta_section = CustomSection {
             name: META_CUSTOM_SECTION_NAME.into(),
@@ -367,7 +371,7 @@ impl Cmd {
         let mut buffer = Vec::new();
         let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
         for entry in new_meta {
-            entry.write_xdr(&mut writer).unwrap();
+            entry.write_xdr(&mut writer)?;
         }
         Ok(buffer)
     }
