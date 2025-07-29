@@ -311,7 +311,6 @@ impl Cmd {
                         let mut updated_meta: Vec<u8> = section.data().into();
                         updated_meta.append(&mut new_meta);
 
-
                         let custom = CustomSection {
                             name: section.name().into(),
                             data: updated_meta.into(),
