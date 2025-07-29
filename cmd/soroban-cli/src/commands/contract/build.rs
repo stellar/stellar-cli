@@ -4,7 +4,6 @@ use itertools::Itertools;
 use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
-use soroban_spec_tools::contract::Spec;
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -301,7 +300,6 @@ impl Cmd {
 
         // get existing wasm bytes
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let existing_meta: Vec<ScMetaEntry> = Spec::new(&wasm_bytes).unwrap().meta;
 
         let mut module = Module::new();
 
@@ -309,7 +307,11 @@ impl Cmd {
             match payload.unwrap() {
                 Payload::CustomSection(section) => {
                     if section.name() == META_CUSTOM_SECTION_NAME {
-                        let updated_meta = self.append_new_meta(&existing_meta).unwrap();
+                        let mut new_meta = self.encode_new_meta().unwrap();
+                        let mut updated_meta: Vec<u8> = section.data().into();
+                        updated_meta.append(&mut new_meta);
+
+
                         let custom = CustomSection {
                             name: section.name().into(),
                             data: updated_meta.into(),
@@ -344,9 +346,8 @@ impl Cmd {
         fs::write(target_file_path, updated_wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    fn append_new_meta(&self, existing_meta: &[ScMetaEntry]) -> Result<Vec<u8>, Error> {
-        let mut updated_meta = existing_meta.to_owned();
-        // collect meta args passed in
+    fn encode_new_meta(&self) -> Result<Vec<u8>, Error> {
+        let mut new_meta: Vec<ScMetaEntry> = Vec::new();
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -358,16 +359,15 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            updated_meta.push(meta_entry);
+            new_meta.push(meta_entry);
         }
 
-        let mut meta_custom_section_buffer = Vec::new();
-        let mut writer = Limited::new(Cursor::new(&mut meta_custom_section_buffer), Limits::none());
-        for entry in updated_meta {
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in new_meta {
             entry.write_xdr(&mut writer).unwrap();
         }
-
-        Ok(meta_custom_section_buffer)
+        Ok(buffer)
     }
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
