@@ -99,7 +99,7 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::ConfigSettings(cmd) => cmd.run().await?,
+            Cmd::ConfigSettings(cmd) => cmd.run(global_args).await?,
             #[cfg(feature = "version_lt_23")]
             Cmd::Container(cmd) => cmd.run(global_args).await?,
 

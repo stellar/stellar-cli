@@ -1,6 +1,8 @@
-use crate::config;
 use crate::config::network;
+use crate::print::Print;
+use crate::{commands::global, config};
 use clap::command;
+use semver::Version;
 use stellar_xdr::curr::{
     ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting,
 };
@@ -15,6 +17,8 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    Semver(#[from] semver::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -37,12 +41,16 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let keys = self.config_settings_keys();
-        let settings = self
-            .config
-            .get_network()?
-            .rpc_client()?
+        let rpc = self.config.get_network()?.rpc_client()?;
+        let protocol = rpc.get_version_info().await?.protocol_version;
+        let xdr_major_version = Version::parse(stellar_xdr::VERSION.pkg)?.major;
+        if xdr_major_version < protocol.into() {
+            print.warnln(format!("Network protocol version is {protocol} but the stellar-cli supports {xdr_major_version}. The config fetched may not represent the complete config settings for the network. Upgrade the stellar-cli."));
+        }
+        let settings = rpc
             .get_full_ledger_entries(&keys)
             .await?
             .entries
