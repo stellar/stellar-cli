@@ -43,13 +43,24 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let keys = self.config_settings_keys();
         let rpc = self.config.get_network()?.rpc_client()?;
-        let protocol = rpc.get_version_info().await?.protocol_version;
-        let xdr_major_version = Version::parse(stellar_xdr::VERSION.pkg)?.major;
-        if xdr_major_version < protocol.into() {
-            print.warnln(format!("Network protocol version is {protocol} but the stellar-cli supports {xdr_major_version}. The config fetched may not represent the complete config settings for the network. Upgrade the stellar-cli."));
+
+        // If the network protocol version is ahead of the XDR version (which tracks the protocol
+        // version), there could be config settings defined in the newer protocol version that the
+        // CLI doesn't know about. Warn, because the output of this command might provide an
+        // incomplete view of the network's config settings.
+        let network_version = rpc.get_version_info().await?.protocol_version;
+        let self_version = Version::parse(stellar_xdr::VERSION.pkg)?.major;
+        if self_version < network_version.into() {
+            print.warnln(format!("Network protocol version is {network_version} but the stellar-cli supports {self_version}. The config fetched may not represent the complete config settings for the network. Upgrade the stellar-cli."));
         }
+
+        // Collect the ledger entries for all the config settings.
+        let keys = ConfigSettingId::variants().map(|id| {
+            LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+                config_setting_id: id,
+            })
+        });
         let settings = rpc
             .get_full_ledger_entries(&keys)
             .await?
@@ -60,26 +71,16 @@ impl Cmd {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        let set = ConfigUpgradeSet {
+
+        let config_upgrade_set = ConfigUpgradeSet {
             updated_entry: settings.try_into().unwrap(),
         };
         match self.output {
-            OutputFormat::Json => println!("{}", serde_json::to_string(&set)?),
+            OutputFormat::Json => println!("{}", serde_json::to_string(&config_upgrade_set)?),
             OutputFormat::JsonFormatted => {
-                println!("{}", serde_json::to_string_pretty(&set)?)
+                println!("{}", serde_json::to_string_pretty(&config_upgrade_set)?);
             }
         }
         Ok(())
-    }
-
-    fn config_settings_keys(&self) -> Vec<LedgerKey> {
-        ConfigSettingId::variants()
-            .into_iter()
-            .map(|id| {
-                LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
-                    config_setting_id: id,
-                })
-            })
-            .collect()
     }
 }
