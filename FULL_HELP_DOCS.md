@@ -1212,6 +1212,7 @@ Configure connection to networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
+* `config-settings` — Fetch the config settings for the network
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `health` — Checks the health of the configured RPC
 
@@ -1265,6 +1266,33 @@ List networks
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `-l`, `--long` — Get more info about the networks
+
+
+
+## `stellar network config-settings`
+
+Fetch the config settings for the network
+
+**Usage:** `stellar network config-settings [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
 
 
 
