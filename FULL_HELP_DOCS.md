@@ -1212,7 +1212,7 @@ Configure connection to networks
 * `add` — Add a new network
 * `rm` — Remove a network
 * `ls` — List networks
-* `config-settings` — Fetch the config settings for the network
+* `settings` — Fetch the network's config settings
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `health` — Checks the health of the configured RPC
 
@@ -1269,11 +1269,11 @@ List networks
 
 
 
-## `stellar network config-settings`
+## `stellar network settings`
 
-Fetch the config settings for the network
+Fetch the network's config settings
 
-**Usage:** `stellar network config-settings [OPTIONS]`
+**Usage:** `stellar network settings [OPTIONS]`
 
 ###### **Options:**
 
