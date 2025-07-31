@@ -1213,7 +1213,7 @@ Configure connection to networks
 * `rm` — Remove a network
 * `ls` — List networks
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
-* `health` — Checks the health of the configured RPC
+* `health` — Fetch the health of the configured RPC
 * `settings` — Fetch the network's config settings
 
 
@@ -1288,7 +1288,7 @@ Set the default network that will be used on all commands. This allows you to sk
 
 ## `stellar network health`
 
-Checks the health of the configured RPC
+Fetch the health of the configured RPC
 
 **Usage:** `stellar network health [OPTIONS]`
 

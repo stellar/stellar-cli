@@ -52,7 +52,7 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
 
-    /// Checks the health of the configured RPC
+    /// Fetch the health of the configured RPC
     Health(health::Cmd),
 
     /// Fetch the network's config settings
