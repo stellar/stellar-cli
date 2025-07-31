@@ -2,11 +2,11 @@ use super::{config::locator, global};
 use clap::Parser;
 
 pub mod add;
-pub mod settings;
 pub mod default;
 pub mod health;
 pub mod ls;
 pub mod rm;
+pub mod settings;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {

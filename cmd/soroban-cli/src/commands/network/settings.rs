@@ -4,7 +4,8 @@ use crate::{commands::global, config};
 use clap::command;
 use semver::Version;
 use stellar_xdr::curr::{
-    ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting,
+    ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting, Limits,
+    WriteXdr as _,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -13,6 +14,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Xdr(#[from] stellar_xdr::curr::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
@@ -23,10 +26,12 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// JSON result of the RPC request
+    /// XDR (ConfigUpgradeSet type)
+    Xdr,
+    /// JSON, XDR-JSON of the ConfigUpgradeSet XDR type
     #[default]
     Json,
-    /// Formatted (multiline) JSON output of the RPC request
+    /// JSON formatted, XDR-JSON of the ConfigUpgradeSet XDR type
     JsonFormatted,
 }
 
@@ -92,6 +97,7 @@ impl Cmd {
             updated_entry: settings.try_into().unwrap(),
         };
         match self.output {
+            OutputFormat::Xdr => println!("{}", config_upgrade_set.to_xdr_base64(Limits::none())?),
             OutputFormat::Json => println!("{}", serde_json::to_string(&config_upgrade_set)?),
             OutputFormat::JsonFormatted => {
                 println!("{}", serde_json::to_string_pretty(&config_upgrade_set)?);

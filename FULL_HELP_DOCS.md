@@ -1335,10 +1335,12 @@ Fetch the network's config settings
   Default value: `json`
 
   Possible values:
+  - `xdr`:
+    XDR (ConfigUpgradeSet type)
   - `json`:
-    JSON result of the RPC request
+    JSON, XDR-JSON of the ConfigUpgradeSet XDR type
   - `json-formatted`:
-    Formatted (multiline) JSON output of the RPC request
+    JSON formatted, XDR-JSON of the ConfigUpgradeSet XDR type
 
 
 
