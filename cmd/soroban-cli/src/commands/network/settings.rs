@@ -98,15 +98,9 @@ impl Cmd {
         };
         match self.output {
             OutputFormat::Xdr => println!("{}", config_upgrade_set.to_xdr_base64(Limits::none())?),
-            OutputFormat::Json => {
-                let mut value = serde_json::to_value(&config_upgrade_set)?;
-                value.sort_all_objects();
-                println!("{}", serde_json::to_string(&value)?);
-            }
+            OutputFormat::Json => println!("{}", serde_json::to_string(&config_upgrade_set)?),
             OutputFormat::JsonFormatted => {
-                let mut value = serde_json::to_value(&config_upgrade_set)?;
-                value.sort_all_objects();
-                println!("{}", serde_json::to_string_pretty(&value)?);
+                println!("{}", serde_json::to_string_pretty(&config_upgrade_set)?);
             }
         }
         Ok(())
