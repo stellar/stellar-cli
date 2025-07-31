@@ -848,11 +848,11 @@ stellar contract invoke ... -- --help
 
 Optimize a WASM file
 
-**Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>`
+**Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to wasm binary
+* `--wasm <WASM>` — Path to one or more wasm binaries
 * `--wasm-out <WASM_OUT>` — Path to write the optimized WASM file to (defaults to same location as --wasm with .optimized.wasm suffix)
 
 
