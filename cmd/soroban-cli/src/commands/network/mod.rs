@@ -74,7 +74,7 @@ pub enum Error {
     Ls(#[from] ls::Error),
 
     #[error(transparent)]
-    ConfigSettings(#[from] settings::Error),
+    Settings(#[from] settings::Error),
 
     #[error(transparent)]
     Health(#[from] health::Error),
@@ -99,7 +99,7 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            Cmd::ConfigSettings(cmd) => cmd.run(global_args).await?,
+            Cmd::Settings(cmd) => cmd.run(global_args).await?,
             #[cfg(feature = "version_lt_23")]
             Cmd::Container(cmd) => cmd.run(global_args).await?,
 
