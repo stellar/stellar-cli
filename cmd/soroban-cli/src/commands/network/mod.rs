@@ -2,7 +2,7 @@ use super::{config::locator, global};
 use clap::Parser;
 
 pub mod add;
-pub mod config_settings;
+pub mod settings;
 pub mod default;
 pub mod health;
 pub mod ls;
@@ -19,8 +19,8 @@ pub enum Cmd {
     /// List networks
     Ls(ls::Cmd),
 
-    /// Fetch the config settings for the network
-    ConfigSettings(config_settings::Cmd),
+    /// Fetch the network's config settings
+    Settings(settings::Cmd),
 
     /// ⚠️ Deprecated: use `stellar container start` instead
     ///
@@ -74,7 +74,7 @@ pub enum Error {
     Ls(#[from] ls::Error),
 
     #[error(transparent)]
-    ConfigSettings(#[from] config_settings::Error),
+    ConfigSettings(#[from] settings::Error),
 
     #[error(transparent)]
     Health(#[from] health::Error),
