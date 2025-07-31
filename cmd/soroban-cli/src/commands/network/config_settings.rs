@@ -35,6 +35,10 @@ pub enum OutputFormat {
 pub struct Cmd {
     #[command(flatten)]
     pub config: config::ArgsLocatorAndNetwork,
+    /// Include internal config settings that are not upgradeable and are internally maintained by
+    /// the network
+    #[arg(long)]
+    pub internal: bool,
     /// Format of the output
     #[arg(long, default_value = "json")]
     pub output: OutputFormat,
@@ -56,11 +60,23 @@ impl Cmd {
         }
 
         // Collect the ledger entries for all the config settings.
-        let keys = ConfigSettingId::variants().map(|id| {
-            LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
-                config_setting_id: id,
+        let keys = ConfigSettingId::variants()
+            .into_iter()
+            .filter(|id| match id {
+                // Internally maintained settings that a network validator cannot vote to change
+                // are not output by this command unless the internal option is specified.
+                ConfigSettingId::LiveSorobanStateSizeWindow | ConfigSettingId::EvictionIterator => {
+                    self.internal
+                }
+                // All other configs can be modified by network upgrades and are always output.
+                _ => true,
             })
-        });
+            .map(|id| {
+                LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+                    config_setting_id: id,
+                })
+            })
+            .collect::<Vec<_>>();
         let settings = rpc
             .get_full_ledger_entries(&keys)
             .await?

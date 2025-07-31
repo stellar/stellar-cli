@@ -1283,6 +1283,7 @@ Fetch the config settings for the network
 * `-n`, `--network <NETWORK>` — Name of network to use from config
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--internal` — Include internal config settings that are not upgradeable and are internally maintained by the network
 * `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
