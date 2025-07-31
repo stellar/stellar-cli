@@ -19,9 +19,6 @@ pub enum Cmd {
     /// List networks
     Ls(ls::Cmd),
 
-    /// Fetch the network's config settings
-    Settings(settings::Cmd),
-
     /// ⚠️ Deprecated: use `stellar container start` instead
     ///
     /// Start network
@@ -57,6 +54,9 @@ pub enum Cmd {
 
     /// Checks the health of the configured RPC
     Health(health::Cmd),
+
+    /// Fetch the network's config settings
+    Settings(settings::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
