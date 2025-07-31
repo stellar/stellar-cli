@@ -90,13 +90,14 @@ impl Cmd {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct FeeTable {
-    // proposed
+struct ProposedFees {
     pub max_fee: i64,
     pub max_resource_fee: i64,
     pub max_inclusion_fee: i64,
+}
 
-    // actual
+#[derive(Serialize, Deserialize, Debug)]
+struct ChargedFees {
     pub fee_charged: i64,
     pub resource_fee_charged: i64,
     pub inclusion_fee_charged: i64,
@@ -104,40 +105,26 @@ pub struct FeeTable {
     pub refundable_resource_fee_charged: i64,
 }
 
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FeeTable {
+    pub proposed: ProposedFees,
+    pub charged: ChargedFees,
+}
+
 impl FeeTable {
     fn new_from_transaction_response(resp: &GetTransactionResponse) -> Result<Self, Error> {
-        let (tx_result, tx_meta, tx_envelope) = Self::destructure_tx_response(resp)?;
-
-        // PROPOSED fEES
-        let (max_fee, max_resource_fee, max_inclusion_fee) = Self::max_fees(&tx_envelope);
-
-        // ACTUAL FEES
-        let fee_charged = tx_result.fee_charged;
-
-        // fee refunded
-        // inclusion fee charged
-        // resource fee charged
-        // resource fee charged - non-refundable
-        // resource fee charged - refundable
-        let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
-            Self::resource_fees_charged(&tx_meta);
-        let resource_fee_charged =
-            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
-        let inclusion_fee_charged = fee_charged - resource_fee_charged;
+        let (tx_result, tx_meta, tx_envelope) = Self::unpack_tx_response(resp)?;
+        let proposed= Self::extract_proposed_fees(&tx_envelope);
+        let charged = Self::extract_charged_fees(&tx_meta, &tx_result);
 
         Ok(FeeTable {
-            max_fee,
-            max_resource_fee,
-            max_inclusion_fee,
-            fee_charged,
-            resource_fee_charged,
-            inclusion_fee_charged,
-            non_refundable_resource_fee_charged,
-            refundable_resource_fee_charged,
+            proposed,
+            charged
         })
     }
 
-    fn destructure_tx_response(
+    fn unpack_tx_response(
         resp: &GetTransactionResponse,
     ) -> Result<(TransactionResult, TransactionMeta, TransactionEnvelope), Error> {
         let tx_result = resp.result.clone().ok_or(Error::None {
@@ -153,12 +140,15 @@ impl FeeTable {
         Ok((tx_result, tx_meta, tx_envelope))
     }
 
-    // returns max fee proposed, max resource fee and max inclusion fee
-    fn max_fees(tx_envelope: &TransactionEnvelope) -> (i64, i64, i64) {
+    fn extract_proposed_fees(tx_envelope: &TransactionEnvelope) -> ProposedFees {
         match tx_envelope {
             TransactionEnvelope::TxV0(transaction_v0_envelope) => {
                 let fee: i64 = transaction_v0_envelope.tx.fee.into();
-                (fee, DEFAULT_RESOURCE_FEE, fee - DEFAULT_RESOURCE_FEE)
+                ProposedFees{
+                    max_fee: fee,
+                    max_resource_fee: DEFAULT_RESOURCE_FEE,
+                    max_inclusion_fee: fee - DEFAULT_RESOURCE_FEE,
+                }
             }
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 let tx = transaction_v1_envelope.tx.clone();
@@ -169,8 +159,11 @@ impl FeeTable {
                         soroban_transaction_data.resource_fee
                     }
                 };
-
-                (fee, resource_fee, fee - resource_fee)
+                ProposedFees{
+                    max_fee: fee,
+                    max_resource_fee: resource_fee,
+                    max_inclusion_fee: fee - resource_fee,
+                }
             }
             TransactionEnvelope::TxFeeBump(fee_bump_transaction_envelope) => {
                 let inner_tx_resource_fee: i64;
@@ -195,8 +188,27 @@ impl FeeTable {
                 let total_estimated_inclusion_fee =
                     fee - (inner_tx_resource_fee + inner_tx_inclusion_fee);
 
-                (fee, inner_tx_resource_fee, total_estimated_inclusion_fee)
+                ProposedFees{
+                    max_fee: fee,
+                    max_resource_fee: inner_tx_resource_fee,
+                    max_inclusion_fee: total_estimated_inclusion_fee,
+                }
             }
+        }
+    }
+
+    fn extract_charged_fees(tx_meta: &TransactionMeta, tx_result: &TransactionResult) ->  ChargedFees {
+        let fee_charged = tx_result.fee_charged;
+        let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
+            Self::resource_fees_charged(&tx_meta);
+        let resource_fee_charged = non_refundable_resource_fee_charged + refundable_resource_fee_charged;
+
+        ChargedFees {
+            fee_charged,
+            resource_fee_charged,
+            inclusion_fee_charged: fee_charged - resource_fee_charged,
+            non_refundable_resource_fee_charged,
+            refundable_resource_fee_charged,
         }
     }
 
@@ -246,15 +258,15 @@ impl FeeTable {
     }
 
     fn should_include_resource_fees(&self) -> bool {
-      self.resource_fee_charged != 0 || self.max_resource_fee != 0
+      self.charged.resource_fee_charged != 0 || self.proposed.max_resource_fee != 0
     }
 
     fn refundable_fee_proposed(&self) -> i64 {
-        self.max_resource_fee - self.non_refundable_resource_fee_charged
+        self.proposed.max_resource_fee - self.charged.non_refundable_resource_fee_charged
     }
 
     fn refunded(&self) -> i64 {
-        self.max_fee - self.fee_charged
+        self.proposed.max_fee - self.charged.fee_charged
     }
 
     fn table(&self) -> Table {
@@ -264,26 +276,26 @@ impl FeeTable {
         // Proposed
         table.add_row(Row::new(vec![Cell::new(&format!(
             "{FEE_PROPOSED_TITLE}: {}",
-            self.max_fee
+            self.proposed.max_fee
         ))
         .with_hspan(4)]));
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE, self.max_inclusion_fee
+                INCLUSION_FEE_TITLE, self.proposed.max_inclusion_fee
             )),
-            Cell::new(&format!("{RESOURCE_FEE_TITLE}: {}", self.max_resource_fee)).with_hspan(3),
+            Cell::new(&format!("{RESOURCE_FEE_TITLE}: {}", self.proposed.max_resource_fee)).with_hspan(3),
         ]));
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE, self.max_inclusion_fee
+                INCLUSION_FEE_TITLE, self.proposed.max_inclusion_fee
             )),
             Cell::new(&format!(
                 "{NON_REFUNDABLE_TITLE}: {}{}",
-                self.non_refundable_resource_fee_charged, NON_REFUNDABLE_COMPONENTS
+                self.charged.non_refundable_resource_fee_charged, NON_REFUNDABLE_COMPONENTS
             )),
             Cell::new(&format!(
                 "{REFUNDABLE_TITLE}: {}{}",
@@ -303,15 +315,15 @@ impl FeeTable {
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
                     "{INCLUSION_FEE_TITLE}: {}",
-                    self.inclusion_fee_charged
+                    self.charged.inclusion_fee_charged
                 )),
                 Cell::new(&format!(
                     "{NON_REFUNDABLE_TITLE}: {}",
-                    self.non_refundable_resource_fee_charged
+                    self.charged.non_refundable_resource_fee_charged
                 )),
                 Cell::new(&format!(
                     "{REFUNDABLE_TITLE}: {}",
-                    self.refundable_resource_fee_charged
+                    self.charged.refundable_resource_fee_charged
                 )),
                 Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
             ]));
@@ -319,11 +331,11 @@ impl FeeTable {
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
                     "{INCLUSION_FEE_TITLE}: {}",
-                    self.inclusion_fee_charged
+                    self.charged.inclusion_fee_charged
                 )),
                 Cell::new(&format!(
                     "{}: {}",
-                    RESOURCE_FEE_TITLE, self.resource_fee_charged
+                    RESOURCE_FEE_TITLE, self.charged.resource_fee_charged
                 ))
                 .with_hspan(2),
                 Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
@@ -331,7 +343,7 @@ impl FeeTable {
         }
 
         table.add_row(Row::new(vec![
-            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.fee_charged)).with_hspan(3),
+            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.charged.fee_charged)).with_hspan(3),
             Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
         ]));
 
@@ -374,8 +386,8 @@ mod test {
         // Proposed Fees
         let expected_max_fee = 105_447;
         let expected_max_resource_fee = 105_347;
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+        assert_eq!(fee_table.proposed.max_fee, expected_max_fee);
+        assert_eq!(fee_table.proposed.max_resource_fee, expected_max_resource_fee);
 
         // Charged Fees
         let expected_fee_charged = 60_537;
@@ -386,21 +398,21 @@ mod test {
         let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
 
         assert!(fee_table.should_include_resource_fees());
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
+        assert_eq!(fee_table.charged.fee_charged, expected_fee_charged);
         assert_eq!(
-            fee_table.resource_fee_charged,
+            fee_table.charged.resource_fee_charged,
             expected_resource_fee_charged
         );
         assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
+            fee_table.charged.non_refundable_resource_fee_charged,
             expected_non_refundable_charged
         );
         assert_eq!(
-            fee_table.refundable_resource_fee_charged,
+            fee_table.charged.refundable_resource_fee_charged,
             expected_refundable_charged
         );
         assert_eq!(
-            fee_table.inclusion_fee_charged,
+            fee_table.charged.inclusion_fee_charged,
             expected_inclusion_fee_charged
         );
     }
@@ -413,8 +425,8 @@ mod test {
         // Proposed Fees
         let expected_max_fee = 100;
         let expected_max_resource_fee = DEFAULT_RESOURCE_FEE;
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+        assert_eq!(fee_table.proposed.max_fee, expected_max_fee);
+        assert_eq!(fee_table.proposed.max_resource_fee, expected_max_resource_fee);
 
         // Charged Fees
         let expected_fee_charged = 100;
@@ -425,21 +437,21 @@ mod test {
         let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
 
         assert!(!fee_table.should_include_resource_fees());
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
+        assert_eq!(fee_table.charged.fee_charged, expected_fee_charged);
         assert_eq!(
-            fee_table.resource_fee_charged,
+            fee_table.charged.resource_fee_charged,
             expected_resource_fee_charged
         );
         assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
+            fee_table.charged.non_refundable_resource_fee_charged,
             expected_non_refundable_charged
         );
         assert_eq!(
-            fee_table.refundable_resource_fee_charged,
+            fee_table.charged.refundable_resource_fee_charged,
             expected_refundable_charged
         );
         assert_eq!(
-            fee_table.inclusion_fee_charged,
+            fee_table.charged.inclusion_fee_charged,
             expected_inclusion_fee_charged
         );
     }
@@ -452,8 +464,8 @@ mod test {
         // Proposed Fees
         let expected_max_fee = 400;
         let expected_max_resource_fee = DEFAULT_RESOURCE_FEE;
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+        assert_eq!(fee_table.proposed.max_fee, expected_max_fee);
+        assert_eq!(fee_table.proposed.max_resource_fee, expected_max_resource_fee);
 
         // Charged Fees
         let expected_fee_charged = 200;
@@ -464,21 +476,21 @@ mod test {
         let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
 
         assert!(!fee_table.should_include_resource_fees());
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
+        assert_eq!(fee_table.charged.fee_charged, expected_fee_charged);
         assert_eq!(
-            fee_table.resource_fee_charged,
+            fee_table.charged.resource_fee_charged,
             expected_resource_fee_charged
         );
         assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
+            fee_table.charged.non_refundable_resource_fee_charged,
             expected_non_refundable_charged
         );
         assert_eq!(
-            fee_table.refundable_resource_fee_charged,
+            fee_table.charged.refundable_resource_fee_charged,
             expected_refundable_charged
         );
         assert_eq!(
-            fee_table.inclusion_fee_charged,
+            fee_table.charged.inclusion_fee_charged,
             expected_inclusion_fee_charged
         );
     }
@@ -487,6 +499,8 @@ mod test {
     fn fee_bump_wrapping_soroban_tx_fee_table() {
         let resp = fee_bump_wrapping_soroban_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
+
+
 
         // PROPOSED FEES
         let tx_proposed_fee = 10208876;
@@ -504,9 +518,9 @@ mod test {
         let expected_max_inclusion_fee =
             tx_proposed_fee - inner_tx_resource_fee - inner_tx_inclusion_fee;
 
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
-        assert_eq!(fee_table.max_inclusion_fee, expected_max_inclusion_fee);
+        assert_eq!(fee_table.proposed.max_fee, expected_max_fee);
+        assert_eq!(fee_table.proposed.max_resource_fee, expected_max_resource_fee);
+        assert_eq!(fee_table.proposed.max_inclusion_fee, expected_max_inclusion_fee);
 
         // ACTUAL FEES
         let expected_fee_charged = 3603030;
@@ -518,21 +532,21 @@ mod test {
         let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
 
         assert!(fee_table.should_include_resource_fees());
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
+        assert_eq!(fee_table.charged.fee_charged, expected_fee_charged);
         assert_eq!(
-            fee_table.resource_fee_charged,
+            fee_table.charged.resource_fee_charged,
             expected_resource_fee_charged
         );
         assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
+            fee_table.charged.non_refundable_resource_fee_charged,
             expected_non_refundable_charged
         );
         assert_eq!(
-            fee_table.refundable_resource_fee_charged,
+            fee_table.charged.refundable_resource_fee_charged,
             expected_refundable_charged
         );
         assert_eq!(
-            fee_table.inclusion_fee_charged,
+            fee_table.charged.inclusion_fee_charged,
             expected_inclusion_fee_charged
         );
     }
