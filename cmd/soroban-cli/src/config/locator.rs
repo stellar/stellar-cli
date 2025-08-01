@@ -3,7 +3,6 @@ use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
-    env::current_dir,
     ffi::OsStr,
     fmt::Display,
     fs::{self, create_dir_all, OpenOptions},
@@ -367,7 +366,7 @@ impl Args {
             Location::Local(config_dir) => {
                 let path = config_dir.join("contract-ids").join(&file_name);
                 if path.exists() {
-                    print_deprecation_warning();
+                    print_deprecation_warning(config_dir);
 
                     let content = fs::read_to_string(path)?;
                     let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
@@ -495,22 +494,14 @@ impl Args {
 }
 
 #[cfg(feature = "version_gte_23")]
-pub fn print_deprecation_warning() {
+pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
-    let pwd = current_dir().unwrap_or_else(|_| PathBuf::from("."));
-
-    let local_dir = if pwd.join(".stellar").exists() {
-        ".stellar"
-    } else {
-        ".soroban"
-    };
-
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
 
-    print.warnln(format!("A local config was found at {local_dir:?}."));
-    print.blankln(" This behavior is deprecated and will be removed in the future.".to_string());
+    print.warnln(format!("A local config was found at {dir:?}."));
+    print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
     print.blankln(format!(
-        " Run `stellar config migrate` to move the configuration to {global_dir:?}."
+        " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
     ));
 }
 
@@ -570,8 +561,8 @@ impl KeyType {
 
             if let Ok(t) = Self::read_from_path(&path) {
                 #[cfg(feature = "version_gte_23")]
-                if let Location::Local(_) = location {
-                    print_deprecation_warning();
+                if let Location::Local(config_dir) = location {
+                    print_deprecation_warning(&config_dir);
                 }
 
                 return Ok(t);
@@ -631,9 +622,9 @@ impl KeyType {
             files.sort();
 
             #[cfg(feature = "version_gte_23")]
-            if let Location::Local(_) = pwd {
+            if let Location::Local(config_dir) = pwd {
                 if files.len() > 1 && print_warning {
-                    print_deprecation_warning();
+                    print_deprecation_warning(config_dir);
                 }
             }
 
