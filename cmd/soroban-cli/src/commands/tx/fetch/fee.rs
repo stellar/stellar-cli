@@ -98,25 +98,25 @@ impl Cmd {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-struct ProposedFees {
-    fee: i64,
-    resource_fee: i64,
-    inclusion_fee: i64,
+pub struct ProposedFees {
+    pub fee: i64,
+    pub resource_fee: i64,
+    pub inclusion_fee: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-struct ChargedFees {
-    fee: i64,
-    resource_fee: i64,
-    inclusion_fee: i64,
-    non_refundable_resource_fee: i64,
-    refundable_resource_fee: i64,
+pub struct ChargedFees {
+    pub fee: i64,
+    pub resource_fee: i64,
+    pub inclusion_fee: i64,
+    pub non_refundable_resource_fee: i64,
+    pub refundable_resource_fee: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FeeTable {
-    proposed: ProposedFees,
-    charged: ChargedFees,
+    pub proposed: ProposedFees,
+    pub charged: ChargedFees,
 }
 
 impl FeeTable {
@@ -171,14 +171,12 @@ impl FeeTable {
             }
             TransactionEnvelope::TxFeeBump(fee_bump_transaction_envelope) => {
                 let inner_tx_resource_fee = match &fee_bump_transaction_envelope.tx.inner_tx {
-                    FeeBumpTransactionInnerTx::Tx(tx_v1_envelope) => {
-                        match &tx_v1_envelope.tx.ext {
-                            xdr::TransactionExt::V0 => DEFAULT_RESOURCE_FEE,
-                            xdr::TransactionExt::V1(soroban_transaction_data) => {
-                                soroban_transaction_data.resource_fee
-                            }
+                    FeeBumpTransactionInnerTx::Tx(tx_v1_envelope) => match &tx_v1_envelope.tx.ext {
+                        xdr::TransactionExt::V0 => DEFAULT_RESOURCE_FEE,
+                        xdr::TransactionExt::V1(soroban_transaction_data) => {
+                            soroban_transaction_data.resource_fee
                         }
-                    }
+                    },
                 };
                 // the is the top level fee bump tx fee
                 let fee = fee_bump_transaction_envelope.tx.fee;
@@ -199,8 +197,7 @@ impl FeeTable {
         let fee = tx_result.fee_charged;
         let (non_refundable_resource_fee, refundable_resource_fee) =
             Self::resource_fees_charged(tx_meta);
-        let resource_fee =
-            non_refundable_resource_fee + refundable_resource_fee;
+        let resource_fee = non_refundable_resource_fee + refundable_resource_fee;
 
         ChargedFees {
             fee,
@@ -346,11 +343,7 @@ impl FeeTable {
         }
 
         table.add_row(Row::new(vec![
-            Cell::new(&format!(
-                "{FEE_CHARGED_TITLE}: {}",
-                self.charged.fee
-            ))
-            .with_hspan(3),
+            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.charged.fee)).with_hspan(3),
             Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
         ]));
 
