@@ -488,8 +488,8 @@ mod test {
         let resp = fee_bump_wrapping_soroban_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
-        let proposed_fee = 10208876;
-        let proposed_inner_tx_resource_fee = 5004438;
+        let proposed_fee = 10_208_876;
+        let proposed_inner_tx_resource_fee = 5_004_438;
         let expected_proposed_fees = ProposedFees {
             fee: proposed_fee,
             resource_fee: proposed_inner_tx_resource_fee,
@@ -497,9 +497,9 @@ mod test {
         };
         assert_eq!(fee_table.proposed, expected_proposed_fees);
 
-        let charged_fee = 3603030;
-        let non_refundable_resource_fee_charged = 285226;
-        let refundable_resource_fee_charged = 3317604;
+        let charged_fee = 3_603_030;
+        let non_refundable_resource_fee_charged = 285_226;
+        let refundable_resource_fee_charged = 3_317_604;
         let full_resource_fee_charged =
             non_refundable_resource_fee_charged + refundable_resource_fee_charged;
         let inclusion_fee_charged = charged_fee - full_resource_fee_charged;
