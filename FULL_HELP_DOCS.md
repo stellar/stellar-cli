@@ -848,11 +848,11 @@ stellar contract invoke ... -- --help
 
 Optimize a WASM file
 
-**Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>`
+**Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
 ###### **Options:**
 
-* `--wasm <WASM>` — Path to wasm binary
+* `--wasm <WASM>` — Path to one or more wasm binaries
 * `--wasm-out <WASM_OUT>` — Path to write the optimized WASM file to (defaults to same location as --wasm with .optimized.wasm suffix)
 
 
@@ -1213,7 +1213,8 @@ Configure connection to networks
 * `rm` — Remove a network
 * `ls` — List networks
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
-* `health` — Checks the health of the configured RPC
+* `health` — Fetch the health of the configured RPC
+* `settings` — Fetch the network's config settings
 
 
 
@@ -1287,7 +1288,7 @@ Set the default network that will be used on all commands. This allows you to sk
 
 ## `stellar network health`
 
-Checks the health of the configured RPC
+Fetch the health of the configured RPC
 
 **Usage:** `stellar network health [OPTIONS]`
 
@@ -1310,6 +1311,36 @@ Checks the health of the configured RPC
     JSON result of the RPC request
   - `json-formatted`:
     Formatted (multiline) JSON output of the RPC request
+
+
+
+
+## `stellar network settings`
+
+Fetch the network's config settings
+
+**Usage:** `stellar network settings [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--internal` — Include internal config settings that are not upgradeable and are internally maintained by the network
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `xdr`:
+    XDR (ConfigUpgradeSet type)
+  - `json`:
+    JSON, XDR-JSON of the ConfigUpgradeSet XDR type
+  - `json-formatted`:
+    JSON formatted, XDR-JSON of the ConfigUpgradeSet XDR type
 
 
 
