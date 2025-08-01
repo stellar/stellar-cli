@@ -1336,11 +1336,11 @@ Fetch the network's config settings
 
   Possible values:
   - `xdr`:
-    XDR (ConfigUpgradeSet type)
+    XDR (`ConfigUpgradeSet` type)
   - `json`:
-    JSON, XDR-JSON of the ConfigUpgradeSet XDR type
+    JSON, XDR-JSON of the `ConfigUpgradeSet` XDR type
   - `json-formatted`:
-    JSON formatted, XDR-JSON of the ConfigUpgradeSet XDR type
+    JSON formatted, XDR-JSON of the `ConfigUpgradeSet` XDR type
 
 
 

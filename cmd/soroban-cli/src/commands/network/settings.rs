@@ -26,12 +26,12 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// XDR (ConfigUpgradeSet type)
+    /// XDR (`ConfigUpgradeSet` type)
     Xdr,
-    /// JSON, XDR-JSON of the ConfigUpgradeSet XDR type
+    /// JSON, XDR-JSON of the `ConfigUpgradeSet` XDR type
     #[default]
     Json,
-    /// JSON formatted, XDR-JSON of the ConfigUpgradeSet XDR type
+    /// JSON formatted, XDR-JSON of the `ConfigUpgradeSet` XDR type
     JsonFormatted,
 }
 
