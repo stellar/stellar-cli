@@ -508,9 +508,9 @@ pub fn print_deprecation_warning() {
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
 
     print.warnln(format!("A local config was found at {local_dir:?}."));
-    print.blankln(" This behavior is deprecated and will be removed in the future.".to_string());
+    print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
     print.blankln(format!(
-        " Run `stellar config migrate` to move the configuration to {global_dir:?}."
+        " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
     ));
 }
 
