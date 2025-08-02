@@ -1,0 +1,171 @@
+---
+title: Add Metadata to a Smart Contract
+hide_table_of_contents: true
+description: Use the Stellar CLI to add name, description, and other metadata to your smart contract
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/contract-metadata.mdx
+---
+
+You can add metadata information to your smart contract during the build process using the Stellar CLI. This metadata helps identify and document your contract on the network and is embedded in the contract's WASM file.
+
+## Prerequisites
+
+First, make sure you have a contract project and a funded account:
+
+```bash
+stellar keys generate alice -q
+stellar keys fund alice
+```
+
+Initialize a new contract project (or use an existing one):
+
+```bash
+stellar contract init my-contract
+cd my-contract
+```
+
+## Adding Metadata During Build
+
+### Add Basic Metadata
+
+You can add metadata to your contract during the build process using the `--meta` flag:
+
+```bash
+stellar contract build \
+    --meta "name=My Token Contract" \
+    --meta "description=A custom token implementation with advanced features" \
+    --meta "version=1.2.0"
+```
+
+### Add Multiple Metadata Fields
+
+Include comprehensive metadata in a single build command:
+
+```bash
+stellar contract build \
+    --meta "name=DeFi Liquidity Pool" \
+    --meta "description=Automated market maker for token swapping with yield farming capabilities" \
+    --meta "version=2.1.5" \
+    --meta "author=DeFi Team" \
+    --meta "license=MIT" \
+    --meta "repository=https://github.com/defi/liquidity-pool" \
+    --meta "homepage=https://defi.example.com"
+```
+
+### Add Custom Metadata Fields
+
+For specialized information, you can add custom key-value pairs:
+
+```bash
+stellar contract build \
+    --meta "audit_status=completed" \
+    --meta "audit_date=2024-01-15" \
+    --meta "security_score=95" \
+    --meta "token_type=utility" \
+    --meta "max_supply=1000000000" \
+    --meta "decimals=7"
+```
+
+## Viewing Contract Metadata
+
+To view the metadata you've embedded in a contract, you can examine it from the WASM file or from a deployed contract:
+
+### From WASM File
+
+```bash
+stellar contract info meta --wasm target/wasm32-unknown-unknown/release/my_contract.wasm
+```
+
+### From Deployed Contract
+
+```bash
+stellar contract info meta --contract-id <CONTRACT_ID>
+```
+
+### Different Output Formats
+
+You can view the metadata in different formats:
+
+```bash
+# Human-readable text format (default)
+stellar contract info meta --wasm contract.wasm
+
+# JSON format
+stellar contract info meta --wasm contract.wasm --output json
+
+# Formatted JSON
+stellar contract info meta --wasm contract.wasm --output json-formatted
+```
+
+This will display all the metadata associated with the contract, including:
+- Custom metadata you added during build
+- SDK version information
+- Rust compiler version
+- Other build-time information
+
+## Deploy Contract with Metadata
+
+After building with metadata, deploy your contract:
+
+```bash
+stellar contract deploy \
+    --wasm target/wasm32-unknown-unknown/release/my_contract.wasm \
+    --source alice
+```
+
+## Best Practices
+
+1. **Use semantic versioning**: Follow the `MAJOR.MINOR.PATCH` format for version numbers
+2. **Provide clear descriptions**: Help users understand what your contract does
+3. **Include repository links**: Make your code accessible for auditing and collaboration
+4. **Set appropriate licenses**: Clarify how others can use your contract code
+5. **Update metadata regularly**: Keep information current as your contract evolves
+
+## Example: Complete Token Contract Build with Metadata
+
+Here's a complete example of building a token contract with comprehensive metadata:
+
+```bash
+stellar contract build \
+    --meta "name=GreenToken (GREEN)" \
+    --meta "description=An eco-friendly token that rewards sustainable practices and carbon offset activities" \
+    --meta "version=1.0.0" \
+    --meta "author=Green Finance Team" \
+    --meta "license=Apache-2.0" \
+    --meta "repository=https://github.com/greenfinance/green-token" \
+    --meta "homepage=https://greenfinance.eco/token" \
+    --meta "token_type=utility" \
+    --meta "max_supply=1000000000" \
+    --meta "decimals=7" \
+    --meta "audit_status=completed" \
+    --meta "audit_date=2025-01-15"
+```
+
+## Updating Metadata
+
+To update metadata, you need to rebuild the contract with new metadata values:
+
+```bash
+# Build with updated version and description
+stellar contract build \
+    --meta "name=GreenToken (GREEN)" \
+    --meta "description=Updated: An eco-friendly token with enhanced staking rewards" \
+    --meta "version=1.1.0" \
+    --meta "author=Green Finance Team"
+    
+# Then redeploy if needed
+stellar contract deploy \
+    --wasm target/wasm32-unknown-unknown/release/my_contract.wasm \
+    --source alice
+```
+
+:::note
+
+Contract metadata is embedded in the WASM file during build time and becomes part of the contract when deployed. The metadata is publicly visible and can be queried by anyone on the network.
+
+:::
+
+:::tip
+
+Add metadata during your build process early in development, as it helps with discoverability and builds trust with users and other developers. Remember that to update metadata, you need to rebuild and redeploy the contract.
+
+:::
