@@ -6,6 +6,7 @@ use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 use crate::config;
 
 pub mod cache;
+pub mod cfg;
 pub mod completion;
 pub mod container;
 pub mod contract;
@@ -111,6 +112,8 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
+            #[cfg(feature = "version_gte_23")]
+            Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
@@ -166,6 +169,11 @@ pub enum Cmd {
     /// Start local networks in containers
     #[command(subcommand)]
     Container(container::Cmd),
+
+    /// Manage cli configuration
+    #[cfg(feature = "version_gte_23")]
+    #[command(subcommand)]
+    Config(cfg::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
@@ -230,6 +238,9 @@ pub enum Error {
 
     #[error(transparent)]
     Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Config(#[from] cfg::Error),
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
