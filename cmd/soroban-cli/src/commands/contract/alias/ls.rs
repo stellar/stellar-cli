@@ -108,7 +108,7 @@ impl Cmd {
                 for entry in list {
                     #[cfg(feature = "version_gte_23")]
                     if !found && deprecation_mode {
-                        print_deprecation_warning();
+                        print_deprecation_warning(config_dir);
                     }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);

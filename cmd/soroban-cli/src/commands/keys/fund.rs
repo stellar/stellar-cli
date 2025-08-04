@@ -1,6 +1,5 @@
-use clap::command;
-
 use crate::{commands::global, config::network, print::Print};
+use clap::command;
 
 use super::public_key;
 
@@ -27,10 +26,11 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let addr = self.address.public_key().await?;
         let network = self.network.get(&self.address.locator)?;
+        let formatted_name = self.address.name.to_string();
         network.fund_address(&addr).await?;
         print.checkln(format!(
             "Account {} funded on {:?}",
-            self.address.name, network.network_passphrase
+            formatted_name, network.network_passphrase
         ));
         Ok(())
     }

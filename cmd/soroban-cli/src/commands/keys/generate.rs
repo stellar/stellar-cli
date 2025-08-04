@@ -110,6 +110,7 @@ impl Cmd {
     async fn fund(&self, secret: &Secret, print: &Print) -> Result<(), Error> {
         let addr = secret.public_key(self.hd_path)?;
         let network = self.network.get(&self.config_locator)?;
+        let formatted_name = self.name.to_string();
         network
             .fund_address(&addr)
             .await
@@ -119,7 +120,7 @@ impl Cmd {
             .unwrap_or_default();
         print.checkln(format!(
             "Account {} funded on {:?}",
-            self.name, network.network_passphrase
+            formatted_name, network.network_passphrase
         ));
         Ok(())
     }
