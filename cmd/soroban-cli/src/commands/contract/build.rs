@@ -310,17 +310,9 @@ impl Cmd {
         let mut existing_meta: Vec<u8> = Vec::new();
         for payload in WasmParser::new(0).parse_all(&wasm_bytes) {
             match payload? {
-                Payload::CustomSection(section) => {
-                    if section.name() == META_CUSTOM_SECTION_NAME {
-                        // collect all existing meta data into one collection to merge with new meta, and then add to the module at the end
-                        existing_meta.extend_from_slice(section.data());
-                    } else {
-                        let custom = CustomSection {
-                            name: section.name().into(),
-                            data: section.data().into(),
-                        };
-                        module.section(&custom);
-                    }
+                Payload::CustomSection(section) if section.name() == META_CUSTOM_SECTION_NAME => {
+                    // collect all existing meta data into one collection to merge with new meta, and then add to the module at the end
+                    existing_meta.extend_from_slice(section.data());
                 }
                 other => {
                     // Reconstruct raw section bytes and add them to the new module
