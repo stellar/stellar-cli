@@ -6,6 +6,7 @@ pub mod default;
 pub mod health;
 pub mod ls;
 pub mod rm;
+pub mod settings;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -51,8 +52,11 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
 
-    /// Checks the health of the configured RPC
+    /// Fetch the health of the configured RPC
     Health(health::Cmd),
+
+    /// Fetch the network's config settings
+    Settings(settings::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -68,8 +72,12 @@ pub enum Error {
 
     #[error(transparent)]
     Ls(#[from] ls::Error),
+
     #[error(transparent)]
     Health(#[from] health::Error),
+
+    #[error(transparent)]
+    Settings(#[from] settings::Error),
 
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
@@ -107,6 +115,7 @@ impl Cmd {
                 cmd.run(global_args).await?;
             }
             Cmd::Health(cmd) => cmd.run(global_args).await?,
+            Cmd::Settings(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
