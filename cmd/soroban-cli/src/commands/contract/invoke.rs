@@ -247,7 +247,12 @@ impl NetworkRunnable for Cmd {
         let assembled = self
             .simulate(&host_function_params, &default_account_entry(), &client)
             .await?;
-        let should_send = self.should_send_tx(&assembled.sim_res)?;
+
+        let should_send = if self.fee.build_only {
+            ShouldSend::Yes
+        } else {
+            self.should_send_tx(&assembled.sim_res)?
+        };
 
         let account_details = if should_send == ShouldSend::Yes {
             client
