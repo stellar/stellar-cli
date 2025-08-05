@@ -215,7 +215,6 @@ impl FeeTable {
                     (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
                 }
                 TransactionMeta::V3(meta) => {
-                    // ah, is this a classic feebump vs soroban fee bump issue?
                     if let Some(soroban_meta) = meta.soroban_meta {
                         match soroban_meta.ext {
                             SorobanTransactionMetaExt::V0 => {
