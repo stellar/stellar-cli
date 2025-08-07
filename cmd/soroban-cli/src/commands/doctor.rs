@@ -37,10 +37,22 @@ impl Cmd {
         let print = Print::new(false);
 
         check_version(&print).await?;
+        show_config_path(&print, &self.config_locator)?;
         inspect_networks(&print, &self.config_locator).await?;
 
         Ok(())
     }
+}
+
+fn show_config_path(print: &Print, config_locator: &locator::Args) -> Result<(), Error> {
+    let global_path = config_locator.global_config_path()?;
+
+    print.gearln(format!(
+        "Config directory: {}",
+        global_path.to_string_lossy()
+    ));
+
+    Ok(())
 }
 
 async fn print_network(
