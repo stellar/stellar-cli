@@ -1,5 +1,8 @@
 use clap::Parser;
+use rustc_version::version;
+use semver::Version;
 use std::fmt::Debug;
+use std::process::Command;
 
 use crate::{
     commands::global,
@@ -30,6 +33,9 @@ pub enum Error {
 
     #[error(transparent)]
     RpcClient(#[from] rpc::Error),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl Cmd {
@@ -37,7 +43,10 @@ impl Cmd {
         let print = Print::new(false);
 
         check_version(&print).await?;
+        check_rust_version(&print);
+        check_wasm_target(&print);
         show_config_path(&print, &self.config_locator)?;
+        show_xdr_version(&print);
         inspect_networks(&print, &self.config_locator).await?;
 
         Ok(())
@@ -55,6 +64,12 @@ fn show_config_path(print: &Print, config_locator: &locator::Args) -> Result<(),
     Ok(())
 }
 
+fn show_xdr_version(print: &Print) {
+    let xdr = stellar_xdr::VERSION;
+
+    print.infoln(format!("XDR version: {}", xdr.xdr_curr));
+}
+
 async fn print_network(
     default: bool,
     print: &Print,
@@ -70,10 +85,9 @@ async fn print_network(
         "Network"
     };
 
-    print.globeln(format!(
-        "{prefix} {name:?} ({}): protocol {}",
-        network.rpc_url, version_info.protocol_version
-    ));
+    print.globeln(format!("{prefix} {name:?} ({})", network.rpc_url,));
+    print.blankln(format!(" protocol {}", version_info.protocol_version));
+    print.blankln(format!(" rpc {}", version_info.version));
 
     Ok(())
 }
@@ -130,4 +144,62 @@ async fn check_version(print: &Print) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn check_rust_version(print: &Print) {
+    match version() {
+        Ok(rust_version) => {
+            let v184 = Version::parse("1.84.0").unwrap();
+            let v182 = Version::parse("1.82.0").unwrap();
+
+            if rust_version >= v182 && rust_version < v184 {
+                print.errorln(format!(
+                    "Rust {rust_version} cannot be used to build contracts"
+                ));
+            } else {
+                print.infoln(format!("Rust version: {rust_version}"));
+            }
+        }
+        Err(_) => {
+            print.warnln("Could not determine Rust version".to_string());
+        }
+    }
+}
+
+fn check_wasm_target(print: &Print) {
+    let expected_target = get_expected_wasm_target();
+
+    let Ok(output) = Command::new("rustup")
+        .args(["target", "list", "--installed"])
+        .output()
+    else {
+        print.warnln("Could not retrieve Rust targets".to_string());
+        return;
+    };
+
+    if output.status.success() {
+        let targets = String::from_utf8_lossy(&output.stdout);
+
+        if targets.lines().any(|line| line.trim() == expected_target) {
+            print.checkln(format!("Rust target `{expected_target}` is installed"));
+        } else {
+            print.errorln(format!("Rust target `{expected_target}` is not installed"));
+        }
+    } else {
+        print.warnln("Could not retrieve Rust targets".to_string());
+    }
+}
+
+fn get_expected_wasm_target() -> String {
+    let Ok(current_version) = version() else {
+        return "wasm32v1-none".into();
+    };
+
+    let v184 = Version::parse("1.84.0").unwrap();
+
+    if current_version < v184 {
+        "wasm32-unknown-unknown".into()
+    } else {
+        "wasm32v1-none".into()
+    }
 }
