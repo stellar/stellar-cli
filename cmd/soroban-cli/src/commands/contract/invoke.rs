@@ -244,13 +244,15 @@ impl NetworkRunnable for Cmd {
 
         let (function, spec, host_function_params, signers) = params;
 
-        let assembled = self
-            .simulate(&host_function_params, &default_account_entry(), &client)
-            .await?;
+        let simulate_if_needed = || async {
+            self.simulate(&host_function_params, &default_account_entry(), &client)
+                .await
+        };
 
         let should_send = if self.fee.build_only {
             ShouldSend::Yes
         } else {
+            let assembled = simulate_if_needed().await?;
             self.should_send_tx(&assembled.sim_res)?
         };
 
@@ -269,6 +271,7 @@ impl NetworkRunnable for Cmd {
                 );
             }
 
+            let assembled = simulate_if_needed().await?;
             let sim_res = assembled.sim_response();
             let return_value = sim_res.results()?;
             let events = sim_res.events()?;

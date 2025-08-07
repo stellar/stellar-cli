@@ -87,7 +87,7 @@ pub async fn upgrade_check(quiet: bool) {
     let current_version = Version::parse(current_version).unwrap();
     let latest_version = get_latest_version(&current_version, &stats);
 
-    if *latest_version > current_version {
+    if current_version < *latest_version {
         let printer = Print::new(quiet);
         printer.warnln(format!(
             "A new release of stellar-cli is available: {current_version} -> {latest_version}"
