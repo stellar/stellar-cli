@@ -97,7 +97,7 @@ pub enum Error {
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
@@ -109,7 +109,7 @@ pub enum Error {
     #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
@@ -120,6 +120,24 @@ pub enum Error {
     ArgParse(#[from] arg_parsing::Error),
     #[error("Only ed25519 accounts are allowed")]
     OnlyEd25519AccountsAllowed,
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
+}
+
+impl From<Box<rpc::Error>> for Error {
+    fn from(e: Box<rpc::Error>) -> Self {
+        Self::Rpc(e)
+    }
 }
 
 impl Cmd {

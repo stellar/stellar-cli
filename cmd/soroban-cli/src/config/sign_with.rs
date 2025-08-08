@@ -15,7 +15,7 @@ use super::{
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Signer(#[from] signer::Error),
     #[error(transparent)]
@@ -23,7 +23,7 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Rpc(#[from] soroban_rpc::Error),
+    Rpc(Box<soroban_rpc::Error>),
     #[error("No sign with key provided")]
     NoSignWithKey,
     #[error(transparent)]
@@ -32,6 +32,18 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<soroban_rpc::Error> for Error {
+    fn from(e: soroban_rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]

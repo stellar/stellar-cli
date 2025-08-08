@@ -42,7 +42,7 @@ STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
     #[error("cannot use both `--rpc-url` and `--network`")]
     CannotUseBothRpcAndNetwork,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error(transparent)]
     HttpClient(#[from] reqwest::Error),
     #[error("Failed to parse JSON from {0}, {1}")]
@@ -57,6 +57,12 @@ STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
     InvalidHeaderValue(#[from] InvalidHeaderValue),
     #[error("invalid HTTP header: must be in the form 'key:value'")]
     InvalidHeader,
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]

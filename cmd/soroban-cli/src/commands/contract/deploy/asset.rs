@@ -30,7 +30,7 @@ pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
-    Client(#[from] SorobanRpcError),
+    Client(Box<SorobanRpcError>),
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
     #[error("xdr processing error: {0}")]
@@ -40,13 +40,31 @@ pub enum Error {
     #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Builder(#[from] builder::Error),
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<SorobanRpcError> for Error {
+    fn from(e: SorobanRpcError) -> Self {
+        Self::Client(Box::new(e))
+    }
+}
+
+impl From<Box<SorobanRpcError>> for Error {
+    fn from(e: Box<SorobanRpcError>) -> Self {
+        Self::Client(e)
+    }
 }
 
 impl From<Infallible> for Error {

@@ -41,21 +41,39 @@ pub enum FeeOutputFormat {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
-    Args(#[from] args::Error),
+    Args(Box<args::Error>),
     #[error("{message}")]
     NotSupported { message: String },
     #[error("transaction {tx_hash} not found on {network} network")]
     NotFound { tx_hash: Hash, network: String },
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error("{field} is None, expected it to be Some")]
     None { field: String },
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
+}
+
+impl From<args::Error> for Error {
+    fn from(e: args::Error) -> Self {
+        Self::Args(Box::new(e))
+    }
 }
 
 const DEFAULT_RESOURCE_FEE: i64 = 0; // non-soroban txns do not have resource fees

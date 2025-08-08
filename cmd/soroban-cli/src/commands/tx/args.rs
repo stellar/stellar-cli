@@ -23,11 +23,11 @@ pub struct Args {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
@@ -44,6 +44,18 @@ pub enum Error {
     TxXdr(#[from] super::xdr::Error),
     #[error("invalid price format: {0}")]
     InvalidPrice(String),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
 }
 
 impl Args {

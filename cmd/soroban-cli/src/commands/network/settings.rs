@@ -13,15 +13,27 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    Rpc(#[from] soroban_rpc::Error),
+    Rpc(Box<soroban_rpc::Error>),
     #[error(transparent)]
     Semver(#[from] semver::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<soroban_rpc::Error> for Error {
+    fn from(e: soroban_rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
