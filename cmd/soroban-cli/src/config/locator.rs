@@ -144,7 +144,7 @@ impl Display for Location {
                 Location::Local(_) => "Local",
                 Location::Global(_) => "Global",
             },
-            self.as_ref()
+            self.as_ref().display()
         )
     }
 }
@@ -498,10 +498,11 @@ pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
 
-    print.warnln(format!("A local config was found at {dir:?}."));
+    print.warnln(format!("A local config was found at {}.", dir.display()));
     print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
     print.blankln(format!(
-        " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
+        " Run `stellar config migrate` to move the local config into the global config ({}).",
+        global_dir.display(),
     ));
 }
 
