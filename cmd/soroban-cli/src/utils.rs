@@ -181,6 +181,11 @@ pub mod http {
         // 3. This simplifies error handling for callers, as they can assume a valid client.
         reqwest::Client::builder()
             .user_agent(user_agent())
+            .pool_idle_timeout(std::time::Duration::from_secs(90))  // Keep connections alive for 90 seconds
+            .pool_max_idle_per_host(32)  // Allow up to 32 idle connections per host
+            .connect_timeout(std::time::Duration::from_secs(30))    // Connection timeout of 30 seconds
+            .timeout(std::time::Duration::from_secs(60))           // Overall request timeout of 60 seconds
+            .tcp_keepalive(std::time::Duration::from_secs(60))     // Enable TCP keepalive
             .build()
             .expect("Failed to build reqwest client")
     }
@@ -193,6 +198,11 @@ pub mod http {
     pub fn blocking_client() -> reqwest::blocking::Client {
         reqwest::blocking::Client::builder()
             .user_agent(user_agent())
+            .pool_idle_timeout(std::time::Duration::from_secs(90))  // Keep connections alive for 90 seconds
+            .pool_max_idle_per_host(32)  // Allow up to 32 idle connections per host
+            .connect_timeout(std::time::Duration::from_secs(30))    // Connection timeout of 30 seconds
+            .timeout(std::time::Duration::from_secs(60))           // Overall request timeout of 60 seconds
+            .tcp_keepalive(std::time::Duration::from_secs(60))     // Enable TCP keepalive
             .build()
             .expect("Failed to build reqwest blocking client")
     }
