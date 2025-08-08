@@ -1228,6 +1228,7 @@ Configure connection to networks
 * `ls` — List networks
 * `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 * `health` — Fetch the health of the configured RPC
+* `info` — Checks the health of the configured RPC
 * `settings` — Fetch the network's config settings
 
 
@@ -1321,6 +1322,35 @@ Fetch the health of the configured RPC
   Possible values:
   - `text`:
     Text output of network health status
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
+
+
+
+## `stellar network info`
+
+Checks the health of the configured RPC
+
+**Usage:** `stellar network info [OPTIONS]`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
   - `json`:
     JSON result of the RPC request
   - `json-formatted`:
