@@ -53,6 +53,19 @@ pub async fn upgrade_check(quiet: bool) {
 
     tracing::debug!("start upgrade check");
 
+    if let Ok((true, current_version, latest_version)) = has_available_upgrade(true).await {
+        let printer = Print::new(quiet);
+        printer.warnln(format!(
+            "A new release of Stellar CLI is available: {current_version} -> {latest_version}"
+        ));
+    }
+
+    tracing::debug!("finished upgrade check");
+}
+
+pub async fn has_available_upgrade(
+    cache: bool,
+) -> Result<(bool, Version, Version), Box<dyn Error>> {
     let current_version = crate::commands::version::pkg();
 
     let mut stats = UpgradeCheck::load().unwrap_or_else(|e| {
@@ -62,7 +75,7 @@ pub async fn upgrade_check(quiet: bool) {
 
     let now = chrono::Utc::now();
     // Skip fetch from crates.io if we've checked recently
-    if now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
+    if !cache || now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
         match fetch_latest_crate_info().await {
             Ok(c) => {
                 stats = UpgradeCheck {
@@ -87,14 +100,11 @@ pub async fn upgrade_check(quiet: bool) {
     let current_version = Version::parse(current_version).unwrap();
     let latest_version = get_latest_version(&current_version, &stats);
 
-    if *latest_version > current_version {
-        let printer = Print::new(quiet);
-        printer.warnln(format!(
-            "A new release of stellar-cli is available: {current_version} -> {latest_version}"
-        ));
-    }
-
-    tracing::debug!("finished upgrade check");
+    Ok((
+        *latest_version > current_version,
+        current_version,
+        latest_version.clone(),
+    ))
 }
 
 fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) -> &'a Version {
