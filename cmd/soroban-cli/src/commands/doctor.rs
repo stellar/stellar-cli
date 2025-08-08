@@ -29,13 +29,25 @@ pub enum Error {
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Network(#[from] config::network::Error),
+    Network(Box<config::network::Error>),
 
     #[error(transparent)]
-    RpcClient(#[from] rpc::Error),
+    RpcClient(Box<rpc::Error>),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+}
+
+impl From<config::network::Error> for Error {
+    fn from(e: config::network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::RpcClient(Box::new(e))
+    }
 }
 
 impl Cmd {
@@ -109,7 +121,6 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
                 "Default network {name:?} ({}) is unreachable",
                 network.rpc_url
             ));
-            continue;
         }
     }
 
@@ -120,7 +131,6 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
                     "Network {name:?} ({}) is unreachable",
                     network.rpc_url
                 ));
-                continue;
             }
         }
     }

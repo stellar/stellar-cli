@@ -58,11 +58,17 @@ pub enum Error {
     #[error("reading file {0:?}: {1}")]
     CannotWriteContractFile(PathBuf, io::Error),
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error("cannot create contract directory for {0:?}")]
     CannotCreateContractDir(PathBuf),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 impl From<Infallible> for Error {

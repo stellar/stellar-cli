@@ -54,12 +54,12 @@ pub enum Error {
     },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult {
-        result: ScVal,
+        result: Box<ScVal>,
         error: soroban_spec_tools::Error,
     },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintJsonResult {
-        result: ScVal,
+        result: Box<ScVal>,
         error: serde_json::Error,
     },
     #[error("cannot print as csv: {error}")]
@@ -71,7 +71,7 @@ pub enum Error {
     #[error("either `--key` or `--key-xdr` are required when querying a network")]
     KeyIsRequired,
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error(transparent)]
     Xdr(#[from] XdrError),
     #[error("no matching contract data entries were found for the specified contract id")]
@@ -83,7 +83,19 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Network(#[from] config::network::Error),
+    Network(Box<config::network::Error>),
+}
+
+impl From<config::network::Error> for Error {
+    fn from(e: config::network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
 }
 
 impl Cmd {
@@ -115,11 +127,11 @@ impl Cmd {
             let output = match self.output {
                 Output::String => [
                     soroban_spec_tools::to_string(key).map_err(|e| Error::CannotPrintResult {
-                        result: key.clone(),
+                        result: Box::new(key.clone()),
                         error: e,
                     })?,
                     soroban_spec_tools::to_string(val).map_err(|e| Error::CannotPrintResult {
-                        result: val.clone(),
+                        result: Box::new(val.clone()),
                         error: e,
                     })?,
                     last_modified_ledger.to_string(),
@@ -128,25 +140,25 @@ impl Cmd {
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
                         Error::CannotPrintJsonResult {
-                            result: key.clone(),
+                            result: Box::new(key.clone()),
                             error,
                         }
                     })?,
                     serde_json::to_string_pretty(&val).map_err(|error| {
                         Error::CannotPrintJsonResult {
-                            result: val.clone(),
+                            result: Box::new(val.clone()),
                             error,
                         }
                     })?,
                     serde_json::to_string_pretty(&last_modified_ledger).map_err(|error| {
                         Error::CannotPrintJsonResult {
-                            result: val.clone(),
+                            result: Box::new(val.clone()),
                             error,
                         }
                     })?,
                     serde_json::to_string_pretty(&live_until_ledger_seq).map_err(|error| {
                         Error::CannotPrintJsonResult {
-                            result: val.clone(),
+                            result: Box::new(val.clone()),
                             error,
                         }
                     })?,

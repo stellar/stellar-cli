@@ -129,7 +129,7 @@ pub enum Error {
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
     #[error(transparent)]
-    Network(#[from] config::network::Error),
+    Network(Box<config::network::Error>),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -140,6 +140,12 @@ pub enum Error {
     ParseAssetName(String),
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+}
+
+impl From<config::network::Error> for Error {
+    fn from(e: config::network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -367,9 +373,9 @@ impl Cmd {
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
         print.saveln(format!(
-            "Saved {} entries to {:?}",
+            "Saved {} entries to {}",
             snapshot.ledger_entries.len(),
-            self.out
+            self.out.display(),
         ));
 
         let duration = Duration::from_secs(start.elapsed().as_secs());
@@ -566,7 +572,7 @@ async fn cache_bucket(
 
         let stream = response
             .bytes_stream()
-            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+            .map(|result| result.map_err(std::io::Error::other));
         let stream_reader = StreamReader::new(stream);
         let buf_reader = BufReader::new(stream_reader);
         let mut decoder = GzipDecoder::new(buf_reader);

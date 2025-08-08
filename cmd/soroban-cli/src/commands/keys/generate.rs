@@ -17,13 +17,19 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
 
     #[error("An identity with the name '{0}' already exists")]
     IdentityAlreadyExists(String),
 
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -93,7 +99,11 @@ impl Cmd {
         }
         let secret = self.secret(&print)?;
         let path = self.config_locator.write_identity(&self.name, &secret)?;
-        print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
+        print.checkln(format!(
+            "Key saved with alias {} in {}",
+            self.name,
+            path.display()
+        ));
 
         #[cfg(feature = "version_lt_23")]
         if !self.no_fund {

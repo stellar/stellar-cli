@@ -40,7 +40,7 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    Rpc(#[from] soroban_rpc::Error),
+    Rpc(Box<soroban_rpc::Error>),
     #[error("unexpected contract data {0:?}")]
     UnexpectedContractToken(Box<ContractDataEntry>),
     #[error(
@@ -49,7 +49,19 @@ pub enum Error {
     )]
     ContractIsStellarAsset,
     #[error(transparent)]
-    Network(#[from] NetworkError),
+    Network(Box<NetworkError>),
+}
+
+impl From<soroban_rpc::Error> for Error {
+    fn from(e: soroban_rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
+}
+
+impl From<NetworkError> for Error {
+    fn from(e: NetworkError) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 #[derive(Debug, clap::Args, Clone)]
