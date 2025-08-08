@@ -10,6 +10,7 @@ pub mod cfg;
 pub mod completion;
 pub mod container;
 pub mod contract;
+pub mod doctor;
 pub mod env;
 pub mod events;
 pub mod fee_stats;
@@ -112,6 +113,7 @@ impl Root {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
+            Cmd::Doctor(doctor) => doctor.run(&self.global_args).await?,
             #[cfg(feature = "version_gte_23")]
             Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
@@ -144,6 +146,9 @@ pub enum Cmd {
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
+
+    /// Diagnose and troubleshoot CLI and network issues
+    Doctor(doctor::Cmd),
 
     /// Watch the network for contract events
     Events(events::Cmd),
@@ -214,6 +219,9 @@ pub enum Error {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
     Contract(#[from] contract::Error),
+
+    #[error(transparent)]
+    Doctor(#[from] doctor::Error),
 
     #[error(transparent)]
     Events(#[from] events::Error),

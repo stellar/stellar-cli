@@ -33,7 +33,7 @@ async fn test_use_rpc_provider_with_auth_header() {
 }
 
 #[cfg(feature = "version_lt_23")]
-fn mock_generate_account(server: &MockServer) -> Mock {
+fn mock_generate_account(server: &MockServer) -> Mock<'_> {
     let cli_version = soroban_cli::commands::version::pkg();
     let agent = format!("soroban-cli/{cli_version}");
     server.mock(|when, then| {
@@ -45,7 +45,7 @@ fn mock_generate_account(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_network(server: &MockServer) -> Mock {
+fn mock_get_network(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")
@@ -67,7 +67,7 @@ fn mock_get_network(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_events(server: &MockServer) -> Mock {
+fn mock_get_events(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")

@@ -44,6 +44,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 ###### **Subcommands:**
 
 * `contract` — Tools for smart contract developers
+* `doctor` — Diagnose and troubleshoot CLI and network issues
 * `events` — Watch the network for contract events
 * `env` — Prints the environment variables
 * `keys` — Create and manage identities including keys and addresses
@@ -945,6 +946,19 @@ If no keys are specificed the contract itself is restored.
 * `--cost` — Output the cost execution to stderr
 * `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
 * `--build-only` — Build the transaction and only write the base64 xdr to stdout
+
+
+
+## `stellar doctor`
+
+Diagnose and troubleshoot CLI and network issues
+
+**Usage:** `stellar doctor [OPTIONS]`
+
+###### **Options:**
+
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 
 
