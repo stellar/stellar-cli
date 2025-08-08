@@ -14,7 +14,7 @@ pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
 pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
-) -> Result<Assembled, Error> {
+) -> Result<Assembled, Box<Error>> {
     let sim_res = client
         .simulate_transaction_envelope(
             &TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -28,7 +28,7 @@ pub async fn simulate_and_assemble_transaction(
 
     if let Some(e) = &sim_res.error {
         crate::log::event::all(&sim_res.events()?);
-        Err(Error::TransactionSimulationFailed(e.clone()))
+        Err(Box::new(Error::TransactionSimulationFailed(e.clone())))
     } else {
         Ok(Assembled::new(tx, sim_res)?)
     }
@@ -52,7 +52,10 @@ impl Assembled {
     /// # Errors
     ///
     /// Returns an error if simulation fails or if assembling the transaction fails.
-    pub fn new(txn: &Transaction, sim_res: SimulateTransactionResponse) -> Result<Self, Error> {
+    pub fn new(
+        txn: &Transaction,
+        sim_res: SimulateTransactionResponse,
+    ) -> Result<Self, Box<Error>> {
         let txn = assemble(txn, &sim_res)?;
         Ok(Self { txn, sim_res })
     }
@@ -78,7 +81,7 @@ impl Assembled {
     ///  Create a transaction for restoring any data in the `restore_preamble` field of the `SimulateTransactionResponse`.
     ///
     /// # Errors
-    pub fn restore_txn(&self) -> Result<Option<Transaction>, Error> {
+    pub fn restore_txn(&self) -> Result<Option<Transaction>, Box<Error>> {
         if let Some(restore_preamble) = &self.sim_res.restore_preamble {
             restore(self.transaction(), restore_preamble).map(Option::Some)
         } else {
@@ -128,7 +131,7 @@ impl Assembled {
         &self,
         log_events: Option<LogEvents>,
         log_resources: Option<LogResources>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         if let TransactionExt::V1(SorobanTransactionData {
             resources: resources @ SorobanResources { footprint, .. },
             ..
@@ -191,7 +194,7 @@ impl Assembled {
 fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
-) -> Result<Transaction, Error> {
+) -> Result<Transaction, Box<Error>> {
     let mut tx = raw.clone();
 
     // Right now simulate.results is one-result-per-function, and assumes there is only one
@@ -199,9 +202,9 @@ fn assemble(
     // in soroban-rpc.simulateTransaction design, and we should fix it there.
     // TODO: We should to better handling so non-soroban txns can be a passthrough here.
     if tx.operations.len() != 1 {
-        return Err(Error::UnexpectedOperationCount {
+        return Err(Box::new(Error::UnexpectedOperationCount {
             count: tx.operations.len(),
-        });
+        }));
     }
 
     let transaction_data = simulation.transaction_data()?;
@@ -210,9 +213,9 @@ fn assemble(
     if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
         if body.auth.is_empty() {
             if simulation.results.len() != 1 {
-                return Err(Error::UnexpectedSimulateTransactionResultSize {
+                return Err(Box::new(Error::UnexpectedSimulateTransactionResultSize {
                     length: simulation.results.len(),
-                });
+                }));
             }
 
             let auths = simulation
@@ -226,7 +229,8 @@ fn assemble(
                             .collect::<Result<Vec<_>, _>>()?,
                     )
                 })
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| Box::new(Error::from(e)))?;
             if !auths.is_empty() {
                 body.auth = auths[0].clone();
             }
@@ -238,11 +242,14 @@ fn assemble(
 
     // Choose larger of existing fee or inclusion + resource fee.
     tx.fee = tx.fee.max(
-        u32::try_from(classic_tx_fee + simulation.min_resource_fee)
-            .map_err(|_| Error::LargeFee(simulation.min_resource_fee + classic_tx_fee))?,
+        u32::try_from(classic_tx_fee + simulation.min_resource_fee).map_err(|_| {
+            Box::new(Error::LargeFee(
+                simulation.min_resource_fee + classic_tx_fee,
+            ))
+        })?,
     );
 
-    tx.operations = vec![op].try_into()?;
+    tx.operations = vec![op].try_into().map_err(|e| Box::new(Error::from(e)))?;
     tx.ext = TransactionExt::V1(transaction_data);
     Ok(tx)
 }
@@ -262,17 +269,18 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
     .then(move || op.clone())
 }
 
-fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transaction, Error> {
+fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transaction, Box<Error>> {
     let transaction_data =
-        SorobanTransactionData::from_xdr_base64(&restore.transaction_data, Limits::none())?;
+        SorobanTransactionData::from_xdr_base64(&restore.transaction_data, Limits::none())
+            .map_err(|e| Box::new(Error::from(e)))?;
     let fee = u32::try_from(restore.min_resource_fee)
-        .map_err(|_| Error::LargeFee(restore.min_resource_fee))?;
+        .map_err(|_| Box::new(Error::LargeFee(restore.min_resource_fee)))?;
     Ok(Transaction {
         source_account: parent.source_account.clone(),
         fee: parent
             .fee
             .checked_add(fee)
-            .ok_or(Error::LargeFee(restore.min_resource_fee))?,
+            .ok_or_else(|| Box::new(Error::LargeFee(restore.min_resource_fee)))?,
         seq_num: parent.seq_num.clone(),
         cond: Preconditions::None,
         memo: Memo::None,
@@ -282,7 +290,8 @@ fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transactio
                 ext: ExtensionPoint::V0,
             }),
         }]
-        .try_into()?,
+        .try_into()
+        .map_err(|e| Box::new(Error::from(e)))?,
         ext: TransactionExt::V1(transaction_data),
     })
 }
@@ -487,8 +496,10 @@ mod tests {
         );
 
         match result {
-            Err(Error::UnexpectedSimulateTransactionResultSize { length }) => {
-                assert_eq!(0, length);
+            Err(e) if matches!(*e, Error::UnexpectedSimulateTransactionResultSize { .. }) => {
+                if let Error::UnexpectedSimulateTransactionResultSize { length } = *e {
+                    assert_eq!(0, length);
+                }
             }
             r => panic!("expected UnexpectedSimulateTransactionResultSize error, got: {r:#?}"),
         }
@@ -525,9 +536,11 @@ mod tests {
         response.min_resource_fee = (u32::MAX - 99).into();
 
         match assemble(&txn, &response) {
-            Err(Error::LargeFee(fee)) => {
-                let expected = u64::from(u32::MAX) + 1;
-                assert_eq!(expected, fee, "expected {expected} != {fee} actual");
+            Err(e) if matches!(*e, Error::LargeFee(_)) => {
+                if let Error::LargeFee(fee) = *e {
+                    let expected = u64::from(u32::MAX) + 1;
+                    assert_eq!(expected, fee, "expected {expected} != {fee} actual");
+                }
             }
             r => panic!("expected LargeFee error, got: {r:#?}"),
         }

@@ -33,7 +33,7 @@ pub enum Error {
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
 
     #[error(
         "alias '{alias}' is already referencing contract '{contract}' on network '{network_passphrase}'"
@@ -43,6 +43,12 @@ pub enum Error {
         network_passphrase: String,
         contract: stellar_strkey::Contract,
     },
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 impl Cmd {

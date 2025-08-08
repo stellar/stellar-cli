@@ -17,13 +17,19 @@ pub enum Error {
     Secret(#[from] secret::Error),
 
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
 
     #[error("An identity with the name '{0}' already exists")]
     IdentityAlreadyExists(String),
 
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 #[derive(Debug, clap::Parser, Clone)]

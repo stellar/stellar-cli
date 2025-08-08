@@ -325,7 +325,7 @@ fn with_flags(expected: &str) -> String {
 //
 // See make_rustflags_to_remap_absolute_paths
 #[test]
-#[ignore] // TODO https://github.com/stellar/stellar-cli/issues/1867
+#[ignore = "TODO https://github.com/stellar/stellar-cli/issues/1867"]
 fn remap_absolute_paths() {
     #[derive(Eq, PartialEq, Copy, Clone)]
     enum Remap {

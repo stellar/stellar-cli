@@ -14,11 +14,23 @@ pub enum Error {
     #[error(transparent)]
     Config(#[from] super::super::config::Error),
     #[error(transparent)]
-    Rpc(#[from] crate::rpc::Error),
+    Rpc(Box<crate::rpc::Error>),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
     Network(#[from] config::network::Error),
+}
+
+impl From<crate::rpc::Error> for Error {
+    fn from(e: crate::rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
+}
+
+impl From<Box<crate::rpc::Error>> for Error {
+    fn from(e: Box<crate::rpc::Error>) -> Self {
+        Self::Rpc(e)
+    }
 }
 
 /// Command to simulate a transaction envelope via rpc

@@ -53,7 +53,7 @@ pub enum Error {
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
     #[error(transparent)]
-    Rpc(#[from] rpc::Error),
+    Rpc(Box<rpc::Error>),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
@@ -61,7 +61,7 @@ pub enum Error {
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
     #[error(transparent)]
-    Restore(#[from] restore::Error),
+    Restore(Box<restore::Error>),
     #[error("cannot parse WASM file {wasm}: {error}")]
     CannotParseWasm {
         wasm: std::path::PathBuf,
@@ -73,11 +73,35 @@ pub enum Error {
         version: String,
     },
     #[error(transparent)]
-    Network(#[from] network::Error),
+    Network(Box<network::Error>),
     #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
     Builder(#[from] builder::Error),
+}
+
+impl From<network::Error> for Error {
+    fn from(e: network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
+}
+
+impl From<rpc::Error> for Error {
+    fn from(e: rpc::Error) -> Self {
+        Self::Rpc(Box::new(e))
+    }
+}
+
+impl From<Box<rpc::Error>> for Error {
+    fn from(e: Box<rpc::Error>) -> Self {
+        Self::Rpc(e)
+    }
+}
+
+impl From<restore::Error> for Error {
+    fn from(e: restore::Error) -> Self {
+        Self::Restore(Box::new(e))
+    }
 }
 
 impl Cmd {

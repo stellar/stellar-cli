@@ -22,12 +22,12 @@ pub enum Error {
     #[error("parsing argument {arg}: {error}")]
     CannotParseArg {
         arg: String,
-        error: soroban_spec_tools::Error,
+        error: Box<soroban_spec_tools::Error>,
     },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult {
         result: ScVal,
-        error: soroban_spec_tools::Error,
+        error: Box<soroban_spec_tools::Error>,
     },
     #[error("function {0} was not found in the contract")]
     FunctionNotFoundInContractSpec(String),
@@ -124,7 +124,10 @@ pub fn build_host_function_parameters(
                     }
                 }
                 spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
+                    .map_err(|error| Error::CannotParseArg {
+                        arg: name,
+                        error: Box::new(error),
+                    })
             } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
                 Ok(ScVal::Void)
             } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
@@ -135,7 +138,7 @@ pub fn build_host_function_parameters(
                     )
                     .map_err(|()| Error::CannotParseArg {
                         arg: name.clone(),
-                        error: soroban_spec_tools::Error::Unknown,
+                        error: Box::new(soroban_spec_tools::Error::Unknown),
                     })?)
                 } else {
                     let file_contents = std::fs::read_to_string(arg_path)
@@ -145,8 +148,12 @@ pub fn build_host_function_parameters(
                         i.type_,
                         file_contents.len()
                     );
-                    spec.from_string(&file_contents, &i.type_)
-                        .map_err(|error| Error::CannotParseArg { arg: name, error })
+                    spec.from_string(&file_contents, &i.type_).map_err(|error| {
+                        Error::CannotParseArg {
+                            arg: name,
+                            error: Box::new(error),
+                        }
+                    })
                 }
             } else {
                 Err(Error::MissingArgument(name))
@@ -269,7 +276,7 @@ pub fn output_to_string(
             .xdr_to_json(res, output)
             .map_err(|e| Error::CannotPrintResult {
                 result: res.clone(),
-                error: e,
+                error: Box::new(e),
             })?
             .to_string();
     }

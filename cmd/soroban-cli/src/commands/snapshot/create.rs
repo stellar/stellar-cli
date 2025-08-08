@@ -129,7 +129,7 @@ pub enum Error {
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
     #[error(transparent)]
-    Network(#[from] config::network::Error),
+    Network(Box<config::network::Error>),
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -140,6 +140,12 @@ pub enum Error {
     ParseAssetName(String),
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+}
+
+impl From<config::network::Error> for Error {
+    fn from(e: config::network::Error) -> Self {
+        Self::Network(Box::new(e))
+    }
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
