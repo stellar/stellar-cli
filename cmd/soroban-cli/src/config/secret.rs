@@ -47,6 +47,8 @@ pub struct Args {
     /// Save the new key in your OS's credential secure store.
     ///
     /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
+    ///
+    /// This only supports seed phrases for now.
     #[arg(long)]
     pub secure_store: bool,
 }
