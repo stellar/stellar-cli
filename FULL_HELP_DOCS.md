@@ -1100,6 +1100,8 @@ Add a new identity (keypair, ledger, OS specific secure store)
 * `--secure-store` — Save the new key in your OS's credential secure store.
 
    On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
+
+   This only supports seed phrases for now.
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
