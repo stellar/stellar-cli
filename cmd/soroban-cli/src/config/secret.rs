@@ -44,7 +44,9 @@ pub struct Args {
     /// (deprecated) Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
-    /// Save the new key in secure store. This only supports seed phrases for now.
+    /// Save the new key in your OS's credential secure store.
+    ///
+    /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
     #[arg(long)]
     pub secure_store: bool,
 }
