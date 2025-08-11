@@ -1502,6 +1502,22 @@ mod tests {
     }
 
     #[test]
+    fn test_sc_address_json_strkey_muxed_roundtrip() {
+        let muxed_address_str =
+            "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6";
+
+        // First convert from JSON strkey to ScAddress, then convert back to JSON strkey using sc_address_to_json
+        match sc_address_from_json(muxed_address_str) {
+            Ok(ScVal::Address(address)) => {
+                let json_result = sc_address_to_json(&address);
+                assert_eq!(json_result, Value::String(muxed_address_str.to_string()));
+            }
+            Ok(_) => panic!("Expected ScVal::Address"),
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    }
+
+    #[test]
     fn test_u128_conversions() {
         // Test basic positive value
         let val = 42u128;
