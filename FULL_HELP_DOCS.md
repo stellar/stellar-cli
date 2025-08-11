@@ -1097,7 +1097,9 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 * `--secret-key` — (deprecated) Enter secret (S) key when prompted
 * `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
-* `--secure-store` — Save the new key in secure store. This only supports seed phrases for now
+* `--secure-store` — Save the new key in your OS's credential secure store.
+
+   On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
@@ -1160,7 +1162,9 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
-* `--secure-store` — Save in OS-specific secure store
+* `--secure-store` — Save the new key in your OS's credential secure store.
+
+   On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
