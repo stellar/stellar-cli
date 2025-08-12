@@ -56,9 +56,8 @@ async fn complex_enum_help() {
     assert!(
         output.contains("Asset")
             && output.contains("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
-            && output.contains("1"),
-        "Help output should contain Asset variant with the expected address and amount: {}",
-        output
+            && output.contains('1'),
+        "Help output should contain Asset variant with the expected address and amount: {output}",
     );
     assert!(output.contains(r#""Void"'"#));
 }
