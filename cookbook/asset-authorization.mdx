@@ -65,9 +65,9 @@ Require approval for new trustlines:
 Set authorization required flag:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 1
+    --set-required
 ```
 
 ### 3. Set Authorization Revocable Flag
@@ -77,9 +77,9 @@ Enable freezing capabilities:
 Set authorization revocable flag:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 2
+    --set-revocable
 ```
 
 ### 4. Set Authorization Immutable Flag
@@ -89,9 +89,9 @@ Make flags permanent (cannot be changed):
 Set authorization immutable flag:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 4
+    --set-immutable
 ```
 
 ## Advanced Authorization Combinations
@@ -103,9 +103,10 @@ Set multiple flags in a single transaction:
 Set both authorization required and revocable:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 3
+    --set-required \
+    --set-revocable
 ```
 
 ### 2. Common Flag Combinations
@@ -113,20 +114,24 @@ stellar tx new set_options \
 Set common flag combinations:
 
 ```bash
-# Authorization required + revocable (3)
-stellar tx new set_options \
+# Authorization required + revocable
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 3
+    --set-required \
+    --set-revocable
 
-# Authorization required + revocable + immutable (7)
-stellar tx new set_options \
+# Authorization required + revocable + immutable
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 7
+    --set-required \
+    --set-revocable \
+    --set-immutable
 
-# Authorization required + immutable (5)
-stellar tx new set_options \
+# Authorization required + immutable
+stellar tx new set-options \
     --source-account issuer \
-    --set-flags 5
+    --set-required \
+    --set-immutable
 ```
 
 ## Managing Existing Authorizations
@@ -138,13 +143,13 @@ Change authorization settings (if not immutable):
 Remove authorization flags:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --clear-flags 1
+    --clear-required
 
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account issuer \
-    --clear-flags 2
+    --clear-revocable
 ```
 
 ### 2. View Flag Combinations
@@ -169,14 +174,14 @@ stellar keys generate controlled_asset_issuer -q
 stellar keys fund controlled_asset_issuer
 
 # 2. Set authorization required flag
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account controlled_asset_issuer \
-    --set-flags 1
+    --set-required
 
 # 3. Set authorization revocable flag
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account controlled_asset_issuer \
-    --set-flags 2
+    --set-revocable
 
 # 4. Verify flags are set
 stellar keys address controlled_asset_issuer
@@ -189,11 +194,11 @@ When authorization is required, manually approve trustlines:
 Allow a specific account to hold the asset:
 
 ```bash
-stellar tx new allow_trust \
+stellar tx new set-trustline-flags \
     --source-account controlled_asset_issuer \
     --trustor <account_address> \
     --asset USDC:$(stellar keys address controlled_asset_issuer) \
-    --authorize
+    --set-authorize
 ```
 
 ### 3. Revoking Trustline Access
@@ -203,11 +208,11 @@ Remove authorization for specific accounts:
 Revoke authorization for an account:
 
 ```bash
-stellar tx new allow_trust \
+stellar tx new set-trustline-flags \
     --source-account controlled_asset_issuer \
     --trustor <account_address> \
     --asset USDC:$(stellar keys address controlled_asset_issuer) \
-    --deauthorize
+    --clear-authorize
 ```
 
 ## Freeze and Unfreeze Operations
@@ -219,13 +224,15 @@ Freeze an account's asset balance:
 Freeze an account, then freeze specific account:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account controlled_asset_issuer \
-    --set-flags 2
+    --set-revocable
 
-stellar tx new set_options \
+stellar tx new set-trustline-flags \
     --source-account controlled_asset_issuer \
-    --set-flags 2
+    --trustor <account_address> \
+    --asset USDC:$(stellar keys address controlled_asset_issuer) \
+    --set-authorize
 ```
 
 ### 2. Unfreezing Account Balances
@@ -235,9 +242,11 @@ Restore account access:
 Unfreeze an account:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-trustline-flags \
     --source-account controlled_asset_issuer \
-    --clear-flags 2
+    --trustor <account_address> \
+    --asset USDC:$(stellar keys address controlled_asset_issuer) \
+    --clear-authorize
 ```
 
 ## Integration with Stellar Asset Contracts
@@ -328,9 +337,9 @@ stellar keys generate basic_issuer -q
 stellar keys fund basic_issuer
 
 # 3. Set authorization required
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account basic_issuer \
-    --set-flags 1
+    --set-required
 
 # 4. Deploy asset contract
 stellar contract asset deploy \
@@ -347,9 +356,11 @@ stellar keys generate secure_issuer -q
 stellar keys fund secure_issuer
 
 # 2. Set all authorization flags
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account secure_issuer \
-    --set-flags 7
+    --set-required \
+    --set-revocable \
+    --set-immutable
 
 # 3. Deploy with full control
 stellar contract asset deploy \
