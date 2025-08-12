@@ -7,6 +7,8 @@ custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/contr
 
 Contract metadata provides essential information about your smart contracts, making them discoverable, understandable, and maintainable. This guide covers how to add and manage metadata for your Stellar smart contracts using the CLI.
 
+**Note**: The Stellar CLI doesn't currently provide built-in metadata management commands. Metadata handling must be implemented within your contract code itself. This guide shows the conceptual approaches and available CLI commands that can be used to interact with contracts that implement metadata functionality.
+
 ## What is Contract Metadata?
 
 Contract metadata includes:
@@ -53,16 +55,15 @@ Create a metadata file for your contract:
 
 ### 2. Deploy Contract with Metadata
 
-When deploying your contract, you can include metadata:
+When deploying your contract, metadata should be implemented within the contract code itself:
 
-Deploy contract with metadata file:
+Deploy contract (metadata is handled by the contract logic):
 
 ```bash
 stellar contract deploy \
     --source deployer \
     --network testnet \
-    --wasm path/to/contract.wasm \
-    --metadata path/to/metadata.json
+    --wasm path/to/contract.wasm
 ```
 
 ### 3. Add Metadata to Existing Contract
@@ -134,7 +135,7 @@ stellar contract invoke \
 
 ### 1. Batch Metadata Updates
 
-Update multiple metadata fields at once:
+Update multiple metadata fields (requires multiple calls):
 
 Set multiple metadata fields:
 
@@ -142,8 +143,16 @@ Set multiple metadata fields:
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
-    -- set_metadata_batch \
-    --metadata '{"name": "New Name", "version": "2.0.0"}'
+    -- set_metadata \
+    --key "name" \
+    --value "New Name"
+
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "version" \
+    --value "2.0.0"
 ```
 
 ### 2. Structured Metadata
@@ -174,29 +183,23 @@ Use nested structures for complex metadata:
 
 ### 3. Metadata Validation
 
-Ensure metadata follows standards:
+Ensure metadata follows standards by implementing validation within your contract logic:
 
-Validate metadata format:
-
-```bash
-stellar contract metadata validate \
-    --file path/to/metadata.json
-```
+Note: Metadata validation must be implemented in the contract code itself, as the CLI doesn't provide built-in metadata validation commands.
 
 ## Integration with Stellar Asset Contracts
 
 ### 1. Asset Contract Metadata
 
-Add metadata to Stellar Asset Contracts:
+Deploy Stellar Asset Contracts (metadata must be handled in contract code):
 
-Deploy SAC with metadata:
+Deploy SAC (metadata implementation depends on contract logic):
 
 ```bash
 stellar contract asset deploy \
     --source issuer \
     --network testnet \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
-    --metadata path/to/asset_metadata.json
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE
 ```
 
 ### 2. Asset-Specific Information
@@ -254,7 +257,7 @@ Include asset-specific metadata:
 # 1. Set network
 export STELLAR_NETWORK=testnet
 
-# 2. Create metadata file
+# 2. Create metadata file for reference (actual metadata handled in contract)
 cat > contract_metadata.json << EOF
 {
   "name": "Simple Token",
@@ -265,14 +268,13 @@ cat > contract_metadata.json << EOF
 }
 EOF
 
-# 3. Deploy contract with metadata
+# 3. Deploy contract (metadata handled in contract code)
 stellar contract deploy \
     --source deployer \
     --network testnet \
-    --wasm path/to/simple_token.wasm \
-    --metadata contract_metadata.json
+    --wasm path/to/simple_token.wasm
 
-# 4. Verify metadata
+# 4. Verify contract deployment
 stellar contract info \
     --id <deployed_contract_id> \
     --network testnet
@@ -313,40 +315,44 @@ stellar contract info \
 
 Regularly review contract metadata:
 
-List all contracts with metadata and check metadata consistency:
+List all contracts and check their details:
 
 ```bash
-stellar contract ls \
-    --network testnet \
-    --with-metadata
-
-stellar contract metadata audit \
+stellar contract info \
+    --id <contract_id> \
     --network testnet
 ```
+
+Note: The CLI doesn't provide built-in metadata auditing commands. Metadata consistency should be verified by querying individual contracts.
 
 ### 2. Metadata Backups
 
 Backup metadata for important contracts:
 
-Export contract metadata:
+Export contract metadata by querying the contract:
 
 ```bash
-stellar contract metadata export \
+stellar contract invoke \
     --id <contract_id> \
-    --output metadata_backup.json
+    --source-account reader \
+    -- get_metadata
 ```
+
+Note: The specific method name depends on your contract's implementation.
 
 ### 3. Version Tracking
 
 Track metadata changes over time:
 
-View metadata history:
+View metadata history through transaction logs:
 
 ```bash
-stellar contract metadata history \
+stellar events \
     --id <contract_id> \
     --network testnet
 ```
+
+Note: Metadata change history depends on contract events and implementation.
 
 ## Troubleshooting
 
@@ -380,29 +386,31 @@ stellar contract metadata history \
 
 Use predefined templates for common contract types:
 
-Generate token and DeFi contract metadata templates:
+Create metadata templates manually or use contract initialization:
 
 ```bash
-stellar contract metadata template \
-    --type token \
-    --output token_metadata.json
-
-stellar contract metadata template \
-    --type defi \
-    --output defi_metadata.json
+stellar contract init \
+    --template token \
+    --name my-token-project
 ```
+
+Note: Metadata templates should be defined within your contract project structure.
 
 ### 2. Metadata Validation
 
 Validate metadata before deployment:
 
-Check metadata syntax and structure:
+Validate metadata through contract testing:
 
 ```bash
-stellar contract metadata validate \
-    --file metadata.json \
-    --schema standard
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account tester \
+    -- validate_metadata \
+    --metadata_json '<json_string>'
 ```
+
+Note: Validation logic must be implemented in your contract code.
 
 ## Resources
 

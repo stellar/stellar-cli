@@ -36,9 +36,9 @@ To create a trustline for a custom asset:
 Create a trustline for USDC:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 1000000
 ```
 
@@ -49,9 +49,9 @@ Set specific limits for asset holdings:
 Create trustline with a specific limit (e.g., 5000 USDC):
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 5000
 ```
 
@@ -62,9 +62,9 @@ Note: XLM (native asset) doesn't require trustlines, but you can still use the c
 This will show that XLM doesn't need a trustline:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset native
+    --line native
 ```
 
 ## Managing Existing Trustlines
@@ -76,7 +76,7 @@ Check what trustlines an account currently has:
 Get account information including trustlines:
 
 ```bash
-stellar keys info alice
+stellar keys address alice
 ```
 
 ### 2. Modify Trustline Limits
@@ -86,9 +86,9 @@ Update the limit of an existing trustline:
 Increase the limit to 10000 USDC:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 10000
 ```
 
@@ -99,9 +99,9 @@ Remove a trustline (this will fail if the account holds a balance):
 Remove the USDC trustline:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 0
 ```
 
@@ -114,9 +114,9 @@ Some assets require authorization before establishing trustlines:
 Create trustline for an asset that requires authorization:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset AUTH_ASSET:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line AUTH_ASSET:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 10000
 ```
 
@@ -127,14 +127,14 @@ Create multiple trustlines in sequence:
 Create trustlines for multiple assets:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 10000
 
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account alice \
-    --asset BTC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line BTC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 100
 ```
 
@@ -189,7 +189,7 @@ stellar contract id asset \
 1. **Insufficient XLM for Fees**
    ```bash
    # Check account balance
-   stellar keys info alice
+   stellar keys address alice
    
    # Fund account if needed
    stellar keys fund alice
@@ -229,9 +229,9 @@ stellar keys fund issuer
 stellar keys fund user
 
 # 3. Create trustline
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account user \
-    --asset MYTOKEN:$(stellar keys address issuer) \
+    --line MYTOKEN:$(stellar keys address issuer) \
     --limit 10000
 
 # 4. Deploy asset contract
@@ -241,7 +241,7 @@ stellar contract asset deploy \
     --asset MYTOKEN:$(stellar keys address issuer)
 
 # 5. Verify setup
-stellar keys info user
+stellar keys address user
 stellar contract id asset \
     --network testnet \
     --asset MYTOKEN:$(stellar keys address issuer)
