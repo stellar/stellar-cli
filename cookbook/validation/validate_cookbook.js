@@ -92,7 +92,7 @@ function validateMdxFile(filePath) {
 function main() {
   log('🔍 Validating Stellar CLI Cookbook MDX Files...\n', 'blue');
 
-  const cookbookDir = path.join(__dirname, 'cookbook');
+  const cookbookDir = path.join(__dirname, '..');
   const files = fs.readdirSync(cookbookDir)
     .filter(file => file.endsWith('.mdx'))
     .map(file => path.join(cookbookDir, file));

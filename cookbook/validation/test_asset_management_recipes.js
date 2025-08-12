@@ -34,7 +34,7 @@ function testAssetManagementRecipes() {
   assetManagementFiles.forEach(fileName => {
     log(`📋 Testing ${fileName}...`, 'cyan');
     
-    const filePath = path.join(__dirname, 'cookbook', fileName);
+    const filePath = path.join(__dirname, '..', fileName);
     const content = fs.readFileSync(filePath, 'utf8');
     
     const tests = [
@@ -190,7 +190,7 @@ function testCLICommands() {
 
     let found = false;
     assetManagementFiles.forEach(fileName => {
-      const filePath = path.join(__dirname, 'cookbook', fileName);
+      const filePath = path.join(__dirname, '..', fileName);
       const content = fs.readFileSync(filePath, 'utf8');
       if (content.includes(cmd)) {
         found = true;
