@@ -297,38 +297,25 @@ stellar contract info \
 
 Regularly review contract metadata:
 
-```bash
-# List all contracts with metadata
-stellar contract ls \
-    --network testnet \
-    --with-metadata
+List all contracts with metadata and check metadata consistency:
 
-# Check metadata consistency
-stellar contract metadata audit \
-    --network testnet
-```
+```bash
 
 ### 2. Metadata Backups
 
 Backup metadata for important contracts:
 
+Export contract metadata:
+
 ```bash
-# Export contract metadata
-stellar contract metadata export \
-    --id <contract_id> \
-    --output metadata_backup.json
-```
 
 ### 3. Version Tracking
 
 Track metadata changes over time:
 
+View metadata history:
+
 ```bash
-# View metadata history
-stellar contract metadata history \
-    --id <contract_id> \
-    --network testnet
-```
 
 ## Troubleshooting
 
@@ -362,28 +349,17 @@ stellar contract metadata history \
 
 Use predefined templates for common contract types:
 
-```bash
-# Generate token contract metadata template
-stellar contract metadata template \
-    --type token \
-    --output token_metadata.json
+Generate token and DeFi contract metadata templates:
 
-# Generate DeFi contract metadata template
-stellar contract metadata template \
-    --type defi \
-    --output defi_metadata.json
-```
+```bash
 
 ### 2. Metadata Validation
 
 Validate metadata before deployment:
 
+Check metadata syntax and structure:
+
 ```bash
-# Check metadata syntax and structure
-stellar contract metadata validate \
-    --file metadata.json \
-    --schema standard
-```
 
 ## Resources
 

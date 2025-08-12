@@ -28,11 +28,9 @@ Clawback is a Stellar protocol feature that allows asset issuers to:
 
 Assets must have clawback enabled during creation:
 
+When creating an asset, clawback must be enabled. This is typically done through custom contract deployment or direct Stellar SDK operations:
+
 ```bash
-# When creating an asset, clawback must be enabled
-# This is typically done through custom contract deployment
-# or direct Stellar SDK operations
-```
 
 ### 2. Clawback Conditions
 
@@ -75,31 +73,17 @@ impl ClawbackContract {
 
 Deploy your clawback-enabled contract:
 
+Deploy the custom contract:
+
 ```bash
-# Deploy the custom contract
-stellar contract deploy \
-    --source issuer \
-    --network testnet \
-    --wasm path/to/clawback_contract.wasm
-```
 
 ### 3. Contract Integration
 
 Integrate with existing asset contracts:
 
-```bash
-# Deploy Stellar Asset Contract first
-stellar contract asset deploy \
-    --source issuer \
-    --network testnet \
-    --asset MYTOKEN:$(stellar keys address issuer)
+Deploy Stellar Asset Contract first, then deploy your clawback contract:
 
-# Then deploy your clawback contract
-stellar contract deploy \
-    --source issuer \
-    --network testnet \
-    --wasm path/to/clawback_contract.wasm
-```
+```bash
 
 ## Workarounds Using CLI
 
@@ -107,24 +91,17 @@ stellar contract deploy \
 
 While you can't clawback directly, you can manage asset flags:
 
-```bash
-# Set authorization required flag
-stellar tx new set_options \
-    --source-account issuer \
-    --set-flags 1
+Set authorization required and freeze flags:
 
-# Set freeze flag
-stellar tx new set_options \
-    --source-account issuer \
-    --set-flags 2
-```
+```bash
 
 ### 2. Freeze Operations
 
 Freeze accounts to prevent further transactions:
 
+Freeze an account's asset balance:
+
 ```bash
-# Freeze an account's asset balance
 stellar tx new set_options \
     --source-account issuer \
     --set-flags 2
@@ -139,12 +116,9 @@ stellar tx new set_options \
 
 Control who can hold your assets:
 
+Require authorization for new trustlines:
+
 ```bash
-# Require authorization for new trustlines
-stellar tx new set_options \
-    --source-account issuer \
-    --set-flags 1
-```
 
 ## Best Practices for Clawback Implementation
 
@@ -210,25 +184,17 @@ stellar contract id asset \
 
 Monitor your contracts for clawback activities:
 
+Check contract events:
+
 ```bash
-# Check contract events
-stellar events \
-    --contract-id <clawback_contract_id> \
-    --network testnet
-```
 
 ### 2. Balance Verification
 
 Regularly verify asset balances:
 
+Check asset balances across accounts:
+
 ```bash
-# Check asset balances across accounts
-stellar contract invoke \
-    --id <asset_contract_id> \
-    --source-account issuer \
-    -- balance \
-    --id <account_address>
-```
 
 ## Troubleshooting
 
