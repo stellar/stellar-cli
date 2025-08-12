@@ -34,7 +34,6 @@ export STELLAR_NETWORK=testnet
 View the current authorization settings for an asset:
 
 ```bash
-# Get account information including current flags
 stellar keys info issuer
 ```
 
@@ -128,8 +127,6 @@ Check what flags are currently set:
 ```bash
 # Get detailed account information
 stellar keys info issuer
-
-# Look for the "flags" section in the output
 ```
 
 ## Authorization Workflows
@@ -260,10 +257,7 @@ stellar contract id asset \
 
 1. **Flags Cannot Be Changed**
    ```bash
-   # Check if immutable flag is set
    stellar keys info issuer
-   
-   # If immutable (flag 4), flags cannot be modified
    ```
 
 2. **Authorization Denied**
