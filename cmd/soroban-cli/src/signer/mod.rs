@@ -105,8 +105,11 @@ pub fn sign_soroban_authorizations(
             // See if we have a signer for this authorizationEntry
             // If not, then we Error
             let needle = match address {
+                ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
+                ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
+                ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
                 ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
-                ScAddress::Contract(Hash(c)) => {
+                ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
                     // This address is for a contract. This means we're using a custom
                     // smart-contract account. Currently the CLI doesn't support that yet.
                     return Err(Error::MissingSignerForAddress {
@@ -220,6 +223,8 @@ pub enum SignerKind {
     SecureStore(SecureStoreEntry),
 }
 
+// Instead of using `sign_tx` and `sign_tx_env` directly, it is advised to instead use the sign_with module
+// which allows for signing with a local key, lab or a ledger device
 impl Signer {
     pub async fn sign_tx(
         &self,

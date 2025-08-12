@@ -2,8 +2,8 @@ use soroban_cli::{
     commands,
     xdr::{Limits, WriteXdr},
 };
-use soroban_test::{AssertExt, TestEnv, Wasm};
-use std::fmt::Display;
+use soroban_test::{AssertExt, TestEnv, Wasm, LOCAL_NETWORK_PASSPHRASE, TEST_ACCOUNT};
+use std::{env, fmt::Display};
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
@@ -63,6 +63,15 @@ pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, CUSTOM_ACCOUNT, DeployOptions::default()).await
 }
 
+pub fn setup_env_for_sandbox(sandbox: &TestEnv) {
+    env::set_var("SOROBAN_ACCOUNT", TEST_ACCOUNT);
+    env::set_var("SOROBAN_RPC_URL", sandbox.network.rpc_url.clone());
+    env::set_var("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE);
+
+    env::set_var("XDG_CONFIG_HOME", sandbox.config_dir().as_os_str());
+    env::set_var("XDG_DATA_HOME", sandbox.data_dir().as_os_str());
+}
+
 #[derive(Default)]
 pub struct DeployOptions {
     pub kind: DeployKind,
@@ -79,6 +88,7 @@ pub async fn deploy_contract(
         salt,
     }: DeployOptions,
 ) -> String {
+    setup_env_for_sandbox(sandbox);
     let mut cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(
         &[
             "--fee",
@@ -96,6 +106,7 @@ pub async fn deploy_contract(
         .run_cmd_with(cmd, deployer.as_deref().unwrap_or("test"))
         .await
         .unwrap();
+
     match kind {
         DeployKind::Normal => (),
         _ => match res.to_envelope() {
@@ -114,10 +125,12 @@ pub async fn extend_contract(sandbox: &TestEnv, id: &str) {
 
 pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
     let mut args = vec!["--id", id, "--ledgers-to-extend", "100001"];
+
     if let Some(value) = value {
         args.push("--key");
         args.push(value);
     }
+
     sandbox
         .new_assert_cmd("contract")
         .arg("extend")

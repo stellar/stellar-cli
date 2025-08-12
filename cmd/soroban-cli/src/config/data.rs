@@ -28,7 +28,9 @@ pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
     std::env::var(XDG_DATA_HOME)
         .map_or_else(
             |_| ProjectDirs::from("org", "stellar", "stellar-cli"),
-            |data_home| ProjectDirs::from_path(std::path::PathBuf::from(data_home)),
+            |data_home| {
+                ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
+            },
         )
         .ok_or(Error::FailedToFindProjectDirs)
 }
@@ -183,6 +185,7 @@ impl TryFrom<GetTransactionResponse> for Action {
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
                 result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
                 result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
+                events: None,
             },
         })
     }

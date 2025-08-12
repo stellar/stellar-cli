@@ -5,13 +5,13 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::curr::{
-    AccountId, BytesM, ContractExecutable, Error as XdrError, Hash, Int128Parts, Int256Parts,
-    PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
-    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
-    UInt128Parts, UInt256Parts, Uint256, VecM,
+    AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
+    Int256Parts, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey,
+    ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap,
+    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec,
+    ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
+    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
+    ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -74,23 +74,23 @@ impl TryInto<Spec> for &[u8] {
 
     fn try_into(self) -> Result<Spec, Self::Error> {
         let spec = soroban_spec::read::from_wasm(self)?;
-        Ok(Spec::new(spec))
+        Ok(Spec::new(spec.as_slice()))
     }
 }
 
 impl Spec {
-    pub fn new(entries: Vec<ScSpecEntry>) -> Self {
-        Self(Some(entries))
+    pub fn new(entries: &[ScSpecEntry]) -> Self {
+        Self(Some(entries.to_vec()))
     }
 
     pub fn from_wasm(wasm: &[u8]) -> Result<Spec, Error> {
         let spec = soroban_spec::read::from_wasm(wasm)?;
-        Ok(Spec::new(spec))
+        Ok(Spec::new(spec.as_slice()))
     }
 
     pub fn parse_base64(base64: &str) -> Result<Spec, Error> {
         let spec = soroban_spec::read::parse_base64(base64.as_bytes())?;
-        Ok(Spec::new(spec))
+        Ok(Spec::new(spec.as_slice()))
     }
 }
 
@@ -121,8 +121,11 @@ impl Spec {
             | ScType::I256
             | ScType::String
             | ScType::Bool => String::new(),
+            ScType::MuxedAddress => {
+                String::from("Can be public key (G13..), contract ID (C13...), or a muxed account (M13..), or an identity")
+            }
             ScType::Address => String::from(
-                "Can be public key (G13..), a contract hash (6c45307) or an identity (alice), ",
+                "Can be public key (G13..), a contract ID (C13...) or an identity (alice), ",
             ),
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
             ScType::Udt(ScSpecTypeUdt { name }) => {
@@ -132,7 +135,8 @@ impl Spec {
                     | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
                     | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
                     | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
-                    | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. }) => doc,
+                    | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
+                    | ScSpecEntry::EventV0(ScSpecEventV0 { doc, .. }) => doc,
                 }
                 .to_utf8_string_lossy()
             }
@@ -171,6 +175,7 @@ impl Spec {
                         ScSpecEntry::UdtUnionV0(x) => x.name.to_utf8_string_lossy(),
                         ScSpecEntry::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
                         ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
+                        ScSpecEntry::EventV0(x) => x.name.to_utf8_string_lossy(),
                     };
                     name == entry_name
                 })
@@ -193,7 +198,7 @@ impl Spec {
     pub fn find_functions(&self) -> Result<impl Iterator<Item = &ScSpecFunctionV0>, Error> {
         Ok(self
             .0
-            .as_ref()
+            .as_deref()
             .ok_or(Error::MissingSpec)?
             .iter()
             .filter_map(|e| match e {
@@ -1041,7 +1046,12 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
         ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(k)))) => {
             Value::String(stellar_strkey::ed25519::PublicKey(*k).to_string())
         }
-        ScAddress::Contract(Hash(h)) => Value::String(stellar_strkey::Contract(*h).to_string()),
+        ScAddress::Contract(ContractId(h)) => {
+            Value::String(stellar_strkey::Contract(h.clone().into()).to_string())
+        }
+        ScAddress::MuxedAccount(_) => todo!("MuxedAddress is not supported yet"),
+        ScAddress::ClaimableBalance(_) => todo!("ClaimableBalance is not supported"),
+        ScAddress::LiquidityPool(_) => todo!("LiquidityPool is not supported"),
     }
 }
 
@@ -1053,7 +1063,7 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
                 ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0)))),
             )),
             stellar_strkey::Strkey::Contract(c) => {
-                Some(ScVal::Address(ScAddress::Contract(Hash(c.0))))
+                Some(ScVal::Address(ScAddress::Contract(ContractId(Hash(c.0)))))
             }
             _ => None,
         })?
@@ -1089,6 +1099,7 @@ impl Spec {
             ScType::U256 => Some("u256".to_string()),
             ScType::I256 => Some("i256".to_string()),
             ScType::String => Some("String".to_string()),
+            ScType::MuxedAddress => Some("MuxedAddress".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
                 let inner = self.arg_value_name(value_type.as_ref(), depth + 1)?;
@@ -1146,7 +1157,9 @@ impl Spec {
                     ScSpecEntry::UdtStructV0(strukt) => self.arg_value_udt(strukt, depth),
                     ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth),
                     ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
-                    ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => None,
+                    ScSpecEntry::FunctionV0(_)
+                    | ScSpecEntry::UdtErrorEnumV0(_)
+                    | ScSpecEntry::EventV0(_) => None,
                 }
             }
             // No specific value name for these yet.
@@ -1279,6 +1292,9 @@ impl Spec {
             ScType::Udt(ScSpecTypeUdt { name }) => {
                 self.example_udts(name.to_utf8_string_lossy().as_ref())
             }
+            ScType::MuxedAddress => {
+                Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
+            }
             // No specific value name for these yet.
             ScType::Val => None,
         }
@@ -1316,7 +1332,12 @@ impl Spec {
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
-            Some(ScSpecEntry::FunctionV0(_) | ScSpecEntry::UdtErrorEnumV0(_)) | None => None,
+            Some(
+                ScSpecEntry::FunctionV0(_)
+                | ScSpecEntry::UdtErrorEnumV0(_)
+                | ScSpecEntry::EventV0(_),
+            )
+            | None => None,
         }
     }
 
@@ -1406,7 +1427,10 @@ mod tests {
     fn test_sc_address_from_json_strkey() {
         // All zero contract address
         match sc_address_from_json("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4") {
-            Ok(addr) => assert_eq!(addr, ScVal::Address(ScAddress::Contract(Hash([0; 32])))),
+            Ok(addr) => assert_eq!(
+                addr,
+                ScVal::Address(ScAddress::Contract(ContractId(Hash([0; 32]))))
+            ),
             Err(e) => panic!("Unexpected error: {e}"),
         }
 
@@ -1414,14 +1438,11 @@ mod tests {
         match sc_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE") {
             Ok(addr) => assert_eq!(
                 addr,
-                ScVal::Address(ScAddress::Contract(
-                    [
-                        0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88,
-                        0xc7, 0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0,
-                        0xec, 0x9c, 0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
-                    ]
-                    .into()
-                ))
+                ScVal::Address(ScAddress::Contract(ContractId::from(Hash([
+                    0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88, 0xc7,
+                    0x79, 0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0, 0xec, 0x9c,
+                    0x07, 0x3d, 0x05, 0xc7, 0xb1, 0x03,
+                ]))))
             ),
             Err(e) => panic!("Unexpected error: {e}"),
         }
