@@ -1,0 +1,415 @@
+---
+title: Contract Metadata
+hide_table_of_contents: true
+description: Add metadata information to smart contracts including name, description, and other details
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/contract-metadata.mdx
+---
+
+Contract metadata provides essential information about your smart contracts, making them discoverable, understandable, and maintainable. This guide covers how to add and manage metadata for your Stellar smart contracts using the CLI.
+
+## What is Contract Metadata?
+
+Contract metadata includes:
+- **Name**: Human-readable contract identifier
+- **Description**: What the contract does
+- **Version**: Contract version information
+- **Author**: Who created the contract
+- **Repository**: Source code location
+- **Keywords**: Searchable terms
+- **Homepage**: Project website
+- **License**: Usage terms
+
+## Prerequisites
+
+Before adding metadata to contracts, ensure you have:
+- A deployed smart contract
+- The Stellar CLI installed and configured
+- Access to a Stellar network (testnet recommended for testing)
+
+## Setting Up Your Network
+
+```bash
+export STELLAR_NETWORK=testnet
+```
+
+## Adding Metadata to Contracts
+
+### 1. Basic Metadata Structure
+
+Create a metadata file for your contract:
+
+```json
+{
+  "name": "My Token Contract",
+  "description": "A simple ERC-20 style token contract on Stellar",
+  "version": "1.0.0",
+  "author": "Your Name <your.email@example.com>",
+  "repository": "https://github.com/yourusername/your-contract",
+  "keywords": ["stellar", "soroban", "token", "defi"],
+  "homepage": "https://yourproject.com",
+  "license": "MIT"
+}
+```
+
+### 2. Deploy Contract with Metadata
+
+When deploying your contract, you can include metadata:
+
+```bash
+# Deploy contract with metadata file
+stellar contract deploy \
+    --source deployer \
+    --network testnet \
+    --wasm path/to/contract.wasm \
+    --metadata path/to/metadata.json
+```
+
+### 3. Add Metadata to Existing Contract
+
+For already deployed contracts, add metadata through contract calls:
+
+```bash
+# Invoke contract to set metadata
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "name" \
+    --value "My Token Contract"
+```
+
+## Metadata Management Commands
+
+### 1. View Contract Metadata
+
+Check existing metadata for a contract:
+
+```bash
+# Get contract information including metadata
+stellar contract info \
+    --id <contract_id> \
+    --network testnet
+```
+
+### 2. Update Contract Metadata
+
+Modify existing metadata:
+
+```bash
+# Update contract name
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "name" \
+    --value "Updated Contract Name"
+
+# Update description
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "description" \
+    --value "Updated contract description"
+```
+
+### 3. Remove Metadata
+
+Delete specific metadata entries:
+
+```bash
+# Remove a metadata key
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- remove_metadata \
+    --key "old_key"
+```
+
+## Advanced Metadata Operations
+
+### 1. Batch Metadata Updates
+
+Update multiple metadata fields at once:
+
+```bash
+# Set multiple metadata fields
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata_batch \
+    --metadata '{"name": "New Name", "version": "2.0.0"}'
+```
+
+### 2. Structured Metadata
+
+Use nested structures for complex metadata:
+
+```json
+{
+  "name": "Advanced DeFi Contract",
+  "description": "A comprehensive DeFi protocol",
+  "version": "2.1.0",
+  "author": {
+    "name": "DeFi Team",
+    "email": "team@defi.com",
+    "organization": "DeFi Labs"
+  },
+  "features": [
+    "liquidity pools",
+    "yield farming",
+    "governance"
+  ],
+  "networks": {
+    "testnet": "https://testnet.example.com",
+    "mainnet": "https://mainnet.example.com"
+  }
+}
+```
+
+### 3. Metadata Validation
+
+Ensure metadata follows standards:
+
+```bash
+# Validate metadata format
+stellar contract metadata validate \
+    --file path/to/metadata.json
+```
+
+## Integration with Stellar Asset Contracts
+
+### 1. Asset Contract Metadata
+
+Add metadata to Stellar Asset Contracts:
+
+```bash
+# Deploy SAC with metadata
+stellar contract asset deploy \
+    --source issuer \
+    --network testnet \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --metadata path/to/asset_metadata.json
+```
+
+### 2. Asset-Specific Information
+
+Include asset-specific metadata:
+
+```json
+{
+  "name": "USDC Stablecoin",
+  "description": "USD Coin - A stable cryptocurrency pegged to the US Dollar",
+  "version": "1.0.0",
+  "asset_type": "stablecoin",
+  "peg_currency": "USD",
+  "issuer": "Circle",
+  "regulatory_status": "regulated",
+  "audit_frequency": "monthly"
+}
+```
+
+## Metadata Standards and Best Practices
+
+### 1. Naming Conventions
+
+- Use descriptive, lowercase names
+- Separate words with hyphens or underscores
+- Avoid special characters
+- Keep names under 50 characters
+
+### 2. Description Guidelines
+
+- Be clear and concise
+- Explain the contract's purpose
+- Include key features
+- Mention any limitations
+
+### 3. Version Management
+
+- Use semantic versioning (MAJOR.MINOR.PATCH)
+- Document breaking changes
+- Maintain version history
+- Update metadata with each release
+
+### 4. Security Considerations
+
+- Don't include sensitive information
+- Avoid hardcoded secrets
+- Use environment variables when possible
+- Validate all metadata inputs
+
+## Example Workflows
+
+### Workflow 1: New Contract with Metadata
+
+```bash
+# 1. Set network
+export STELLAR_NETWORK=testnet
+
+# 2. Create metadata file
+cat > contract_metadata.json << EOF
+{
+  "name": "Simple Token",
+  "description": "Basic token contract for testing",
+  "version": "1.0.0",
+  "author": "Developer",
+  "license": "MIT"
+}
+EOF
+
+# 3. Deploy contract with metadata
+stellar contract deploy \
+    --source deployer \
+    --network testnet \
+    --wasm path/to/simple_token.wasm \
+    --metadata contract_metadata.json
+
+# 4. Verify metadata
+stellar contract info \
+    --id <deployed_contract_id> \
+    --network testnet
+```
+
+### Workflow 2: Update Existing Contract Metadata
+
+```bash
+# 1. Check current metadata
+stellar contract info \
+    --id <contract_id> \
+    --network testnet
+
+# 2. Update specific fields
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "version" \
+    --value "1.1.0"
+
+stellar contract invoke \
+    --id <contract_id> \
+    --source-account deployer \
+    -- set_metadata \
+    --key "description" \
+    --value "Updated description with new features"
+
+# 3. Verify updates
+stellar contract info \
+    --id <contract_id> \
+    --network testnet
+```
+
+## Monitoring and Maintenance
+
+### 1. Metadata Audits
+
+Regularly review contract metadata:
+
+```bash
+# List all contracts with metadata
+stellar contract ls \
+    --network testnet \
+    --with-metadata
+
+# Check metadata consistency
+stellar contract metadata audit \
+    --network testnet
+```
+
+### 2. Metadata Backups
+
+Backup metadata for important contracts:
+
+```bash
+# Export contract metadata
+stellar contract metadata export \
+    --id <contract_id> \
+    --output metadata_backup.json
+```
+
+### 3. Version Tracking
+
+Track metadata changes over time:
+
+```bash
+# View metadata history
+stellar contract metadata history \
+    --id <contract_id> \
+    --network testnet
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Metadata Not Displayed**
+   - Verify contract deployment included metadata
+   - Check network configuration
+   - Ensure proper contract ID
+
+2. **Metadata Update Failures**
+   - Verify account permissions
+   - Check contract state
+   - Ensure sufficient XLM for fees
+
+3. **Invalid Metadata Format**
+   - Validate JSON syntax
+   - Check required fields
+   - Verify data types
+
+### Error Messages
+
+- `op_not_authorized`: Insufficient permissions
+- `op_underfunded`: Insufficient XLM for fees
+- `op_invalid_metadata`: Invalid metadata format
+- `op_metadata_not_found`: Metadata key doesn't exist
+
+## Tools and Utilities
+
+### 1. Metadata Templates
+
+Use predefined templates for common contract types:
+
+```bash
+# Generate token contract metadata template
+stellar contract metadata template \
+    --type token \
+    --output token_metadata.json
+
+# Generate DeFi contract metadata template
+stellar contract metadata template \
+    --type defi \
+    --output defi_metadata.json
+```
+
+### 2. Metadata Validation
+
+Validate metadata before deployment:
+
+```bash
+# Check metadata syntax and structure
+stellar contract metadata validate \
+    --file metadata.json \
+    --schema standard
+```
+
+## Resources
+
+For more information on contract metadata:
+
+- [Stellar Asset Operations](./stellar-asset-operations.mdx)
+- [Contract Deployment Guide](./deploy-contract.mdx)
+- [Stellar Protocol Documentation](https://developers.stellar.org/docs)
+- [Soroban Smart Contract Guide](../../../developers/learn/soroban.mdx)
+
+## Summary
+
+Contract metadata is essential for:
+- **Discoverability**: Making contracts easy to find
+- **Understanding**: Explaining what contracts do
+- **Maintenance**: Tracking versions and changes
+- **Compliance**: Meeting documentation requirements
+- **Collaboration**: Enabling team development
+
+By following these guidelines and using the Stellar CLI effectively, you can create comprehensive, maintainable metadata for all your smart contracts. Remember to keep metadata up-to-date and follow established standards for consistency across your projects.

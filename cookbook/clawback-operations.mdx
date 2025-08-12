@@ -1,0 +1,277 @@
+---
+title: Clawback Operations
+hide_table_of_contents: true
+description: Understanding asset clawback functionality and CLI limitations
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/clawback-operations.mdx
+---
+
+Asset clawback is a powerful feature in Stellar that allows asset issuers to recover assets from accounts under specific conditions. However, it's important to note that the Stellar CLI currently has limited support for direct clawback operations.
+
+## What is Clawback?
+
+Clawback is a Stellar protocol feature that allows asset issuers to:
+- Recover assets from accounts that hold them
+- Implement compliance and regulatory requirements
+- Handle fraud or security incidents
+- Enforce business rules and agreements
+
+## CLI Limitation
+
+**Important**: The Stellar CLI currently doesn't support direct clawback operations. This functionality requires:
+- Custom smart contract implementation
+- Direct Stellar SDK usage
+- Manual transaction construction
+
+## Understanding Clawback Mechanics
+
+### 1. Clawback Authorization
+
+Assets must have clawback enabled during creation:
+
+```bash
+# When creating an asset, clawback must be enabled
+# This is typically done through custom contract deployment
+# or direct Stellar SDK operations
+```
+
+### 2. Clawback Conditions
+
+Clawback can only be executed when:
+- The asset has clawback enabled
+- The issuer has the necessary permissions
+- The target account holds the asset
+- All regulatory requirements are met
+
+## Alternative Approaches
+
+### 1. Smart Contract Implementation
+
+Since CLI doesn't support clawback directly, implement it in smart contracts:
+
+```rust
+// Example Soroban contract with clawback functionality
+use soroban_sdk::{contract, contractimpl, Address, Symbol};
+
+#[contract]
+pub struct ClawbackContract;
+
+#[contractimpl]
+impl ClawbackContract {
+    pub fn clawback(
+        env: &Env,
+        from: Address,
+        amount: i128,
+        asset: Address,
+    ) -> Result<(), Error> {
+        // Verify issuer permissions
+        // Execute clawback logic
+        // Update balances
+        Ok(())
+    }
+}
+```
+
+### 2. Deploy Custom Contract
+
+Deploy your clawback-enabled contract:
+
+```bash
+# Deploy the custom contract
+stellar contract deploy \
+    --source issuer \
+    --network testnet \
+    --wasm path/to/clawback_contract.wasm
+```
+
+### 3. Contract Integration
+
+Integrate with existing asset contracts:
+
+```bash
+# Deploy Stellar Asset Contract first
+stellar contract asset deploy \
+    --source issuer \
+    --network testnet \
+    --asset MYTOKEN:$(stellar keys address issuer)
+
+# Then deploy your clawback contract
+stellar contract deploy \
+    --source issuer \
+    --network testnet \
+    --wasm path/to/clawback_contract.wasm
+```
+
+## Workarounds Using CLI
+
+### 1. Asset Flag Management
+
+While you can't clawback directly, you can manage asset flags:
+
+```bash
+# Set authorization required flag
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 1
+
+# Set freeze flag
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 2
+```
+
+### 2. Freeze Operations
+
+Freeze accounts to prevent further transactions:
+
+```bash
+# Freeze an account's asset balance
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 2
+
+# Unfreeze when needed
+stellar tx new set_options \
+    --source-account issuer \
+    --clear-flags 2
+```
+
+### 3. Authorization Control
+
+Control who can hold your assets:
+
+```bash
+# Require authorization for new trustlines
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 1
+```
+
+## Best Practices for Clawback Implementation
+
+### 1. Smart Contract Design
+
+- Implement proper access controls
+- Add audit logging for all clawback operations
+- Include time delays for large amounts
+- Provide notification mechanisms
+
+### 2. Security Considerations
+
+- Use multi-signature accounts for clawback operations
+- Implement rate limiting
+- Add emergency pause functionality
+- Regular security audits
+
+### 3. Compliance Requirements
+
+- Document all clawback policies
+- Implement proper notification procedures
+- Maintain audit trails
+- Follow regulatory guidelines
+
+## Example Workflow
+
+Here's a complete example of setting up a clawback-enabled system:
+
+```bash
+# 1. Set network
+export STELLAR_NETWORK=testnet
+
+# 2. Generate issuer account
+stellar keys generate issuer -q
+stellar keys fund issuer
+
+# 3. Deploy Stellar Asset Contract
+stellar contract asset deploy \
+    --source issuer \
+    --network testnet \
+    --asset CLAWBACK_TOKEN:$(stellar keys address issuer)
+
+# 4. Deploy custom clawback contract
+stellar contract deploy \
+    --source issuer \
+    --network testnet \
+    --wasm path/to/clawback_contract.wasm
+
+# 5. Set asset flags for control
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 1
+
+# 6. Verify setup
+stellar contract id asset \
+    --network testnet \
+    --asset CLAWBACK_TOKEN:$(stellar keys address issuer)
+```
+
+## Monitoring and Maintenance
+
+### 1. Track Clawback Events
+
+Monitor your contracts for clawback activities:
+
+```bash
+# Check contract events
+stellar events \
+    --contract-id <clawback_contract_id> \
+    --network testnet
+```
+
+### 2. Balance Verification
+
+Regularly verify asset balances:
+
+```bash
+# Check asset balances across accounts
+stellar contract invoke \
+    --id <asset_contract_id> \
+    --source-account issuer \
+    -- balance \
+    --id <account_address>
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Contract Deployment Failures**
+   - Ensure sufficient XLM for deployment
+   - Verify WASM file integrity
+   - Check network connectivity
+
+2. **Permission Errors**
+   - Verify issuer account permissions
+   - Check asset flags and settings
+   - Ensure proper account funding
+
+3. **Integration Problems**
+   - Verify contract addresses
+   - Check network consistency
+   - Validate asset configurations
+
+## Future CLI Support
+
+The Stellar CLI team is actively working on expanding functionality. Future versions may include:
+- Direct clawback commands
+- Enhanced asset management tools
+- Better smart contract integration
+- Automated compliance features
+
+## Resources
+
+For more information on implementing clawback functionality:
+
+- [Stellar Protocol Documentation](https://developers.stellar.org/docs)
+- [Soroban Smart Contract Guide](../../../developers/learn/soroban.mdx)
+- [Asset Management Best Practices](./stellar-asset-operations.mdx)
+- [Trustlines Management](./trustlines-management.mdx)
+
+## Summary
+
+While the Stellar CLI doesn't currently support direct clawback operations, you can implement this functionality through:
+- Custom smart contracts
+- Asset flag management
+- Freeze and authorization controls
+- Integration with existing asset contracts
+
+This approach provides flexibility and security while working within the current CLI limitations.

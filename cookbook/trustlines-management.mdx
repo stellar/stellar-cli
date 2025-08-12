@@ -1,0 +1,240 @@
+---
+title: Trustlines Management
+hide_table_of_contents: true
+description: Set up and manage trustlines between accounts for Stellar assets
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/trustlines-management.mdx
+---
+
+Trustlines are essential for Stellar asset operations. They represent the relationship between an account and an asset issuer, allowing the account to hold and transact with that specific asset. This guide covers how to manage trustlines using the Stellar CLI.
+
+## Understanding Trustlines
+
+A trustline is a connection between an account and an asset issuer that:
+- Allows the account to hold the asset
+- Sets limits on how much of the asset the account can hold
+- Can be modified or removed by the account holder
+
+## Prerequisites
+
+Before managing trustlines, ensure you have:
+- A funded account with XLM for transaction fees
+- The Stellar CLI installed and configured
+- Access to a Stellar network (testnet recommended for testing)
+
+## Setting Up Your Network
+
+```bash
+export STELLAR_NETWORK=testnet
+```
+
+## Creating Trustlines
+
+### 1. Basic Trustline Creation
+
+To create a trustline for a custom asset:
+
+```bash
+# Create a trustline for USDC
+stellar tx new change_trust \
+    --source-account alice \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 1000000
+```
+
+### 2. Trustline with Custom Limits
+
+Set specific limits for asset holdings:
+
+```bash
+# Create trustline with a specific limit (e.g., 5000 USDC)
+stellar tx new change_trust \
+    --source-account alice \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 5000
+```
+
+### 3. Trustline for Native Asset (XLM)
+
+Note: XLM (native asset) doesn't require trustlines, but you can still use the command for consistency:
+
+```bash
+# This will show that XLM doesn't need a trustline
+stellar tx new change_trust \
+    --source-account alice \
+    --asset native
+```
+
+## Managing Existing Trustlines
+
+### 1. View Current Trustlines
+
+Check what trustlines an account currently has:
+
+```bash
+# Get account information including trustlines
+stellar keys info alice
+```
+
+### 2. Modify Trustline Limits
+
+Update the limit of an existing trustline:
+
+```bash
+# Increase the limit to 10000 USDC
+stellar tx new change_trust \
+    --source-account alice \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 10000
+```
+
+### 3. Remove Trustlines
+
+Remove a trustline (this will fail if the account holds a balance):
+
+```bash
+# Remove the USDC trustline
+stellar tx new change_trust \
+    --source-account alice \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 0
+```
+
+## Advanced Trustline Operations
+
+### 1. Trustline with Authorization
+
+Some assets require authorization before establishing trustlines:
+
+```bash
+# Create trustline for an asset that requires authorization
+stellar tx new change_trust \
+    --source-account alice \
+    --asset AUTH_ASSET:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 10000
+```
+
+### 2. Batch Trustline Operations
+
+Create multiple trustlines in sequence:
+
+```bash
+# Create trustlines for multiple assets
+stellar tx new change_trust \
+    --source-account alice \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 10000
+
+stellar tx new change_trust \
+    --source-account alice \
+    --asset BTC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 100
+```
+
+## Working with Stellar Asset Contracts
+
+### 1. Deploy Asset Contract After Trustline
+
+After establishing a trustline, you can deploy the Stellar Asset Contract:
+
+```bash
+# Deploy SAC for the asset
+stellar contract asset deploy \
+    --source alice \
+    --network testnet \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE
+```
+
+### 2. Verify Contract Integration
+
+Check if the asset contract is properly integrated:
+
+```bash
+# Get the asset contract ID
+stellar contract id asset \
+    --network testnet \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE
+```
+
+## Best Practices
+
+### 1. Limit Management
+- Set reasonable limits based on expected usage
+- Monitor trustline usage regularly
+- Adjust limits as business needs change
+
+### 2. Security Considerations
+- Use separate accounts for different asset types
+- Regularly review and audit trustlines
+- Remove unused trustlines to reduce attack surface
+
+### 3. Performance Optimization
+- Batch trustline operations when possible
+- Use appropriate network selection (testnet vs mainnet)
+- Monitor transaction fees and optimize accordingly
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Insufficient XLM for Fees**
+   ```bash
+   # Check account balance
+   stellar keys info alice
+   
+   # Fund account if needed
+   stellar keys fund alice
+   ```
+
+2. **Trustline Already Exists**
+   - Use `--limit` to modify existing trustlines
+   - Check current limits before creating new ones
+
+3. **Asset Not Found**
+   - Verify asset code and issuer address
+   - Ensure the asset exists on the network
+
+4. **Authorization Required**
+   - Some assets require issuer approval
+   - Contact the asset issuer for authorization
+
+### Error Messages
+
+- `op_already_exists`: Trustline already exists
+- `op_underfunded`: Insufficient XLM for fees
+- `op_cross_self`: Cannot create trustline to self
+- `op_invalid_limit`: Invalid limit value
+
+## Example Workflow
+
+Here's a complete example of setting up trustlines for a new asset:
+
+```bash
+# 1. Set network
+export STELLAR_NETWORK=testnet
+
+# 2. Generate and fund accounts
+stellar keys generate issuer -q
+stellar keys generate user -q
+stellar keys fund issuer
+stellar keys fund user
+
+# 3. Create trustline
+stellar tx new change_trust \
+    --source-account user \
+    --asset MYTOKEN:$(stellar keys address issuer) \
+    --limit 10000
+
+# 4. Deploy asset contract
+stellar contract asset deploy \
+    --source issuer \
+    --network testnet \
+    --asset MYTOKEN:$(stellar keys address issuer)
+
+# 5. Verify setup
+stellar keys info user
+stellar contract id asset \
+    --network testnet \
+    --asset MYTOKEN:$(stellar keys address issuer)
+```
+
+For more information on asset operations, see [Stellar Asset Operations](./stellar-asset-operations.mdx) and [Stellar Asset Contract documentation](../../../tokens/stellar-asset-contract.mdx).

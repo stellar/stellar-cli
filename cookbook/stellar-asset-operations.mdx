@@ -1,0 +1,156 @@
+---
+title: Stellar Asset Operations
+hide_table_of_contents: true
+description: Create, issue, and manage Stellar assets using the Stellar CLI
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/stellar-asset-operations.mdx
+---
+
+The Stellar CLI provides comprehensive tools for creating, issuing, and managing Stellar assets. This guide covers the essential operations for asset management.
+
+## Prerequisites
+
+Before starting, ensure you have:
+- A funded account with XLM for transaction fees
+- The Stellar CLI installed and configured
+- Access to a Stellar network (testnet recommended for testing)
+
+## Setting Up Your Network
+
+First, set your preferred network:
+
+```bash
+export STELLAR_NETWORK=testnet
+```
+
+## Creating and Managing Assets
+
+### 1. Create a New Asset
+
+To create a new Stellar asset, you need to establish a trustline and optionally issue the asset:
+
+```bash
+# Generate a new account for asset operations
+stellar keys generate asset_manager -q
+
+# Fund the account
+stellar keys fund asset_manager
+
+# Get the account address
+stellar keys address asset_manager
+```
+
+### 2. Establish Trustlines
+
+Before an account can hold an asset, it must establish a trustline:
+
+```bash
+# Create a trustline for a custom asset
+stellar tx new change_trust \
+    --source-account asset_manager \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --limit 1000000
+```
+
+### 3. Issue Assets
+
+To issue assets to an account:
+
+```bash
+# Issue 1000 USDC to a recipient account
+stellar tx new payment \
+    --source-account asset_manager \
+    --destination <recipient_address> \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --amount 1000
+```
+
+### 4. Check Asset Balances
+
+Monitor asset balances across accounts:
+
+```bash
+# Check balance of a specific asset
+stellar contract invoke \
+    --id <asset_contract_id> \
+    --source-account asset_manager \
+    -- balance \
+    --id <account_address>
+```
+
+### 5. Transfer Assets Between Accounts
+
+Transfer assets between different accounts:
+
+```bash
+# Transfer 500 USDC from one account to another
+stellar contract invoke \
+    --id <asset_contract_id> \
+    --source-account <sender_account> \
+    -- transfer \
+    --from <sender_address> \
+    --to <recipient_address> \
+    --amount 500
+```
+
+## Asset Management Operations
+
+### Update Asset Flags
+
+Control asset behavior by setting authorization flags:
+
+```bash
+# Set authorization required flag
+stellar tx new set_options \
+    --source-account asset_manager \
+    --set-flags 1
+```
+
+### Freeze/Unfreeze Assets
+
+Manage asset freezing capabilities:
+
+```bash
+# Freeze an account's asset balance
+stellar tx new set_options \
+    --source-account asset_manager \
+    --set-flags 2
+
+# Unfreeze an account's asset balance
+stellar tx new set_options \
+    --source-account asset_manager \
+    --clear-flags 2
+```
+
+### Clawback Operations
+
+**Note**: The Stellar CLI currently doesn't support direct clawback operations. This functionality requires custom contract implementation or direct Stellar SDK usage.
+
+## Working with Stellar Asset Contracts
+
+For smart contract integration, deploy the Stellar Asset Contract:
+
+```bash
+# Deploy SAC for your custom asset
+stellar contract asset deploy \
+    --source asset_manager \
+    --network testnet \
+    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE
+```
+
+## Best Practices
+
+1. **Test on Testnet**: Always test asset operations on testnet before mainnet
+2. **Monitor Balances**: Regularly check asset balances and trustlines
+3. **Security**: Use separate accounts for asset management and regular operations
+4. **Documentation**: Keep track of asset codes, issuers, and contract addresses
+
+## Troubleshooting
+
+Common issues and solutions:
+
+- **Insufficient XLM**: Ensure accounts have enough XLM for transaction fees
+- **Trustline Not Established**: Verify trustlines exist before issuing assets
+- **Authorization Required**: Check if assets require authorization flags
+- **Network Mismatch**: Confirm you're using the correct network for your operations
+
+For more advanced asset operations and smart contract integration, refer to the [Stellar Asset Contract documentation](../../../tokens/stellar-asset-contract.mdx) and [Token Interface](../../../tokens/token-interface.mdx).

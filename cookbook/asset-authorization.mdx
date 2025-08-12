@@ -1,0 +1,370 @@
+---
+title: Asset Authorization
+hide_table_of_contents: true
+description: Control asset access with authorization flags using the Stellar CLI
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/asset-authorization.mdx
+---
+
+Asset authorization is a crucial security feature in Stellar that allows issuers to control who can hold and transact with their assets. This guide covers how to manage authorization flags using the Stellar CLI.
+
+## Understanding Asset Authorization
+
+Stellar assets can have three main authorization flags:
+- **Authorization Required (1)**: New trustlines require issuer approval
+- **Authorization Revocable (2)**: Issuer can freeze accounts
+- **Authorization Immutable (4)**: Flags cannot be changed once set
+
+## Prerequisites
+
+Before managing asset authorization, ensure you have:
+- A funded issuer account with XLM for transaction fees
+- The Stellar CLI installed and configured
+- Access to a Stellar network (testnet recommended for testing)
+
+## Setting Up Your Network
+
+```bash
+export STELLAR_NETWORK=testnet
+```
+
+## Basic Authorization Management
+
+### 1. Check Current Authorization Flags
+
+View the current authorization settings for an asset:
+
+```bash
+# Get account information including current flags
+stellar keys info issuer
+```
+
+### 2. Set Authorization Required Flag
+
+Require approval for new trustlines:
+
+```bash
+# Set authorization required flag
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 1
+```
+
+### 3. Set Authorization Revocable Flag
+
+Enable freezing capabilities:
+
+```bash
+# Set authorization revocable flag
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 2
+```
+
+### 4. Set Authorization Immutable Flag
+
+Make flags permanent (cannot be changed):
+
+```bash
+# Set authorization immutable flag
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 4
+```
+
+## Advanced Authorization Combinations
+
+### 1. Multiple Flags Simultaneously
+
+Set multiple flags in a single transaction:
+
+```bash
+# Set both authorization required and revocable
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 3
+```
+
+### 2. Common Flag Combinations
+
+```bash
+# Authorization required + revocable (3)
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 3
+
+# Authorization required + revocable + immutable (7)
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 7
+
+# Authorization required + immutable (5)
+stellar tx new set_options \
+    --source-account issuer \
+    --set-flags 5
+```
+
+## Managing Existing Authorizations
+
+### 1. Modify Authorization Flags
+
+Change authorization settings (if not immutable):
+
+```bash
+# Remove authorization required flag
+stellar tx new set_options \
+    --source-account issuer \
+    --clear-flags 1
+
+# Remove authorization revocable flag
+stellar tx new set_options \
+    --source-account issuer \
+    --clear-flags 2
+```
+
+### 2. View Flag Combinations
+
+Check what flags are currently set:
+
+```bash
+# Get detailed account information
+stellar keys info issuer
+
+# Look for the "flags" section in the output
+```
+
+## Authorization Workflows
+
+### 1. Setting Up a Controlled Asset
+
+```bash
+# 1. Generate and fund issuer account
+stellar keys generate controlled_asset_issuer -q
+stellar keys fund controlled_asset_issuer
+
+# 2. Set authorization required flag
+stellar tx new set_options \
+    --source-account controlled_asset_issuer \
+    --set-flags 1
+
+# 3. Set authorization revocable flag
+stellar tx new set_options \
+    --source-account controlled_asset_issuer \
+    --set-flags 2
+
+# 4. Verify flags are set
+stellar keys info controlled_asset_issuer
+```
+
+### 2. Managing Trustline Approvals
+
+When authorization is required, manually approve trustlines:
+
+```bash
+# Allow a specific account to hold the asset
+stellar tx new allow_trust \
+    --source-account controlled_asset_issuer \
+    --trustor <account_address> \
+    --asset USDC:$(stellar keys address controlled_asset_issuer) \
+    --authorize
+```
+
+### 3. Revoking Trustline Access
+
+Remove authorization for specific accounts:
+
+```bash
+# Revoke authorization for an account
+stellar tx new allow_trust \
+    --source-account controlled_asset_issuer \
+    --trustor <account_address> \
+    --asset USDC:$(stellar keys address controlled_asset_issuer) \
+    --deauthorize
+```
+
+## Freeze and Unfreeze Operations
+
+### 1. Freezing Account Balances
+
+Freeze an account's asset balance:
+
+```bash
+# Freeze an account
+stellar tx new set_options \
+    --source-account controlled_asset_issuer \
+    --set-flags 2
+
+# Then freeze specific account
+stellar tx new set_options \
+    --source-account controlled_asset_issuer \
+    --set-flags 2
+```
+
+### 2. Unfreezing Account Balances
+
+Restore account access:
+
+```bash
+# Unfreeze an account
+stellar tx new set_options \
+    --source-account controlled_asset_issuer \
+    --clear-flags 2
+```
+
+## Integration with Stellar Asset Contracts
+
+### 1. Deploy Asset Contract with Authorization
+
+```bash
+# Deploy SAC for controlled asset
+stellar contract asset deploy \
+    --source controlled_asset_issuer \
+    --network testnet \
+    --asset CONTROLLED_TOKEN:$(stellar keys address controlled_asset_issuer)
+```
+
+### 2. Verify Contract Integration
+
+```bash
+# Get the asset contract ID
+stellar contract id asset \
+    --network testnet \
+    --asset CONTROLLED_TOKEN:$(stellar keys address controlled_asset_issuer)
+```
+
+## Security Best Practices
+
+### 1. Flag Management
+
+- **Start Conservative**: Begin with minimal flags and add as needed
+- **Document Changes**: Keep track of all flag modifications
+- **Test Thoroughly**: Verify behavior on testnet before mainnet
+- **Monitor Usage**: Regularly review authorization patterns
+
+### 2. Access Control
+
+- **Multi-Signature**: Use multi-signature accounts for critical operations
+- **Role Separation**: Separate issuer and administrative functions
+- **Audit Logging**: Maintain records of all authorization changes
+- **Emergency Procedures**: Plan for urgent flag modifications
+
+### 3. Compliance Considerations
+
+- **Regulatory Requirements**: Ensure flags meet compliance needs
+- **Documentation**: Maintain clear policies and procedures
+- **Training**: Educate team members on flag implications
+- **Regular Reviews**: Periodic assessment of authorization settings
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Flags Cannot Be Changed**
+   ```bash
+   # Check if immutable flag is set
+   stellar keys info issuer
+   
+   # If immutable (flag 4), flags cannot be modified
+   ```
+
+2. **Authorization Denied**
+   - Verify issuer account permissions
+   - Check current flag settings
+   - Ensure proper account funding
+
+3. **Trustline Creation Fails**
+   - Check if authorization required flag is set
+   - Verify issuer approval for the account
+   - Confirm asset code and issuer address
+
+### Error Messages
+
+- `op_not_authorized`: Account not authorized for the asset
+- `op_immutable_set`: Cannot modify immutable flags
+- `op_underfunded`: Insufficient XLM for transaction fees
+- `op_invalid_flag`: Invalid flag combination
+
+## Example Scenarios
+
+### Scenario 1: Basic Controlled Asset
+
+```bash
+# 1. Set up network
+export STELLAR_NETWORK=testnet
+
+# 2. Create issuer account
+stellar keys generate basic_issuer -q
+stellar keys fund basic_issuer
+
+# 3. Set authorization required
+stellar tx new set_options \
+    --source-account basic_issuer \
+    --set-flags 1
+
+# 4. Deploy asset contract
+stellar contract asset deploy \
+    --source basic_issuer \
+    --network testnet \
+    --asset BASIC_TOKEN:$(stellar keys address basic_issuer)
+```
+
+### Scenario 2: High-Security Asset
+
+```bash
+# 1. Create high-security issuer
+stellar keys generate secure_issuer -q
+stellar keys fund secure_issuer
+
+# 2. Set all authorization flags
+stellar tx new set_options \
+    --source-account secure_issuer \
+    --set-flags 7
+
+# 3. Deploy with full control
+stellar contract asset deploy \
+    --source secure_issuer \
+    --network testnet \
+    --asset SECURE_TOKEN:$(stellar keys address secure_issuer)
+```
+
+## Monitoring and Maintenance
+
+### 1. Regular Flag Audits
+
+```bash
+# Check current flag status
+stellar keys info issuer
+
+# Review recent transactions
+stellar tx fetch <transaction_hash>
+```
+
+### 2. Authorization Logs
+
+Track all authorization changes:
+
+```bash
+# Monitor account operations
+stellar events \
+    --account-id <issuer_address> \
+    --network testnet
+```
+
+## Resources
+
+For more information on asset authorization:
+
+- [Stellar Asset Operations](./stellar-asset-operations.mdx)
+- [Trustlines Management](./trustlines-management.mdx)
+- [Stellar Protocol Documentation](https://developers.stellar.org/docs)
+- [Asset Flag Reference](https://developers.stellar.org/docs/glossary/asset-flags)
+
+## Summary
+
+Asset authorization provides powerful control over who can interact with your assets. By understanding and properly managing authorization flags, you can:
+
+- Control access to your assets
+- Implement compliance requirements
+- Manage risk and security
+- Maintain operational control
+
+Remember to always test authorization changes on testnet before applying them to mainnet, and maintain proper documentation of your authorization policies and procedures.
