@@ -23,7 +23,6 @@ function testAssetManagementRecipes() {
   const assetManagementFiles = [
     'stellar-asset-operations.mdx',
     'trustlines-management.mdx', 
-    'clawback-operations.mdx',
     'asset-authorization.mdx',
     'contract-metadata.mdx'
   ];
@@ -197,20 +196,7 @@ function testRecipeSpecificContent() {
         'stellar contract asset deploy'
       ]
     },
-    {
-      fileName: 'clawback-operations.mdx',
-      requiredContent: [
-        'asset clawback functionality',
-        'CLI doesnt support clawback',
-        'smart contract implementation',
-        'workarounds',
-        'limitations'
-      ],
-      requiredCommands: [
-        'stellar contract deploy',
-        'stellar tx new set_options'
-      ]
-    },
+
     {
       fileName: 'asset-authorization.mdx',
       requiredContent: [
@@ -333,7 +319,6 @@ function testCLICommands() {
     const assetManagementFiles = [
       'stellar-asset-operations.mdx',
       'trustlines-management.mdx', 
-      'clawback-operations.mdx',
       'asset-authorization.mdx',
       'contract-metadata.mdx'
     ];
@@ -375,11 +360,7 @@ function testWorkflowIntegration() {
       file: 'trustlines-management.mdx',
       shouldContain: 'stellar-asset-operations.mdx'
     },
-    {
-      test: 'clawback-operations mentions CLI limitations',
-      file: 'clawback-operations.mdx',
-      shouldContain: 'CLI currently doesn\'t support'
-    },
+
     {
       test: 'asset-authorization covers all flag types',
       file: 'asset-authorization.mdx',
