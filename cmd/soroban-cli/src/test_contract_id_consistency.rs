@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod test_contract_id_consistency {
     use crate::config::locator;
     use crate::tx::builder::Asset;
@@ -25,8 +26,8 @@ mod test_contract_id_consistency {
         let contract_id1 = contract_id_hash_from_asset(&resolved_asset1, network_passphrase);
         let contract_id2 = contract_id_hash_from_asset(&resolved_asset2, network_passphrase);
 
-        println!("Asset 1 ({}): {}", asset1_str, contract_id1);
-        println!("Asset 2 ({}): {}", asset2_str, contract_id2);
+        println!("Asset 1 ({asset1_str}): {contract_id1}");
+        println!("Asset 2 ({asset2_str}): {contract_id2}");
 
         // Different assets should produce different contract IDs
         assert_ne!(
@@ -44,8 +45,7 @@ mod test_contract_id_consistency {
             contract_id_hash_from_asset(&resolved_same_asset, network_passphrase);
 
         println!(
-            "Same asset again ({}): {}",
-            same_asset_str, contract_id_same
+            "Same asset again ({same_asset_str}): {contract_id_same}"
         );
 
         // Same asset should produce same contract ID
@@ -92,15 +92,14 @@ mod test_contract_id_consistency {
             contract_id_hash_from_asset(&resolved_asset, futurenet_passphrase);
         let contract_address_from_deploy = stellar_strkey::Contract(contract_id_from_deploy.0);
 
-        println!("ID command result: {}", contract_address_from_id);
-        println!(
-            "Deploy computation result: {}",
-            contract_address_from_deploy
-        );
+        println!("ID command result: {contract_address_from_id}");
+        println!("Deploy computation result: {contract_address_from_deploy}");
 
         // They should be the same if using the same network
-        assert_eq!(contract_address_from_id, contract_address_from_deploy,
-                   "Deploy and ID commands should return the same contract address for the same asset and network");
+        assert_eq!(
+            contract_address_from_id, contract_address_from_deploy,
+            "Deploy and ID commands should return the same contract address for the same asset and network"
+        );
     }
 
     #[test]
@@ -114,7 +113,7 @@ mod test_contract_id_consistency {
         let resolved_asset = asset.resolve(&locator).expect("Failed to resolve asset");
 
         let computed_id = contract_id_hash_from_asset(&resolved_asset, futurenet_passphrase);
-        println!("Computed contract ID for {}: {}", asset_str, computed_id);
+        println!("Computed contract ID for {asset_str}: {computed_id}");
 
         // The user reported getting CAD57CH3BSRWALIRSYVK575FPCUM6QTAD2II73ROHOSGPFH62W3EJGSG from wrap
         // and CAWKSIJM64CVZ6OLBSRSVSFGEOONPILQL6HGSCHHOSKEBNSYEU3Q4IJE from id
@@ -123,9 +122,9 @@ mod test_contract_id_consistency {
         let user_wrap_result = "CAD57CH3BSRWALIRSYVK575FPCUM6QTAD2II73ROHOSGPFH62W3EJGSG";
         let user_id_result = "CAWKSIJM64CVZ6OLBSRSVSFGEOONPILQL6HGSCHHOSKEBNSYEU3Q4IJE";
 
-        println!("User's wrap result: {}", user_wrap_result);
-        println!("User's id result: {}", user_id_result);
-        println!("Our computation: {}", computed_id);
+        println!("User's wrap result: {user_wrap_result}");
+        println!("User's id result: {user_id_result}");
+        println!("Our computation: {computed_id}");
 
         // Note: The test might fail because we might be using different network settings
         // than what the user used, but this will help us understand the behavior
@@ -163,16 +162,15 @@ mod test_contract_id_consistency {
         // Manually compute what deploy would compute using the same exact logic
         let network = id_cmd.config.get_network().expect("Failed to get network");
         let resolved_asset = asset.resolve(&locator).expect("Failed to resolve asset");
+
         let contract_id_from_deploy_logic =
             contract_id_hash_from_asset(&resolved_asset, &network.network_passphrase);
+
         let contract_address_from_deploy_logic =
             stellar_strkey::Contract(contract_id_from_deploy_logic.0);
 
-        println!("ID command result: {}", contract_address_from_id);
-        println!(
-            "Deploy logic result: {}",
-            contract_address_from_deploy_logic
-        );
+        println!("ID command result: {contract_address_from_id}");
+        println!("Deploy logic result: {contract_address_from_deploy_logic}");
 
         // After our fix, they should be the same
         assert_eq!(
