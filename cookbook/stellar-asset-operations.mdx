@@ -42,8 +42,9 @@ stellar keys address asset_manager
 
 Before an account can hold an asset, it must establish a trustline:
 
+Create a trustline for a custom asset:
+
 ```bash
-# Create a trustline for a custom asset
 stellar tx new change_trust \
     --source-account asset_manager \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -54,8 +55,9 @@ stellar tx new change_trust \
 
 To issue assets to an account:
 
+Issue 1000 USDC to a recipient account:
+
 ```bash
-# Issue 1000 USDC to a recipient account
 stellar tx new payment \
     --source-account asset_manager \
     --destination <recipient_address> \
@@ -67,8 +69,9 @@ stellar tx new payment \
 
 Monitor asset balances across accounts:
 
+Check balance of a specific asset:
+
 ```bash
-# Check balance of a specific asset
 stellar contract invoke \
     --id <asset_contract_id> \
     --source-account asset_manager \
@@ -80,8 +83,9 @@ stellar contract invoke \
 
 Transfer assets between different accounts:
 
+Transfer 500 USDC from one account to another:
+
 ```bash
-# Transfer 500 USDC from one account to another
 stellar contract invoke \
     --id <asset_contract_id> \
     --source-account <sender_account> \
@@ -97,8 +101,9 @@ stellar contract invoke \
 
 Control asset behavior by setting authorization flags:
 
+Set authorization required flag:
+
 ```bash
-# Set authorization required flag
 stellar tx new set_options \
     --source-account asset_manager \
     --set-flags 1
@@ -108,13 +113,13 @@ stellar tx new set_options \
 
 Manage asset freezing capabilities:
 
+Freeze an account's asset balance, then unfreeze it:
+
 ```bash
-# Freeze an account's asset balance
 stellar tx new set_options \
     --source-account asset_manager \
     --set-flags 2
 
-# Unfreeze an account's asset balance
 stellar tx new set_options \
     --source-account asset_manager \
     --clear-flags 2
@@ -128,8 +133,9 @@ stellar tx new set_options \
 
 For smart contract integration, deploy the Stellar Asset Contract:
 
+Deploy SAC for your custom asset:
+
 ```bash
-# Deploy SAC for your custom asset
 stellar contract asset deploy \
     --source asset_manager \
     --network testnet \

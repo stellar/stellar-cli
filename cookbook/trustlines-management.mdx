@@ -33,8 +33,9 @@ export STELLAR_NETWORK=testnet
 
 To create a trustline for a custom asset:
 
+Create a trustline for USDC:
+
 ```bash
-# Create a trustline for USDC
 stellar tx new change_trust \
     --source-account alice \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -45,8 +46,9 @@ stellar tx new change_trust \
 
 Set specific limits for asset holdings:
 
+Create trustline with a specific limit (e.g., 5000 USDC):
+
 ```bash
-# Create trustline with a specific limit (e.g., 5000 USDC)
 stellar tx new change_trust \
     --source-account alice \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -57,8 +59,9 @@ stellar tx new change_trust \
 
 Note: XLM (native asset) doesn't require trustlines, but you can still use the command for consistency:
 
+This will show that XLM doesn't need a trustline:
+
 ```bash
-# This will show that XLM doesn't need a trustline
 stellar tx new change_trust \
     --source-account alice \
     --asset native
@@ -70,8 +73,9 @@ stellar tx new change_trust \
 
 Check what trustlines an account currently has:
 
+Get account information including trustlines:
+
 ```bash
-# Get account information including trustlines
 stellar keys info alice
 ```
 
@@ -79,8 +83,9 @@ stellar keys info alice
 
 Update the limit of an existing trustline:
 
+Increase the limit to 10000 USDC:
+
 ```bash
-# Increase the limit to 10000 USDC
 stellar tx new change_trust \
     --source-account alice \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -91,8 +96,9 @@ stellar tx new change_trust \
 
 Remove a trustline (this will fail if the account holds a balance):
 
+Remove the USDC trustline:
+
 ```bash
-# Remove the USDC trustline
 stellar tx new change_trust \
     --source-account alice \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -105,8 +111,9 @@ stellar tx new change_trust \
 
 Some assets require authorization before establishing trustlines:
 
+Create trustline for an asset that requires authorization:
+
 ```bash
-# Create trustline for an asset that requires authorization
 stellar tx new change_trust \
     --source-account alice \
     --asset AUTH_ASSET:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -117,8 +124,9 @@ stellar tx new change_trust \
 
 Create multiple trustlines in sequence:
 
+Create trustlines for multiple assets:
+
 ```bash
-# Create trustlines for multiple assets
 stellar tx new change_trust \
     --source-account alice \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -136,8 +144,9 @@ stellar tx new change_trust \
 
 After establishing a trustline, you can deploy the Stellar Asset Contract:
 
+Deploy SAC for the asset:
+
 ```bash
-# Deploy SAC for the asset
 stellar contract asset deploy \
     --source alice \
     --network testnet \
@@ -148,8 +157,9 @@ stellar contract asset deploy \
 
 Check if the asset contract is properly integrated:
 
+Get the asset contract ID:
+
 ```bash
-# Get the asset contract ID
 stellar contract id asset \
     --network testnet \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE

@@ -33,6 +33,8 @@ export STELLAR_NETWORK=testnet
 
 View the current authorization settings for an asset:
 
+Get account information including current flags:
+
 ```bash
 stellar keys info issuer
 ```
@@ -41,8 +43,9 @@ stellar keys info issuer
 
 Require approval for new trustlines:
 
+Set authorization required flag:
+
 ```bash
-# Set authorization required flag
 stellar tx new set_options \
     --source-account issuer \
     --set-flags 1
@@ -52,8 +55,9 @@ stellar tx new set_options \
 
 Enable freezing capabilities:
 
+Set authorization revocable flag:
+
 ```bash
-# Set authorization revocable flag
 stellar tx new set_options \
     --source-account issuer \
     --set-flags 2
@@ -63,8 +67,9 @@ stellar tx new set_options \
 
 Make flags permanent (cannot be changed):
 
+Set authorization immutable flag:
+
 ```bash
-# Set authorization immutable flag
 stellar tx new set_options \
     --source-account issuer \
     --set-flags 4
@@ -76,14 +81,17 @@ stellar tx new set_options \
 
 Set multiple flags in a single transaction:
 
+Set both authorization required and revocable:
+
 ```bash
-# Set both authorization required and revocable
 stellar tx new set_options \
     --source-account issuer \
     --set-flags 3
 ```
 
 ### 2. Common Flag Combinations
+
+Set common flag combinations:
 
 ```bash
 # Authorization required + revocable (3)
@@ -108,13 +116,13 @@ stellar tx new set_options \
 
 Change authorization settings (if not immutable):
 
+Remove authorization flags:
+
 ```bash
-# Remove authorization required flag
 stellar tx new set_options \
     --source-account issuer \
     --clear-flags 1
 
-# Remove authorization revocable flag
 stellar tx new set_options \
     --source-account issuer \
     --clear-flags 2
@@ -124,8 +132,14 @@ stellar tx new set_options \
 
 Check what flags are currently set:
 
+<<<<<<< HEAD
 ```bash
 # Get detailed account information
+=======
+Get detailed account information and look for the "flags" section in the output:
+
+```bash
+>>>>>>> cookbook_recipes_fixed
 stellar keys info issuer
 ```
 
@@ -156,8 +170,9 @@ stellar keys info controlled_asset_issuer
 
 When authorization is required, manually approve trustlines:
 
+Allow a specific account to hold the asset:
+
 ```bash
-# Allow a specific account to hold the asset
 stellar tx new allow_trust \
     --source-account controlled_asset_issuer \
     --trustor <account_address> \
@@ -169,8 +184,9 @@ stellar tx new allow_trust \
 
 Remove authorization for specific accounts:
 
+Revoke authorization for an account:
+
 ```bash
-# Revoke authorization for an account
 stellar tx new allow_trust \
     --source-account controlled_asset_issuer \
     --trustor <account_address> \
@@ -184,13 +200,13 @@ stellar tx new allow_trust \
 
 Freeze an account's asset balance:
 
+Freeze an account, then freeze specific account:
+
 ```bash
-# Freeze an account
 stellar tx new set_options \
     --source-account controlled_asset_issuer \
     --set-flags 2
 
-# Then freeze specific account
 stellar tx new set_options \
     --source-account controlled_asset_issuer \
     --set-flags 2
@@ -200,8 +216,9 @@ stellar tx new set_options \
 
 Restore account access:
 
+Unfreeze an account:
+
 ```bash
-# Unfreeze an account
 stellar tx new set_options \
     --source-account controlled_asset_issuer \
     --clear-flags 2
@@ -211,8 +228,9 @@ stellar tx new set_options \
 
 ### 1. Deploy Asset Contract with Authorization
 
+Deploy SAC for controlled asset:
+
 ```bash
-# Deploy SAC for controlled asset
 stellar contract asset deploy \
     --source controlled_asset_issuer \
     --network testnet \
@@ -221,8 +239,9 @@ stellar contract asset deploy \
 
 ### 2. Verify Contract Integration
 
+Get the asset contract ID:
+
 ```bash
-# Get the asset contract ID
 stellar contract id asset \
     --network testnet \
     --asset CONTROLLED_TOKEN:$(stellar keys address controlled_asset_issuer)
@@ -324,11 +343,11 @@ stellar contract asset deploy \
 
 ### 1. Regular Flag Audits
 
+Check current flag status and review recent transactions:
+
 ```bash
-# Check current flag status
 stellar keys info issuer
 
-# Review recent transactions
 stellar tx fetch <transaction_hash>
 ```
 
@@ -336,8 +355,9 @@ stellar tx fetch <transaction_hash>
 
 Track all authorization changes:
 
+Monitor account operations:
+
 ```bash
-# Monitor account operations
 stellar events \
     --account-id <issuer_address> \
     --network testnet

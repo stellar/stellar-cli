@@ -55,8 +55,9 @@ Create a metadata file for your contract:
 
 When deploying your contract, you can include metadata:
 
+Deploy contract with metadata file:
+
 ```bash
-# Deploy contract with metadata file
 stellar contract deploy \
     --source deployer \
     --network testnet \
@@ -68,8 +69,9 @@ stellar contract deploy \
 
 For already deployed contracts, add metadata through contract calls:
 
+Invoke contract to set metadata:
+
 ```bash
-# Invoke contract to set metadata
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
@@ -84,8 +86,9 @@ stellar contract invoke \
 
 Check existing metadata for a contract:
 
+Get contract information including metadata:
+
 ```bash
-# Get contract information including metadata
 stellar contract info \
     --id <contract_id> \
     --network testnet
@@ -95,8 +98,9 @@ stellar contract info \
 
 Modify existing metadata:
 
+Update contract name and description:
+
 ```bash
-# Update contract name
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
@@ -104,7 +108,6 @@ stellar contract invoke \
     --key "name" \
     --value "Updated Contract Name"
 
-# Update description
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
@@ -117,8 +120,9 @@ stellar contract invoke \
 
 Delete specific metadata entries:
 
+Remove a metadata key:
+
 ```bash
-# Remove a metadata key
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
@@ -132,8 +136,9 @@ stellar contract invoke \
 
 Update multiple metadata fields at once:
 
+Set multiple metadata fields:
+
 ```bash
-# Set multiple metadata fields
 stellar contract invoke \
     --id <contract_id> \
     --source-account deployer \
@@ -171,8 +176,9 @@ Use nested structures for complex metadata:
 
 Ensure metadata follows standards:
 
+Validate metadata format:
+
 ```bash
-# Validate metadata format
 stellar contract metadata validate \
     --file path/to/metadata.json
 ```
@@ -183,8 +189,9 @@ stellar contract metadata validate \
 
 Add metadata to Stellar Asset Contracts:
 
+Deploy SAC with metadata:
+
 ```bash
-# Deploy SAC with metadata
 stellar contract asset deploy \
     --source issuer \
     --network testnet \
@@ -306,13 +313,13 @@ stellar contract info \
 
 Regularly review contract metadata:
 
+List all contracts with metadata and check metadata consistency:
+
 ```bash
-# List all contracts with metadata
 stellar contract ls \
     --network testnet \
     --with-metadata
 
-# Check metadata consistency
 stellar contract metadata audit \
     --network testnet
 ```
@@ -321,8 +328,9 @@ stellar contract metadata audit \
 
 Backup metadata for important contracts:
 
+Export contract metadata:
+
 ```bash
-# Export contract metadata
 stellar contract metadata export \
     --id <contract_id> \
     --output metadata_backup.json
@@ -332,8 +340,9 @@ stellar contract metadata export \
 
 Track metadata changes over time:
 
+View metadata history:
+
 ```bash
-# View metadata history
 stellar contract metadata history \
     --id <contract_id> \
     --network testnet
@@ -371,13 +380,13 @@ stellar contract metadata history \
 
 Use predefined templates for common contract types:
 
+Generate token and DeFi contract metadata templates:
+
 ```bash
-# Generate token contract metadata template
 stellar contract metadata template \
     --type token \
     --output token_metadata.json
 
-# Generate DeFi contract metadata template
 stellar contract metadata template \
     --type defi \
     --output defi_metadata.json
@@ -387,8 +396,9 @@ stellar contract metadata template \
 
 Validate metadata before deployment:
 
+Check metadata syntax and structure:
+
 ```bash
-# Check metadata syntax and structure
 stellar contract metadata validate \
     --file metadata.json \
     --schema standard
