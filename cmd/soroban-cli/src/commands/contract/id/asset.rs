@@ -32,10 +32,18 @@ impl Cmd {
 
     pub fn contract_address(&self) -> Result<stellar_strkey::Contract, Error> {
         let network = self.config.get_network()?;
-        let contract_id = contract_id_hash_from_asset(
-            &self.asset.resolve(&self.config.locator)?,
-            &network.network_passphrase,
+        
+        tracing::debug!(
+            "ID command: network_passphrase={}, asset={:?}",
+            network.network_passphrase,
+            self.asset
         );
+        
+        // Parse asset - use the same order as deploy command for consistency
+        let asset = self.asset.resolve(&self.config.locator)?;
+        
+        // Compute contract ID using the same logic as deploy command
+        let contract_id = contract_id_hash_from_asset(&asset, &network.network_passphrase);
         Ok(stellar_strkey::Contract(contract_id.0))
     }
 }
