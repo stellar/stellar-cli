@@ -28,19 +28,23 @@ export STELLAR_NETWORK=testnet
 
 To create a new Stellar asset, you need to establish a trustline and optionally issue the asset:
 
-Generate a new account for asset operations, fund it, and get the account address:
-
 ```bash
+# Generate a new account for asset operations
 stellar keys generate asset_manager -q
+
+# Fund the account
 stellar keys fund asset_manager
+
+# Get the account address
 stellar keys address asset_manager
 ```
 
 ### 2. Establish Trustlines
 
-Before an account can hold an asset, it must establish a trustline. Create a trustline for a custom asset:
+Before an account can hold an asset, it must establish a trustline:
 
 ```bash
+# Create a trustline for a custom asset
 stellar tx new change_trust \
     --source-account asset_manager \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
@@ -49,9 +53,10 @@ stellar tx new change_trust \
 
 ### 3. Issue Assets
 
-To issue assets to an account, send 1000 USDC to a recipient:
+To issue assets to an account:
 
 ```bash
+# Issue 1000 USDC to a recipient account
 stellar tx new payment \
     --source-account asset_manager \
     --destination <recipient_address> \
@@ -61,9 +66,10 @@ stellar tx new payment \
 
 ### 4. Check Asset Balances
 
-Monitor asset balances across accounts by checking the balance of a specific asset:
+Monitor asset balances across accounts:
 
 ```bash
+# Check balance of a specific asset
 stellar contract invoke \
     --id <asset_contract_id> \
     --source-account asset_manager \
@@ -73,9 +79,10 @@ stellar contract invoke \
 
 ### 5. Transfer Assets Between Accounts
 
-Transfer assets between different accounts by sending 500 USDC from one account to another:
+Transfer assets between different accounts:
 
 ```bash
+# Transfer 500 USDC from one account to another
 stellar contract invoke \
     --id <asset_contract_id> \
     --source-account <sender_account> \
@@ -89,9 +96,10 @@ stellar contract invoke \
 
 ### Update Asset Flags
 
-Control asset behavior by setting authorization flags. Set the authorization required flag:
+Control asset behavior by setting authorization flags:
 
 ```bash
+# Set authorization required flag
 stellar tx new set_options \
     --source-account asset_manager \
     --set-flags 1
@@ -99,13 +107,15 @@ stellar tx new set_options \
 
 ### Freeze/Unfreeze Assets
 
-Manage asset freezing capabilities. Freeze an account's asset balance, then unfreeze it:
+Manage asset freezing capabilities:
 
 ```bash
+# Freeze an account's asset balance
 stellar tx new set_options \
     --source-account asset_manager \
     --set-flags 2
 
+# Unfreeze an account's asset balance
 stellar tx new set_options \
     --source-account asset_manager \
     --clear-flags 2
