@@ -35,8 +35,10 @@ View the current authorization settings for an asset:
 
 Get account information including current flags:
 
+Note: Account flags are set through transactions and can be verified by checking transaction history or using Stellar Laboratory.
+
 ```bash
-stellar keys info issuer
+stellar keys address issuer
 ```
 
 ### 2. Set Authorization Required Flag
@@ -134,8 +136,10 @@ Check what flags are currently set:
 
 Get detailed account information and look for the "flags" section in the output:
 
+Note: Account flags are set through transactions and can be verified by checking transaction history or using Stellar Laboratory.
+
 ```bash
-stellar keys info issuer
+stellar keys address issuer
 ```
 
 ## Authorization Workflows
@@ -158,7 +162,7 @@ stellar tx new set_options \
     --set-flags 2
 
 # 4. Verify flags are set
-stellar keys info controlled_asset_issuer
+stellar keys address controlled_asset_issuer
 ```
 
 ### 2. Managing Trustline Approvals
@@ -270,8 +274,11 @@ stellar contract id asset \
 ### Common Issues
 
 1. **Flags Cannot Be Changed**
+   
+   Check transaction history to verify current flags:
+   
    ```bash
-   stellar keys info issuer
+   stellar keys address issuer
    ```
 
 2. **Authorization Denied**
@@ -340,8 +347,10 @@ stellar contract asset deploy \
 
 Check current flag status and review recent transactions:
 
+Check account address and transaction history:
+
 ```bash
-stellar keys info issuer
+stellar keys address issuer
 
 stellar tx fetch <transaction_hash>
 ```
