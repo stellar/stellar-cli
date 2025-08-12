@@ -31,14 +31,11 @@ export STELLAR_NETWORK=testnet
 
 Before running the authorization commands, you need to create and fund an issuer account:
 
+Generate a new issuer account, fund it with XLM for transaction fees, and verify the account was created:
+
 ```bash
-# Generate a new issuer account
 stellar keys generate issuer -q
-
-# Fund the account with XLM for transaction fees
 stellar keys fund issuer
-
-# Verify the account was created
 stellar keys address issuer
 ```
 
@@ -168,22 +165,20 @@ stellar keys address issuer
 
 ### 1. Setting Up a Controlled Asset
 
+Generate and fund issuer account, set authorization flags, and verify:
+
 ```bash
-# 1. Generate and fund issuer account
 stellar keys generate controlled_asset_issuer -q
 stellar keys fund controlled_asset_issuer
 
-# 2. Set authorization required flag
 stellar tx new set-options \
     --source-account controlled_asset_issuer \
     --set-required
 
-# 3. Set authorization revocable flag
 stellar tx new set-options \
     --source-account controlled_asset_issuer \
     --set-revocable
 
-# 4. Verify flags are set
 stellar keys address controlled_asset_issuer
 ```
 
@@ -328,20 +323,18 @@ stellar contract id asset \
 
 ### Scenario 1: Basic Controlled Asset
 
+Set up network, create issuer account, set authorization, and deploy asset contract:
+
 ```bash
-# 1. Set up network
 export STELLAR_NETWORK=testnet
 
-# 2. Create issuer account
 stellar keys generate basic_issuer -q
 stellar keys fund basic_issuer
 
-# 3. Set authorization required
 stellar tx new set-options \
     --source-account basic_issuer \
     --set-required
 
-# 4. Deploy asset contract
 stellar contract asset deploy \
     --source basic_issuer \
     --network testnet \
@@ -350,19 +343,18 @@ stellar contract asset deploy \
 
 ### Scenario 2: High-Security Asset
 
+Create high-security issuer, set all authorization flags, and deploy with full control:
+
 ```bash
-# 1. Create high-security issuer
 stellar keys generate secure_issuer -q
 stellar keys fund secure_issuer
 
-# 2. Set all authorization flags
 stellar tx new set-options \
     --source-account secure_issuer \
     --set-required \
     --set-revocable \
     --set-immutable
 
-# 3. Deploy with full control
 stellar contract asset deploy \
     --source secure_issuer \
     --network testnet \
