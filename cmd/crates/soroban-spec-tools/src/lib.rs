@@ -6,12 +6,13 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::curr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
-    Int256Parts, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey,
-    ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap,
-    ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec,
-    ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0,
-    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0,
-    ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+    Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
+    ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
+    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt,
+    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
+    ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
+    ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts,
+    Uint256, VecM,
 };
 
 pub mod contract;
@@ -1049,7 +1050,13 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
         ScAddress::Contract(ContractId(h)) => {
             Value::String(stellar_strkey::Contract(h.clone().into()).to_string())
         }
-        ScAddress::MuxedAccount(_) => todo!("MuxedAddress is not supported yet"),
+        ScAddress::MuxedAccount(MuxedEd25519Account { ed25519, id }) => Value::String(
+            stellar_strkey::ed25519::MuxedAccount {
+                ed25519: ed25519.0,
+                id: *id,
+            }
+            .to_string(),
+        ),
         ScAddress::ClaimableBalance(_) => todo!("ClaimableBalance is not supported"),
         ScAddress::LiquidityPool(_) => todo!("LiquidityPool is not supported"),
     }
@@ -1065,6 +1072,12 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
             stellar_strkey::Strkey::Contract(c) => {
                 Some(ScVal::Address(ScAddress::Contract(ContractId(Hash(c.0)))))
             }
+            stellar_strkey::Strkey::MuxedAccountEd25519(m) => Some(ScVal::Address(
+                ScAddress::MuxedAccount(MuxedEd25519Account {
+                    ed25519: Uint256(m.ed25519),
+                    id: m.id,
+                }),
+            )),
             _ => None,
         })?
         .ok_or(Error::InvalidValue(Some(ScType::Address)))
@@ -1473,6 +1486,33 @@ mod tests {
                     )
                 )))
             ),
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+
+        // MuxedAddress test
+        match sc_address_from_json(
+            "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6",
+        ) {
+            Ok(addr) => {
+                // This should parse successfully now
+                assert!(matches!(addr, ScVal::Address(ScAddress::MuxedAccount(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
+        }
+    }
+
+    #[test]
+    fn test_sc_address_json_strkey_muxed_roundtrip() {
+        let muxed_address_str =
+            "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6";
+
+        // First convert from JSON strkey to ScAddress, then convert back to JSON strkey using sc_address_to_json
+        match sc_address_from_json(muxed_address_str) {
+            Ok(ScVal::Address(address)) => {
+                let json_result = sc_address_to_json(&address);
+                assert_eq!(json_result, Value::String(muxed_address_str.to_string()));
+            }
+            Ok(_) => panic!("Expected ScVal::Address"),
             Err(e) => panic!("Unexpected error: {e}"),
         }
     }
