@@ -44,9 +44,7 @@ mod test_contract_id_consistency {
         let contract_id_same =
             contract_id_hash_from_asset(&resolved_same_asset, network_passphrase);
 
-        println!(
-            "Same asset again ({same_asset_str}): {contract_id_same}"
-        );
+        println!("Same asset again ({same_asset_str}): {contract_id_same}");
 
         // Same asset should produce same contract ID
         assert_eq!(
