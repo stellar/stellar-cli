@@ -28,14 +28,13 @@ export STELLAR_NETWORK=testnet
 
 To create a new Stellar asset, you need to establish a trustline and optionally issue the asset:
 
+Generate a new account for asset operations, fund it, and get the account address:
+
 ```bash
-# Generate a new account for asset operations
 stellar keys generate asset_manager -q
 
-# Fund the account
 stellar keys fund asset_manager
 
-# Get the account address
 stellar keys address asset_manager
 ```
 
