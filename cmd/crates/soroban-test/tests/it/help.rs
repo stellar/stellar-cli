@@ -49,6 +49,9 @@ async fn strukt_help() {
 #[tokio::test]
 async fn complex_enum_help() {
     let output = invoke_custom("complex", "--help").await.unwrap();
+    println!("=== DEBUG OUTPUT ===");
+    println!("{}", output);
+    println!("=== END DEBUG OUTPUT ===");
     assert!(output.contains(r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,));
     assert!(output.contains(r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,));
     assert!(output.contains(r#"{"Enum":"First"|"Second"|"Third"}"#,));
