@@ -45,9 +45,9 @@ Before an account can hold an asset, it must establish a trustline:
 Create a trustline for a custom asset:
 
 ```bash
-stellar tx new change_trust \
+stellar tx new change-trust \
     --source-account asset_manager \
-    --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
+    --line USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE \
     --limit 1000000
 ```
 
@@ -104,9 +104,9 @@ Control asset behavior by setting authorization flags:
 Set authorization required flag:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account asset_manager \
-    --set-flags 1
+    --set-required
 ```
 
 ### Freeze/Unfreeze Assets
@@ -116,13 +116,13 @@ Manage asset freezing capabilities:
 Freeze an account's asset balance, then unfreeze it:
 
 ```bash
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account asset_manager \
-    --set-flags 2
+    --set-revocable
 
-stellar tx new set_options \
+stellar tx new set-options \
     --source-account asset_manager \
-    --clear-flags 2
+    --clear-revocable
 ```
 
 ### Clawback Operations
