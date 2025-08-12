@@ -1378,40 +1378,60 @@ mod tests {
     #[test]
     fn test_example_values() {
         let spec = Spec::default();
-        
+
         // Test that signed integer types now generate more realistic positive examples
         assert_eq!(spec.example(&ScType::I32), Some("100".to_string()));
         assert_eq!(spec.example(&ScType::I64), Some("100".to_string()));
         assert_eq!(spec.example(&ScType::I128), Some("\"100\"".to_string()));
         assert_eq!(spec.example(&ScType::I256), Some("\"100\"".to_string()));
-        
+
         // Test that unsigned integer types still use "1" as examples (unchanged)
         assert_eq!(spec.example(&ScType::U32), Some("1".to_string()));
         assert_eq!(spec.example(&ScType::U64), Some("1".to_string()));
         assert_eq!(spec.example(&ScType::U128), Some("\"1\"".to_string()));
         assert_eq!(spec.example(&ScType::U256), Some("\"1\"".to_string()));
-        
+
         // Test documentation generation for amount parameters
         let doc_i256 = spec.doc("amount", &ScType::I256).unwrap().unwrap();
         let doc_i128 = spec.doc("amount", &ScType::I128).unwrap().unwrap();
         let doc_i64 = spec.doc("amount", &ScType::I64).unwrap().unwrap();
         let doc_i32 = spec.doc("amount", &ScType::I32).unwrap().unwrap();
-        
+
         // Verify all signed integer types show positive realistic examples for amounts
-        assert!(doc_i256.contains("--amount 100"), "I256 should show positive realistic example for amount");
-        assert!(doc_i128.contains("--amount 100"), "I128 should show positive realistic example for amount");
-        assert!(doc_i64.contains("--amount 100"), "I64 should show positive realistic example for amount");
-        assert!(doc_i32.contains("--amount 100"), "I32 should show positive realistic example for amount");
-        
+        assert!(
+            doc_i256.contains("--amount 100"),
+            "I256 should show positive realistic example for amount"
+        );
+        assert!(
+            doc_i128.contains("--amount 100"),
+            "I128 should show positive realistic example for amount"
+        );
+        assert!(
+            doc_i64.contains("--amount 100"),
+            "I64 should show positive realistic example for amount"
+        );
+        assert!(
+            doc_i32.contains("--amount 100"),
+            "I32 should show positive realistic example for amount"
+        );
+
         // Ensure no negative examples are ever generated
-        assert!(doc_i256.contains("100") && !doc_i256.contains(" -1") && !doc_i256.contains(" -100"), 
-                "I256 should only contain positive examples");
-        assert!(doc_i128.contains("100") && !doc_i128.contains(" -1") && !doc_i128.contains(" -100"), 
-                "I128 should only contain positive examples");
-        assert!(doc_i64.contains("100") && !doc_i64.contains(" -1") && !doc_i64.contains(" -100"), 
-                "I64 should only contain positive examples");
-        assert!(doc_i32.contains("100") && !doc_i32.contains(" -1") && !doc_i32.contains(" -100"), 
-                "I32 should only contain positive examples");
+        assert!(
+            doc_i256.contains("100") && !doc_i256.contains(" -1") && !doc_i256.contains(" -100"),
+            "I256 should only contain positive examples"
+        );
+        assert!(
+            doc_i128.contains("100") && !doc_i128.contains(" -1") && !doc_i128.contains(" -100"),
+            "I128 should only contain positive examples"
+        );
+        assert!(
+            doc_i64.contains("100") && !doc_i64.contains(" -1") && !doc_i64.contains(" -100"),
+            "I64 should only contain positive examples"
+        );
+        assert!(
+            doc_i32.contains("100") && !doc_i32.contains(" -1") && !doc_i32.contains(" -100"),
+            "I32 should only contain positive examples"
+        );
     }
 
     #[test]
