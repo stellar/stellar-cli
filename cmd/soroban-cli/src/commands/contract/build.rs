@@ -434,8 +434,11 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
         return Ok(None);
     }
 
-    if env::var("TARGET_wasm32-unknown-unknown_RUSTFLAGS").is_ok() {
-        print.warnln("`TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
+    let target = get_wasm_target()?;
+    let env_var_name = format!("TARGET_{target}_RUSTFLAGS");
+
+    if env::var(env_var_name.clone()).is_ok() {
+        print.warnln(format!("`{env_var_name}` set. Dependency paths will not be remapped; builds may not be reproducible."));
         return Ok(None);
     }
 
