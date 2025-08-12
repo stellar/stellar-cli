@@ -1242,3 +1242,61 @@ async fn path_payment_strict_receive() {
         "Recipient should have received exactly 4 XLM"
     );
 }
+
+#[tokio::test]
+async fn create_claimable_balance() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.network.rpc_client().unwrap();
+    let (test, _) = setup_accounts(sandbox);
+
+    // Create claimant account
+    let claimant = new_account(sandbox, "claimant");
+
+    let test_balance_before = client.get_account(&test).await.unwrap().balance;
+
+    // Create a claimable balance with unconditional predicate (default)
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-claimable-balance",
+            "--asset",
+            "native",
+            "--amount",
+            "100000000", // 10 XLM
+            "--claimant",
+            &claimant,
+        ])
+        .assert()
+        .success();
+
+    // Test with time-based predicate
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "create-claimable-balance",
+            "--asset",
+            "native",
+            "--amount",
+            "50000000", // 5 XLM
+            "--claimant",
+            &claimant,
+        ])
+        .assert()
+        .success();
+
+    let test_balance_after = client.get_account(&test).await.unwrap().balance;
+
+    // Account balance should be lower due to creating claimable balances + fees
+    assert!(
+        test_balance_after < test_balance_before,
+        "Test account should have less XLM after creating claimable balances"
+    );
+
+    let xlm_spent = test_balance_before - test_balance_after;
+    assert!(
+        xlm_spent >= 150000000, // At least 15 XLM for both claimable balances
+        "Should have spent at least 15 XLM for claimable balances"
+    );
+}

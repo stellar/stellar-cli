@@ -7,6 +7,7 @@ pub mod account_merge;
 pub mod bump_sequence;
 pub mod change_trust;
 pub mod create_account;
+pub mod create_claimable_balance;
 pub mod create_passive_sell_offer;
 pub mod manage_buy_offer;
 pub mod manage_data;
@@ -28,6 +29,8 @@ pub enum Cmd {
     ChangeTrust(change_trust::Cmd),
     #[command(about = super::help::CREATE_ACCOUNT)]
     CreateAccount(create_account::Cmd),
+    #[command(about = super::help::CREATE_CLAIMABLE_BALANCE)]
+    CreateClaimableBalance(create_claimable_balance::Cmd),
     #[command(about = super::help::CREATE_PASSIVE_SELL_OFFER)]
     CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
     #[command(about = super::help::MANAGE_BUY_OFFER)]
@@ -62,6 +65,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::BumpSequence(cmd) => cmd.into(),
             Cmd::ChangeTrust(cmd) => cmd.try_into()?,
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
+            Cmd::CreateClaimableBalance(cmd) => cmd.try_into()?,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.try_into()?,
             Cmd::ManageBuyOffer(cmd) => cmd.try_into()?,
             Cmd::ManageData(cmd) => cmd.into(),
@@ -83,6 +87,7 @@ impl Cmd {
             Cmd::BumpSequence(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::CreateClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageBuyOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageData(cmd) => cmd.tx.handle_and_print(op, global_args).await,
