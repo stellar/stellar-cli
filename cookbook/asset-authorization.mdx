@@ -27,19 +27,36 @@ Before managing asset authorization, ensure you have:
 export STELLAR_NETWORK=testnet
 ```
 
+## Setting Up Your Issuer Account
+
+Before running the authorization commands, you need to create and fund an issuer account:
+
+```bash
+# Generate a new issuer account
+stellar keys generate issuer -q
+
+# Fund the account with XLM for transaction fees
+stellar keys fund issuer
+
+# Verify the account was created
+stellar keys address issuer
+```
+
 ## Basic Authorization Management
+
+**Note**: The following examples assume you have already set up your issuer account as described in the "Setting Up Your Issuer Account" section above.
 
 ### 1. Check Current Authorization Flags
 
 View the current authorization settings for an asset:
 
-Get account information including current flags:
-
-Note: Account flags are set through transactions and can be verified by checking transaction history or using Stellar Laboratory.
+Get account information:
 
 ```bash
 stellar keys address issuer
 ```
+
+Note: Account flags are set through transactions and can be verified by checking transaction history or using Stellar Laboratory.
 
 ### 2. Set Authorization Required Flag
 
