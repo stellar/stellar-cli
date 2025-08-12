@@ -161,6 +161,156 @@ function testAssetManagementRecipes() {
   return allTestsPassed;
 }
 
+function testRecipeSpecificContent() {
+  log('\n🎯 Testing Recipe-Specific Content Requirements...', 'blue');
+  
+  const recipeTests = [
+    {
+      fileName: 'stellar-asset-operations.mdx',
+      requiredContent: [
+        'Create, issue, and manage Stellar assets',
+        'asset creation',
+        'trustline',
+        'issue assets',
+        'asset balance',
+        'transfer assets'
+      ],
+      requiredCommands: [
+        'stellar keys generate',
+        'stellar tx new change_trust',
+        'stellar tx new payment',
+        'stellar contract invoke'
+      ]
+    },
+    {
+      fileName: 'trustlines-management.mdx',
+      requiredContent: [
+        'Set up and manage trustlines',
+        'trustline creation',
+        'trustline limits',
+        'authorization',
+        'remove trustlines'
+      ],
+      requiredCommands: [
+        'stellar tx new change_trust',
+        'stellar keys info',
+        'stellar contract asset deploy'
+      ]
+    },
+    {
+      fileName: 'clawback-operations.mdx',
+      requiredContent: [
+        'asset clawback functionality',
+        'CLI doesnt support clawback',
+        'smart contract implementation',
+        'workarounds',
+        'limitations'
+      ],
+      requiredCommands: [
+        'stellar contract deploy',
+        'stellar tx new set_options'
+      ]
+    },
+    {
+      fileName: 'asset-authorization.mdx',
+      requiredContent: [
+        'Control asset access',
+        'authorization flags',
+        'authorization required',
+        'authorization revocable',
+        'freeze operations'
+      ],
+      requiredCommands: [
+        'stellar tx new set_options',
+        'stellar tx new allow_trust',
+        'stellar contract asset deploy'
+      ]
+    },
+    {
+      fileName: 'contract-metadata.mdx',
+      requiredContent: [
+        'Add metadata information',
+        'contract name',
+        'description',
+        'version',
+        'author',
+        'metadata management'
+      ],
+      requiredCommands: [
+        'stellar contract deploy',
+        'stellar contract invoke',
+        'stellar contract info'
+      ]
+    }
+  ];
+
+  let allContentTestsPassed = true;
+  let contentTestResults = [];
+
+  recipeTests.forEach(recipe => {
+    log(`📋 Testing ${recipe.fileName} specific content...`, 'cyan');
+    
+    const filePath = path.join(__dirname, '..', recipe.fileName);
+    const content = fs.readFileSync(filePath, 'utf8');
+    
+    const contentTests = [];
+    let contentPassed = 0;
+    let contentFailed = 0;
+
+    // Test required content
+    recipe.requiredContent.forEach(requiredText => {
+      const found = content.toLowerCase().includes(requiredText.toLowerCase());
+      if (found) {
+        contentTests.push({ text: requiredText, status: 'PASS' });
+        contentPassed++;
+      } else {
+        contentTests.push({ text: requiredText, status: 'FAIL' });
+        contentFailed++;
+        allContentTestsPassed = false;
+      }
+    });
+
+    // Test required commands
+    recipe.requiredCommands.forEach(requiredCmd => {
+      const found = content.includes(requiredCmd);
+      if (found) {
+        contentTests.push({ text: requiredCmd, status: 'PASS' });
+        contentPassed++;
+      } else {
+        contentTests.push({ text: requiredCmd, status: 'FAIL' });
+        contentFailed++;
+        allContentTestsPassed = false;
+      }
+    });
+
+    // Display results
+    contentTests.forEach(test => {
+      const status = test.status === 'PASS' ? '✅' : '❌';
+      const color = test.status === 'PASS' ? 'green' : 'red';
+      log(`   ${status} ${test.text}`, color);
+    });
+
+    contentTestResults.push({
+      fileName: recipe.fileName,
+      passed: contentPassed,
+      failed: contentFailed,
+      total: contentTests.length
+    });
+
+    console.log('');
+  });
+
+  // Content test summary
+  log('📊 Recipe-Specific Content Test Summary:', 'blue');
+  contentTestResults.forEach(result => {
+    const status = result.failed === 0 ? '✅' : '❌';
+    const color = result.failed === 0 ? 'green' : 'red';
+    log(`${status} ${result.fileName}: ${result.passed}/${result.total} content requirements met`, color);
+  });
+
+  return allContentTestsPassed;
+}
+
 function testCLICommands() {
   log('\n🔧 Testing CLI Commands in Recipes...', 'blue');
   
@@ -210,16 +360,71 @@ function testCLICommands() {
   return foundCommands === commands.length;
 }
 
+function testWorkflowIntegration() {
+  log('\n🔄 Testing Recipe Workflow Integration...', 'blue');
+  
+  // Test that recipes reference each other appropriately
+  const integrationTests = [
+    {
+      test: 'stellar-asset-operations references trustlines-management',
+      file: 'stellar-asset-operations.mdx',
+      shouldContain: 'trustlines-management.mdx'
+    },
+    {
+      test: 'trustlines-management references stellar-asset-operations',
+      file: 'trustlines-management.mdx',
+      shouldContain: 'stellar-asset-operations.mdx'
+    },
+    {
+      test: 'clawback-operations mentions CLI limitations',
+      file: 'clawback-operations.mdx',
+      shouldContain: 'CLI currently doesn\'t support'
+    },
+    {
+      test: 'asset-authorization covers all flag types',
+      file: 'asset-authorization.mdx',
+      shouldContain: 'Authorization Required (1)'
+    },
+    {
+      test: 'contract-metadata includes practical examples',
+      file: 'contract-metadata.mdx',
+      shouldContain: 'Example Workflows'
+    }
+  ];
+
+  let integrationPassed = 0;
+  let integrationFailed = 0;
+
+  integrationTests.forEach(test => {
+    const filePath = path.join(__dirname, '..', test.file);
+    const content = fs.readFileSync(filePath, 'utf8');
+    
+    if (content.includes(test.shouldContain)) {
+      log(`   ✅ ${test.test}`, 'green');
+      integrationPassed++;
+    } else {
+      log(`   ❌ ${test.test}`, 'red');
+      integrationFailed++;
+    }
+  });
+
+  log(`\n📊 Integration Tests: ${integrationPassed}/${integrationTests.length} passed`, integrationFailed === 0 ? 'green' : 'red');
+  
+  return integrationFailed === 0;
+}
+
 function main() {
-  log('🚀 Stellar CLI Asset Management Recipes Integration Test\n', 'blue');
+  log('🚀 Stellar CLI Asset Management Recipes Comprehensive Test\n', 'blue');
   
   const recipesPassed = testAssetManagementRecipes();
+  const contentTestsPassed = testRecipeSpecificContent();
   const cliCommandsPassed = testCLICommands();
+  const integrationPassed = testWorkflowIntegration();
   
   console.log('\n' + '='.repeat(60));
   
-  if (recipesPassed && cliCommandsPassed) {
-    log('\n🎉 All tests passed! Asset Management recipes are ready for use.', 'green');
+  if (recipesPassed && contentTestsPassed && cliCommandsPassed && integrationPassed) {
+    log('\n🎉 All comprehensive tests passed! Asset Management recipes are production-ready.', 'green');
     process.exit(0);
   } else {
     log('\n❌ Some tests failed. Please review the issues above.', 'red');
@@ -231,4 +436,9 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { testAssetManagementRecipes, testCLICommands };
+module.exports = { 
+  testAssetManagementRecipes, 
+  testRecipeSpecificContent,
+  testCLICommands, 
+  testWorkflowIntegration 
+};
