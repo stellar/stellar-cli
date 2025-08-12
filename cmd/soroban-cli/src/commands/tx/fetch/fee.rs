@@ -3,7 +3,10 @@ use crate::{
     commands::global,
     config::network,
     rpc,
-    xdr::{self, Hash, SorobanTransactionMetaExt, TransactionEnvelope, TransactionMeta},
+    xdr::{
+        self, FeeBumpTransactionInnerTx, Hash, SorobanTransactionMetaExt, TransactionEnvelope,
+        TransactionMeta, TransactionResult,
+    },
 };
 use clap::{command, Parser};
 use prettytable::{
@@ -55,16 +58,24 @@ pub enum Error {
     None { field: String },
 }
 
-const DEFAULT_FEE_VALUE: i64 = 0;
-const FEE_CHARGED_TITLE: &str = "Fee Charged";
+const DEFAULT_RESOURCE_FEE: i64 = 0; // non-soroban txns do not have resource fees
 const RESOURCE_FEE_TITLE: &str = "Resource Fee";
+
+// proposed
+const FEE_PROPOSED_TITLE: &str = "Fee Proposed";
 const INCLUSION_FEE_TITLE: &str = "Inclusion Fee";
 const NON_REFUNDABLE_TITLE: &str = "Non-Refundable";
 const REFUNDABLE_TITLE: &str = "Refundable";
-const FEE_PROPOSED_TITLE: &str = "Fee Proposed";
-const REFUNDED_TITLE: &str = "Refunded";
 const NON_REFUNDABLE_COMPONENTS: &str = "\n\ncpu instructions\nstorage read/write\ntx size";
 const REFUNDABLE_COMPONENTS: &str = "\n\nreturn value\nstorage rent\nevents";
+
+//charged
+const FEE_CHARGED_TITLE: &str = "Fee Charged";
+const RESOURCE_FEE_CHARGED_TITLE: &str = "Resource Fee Charged";
+const NON_REFUNDABLE_CHARGED_TITLE: &str = "Non-Refundable Charged";
+const REFUNDABLE_CHARGED_TITLE: &str = "Refundable Charged";
+const REFUNDED_TITLE: &str = "Refunded";
+const INCLUSION_FEE_CHARGED_TITLE: &str = "Inclusion Fee Charged";
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
@@ -86,71 +97,114 @@ impl Cmd {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ProposedFees {
+    pub fee: i64,
+    pub resource_fee: i64,
+    pub inclusion_fee: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ChargedFees {
+    pub fee: i64,
+    pub resource_fee: i64,
+    pub inclusion_fee: i64,
+    pub non_refundable_resource_fee: i64,
+    pub refundable_resource_fee: i64,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FeeTable {
-    pub fee_charged: i64,
-    pub resource_fee_charged: i64,
-    pub inclusion_fee_charged: i64,
-    pub non_refundable_resource_fee_charged: i64,
-    pub refundable_resource_fee_charged: i64,
-    pub max_fee: i64,
-    pub max_resource_fee: i64,
+    pub proposed: ProposedFees,
+    pub charged: ChargedFees,
 }
 
 impl FeeTable {
     fn new_from_transaction_response(resp: &GetTransactionResponse) -> Result<Self, Error> {
-        let tx_result = resp.result.clone().ok_or(Error::None {
-            field: "tx_result".to_string(),
-        })?; // fee charged
-        let tx_meta = resp.result_meta.clone().ok_or(Error::None {
-            field: "tx_meta".to_string(),
-        })?; // resource fees
-        let tx_envelope = resp.envelope.clone().ok_or(Error::None {
-            field: "tx_envelope".to_string(),
-        })?; // max fees
+        let (tx_result, tx_meta, tx_envelope) = Self::unpack_tx_response(resp)?;
+        let proposed = Self::extract_proposed_fees(&tx_envelope);
+        let charged = Self::extract_charged_fees(&tx_meta, &tx_result);
 
-        let fee_charged = tx_result.fee_charged;
-        let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
-            Self::resource_fees_charged(&tx_meta);
-
-        let (max_fee, max_resource_fee) = Self::max_fees(&tx_envelope);
-
-        let resource_fee_charged =
-            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
-        let inclusion_fee_charged = fee_charged - resource_fee_charged;
-        Ok(FeeTable {
-            fee_charged,
-            resource_fee_charged,
-            inclusion_fee_charged,
-            non_refundable_resource_fee_charged,
-            refundable_resource_fee_charged,
-            max_fee,
-            max_resource_fee,
-        })
+        Ok(FeeTable { proposed, charged })
     }
 
-    fn max_fees(tx_envelope: &TransactionEnvelope) -> (i64, i64) {
+    fn unpack_tx_response(
+        resp: &GetTransactionResponse,
+    ) -> Result<(TransactionResult, TransactionMeta, TransactionEnvelope), Error> {
+        let tx_result = resp.result.clone().ok_or(Error::None {
+            field: "tx_result".to_string(),
+        })?;
+        let tx_meta = resp.result_meta.clone().ok_or(Error::None {
+            field: "tx_meta".to_string(),
+        })?;
+        let tx_envelope = resp.envelope.clone().ok_or(Error::None {
+            field: "tx_envelope".to_string(),
+        })?;
+
+        Ok((tx_result, tx_meta, tx_envelope))
+    }
+
+    fn extract_proposed_fees(tx_envelope: &TransactionEnvelope) -> ProposedFees {
         match tx_envelope {
             TransactionEnvelope::TxV0(transaction_v0_envelope) => {
-                let fee = transaction_v0_envelope.tx.fee;
-                (fee.into(), DEFAULT_FEE_VALUE)
+                let fee: i64 = transaction_v0_envelope.tx.fee.into();
+                ProposedFees {
+                    fee,
+                    resource_fee: DEFAULT_RESOURCE_FEE,
+                    inclusion_fee: fee - DEFAULT_RESOURCE_FEE,
+                }
             }
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 let tx = transaction_v1_envelope.tx.clone();
-                let fee = tx.fee;
+                let fee: i64 = tx.fee.into();
                 let resource_fee = match tx.ext {
-                    xdr::TransactionExt::V0 => DEFAULT_FEE_VALUE,
+                    xdr::TransactionExt::V0 => DEFAULT_RESOURCE_FEE,
                     xdr::TransactionExt::V1(soroban_transaction_data) => {
                         soroban_transaction_data.resource_fee
                     }
                 };
-
-                (fee.into(), resource_fee)
+                ProposedFees {
+                    fee,
+                    resource_fee,
+                    inclusion_fee: fee - resource_fee,
+                }
             }
             TransactionEnvelope::TxFeeBump(fee_bump_transaction_envelope) => {
+                let inner_tx_resource_fee = match &fee_bump_transaction_envelope.tx.inner_tx {
+                    FeeBumpTransactionInnerTx::Tx(tx_v1_envelope) => match &tx_v1_envelope.tx.ext {
+                        xdr::TransactionExt::V0 => DEFAULT_RESOURCE_FEE,
+                        xdr::TransactionExt::V1(soroban_transaction_data) => {
+                            soroban_transaction_data.resource_fee
+                        }
+                    },
+                };
+                // the is the top level fee bump tx fee
                 let fee = fee_bump_transaction_envelope.tx.fee;
-                (fee, DEFAULT_FEE_VALUE)
+
+                ProposedFees {
+                    fee,
+                    resource_fee: inner_tx_resource_fee,
+                    inclusion_fee: fee - inner_tx_resource_fee,
+                }
             }
+        }
+    }
+
+    fn extract_charged_fees(
+        tx_meta: &TransactionMeta,
+        tx_result: &TransactionResult,
+    ) -> ChargedFees {
+        let fee = tx_result.fee_charged;
+        let (non_refundable_resource_fee, refundable_resource_fee) =
+            Self::resource_fees_charged(tx_meta);
+        let resource_fee = non_refundable_resource_fee + refundable_resource_fee;
+
+        ChargedFees {
+            fee,
+            resource_fee,
+            inclusion_fee: fee - resource_fee,
+            non_refundable_resource_fee,
+            refundable_resource_fee,
         }
     }
 
@@ -158,19 +212,36 @@ impl FeeTable {
         let (non_refundable_resource_fee_charged, refundable_resource_fee_charged) =
             match tx_meta.clone() {
                 TransactionMeta::V0(_) | TransactionMeta::V1(_) | TransactionMeta::V2(_) => {
-                    (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
+                    (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
                 }
                 TransactionMeta::V3(meta) => {
                     if let Some(soroban_meta) = meta.soroban_meta {
                         match soroban_meta.ext {
-                            SorobanTransactionMetaExt::V0 => (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE),
+                            SorobanTransactionMetaExt::V0 => {
+                                (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
+                            }
                             SorobanTransactionMetaExt::V1(v1) => (
                                 v1.total_non_refundable_resource_fee_charged,
                                 v1.total_refundable_resource_fee_charged,
                             ),
                         }
                     } else {
-                        (DEFAULT_FEE_VALUE, DEFAULT_FEE_VALUE)
+                        (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
+                    }
+                }
+                TransactionMeta::V4(meta) => {
+                    if let Some(soroban_meta) = meta.soroban_meta {
+                        match soroban_meta.ext {
+                            SorobanTransactionMetaExt::V0 => {
+                                (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
+                            }
+                            SorobanTransactionMetaExt::V1(v1) => (
+                                v1.total_non_refundable_resource_fee_charged,
+                                v1.total_refundable_resource_fee_charged,
+                            ),
+                        }
+                    } else {
+                        (DEFAULT_RESOURCE_FEE, DEFAULT_RESOURCE_FEE)
                     }
                 }
             };
@@ -182,19 +253,15 @@ impl FeeTable {
     }
 
     fn should_include_resource_fees(&self) -> bool {
-        self.resource_fee_charged != 0 || self.max_resource_fee != 0
+        self.charged.resource_fee != 0 || self.proposed.resource_fee != 0
     }
 
-    fn proposed_inclusion_fee(&self) -> i64 {
-        self.max_fee - self.max_resource_fee
+    fn estimated_refunded_resource_fee(&self) -> i64 {
+        self.proposed.resource_fee - self.charged.non_refundable_resource_fee
     }
 
     fn refunded(&self) -> i64 {
-        self.max_fee - self.fee_charged
-    }
-
-    fn refundable_fee_proposed(&self) -> i64 {
-        self.max_resource_fee - self.non_refundable_resource_fee_charged
+        self.proposed.fee - self.charged.fee
     }
 
     fn table(&self) -> Table {
@@ -204,32 +271,34 @@ impl FeeTable {
         // Proposed
         table.add_row(Row::new(vec![Cell::new(&format!(
             "{FEE_PROPOSED_TITLE}: {}",
-            self.max_fee
+            self.proposed.fee
         ))
         .with_hspan(4)]));
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE,
-                self.proposed_inclusion_fee()
+                INCLUSION_FEE_TITLE, self.proposed.inclusion_fee
             )),
-            Cell::new(&format!("{RESOURCE_FEE_TITLE}: {}", self.max_resource_fee)).with_hspan(3),
+            Cell::new(&format!(
+                "{RESOURCE_FEE_TITLE}: {}",
+                self.proposed.resource_fee
+            ))
+            .with_hspan(3),
         ]));
 
         table.add_row(Row::new(vec![
             Cell::new(&format!(
                 "{}: {}",
-                INCLUSION_FEE_TITLE,
-                self.proposed_inclusion_fee()
+                INCLUSION_FEE_TITLE, self.proposed.inclusion_fee
             )),
             Cell::new(&format!(
                 "{NON_REFUNDABLE_TITLE}: {}{}",
-                self.non_refundable_resource_fee_charged, NON_REFUNDABLE_COMPONENTS
+                self.charged.non_refundable_resource_fee, NON_REFUNDABLE_COMPONENTS
             )),
             Cell::new(&format!(
                 "{REFUNDABLE_TITLE}: {}{}",
-                self.refundable_fee_proposed(),
+                self.estimated_refunded_resource_fee(),
                 REFUNDABLE_COMPONENTS
             ))
             .with_hspan(2),
@@ -244,28 +313,28 @@ impl FeeTable {
         if self.should_include_resource_fees() {
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
-                    "{INCLUSION_FEE_TITLE}: {}",
-                    self.inclusion_fee_charged
+                    "{INCLUSION_FEE_CHARGED_TITLE}: {}",
+                    self.charged.inclusion_fee
                 )),
                 Cell::new(&format!(
-                    "{NON_REFUNDABLE_TITLE}: {}",
-                    self.non_refundable_resource_fee_charged
+                    "{NON_REFUNDABLE_CHARGED_TITLE}: {}",
+                    self.charged.non_refundable_resource_fee
                 )),
                 Cell::new(&format!(
-                    "{REFUNDABLE_TITLE}: {}",
-                    self.refundable_resource_fee_charged
+                    "{REFUNDABLE_CHARGED_TITLE}: {}",
+                    self.charged.refundable_resource_fee
                 )),
                 Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
             ]));
 
             table.add_row(Row::new(vec![
                 Cell::new(&format!(
-                    "{INCLUSION_FEE_TITLE}: {}",
-                    self.inclusion_fee_charged
+                    "{INCLUSION_FEE_CHARGED_TITLE}: {}",
+                    self.charged.inclusion_fee
                 )),
                 Cell::new(&format!(
                     "{}: {}",
-                    RESOURCE_FEE_TITLE, self.resource_fee_charged
+                    RESOURCE_FEE_CHARGED_TITLE, self.charged.resource_fee
                 ))
                 .with_hspan(2),
                 Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
@@ -273,7 +342,7 @@ impl FeeTable {
         }
 
         table.add_row(Row::new(vec![
-            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.fee_charged)).with_hspan(3),
+            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.charged.fee)).with_hspan(3),
             Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
         ]));
 
@@ -309,108 +378,140 @@ mod test {
     use super::*;
 
     #[test]
-    fn soroban_tx_fee_table() {
+    fn soroban_tx() {
         let resp = soroban_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
-        let expected_fee_charged = 185_119;
-        let expected_non_refundable_charged = 59_343;
-        let expected_refundable_charged = 125_676;
-        let expected_resource_fee_charged =
-            expected_non_refundable_charged + expected_refundable_charged;
-        let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
-        let expected_max_fee = 248_869;
-        let expected_max_resource_fee = 248_769;
+        let proposed_fee = 105_447;
+        let proposed_resource_fee = 105_347;
+        let expected_proposed_fees = ProposedFees {
+            fee: proposed_fee,
+            resource_fee: proposed_resource_fee,
+            inclusion_fee: proposed_fee - proposed_resource_fee,
+        };
+        assert_eq!(fee_table.proposed, expected_proposed_fees);
 
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
+        let charged_fee = 60_537;
+        let non_refundable_resource_fee_charged = 60_358;
+        let refundable_resource_fee_charged = 79;
+        let full_resource_fee_charged =
+            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
+        let inclusion_fee_charged = charged_fee - full_resource_fee_charged;
+        let expected_charged_fees = ChargedFees {
+            fee: charged_fee,
+            resource_fee: full_resource_fee_charged,
+            inclusion_fee: inclusion_fee_charged,
+            non_refundable_resource_fee: non_refundable_resource_fee_charged,
+            refundable_resource_fee: refundable_resource_fee_charged,
+        };
+        assert_eq!(fee_table.charged, expected_charged_fees);
+
+        assert!(fee_table.should_include_resource_fees());
+
+        let expected_estimated_refund = proposed_resource_fee - non_refundable_resource_fee_charged;
         assert_eq!(
-            fee_table.resource_fee_charged,
-            expected_resource_fee_charged
+            fee_table.estimated_refunded_resource_fee(),
+            expected_estimated_refund
         );
-        assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
-            expected_non_refundable_charged
-        );
-        assert_eq!(
-            fee_table.refundable_resource_fee_charged,
-            expected_refundable_charged
-        );
-        assert_eq!(
-            fee_table.inclusion_fee_charged,
-            expected_inclusion_fee_charged
-        );
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+
+        let refund = proposed_fee - charged_fee;
+        assert_eq!(fee_table.refunded(), refund);
     }
 
     #[test]
-    fn classic_tx_fee_table() {
+    fn classic_tx() {
         let resp = classic_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
-        let expected_fee_charged = 100;
-        let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
-        let expected_refundable_charged = DEFAULT_FEE_VALUE;
-        let expected_resource_fee_charged =
-            expected_non_refundable_charged + expected_refundable_charged;
-        let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
-        let expected_max_fee = 100;
-        let expected_max_resource_fee = DEFAULT_FEE_VALUE;
+        let proposed_fee = 100;
+        let proposed_resource_fee = DEFAULT_RESOURCE_FEE;
+        let expected_proposed_fees = ProposedFees {
+            fee: proposed_fee,
+            resource_fee: proposed_resource_fee,
+            inclusion_fee: proposed_fee - proposed_resource_fee,
+        };
+        assert_eq!(fee_table.proposed, expected_proposed_fees);
 
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
-        assert_eq!(
-            fee_table.resource_fee_charged,
-            expected_resource_fee_charged
-        );
-        assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
-            expected_non_refundable_charged
-        );
-        assert_eq!(
-            fee_table.refundable_resource_fee_charged,
-            expected_refundable_charged
-        );
-        assert_eq!(
-            fee_table.inclusion_fee_charged,
-            expected_inclusion_fee_charged
-        );
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+        let charged_fee = 100;
+        let non_refundable_resource_fee_charged = DEFAULT_RESOURCE_FEE;
+        let refundable_resource_fee_charged = DEFAULT_RESOURCE_FEE;
+        let full_resource_fee_charged =
+            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
+        let inclusion_fee_charged = charged_fee - full_resource_fee_charged;
+        let expected_charged_fees = ChargedFees {
+            fee: charged_fee,
+            resource_fee: full_resource_fee_charged,
+            inclusion_fee: inclusion_fee_charged,
+            non_refundable_resource_fee: non_refundable_resource_fee_charged,
+            refundable_resource_fee: refundable_resource_fee_charged,
+        };
+        assert_eq!(fee_table.charged, expected_charged_fees);
+
+        assert!(!fee_table.should_include_resource_fees());
     }
 
     #[test]
-    fn fee_bump_tx_fee_table() {
-        let resp = fee_bump_tx_response().unwrap();
+    fn fee_bump_wrapping_classic_tx() {
+        let resp = fee_bump_wrapping_classic_tx_response().unwrap();
         let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
 
-        let expected_fee_charged = 200;
-        let expected_non_refundable_charged = DEFAULT_FEE_VALUE;
-        let expected_refundable_charged = DEFAULT_FEE_VALUE;
-        let expected_resource_fee_charged =
-            expected_non_refundable_charged + expected_refundable_charged;
-        let expected_inclusion_fee_charged = expected_fee_charged - expected_resource_fee_charged;
-        let expected_max_fee = 400;
-        let expected_max_resource_fee = DEFAULT_FEE_VALUE;
+        let proposed_fee = 400;
+        let proposed_resource_fee = DEFAULT_RESOURCE_FEE;
+        let expected_proposed_fees = ProposedFees {
+            fee: proposed_fee,
+            resource_fee: proposed_resource_fee,
+            inclusion_fee: proposed_fee - proposed_resource_fee,
+        };
+        assert_eq!(fee_table.proposed, expected_proposed_fees);
 
-        assert_eq!(fee_table.fee_charged, expected_fee_charged);
-        assert_eq!(
-            fee_table.resource_fee_charged,
-            expected_resource_fee_charged
-        );
-        assert_eq!(
-            fee_table.non_refundable_resource_fee_charged,
-            expected_non_refundable_charged
-        );
-        assert_eq!(
-            fee_table.refundable_resource_fee_charged,
-            expected_refundable_charged
-        );
-        assert_eq!(
-            fee_table.inclusion_fee_charged,
-            expected_inclusion_fee_charged
-        );
-        assert_eq!(fee_table.max_fee, expected_max_fee);
-        assert_eq!(fee_table.max_resource_fee, expected_max_resource_fee);
+        let charged_fee = 200;
+        let non_refundable_resource_fee_charged = DEFAULT_RESOURCE_FEE;
+        let refundable_resource_fee_charged = DEFAULT_RESOURCE_FEE;
+        let full_resource_fee_charged =
+            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
+        let inclusion_fee_charged = charged_fee - full_resource_fee_charged;
+        let expected_charged_fees = ChargedFees {
+            fee: charged_fee,
+            resource_fee: full_resource_fee_charged,
+            inclusion_fee: inclusion_fee_charged,
+            non_refundable_resource_fee: non_refundable_resource_fee_charged,
+            refundable_resource_fee: refundable_resource_fee_charged,
+        };
+        assert_eq!(fee_table.charged, expected_charged_fees);
+
+        assert!(!fee_table.should_include_resource_fees());
+    }
+
+    #[test]
+    fn fee_bump_wrapping_soroban_tx() {
+        let resp = fee_bump_wrapping_soroban_tx_response().unwrap();
+        let fee_table = FeeTable::new_from_transaction_response(&resp).unwrap();
+
+        let proposed_fee = 10_208_876;
+        let proposed_inner_tx_resource_fee = 5_004_438;
+        let expected_proposed_fees = ProposedFees {
+            fee: proposed_fee,
+            resource_fee: proposed_inner_tx_resource_fee,
+            inclusion_fee: proposed_fee - proposed_inner_tx_resource_fee,
+        };
+        assert_eq!(fee_table.proposed, expected_proposed_fees);
+
+        let charged_fee = 3_603_030;
+        let non_refundable_resource_fee_charged = 285_226;
+        let refundable_resource_fee_charged = 3_317_604;
+        let full_resource_fee_charged =
+            non_refundable_resource_fee_charged + refundable_resource_fee_charged;
+        let inclusion_fee_charged = charged_fee - full_resource_fee_charged;
+        let expected_charged_fees = ChargedFees {
+            fee: charged_fee,
+            resource_fee: full_resource_fee_charged,
+            inclusion_fee: inclusion_fee_charged,
+            non_refundable_resource_fee: non_refundable_resource_fee_charged,
+            refundable_resource_fee: refundable_resource_fee_charged,
+        };
+        assert_eq!(fee_table.charged, expected_charged_fees);
+
+        assert!(fee_table.should_include_resource_fees());
     }
 
     fn soroban_tx_response() -> Result<GetTransactionResponse, serde_json::Error> {
@@ -421,13 +522,21 @@ mod test {
         serde_json::from_str(CLASSIC_TX_RESPONSE)
     }
 
-    fn fee_bump_tx_response() -> Result<GetTransactionResponse, serde_json::Error> {
-        serde_json::from_str(FEE_BUMP_TX_RESPONSE)
+    fn fee_bump_wrapping_classic_tx_response() -> Result<GetTransactionResponse, serde_json::Error>
+    {
+        serde_json::from_str(FEE_BUMP_WRAPPING_CLASSIC_TX_RESPONSE)
     }
 
-    const SOROBAN_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx":{"tx":{"source_account":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","fee":248869,"seq_num":197568495619,"cond":"none","memo":"none","operations":[{"source_account":null,"body":{"invoke_host_function":{"host_function":{"invoke_contract":{"contract_address":"CDJJ2YDDNWVVY6AFSN2UFLMG33Z2IE2ZVYCLU4FFEAVCICLF62IXO44D","function_name":"inc","args":[]}},"auth":[]}}}],"ext":{"v1":{"ext":"v0","resources":{"footprint":{"read_only":[{"contract_data":{"contract":"CDJJ2YDDNWVVY6AFSN2UFLMG33Z2IE2ZVYCLU4FFEAVCICLF62IXO44D","key":"ledger_key_contract_instance","durability":"persistent"}},{"contract_code":{"hash":"e54e59e63d77364714a001d2c968e811d8eafe96b725781458fb8b21acf6d50e"}}],"read_write":[{"contract_data":{"contract":"CDJJ2YDDNWVVY6AFSN2UFLMG33Z2IE2ZVYCLU4FFEAVCICLF62IXO44D","key":{"symbol":"COUNTER"},"durability":"persistent"}}]},"instructions":2092625,"read_bytes":7928,"write_bytes":80},"resource_fee":248769}}},"signatures":[{"hint":"d110e61c","signature":"6b2d9fba82e01a84129582815c554f7b158ea678aeb0eceaa596f21640e1ee926441c2ffebb4eeba81ac48b3c021e8435b6b6c61071a61e498aadcb4e7a04b08"}]}},"result":{"fee_charged":185119,"result":{"tx_success":[{"op_inner":{"invoke_host_function":{"success":"df071a249d03fc2f22313f75c734a254bbea03124cea77001704db0670b2fc02"}}}]},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":54,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988036662,"seq_num":197568495618,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":51,"seq_time":1750166268}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":54,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988036662,"seq_num":197568495619,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":54,"seq_time":1750166271}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"created":{"last_modified_ledger_seq":54,"data":{"ttl":{"key_hash":"5ac6e64993239b0eba43a13feecffb99ffdbd359624949f275cc0aa417fc75bd","live_until_ledger_seq":2073653}},"ext":"v0"}},{"created":{"last_modified_ledger_seq":54,"data":{"contract_data":{"ext":"v0","contract":"CDJJ2YDDNWVVY6AFSN2UFLMG33Z2IE2ZVYCLU4FFEAVCICLF62IXO44D","key":{"symbol":"COUNTER"},"durability":"persistent","val":{"u32":1}}},"ext":"v0"}}]}],"tx_changes_after":[{"state":{"last_modified_ledger_seq":54,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988036662,"seq_num":197568495619,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":54,"seq_time":1750166271}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":54,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100412,"seq_num":197568495619,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":54,"seq_time":1750166271}}}}}}}},"ext":"v0"}}],"soroban_meta":{"ext":{"v1":{"ext":"v0","total_non_refundable_resource_fee_charged":59343,"total_refundable_resource_fee_charged":125676,"rent_fee_charged":125597}},"events":[],"return_value":{"u32":1},"diagnostic_events":[{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"d29d60636dab5c7805937542ad86def3a41359ae04ba70a5202a240965f69177"},{"symbol":"inc"}],"data":"void"}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"d29d60636dab5c7805937542ad86def3a41359ae04ba70a5202a240965f69177","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"log"}],"data":{"vec":[{"string":"count: {}"},{"u32":0}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"d29d60636dab5c7805937542ad86def3a41359ae04ba70a5202a240965f69177","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"inc"}],"data":{"u32":1}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_entry"}],"data":{"u64":3}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_entry"}],"data":{"u64":1}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_read_byte"}],"data":{"u64":7928}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_write_byte"}],"data":{"u64":80}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_key_byte"}],"data":{"u64":144}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_key_byte"}],"data":{"u64":0}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_data_byte"}],"data":{"u64":104}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_data_byte"}],"data":{"u64":80}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_code_byte"}],"data":{"u64":7824}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_code_byte"}],"data":{"u64":0}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event"}],"data":{"u64":0}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event_byte"}],"data":{"u64":0}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"cpu_insn"}],"data":{"u64":2000326}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"mem_byte"}],"data":{"u64":1487598}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"invoke_time_nsecs"}],"data":{"u64":158917}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_key_byte"}],"data":{"u64":60}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_data_byte"}],"data":{"u64":104}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_code_byte"}],"data":{"u64":7824}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_emit_event_byte"}],"data":{"u64":0}}}}}]}}}}"#;
+    fn fee_bump_wrapping_soroban_tx_response() -> Result<GetTransactionResponse, serde_json::Error>
+    {
+        serde_json::from_str(FEE_BUMP_WRAPPING_SOROBAN_TX_RESPONSE)
+    }
 
-    const CLASSIC_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx":{"tx":{"source_account":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","fee":100,"seq_num":197568495620,"cond":"none","memo":"none","operations":[{"source_account":null,"body":{"manage_data":{"data_name":"test","data_value":"abcdef"}}}],"ext":"v0"},"signatures":[{"hint":"d110e61c","signature":"89be4c9f86a3aa19de242f54b69e95894c451f0fa6e8c6f7ad7bb353e08c6aefafb45e73746340e54f87aa9112aee2e7424b81289e0a7756c3e024406d0cdf0a"}]}},"result":{"fee_charged":100,"result":{"tx_success":[{"op_inner":{"manage_data":"success"}}]},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":15678,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495619,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":54,"seq_time":1750166271}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":15678,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495620,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":15678,"seq_time":1750185606}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"created":{"last_modified_ledger_seq":15678,"data":{"data":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","data_name":"test","data_value":"abcdef","ext":"v0"}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":15678,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495620,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":15678,"seq_time":1750185606}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":15678,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495620,"num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":15678,"seq_time":1750185606}}}}}}}},"ext":"v0"}}]}],"tx_changes_after":[],"soroban_meta":null}}}"#;
+    const SOROBAN_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx":{"tx":{"source_account":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","fee":105447,"seq_num":"2062499130114054","cond":"none","memo":"none","operations":[{"source_account":null,"body":{"invoke_host_function":{"host_function":{"invoke_contract":{"contract_address":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","function_name":"inc","args":[]}},"auth":[]}}}],"ext":{"v1":{"ext":"v0","resources":{"footprint":{"read_only":[{"contract_data":{"contract":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","key":"ledger_key_contract_instance","durability":"persistent"}},{"contract_code":{"hash":"2a41e16cb574fc372ee81f02c1d775365d9d39002cc630bd162a4dcaeb153161"}}],"read_write":[{"contract_data":{"contract":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","key":{"symbol":"COUNTER"},"durability":"persistent"}}]},"instructions":2099865,"disk_read_bytes":8008,"write_bytes":80},"resource_fee":"105347"}}},"signatures":[{"hint":"6ca1bdc0","signature":"b8120310a5db9b5fd295f00d9fd7ebc26e34d14b27a00a5827aa89a18027fb7d69fb1b11e3b6408885602627b228256fde049aee2045fea7d088327302e4ea04"}]}},"result":{"fee_charged":"60537","result":{"tx_success":[{"op_inner":{"invoke_host_function":{"success":"e18456c437deb4d21dceee8db938ac8bcea25405af8df02d9225104e5d53e185"}}}]},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":480745,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907097552","seq_num":"2062499130114053","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480418,"seq_time":"1752671669"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":480745,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907097552","seq_num":"2062499130114054","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480745,"seq_time":"1752673305"}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"state":{"last_modified_ledger_seq":480290,"data":{"contract_data":{"ext":"v0","contract":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","key":{"symbol":"COUNTER"},"durability":"persistent","val":{"u32":2}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":480745,"data":{"contract_data":{"ext":"v0","contract":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","key":{"symbol":"COUNTER"},"durability":"persistent","val":{"u32":3}}},"ext":"v0"}}]}],"tx_changes_after":[{"state":{"last_modified_ledger_seq":480745,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907097552","seq_num":"2062499130114054","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480745,"seq_time":"1752673305"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":480745,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907142462","seq_num":"2062499130114054","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480745,"seq_time":"1752673305"}}}}}}}},"ext":"v0"}}],"soroban_meta":{"ext":{"v1":{"ext":"v0","total_non_refundable_resource_fee_charged":"60358","total_refundable_resource_fee_charged":"79","rent_fee_charged":"0"}},"events":[],"return_value":{"u32":3},"diagnostic_events":[{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"8adcbb7b43bc61cdebb5a29e977ca06e40ba5834a0949aab025ada2e9af0a398"},{"symbol":"inc"}],"data":"void"}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"log"}],"data":{"vec":[{"string":"count: {}"},{"u32":2}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"inc"}],"data":{"u32":3}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_entry"}],"data":{"u64":"6"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_entry"}],"data":{"u64":"1"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_read_byte"}],"data":{"u64":"8008"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_write_byte"}],"data":{"u64":"80"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_key_byte"}],"data":{"u64":"144"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_key_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_data_byte"}],"data":{"u64":"184"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_data_byte"}],"data":{"u64":"80"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_code_byte"}],"data":{"u64":"7824"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_code_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event_byte"}],"data":{"u64":"8"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"cpu_insn"}],"data":{"u64":"2006689"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"mem_byte"}],"data":{"u64":"1492062"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"invoke_time_nsecs"}],"data":{"u64":"561706"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_key_byte"}],"data":{"u64":"60"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_data_byte"}],"data":{"u64":"104"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_code_byte"}],"data":{"u64":"7824"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_emit_event_byte"}],"data":{"u64":"0"}}}}}]}}},"events":{"contract_events":[],"diagnostic_events":[{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"8adcbb7b43bc61cdebb5a29e977ca06e40ba5834a0949aab025ada2e9af0a398"},{"symbol":"inc"}],"data":"void"}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"log"}],"data":{"vec":[{"string":"count: {}"},{"u32":2}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCFNZO33IO6GDTPLWWRJ5F34UBXEBOSYGSQJJGVLAJNNULU26CRZR6TM","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"inc"}],"data":{"u32":3}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_entry"}],"data":{"u64":"6"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_entry"}],"data":{"u64":"1"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_read_byte"}],"data":{"u64":"8008"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_write_byte"}],"data":{"u64":"80"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_key_byte"}],"data":{"u64":"144"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_key_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_data_byte"}],"data":{"u64":"184"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_data_byte"}],"data":{"u64":"80"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_code_byte"}],"data":{"u64":"7824"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_code_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event_byte"}],"data":{"u64":"8"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"cpu_insn"}],"data":{"u64":"2006689"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"mem_byte"}],"data":{"u64":"1492062"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"invoke_time_nsecs"}],"data":{"u64":"561706"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_key_byte"}],"data":{"u64":"60"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_data_byte"}],"data":{"u64":"104"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_code_byte"}],"data":{"u64":"7824"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_emit_event_byte"}],"data":{"u64":"0"}}}}}],"transaction_events":[]}}"#;
 
-    const FEE_BUMP_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx_fee_bump":{"tx":{"fee_source":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","fee":400,"inner_tx":{"tx":{"tx":{"source_account":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","fee":100,"seq_num":197568495621,"cond":{"time":{"min_time":0,"max_time":1750189754}},"memo":"none","operations":[{"source_account":null,"body":{"payment":{"destination":"GDN2KA5HJ55DDXBKBBAPGWPXXAWEMLSPZIH3B2G4N7ERRUL7SN5BIRAX","asset":"native","amount":100000000}}}],"ext":"v0"},"signatures":[{"hint":"d110e61c","signature":"cfc3a142055e944995dcb1246bdbe84cd3f834ce8ae7a26ceeaeaa4edaee168628ed50d285d111d632d983a71fc305056e87d50ca50c80c193ed580398f43a0c"}]}},"ext":"v0"},"signatures":[{"hint":"0304e3c0","signature":"cc4d0d4a92ac2dbaeb7724c01713b4428ce48f61d263a70493e04cb9fadccd25342775200b1e1c27719971ce0f98ce44d0e2655491d432938aa22c92bf64df07"}]}},"result":{"fee_charged":200,"result":{"tx_fee_bump_inner_success":{"transaction_hash":"95a59fd736d69126705692a877c78881a33c28fc50684e61189b6b8bfa02e646","result":{"fee_charged":100,"result":{"tx_success":[{"op_inner":{"payment":"success"}}]},"ext":"v0"}}},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","balance":99999999800,"seq_num":80427557584896,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","balance":99999999800,"seq_num":80427557584896,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":15678,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495620,"num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":15678,"seq_time":1750185606}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495621,"num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":18731,"seq_time":1750189724}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"state":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99988100312,"seq_num":197568495621,"num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":18731,"seq_time":1750189724}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GCBVAIKUZELFVCV6S7KBS47SF2DQQXTN63TJM7D3CNZ7PD6RCDTBYULI","balance":99888100312,"seq_num":197568495621,"num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":0,"selling":0},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":18731,"seq_time":1750189724}}}}}}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":18687,"data":{"account":{"account_id":"GDN2KA5HJ55DDXBKBBAPGWPXXAWEMLSPZIH3B2G4N7ERRUL7SN5BIRAX","balance":100000000000,"seq_num":80260053860352,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":18731,"data":{"account":{"account_id":"GDN2KA5HJ55DDXBKBBAPGWPXXAWEMLSPZIH3B2G4N7ERRUL7SN5BIRAX","balance":100100000000,"seq_num":80260053860352,"num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}}]}],"tx_changes_after":[],"soroban_meta":null}}}"#;
+    const CLASSIC_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx":{"tx":{"source_account":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","fee":100,"seq_num":"2062499130114053","cond":"none","memo":"none","operations":[{"source_account":null,"body":{"manage_data":{"data_name":"test","data_value":"abcdef"}}}],"ext":"v0"},"signatures":[{"hint":"6ca1bdc0","signature":"a12761eee624d0a15f731b6e63201c55978d714a28d167e80441092afb11a06549056199e589ff511d376299782cde796169a1781b7ecad93cbe68ac3a768d05"}]}},"result":{"fee_charged":"100","result":{"tx_success":[{"op_inner":{"manage_data":"success"}}]},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":480418,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907202999","seq_num":"2062499130114052","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480290,"seq_time":"1752671028"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":480418,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907202999","seq_num":"2062499130114053","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480418,"seq_time":"1752671669"}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"created":{"last_modified_ledger_seq":480418,"data":{"data":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","data_name":"test","data_value":"abcdef","ext":"v0"}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":480418,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907202999","seq_num":"2062499130114053","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480418,"seq_time":"1752671669"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":480418,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"99907202999","seq_num":"2062499130114053","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480418,"seq_time":"1752671669"}}}}}}}},"ext":"v0"}}]}],"tx_changes_after":[],"soroban_meta":null}},"events":{"contract_events":[],"diagnostic_events":[],"transaction_events":[]}}"#;
+
+    const FEE_BUMP_WRAPPING_CLASSIC_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx_fee_bump":{"tx":{"fee_source":"GD5EJEGJM5PWKZ4WBJFMTHHY3VNUDJDU55N24ODPIPNYKBRRJCCIA44P","fee":"400","inner_tx":{"tx":{"tx":{"source_account":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","fee":100,"seq_num":"2062499130114055","cond":{"time":{"min_time":"0","max_time":"1752675654"}},"memo":"none","operations":[{"source_account":null,"body":{"payment":{"destination":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","asset":"native","amount":"100000000"}}}],"ext":"v0"},"signatures":[{"hint":"6ca1bdc0","signature":"ce5f19bac1e1a57f6f54a7d4f5729fd2db8755dac425fd61220111e3d4436dfd52e9f0f0098ea0c07fc3e65c69f19f7d1f440adc7fa9937662bd9268fb7cb00c"}]}},"ext":"v0"},"signatures":[{"hint":"31488480","signature":"789b8261c481532c7f8933ed1b32d9fb270d9acc044774dda1986f20aba8248592975f25eec1aabe374978fcc10a19b9797c834d686465a4d225b01d0c57020e"}]}},"result":{"fee_charged":"200","result":{"tx_fee_bump_inner_success":{"transaction_hash":"b6b9591c8c00d1aa9212ef0345e6b1ccd56f9a362e463a1f6237423d09dbcab8","result":{"fee_charged":"100","result":{"tx_success":[{"op_inner":{"payment":"success"}}]},"ext":"v0"}}},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GD5EJEGJM5PWKZ4WBJFMTHHY3VNUDJDU55N24ODPIPNYKBRRJCCIA44P","balance":"99999999800","seq_num":"2065887859310592","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GD5EJEGJM5PWKZ4WBJFMTHHY3VNUDJDU55N24ODPIPNYKBRRJCCIA44P","balance":"99999999800","seq_num":"2065887859310592","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":481027,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"199907142462","seq_num":"2062499130114054","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":480745,"seq_time":"1752673305"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"199907142462","seq_num":"2062499130114055","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":481209,"seq_time":"1752675627"}}}}}}}},"ext":"v0"}}],"operations":[{"changes":[{"state":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"199907142462","seq_num":"2062499130114055","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":481209,"seq_time":"1752675627"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B","balance":"199807142462","seq_num":"2062499130114055","num_sub_entries":1,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":0,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":481209,"seq_time":"1752675627"}}}}}}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":481014,"data":{"account":{"account_id":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","balance":"100000000000","seq_num":"2065939398918144","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":481209,"data":{"account":{"account_id":"GDBFMEGF2EVTNISNTYVOOYGXAEP5A353YJCPDRGUH3L6GMIDATR4BWY6","balance":"100100000000","seq_num":"2065939398918144","num_sub_entries":0,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":"v0"}},"ext":"v0"}}]}],"tx_changes_after":[],"soroban_meta":null}},"events":{"contract_events":[],"diagnostic_events":[],"transaction_events":[]}}"#;
+
+    const FEE_BUMP_WRAPPING_SOROBAN_TX_RESPONSE: &str = r#"{"status":"SUCCESS","envelope":{"tx_fee_bump":{"tx":{"fee_source":"GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW","fee":"10208876","inner_tx":{"tx":{"tx":{"source_account":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","fee":5004538,"seq_num":"244204891193475075","cond":"none","memo":"none","operations":[{"source_account":null,"body":{"invoke_host_function":{"host_function":{"invoke_contract":{"contract_address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","function_name":"submit","args":[{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"vec":[{"map":[{"key":{"symbol":"address"},"val":{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}},{"key":{"symbol":"amount"},"val":{"i128":"10000990"}},{"key":{"symbol":"request_type"},"val":{"u32":3}}]}]}]}},"auth":[{"credentials":"source_account","root_invocation":{"function":{"contract_fn":{"contract_address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","function_name":"submit","args":[{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"vec":[{"map":[{"key":{"symbol":"address"},"val":{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}},{"key":{"symbol":"amount"},"val":{"i128":"10000990"}},{"key":{"symbol":"request_type"},"val":{"u32":3}}]}]}]}},"sub_invocations":[]}}]}}}],"ext":{"v1":{"ext":"v0","resources":{"footprint":{"read_only":[{"contract_data":{"contract":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","key":"ledger_key_contract_instance","durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"EmisConfig"},{"u32":3}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"EmisData"},{"u32":3}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"ResConfig"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":"ledger_key_contract_instance","durability":"persistent"}},{"contract_code":{"hash":"baf978f10efdbcd85747868bef8832845ea6809f7643b67a4ac0cd669327fc2c"}}],"read_write":[{"trustline":{"account_id":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","asset":{"credit_alphanum4":{"asset_code":"USDC","issuer":"GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}}}},{"contract_data":{"contract":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","key":{"vec":[{"symbol":"Balance"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"Positions"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"ResData"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}]},"durability":"persistent"}},{"contract_data":{"contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"UserEmis"},{"map":[{"key":{"symbol":"reserve_id"},"val":{"u32":3}},{"key":{"symbol":"user"},"val":{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}}]}]},"durability":"persistent"}}]},"instructions":9237256,"disk_read_bytes":53060,"write_bytes":1276},"resource_fee":"5004438"}}},"signatures":[{"hint":"f291f849","signature":"3cc2da7de9df730b23ffa8a26ddfe180aa4b8eef3e251c6f05972984a659a729f1cea6396c806cce57dc66d070e588708021dfd6dc510454355bd9ce3be55500"}]}},"ext":"v0"},"signatures":[{"hint":"27f79672","signature":"f5985e8d0d8d1acc1e9862418ad09da9ec9607327362a887ee8fd805d362bcd97dee470c8f604cf5e4acbf161be4e79ece729333ba39f126d64781ecbe763202"}]}},"result":{"fee_charged":"3603030","result":{"tx_fee_bump_inner_success":{"transaction_hash":"0d2bdcf1532b215a81730267d6a7cd444127b19bdb435a568543890951a95d78","result":{"fee_charged":"3602930","result":{"tx_success":[{"op_inner":{"invoke_host_function":{"success":"1437b07cfee492dc5c26ccebe96fcab3c8a96b9a0e29d2b804095d6cc8e2f89d"}}}]},"ext":"v0"}}},"ext":"v0"},"result_meta":{"v3":{"ext":"v0","tx_changes_before":[{"state":{"last_modified_ledger_seq":58166971,"data":{"account":{"account_id":"GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW","balance":"22097264303","seq_num":"181263292226863151","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":2,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":56604244,"seq_time":"1744587782"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"account":{"account_id":"GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW","balance":"22097264303","seq_num":"181263292226863151","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":2,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":56604244,"seq_time":"1744587782"}}}}}}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":56858638,"data":{"account":{"account_id":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","balance":"0","seq_num":"244204891193475074","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"00141414","signers":[{"key":"GCO6RBY3BSJ77Y77TUXV2O5AV5E5WHAKRVMFDBHHX4H4KSKPVMICFKT4","weight":10},{"key":"GDG2THNO7333WXJU2ZMFAIDYEMJHWLHZLAJ6ZEV2QPWPWT7SSH4ETPIW","weight":20},{"key":"GDRWVPEIZK3YDKSLFPY4I4S2FOFZ6SJIRTUHTFN4NZGZTZGOIBRD4CT7","weight":10}],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":6,"num_sponsoring":0,"signer_sponsoring_i_ds":["GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","GCUISJEWU2TZ4QIJNGNVU4BSZ5CQS3KE6A3N3ETOV7XHCBVO4GLTLGOQ","GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X"],"ext":{"v3":{"ext":"v0","seq_ledger":56858638,"seq_time":"1746041747"}}}}}}}},"ext":{"v1":{"sponsoring_id":"GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","ext":"v0"}}}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"account":{"account_id":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","balance":"0","seq_num":"244204891193475075","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"00141414","signers":[{"key":"GCO6RBY3BSJ77Y77TUXV2O5AV5E5WHAKRVMFDBHHX4H4KSKPVMICFKT4","weight":10},{"key":"GDG2THNO7333WXJU2ZMFAIDYEMJHWLHZLAJ6ZEV2QPWPWT7SSH4ETPIW","weight":20},{"key":"GDRWVPEIZK3YDKSLFPY4I4S2FOFZ6SJIRTUHTFN4NZGZTZGOIBRD4CT7","weight":10}],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":6,"num_sponsoring":0,"signer_sponsoring_i_ds":["GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","GCUISJEWU2TZ4QIJNGNVU4BSZ5CQS3KE6A3N3ETOV7XHCBVO4GLTLGOQ","GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X"],"ext":{"v3":{"ext":"v0","seq_ledger":58166971,"seq_time":"1753467627"}}}}}}}},"ext":{"v1":{"sponsoring_id":"GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","ext":"v0"}}}}],"operations":[{"changes":[{"state":{"last_modified_ledger_seq":56858638,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"UserEmis"},{"map":[{"key":{"symbol":"reserve_id"},"val":{"u32":3}},{"key":{"symbol":"user"},"val":{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}}]}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"accrued"},"val":{"i128":"0"}},{"key":{"symbol":"index"},"val":{"i128":"16117732"}}]}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"UserEmis"},{"map":[{"key":{"symbol":"reserve_id"},"val":{"u32":3}},{"key":{"symbol":"user"},"val":{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}}]}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"accrued"},"val":{"i128":"3595324"}},{"key":{"symbol":"index"},"val":{"i128":"20142282"}}]}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":58166528,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"ResData"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"b_rate"},"val":{"i128":"1119495346"}},{"key":{"symbol":"b_supply"},"val":{"i128":"650408667001"}},{"key":{"symbol":"backstop_credit"},"val":{"i128":"1347654276"}},{"key":{"symbol":"d_rate"},"val":{"i128":"1190401998"}},{"key":{"symbol":"d_supply"},"val":{"i128":"58684906655"}},{"key":{"symbol":"ir_mod"},"val":{"i128":"100000000"}},{"key":{"symbol":"last_time"},"val":{"u64":"1753465101"}}]}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"ResData"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"b_rate"},"val":{"i128":"1119495371"}},{"key":{"symbol":"b_supply"},"val":{"i128":"650399733520"}},{"key":{"symbol":"backstop_credit"},"val":{"i128":"1347658442"}},{"key":{"symbol":"d_rate"},"val":{"i128":"1190402353"}},{"key":{"symbol":"d_supply"},"val":{"i128":"58684906655"}},{"key":{"symbol":"ir_mod"},"val":{"i128":"100000000"}},{"key":{"symbol":"last_time"},"val":{"u64":"1753467627"}}]}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":56858638,"data":{"ttl":{"key_hash":"ec31d93e482c805046d62dd73b28cca317660a98f88c191a59004c4c3f3f4445","live_until_ledger_seq":58932237}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"ttl":{"key_hash":"ec31d93e482c805046d62dd73b28cca317660a98f88c191a59004c4c3f3f4445","live_until_ledger_seq":60240571}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":56858638,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"Positions"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"collateral"},"val":{"map":[{"key":{"u32":1},"val":{"i128":"8933481"}}]}},{"key":{"symbol":"liabilities"},"val":{"map":[]}},{"key":{"symbol":"supply"},"val":{"map":[]}}]}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"contract_data":{"ext":"v0","contract":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","key":{"vec":[{"symbol":"Positions"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"collateral"},"val":{"map":[]}},{"key":{"symbol":"liabilities"},"val":{"map":[]}},{"key":{"symbol":"supply"},"val":{"map":[]}}]}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":56858638,"data":{"ttl":{"key_hash":"23de831fb42c10fd3e52d2e5273666cc1ae375c7409df2c8c18c8dcbcebbc1d7","live_until_ledger_seq":58932237}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"ttl":{"key_hash":"23de831fb42c10fd3e52d2e5273666cc1ae375c7409df2c8c18c8dcbcebbc1d7","live_until_ledger_seq":60240571}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":58166528,"data":{"contract_data":{"ext":"v0","contract":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","key":{"vec":[{"symbol":"Balance"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"amount"},"val":{"i128":"660267264555"}},{"key":{"symbol":"authorized"},"val":{"bool":true}},{"key":{"symbol":"clawback"},"val":{"bool":false}}]}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"contract_data":{"ext":"v0","contract":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","key":{"vec":[{"symbol":"Balance"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"}]},"durability":"persistent","val":{"map":[{"key":{"symbol":"amount"},"val":{"i128":"660257263565"}},{"key":{"symbol":"authorized"},"val":{"bool":true}},{"key":{"symbol":"clawback"},"val":{"bool":false}}]}}},"ext":"v0"}},{"state":{"last_modified_ledger_seq":56858638,"data":{"trustline":{"account_id":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","asset":{"credit_alphanum4":{"asset_code":"USDC","issuer":"GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}},"balance":"0","limit":"9223372036854775807","flags":1,"ext":"v0"}},"ext":{"v1":{"sponsoring_id":"GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","ext":"v0"}}}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"trustline":{"account_id":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK","asset":{"credit_alphanum4":{"asset_code":"USDC","issuer":"GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}},"balance":"10000990","limit":"9223372036854775807","flags":1,"ext":"v0"}},"ext":{"v1":{"sponsoring_id":"GBKAZKU33LRJX47UGDX2YGA7UIJ5BWSVAFQJLBAUYIMOS5KBPVXKGO4X","ext":"v0"}}}}]}],"tx_changes_after":[{"state":{"last_modified_ledger_seq":58166971,"data":{"account":{"account_id":"GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW","balance":"22097264303","seq_num":"181263292226863151","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":2,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":56604244,"seq_time":"1744587782"}}}}}}}},"ext":"v0"}},{"updated":{"last_modified_ledger_seq":58166971,"data":{"account":{"account_id":"GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW","balance":"22098665911","seq_num":"181263292226863151","num_sub_entries":4,"inflation_dest":null,"flags":0,"home_domain":"","thresholds":"01000000","signers":[],"ext":{"v1":{"liabilities":{"buying":"0","selling":"0"},"ext":{"v2":{"num_sponsored":0,"num_sponsoring":2,"signer_sponsoring_i_ds":[],"ext":{"v3":{"ext":"v0","seq_ledger":56604244,"seq_time":"1744587782"}}}}}}}},"ext":"v0"}}],"soroban_meta":{"ext":{"v1":{"ext":"v0","total_non_refundable_resource_fee_charged":"285226","total_refundable_resource_fee_charged":"3317604","rent_fee_charged":"3312096"}},"events":[{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"contract","body":{"v0":{"topics":[{"symbol":"withdraw_collateral"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}],"data":{"vec":[{"i128":"10000990"},{"i128":"8933481"}]}}}},{"ext":"v0","contract_id":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","type_":"contract","body":{"v0":{"topics":[{"symbol":"transfer"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"string":"USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}],"data":{"i128":"10000990"}}}}],"return_value":{"map":[{"key":{"symbol":"collateral"},"val":{"map":[]}},{"key":{"symbol":"liabilities"},"val":{"map":[]}},{"key":{"symbol":"supply"},"val":{"map":[]}}]},"diagnostic_events":[{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"eb0aa9d8d625796902fa9be6341291de077e8dd523a7378e46a4a6152da8183b"},{"symbol":"submit"}],"data":{"vec":[{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"vec":[{"map":[{"key":{"symbol":"address"},"val":{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}},{"key":{"symbol":"amount"},"val":{"i128":"10000990"}},{"key":{"symbol":"request_type"},"val":{"u32":3}}]}]}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"contract","body":{"v0":{"topics":[{"symbol":"withdraw_collateral"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}],"data":{"vec":[{"i128":"10000990"},{"i128":"8933481"}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"adefce59aee52968f76061d494c2525b75659fa4296a65f499ef29e56477e496"},{"symbol":"transfer"}],"data":{"vec":[{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"i128":"10000990"}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","type_":"contract","body":{"v0":{"topics":[{"symbol":"transfer"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"string":"USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}],"data":{"i128":"10000990"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"transfer"}],"data":"void"}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"submit"}],"data":{"map":[{"key":{"symbol":"collateral"},"val":{"map":[]}},{"key":{"symbol":"liabilities"},"val":{"map":[]}},{"key":{"symbol":"supply"},"val":{"map":[]}}]}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_entry"}],"data":{"u64":"11"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_entry"}],"data":{"u64":"5"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_read_byte"}],"data":{"u64":"53060"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_write_byte"}],"data":{"u64":"1276"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_key_byte"}],"data":{"u64":"1008"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_key_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_data_byte"}],"data":{"u64":"3028"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_data_byte"}],"data":{"u64":"1276"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_code_byte"}],"data":{"u64":"50032"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_code_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event"}],"data":{"u64":"2"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event_byte"}],"data":{"u64":"460"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"cpu_insn"}],"data":{"u64":"8808582"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"mem_byte"}],"data":{"u64":"3010311"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"invoke_time_nsecs"}],"data":{"u64":"1166673"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_key_byte"}],"data":{"u64":"168"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_data_byte"}],"data":{"u64":"508"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_code_byte"}],"data":{"u64":"50032"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_emit_event_byte"}],"data":{"u64":"244"}}}}}]}}},"events":{"contract_events":[],"diagnostic_events":[{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"eb0aa9d8d625796902fa9be6341291de077e8dd523a7378e46a4a6152da8183b"},{"symbol":"submit"}],"data":{"vec":[{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"vec":[{"map":[{"key":{"symbol":"address"},"val":{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"}},{"key":{"symbol":"amount"},"val":{"i128":"10000990"}},{"key":{"symbol":"request_type"},"val":{"u32":3}}]}]}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"contract","body":{"v0":{"topics":[{"symbol":"withdraw_collateral"},{"address":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"}],"data":{"vec":[{"i128":"10000990"},{"i128":"8933481"}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"adefce59aee52968f76061d494c2525b75659fa4296a65f499ef29e56477e496"},{"symbol":"transfer"}],"data":{"vec":[{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"i128":"10000990"}]}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","type_":"contract","body":{"v0":{"topics":[{"symbol":"transfer"},{"address":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP"},{"address":"GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK"},{"string":"USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"}],"data":{"i128":"10000990"}}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"transfer"}],"data":"void"}}}},{"in_successful_contract_call":true,"event":{"ext":"v0","contract_id":"CDVQVKOY2YSXS2IC7KN6MNASSHPAO7UN2UR2ON4OI2SKMFJNVAMDX6DP","type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_return"},{"symbol":"submit"}],"data":{"map":[{"key":{"symbol":"collateral"},"val":{"map":[]}},{"key":{"symbol":"liabilities"},"val":{"map":[]}},{"key":{"symbol":"supply"},"val":{"map":[]}}]}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_entry"}],"data":{"u64":"11"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_entry"}],"data":{"u64":"5"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_read_byte"}],"data":{"u64":"53060"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"ledger_write_byte"}],"data":{"u64":"1276"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_key_byte"}],"data":{"u64":"1008"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_key_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_data_byte"}],"data":{"u64":"3028"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_data_byte"}],"data":{"u64":"1276"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"read_code_byte"}],"data":{"u64":"50032"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"write_code_byte"}],"data":{"u64":"0"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event"}],"data":{"u64":"2"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"emit_event_byte"}],"data":{"u64":"460"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"cpu_insn"}],"data":{"u64":"8808582"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"mem_byte"}],"data":{"u64":"3010311"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"invoke_time_nsecs"}],"data":{"u64":"1166673"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_key_byte"}],"data":{"u64":"168"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_data_byte"}],"data":{"u64":"508"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_rw_code_byte"}],"data":{"u64":"50032"}}}}},{"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"core_metrics"},{"symbol":"max_emit_event_byte"}],"data":{"u64":"244"}}}}}],"transaction_events":[]}}"#;
 }
