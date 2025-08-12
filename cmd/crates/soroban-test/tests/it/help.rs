@@ -54,7 +54,9 @@ async fn complex_enum_help() {
     assert!(output.contains(r#"{"Enum":"First"|"Second"|"Third"}"#,));
     // Make the Asset assertion more flexible to handle different help output formats
     assert!(
-        output.contains("Asset") && output.contains("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF") && output.contains("1"),
+        output.contains("Asset")
+            && output.contains("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+            && output.contains("1"),
         "Help output should contain Asset variant with the expected address and amount: {}",
         output
     );
