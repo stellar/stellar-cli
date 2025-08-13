@@ -65,7 +65,7 @@ pub enum Error {
     #[error("cannot parse WASM file {wasm}: {error}")]
     CannotParseWasm {
         wasm: std::path::PathBuf,
-        error: wasm::Error,
+        error: Box<wasm::Error>,
     },
     #[error("the deployed smart contract {wasm} was built with Soroban Rust SDK v{version}, a release candidate version not intended for use with the Stellar Public Network. To deploy anyway, use --ignore-checks")]
     ContractCompiledWithReleaseCandidateSdk {
@@ -140,7 +140,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         let wasm_spec = &self.wasm.parse().map_err(|e| Error::CannotParseWasm {
             wasm: self.wasm.wasm.clone(),
-            error: e,
+            error: Box::new(e),
         })?;
 
         // Check Rust SDK version if using the public network.

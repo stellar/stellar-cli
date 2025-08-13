@@ -73,7 +73,7 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Install(#[from] upload::Error),
+    Install(Box<upload::Error>),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error("internal conversion error: {0}")]
@@ -137,6 +137,12 @@ impl From<rpc::Error> for Error {
 impl From<Box<rpc::Error>> for Error {
     fn from(e: Box<rpc::Error>) -> Self {
         Self::Rpc(e)
+    }
+}
+
+impl From<upload::Error> for Error {
+    fn from(e: upload::Error) -> Self {
+        Self::Install(Box::new(e))
     }
 }
 
