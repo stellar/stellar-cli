@@ -79,8 +79,7 @@ For the rest of this guide the asset code `ABC` will be used.
 A built-in contract exists on network for every asset. It's address is reserved and can be calculated using the following command.
 
 ```
-stellar contract asset id \
-  --asset ABC:$(stellar keys public-key issuer)
+stellar contract asset id --asset ABC:issuer
 ```
 
 The contract is not deployed automatically. Anyone can deploy the contract, it is not an action requiring authorisation.
@@ -94,9 +93,7 @@ The `--asset` option specifies the name of the asset, which is in the format `<a
 The `--alias` option stores locally an alias that can be used in subsequent commands to reference the contract address.
 
 ```
-stellar contract asset deploy \
-  --asset ABC:$(stellar keys public-key issuer) \
-  --alias abc
+stellar contract asset deploy --asset ABC:issuer --alias abc
 ```
 
 Run a few commands to get some read only data from the contract to confirm it's deployed.
@@ -125,12 +122,14 @@ Once the asset contract is deployed and setup, the following actions can take pl
 
 #### Mint (Admin Only)
 
-Generate and fund a user account that the minted asset will be transferred to.
+Generate and fund a user account that the minted asset will be transferred to. Also have the new user trust the asset.
 
 ```
 stellar keys generate user
 stellar keys fund user
 stellar keys public-key user
+stellar keys use user
+stellar tx new change-trust --line ABC:issuer
 ```
 
 Using the admin account, invoke the asset contract's `mint` function.
@@ -154,6 +153,8 @@ Generate and fund a second user account that the user account from the previous 
 stellar keys generate user2
 stellar keys fund user2
 stellar keys public-key user2
+stellar keys use user2
+stellar tx new change-trust --line ABC:issuer
 ```
 
 Using the user account, invoke the asset contract's `transfer` function.
@@ -205,11 +206,18 @@ stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 
 #### Clawback (Admin Only)
 
-An
+An admin can clawback a user's balance. The amount clawed back will be burned.
+
+Using the admin, invoke the asset contract's `clawback` function.
 
 ```
 stellar keys use admin
 stellar contract invoke --id abc -- clawback --from user --amount 25
+```
+
+Check the balance after the clawback.
+
+```
 stellar contract invoke --id abc -- balance --id user
 ```
 
