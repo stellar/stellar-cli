@@ -15,7 +15,7 @@ use stellar_strkey::{Contract, DecodeError};
 use crate::{
     commands::{global, HEADING_GLOBAL},
     print::Print,
-    signer::{self, keyring::StellarEntry},
+    signer::secure_store,
     utils::find_config_dir,
     xdr, Pwd,
 };
@@ -95,7 +95,7 @@ pub enum Error {
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
-    Keyring(#[from] signer::keyring::Error),
+    SecureStore(#[from] secure_store::Error),
     #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
     SecretKeyOnly(String),
     #[error(transparent)]
@@ -104,12 +104,28 @@ pub enum Error {
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
+#[cfg(feature = "version_lt_23")]
 pub struct Args {
     /// Use global config
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub global: bool,
 
     /// Location of config directory, default is "."
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
+    pub config_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, clap::Args, Default, Clone)]
+#[group(skip)]
+#[cfg(not(feature = "version_lt_23"))]
+#[cfg(feature = "version_gte_23")]
+pub struct Args {
+    /// ⚠️ Deprecated: global config is always on
+    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
+    pub global: bool,
+
+    /// Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise.
+    /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
@@ -152,18 +168,30 @@ impl Location {
 }
 
 impl Args {
+    #[cfg(feature = "version_lt_23")]
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
-            global_config_path()
+            self.global_config_path()
         } else {
             self.local_config()
         }
     }
 
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    pub fn config_dir(&self) -> Result<PathBuf, Error> {
+        if self.global {
+            let print = Print::new(false);
+            print.warnln("Flag --global is deprecated: global config is always used");
+        }
+
+        self.global_config_path()
+    }
+
     pub fn local_and_global(&self) -> Result<[Location; 2], Error> {
         Ok([
             Location::Local(self.local_config()?),
-            Location::Global(global_config_path()?),
+            Location::Global(self.global_config_path()?),
         ])
     }
 
@@ -261,7 +289,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
-        KeyType::Identity.read_with_global(name, &self.local_config()?)
+        KeyType::Identity.read_with_global(name, self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -286,7 +314,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
-        let res = KeyType::Network.read_with_global(name, &self.local_config()?);
+        let res = KeyType::Network.read_with_global(name, self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
                 return res;
@@ -301,20 +329,10 @@ impl Args {
         let identity = self.read_identity(name)?;
 
         if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
-            let entry = StellarEntry::new(&entry_name)?;
-            match entry.delete_seed_phrase() {
-                Ok(()) => {}
-                Err(e) => match e {
-                    signer::keyring::Error::Keyring(keyring::Error::NoEntry) => {
-                        print.infoln("This key was already removed from the secure store. Removing the cli config file.");
-                    }
-                    _ => {
-                        return Err(Error::Keyring(e));
-                    }
-                },
-            }
+            secure_store::delete_secret(&print, &entry_name)?;
         }
 
+        print.infoln("Removing the key's cli config file");
         KeyType::Identity.remove(name, &self.config_dir()?)
     }
 
@@ -322,6 +340,7 @@ impl Args {
         KeyType::Network.remove(name, &self.config_dir()?)
     }
 
+    #[cfg(feature = "version_lt_23")]
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
         let path = self.alias_path(alias)?;
 
@@ -333,6 +352,45 @@ impl Args {
         let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
         Ok(Some(data))
+    }
+
+    #[cfg(not(feature = "version_lt_23"))]
+    #[cfg(feature = "version_gte_23")]
+    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        let file_name = format!("{alias}.json");
+        let config_dirs = self.local_and_global()?;
+        let local = &config_dirs[0];
+        let global = &config_dirs[1];
+
+        match local {
+            Location::Local(config_dir) => {
+                let path = config_dir.join("contract-ids").join(&file_name);
+                if path.exists() {
+                    print_deprecation_warning(config_dir);
+
+                    let content = fs::read_to_string(path)?;
+                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+                    return Ok(Some(data));
+                }
+            }
+            Location::Global(_) => unreachable!(),
+        }
+
+        match global {
+            Location::Global(config_dir) => {
+                let path = config_dir.join("contract-ids").join(&file_name);
+                if !path.exists() {
+                    return Ok(None);
+                }
+
+                let content = fs::read_to_string(path)?;
+                let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
+
+                Ok(Some(data))
+            }
+            Location::Local(_) => unreachable!(),
+        }
     }
 
     fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
@@ -424,6 +482,27 @@ impl Args {
         };
         Ok(contract)
     }
+
+    pub fn global_config_path(&self) -> Result<PathBuf, Error> {
+        #[cfg(feature = "version_gte_23")]
+        if let Some(config_dir) = &self.config_dir {
+            return Ok(config_dir.clone());
+        }
+
+        global_config_path()
+    }
+}
+
+#[cfg(feature = "version_gte_23")]
+pub fn print_deprecation_warning(dir: &Path) {
+    let print = Print::new(false);
+    let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
+
+    print.warnln(format!("A local config was found at {dir:?}."));
+    print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
+    print.blankln(format!(
+        " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
+    ));
 }
 
 impl Pwd for Args {
@@ -444,24 +523,10 @@ fn dir_creation_failed(p: &Path) -> Error {
     }
 }
 
-fn read_dir(dir: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
-    let contents = std::fs::read_dir(dir)?;
-    let mut res = vec![];
-    for entry in contents.filter_map(Result::ok) {
-        let path = entry.path();
-        if let Some("toml") = path.extension().and_then(OsStr::to_str) {
-            if let Some(os_str) = path.file_stem() {
-                res.push((os_str.to_string_lossy().trim().to_string(), path));
-            }
-        }
-    }
-    res.sort();
-    Ok(res)
-}
-
 pub enum KeyType {
     Identity,
     Network,
+    ContractIds,
 }
 
 impl Display for KeyType {
@@ -472,17 +537,13 @@ impl Display for KeyType {
             match self {
                 KeyType::Identity => "identity",
                 KeyType::Network => "network",
+                KeyType::ContractIds => "contract-ids",
             }
         )
     }
 }
 
 impl KeyType {
-    pub fn read<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
-        let path = self.path(pwd, key);
-        Self::read_from_path(&path)
-    }
-
     pub fn read_from_path<T: DeserializeOwned>(path: &Path) -> Result<T, Error> {
         let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
@@ -490,11 +551,21 @@ impl KeyType {
         Ok(toml::from_str(&data)?)
     }
 
-    pub fn read_with_global<T: DeserializeOwned>(&self, key: &str, pwd: &Path) -> Result<T, Error> {
-        for path in [pwd, global_config_path()?.as_path()] {
-            match self.read(key, path) {
-                Ok(t) => return Ok(t),
-                _ => continue,
+    pub fn read_with_global<T: DeserializeOwned>(
+        &self,
+        key: &str,
+        locator: &Args,
+    ) -> Result<T, Error> {
+        for location in locator.local_and_global()? {
+            let path = self.path(location.as_ref(), key);
+
+            if let Ok(t) = Self::read_from_path(&path) {
+                #[cfg(feature = "version_gte_23")]
+                if let Location::Local(config_dir) = location {
+                    print_deprecation_warning(&config_dir);
+                }
+
+                return Ok(t);
             }
         }
         Err(Error::ConfigMissing(self.to_string(), key.to_string()))
@@ -528,15 +599,34 @@ impl KeyType {
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .flat_map(|p| self.list(p).unwrap_or_default())
+            .flat_map(|p| self.list(p, true).unwrap_or_default())
             .collect())
     }
 
-    pub fn list(&self, pwd: &Location) -> Result<Vec<(String, Location)>, Error> {
+    pub fn list_paths_silent(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
+        Ok(paths
+            .iter()
+            .flat_map(|p| self.list(p, false).unwrap_or_default())
+            .collect())
+    }
+
+    #[allow(unused_variables)]
+    pub fn list(
+        &self,
+        pwd: &Location,
+        print_warning: bool,
+    ) -> Result<Vec<(String, Location)>, Error> {
         let path = self.root(pwd.as_ref());
         if path.exists() {
-            let mut files = read_dir(&path)?;
+            let mut files = self.read_dir(&path)?;
             files.sort();
+
+            #[cfg(feature = "version_gte_23")]
+            if let Location::Local(config_dir) = pwd {
+                if files.len() > 1 && print_warning {
+                    print_deprecation_warning(config_dir);
+                }
+            }
 
             Ok(files
                 .into_iter()
@@ -547,8 +637,30 @@ impl KeyType {
         }
     }
 
+    fn read_dir(&self, dir: &Path) -> Result<Vec<(String, PathBuf)>, Error> {
+        let contents = std::fs::read_dir(dir)?;
+        let mut res = vec![];
+        for entry in contents.filter_map(Result::ok) {
+            let path = entry.path();
+            let extension = match self {
+                KeyType::Identity | KeyType::Network => "toml",
+                KeyType::ContractIds => "json",
+            };
+            if let Some(ext) = path.extension().and_then(OsStr::to_str) {
+                if ext == extension {
+                    if let Some(os_str) = path.file_stem() {
+                        res.push((os_str.to_string_lossy().trim().to_string(), path));
+                    }
+                }
+            }
+        }
+        res.sort();
+        Ok(res)
+    }
+
     pub fn remove(&self, key: &str, pwd: &Path) -> Result<(), Error> {
         let path = self.path(pwd, key);
+
         if path.exists() {
             std::fs::remove_file(&path)
                 .map_err(|_| Error::ConfigRemoval(self.to_string(), key.to_string()))
@@ -558,7 +670,7 @@ impl KeyType {
     }
 }
 
-pub fn global_config_path() -> Result<PathBuf, Error> {
+fn global_config_path() -> Result<PathBuf, Error> {
     let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
@@ -588,6 +700,8 @@ pub fn global_config_path() -> Result<PathBuf, Error> {
     Ok(stellar_dir)
 }
 
-pub fn config_file() -> Result<PathBuf, Error> {
+// Use locator.global_config_path() to save configurations.
+// This is only to be used to fetch global Stellar config (e.g. to use for defaults)
+pub fn cli_config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
 }

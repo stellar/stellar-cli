@@ -4,23 +4,14 @@ use soroban_cli::{
     utils::contract_id_hash_from_asset,
     xdr::{self, ReadXdr, SequenceNumber},
 };
+
 use soroban_rpc::LedgerEntryResult;
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::{
     hello_world::invoke_hello_world,
-    util::{deploy_contract, DeployOptions, HELLO_WORLD},
+    util::{deploy_contract, test_address, DeployOptions, HELLO_WORLD},
 };
-
-pub fn test_address(sandbox: &TestEnv) -> String {
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("address")
-        .arg("test")
-        .assert()
-        .success()
-        .stdout_as_str()
-}
 
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
@@ -35,7 +26,7 @@ fn new_account(sandbox: &TestEnv, name: &str) -> String {
 fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", name])
+        .args(["generate", name])
         .assert()
         .success();
     sandbox
@@ -56,7 +47,7 @@ async fn create_account() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
 
@@ -103,7 +94,7 @@ async fn create_account_with_alias() {
     let sandbox = &TestEnv::new();
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--no-fund", "new"])
+        .args(["generate", "new"])
         .assert()
         .success();
     let test = test_address(sandbox);

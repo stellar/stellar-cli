@@ -131,6 +131,7 @@ pub enum Type {
     Tuple { elements: Vec<Type> },
     Error { message: Option<String> },
     Custom { name: String },
+    MuxedAddress,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -208,6 +209,7 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
             ScSpecTypeDef::String => Type::String,
+            ScSpecTypeDef::MuxedAddress => Type::MuxedAddress,
             ScSpecTypeDef::Address => Type::Address,
             ScSpecTypeDef::Void => Type::Void,
             ScSpecTypeDef::Timepoint => Type::Timepoint,
@@ -250,6 +252,7 @@ impl From<&ScSpecEntry> for Entry {
                 name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
             },
+            ScSpecEntry::EventV0(_) => todo!("EventV0 is not implemented yet"),
         }
     }
 }

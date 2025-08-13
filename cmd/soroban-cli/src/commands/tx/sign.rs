@@ -44,6 +44,7 @@ impl Cmd {
                 &self.locator,
                 &self.network.get(&self.locator)?,
                 global_args.quiet,
+                None,
             )
             .await?;
         println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?);

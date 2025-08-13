@@ -1,11 +1,10 @@
-use crate::print;
 use crate::xdr::{
     Limits, Operation, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope,
 };
 use std::ffi::OsString;
 use std::fs::File;
-use std::io::Cursor;
 use std::io::{stdin, Read};
+use std::io::{Cursor, IsTerminal};
 use std::path::Path;
 use stellar_xdr::curr::Limited;
 
@@ -19,6 +18,8 @@ pub enum Error {
     OnlyTransactionV1Supported,
     #[error("too many operations, limited to 100 operations in a transaction")]
     TooManyOperations,
+    #[error("no transaction provided")]
+    NoStdin,
 }
 
 pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnvelope, Error> {
@@ -30,7 +31,9 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
             &mut Cursor::new(input.clone().into_encoded_bytes())
         }
     } else {
-        print::Print::new(false).infoln("Waiting for transaction input...");
+        if stdin().is_terminal() {
+            return Err(Error::NoStdin);
+        }
         &mut stdin()
     };
 

@@ -24,6 +24,18 @@ impl Default for UnresolvedMuxedAccount {
     }
 }
 
+impl Display for UnresolvedMuxedAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => write!(f, "{muxed_account}"),
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
+                write!(f, "{alias_or_secret}")
+            }
+            UnresolvedMuxedAccount::Ledger(hd_path) => write!(f, "ledger:{hd_path}"),
+        }
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -48,6 +60,8 @@ pub enum Error {
     InvalidKeyName(String),
     #[error("Ledger not supported in this context")]
     LedgerNotSupported,
+    #[error(transparent)]
+    Ledger(#[from] signer::ledger::Error),
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -85,7 +99,7 @@ impl UnresolvedMuxedAccount {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
-                ledger(*hd_path).await?.public_key().await?.0.into(),
+                ledger::new(*hd_path).await?.public_key().await?.0.into(),
             )),
             UnresolvedMuxedAccount::Resolved(_) | UnresolvedMuxedAccount::AliasOrSecret(_) => {
                 self.resolve_muxed_account_sync(locator, hd_path)

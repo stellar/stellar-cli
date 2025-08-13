@@ -1,6 +1,8 @@
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
 use itertools::Itertools;
+use rustc_version::version;
+use semver::Version;
 use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
@@ -110,17 +112,18 @@ pub enum Error {
     WritingWasmFile(io::Error),
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
+    #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
+    RustVersion(String),
 }
 
-const WASM_TARGET: &str = "wasm32-unknown-unknown";
+const WASM_TARGET: &str = "wasm32v1-none";
+const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
-
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
@@ -133,6 +136,8 @@ impl Cmd {
             }
         }
 
+        let wasm_target = get_wasm_target()?;
+
         for p in packages {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
@@ -144,7 +149,7 @@ impl Cmd {
                 manifest_path.to_string_lossy()
             ));
             cmd.arg("--crate-type=cdylib");
-            cmd.arg(format!("--target={WASM_TARGET}"));
+            cmd.arg(format!("--target={wasm_target}"));
             if self.profile == "release" {
                 cmd.arg("--release");
             } else {
@@ -196,7 +201,7 @@ impl Cmd {
 
                 let file = format!("{}.wasm", p.name.replace('-', "_"));
                 let target_file_path = Path::new(target_dir)
-                    .join(WASM_TARGET)
+                    .join(&wasm_target)
                     .join(&self.profile)
                     .join(&file);
 
@@ -429,8 +434,11 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
         return Ok(None);
     }
 
-    if env::var("TARGET_wasm32-unknown-unknown_RUSTFLAGS").is_ok() {
-        print.warnln("`TARGET_wasm32-unknown-unknown_RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
+    let target = get_wasm_target()?;
+    let env_var_name = format!("TARGET_{target}_RUSTFLAGS");
+
+    if env::var(env_var_name.clone()).is_ok() {
+        print.warnln(format!("`{env_var_name}` set. Dependency paths will not be remapped; builds may not be reproducible."));
         return Ok(None);
     }
 
@@ -459,4 +467,23 @@ fn get_rustflags() -> Option<Vec<String>> {
     }
 
     None
+}
+
+fn get_wasm_target() -> Result<String, Error> {
+    let Ok(current_version) = version() else {
+        return Ok(WASM_TARGET.into());
+    };
+
+    let v184 = Version::parse("1.84.0").unwrap();
+    let v182 = Version::parse("1.82.0").unwrap();
+
+    if current_version >= v182 && current_version < v184 {
+        return Err(Error::RustVersion(current_version.to_string()));
+    }
+
+    if current_version < v184 {
+        Ok(WASM_TARGET_OLD.into())
+    } else {
+        Ok(WASM_TARGET.into())
+    }
 }

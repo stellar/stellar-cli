@@ -24,7 +24,7 @@ impl Cmd {
         match self {
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Read(cmd) => cmd.run()?,
-        };
+        }
         Ok(())
     }
 }

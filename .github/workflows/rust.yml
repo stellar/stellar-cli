@@ -6,7 +6,9 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  group:
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -14,21 +16,30 @@ defaults:
     shell: bash
 
 jobs:
-
   complete:
     if: always()
-    needs: [fmt, cargo-deny, check-generated-full-help-docs, build-and-test, disallow-git-deps, publish-dry-run]
+    needs:
+      [
+        fmt,
+        cargo-deny,
+        check-generated-full-help-docs,
+        build-and-test,
+        disallow-git-deps,
+        publish-dry-run,
+      ]
     runs-on: ubuntu-latest
     steps:
-    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-      run: exit 1
+      - if:
+          contains(needs.*.result, 'failure') || contains(needs.*.result,
+          'cancelled')
+        run: exit 1
 
   fmt:
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-8-cores
     steps:
-    - uses: actions/checkout@v4
-    - run: rustup update
-    - run: cargo fmt --all --check
+      - uses: actions/checkout@v4
+      - run: rustup update
+      - run: cargo fmt --all --check
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -38,20 +49,20 @@ jobs:
         check: [advisories, bans, licenses, sources]
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: EmbarkStudios/cargo-deny-action@8d73959fce1cdc8989f23fdf03bec6ae6a6576ef
-      with:
-        command: check ${{ matrix.check }}
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
+        with:
+          command: check ${{ matrix.check }}
 
   check-generated-full-help-docs:
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-8-cores
     steps:
-    - uses: actions/checkout@v4
-    - uses: stellar/actions/rust-cache@main
-    - run: rustup update
-    - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
-    - run: make generate-full-help-doc
-    - run: git add -N . && git diff HEAD --exit-code
+      - uses: actions/checkout@v4
+      - uses: stellar/actions/rust-cache@main
+      - run: rustup update
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+      - run: make generate-full-help-doc
+      - run: git add -N . && git diff HEAD --exit-code
 
   build-and-test:
     strategy:
@@ -59,44 +70,48 @@ jobs:
       matrix:
         rust: [msrv, latest]
         sys:
-        - os: ubuntu-latest-16-cores
-          target: x86_64-unknown-linux-gnu
-        - os: ubuntu-jammy-16-cores-arm64
-          target: aarch64-unknown-linux-gnu
-        - os: macos-latest
-          target: x86_64-apple-darwin
-        - os: macos-latest
-          target: aarch64-apple-darwin
-        - os: windows-latest-8-cores
-          target: x86_64-pc-windows-msvc
+          - os: ubuntu-latest-8-cores
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-jammy-8-cores-arm64
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest-8-cores
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     env:
       CI_TESTS: true
     steps:
-    - uses: actions/checkout@v4
-    - uses: stellar/actions/rust-cache@main
-    - name: Use the minimum supported Rust version
-      if: matrix.rust == 'msrv'
-      run: |
-        msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
-        rustup override set $msrv
-        rustup component add clippy --toolchain $msrv
-    - name: Error on warnings and clippy checks
-      # Only error on warnings and checks for the msrv, because new versions of
-      # Rust will frequently add new warnings and checks.
-      if: matrix.rust == 'msrv'
-      run: echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic' >> $GITHUB_ENV
-    - run: rustup update
-    - run: cargo version
-    - run: rustup target add ${{ matrix.sys.target }}
-    - run: rustup target add wasm32-unknown-unknown
-    - if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
-    - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
-    - run: make test
-      env:
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
+      - uses: actions/checkout@v4
+      - uses: stellar/actions/rust-cache@main
+      - name: Use the minimum supported Rust version
+        if: matrix.rust == 'msrv'
+        run: |
+          msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
+          rustup override set $msrv
+          rustup component add clippy --toolchain $msrv
+      - name: Error on warnings and clippy checks
+        # Only error on warnings and checks for the msrv, because new versions of
+        # Rust will frequently add new warnings and checks.
+        if: matrix.rust == 'msrv'
+        run:
+          echo RUSTFLAGS='-Dwarnings -Dclippy::all -Dclippy::pedantic
+          -Aclippy::doc_markdown' >> $GITHUB_ENV
+      - run: rustup update
+      - run: cargo version
+      - run: rustup target add ${{ matrix.sys.target }}
+      - run: rustup target add wasm32v1-none
+      - if: runner.os == 'Linux'
+        run:
+          sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu
+          g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
+      - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
+      - run: make test
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
 
   disallow-git-deps:
     # This job fails if a release is being prepared and there are still crate
@@ -110,10 +125,10 @@ jobs:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Check that Cargo.tomls do not contain git dependencies for release
-      run: |
-        ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
+      - uses: actions/checkout@v4
+      - name: Check that Cargo.tomls do not contain git dependencies for release
+        run: |
+          ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
@@ -121,38 +136,45 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-latest-16-cores
-          target: x86_64-unknown-linux-gnu
-          cargo-hack-feature-options: --feature-powerset
-          additional-deb-packages: libudev-dev libdbus-1-dev
-        # TODO: add back ARM support
-        #- os: ubuntu-latest-16-cores
-        #  target: aarch64-unknown-linux-gnu
-        #  cargo-hack-feature-options: --feature-powerset
-        #  additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
-        - os: macos-latest
-          target: x86_64-apple-darwin
-          cargo-hack-feature-options: --feature-powerset
-        - os: macos-latest
-          target: aarch64-apple-darwin
-          cargo-hack-feature-options: --feature-powerset
-        # Windows builds notes:
-        #
-        # The different features that need testing are split over unique
-        # isolated builds for Windows, because there's a bug in Cargo [1] that
-        # causes builds of wasm-opt [2] to fail when run one after the other and
-        # attempting to clean up artifacts in between. The bug has been fixed,
-        # but will not make it into a stable release of Cargo until ~August
-        # 2023.
-        #
-        # [1]: https://github.com/rust-lang/cargo/pull/11442
-        # [2]: https://github.com/brson/wasm-opt-rs/issues/116
-        - os: windows-latest-8-cores
-          target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options: ''
-        - os: windows-latest-8-cores
-          target: x86_64-pc-windows-msvc
-          cargo-hack-feature-options: --features opt --ignore-unknown-features
+          - os: ubuntu-latest-8-cores
+            target: x86_64-unknown-linux-gnu
+            cargo-hack-feature-options:
+              --feature-powerset --skip version_gte_23,emulator-tests
+              --group-features default,version_lt_23 --ignore-unknown-features
+            additional-deb-packages: libudev-dev libdbus-1-dev
+          #        - os: ubuntu-jammy-8-cores-arm64
+          #          target: aarch64-unknown-linux-gnu
+          #          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
+          #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
+          - os: macos-13
+            target: x86_64-apple-darwin
+            cargo-hack-feature-options:
+              --feature-powerset --skip version_gte_23,emulator-tests
+              --group-features default,version_lt_23 --ignore-unknown-features
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            cargo-hack-feature-options:
+              --feature-powerset --skip version_gte_23,emulator-tests
+              --group-features default,version_lt_23 --ignore-unknown-features
+          # Windows builds notes:
+          #
+          # The different features that need testing are split over unique
+          # isolated builds for Windows, because there's a bug in Cargo [1] that
+          # causes builds of wasm-opt [2] to fail when run one after the other and
+          # attempting to clean up artifacts in between. The bug has been fixed,
+          # but will not make it into a stable release of Cargo until ~August
+          # 2023.
+          #
+          # [1]: https://github.com/rust-lang/cargo/pull/11442
+          # [2]: https://github.com/brson/wasm-opt-rs/issues/116
+          - os: windows-latest-8-cores
+            target: x86_64-pc-windows-msvc
+            cargo-hack-feature-options: ""
+            cargo-hack-package-options: --no-default-features
+          - os: windows-latest-8-cores
+            target: x86_64-pc-windows-msvc
+            cargo-hack-feature-options:
+              --features additional-libs --ignore-unknown-features
 
     uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:

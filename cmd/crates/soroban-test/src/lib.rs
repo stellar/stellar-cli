@@ -9,13 +9,13 @@
 //! - `TestEnv` is a test environment for running tests isolated from each other.
 //! - `TestEnv::with_default` invokes a closure, which is passed a reference to a random `TestEnv`.
 //! - `TestEnv::new_assert_cmd` creates an `assert_cmd::Command` for a given subcommand and sets the current
-//!    directory to be the same as `TestEnv`.
+//!   directory to be the same as `TestEnv`.
 //! - `TestEnv::cmd` is a generic function which parses a command from a string.
-//!    Note, however, that it uses `shlex` to tokenize the string. This can cause issues
-//!    for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
-//!    `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arr` instead.
+//!   Note, however, that it uses `shlex` to tokenize the string. This can cause issues
+//!   for commands which contain strings with `"`s. For example, `{"hello": "world"}` becomes
+//!   `{hello:world}`. For that reason it's recommended to use `TestEnv::cmd_arr` instead.
 //! - `TestEnv::cmd_arr` is a generic function which takes an array of `&str` which is passed directly to clap.
-//!    This is the preferred way since it ensures no string parsing footguns.
+//!   This is the preferred way since it ensures no string parsing footguns.
 //! - `TestEnv::invoke` a convenience function for using the invoke command.
 //!
 #![allow(
@@ -23,7 +23,11 @@
     clippy::must_use_candidate,
     clippy::missing_panics_doc
 )]
-use std::{ffi::OsString, fmt::Display, path::Path};
+use std::{
+    ffi::OsString,
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use assert_cmd::{assert::Assert, Command};
 use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
@@ -65,10 +69,11 @@ pub struct TestEnv {
 impl Default for TestEnv {
     fn default() -> Self {
         let temp_dir = TempDir::new().unwrap();
+
         Self {
             temp_dir,
             network: network::Network {
-                rpc_url: "http://localhost:8889/soroban/rpc".to_string(),
+                rpc_url: "http://localhost:8000/rpc".to_string(),
                 network_passphrase: LOCAL_NETWORK_PASSPHRASE.to_string(),
                 rpc_headers: [].to_vec(),
             },
@@ -101,7 +106,7 @@ impl TestEnv {
     }
 
     pub fn with_port(host_port: u16) -> TestEnv {
-        Self::with_rpc_url(&format!("http://localhost:{host_port}/soroban/rpc"))
+        Self::with_rpc_url(&format!("http://localhost:{host_port}/rpc"))
     }
 
     pub fn with_rpc_url(rpc_url: &str) -> TestEnv {
@@ -109,7 +114,7 @@ impl TestEnv {
         env.network.rpc_url = rpc_url.to_string();
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
-        };
+        }
         env.generate_account("test", None).assert().success();
         env
     }
@@ -120,7 +125,7 @@ impl TestEnv {
         env.network.rpc_headers = rpc_headers;
         if let Ok(network_passphrase) = std::env::var("STELLAR_NETWORK_PASSPHRASE") {
             env.network.network_passphrase = network_passphrase;
-        };
+        }
         env.generate_account("test", None).assert().success();
         env
     }
@@ -139,6 +144,15 @@ impl TestEnv {
             .unwrap_or(8000);
         Self::with_port(host_port)
     }
+
+    pub fn config_dir(&self) -> PathBuf {
+        self.temp_dir.join("config").join("stellar")
+    }
+
+    pub fn data_dir(&self) -> PathBuf {
+        self.temp_dir.join("data")
+    }
+
     /// Create a new `assert_cmd::Command` for a given subcommand and set's the current directory
     /// to be the internal `temp_dir`.
     pub fn new_assert_cmd(&self, subcommand: &str) -> Command {
@@ -148,9 +162,9 @@ impl TestEnv {
             .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
             .env("SOROBAN_RPC_URL", &self.network.rpc_url)
             .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
-            .env("XDG_CONFIG_HOME", self.temp_dir.join("config").as_os_str())
-            .env("XDG_DATA_HOME", self.temp_dir.join("data").as_os_str())
-            .current_dir(&self.temp_dir);
+            .env("XDG_CONFIG_HOME", self.dir().join("config").as_os_str())
+            .env("XDG_DATA_HOME", self.data_dir().as_os_str())
+            .current_dir(self.dir());
 
         if !self.network.rpc_headers.is_empty() {
             cmd.env(
@@ -166,12 +180,12 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("soroban").unwrap_or_else(|_| Command::new("soroban"))
+        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
         let mut cmd = self.new_assert_cmd("keys");
-        cmd.arg("generate").arg(account);
+        cmd.arg("generate").arg(account).arg("--fund");
         if let Some(seed) = seed {
             cmd.arg(format!("--seed={seed}"));
         }
@@ -189,12 +203,8 @@ impl TestEnv {
     /// Uses shlex under the hood and thus has issues parsing strings with embedded `"`s.
     /// Thus `TestEnv::cmd_arr` is recommended to instead.
     pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
-        Self::cmd_with_pwd(args, self.dir())
-    }
-
-    /// Same as `TestEnv::cmd` but sets the pwd can be used instead of the current `TestEnv`.
-    pub fn cmd_with_pwd<T: CommandParser<T>>(args: &str, pwd: &Path) -> T {
-        let args = format!("--config-dir={pwd:?} {args}");
+        let config_dir = self.config_dir();
+        let args = format!("--config-dir={config_dir:?} {args}");
         T::parse(&args).unwrap()
     }
 
@@ -208,7 +218,7 @@ impl TestEnv {
     /// Parse a command using an array of `&str`s, which passes the strings directly to clap
     /// avoiding some issues `cmd` has with shlex. Use the current `TestEnv` pwd.
     pub fn cmd_arr<T: CommandParser<T>>(&self, args: &[&str]) -> T {
-        Self::cmd_arr_with_pwd(args, self.dir())
+        Self::cmd_arr_with_pwd(args, &self.config_dir())
     }
 
     /// A convenience method for using the invoke command.
@@ -255,7 +265,7 @@ impl TestEnv {
     }
 
     pub fn clone_config(&self, account: &str) -> config::Args {
-        let config_dir = Some(self.dir().to_path_buf());
+        let config_dir = Some(self.config_dir().clone());
         config::Args {
             network: network::Args {
                 rpc_url: Some(self.network.rpc_url.clone()),
@@ -268,7 +278,12 @@ impl TestEnv {
                 global: false,
                 config_dir,
             },
-            hd_path: None,
+            sign_with: config::sign_with::Args {
+                sign_with_key: None,
+                hd_path: None,
+                sign_with_lab: false,
+                sign_with_ledger: false,
+            },
         }
     }
 
@@ -279,6 +294,7 @@ impl TestEnv {
         account: &str,
     ) -> Result<T::Result, T::Error> {
         let config = self.clone_config(account);
+
         cmd.run_against_rpc_server(
             Some(&global::Args {
                 locator: config.locator.clone(),
@@ -319,13 +335,13 @@ impl TestEnv {
     /// Copy the contents of the current `TestEnv` to another `TestEnv`
     pub fn fork(&self) -> Result<TestEnv, Error> {
         let this = TestEnv::new();
-        self.save(&this.temp_dir)?;
+        self.save(this.dir())?;
         Ok(this)
     }
 
     /// Save the current state of the `TestEnv` to the given directory.
     pub fn save(&self, dst: &Path) -> Result<(), Error> {
-        fs_extra::dir::copy(&self.temp_dir, dst, &CopyOptions::new())?;
+        fs_extra::dir::copy(self.dir(), dst, &CopyOptions::new())?;
         Ok(())
     }
 

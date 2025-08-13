@@ -1,10 +1,14 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use crate::xdr::{
-    Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
-    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+use crate::{
+    log::extract_events,
+    xdr::{
+        Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+        LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
+        RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
+        SorobanTransactionDataExt, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+        TtlEntry, WriteXdr,
+    },
 };
 use clap::{command, Parser};
 use stellar_strkey::DecodeError;
@@ -129,7 +133,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = crate::print::Print::new(args.map_or(true, |a| a.quiet));
+        let print = crate::print::Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
@@ -156,14 +160,14 @@ impl NetworkRunnable for Cmd {
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
-                ext: ExtensionPoint::V0,
+                ext: SorobanTransactionDataExt::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: vec![].try_into()?,
                         read_write: entry_keys.try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
-                    read_bytes: 0,
+                    disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
@@ -173,21 +177,22 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(tx));
         }
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(*tx).await?)
+            .send_transaction_polling(&config.sign(*tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
         let meta = res
             .result_meta
             .as_ref()
             .ok_or(Error::MissingOperationResult)?;
-        let events = res.events()?;
+
         tracing::trace!(?meta);
-        if !events.is_empty() {
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
-        }
+
+        let events = extract_events(meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found &
         // restored the entry, so we have to inspect the result meta to tell if it worked or not.
@@ -198,7 +203,7 @@ impl NetworkRunnable for Cmd {
 
         // Simply check if there is exactly one entry here. We only support extending a single
         // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
+        if operations.is_empty() {
             return Err(Error::LedgerEntryNotFound);
         }
 

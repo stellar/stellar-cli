@@ -5,8 +5,15 @@ use crate::{
 };
 use clap::Parser;
 
+#[allow(clippy::doc_markdown)]
 #[derive(Debug, Parser)]
 pub struct Cmd {
+    /// Env variable name to get the value of.
+    ///
+    /// E.g.: $ stellar env STELLAR_ACCOUNT
+    #[arg()]
+    pub name: Option<String>,
+
     #[command(flatten)]
     pub config_locator: locator::Args,
 }
@@ -20,42 +27,66 @@ pub enum Error {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-        let mut lines: Vec<(String, String)> = Vec::new();
+        let mut vars: Vec<EnvVar> = Vec::new();
 
-        if let Some(data) = get("STELLAR_NETWORK") {
-            lines.push(data);
+        if let Some(v) = EnvVar::get("STELLAR_NETWORK") {
+            vars.push(v);
         }
 
-        if let Some(data) = get("STELLAR_ACCOUNT") {
-            lines.push(data);
+        if let Some(v) = EnvVar::get("STELLAR_ACCOUNT") {
+            vars.push(v);
         }
 
-        if lines.is_empty() {
+        if let Some(name) = &self.name {
+            if let Some(v) = vars.iter().find(|v| &v.key == name) {
+                println!("{}", v.value);
+            }
+            return Ok(());
+        }
+
+        if vars.is_empty() {
             print.warnln("No defaults or environment variables set".to_string());
             return Ok(());
         }
 
-        let max_len = lines.iter().map(|l| l.0.len()).max().unwrap_or(0);
+        let max_len = vars.iter().map(|v| v.str().len()).max().unwrap_or(0);
 
-        lines.sort();
+        vars.sort();
 
-        for (value, source) in lines {
-            println!("{value:max_len$} # {source}");
+        for v in vars {
+            println!("{:max_len$} # {}", v.str(), v.source);
         }
 
         Ok(())
     }
 }
 
-fn get(env_var: &str) -> Option<(String, String)> {
-    // The _SOURCE env var is set from cmd/soroban-cli/src/cli.rs#set_env_value_from_config
-    let source = std::env::var(format!("{env_var}_SOURCE"))
-        .ok()
-        .unwrap_or("env".to_string());
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct EnvVar {
+    key: String,
+    value: String,
+    source: String,
+}
 
-    if let Ok(value) = std::env::var(env_var) {
-        return Some((format!("{env_var}={value}"), source));
+impl EnvVar {
+    fn get(key: &str) -> Option<Self> {
+        // The _SOURCE env var is set from cmd/soroban-cli/src/cli.rs#set_env_value_from_config
+        let source = std::env::var(format!("{key}_SOURCE"))
+            .ok()
+            .unwrap_or("env".to_string());
+
+        if let Ok(value) = std::env::var(key) {
+            return Some(EnvVar {
+                key: key.to_string(),
+                value,
+                source,
+            });
+        }
+
+        None
     }
 
-    None
+    fn str(&self) -> String {
+        format!("{}={}", self.key, self.value)
+    }
 }

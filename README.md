@@ -2,6 +2,7 @@
 
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-apache%202.0-blue.svg)](LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/stellar-cli?label=version&amp;color=04ac5b)](https://crates.io/crates/stellar-cli)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/stellar/stellar-cli)
 
 This repo is home to the Stellar CLI, the command-line multi-tool for running and deploying Stellar contracts on the Stellar network.
 
@@ -34,7 +35,12 @@ brew install stellar-cli
 
 Install the latest version from source:
 ```
-cargo install --locked stellar-cli --features opt
+cargo install --locked stellar-cli
+```
+
+Install without features that depend on additional libraries:
+```
+cargo install --locked stellar-cli --no-default-features
 ```
 
 Install or run the unreleased main branch with nix:
@@ -46,10 +52,7 @@ $ nix profile install github:stellar/stellar-cli
 
 Use GitHub Action:
 ```
-- uses: stellar/stellar-cli
-  # Optionally specify version of the cli. If not provided, latest available version will be used
-  with:
-    version: 22.4.0
+uses: stellar/stellar-cli@v22.5.0
 ```
 
 ## Autocomplete
@@ -83,3 +86,4 @@ Find issues to contribute to [here](https://github.com/stellar/stellar-cli/contr
 - Developer Docs CLI Examples: https://developers.stellar.org/docs/smart-contracts/guides/cli
 - Video Tutorial on `network container`, `keys`, and `contract init`: https://developers.stellar.org/meetings/2024/06/27
 - Video Tutorial on `alias` and `snapshot`: https://developers.stellar.org/meetings/2024/09/12
+

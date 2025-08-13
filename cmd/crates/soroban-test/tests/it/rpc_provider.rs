@@ -33,7 +33,7 @@ async fn test_use_rpc_provider_with_auth_header() {
 }
 
 #[cfg(feature = "version_lt_23")]
-fn mock_generate_account(server: &MockServer) -> Mock {
+fn mock_generate_account(server: &MockServer) -> Mock<'_> {
     let cli_version = soroban_cli::commands::version::pkg();
     let agent = format!("soroban-cli/{cli_version}");
     server.mock(|when, then| {
@@ -45,7 +45,7 @@ fn mock_generate_account(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_network(server: &MockServer) -> Mock {
+fn mock_get_network(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")
@@ -67,7 +67,7 @@ fn mock_get_network(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_events(server: &MockServer) -> Mock {
+fn mock_get_events(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")
@@ -95,7 +95,11 @@ fn mock_get_events(server: &MockServer) -> Mock {
             "id": 1,
             "result": GetEventsResponse {
                 events: vec![],
-                latest_ledger: 1000
+                latest_ledger: 1000,
+                cursor: "1234-5".to_string(),
+                latest_ledger_close_time: "2023-10-01T00:00:00Z".to_string(),
+                oldest_ledger: 1,
+                oldest_ledger_close_time: "2023-01-01T00:00:00Z".to_string(),
             }
         }));
     })

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 
 use bollard::{
     container::{Config, CreateContainerOptions, StartContainerOptions},
@@ -170,9 +171,11 @@ impl Runner {
     }
 
     fn get_container_args(&self) -> Vec<String> {
+        let args = env::var("STELLAR_CONTAINER_ARGS").unwrap_or("rpc,horizon,lab".to_string());
+
         [
             format!("--{}", self.network),
-            "--enable rpc,horizon".to_string(),
+            format!("--enable {args}"),
             self.get_protocol_version_arg(),
             self.get_limits_arg(),
         ]
@@ -212,12 +215,12 @@ impl Runner {
         let tail = format!("{container_name} {additional_flags}");
 
         self.print.searchln(format!(
-            "Watch logs with `stellar network container logs {}`",
+            "Watch logs with `stellar container logs {}`",
             tail.trim()
         ));
 
         self.print.infoln(format!(
-            "Stop the container with `stellar network container stop {}`",
+            "Stop the container with `stellar container stop {}`",
             tail.trim()
         ));
     }

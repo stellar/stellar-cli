@@ -64,7 +64,7 @@ fn has_no_path_failure() {
         .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
         .arg("hello")
         .assert()
-        .stderr(predicates::str::contains("error: no such command: `hello`"));
+        .stderr(predicates::str::contains("unrecognized subcommand 'hello'"));
 }
 
 fn target_bin() -> PathBuf {

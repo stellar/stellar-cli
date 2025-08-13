@@ -1,46 +1,61 @@
+---
 name: RPC Tests
 on:
-    push:
-        branches: [main, release/**]
-    pull_request:
+  push:
+    branches: [main, release/**]
+  pull_request:
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
-    cancel-in-progress: true
+  group:
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    name: test RPC
-    runs-on: ubuntu-22.04
-    services:
-      rpc:
-        image: stellar/quickstart:testing
-        ports:
-          - 8000:8000
-        env:
-          ENABLE_LOGS: true
-          ENABLE_SOROBAN_DIAGNOSTIC_EVENTS: true
-          NETWORK: local
-          PROTOCOL_VERSION: 22
-        options: >-
-          --health-cmd "curl --no-progress-meter --fail-with-body -X POST \"http://localhost:8000/soroban/rpc\" -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":8675309,\"method\":\"getNetwork\"}' && curl --no-progress-meter \"http://localhost:8000/friendbot\" | grep '\"invalid_field\": \"addr\"'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 50
+    strategy:
+      fail-fast: false
+      matrix:
+        sys:
+          # x64
+          - ubuntu-latest-8-cores
+          # ARM
+          - ubuntu-jammy-8-cores-arm64
+          # Intel
+          - macos-13
+        exclude:
+          # Only run Linux x64 tests on pull request to save some time
+          - sys:
+              ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
+    runs-on: ${{ matrix.sys }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: stellar/quickstart@main
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          tag: future
+      - uses: actions/checkout@v4
+      - uses: stellar/actions/rust-cache@main
       - run: rustup update
-      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
-      - run: cargo build
-      - run: rustup target add wasm32-unknown-unknown
+      - run:
+          sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+          gnome-keyring
+        if: runner.os == 'Linux'
+      - name: Start gnome-keyring
+        if: runner.os == 'Linux'
+        # run gnome-keyring with 'foobar' as password for the login keyring
+        # this will create a new login keyring and unlock it
+        # the login password doesn't matter, but the keyring must be unlocked for the tests to work
+        # this is based on the ci workflow in the keyring crate repo
+        run:
+          gnome-keyring-daemon --components=secrets --daemonize --unlock <<<
+          'foobar'
+      - name: Check GNOME Keyring
+        if: runner.os == 'Linux'
+        run: |
+          gnome-keyring-daemon
+      - run: cargo build --features additional-libs
+      - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
-      - run: SOROBAN_PORT=8000 cargo test --features it --package soroban-test --test it -- integration
+      - run:
+          cargo test --features it --package soroban-test --test it --
+          integration --test-threads=1

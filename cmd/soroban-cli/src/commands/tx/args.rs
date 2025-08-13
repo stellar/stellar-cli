@@ -86,7 +86,7 @@ impl Args {
         let res = self.handle(op, global_args).await?;
         if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
             println!("{}", tx.to_xdr_base64(Limits::none())?);
-        };
+        }
         Ok(())
     }
 
@@ -102,7 +102,7 @@ impl Args {
         }
 
         let txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&self.config.sign(tx).await?)
             .await?;
 
         if !args.no_cache {
@@ -120,7 +120,7 @@ impl Args {
         &self,
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::MuxedAccount, Error> {
-        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.hd_path)?)
+        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?)
     }
 
     pub fn resolve_account_id(
@@ -128,7 +128,7 @@ impl Args {
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::AccountId, Error> {
         Ok(address
-            .resolve_muxed_account_sync(&self.config.locator, self.config.hd_path)?
+            .resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?
             .account_id())
     }
 
@@ -142,7 +142,7 @@ impl Args {
         if let Some(account) = op_source {
             source_account = Some(
                 account
-                    .resolve_muxed_account(&self.config.locator, self.config.hd_path)
+                    .resolve_muxed_account(&self.config.locator, self.config.hd_path())
                     .await?,
             );
         }

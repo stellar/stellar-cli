@@ -112,10 +112,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[error(
-        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
-    )]
-    InvalidAliasFormat { alias: String },
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -145,9 +141,9 @@ impl Cmd {
                     {
                         let print = Print::new(global_args.quiet);
                         print.warnln(format!(
-                            "Overwriting existing contract id: {existing_contract}"
+                            "Overwriting existing alias {alias:?} that currently links to contract ID: {existing_contract}"
                         ));
-                    };
+                    }
 
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
@@ -169,12 +165,13 @@ impl NetworkRunnable for Cmd {
     type Result = TxnResult<stellar_strkey::Contract>;
 
     #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let print = Print::new(global_args.map_or(false, |a| a.quiet));
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             #[cfg(feature = "version_lt_23")]
@@ -243,9 +240,9 @@ impl NetworkRunnable for Cmd {
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
-        let res = soroban_spec_tools::Spec::new(entries.clone());
+        let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
         let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
-            if func.inputs.len() == 0 {
+            if func.inputs.is_empty() {
                 None
             } else {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
@@ -293,7 +290,7 @@ impl NetworkRunnable for Cmd {
         }
 
         print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign_with_local_key(*txn).await?;
+        let signed_txn = &config.sign(*txn).await?;
         print.globeln("Submitting deploy transaction…");
 
         let get_txn_resp = client
@@ -301,7 +298,7 @@ impl NetworkRunnable for Cmd {
             .await?
             .try_into()?;
 
-        if global_args.map_or(true, |a| !a.no_cache) {
+        if global_args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
