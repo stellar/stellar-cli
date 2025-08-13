@@ -1645,6 +1645,7 @@ Create a new transaction
 * `change-trust` — Create, update, or delete a trustline
 * `create-account` — Create and fund a new account
 * `manage-data` — Set, modify, or delete account data entries
+* `manage-sell-offer` — Create, update, or delete a sell offer
 * `payment` — Send asset to destination account
 * `set-options` — Set account options like flags, signers, and home domain
 * `set-trustline-flags` — Configure authorization and trustline flags for an asset
@@ -1800,6 +1801,41 @@ Set, modify, or delete account data entries
 * `--sign-with-ledger` — Sign with a ledger wallet
 * `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
+
+
+
+## `stellar tx new manage-sell-offer`
+
+Create, update, or delete a sell offer
+
+**Usage:** `stellar tx new manage-sell-offer [OPTIONS] --source-account <SOURCE_ACCOUNT> --selling <SELLING> --buying <BUYING> --amount <AMOUNT> --price <PRICE>`
+
+###### **Options:**
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--selling <SELLING>` — Asset to sell
+* `--buying <BUYING>` — Asset to buy
+* `--amount <AMOUNT>` — Amount of selling asset to offer, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops). Use `0` to remove the offer
+* `--price <PRICE>` — Price of 1 unit of selling asset in terms of buying asset as "numerator:denominator" (e.g., "1:2" means 0.5)
+* `--offer-id <OFFER_ID>` — Offer ID. If 0, will create new offer. Otherwise, will update existing offer
+
+  Default value: `0`
 
 
 

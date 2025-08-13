@@ -8,6 +8,7 @@ pub mod bump_sequence;
 pub mod change_trust;
 pub mod create_account;
 pub mod manage_data;
+pub mod manage_sell_offer;
 pub mod payment;
 pub mod set_options;
 pub mod set_trustline_flags;
@@ -25,6 +26,8 @@ pub enum Cmd {
     CreateAccount(create_account::Cmd),
     #[command(about = super::help::MANAGE_DATA)]
     ManageData(manage_data::Cmd),
+    #[command(about = super::help::MANAGE_SELL_OFFER)]
+    ManageSellOffer(manage_sell_offer::Cmd),
     #[command(about = super::help::PAYMENT)]
     Payment(payment::Cmd),
     #[command(about = super::help::SET_OPTIONS)]
@@ -48,6 +51,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::ChangeTrust(cmd) => cmd.try_into()?,
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
             Cmd::ManageData(cmd) => cmd.into(),
+            Cmd::ManageSellOffer(cmd) => cmd.try_into()?,
             Cmd::Payment(cmd) => cmd.try_into()?,
             Cmd::SetOptions(cmd) => cmd.try_into()?,
             Cmd::SetTrustlineFlags(cmd) => cmd.try_into()?,
@@ -64,6 +68,7 @@ impl Cmd {
             Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageData(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ManageSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::Payment(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(op, global_args).await,
