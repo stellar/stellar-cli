@@ -5,78 +5,103 @@ description: Issue a Stellar Asset, deploy it's contract, and mint, burn, freeze
 custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/asset-management.mdx
 ---
 
-### Install
-Recommend installing from one of the supported package managers if you can, as you'll get a precompiled binary. But you can also install from source.
-On macOS:
-```
-brew install stellar-cli
-```
-On Windows:
-```
-winget install --id Stellar.StellarCLI
-```
-On anything else, or if you prefer to build from source:
-```
-cargo install --locked stellar-cli
-```
+The [stellar-cli] can be used to issue and administer assets on the Stellar network.
 
-### Network Config
-Network config is supported under the `stellar network` command.
-```
-stellar network use testnet
-```
-Testnet is preconfigured, and is what I'm going to use today. You can add config for your RPC for mainnet. Or your RPC for testnet if you want to use your own.
+### Asset Issuance
 
-### Assets
-#### Creation
-To create a Stellar Asset we need a Stellar account created, that'll be the issuer. Assets on Stellar are uniquely defined by a code and an issuer address. So they look like this:
+To create a Stellar Asset using the [stellar-cli] several steps take place:
+- An issuer account must exist.
+- An asset code selected.
+- Optionally, an admin is configured.
+
+
+#### Issuer Creation
+
+To create an issuer, generate a key.
+
 ```
 stellar keys generate issuer
 ```
 
 View the public key with:
+
 ```
 stellar keys public-key issuer
 ```
 
 Configure the issuer key to be used for signing transactions:
+
 ```
 stellar keys use issuer
 ```
 
 #### Issuer Config
+
+Issuer accounts have several configuration flags that can be toggled and affect all assets issued by the issuer.
+
+In this guide the issuer accounts revocable and clawback-enabled features will be enabled. These features allow the asset admin to revoke authorisation to use an asset, which has the effect of freezing the asset, and to clawback, which has the effect of forcibly burning the asset.
+
 ```
-stellar tx new set-options --set-revocable --set-clawback-enabled
+stellar tx new set-options \
+  --set-revocable \
+  --set-clawback-enabled
 ```
 
-If you'd like to look at the tx before sending:
+To see other options, see the manual for the [stellar tx new set-options](https://developers.stellar.org/docs/tools/cli/stellar-cli#stellar-tx-new-set-options) command.
+
+To view the tx before sending, use the `--build-only` option and pipe the transaction through the tx edit command:
 ```
-stellar tx new set-options --set-revocable --set-clawback-enabled --build-only \
+stellar tx new set-options \
+  --set-revocable \
+  --set-clawback-enabled \
+  --build-only \
   | stellar tx edit \
   | stellar sign \
   | stellar send
 ```
 
-#### Choose Asset Code
+#### Choosing the Asset Code
+
+Choose an asset code 1 to 12 characters long.
+
+The asset code along with the issuer account address will uniquely identify the asset. An issuer can issue multiple assets, distinguished by their asset code.
+
+For the rest of this guide the asset code `ABC` will be used.
+
+#### Asset Contract Setup
+
+A built-in contract exists on network for every asset. It's address is reserved and can be calculated using the following command.
+
 ```
-echo ABC:$(stellar keys public-key issuer)
+stellar contract asset id \
+  --asset ABC:$(stellar keys public-key issuer)
 ```
 
-#### Contract Deployment
+The contract is not deployed automatically. Anyone can deploy the contract, it is not an action requiring authorisation.
+
+##### Contract Deployment
+
+Deploy the built-in asset contract.
+
+The `--asset` option specifies the name of the asset, which is in the format `<asset-code>:<asset-issuer>`.
+
+The `--alias` option stores locally an alias that can be used in subsequent commands to reference the contract address.
+
 ```
 stellar contract asset deploy \
   --asset ABC:$(stellar keys public-key issuer) \
   --alias abc
 ```
 
-Run a few commands to get some read only data from the contract to confirm it's there.
+Run a few commands to get some read only data from the contract to confirm it's deployed.
+
 ```
 stellar contract invoke --id abc -- symbol
 stellar contract invoke --id abc -- name
 stellar contract invoke --id abc -- decimals
 ```
 
-#### Admin Setup
+##### Admin Setup
 At this point the issuer is the admin of the contract.
 Let's create another account that'll be the admin.
 ```
@@ -87,18 +112,28 @@ stellar keys public-key admin
 stellar contract invoke --id abc -- set_admin --new_admin admin
 ```
 
-### Mint
+### Actions
+
+See the following examples for how to administer and use the asset.
+
+#### Mint (Admin Only)
+
+Generate and fund a user account.
+
 ```
 stellar keys generate user
 stellar keys public-key user
 ```
+
+Using the admin account, invoke the asset contract's `mint` function.
+
 ```
 stellar keys use admin
 stellar contract invoke --id abc -- mint --to user --amount 25
 stellar contract invoke --id abc -- balance --id user
 ```
 
-### Transfer
+#### Transfer
 ```
 stellar keys generate user2
 stellar keys public-key user2
@@ -110,14 +145,14 @@ stellar contract invoke --id abc -- balance --id user
 stellar contract invoke --id abc -- balance --id user2
 ```
 
-### Burn
+#### Burn
 ```
 stellar keys use user
 stellar contract invoke --id abc -- burn --from user --amount 5
 stellar contract invoke --id abc -- balance --id user
 ```
 
-### Freeze (revoke authorisation)
+#### Revoke Authorization / Freeze (Admin Only)
 ```
 stellar keys use admin
 stellar contract invoke --id abc -- set_authorized --id user --authorize false
@@ -131,7 +166,7 @@ stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 stellar contract invoke --id abc -- balance --id user
 ```
 
-### Clawback
+#### Clawback (Admin Only)
 ```
 stellar keys use admin
 stellar contract invoke --id abc -- clawback --from user --amount 25
