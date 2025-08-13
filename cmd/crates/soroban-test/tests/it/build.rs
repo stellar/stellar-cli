@@ -302,7 +302,9 @@ fn parent_path() -> String {
 fn with_flags(expected: &str) -> String {
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
-    let registry_prefix = registry_prefix.display();
+    let registry_prefix = registry_prefix.display().to_string();
+    #[cfg(windows)]
+    let registry_prefix = registry_prefix.replace('\\', "/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
         expected.split('\n').map(ToString::to_string).collect()
