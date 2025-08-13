@@ -1,7 +1,7 @@
 use assert_fs::TempDir;
 use fs_extra::dir::CopyOptions;
 use predicates::prelude::predicate;
-use shell_escape;
+use shell_escape::escape;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
@@ -314,8 +314,7 @@ fn with_flags(expected: &str) -> String {
             .split('\n')
             .map(|x| {
                 let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
-                let escaped_value =
-                    shell_escape::escape(std::borrow::Cow::Borrowed(&rustflags_value));
+                let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
                 format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
             })
             .collect()

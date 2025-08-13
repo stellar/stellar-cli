@@ -446,7 +446,7 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     let registry_prefix_str = registry_prefix.display().to_string();
     #[cfg(windows)]
     let registry_prefix_str = registry_prefix_str.replace('\\', "/");
-    let new_rustflag = format!("--remap-path-prefix={}=", registry_prefix_str);
+    let new_rustflag = format!("--remap-path-prefix={registry_prefix_str}=");
 
     let mut rustflags = get_rustflags().unwrap_or_default();
     rustflags.push(new_rustflag);
