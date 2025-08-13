@@ -7,56 +7,65 @@ custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/asset
 
 The [stellar-cli] can be used to issue and administer assets on the Stellar network.
 
-The following guide assumes that the [stellar-cli] has been configured to use testnet, or a local test network. To use testnet, run the following command.
+The following guide assumes that the [stellar-cli] has been configured to use
+testnet, or a local test network. To use testnet, run the following command.
 
-```
+```bash
 stellar network use testnet
 ```
 
 ### Asset Issuance
 
 To create a Stellar Asset using the [stellar-cli] several steps take place:
+
 - An issuer account must exist.
 - An asset code selected.
 - Optionally, an admin is configured.
 
 #### Issuer Creation
 
-To create an issuer, generate a key and fund it. Funding uses friendbot, the testnet faucet, to is only available on testnet.
+To create an issuer, generate a key and fund it. Funding uses friendbot, the
+testnet faucet, to is only available on testnet.
 
-```
+```bash
 stellar keys generate issuer
 stellar keys fund issuer
 ```
 
 View the public key with:
 
-```
+```bash
 stellar keys public-key issuer
 ```
 
 Configure the issuer key to be used for signing transactions:
 
-```
+```bash
 stellar keys use issuer
 ```
 
 #### Issuer Config
 
-Issuer accounts have several configuration flags that can be toggled and affect all assets issued by the issuer.
+Issuer accounts have several configuration flags that can be toggled and affect
+all assets issued by the issuer.
 
-In this guide the issuer accounts revocable and clawback-enabled features will be enabled. These features allow the asset admin to revoke authorisation to use an asset, which has the effect of freezing the asset, and to clawback, which has the effect of forcibly burning the asset.
+In this guide the issuer accounts revocable and clawback-enabled features will
+be enabled. These features allow the asset admin to revoke authorisation to use
+an asset, which has the effect of freezing the asset, and to clawback, which
+has the effect of forcibly burning the asset.
 
-```
+```bash
 stellar tx new set-options \
   --set-revocable \
   --set-clawback-enabled
 ```
 
-To see other options, see the manual for the [stellar tx new set-options](https://developers.stellar.org/docs/tools/cli/stellar-cli#stellar-tx-new-set-options) command.
+To see other options, see the manual for the [stellar tx new set-options] command.
 
-To view the tx before sending, use the `--build-only` option and pipe the transaction through the tx edit command:
-```
+To view the tx before sending, use the `--build-only` option and pipe the
+transaction through the tx edit command:
+
+```bash
 stellar tx new set-options \
   --set-revocable \
   --set-clawback-enabled \
@@ -70,49 +79,60 @@ stellar tx new set-options \
 
 Choose an asset code 1 to 12 characters long.
 
-The asset code along with the issuer account address will uniquely identify the asset. An issuer can issue multiple assets, distinguished by their asset code.
+The asset code along with the issuer account address will uniquely identify the
+asset. An issuer can issue multiple assets, distinguished by their asset code.
 
 For the rest of this guide the asset code `ABC` will be used.
 
 #### Asset Contract Setup
 
-A built-in contract exists on network for every asset. It's address is reserved and can be calculated using the following command.
+A built-in contract exists on network for every asset. It's address is reserved
+and can be calculated using the following command.
 
-```
+```bash
 stellar contract asset id --asset ABC:issuer
 ```
 
-The contract is not deployed automatically. Anyone can deploy the contract, it is not an action requiring authorisation.
+The contract is not deployed automatically. Anyone can deploy the contract, it
+is not an action requiring authorisation.
 
 ##### Contract Deployment
 
 Deploy the built-in asset contract.
 
-The `--asset` option specifies the name of the asset, which is in the format `<asset-code>:<asset-issuer>`.
+The `--asset` option specifies the name of the asset, which is in the format
+`<asset-code>:<asset-issuer>`.
 
-The `--alias` option stores locally an alias that can be used in subsequent commands to reference the contract address.
+The `--alias` option stores locally an alias that can be used in subsequent
+commands to reference the contract address.
 
-```
+```bash
 stellar contract asset deploy --asset ABC:issuer --alias abc
 ```
 
 Run a few commands to get some read only data from the contract to confirm it's deployed.
 
-```
+```bash
 stellar contract invoke --id abc -- symbol
 stellar contract invoke --id abc -- name
 stellar contract invoke --id abc -- decimals
 ```
 
 ##### Admin Setup
+
 At this point the issuer is the admin of the contract.
 Let's create another account that'll be the admin.
-```
+
+```bash
 stellar keys generate admin
 stellar keys fund admin
 stellar keys public-key admin
 ```
-```
+
+Using the issuer account, invoke the asset contract's `set_admin` function.
+
+```bash
+stellar keys use user
 stellar contract invoke --id abc -- set_admin --new_admin admin
 ```
 
@@ -122,9 +142,10 @@ Once the asset contract is deployed and setup, the following actions can take pl
 
 #### Mint (Admin Only)
 
-Generate and fund a user account that the minted asset will be transferred to. Also have the new user trust the asset.
+Generate and fund a user account that the minted asset will be transferred to.
+Also have the new user trust the asset.
 
-```
+```bash
 stellar keys generate user
 stellar keys fund user
 stellar keys public-key user
@@ -134,22 +155,23 @@ stellar tx new change-trust --line ABC:issuer
 
 Using the admin account, invoke the asset contract's `mint` function.
 
-```
+```bash
 stellar keys use admin
 stellar contract invoke --id abc -- mint --to user --amount 25
 ```
 
 Check the balance after the mint.
 
-```
+```bash
 stellar contract invoke --id abc -- balance --id user
 ```
 
 #### Transfer
 
-Generate and fund a second user account that the user account from the previous step can transfer the asset to.
+Generate and fund a second user account that the user account from the previous
+step can transfer the asset to.
 
-```
+```bash
 stellar keys generate user2
 stellar keys fund user2
 stellar keys public-key user2
@@ -159,14 +181,14 @@ stellar tx new change-trust --line ABC:issuer
 
 Using the user account, invoke the asset contract's `transfer` function.
 
-```
+```bash
 stellar keys use user
 stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 ```
 
 Check the balances after the transfer.
 
-```
+```bash
 stellar contract invoke --id abc -- balance --id user
 stellar contract invoke --id abc -- balance --id user2
 ```
@@ -175,31 +197,35 @@ stellar contract invoke --id abc -- balance --id user2
 
 Using the user account, invoke the asset contract's `burn` function.
 
-```
+```bash
 stellar keys use user
 stellar contract invoke --id abc -- burn --from user --amount 5
 ```
 
 Check the balance after the burn.
 
-```
+```bash
 stellar contract invoke --id abc -- balance --id user
 ```
 
 #### Revoke Authorization / Freeze (Admin Only)
 
-An admin can revoke a user's authorisation to use the asset. The user will continue to hold the balance but will be unable to transfer it or create new payments. Any existing liabilities, such as those created by offers created on Stellar, will continue to exist and could still be executed.
+An admin can revoke a user's authorisation to use the asset. The user will
+continue to hold the balance but will be unable to transfer it or create new
+payments. Any existing liabilities, such as those created by offers created on
+Stellar, will continue to exist and could still be executed.
 
 Using the admin, invoke the asset contract's `set_authorized` function.
 
-```
+```bash
 stellar keys use admin
 stellar contract invoke --id abc -- set_authorized --id user --authorize false
 ```
 
-Using the user account, invoke the asset contract's `transfer` function. The invocation will fail because they are no longer authorized to transfer.
+Using the user account, invoke the asset contract's `transfer` function. The
+invocation will fail because they are no longer authorized to transfer.
 
-```
+```bash
 stellar keys use user
 stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 ```
@@ -210,15 +236,16 @@ An admin can clawback a user's balance. The amount clawed back will be burned.
 
 Using the admin, invoke the asset contract's `clawback` function.
 
-```
+```bash
 stellar keys use admin
 stellar contract invoke --id abc -- clawback --from user --amount 25
 ```
 
 Check the balance after the clawback.
 
-```
+```bash
 stellar contract invoke --id abc -- balance --id user
 ```
 
 [stellar-cli]: https://developers.stellar.org/docs/tools/cli
+[stellar tx new set-options]: https://developers.stellar.org/docs/tools/cli/stellar-cli#stellar-tx-new-set-options
