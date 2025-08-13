@@ -42,6 +42,8 @@ pub enum Error {
     Asset(#[from] asset::Error),
     #[error(transparent)]
     TxXdr(#[from] super::xdr::Error),
+    #[error("invalid price format: {0}")]
+    InvalidPrice(String),
 }
 
 impl Args {
