@@ -443,7 +443,10 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     }
 
     let registry_prefix = cargo_home.join("registry").join("src");
-    let new_rustflag = format!("--remap-path-prefix={}=", registry_prefix.display());
+    let registry_prefix_str = registry_prefix.display().to_string();
+    #[cfg(windows)]
+    let registry_prefix_str = registry_prefix_str.replace('\\', "/");
+    let new_rustflag = format!("--remap-path-prefix={}=", registry_prefix_str);
 
     let mut rustflags = get_rustflags().unwrap_or_default();
     rustflags.push(new_rustflag);
