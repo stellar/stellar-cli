@@ -31,6 +31,7 @@ rustflags = [
     "-Aclippy::missing_errors_doc",
     "-Aclippy::result_large_err",
     "-Aclippy::large-enum-variant",
+    "-Aclippy::unnecessary_debug_formatting",
     # "-Aclippy::missing_safety_doc",
     # "-Aclippy::inline_always",
     # "-Aclippy::default_trait_access",

@@ -367,9 +367,9 @@ impl Cmd {
             .write_file(&self.out)
             .map_err(Error::WriteLedgerSnapshot)?;
         print.saveln(format!(
-            "Saved {} entries to {}",
+            "Saved {} entries to {:?}",
             snapshot.ledger_entries.len(),
-            self.out.display()
+            self.out
         ));
 
         let duration = Duration::from_secs(start.elapsed().as_secs());

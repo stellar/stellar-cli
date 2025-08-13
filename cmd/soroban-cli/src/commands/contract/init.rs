@@ -102,10 +102,8 @@ struct Runner {
 impl Runner {
     fn run(&self) -> Result<(), Error> {
         let project_path = PathBuf::from(&self.args.project_path);
-        self.print.infoln(format!(
-            "Initializing workspace at {}",
-            project_path.display()
-        ));
+        self.print
+            .infoln(format!("Initializing workspace at {project_path:?}"));
 
         // create a project dir, and copy the contents of the base template (contract-init-template) into it
         Self::create_dir_all(&project_path)?;
@@ -116,10 +114,8 @@ impl Runner {
         )?;
 
         let contract_path = project_path.join("contracts").join(&self.args.name);
-        self.print.infoln(format!(
-            "Initializing contract at {}",
-            contract_path.display()
-        ));
+        self.print
+            .infoln(format!("Initializing contract at {contract_path:?}"));
 
         Self::create_dir_all(contract_path.as_path())?;
         self.copy_template_files(
@@ -152,10 +148,8 @@ impl Runner {
 
             let exists = Self::file_exists(&to);
             if exists && !self.args.overwrite {
-                self.print.infoln(format!(
-                    "Skipped creating {} as it already exists",
-                    to.display()
-                ));
+                self.print
+                    .infoln(format!("Skipped creating {to:?} as it already exists"));
                 continue;
             }
 
@@ -177,12 +171,10 @@ impl Runner {
             }
 
             if exists {
-                self.print.plusln(format!(
-                    "Writing {} (overwriting existing file)",
-                    to.display()
-                ));
+                self.print
+                    .plusln(format!("Writing {to:?} (overwriting existing file)"));
             } else {
-                self.print.plusln(format!("Writing {}", to.display()));
+                self.print.plusln(format!("Writing {to:?}"));
             }
             Self::write(&to, &file_contents)?;
         }
@@ -198,12 +190,11 @@ impl Runner {
     }
 
     fn create_dir_all(path: &Path) -> Result<(), Error> {
-        create_dir_all(path)
-            .map_err(|e| Error::Io(format!("creating directory: {}", path.display()), e))
+        create_dir_all(path).map_err(|e| Error::Io(format!("creating directory: {path:?}"), e))
     }
 
     fn write(path: &Path, contents: &str) -> Result<(), Error> {
-        write(path, contents).map_err(|e| Error::Io(format!("writing file: {}", path.display()), e))
+        write(path, contents).map_err(|e| Error::Io(format!("writing file: {path:?}"), e))
     }
 }
 

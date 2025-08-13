@@ -204,7 +204,7 @@ impl TestEnv {
     /// Thus `TestEnv::cmd_arr` is recommended to instead.
     pub fn cmd<T: CommandParser<T>>(&self, args: &str) -> T {
         let config_dir = self.config_dir();
-        let args = format!("--config-dir={} {args}", config_dir.display());
+        let args = format!("--config-dir={config_dir:?} {args}");
         T::parse(&args).unwrap()
     }
 
