@@ -22,7 +22,7 @@ pub enum Error {
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Network(Box<network::Error>),
+    Network(#[from] network::Error),
 
     #[error(transparent)]
     PatternError(#[from] glob::PatternError),
@@ -32,12 +32,6 @@ pub enum Error {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-}
-
-impl From<network::Error> for Error {
-    fn from(e: network::Error) -> Self {
-        Self::Network(Box::new(e))
-    }
 }
 
 #[derive(Debug, Clone)]

@@ -29,25 +29,13 @@ pub enum Error {
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Network(Box<config::network::Error>),
+    Network(#[from] config::network::Error),
 
     #[error(transparent)]
-    RpcClient(Box<rpc::Error>),
+    RpcClient(#[from] rpc::Error),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
-}
-
-impl From<config::network::Error> for Error {
-    fn from(e: config::network::Error) -> Self {
-        Self::Network(Box::new(e))
-    }
-}
-
-impl From<rpc::Error> for Error {
-    fn from(e: rpc::Error) -> Self {
-        Self::RpcClient(Box::new(e))
-    }
 }
 
 impl Cmd {

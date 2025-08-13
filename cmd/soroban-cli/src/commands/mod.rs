@@ -218,7 +218,7 @@ pub enum Cmd {
 pub enum Error {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
-    Contract(Box<contract::Error>),
+    Contract(#[from] contract::Error),
 
     #[error(transparent)]
     Doctor(#[from] doctor::Error),
@@ -254,7 +254,7 @@ pub enum Error {
     Snapshot(#[from] snapshot::Error),
 
     #[error(transparent)]
-    Tx(Box<tx::Error>),
+    Tx(#[from] tx::Error),
 
     #[error(transparent)]
     Cache(#[from] cache::Error),
@@ -263,34 +263,10 @@ pub enum Error {
     Env(#[from] env::Error),
 
     #[error(transparent)]
-    Ledger(Box<ledger::Error>),
+    Ledger(#[from] ledger::Error),
 
     #[error(transparent)]
-    FeeStats(Box<fee_stats::Error>),
-}
-
-impl From<contract::Error> for Error {
-    fn from(e: contract::Error) -> Self {
-        Self::Contract(Box::new(e))
-    }
-}
-
-impl From<tx::Error> for Error {
-    fn from(e: tx::Error) -> Self {
-        Self::Tx(Box::new(e))
-    }
-}
-
-impl From<ledger::Error> for Error {
-    fn from(e: ledger::Error) -> Self {
-        Self::Ledger(Box::new(e))
-    }
-}
-
-impl From<fee_stats::Error> for Error {
-    fn from(e: fee_stats::Error) -> Self {
-        Self::FeeStats(Box::new(e))
-    }
+    FeeStats(#[from] fee_stats::Error),
 }
 
 #[async_trait]

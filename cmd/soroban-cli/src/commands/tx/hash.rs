@@ -10,13 +10,7 @@ pub enum Error {
     #[error(transparent)]
     XdrToBase64(#[from] crate::xdr::Error),
     #[error(transparent)]
-    Config(Box<network::Error>),
-}
-
-impl From<network::Error> for Error {
-    fn from(e: network::Error) -> Self {
-        Self::Config(Box::new(e))
-    }
+    Config(#[from] network::Error),
 }
 
 // Command to return the transaction hash submitted to a network

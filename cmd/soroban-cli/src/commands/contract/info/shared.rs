@@ -72,7 +72,7 @@ pub enum MetasInfoOutput {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Network(Box<network::Error>),
+    Network(#[from] network::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
     #[error("provided wasm hash is invalid {0:?}")]
@@ -80,21 +80,9 @@ pub enum Error {
     #[error("must provide one of --wasm, --wasm-hash, or --contract-id")]
     MissingArg,
     #[error(transparent)]
-    Rpc(Box<soroban_rpc::Error>),
+    Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
-}
-
-impl From<network::Error> for Error {
-    fn from(e: network::Error) -> Self {
-        Self::Network(Box::new(e))
-    }
-}
-
-impl From<soroban_rpc::Error> for Error {
-    fn from(e: soroban_rpc::Error) -> Self {
-        Self::Rpc(Box::new(e))
-    }
 }
 
 pub struct Fetched {

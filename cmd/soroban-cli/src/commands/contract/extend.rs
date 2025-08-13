@@ -79,7 +79,7 @@ pub enum Error {
     #[error("missing operation result")]
     MissingOperationResult,
     #[error(transparent)]
-    Rpc(Box<rpc::Error>),
+    Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
@@ -90,18 +90,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
-}
-
-impl From<rpc::Error> for Error {
-    fn from(e: rpc::Error) -> Self {
-        Self::Rpc(Box::new(e))
-    }
-}
-
-impl From<Box<rpc::Error>> for Error {
-    fn from(e: Box<rpc::Error>) -> Self {
-        Self::Rpc(e)
-    }
 }
 
 impl Cmd {

@@ -95,17 +95,13 @@ pub async fn main() {
         // TODO: source is None (should be HelpMessage)
         let _source = commands::Error::source(&e);
         // TODO use source instead
-        if let Contract(boxed_err) = &e {
-            if let Invoke(ArgParsing(HelpMessage(help))) = boxed_err.as_ref() {
-                println!("{help}");
-                std::process::exit(1);
-            }
+        if let Contract(Invoke(ArgParsing(HelpMessage(help)))) = e {
+            println!("{help}");
+            std::process::exit(1);
         }
-        if let Contract(boxed_err) = &e {
-            if let Deploy(ArgParse(HelpMessage(help))) = boxed_err.as_ref() {
-                println!("{help}");
-                std::process::exit(1);
-            }
+        if let Contract(Deploy(ArgParse(HelpMessage(help)))) = e {
+            println!("{help}");
+            std::process::exit(1);
         }
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);

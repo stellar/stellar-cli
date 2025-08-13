@@ -84,7 +84,7 @@ pub enum Error {
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
-        error: Box<events::Error>,
+        error: events::Error,
     },
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
@@ -93,7 +93,7 @@ pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
     #[error(transparent)]
-    Rpc(Box<rpc::Error>),
+    Rpc(#[from] rpc::Error),
     #[error("missing operation result")]
     MissingOperationResult,
     #[error("error loading signing key: {0}")]
@@ -117,35 +117,11 @@ pub enum Error {
     #[error(transparent)]
     Data(#[from] data::Error),
     #[error(transparent)]
-    Network(Box<network::Error>),
+    Network(#[from] network::Error),
     #[error(transparent)]
-    GetSpecError(Box<get_spec::Error>),
+    GetSpecError(#[from] get_spec::Error),
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
-}
-
-impl From<network::Error> for Error {
-    fn from(e: network::Error) -> Self {
-        Self::Network(Box::new(e))
-    }
-}
-
-impl From<rpc::Error> for Error {
-    fn from(e: rpc::Error) -> Self {
-        Self::Rpc(Box::new(e))
-    }
-}
-
-impl From<Box<rpc::Error>> for Error {
-    fn from(e: Box<rpc::Error>) -> Self {
-        Self::Rpc(e)
-    }
-}
-
-impl From<get_spec::Error> for Error {
-    fn from(e: get_spec::Error) -> Self {
-        Self::GetSpecError(Box::new(e))
-    }
 }
 
 impl From<Infallible> for Error {

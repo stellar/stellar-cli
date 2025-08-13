@@ -25,19 +25,13 @@ pub enum Error {
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Network(Box<network::Error>),
+    Network(#[from] network::Error),
 
     #[error("no contract found with alias '{alias}' for network '{network_passphrase}'")]
     NoContract {
         alias: String,
         network_passphrase: String,
     },
-}
-
-impl From<network::Error> for Error {
-    fn from(e: network::Error) -> Self {
-        Self::Network(Box::new(e))
-    }
 }
 
 impl Cmd {
