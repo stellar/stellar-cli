@@ -44,6 +44,8 @@ pub enum Error {
     TxXdr(#[from] super::xdr::Error),
     #[error("invalid price format: {0}")]
     InvalidPrice(String),
+    #[error("invalid path: {0}")]
+    InvalidPath(String),
 }
 
 impl Args {
