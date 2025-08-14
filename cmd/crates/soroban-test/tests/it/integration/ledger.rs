@@ -30,7 +30,7 @@ async fn ledger_fetch() {
 
     let latest_ledger: GetLatestLedgerResponse =
         serde_json::from_str(&latest_ledger_response).unwrap();
-    let latest_ledger_seq = latest_ledger.sequence;
+    let _latest_ledger_seq = latest_ledger.sequence;
     let ledger_to_fetch = latest_ledger.sequence - 1;
 
     let ledger_limit = 2;
@@ -50,7 +50,7 @@ async fn ledger_fetch() {
     assert!(matches!(
         ledger,
         GetLedgersResponse {
-            latest_ledger: latest_ledger_seq,
+            latest_ledger: _latest_ledger_seq,
             ..
         }
     ));
