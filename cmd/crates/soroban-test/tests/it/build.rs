@@ -1,6 +1,7 @@
 use assert_fs::TempDir;
 use fs_extra::dir::CopyOptions;
 use predicates::prelude::predicate;
+use shell_escape::escape;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
@@ -302,14 +303,20 @@ fn parent_path() -> String {
 fn with_flags(expected: &str) -> String {
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
-    let registry_prefix = registry_prefix.display();
+    let registry_prefix = registry_prefix.display().to_string();
+    #[cfg(windows)]
+    let registry_prefix = registry_prefix.replace('\\', "/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
         expected.split('\n').map(ToString::to_string).collect()
     } else {
         expected
             .split('\n')
-            .map(|x| format!("CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={registry_prefix}= {x}",))
+            .map(|x| {
+                let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
+                let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
+            })
             .collect()
     };
 
@@ -325,7 +332,7 @@ fn with_flags(expected: &str) -> String {
 //
 // See make_rustflags_to_remap_absolute_paths
 #[test]
-#[ignore] // TODO https://github.com/stellar/stellar-cli/issues/1867
+#[ignore = "TODO https://github.com/stellar/stellar-cli/issues/1867"]
 fn remap_absolute_paths() {
     #[derive(Eq, PartialEq, Copy, Clone)]
     enum Remap {

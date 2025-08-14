@@ -101,10 +101,7 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
         }
     }
 
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Other,
-        "stellar directory not found",
-    ))
+    Err(std::io::Error::other("stellar directory not found"))
 }
 
 pub(crate) fn into_signing_key(key: &PrivateKey) -> ed25519_dalek::SigningKey {
