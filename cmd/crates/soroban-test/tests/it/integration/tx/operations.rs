@@ -61,7 +61,7 @@ async fn create_account() {
     let client = sandbox.network.rpc_client().unwrap();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
-    let starting_balance = ONE_XLM * 100;
+    let starting_balance = ONE_XLM * 5000; // 500 XLM to ensure enough for contract deployment
     sandbox
         .new_assert_cmd("tx")
         .args([
@@ -101,7 +101,7 @@ async fn create_account_with_alias() {
     let client = sandbox.client();
     let test_account = client.get_account(&test).await.unwrap();
     println!("test account has a balance of {}", test_account.balance);
-    let starting_balance = ONE_XLM * 100;
+    let starting_balance = ONE_XLM * 5000; // 500 XLM to ensure enough for contract deployment
     sandbox
         .new_assert_cmd("tx")
         .args([
