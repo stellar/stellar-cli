@@ -10,19 +10,17 @@ To send payments and work with assets using the Stellar CLI, follow these steps:
 1. Set your preferred network. For this guide, we will use `testnet`. A list of available networks can be found [here](https://developers.stellar.org/docs/networks)
 
 ```bash
-export STELLAR_NETWORK=testnet
+stellar network use testnet
 ```
-
-By setting the `STELLAR_NETWORK` environment variable, we will not have to set the `--network` argument when using the CLI.
 
 2. Fund the accounts:
 
 ```bash
-stellar keys generate alice -q
+stellar keys generate alice
 ```
 
 ```bash
-stellar keys generate bob -q
+stellar keys generate bob
 ```
 
 ```bash

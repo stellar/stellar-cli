@@ -153,11 +153,11 @@ fn test_mdx_file(
         .iter()
         .filter(|c| c.lang.as_deref() == Some("bash"))
         .filter(|c| {
-            c.meta
+            !c.meta
                 .as_deref()
                 .unwrap_or_default()
                 .split_whitespace()
-                .any(|m| m == "coookbooktest.ignore")
+                .any(|m| m == "cookbooktest.ignore")
         })
         .map(|c| &c.value);
 
