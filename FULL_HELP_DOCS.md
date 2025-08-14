@@ -2949,6 +2949,7 @@ Fetch ledger information
 ###### **Subcommands:**
 
 * `latest` — Get the latest ledger sequence and information from the network
+* `fetch` — 
 
 
 
@@ -2975,6 +2976,48 @@ Get the latest ledger sequence and information from the network
     JSON result of the RPC request
   - `json-formatted`:
     Formatted (multiline) JSON output of the RPC request
+
+
+
+
+## `stellar ledger fetch`
+
+**Usage:** `stellar ledger fetch [OPTIONS] <SEQ>`
+
+###### **Arguments:**
+
+* `<SEQ>` — Ledger Sequence to start fetch (inclusive)
+
+###### **Options:**
+
+* `--limit <LIMIT>` — Number of ledgers to fetch
+
+  Default value: `1`
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`:
+    Text output of network info
+  - `json`:
+    JSON result of the RPC request
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the RPC request
+
+* `--xdr-format <XDR_FORMAT>` — Format of the xdr in the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    XDR fields will be fetched as json and accessible via the headerJson and metadataJson fields
+  - `xdr`:
+    XDR fields will be fetched as xdr and accessible via the headerXdr and metadataXdr fields
 
 
 
