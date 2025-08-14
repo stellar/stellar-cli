@@ -3,7 +3,7 @@ use predicates::prelude::predicate;
 use soroban_test::TestEnv;
 
 #[test]
-#[ignore]
+#[ignore = "We need to ignore these until soroban-sdk is 23.0.0 stable"]
 fn init() {
     let sandbox = TestEnv::default();
     let cli_version = soroban_cli::commands::version::pkg();

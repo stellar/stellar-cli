@@ -4809,6 +4809,7 @@ dependencies = [
  "sep5",
  "serde_json",
  "sha2 0.10.9",
+ "shell-escape",
  "soroban-cli",
  "soroban-ledger-snapshot",
  "soroban-spec",

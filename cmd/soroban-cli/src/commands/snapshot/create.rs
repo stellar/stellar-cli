@@ -566,7 +566,7 @@ async fn cache_bucket(
 
         let stream = response
             .bytes_stream()
-            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+            .map(|result| result.map_err(std::io::Error::other));
         let stream_reader = StreamReader::new(stream);
         let buf_reader = BufReader::new(stream_reader);
         let mut decoder = GzipDecoder::new(buf_reader);

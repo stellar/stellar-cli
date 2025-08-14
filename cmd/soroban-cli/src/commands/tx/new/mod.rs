@@ -7,6 +7,7 @@ pub mod account_merge;
 pub mod bump_sequence;
 pub mod change_trust;
 pub mod create_account;
+pub mod manage_buy_offer;
 pub mod manage_data;
 pub mod manage_sell_offer;
 pub mod payment;
@@ -24,6 +25,8 @@ pub enum Cmd {
     ChangeTrust(change_trust::Cmd),
     #[command(about = super::help::CREATE_ACCOUNT)]
     CreateAccount(create_account::Cmd),
+    #[command(about = super::help::MANAGE_BUY_OFFER)]
+    ManageBuyOffer(manage_buy_offer::Cmd),
     #[command(about = super::help::MANAGE_DATA)]
     ManageData(manage_data::Cmd),
     #[command(about = super::help::MANAGE_SELL_OFFER)]
@@ -50,6 +53,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::BumpSequence(cmd) => cmd.into(),
             Cmd::ChangeTrust(cmd) => cmd.try_into()?,
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
+            Cmd::ManageBuyOffer(cmd) => cmd.try_into()?,
             Cmd::ManageData(cmd) => cmd.into(),
             Cmd::ManageSellOffer(cmd) => cmd.try_into()?,
             Cmd::Payment(cmd) => cmd.try_into()?,
@@ -67,6 +71,7 @@ impl Cmd {
             Cmd::BumpSequence(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ManageBuyOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageData(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::Payment(cmd) => cmd.tx.handle_and_print(op, global_args).await,
