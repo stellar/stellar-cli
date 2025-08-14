@@ -124,12 +124,14 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     let collected: Vec<_> = spec.iter().map(Entry::from).collect();
     let mut constructor_args: Option<Vec<types::FunctionInput>> = None;
     // Filter out function entries with names that start with "__" and partition the results
-    collected.iter().for_each(|entry| match entry {
-        Entry::Function { name, inputs, .. } if name == "__constructor" => {
-            constructor_args = Some(inputs.clone());
+    for entry in &collected {
+        match entry {
+            Entry::Function { name, inputs, .. } if name == "__constructor" => {
+                constructor_args = Some(inputs.clone());
+            }
+            _ => {}
         }
-        _ => {}
-    });
+    }
     let (fns, other): (Vec<_>, Vec<_>) = collected
         .into_iter()
         .filter(|entry| !matches!(entry, Entry::Function { name, .. } if name.starts_with("__")))

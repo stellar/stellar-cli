@@ -185,6 +185,6 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
             },
         })
     } else {
-        return Err(Error::MissingArg);
+        Err(Error::MissingArg)
     }
 }

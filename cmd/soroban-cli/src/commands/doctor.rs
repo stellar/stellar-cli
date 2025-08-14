@@ -109,7 +109,6 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
                 "Default network {name:?} ({}) is unreachable",
                 network.rpc_url
             ));
-            continue;
         }
     }
 
@@ -120,7 +119,6 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
                     "Network {name:?} ({}) is unreachable",
                     network.rpc_url
                 ));
-                continue;
             }
         }
     }
