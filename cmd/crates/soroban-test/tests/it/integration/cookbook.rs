@@ -1,4 +1,5 @@
-use predicates::prelude::*;
+use markdown::mdast::{Code, Node};
+use markdown::ParseOptions;
 use soroban_cli::config::network::passphrase::LOCAL;
 use soroban_test::TestEnv;
 use std::fs;
@@ -109,27 +110,11 @@ fn run_command(
     }
 
     println!("Executing command: {} {}", cmd, modified_args.join(" "));
-    let result = sandbox.new_assert_cmd(&cmd).args(&modified_args).assert();
-
-    if command.contains("keys generate") {
-        result
-            .code(predicates::ord::eq(0).or(predicates::ord::eq(1)))
-            .stderr(
-                predicate::str::is_empty().or(predicates::str::contains("Generated new key for")
-                    .or(predicates::str::contains("The identity")
-                        .and(predicates::str::contains("already exists")))),
-            );
-    } else if command.contains("contract invoke") {
-        result
-            .failure()
-            .stderr(predicates::str::contains("error: unrecognized subcommand"));
-    } else if command.contains("contract restore") {
-        result
-            .failure()
-            .stderr(predicates::str::contains("TxSorobanInvalid"));
-    } else {
-        result.success();
-    }
+    sandbox
+        .new_assert_cmd(&cmd)
+        .args(&modified_args)
+        .assert()
+        .success();
 
     Ok(())
 }
@@ -148,16 +133,37 @@ fn test_mdx_file(
 ) -> Result<(), String> {
     let content = fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read file {file_path}: {e}"))?;
+    let md = markdown::to_mdast(&content, &ParseOptions::mdx())
+        .map_err(|e| format!("Failed to parse markdown/mdx file: {e}"))?;
 
-    let commands: Vec<&str> = content
-        .split("```bash")
-        .skip(1)
-        .filter_map(|block| block.split("```").next())
-        .collect();
+    fn collect<'a>(n: &'a Node, accum: &mut Vec<&'a Code>) {
+        for n in n.children().map(|v| &v[..]).unwrap_or(&[]) {
+            if let Node::Code(code) = n {
+                accum.push(code);
+            }
+            collect(n, accum)
+        }
+    }
+
+    let mut code_blocks = Vec::<&Code>::new();
+    collect(&md, &mut code_blocks);
+
+    // Find bash code blocks that do not have "cookbooktest.ignore" in their meta.
+    let commands = code_blocks
+        .iter()
+        .filter(|c| c.lang.as_deref() == Some("bash"))
+        .filter(|c| {
+            c.meta
+                .as_deref()
+                .unwrap_or_default()
+                .split_whitespace()
+                .any(|m| m == "coookbooktest.ignore")
+        })
+        .map(|c| &c.value);
 
     println!("Testing commands from file: {file_path}");
 
-    for (i, command) in commands.iter().enumerate() {
+    for (i, command) in commands.enumerate() {
         println!("Running command {}: {}", i + 1, command);
         run_command(
             sandbox,

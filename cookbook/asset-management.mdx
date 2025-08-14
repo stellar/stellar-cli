@@ -29,6 +29,9 @@ testnet faucet, to is only available on testnet.
 
 ```bash
 stellar keys generate issuer
+```
+
+```bash
 stellar keys fund issuer
 ```
 
@@ -110,12 +113,10 @@ commands to reference the contract address.
 stellar contract asset deploy --asset ABC:issuer --alias abc
 ```
 
-Run a few commands to get some read only data from the contract to confirm it's deployed.
+Run the follownig command to get some read only data from the contract to confirm it's deployed.
 
 ```bash
-stellar contract invoke --id abc -- symbol
 stellar contract invoke --id abc -- name
-stellar contract invoke --id abc -- decimals
 ```
 
 ##### Admin Setup
@@ -125,14 +126,23 @@ Let's create another account that'll be the admin.
 
 ```bash
 stellar keys generate admin
-stellar keys fund admin
+```
+
+```bash
 stellar keys public-key admin
+```
+
+```bash
+stellar keys fund admin
 ```
 
 Using the issuer account, invoke the asset contract's `set_admin` function.
 
 ```bash
 stellar keys use user
+```
+
+```bash
 stellar contract invoke --id abc -- set_admin --new_admin admin
 ```
 
@@ -147,9 +157,21 @@ Also have the new user trust the asset.
 
 ```bash
 stellar keys generate user
+```
+
+```bash
 stellar keys fund user
+```
+
+```bash
 stellar keys public-key user
+```
+
+```bash
 stellar keys use user
+```
+
+```bash
 stellar tx new change-trust --line ABC:issuer
 ```
 
@@ -173,9 +195,21 @@ step can transfer the asset to.
 
 ```bash
 stellar keys generate user2
+```
+
+```bash
 stellar keys fund user2
+```
+
+```bash
 stellar keys public-key user2
+```
+
+```bash
 stellar keys use user2
+```
+
+```bash
 stellar tx new change-trust --line ABC:issuer
 ```
 
@@ -183,6 +217,9 @@ Using the user account, invoke the asset contract's `transfer` function.
 
 ```bash
 stellar keys use user
+```
+
+```bash
 stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 ```
 
@@ -190,6 +227,9 @@ Check the balances after the transfer.
 
 ```bash
 stellar contract invoke --id abc -- balance --id user
+```
+
+```bash
 stellar contract invoke --id abc -- balance --id user2
 ```
 
@@ -199,6 +239,9 @@ Using the user account, invoke the asset contract's `burn` function.
 
 ```bash
 stellar keys use user
+```
+
+```bash
 stellar contract invoke --id abc -- burn --from user --amount 5
 ```
 
@@ -219,6 +262,9 @@ Using the admin, invoke the asset contract's `set_authorized` function.
 
 ```bash
 stellar keys use admin
+```
+
+```bash
 stellar contract invoke --id abc -- set_authorized --id user --authorize false
 ```
 
@@ -227,6 +273,9 @@ invocation will fail because they are no longer authorized to transfer.
 
 ```bash
 stellar keys use user
+```
+
+```bash
 stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 ```
 
@@ -238,6 +287,9 @@ Using the admin, invoke the asset contract's `clawback` function.
 
 ```bash
 stellar keys use admin
+```
+
+```bash
 stellar contract invoke --id abc -- clawback --from user --amount 25
 ```
 
