@@ -15,7 +15,7 @@ The Stellar Asset Contract can be deployed for any possible Stellar asset, eithe
 
 To perform the deploy, use the following command:
 
-```bash
+```bash cookbooktest.fail cookbooktest.stderr="contract already exists"
 stellar contract asset deploy \
     --source S... \
     --network testnet \
@@ -26,7 +26,7 @@ The `asset` argument corresponds to the symbol and it's issuer address, which is
 
 The same can be done for the native [Lumens] asset:
 
-```bash
+```bash cookbooktest.fail cookbooktest.stderr="contract already exists"
 stellar contract asset deploy \
     --source S... \
     --network testnet \
