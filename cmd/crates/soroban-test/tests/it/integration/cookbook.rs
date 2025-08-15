@@ -166,7 +166,7 @@ fn test_mdx_file_with_sandbox_and_setup(
     let mut code_blocks = Vec::<&Code>::new();
     collect_code_blocks(&md, &mut code_blocks);
 
-    // Find bash code blocks that do not have "cookbooktest.ignore" in their meta.
+    // Find bash code blocks and store the contents and the meta for the test.
     let commands = code_blocks
         .iter()
         .filter(|c| c.lang.as_deref() == Some("bash"))
