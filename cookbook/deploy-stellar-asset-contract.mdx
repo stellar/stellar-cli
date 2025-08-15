@@ -26,7 +26,7 @@ The `asset` argument corresponds to the symbol and it's issuer address, which is
 
 The same can be done for the native [Lumens] asset:
 
-```bash cookbooktest.ignore
+```bash cookbooktest.fail cookbooktest.stderr="contract already exists"
 stellar contract asset deploy \
     --source S... \
     --network testnet \
