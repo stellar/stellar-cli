@@ -196,21 +196,24 @@ stellar tx new create-claimable-balance \
 
 ## Understanding Predicates
 
+**Note**: Predicates must be valid JSON, so you must use proper quoting and
+escaping.
+
 ### Predicate Types
 
-| Type                   | Description                               | Example                                    |
-| ---------------------- | ----------------------------------------- | ------------------------------------------ |
-| `unconditional`        | Can be claimed anytime                    | `"unconditional"`                          |
-| `before_absolute_time` | Must claim before specific timestamp      | `{"before_absolute_time":"1735689599"}`    |
-| `before_relative_time` | Must claim within X seconds from creation | `{"before_relative_time":"3600"}`          |
-| `not`                  | Negates another predicate                 | `{"not":{...}}`                            |
-| `and`                  | Both predicates must be true              | `{"and":[{...},{...}]}`                    |
-| `or`                   | Either predicate can be true              | `{"or":[{...},{...}]}`                     |
+| Type                   | Description                               | Example                                 |
+| ---------------------- | ----------------------------------------- | --------------------------------------- |
+| `unconditional`        | Can be claimed anytime                    | `"unconditional"`                       |
+| `before_absolute_time` | Must claim before specific timestamp      | `{"before_absolute_time":"1735689599"}` |
+| `before_relative_time` | Must claim within X seconds from creation | `{"before_relative_time":"3600"}`       |
+| `not`                  | Negates another predicate                 | `{"not":{...}}`                         |
+| `and`                  | Both predicates must be true              | `{"and":[{...},{...}]}`                 |
+| `or`                   | Either predicate can be true              | `{"or":[{...},{...}]}`                  |
 
 ### Time Format Notes
 
 - **Absolute times**: Use Unix timestamps (seconds since epoch)
-- **Relative times**: Seconds from claimable balance creation time  
+- **Relative times**: Seconds from claimable balance creation time
 - **Timestamps**: Must be in the future when creating the balance
 
 ## Common Use Cases
