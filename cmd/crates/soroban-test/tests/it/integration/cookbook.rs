@@ -160,7 +160,7 @@ fn test_mdx_file_with_sandbox_and_setup(
             if let Node::Code(code) = n {
                 accum.push(code);
             }
-            collect(n, accum)
+            collect_code_blocks(n, accum)
         }
     }
     let mut code_blocks = Vec::<&Code>::new();
