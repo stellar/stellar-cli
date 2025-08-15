@@ -6,6 +6,7 @@ use soroban_cli::config::network::passphrase::LOCAL;
 use soroban_test::{AssertExt, TestEnv};
 use std::collections::BTreeMap;
 use std::fs;
+use std::ops::Deref;
 use std::path::PathBuf;
 
 fn parse_command(command: &str) -> Vec<String> {
@@ -53,9 +54,6 @@ fn run_command(
             continue;
         }
 
-        // TODO: Rewrite how substitutions work so that it doesn't happen automatically for fields,
-        // and only happens if the cookbook author has explicitly used placeholders, such as
-        // `<WASM>`, `<WASM_HASH>`, etc.
         match arg.as_str() {
             "--wasm" => {
                 modified_args.push(arg.to_string());
@@ -159,21 +157,9 @@ fn test_mdx_file_with_sandbox_and_setup(
     // Find bash code blocks and store the contents and the meta for the test.
     let commands = code_blocks
         .iter()
+        .map(Deref::deref)
         .filter(|c| c.lang.as_deref() == Some("bash"))
-        .map(|c| CookbookCommand {
-            command: c.value.clone(),
-            meta: {
-                let mut map = BTreeMap::new();
-                let metas = shell_words::split(c.meta.as_deref().unwrap_or_default()).unwrap();
-                for meta in metas {
-                    let mut parts = meta.splitn(2, "=");
-                    let key = parts.next().unwrap();
-                    let val = parts.next().map(|v| v.trim_matches('"'));
-                    map.insert(key.to_owned(), val.map(ToOwned::to_owned));
-                }
-                map
-            },
-        });
+        .map(code_block_to_cookbook_command);
 
     println!("Testing commands from file: {file_path}");
 
@@ -293,6 +279,24 @@ fn code_blocks<'a>(root: &'a Node) -> Vec<&'a Code> {
         }
     }
     blocks
+}
+
+fn code_block_to_cookbook_command(block: &Code) -> CookbookCommand {
+    CookbookCommand {
+        command: block.value.clone(),
+        meta: {
+            let meta = block.meta.as_deref().unwrap_or_default();
+            let metas = shell_words::split(meta).unwrap();
+            let mut map = BTreeMap::new();
+            for meta in metas {
+                let mut parts = meta.splitn(2, "=");
+                let key = parts.next().unwrap();
+                let val = parts.next().map(|v| v.trim_matches('"'));
+                map.insert(key.to_owned(), val.map(ToOwned::to_owned));
+            }
+            map
+        },
+    }
 }
 
 #[cfg(test)]
