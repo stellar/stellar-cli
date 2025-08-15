@@ -1644,6 +1644,7 @@ Create a new transaction
 * `bump-sequence` — Bump sequence number to invalidate older transactions
 * `change-trust` — Create, update, or delete a trustline
 * `create-account` — Create and fund a new account
+* `create-claimable-balance` — Create a claimable balance that can be claimed by specified accounts
 * `create-passive-sell-offer` — Create a passive sell offer on the Stellar DEX
 * `manage-buy-offer` — Create, update, or delete a buy offer
 * `manage-data` — Set, modify, or delete account data entries
@@ -1775,6 +1776,39 @@ Create and fund a new account
 * `--starting-balance <STARTING_BALANCE>` — Initial balance in stroops of the account, default 1 XLM
 
   Default value: `10_000_000`
+
+
+
+## `stellar tx new create-claimable-balance`
+
+Create a claimable balance that can be claimed by specified accounts
+
+**Usage:** `stellar tx new create-claimable-balance [OPTIONS] --source-account <SOURCE_ACCOUNT> --amount <AMOUNT>`
+
+###### **Options:**
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--asset <ASSET>` — Asset to be held in the ClaimableBalanceEntry
+
+  Default value: `native`
+* `--amount <AMOUNT>` — Amount of asset to store in the entry, in stroops. 1 stroop = 0.0000001 of the asset
+* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants. Examples: - --claimant alice (unconditional) - --claimant 'bob:{"before_absolute_time":"1735689599"}' - --claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'
 
 
 
