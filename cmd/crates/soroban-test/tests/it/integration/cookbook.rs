@@ -170,13 +170,6 @@ fn test_mdx_file_with_sandbox_and_setup(
     let commands = code_blocks
         .iter()
         .filter(|c| c.lang.as_deref() == Some("bash"))
-        .filter(|c| {
-            !c.meta
-                .as_deref()
-                .unwrap_or_default()
-                .split_whitespace()
-                .any(|m| m == "cookbooktest.ignore")
-        })
         .map(|c| CookbookCommand {
             command: c.value.clone(),
             meta: {
