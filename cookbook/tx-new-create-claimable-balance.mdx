@@ -14,22 +14,20 @@ functionality, conditional payments, or time-locked transfers.
 
 For the following examples we will use these accounts:
 
-```sh
+```bash
 stellar network use testnet
+```
+
+```bash
 stellar keys generate --fund alice
-stellar keys generate bob
-stellar keys generate charlie
+```
 
-# Fund bob and charlie
-stellar tx new create-account \
-  --source alice \
-  --destination bob \
-  --starting-balance 100_000_000
+```bash
+stellar keys generate bob --fund
+```
 
-stellar tx new create-account \
-  --source alice \
-  --destination charlie \
-  --starting-balance 100_000_000
+```bash
+stellar keys generate charlie --fund
 ```
 
 ## Basic Examples
