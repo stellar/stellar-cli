@@ -1,0 +1,57 @@
+{
+    "envelope": {
+        "tx_fee_bump": {
+            "tx": {
+                "fee_source": "GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW",
+                "fee": "10208876",
+                "inner_tx": {
+                    "tx": {
+                        "tx": {
+                            "source_account": "GBQUFZ3QRIP6VQ74BV6KJGBEJ7YFE4WGRCB4YCMGTXFEMYLXNI2CC2AK",
+                            "fee": 5004538,
+                            "ext": {
+                                "v1": {
+                                    "ext": "v0",
+                                    "resource_fee": "5004438"
+                                }
+                            }
+                        }
+                    }
+                },
+                "ext": "v0"
+            }
+        }
+    },
+    // 
+    // estimated / max fee (tx.envelope.tx_fee_bump.fee) = 10208876
+    // estimated / max resource fee (tx.envelope.tx_fee_bump.tx.inner_tx.tx.tx.ext.v1.resource_fee)
+    // max inclusino fee = outer fee - outer resource [0] - (inner resource + inner inclusion) 
+    "result": {
+        "fee_charged": "3603030",
+        "result": {
+            "tx_fee_bump_inner_success": {
+                "transaction_hash": "0d2bdcf1532b215a81730267d6a7cd444127b19bdb435a568543890951a95d78",
+                "result": {
+                    "fee_charged": "3602930",
+                    "ext": "v0"
+                }
+            }
+        },
+        "ext": "v0"
+    },
+    "result_meta": {
+        "v3": {
+            "ext": "v0",
+            "soroban_meta": {
+                "ext": {
+                    "v1": {
+                        "ext": "v0",
+                        "total_non_refundable_resource_fee_charged": "285226",
+                        "total_refundable_resource_fee_charged": "3317604",
+                        "rent_fee_charged": "3312096"
+                    }
+                }
+            }
+        }
+    }
+}
