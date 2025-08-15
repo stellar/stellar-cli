@@ -37,9 +37,6 @@ fn run_command(
     if meta.contains_key("cookbooktest.ignore") {
         return Ok(());
     }
-    if command.contains("export") {
-        return Ok(());
-    }
     let args = parse_command(command);
     if args.is_empty() {
         return Err("Empty command".to_string());
