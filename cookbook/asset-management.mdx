@@ -25,7 +25,7 @@ To create a Stellar Asset using the [stellar-cli] several steps take place:
 #### Issuer Creation
 
 To create an issuer, generate a key and fund it. Funding uses friendbot, the
-testnet faucet, to is only available on testnet.
+testnet faucet, and is only available on testnet.
 
 ```bash
 stellar keys generate issuer
@@ -52,10 +52,11 @@ stellar keys use issuer
 Issuer accounts have several configuration flags that can be toggled and affect
 all assets issued by the issuer.
 
-In this guide the issuer accounts revocable and clawback-enabled features will
-be enabled. These features allow the asset admin to revoke authorisation to use
-an asset, which has the effect of freezing the asset, and to clawback, which
-has the effect of forcibly burning the asset.
+In this guide the issuer account will be setup with the revocable and
+clawback-enabled features will be enabled. These features allow the
+asset admin to revoke authorisation to use an asset, which has the
+effect of freezing their balance, and to clawback, which has the effect
+of forcibly burning the asset.
 
 ```bash
 stellar tx new set-options \
@@ -63,7 +64,7 @@ stellar tx new set-options \
   --set-clawback-enabled
 ```
 
-To see other options, see the manual for the [stellar tx new set-options] command.
+For other options, see the manual for the [stellar tx new set-options] command.
 
 To view the tx before sending, use the `--build-only` option and pipe the
 transaction through the tx edit command:
@@ -153,7 +154,6 @@ Once the asset contract is deployed and setup, the following actions can take pl
 #### Mint (Admin Only)
 
 Generate and fund a user account that the minted asset will be transferred to.
-Also have the new user trust the asset.
 
 ```bash
 stellar keys generate user
@@ -167,6 +167,9 @@ stellar keys fund user
 stellar keys public-key user
 ```
 
+Using the user account, trust the asset so that the user account can
+hold the asset.
+
 ```bash
 stellar keys use user
 ```
@@ -175,7 +178,8 @@ stellar keys use user
 stellar tx new change-trust --line ABC:issuer
 ```
 
-Using the admin account, invoke the asset contract's `mint` function.
+To mint the asset to the user, use the admin account, invoke the asset
+contract's `mint` function.
 
 ```bash
 stellar keys use admin
