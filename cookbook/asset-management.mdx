@@ -10,7 +10,7 @@ The [stellar-cli] can be used to issue and administer assets on the Stellar netw
 The following guide assumes that the [stellar-cli] has been configured to use
 testnet, or a local test network. To use testnet, run the following command.
 
-```bash
+```bash cookbooktest.ignore
 stellar network use testnet
 ```
 
@@ -68,7 +68,7 @@ To see other options, see the manual for the [stellar tx new set-options] comman
 To view the tx before sending, use the `--build-only` option and pipe the
 transaction through the tx edit command:
 
-```bash
+```bash cookbooktest.ignore
 stellar tx new set-options \
   --set-revocable \
   --set-clawback-enabled \
@@ -139,11 +139,11 @@ stellar keys fund admin
 Using the issuer account, invoke the asset contract's `set_admin` function.
 
 ```bash
-stellar keys use user
+stellar keys use issuer
 ```
 
 ```bash
-stellar contract invoke --id abc -- set_admin --new_admin admin
+stellar contract invoke --source issuer --id abc -- set_admin --new_admin admin
 ```
 
 ### Actions
@@ -179,6 +179,9 @@ Using the admin account, invoke the asset contract's `mint` function.
 
 ```bash
 stellar keys use admin
+```
+
+```bash
 stellar contract invoke --id abc -- mint --to user --amount 25
 ```
 
@@ -275,7 +278,7 @@ invocation will fail because they are no longer authorized to transfer.
 stellar keys use user
 ```
 
-```bash
+```bash cookbooktest.fail cookbooktest.stderr="balance is deauthorized"
 stellar contract invoke --id abc -- transfer --from user --to user2 --amount 3
 ```
 
@@ -290,7 +293,7 @@ stellar keys use admin
 ```
 
 ```bash
-stellar contract invoke --id abc -- clawback --from user --amount 25
+stellar contract invoke --id abc -- clawback --from user --amount 1
 ```
 
 Check the balance after the clawback.

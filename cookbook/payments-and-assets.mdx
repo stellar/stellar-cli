@@ -9,7 +9,7 @@ To send payments and work with assets using the Stellar CLI, follow these steps:
 
 1. Set your preferred network. For this guide, we will use `testnet`. A list of available networks can be found [here](https://developers.stellar.org/docs/networks)
 
-```bash
+```bash cookbooktest.ignore
 stellar network use testnet
 ```
 
@@ -20,11 +20,11 @@ stellar keys generate alice
 ```
 
 ```bash
-stellar keys generate bob
+stellar keys fund alice
 ```
 
 ```bash
-stellar keys fund alice
+stellar keys generate bob
 ```
 
 ```bash
@@ -46,13 +46,17 @@ stellar keys address bob
 5. Send 100 XLM from Alice to Bob:
 
 ```bash
-stellar contract invoke --id <asset_contract_ID> --source-account alice  -- transfer --to <Bob_ID> --from alice --amount 100
+stellar keys use alice
+```
+
+```bash
+stellar contract invoke --id <ASSET_CONTRACT_ID> -- transfer --to bob --from alice --amount 100
 ```
 
 6. Check account balance:
 
 ```bash
-stellar contract invoke --id <asset_contract_ID> --source-account alice  -- balance --id <account ID>
+stellar contract invoke --id <ASSET_CONTRACT_ID> -- balance --id bob
 ```
 
 For more information on the functions available to the stellar asset contract, see the [token interface code](https://developers.stellar.org/docs/tokens/token-interface#code).
