@@ -155,7 +155,7 @@ fn test_mdx_file_with_sandbox_and_setup(
     let md = markdown::to_mdast(&content, &ParseOptions::mdx())
         .map_err(|e| format!("Failed to parse markdown/mdx file: {e}"))?;
 
-    fn collect<'a>(n: &'a Node, accum: &mut Vec<&'a Code>) {
+    fn collect_code_blocks<'a>(n: &'a Node, accum: &mut Vec<&'a Code>) {
         for n in n.children().map(|v| &v[..]).unwrap_or(&[]) {
             if let Node::Code(code) = n {
                 accum.push(code);
@@ -163,9 +163,8 @@ fn test_mdx_file_with_sandbox_and_setup(
             collect(n, accum)
         }
     }
-
     let mut code_blocks = Vec::<&Code>::new();
-    collect(&md, &mut code_blocks);
+    collect_code_blocks(&md, &mut code_blocks);
 
     // Find bash code blocks that do not have "cookbooktest.ignore" in their meta.
     let commands = code_blocks
