@@ -53,7 +53,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 50_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"unconditional"}'
+  --claimant 'bob:"unconditional"'
 ```
 
 ### Multiple Claimants
@@ -80,7 +80,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 30_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"before_absolute_time","value":"2024-12-31T23:59:59Z"}'
+  --claimant 'bob:{"before_absolute_time":"1735689599"}'
 ```
 
 ### Before Relative Time
@@ -93,7 +93,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 25_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"before_relative_time","value":3600}'
+  --claimant 'bob:{"before_relative_time":"3600"}'
 ```
 
 ## Logical Predicates
@@ -108,7 +108,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 40_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"not","value":{"type":"before_relative_time","value":7200}}'
+  --claimant 'bob:{"not":{"before_relative_time":"7200"}}'
 ```
 
 This means: "Can be claimed, but NOT before 2 hours have passed" (effectively:
@@ -123,7 +123,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 60_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"and","value":[{"type":"before_absolute_time","value":"2024-12-31T23:59:59Z"},{"type":"not","value":{"type":"before_relative_time","value":86400}}]}'
+  --claimant 'bob:{"and":[{"before_absolute_time":"1735689599"},{"not":{"before_relative_time":"86400"}}]}'
 ```
 
 This means: "Can be claimed before Dec 31, 2024 AND after 1 day has passed".
@@ -137,7 +137,7 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 35_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"or","value":[{"type":"before_relative_time","value":3600},{"type":"not","value":{"type":"before_absolute_time","value":"2024-06-01T00:00:00Z"}}]}'
+  --claimant 'bob:{"or":[{"before_relative_time":"3600"},{"not":{"before_absolute_time":"1717200000"}}]}'
 ```
 
 This means: "Can be claimed within 1 hour OR after June 1, 2024".
@@ -154,8 +154,8 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 100_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"before_relative_time","value":3600}' \
-  --claimant 'charlie:{"type":"not","value":{"type":"before_relative_time","value":86400}}'
+  --claimant 'bob:{"before_relative_time":"3600"}' \
+  --claimant 'charlie:{"not":{"before_relative_time":"86400"}}'
 ```
 
 This creates a balance where:
@@ -173,8 +173,8 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 200_000_000 \
   --asset native \
-  --claimant 'bob:{"type":"before_relative_time","value":2592000}' \
-  --claimant 'alice:{"type":"not","value":{"type":"before_relative_time","value":2592000}}'
+  --claimant 'bob:{"before_relative_time":"2592000"}' \
+  --claimant 'alice:{"not":{"before_relative_time":"2592000"}}'
 ```
 
 This means:
@@ -191,26 +191,26 @@ stellar tx new create-claimable-balance \
   --source alice \
   --amount 1000_000_000 \
   --asset USDC:GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI \
-  --claimant 'bob:{"type":"before_absolute_time","value":"2024-12-31T23:59:59Z"}'
+  --claimant 'bob:{"before_absolute_time":"1735689599"}'
 ```
 
 ## Understanding Predicates
 
 ### Predicate Types
 
-| Type                   | Description                               | Example                                                          |
-| ---------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| `unconditional`        | Can be claimed anytime                    | `{"type":"unconditional"}`                                       |
-| `before_absolute_time` | Must claim before specific timestamp      | `{"type":"before_absolute_time","value":"2024-12-31T23:59:59Z"}` |
-| `before_relative_time` | Must claim within X seconds from creation | `{"type":"before_relative_time","value":3600}`                   |
-| `not`                  | Negates another predicate                 | `{"type":"not","value":{...}}`                                   |
-| `and`                  | Both predicates must be true              | `{"type":"and","value":[{...},{...}]}`                           |
-| `or`                   | Either predicate can be true              | `{"type":"or","value":[{...},{...}]}`                            |
+| Type                   | Description                               | Example                                    |
+| ---------------------- | ----------------------------------------- | ------------------------------------------ |
+| `unconditional`        | Can be claimed anytime                    | `"unconditional"`                          |
+| `before_absolute_time` | Must claim before specific timestamp      | `{"before_absolute_time":"1735689599"}`    |
+| `before_relative_time` | Must claim within X seconds from creation | `{"before_relative_time":"3600"}`          |
+| `not`                  | Negates another predicate                 | `{"not":{...}}`                            |
+| `and`                  | Both predicates must be true              | `{"and":[{...},{...}]}`                    |
+| `or`                   | Either predicate can be true              | `{"or":[{...},{...}]}`                     |
 
 ### Time Format Notes
 
-- **Absolute times**: Use ISO8601 format with 'Z' suffix (UTC timezone)
-- **Relative times**: Seconds from claimable balance creation time
+- **Absolute times**: Use Unix timestamps (seconds since epoch)
+- **Relative times**: Seconds from claimable balance creation time  
 - **Timestamps**: Must be in the future when creating the balance
 
 ## Common Use Cases
@@ -222,7 +222,7 @@ stellar tx new create-claimable-balance \
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 50_000_000 \
-  --claimant 'bob:{"type":"before_relative_time","value":604800}'
+  --claimant 'bob:{"before_relative_time":"604800"}'
 ```
 
 ### 2. Delayed Payment
@@ -232,7 +232,7 @@ stellar tx new create-claimable-balance \
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 100_000_000 \
-  --claimant 'bob:{"type":"not","value":{"type":"before_relative_time","value":86400}}'
+  --claimant 'bob:{"not":{"before_relative_time":"86400"}}'
 ```
 
 ### 3. Emergency Fund
@@ -242,8 +242,8 @@ stellar tx new create-claimable-balance \
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 500_000_000 \
-  --claimant 'bob:{"type":"before_relative_time","value":172800}' \
-  --claimant 'alice:{"type":"not","value":{"type":"before_relative_time","value":172800}}'
+  --claimant 'bob:{"before_relative_time":"172800"}' \
+  --claimant 'alice:{"not":{"before_relative_time":"172800"}}'
 ```
 
 ## Notes
