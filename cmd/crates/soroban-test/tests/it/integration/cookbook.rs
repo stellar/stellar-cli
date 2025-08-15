@@ -154,17 +154,7 @@ fn test_mdx_file_with_sandbox_and_setup(
         .map_err(|e| format!("Failed to read file {file_path}: {e}"))?;
     let md = markdown::to_mdast(&content, &ParseOptions::mdx())
         .map_err(|e| format!("Failed to parse markdown/mdx file: {e}"))?;
-
-    fn collect_code_blocks<'a>(n: &'a Node, accum: &mut Vec<&'a Code>) {
-        for n in n.children().map(|v| &v[..]).unwrap_or(&[]) {
-            if let Node::Code(code) = n {
-                accum.push(code);
-            }
-            collect_code_blocks(n, accum)
-        }
-    }
-    let mut code_blocks = Vec::<&Code>::new();
-    collect_code_blocks(&md, &mut code_blocks);
+    let code_blocks = code_blocks(&md);
 
     // Find bash code blocks and store the contents and the meta for the test.
     let commands = code_blocks
@@ -289,6 +279,20 @@ fn get_repo_root() -> PathBuf {
         path.pop();
     }
     path
+}
+
+fn code_blocks<'a>(root: &'a Node) -> Vec<&'a Code> {
+    let mut blocks = Vec::new();
+    collect(root, &mut blocks);
+    fn collect<'a>(n: &'a Node, blocks: &mut Vec<&'a Code>) {
+        for n in n.children().map(|v| &v[..]).unwrap_or(&[]) {
+            if let Node::Code(code) = n {
+                blocks.push(code);
+            }
+            collect(n, blocks);
+        }
+    }
+    blocks
 }
 
 #[cfg(test)]
