@@ -1,6 +1,7 @@
 pub const ACCOUNT_MERGE: &str = "Transfer XLM balance to another account and remove source account";
 pub const BUMP_SEQUENCE: &str = "Bump sequence number to invalidate older transactions";
 pub const CHANGE_TRUST: &str = "Create, update, or delete a trustline";
+pub const CLAIM_CLAIMABLE_BALANCE: &str = "Claim a claimable balance by its balance ID";
 pub const CREATE_ACCOUNT: &str = "Create and fund a new account";
 pub const CREATE_CLAIMABLE_BALANCE: &str =
     "Create a claimable balance that can be claimed by specified accounts";

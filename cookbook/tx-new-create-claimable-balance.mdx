@@ -36,7 +36,7 @@ stellar keys generate charlie --fund
 
 Create a claimable balance that can be claimed immediately by the recipient:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 50_000_000 \
@@ -46,7 +46,7 @@ stellar tx new create-claimable-balance \
 
 You can also explicitly specify unconditional:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 50_000_000 \
@@ -58,7 +58,7 @@ stellar tx new create-claimable-balance \
 
 Create a claimable balance that can be claimed by any of multiple recipients:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 75_000_000 \
@@ -73,7 +73,7 @@ stellar tx new create-claimable-balance \
 
 Create a claimable balance that must be claimed before a specific date:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 30_000_000 \
@@ -86,7 +86,7 @@ stellar tx new create-claimable-balance \
 Create a claimable balance that must be claimed within 1 hour (3600 seconds)
 from creation:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 25_000_000 \
@@ -101,7 +101,7 @@ stellar tx new create-claimable-balance \
 Create a claimable balance that can be claimed after a certain time (NOT before
 relative time):
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 40_000_000 \
@@ -116,7 +116,7 @@ can be claimed after 2 hours).
 
 Create a claimable balance with multiple conditions that must ALL be true:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 60_000_000 \
@@ -130,7 +130,7 @@ This means: "Can be claimed before Dec 31, 2024 AND after 1 day has passed".
 
 Create a claimable balance where either condition can be true:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 35_000_000 \
@@ -147,7 +147,7 @@ This means: "Can be claimed within 1 hour OR after June 1, 2024".
 Create a claimable balance with multiple claimants having different claim
 conditions:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 100_000_000 \
@@ -166,7 +166,7 @@ This creates a balance where:
 Create an escrow where the recipient has 30 days to claim, otherwise it returns
 to sender:
 
-```sh
+```bash
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 200_000_000 \
@@ -184,7 +184,7 @@ This means:
 
 Create a claimable balance for a custom asset:
 
-```sh
+```bash cookbooktest.ignore
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 1000_000_000 \
@@ -218,7 +218,7 @@ escaping.
 
 ### 1. Simple Payment with Deadline
 
-```sh
+```bash
 # Bob has 7 days to claim
 stellar tx new create-claimable-balance \
   --source alice \
@@ -228,7 +228,7 @@ stellar tx new create-claimable-balance \
 
 ### 2. Delayed Payment
 
-```sh
+```bash
 # Bob can only claim after 1 day
 stellar tx new create-claimable-balance \
   --source alice \
@@ -238,7 +238,7 @@ stellar tx new create-claimable-balance \
 
 ### 3. Emergency Fund
 
-```sh
+```bash
 # Bob can claim immediately, but if he doesn't claim within 48 hours, Alice can reclaim
 stellar tx new create-claimable-balance \
   --source alice \

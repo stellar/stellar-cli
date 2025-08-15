@@ -46,6 +46,8 @@ pub enum Error {
     InvalidPrice(String),
     #[error("invalid path: {0}")]
     InvalidPath(String),
+    #[error("invalid hex for {name}: {hex}")]
+    InvalidHex { name: String, hex: String },
 }
 
 impl Args {
