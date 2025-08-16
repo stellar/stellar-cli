@@ -10,11 +10,11 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 fn parse_command(command: &str) -> Vec<String> {
-    command
-        .replace("\\\n", " ")
-        .split_whitespace()
-        .map(String::from)
-        .collect()
+    let normalized = command.replace("\\\n", " ");
+    shell_words::split(&normalized).unwrap_or_else(|_| {
+        // Fallback to simple whitespace splitting if shell_words fails
+        normalized.split_whitespace().map(String::from).collect()
+    })
 }
 
 struct CookbookCommand {
