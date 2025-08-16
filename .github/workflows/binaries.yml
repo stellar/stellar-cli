@@ -89,7 +89,7 @@ jobs:
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
       - name: Uncompress Artifact
