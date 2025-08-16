@@ -1904,9 +1904,9 @@ checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
 
 [[package]]
 name = "hermit-abi"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f154ce46856750ed433c8649605bf7ed2de3bc35fd9d2a9f30cddd873c80cb08"
+checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
 name = "hex"
@@ -2551,7 +2551,7 @@ version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
- "hermit-abi 0.5.1",
+ "hermit-abi 0.5.2",
  "libc",
  "windows-sys 0.59.0",
 ]
@@ -4934,8 +4934,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "23.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de797606b33ef42b6994d857a11258d4e910c427b568b3d4d495f1f80143f743"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client?branch=serde-le#058cb550473141df2d9744d7f0caa54f37a2708a"
 dependencies = [
  "clap",
  "hex",
@@ -6108,7 +6107,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
