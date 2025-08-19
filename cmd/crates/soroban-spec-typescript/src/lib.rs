@@ -127,7 +127,9 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     for entry in &collected {
         match entry {
             Entry::Function { name, inputs, .. } if name == "__constructor" => {
-                constructor_args = Some(inputs.clone());
+                if !inputs.is_empty() {
+                    constructor_args = Some(inputs.clone());
+                }
             }
             _ => {}
         }
