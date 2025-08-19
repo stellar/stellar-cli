@@ -12,7 +12,9 @@ stellar contract deploy \
     --source S... \
     --network testnet \
     --wasm-hash <hex-encoded-wasm-hash> \
-    --alias <your-alias>
+    --alias <alias>
 ```
 
-Optionally, you can assign an alias by replacing <your-alias> with your desired alias name for the contract.
+:::tip
+Optionally assign an alias by replacing <alias> with your desired alias name for the contract. The alias is a locally stored mapping to the contract address, and can be used in other stellar-cli commands in place of the address.
+:::
