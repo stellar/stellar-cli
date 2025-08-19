@@ -57,6 +57,8 @@ pub enum Error {
     Envelope(#[from] envelope::Error),
     #[error(transparent)]
     NotSupported(#[from] fee::Error),
+    #[error("the following required argument was not provided: {0}")]
+    MissingArg(String),
 }
 
 impl Cmd {
@@ -73,10 +75,10 @@ impl Cmd {
                             .default
                             .hash
                             .clone()
-                            .expect("Transaction hash is required but was not provided."),
-                        network: self.default.network.clone().unwrap(),
+                            .ok_or(Error::MissingArg("--hash <HASH>".to_string()))?,
+                        network: self.default.network.clone().unwrap_or_default(),
                     },
-                    output: self.default.output.unwrap(),
+                    output: self.default.output.unwrap_or_default(),
                 }
                 .run(global_args)
                 .await?;
