@@ -5285,6 +5285,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_empty_constructor"
+version = "23.0.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_hello_world"
 version = "23.0.1"
 dependencies = [
