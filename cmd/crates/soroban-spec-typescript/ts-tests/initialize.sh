@@ -46,6 +46,7 @@ function upload() {
 function deploy_all() {
   upload deploy ../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm contract-id-custom-types.txt
   upload upload ../../../../target/wasm32v1-none/test-wasms/test_constructor.wasm contract-wasm-hash-constructor.txt
+  upload upload ../../../../target/wasm32v1-none/test-wasms/test_empty_constructor.wasm contract-wasm-hash-empty-constructor.txt
 
   set +e
   output=$(./stellar contract asset deploy --asset native --source root 2>&1)
@@ -69,6 +70,7 @@ function bind() {
 function bind_all() {
   bind --contract-id $(cat contract-id-custom-types.txt) test-custom-types
   bind --wasm-hash $(cat contract-wasm-hash-constructor.txt) test-constructor
+  bind --wasm-hash $(cat contract-wasm-hash-empty-constructor.txt) test-empty-constructor
   bind --contract-id $(./stellar contract id asset --asset native) xlm
 }
 
