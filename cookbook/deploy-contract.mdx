@@ -11,5 +11,10 @@ To deploy an instance of a compiled smart contract that has already been install
 stellar contract deploy \
     --source S... \
     --network testnet \
-    --wasm-hash <hex-encoded-wasm-hash>
+    --wasm-hash <hex-encoded-wasm-hash> \
+    --alias <alias>
 ```
+
+:::tip
+Optionally assign an alias by replacing <alias> with your desired alias name for the contract. The alias is a locally stored mapping to the contract address, and can be used in other stellar-cli commands in place of the address.
+:::
