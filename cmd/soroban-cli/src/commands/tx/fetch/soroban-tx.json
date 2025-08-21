@@ -1,0 +1,35 @@
+{
+    "envelope": {
+        "tx": {
+            "tx": {
+                "source_account": "GDWREJ5HETNIDTQKXJZPA6LRSJMFUCO4T2DFEJYSZ2XVWRTMUG64AL4B",
+                "fee": 105447,
+                "ext": {
+                    "v1": {
+                        "ext": "v0",
+                        "resource_fee": "105347"
+                    }
+                }
+            }
+        }
+    },
+    "result": {
+        "fee_charged": "60537",
+        "ext": "v0"
+    },
+    "result_meta": {
+        "v3": {
+            "ext": "v0",
+            "soroban_meta": {
+                "ext": {
+                    "v1": {
+                        "ext": "v0",
+                        "total_non_refundable_resource_fee_charged": "60358",
+                        "total_refundable_resource_fee_charged": "79",
+                        "rent_fee_charged": "0"
+                    }
+                }
+            }
+        }
+    },
+}
