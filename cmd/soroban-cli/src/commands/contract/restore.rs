@@ -14,6 +14,7 @@ use clap::{command, Parser};
 use stellar_strkey::DecodeError;
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::extend,
         global,
@@ -176,8 +177,12 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
+        let tx = simulate_and_assemble_transaction(&client, &tx)
+            .await?
+            .transaction()
+            .clone();
         let res = client
-            .send_transaction_polling(&config.sign(*tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
         if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
