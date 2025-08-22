@@ -4,9 +4,9 @@ use crate::{
     log::extract_events,
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-        LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
-        RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData,
-        SorobanTransactionDataExt, Transaction, TransactionExt, TransactionMeta, TransactionMetaV3,
+        LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
+        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
+        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
         TtlEntry, WriteXdr,
     },
 };
@@ -165,7 +165,7 @@ impl NetworkRunnable for Cmd {
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: vec![].try_into()?,
-                        read_write: entry_keys.try_into()?,
+                        read_write: entry_keys.clone().try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
                     disk_read_bytes: 0,
@@ -201,49 +201,67 @@ impl NetworkRunnable for Cmd {
 
         // The transaction from core will succeed regardless of whether it actually found &
         // restored the entry, so we have to inspect the result meta to tell if it worked or not.
-        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
-            return Err(Error::LedgerEntryNotFound);
+        let changes = match meta {
+            TransactionMeta::V4(TransactionMetaV4 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support restoring a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            TransactionMeta::V3(TransactionMetaV3 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support restoring a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            _ => return Err(Error::LedgerEntryNotFound),
         };
-        tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
+        tracing::debug!("Changes:\nlen:{}\n{changes:#?}", changes.len());
 
-        // Simply check if there is exactly one entry here. We only support extending a single
-        // entry via this command (which we should fix separately, but).
-        if operations.is_empty() {
-            return Err(Error::LedgerEntryNotFound);
+        if changes.is_empty() {
+            let entry = client.get_full_ledger_entries(&entry_keys).await?;
+            let extension = entry.entries[0].live_until_ledger_seq;
+
+            if entry.latest_ledger < i64::from(extension) {
+                return Ok(TxnResult::Res(extension));
+            }
         }
 
-        if operations.len() != 1 {
-            tracing::warn!(
-                "Unexpected number of operations: {}. Currently only handle one.",
-                operations[0].changes.len()
-            );
+        match (&changes[0], &changes[1]) {
+            (
+                LedgerEntryChange::State(_),
+                LedgerEntryChange::Restored(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Updated(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Created(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                }),
+            ) => Ok(TxnResult::Res(*live_until_ledger_seq)),
+            _ => Err(Error::LedgerEntryNotFound),
         }
-        Ok(TxnResult::Res(
-            parse_operations(&operations.to_vec()).ok_or(Error::MissingOperationResult)?,
-        ))
     }
-}
-
-fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
-    ops.first().and_then(|op| {
-        op.changes.iter().find_map(|entry| match entry {
-            LedgerEntryChange::Updated(LedgerEntry {
-                data:
-                    LedgerEntryData::Ttl(TtlEntry {
-                        live_until_ledger_seq,
-                        ..
-                    }),
-                ..
-            })
-            | LedgerEntryChange::Created(LedgerEntry {
-                data:
-                    LedgerEntryData::Ttl(TtlEntry {
-                        live_until_ledger_seq,
-                        ..
-                    }),
-                ..
-            }) => Some(*live_until_ledger_seq),
-            _ => None,
-        })
-    })
 }
