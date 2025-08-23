@@ -233,35 +233,41 @@ impl NetworkRunnable for Cmd {
             }
         }
 
-        match (&changes[0], &changes[1]) {
-            (
-                LedgerEntryChange::State(_),
-                LedgerEntryChange::Restored(LedgerEntry {
-                    data:
-                        LedgerEntryData::Ttl(TtlEntry {
-                            live_until_ledger_seq,
-                            ..
-                        }),
-                    ..
-                })
-                | LedgerEntryChange::Updated(LedgerEntry {
-                    data:
-                        LedgerEntryData::Ttl(TtlEntry {
-                            live_until_ledger_seq,
-                            ..
-                        }),
-                    ..
-                })
-                | LedgerEntryChange::Created(LedgerEntry {
-                    data:
-                        LedgerEntryData::Ttl(TtlEntry {
-                            live_until_ledger_seq,
-                            ..
-                        }),
-                    ..
-                }),
-            ) => Ok(TxnResult::Res(*live_until_ledger_seq)),
-            _ => Err(Error::LedgerEntryNotFound),
-        }
+        Ok(TxnResult::Res(
+            parse_changes(&changes.to_vec()).ok_or(Error::LedgerEntryNotFound)?,
+        ))
+    }
+}
+
+fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
+    match (&changes[0], &changes[1]) {
+        (
+            LedgerEntryChange::State(_),
+            LedgerEntryChange::Restored(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Updated(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Created(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            }),
+        ) => Some(*live_until_ledger_seq),
+        _ => None,
     }
 }
