@@ -3,6 +3,7 @@ use clap::{command, Subcommand};
 use std::fmt::Debug;
 
 mod args;
+mod events;
 mod envelope;
 pub mod fee;
 mod meta;
@@ -26,6 +27,8 @@ pub enum FetchCommands {
     Meta(meta::Cmd),
     /// Fetch the transaction fee information
     Fee(fee::Cmd),
+    /// Fetch the transaction events
+    Events(events::Cmd),
     /// Fetch the transaction envelope
     #[command(hide = true)]
     Envelope(envelope::Cmd),
@@ -56,6 +59,8 @@ pub enum Error {
     #[error(transparent)]
     Envelope(#[from] envelope::Error),
     #[error(transparent)]
+    Events(#[from] events::Error),
+    #[error(transparent)]
     NotSupported(#[from] fee::Error),
     #[error("the following required argument was not provided: {0}")]
     MissingArg(String),
@@ -68,6 +73,7 @@ impl Cmd {
             Some(FetchCommands::Meta(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Fee(cmd)) => cmd.run(global_args).await?,
+            Some(FetchCommands::Events(cmd)) => cmd.run(global_args).await?,
             None => {
                 envelope::Cmd {
                     args: args::Args {
