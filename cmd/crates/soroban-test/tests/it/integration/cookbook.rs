@@ -72,6 +72,11 @@ fn run_command(
                 modified_args.push("local".to_string());
                 skip_next = true;
             }
+            "--alias" => {
+                modified_args.push(arg.to_string());
+                modified_args.push("test-alias".to_string());
+                skip_next = true;
+            }
             "--key-xdr" => {
                 modified_args.push(arg.to_string());
                 modified_args.push(key_xdr.to_string());
