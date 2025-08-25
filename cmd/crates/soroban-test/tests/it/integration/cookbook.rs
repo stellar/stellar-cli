@@ -74,7 +74,7 @@ fn run_command(
             }
             "--alias" => {
                 modified_args.push(arg.to_string());
-                modified_args.push("test-alias".to_string());
+                modified_args.push("mycontract".to_string());
                 skip_next = true;
             }
             "--key-xdr" => {
