@@ -253,18 +253,24 @@ mod tests {
         let container_name = "local";
         let additional_flags = "";
         let tail = format!("{container_name} {additional_flags}");
-        
+
         let logs_msg = format!("Watch logs with `stellar container logs {}`", tail.trim());
-        let stop_msg = format!("Stop the container with `stellar container stop {}`", tail.trim());
-        
+        let stop_msg = format!(
+            "Stop the container with `stellar container stop {}`",
+            tail.trim()
+        );
+
         // Verify correct command format
         assert_eq!(logs_msg, "Watch logs with `stellar container logs local`");
-        assert_eq!(stop_msg, "Stop the container with `stellar container stop local`");
-        
+        assert_eq!(
+            stop_msg,
+            "Stop the container with `stellar container stop local`"
+        );
+
         // Verify it doesn't contain the incorrect "network container" pattern
         assert!(!logs_msg.contains("stellar network container"));
         assert!(!stop_msg.contains("stellar network container"));
-        
+
         // Verify it contains the correct "stellar container" pattern
         assert!(logs_msg.contains("stellar container logs"));
         assert!(stop_msg.contains("stellar container stop"));
@@ -276,14 +282,17 @@ mod tests {
         let container_name = "local";
         let additional_flags = "--docker-host unix:///var/run/docker.sock";
         let tail = format!("{container_name} {additional_flags}");
-        
+
         let logs_msg = format!("Watch logs with `stellar container logs {}`", tail.trim());
-        let stop_msg = format!("Stop the container with `stellar container stop {}`", tail.trim());
-        
+        let stop_msg = format!(
+            "Stop the container with `stellar container stop {}`",
+            tail.trim()
+        );
+
         // Verify the complete command format with flags
         assert_eq!(logs_msg, "Watch logs with `stellar container logs local --docker-host unix:///var/run/docker.sock`");
         assert_eq!(stop_msg, "Stop the container with `stellar container stop local --docker-host unix:///var/run/docker.sock`");
-        
+
         // Verify it doesn't contain the incorrect "network container" pattern even with flags
         assert!(!logs_msg.contains("stellar network container"));
         assert!(!stop_msg.contains("stellar network container"));
