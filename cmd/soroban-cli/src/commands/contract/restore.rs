@@ -225,12 +225,11 @@ impl NetworkRunnable for Cmd {
         tracing::debug!("Changes:\nlen:{}\n{changes:#?}", changes.len());
 
         if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&entry_keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
 
-            if entry.latest_ledger < i64::from(extension) {
-                return Ok(TxnResult::Res(extension));
-            }
+            return Ok(TxnResult::Res(extension));
         }
 
         Ok(TxnResult::Res(
