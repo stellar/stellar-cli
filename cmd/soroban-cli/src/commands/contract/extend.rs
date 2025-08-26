@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 
 use crate::{
     log::extract_events,
@@ -90,6 +90,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    IntError(#[from] TryFromIntError),
 }
 
 impl Cmd {
@@ -126,6 +128,7 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<u32>;
 
+    #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
@@ -219,12 +222,11 @@ impl NetworkRunnable for Cmd {
         };
 
         if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
 
-            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
-                return Ok(TxnResult::Res(extension));
-            }
+            return Ok(TxnResult::Res(extension));
         }
 
         match (&changes[0], &changes[1]) {
