@@ -124,7 +124,6 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
     // Check if a local WASM file path is provided
     if let Some(path) = &args.wasm {
         // Read the WASM file and return its contents
-        print.infoln("Loading contract spec from file...");
         let wasm_bytes = wasm::Args { wasm: path.clone() }.read()?;
         return Ok(Fetched {
             contract: Contract::Wasm { wasm_bytes },
@@ -150,9 +149,7 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        print.globeln(format!(
-            "Downloading contract spec for wasm hash: {wasm_hash}"
-        ));
+        print.globeln(format!("Fetching {wasm_hash}"));
         let wasm_bytes = get_remote_wasm_from_hash(&client, &hash).await?;
         Ok(Fetched {
             contract: Contract::Wasm { wasm_bytes },
@@ -166,7 +163,7 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
             contract_id.resolve_contract_id(&args.locator, &network.network_passphrase)?;
         let derived_address =
             xdr::ScAddress::Contract(ContractId(xdr::Hash(contract_id.0))).to_string();
-        print.globeln(format!("Downloading contract spec: {derived_address}"));
+        print.globeln(format!("Fetching {derived_address}"));
         let res = wasm::fetch_from_contract(&contract_id, network).await;
         if let Some(ContractIsStellarAsset) = res.as_ref().err() {
             return Ok(Fetched {
