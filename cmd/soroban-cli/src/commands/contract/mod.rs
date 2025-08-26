@@ -150,7 +150,7 @@ impl Cmd {
 
         match &self {
             Cmd::Asset(asset) => asset.run(global_args).await?,
-            Cmd::Bindings(bindings) => bindings.run().await?,
+            Cmd::Bindings(bindings) => bindings.run(Some(global_args)).await?,
             Cmd::Build(build) => build.run(global_args)?,
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
