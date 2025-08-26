@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 
 use crate::{
     log::extract_events,
@@ -90,6 +90,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    IntError(#[from] TryFromIntError),
 }
 
 impl Cmd {
@@ -126,6 +128,7 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<u32>;
 
+    #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
@@ -227,7 +230,8 @@ impl NetworkRunnable for Cmd {
                 return Ok(TxnResult::Res(extension));
             }
 
-            return Ok(TxnResult::Res(new_ext as u32));
+            let new_ext_as_u32 = u32::try_from(new_ext)?;
+            return Ok(TxnResult::Res(new_ext_as_u32));
         }
 
         match (&changes[0], &changes[1]) {
