@@ -11,8 +11,10 @@ use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
 
-const SCHEMA_URL: &str =
-    "https://github.com/stellar/rs-stellar-xdr/raw/main/xdr-json/curr/TransactionEnvelope.json";
+fn schema_url() -> String {
+    let ver = stellar_xdr::VERSION.pkg;
+    format!("https://stellar.org/schema/xdr-json/v{ver}/TransactionEnvelope.json")
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -143,7 +145,7 @@ where
 {
     let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
-    schema["$schema"] = json!(SCHEMA_URL);
+    schema["$schema"] = json!(schema_url());
     let json = serde_json::to_string_pretty(&schema)?;
 
     Ok(json)
@@ -171,9 +173,10 @@ where
 }
 
 fn default_json() -> String {
+    let schema_url = schema_url();
     format!(
         r#"{{
-  "$schema": "{SCHEMA_URL}",
+  "$schema": "{schema_url}",
   "tx": {{
     "tx": {{
       "source_account": "",
