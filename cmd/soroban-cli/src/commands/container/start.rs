@@ -246,7 +246,6 @@ impl Runner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_print_instructions_message_format() {
