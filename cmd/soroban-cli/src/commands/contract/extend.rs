@@ -222,9 +222,12 @@ impl NetworkRunnable for Cmd {
             let entry = client.get_full_ledger_entries(&keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
 
-            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
+            let new_ext = entry.latest_ledger + i64::from(extend_to);
+            if new_ext < i64::from(extension) {
                 return Ok(TxnResult::Res(extension));
             }
+
+            return Ok(TxnResult::Res(new_ext as u32));
         }
 
         match (&changes[0], &changes[1]) {
