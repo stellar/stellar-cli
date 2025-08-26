@@ -222,16 +222,11 @@ impl NetworkRunnable for Cmd {
         };
 
         if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
             let extension = entry.entries[0].live_until_ledger_seq;
 
-            let new_ext = entry.latest_ledger + i64::from(extend_to);
-            if new_ext < i64::from(extension) {
-                return Ok(TxnResult::Res(extension));
-            }
-
-            let new_ext_as_u32 = u32::try_from(new_ext)?;
-            return Ok(TxnResult::Res(new_ext_as_u32));
+            return Ok(TxnResult::Res(extension));
         }
 
         match (&changes[0], &changes[1]) {
