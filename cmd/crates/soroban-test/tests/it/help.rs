@@ -53,7 +53,7 @@ async fn complex_enum_help() {
     assert!(output.contains(r#"{"Tuple":[{ "a": 1, "b": true, "c": "hello" }"#,));
     assert!(output.contains(r#"{"Enum":"First"|"Second"|"Third"}"#,));
     assert!(output.contains(
-        r#"{"Asset":["GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "1"]}"#,
+        r#"{"Asset":["GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "100"]}"#,
     ));
     assert!(output.contains(r#""Void"'"#));
 }
