@@ -50,9 +50,11 @@ or install
 $ nix profile install github:stellar/stellar-cli
 ```
 
+For additional information on how to install, see instructions here on the [Developer Docs](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup#install). 
+
 Use GitHub Action:
 ```
-uses: stellar/stellar-cli@v22.5.0
+uses: stellar/stellar-cli@v23.0.1
 ```
 
 ## Autocomplete
