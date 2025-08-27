@@ -1,7 +1,4 @@
-use crate::{
-    commands::global,
-    xdr,
-};
+use crate::{commands::global, xdr};
 use clap::{command, Parser};
 
 use super::args;
@@ -47,7 +44,7 @@ impl Cmd {
                 println!("{}", serde_json::to_string_pretty(&events)?);
             }
         }
-        
+
         Ok(())
     }
 }

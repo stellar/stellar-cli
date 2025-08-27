@@ -157,7 +157,6 @@ impl Cmd {
         }
 
         let response = self.run_against_rpc_server(None, None).await?;
-        println!("RESPONSE: {:?}", response);
 
         if response.events.is_empty() {
             eprintln!("No events");

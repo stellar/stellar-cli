@@ -3,8 +3,8 @@ use clap::{command, Subcommand};
 use std::fmt::Debug;
 
 mod args;
-mod events;
 mod envelope;
+mod events;
 pub mod fee;
 mod meta;
 mod result;
