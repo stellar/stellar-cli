@@ -86,9 +86,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: stellar/actions/rust-cache@main
-      - name: Install Rust toolchain
-        run: |
-          rustup toolchain install stable
       - name: Use the minimum supported Rust version
         if: matrix.rust == 'msrv'
         run: |
