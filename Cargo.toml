@@ -114,7 +114,7 @@ reqwest = "0.12.7"
 # testing
 predicates = "3.1.2"
 testcontainers = { version = "0.20.1" }
-httpmock = "0.8.0-alpha.1"
+httpmock = "0.7.0"
 
 [profile.test-wasms]
 inherits = "release"
