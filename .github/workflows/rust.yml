@@ -88,7 +88,7 @@ jobs:
       - uses: stellar/actions/rust-cache@main
       - name: Install Rust toolchain
         run: |
-          rustup toolchain install stable-x86_64-unknown-linux-musl
+          rustup toolchain install stable
       - name: Use the minimum supported Rust version
         if: matrix.rust == 'msrv'
         run: |
