@@ -239,9 +239,40 @@ impl NetworkRunnable for Cmd {
 }
 
 fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
-    match (&changes[0], &changes[1]) {
-        (
-            LedgerEntryChange::State(_),
+    match changes.len() {
+        // Handle case with 2 changes (original expected format)
+        2 => match (&changes[0], &changes[1]) {
+            (
+                LedgerEntryChange::State(_),
+                LedgerEntryChange::Restored(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Updated(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Created(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                }),
+            ) => Some(*live_until_ledger_seq),
+            _ => None,
+        },
+        // Handle case with 1 change (single "Restored" type change)
+        1 => match &changes[0] {
             LedgerEntryChange::Restored(LedgerEntry {
                 data:
                     LedgerEntryData::Ttl(TtlEntry {
@@ -265,8 +296,9 @@ fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
                         ..
                     }),
                 ..
-            }),
-        ) => Some(*live_until_ledger_seq),
+            }) => Some(*live_until_ledger_seq),
+            _ => None,
+        },
         _ => None,
     }
 }
