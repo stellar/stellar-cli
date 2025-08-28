@@ -301,6 +301,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 ",
             )
         }
+        Entry::Event { doc: _, name: _ } => String::new(),
     }
 }
 
