@@ -258,7 +258,7 @@ impl From<&ScSpecEntry> for Entry {
             },
             ScSpecEntry::EventV0(e) => Entry::Event {
                 doc: format!(
-                    "%s\nWarning: This is a stub; events are not supported yet",
+                    "{}\nWarning: This is a stub; events are not supported yet",
                     e.doc.to_utf8_string_lossy()
                 ),
                 name: e.name.to_utf8_string_lossy(),
