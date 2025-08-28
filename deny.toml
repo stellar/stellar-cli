@@ -34,6 +34,7 @@ yanked = "warn"
 ignore = [
     "RUSTSEC-2024-0388", # derivative is no longer maintained, but that has no known material impact on the this repo
     "RUSTSEC-2024-0436", # paste is no longer maintained
+    "RUSTSEC-2025-0052", # async-std has been discontinued - used only in test dependencies
 ]
 # Threshold for security vulnerabilities, any vulnerability with a CVSS score
 # lower than the range specified will be ignored. Note that ignored advisories
