@@ -50,13 +50,13 @@ stellar keys use alice
 ```
 
 ```bash
-stellar contract invoke --id <ASSET_CONTRACT_ID> -- transfer --to bob --from alice --amount 100
+stellar contract invoke --id <ASSET_CONTRACT_ID> -- transfer --to $(stellar keys address bob) --from alice --amount 100
 ```
 
 6. Check account balance:
 
 ```bash
-stellar contract invoke --id <ASSET_CONTRACT_ID> -- balance --id bob
+stellar contract invoke --id <ASSET_CONTRACT_ID> -- balance --id $(stellar keys address bob)
 ```
 
 For more information on the functions available to the stellar asset contract, see the [token interface code](https://developers.stellar.org/docs/tokens/token-interface#code).
