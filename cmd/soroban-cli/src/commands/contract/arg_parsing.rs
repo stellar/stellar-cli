@@ -115,7 +115,10 @@ pub fn build_host_function_parameters(
                     .to_string_lossy()
                     .trim_matches('"')
                     .to_string();
-                if matches!(i.type_, ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress) {
+                if matches!(
+                    i.type_,
+                    ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+                ) {
                     let addr = resolve_address(&s, config)?;
                     let signer = resolve_signer(&s, config);
                     s = addr;
