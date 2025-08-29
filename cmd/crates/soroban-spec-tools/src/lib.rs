@@ -1090,22 +1090,18 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
 fn sc_muxed_address_from_json(s: &str) -> Result<ScVal, Error> {
     stellar_strkey::Strkey::from_string(s)
         .map_err(|_| Error::InvalidValue(Some(ScType::MuxedAddress)))
-        .map(|parsed| match parsed {
-            stellar_strkey::Strkey::PublicKeyEd25519(p) => Some(ScVal::Address(
-                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0)))),
-            )),
-            stellar_strkey::Strkey::Contract(c) => {
-                Some(ScVal::Address(ScAddress::Contract(ContractId(Hash(c.0)))))
+        .and_then(|parsed| match parsed {
+            stellar_strkey::Strkey::PublicKeyEd25519(_) | stellar_strkey::Strkey::Contract(_) => {
+                sc_address_from_json(s)
             }
-            stellar_strkey::Strkey::MuxedAccountEd25519(m) => Some(ScVal::Address(
+            stellar_strkey::Strkey::MuxedAccountEd25519(m) => Ok(ScVal::Address(
                 ScAddress::MuxedAccount(MuxedEd25519Account {
                     ed25519: Uint256(m.ed25519),
                     id: m.id,
                 }),
             )),
-            _ => None,
-        })?
-        .ok_or(Error::InvalidValue(Some(ScType::MuxedAddress)))
+            _ => Err(Error::InvalidValue(Some(ScType::MuxedAddress))),
+        })
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {
@@ -1552,6 +1548,24 @@ mod tests {
                 assert!(matches!(addr, ScVal::Address(ScAddress::MuxedAccount(_))));
             }
             Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
+        }
+
+        // Test that regular Ed25519 addresses also work with MuxedAddress parser
+        match sc_muxed_address_from_json("GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5")
+        {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing Ed25519 address as MuxedAddress: {e}"),
+        }
+
+        // Test that contract addresses also work with MuxedAddress parser
+        match sc_muxed_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+        {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::Contract(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing Contract address as MuxedAddress: {e}"),
         }
     }
 
