@@ -75,7 +75,7 @@ impl Contract {
     pub fn log(env: Env, str: Symbol) {
         // Now we can pass both "hello" and the input symbol separately
         let hello_str = String::from_str(&env, "hello ");
-        
+
         HelloEvent {
             hello: hello_str,
             input: str.clone(),
