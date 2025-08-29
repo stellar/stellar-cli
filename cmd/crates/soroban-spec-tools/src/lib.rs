@@ -1552,7 +1552,7 @@ mod tests {
                     0x31, 0x64, 0xe3, 0x91, 0xba, 0x47, 0x8f, 0x88, 0x54, 0x05, 0xa3, 0x84, 0xc5,
                     0x03, 0x9b, 0x5e, 0xd3, 0x78, 0x63,
                 ]);
-                let expected_id = 1754924385537090737u64;
+                let expected_id = 1_754_924_385_537_090_737_u64;
 
                 assert_eq!(ed25519, expected_ed25519);
                 assert_eq!(id, expected_id);
@@ -1575,7 +1575,7 @@ mod tests {
                     0x31, 0x64, 0xe3, 0x91, 0xba, 0x47, 0x8f, 0x88, 0x54, 0x05, 0xa3, 0x84, 0xc5,
                     0x03, 0x9b, 0x5e, 0xd3, 0x78, 0x63,
                 ]);
-                let expected_id = 1754924385537090737u64;
+                let expected_id = 1_754_924_385_537_090_737_u64;
 
                 assert_eq!(ed25519, expected_ed25519);
                 assert_eq!(id, expected_id);
