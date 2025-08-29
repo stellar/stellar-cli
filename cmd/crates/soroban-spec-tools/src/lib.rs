@@ -253,7 +253,8 @@ impl Spec {
                     | ScType::I256
                     | ScType::U128
                     | ScType::I128
-                    | ScType::Address => Ok(Value::String(s.to_owned())),
+                    | ScType::Address
+                    | ScType::MuxedAddress => Ok(Value::String(s.to_owned())),
                     ScType::Udt(ScSpecTypeUdt { name })
                         if matches!(
                             self.find(&name.to_utf8_string_lossy())?,
@@ -293,6 +294,7 @@ impl Spec {
                 | ScType::String
                 | ScType::Symbol
                 | ScType::Address
+                | ScType::MuxedAddress
                 | ScType::Bytes
                 | ScType::BytesN(_),
                 _,
@@ -539,6 +541,7 @@ impl Spec {
                 _,
             )
             | (ScVal::Address(_), ScType::Address)
+            | (ScVal::Address(_), ScType::MuxedAddress)
             | (ScVal::Bytes(_), ScType::Bytes | ScType::BytesN(_)) => to_json(val)?,
 
             (val, ScType::Result(inner)) => self.xdr_to_json(val, &inner.ok_type)?,
@@ -729,6 +732,8 @@ impl Spec {
 
             (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
 
+            (ScVal::Address(v), ScType::MuxedAddress) => sc_address_to_json(v),
+
             (ok_val, ScType::Result(result_type)) => {
                 let ScSpecTypeResult { ok_type, .. } = result_type.as_ref();
                 self.xdr_to_json(ok_val, ok_type)?
@@ -847,6 +852,8 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         )),
 
         (ScType::Address, Value::String(s)) => sc_address_from_json(s)?,
+
+        (ScType::MuxedAddress, Value::String(s)) => sc_muxed_address_from_json(s)?,
 
         // Bytes parsing
         (bytes @ ScType::BytesN(_), Value::Number(n)) => {
@@ -1081,6 +1088,27 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
             _ => None,
         })?
         .ok_or(Error::InvalidValue(Some(ScType::Address)))
+}
+
+fn sc_muxed_address_from_json(s: &str) -> Result<ScVal, Error> {
+    stellar_strkey::Strkey::from_string(s)
+        .map_err(|_| Error::InvalidValue(Some(ScType::MuxedAddress)))
+        .map(|parsed| match parsed {
+            stellar_strkey::Strkey::PublicKeyEd25519(p) => Some(ScVal::Address(
+                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(p.0)))),
+            )),
+            stellar_strkey::Strkey::Contract(c) => {
+                Some(ScVal::Address(ScAddress::Contract(ContractId(Hash(c.0)))))
+            }
+            stellar_strkey::Strkey::MuxedAccountEd25519(m) => Some(ScVal::Address(
+                ScAddress::MuxedAccount(MuxedEd25519Account {
+                    ed25519: Uint256(m.ed25519),
+                    id: m.id,
+                }),
+            )),
+            _ => None,
+        })?
+        .ok_or(Error::InvalidValue(Some(ScType::MuxedAddress)))
 }
 
 fn to_lower_hex(bytes: &[u8]) -> String {
@@ -1514,6 +1542,62 @@ mod tests {
             }
             Ok(_) => panic!("Expected ScVal::Address"),
             Err(e) => panic!("Unexpected error: {e}"),
+        }
+    }
+
+    #[test]
+    fn test_sc_muxed_address_from_json() {
+        // Test muxed address parsing
+        match sc_muxed_address_from_json(
+            "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6",
+        ) {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::MuxedAccount(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
+        }
+
+        // Test that regular Ed25519 addresses also work with MuxedAddress parser
+        match sc_muxed_address_from_json("GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5")
+        {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing Ed25519 address as MuxedAddress: {e}"),
+        }
+
+        // Test that contract addresses also work with MuxedAddress parser
+        match sc_muxed_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+        {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::Contract(_))));
+            }
+            Err(e) => panic!("Unexpected error parsing Contract address as MuxedAddress: {e}"),
+        }
+    }
+
+    #[test]
+    fn test_muxed_address_from_string() {
+        // Test that from_string_primitive works with MuxedAddress type
+        let muxed_addr = "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6";
+        match from_string_primitive(muxed_addr, &ScType::MuxedAddress) {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::MuxedAccount(_))));
+            }
+            Err(e) => {
+                panic!("Unexpected error parsing MuxedAddress with from_string_primitive: {e}")
+            }
+        }
+
+        // Test that regular addresses work with MuxedAddress type too
+        let ed25519_addr = "GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5";
+        match from_string_primitive(ed25519_addr, &ScType::MuxedAddress) {
+            Ok(addr) => {
+                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
+            }
+            Err(e) => {
+                panic!("Unexpected error parsing Ed25519 address with from_string_primitive: {e}")
+            }
         }
     }
 
