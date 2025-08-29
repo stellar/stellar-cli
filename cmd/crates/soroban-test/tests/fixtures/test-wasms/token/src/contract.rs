@@ -52,7 +52,8 @@ impl Token {
             to: to.clone(),
             to_muxed_id: None,
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     pub fn set_admin(e: Env, new_admin: Address) {
@@ -64,10 +65,11 @@ impl Token {
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 
         admin::write_administrator(&e, &new_admin);
-        SetAdmin { 
-            admin: admin.clone(), 
-            new_admin: new_admin.clone() 
-        }.publish(&e);
+        SetAdmin {
+            admin: admin.clone(),
+            new_admin: new_admin.clone(),
+        }
+        .publish(&e);
     }
 }
 
@@ -95,7 +97,8 @@ impl token::Interface for Token {
             spender: spender.clone(),
             amount,
             expiration_ledger,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn balance(e: Env, id: Address) -> i128 {
@@ -121,7 +124,8 @@ impl token::Interface for Token {
             to: to.address(),
             to_muxed_id: to.id(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
@@ -141,7 +145,8 @@ impl token::Interface for Token {
             to: to.clone(),
             to_muxed_id: None,
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn burn(e: Env, from: Address, amount: i128) {
@@ -157,7 +162,8 @@ impl token::Interface for Token {
         Burn {
             from: from.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
@@ -174,7 +180,8 @@ impl token::Interface for Token {
         Burn {
             from: from.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn decimals(e: Env) -> u32 {

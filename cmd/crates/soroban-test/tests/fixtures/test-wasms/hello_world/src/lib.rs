@@ -1,6 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String,
+    Symbol, Vec,
 };
 
 const COUNTER: Symbol = symbol_short!("COUNTER");
@@ -71,7 +72,10 @@ impl Contract {
 
     /// Logs a string with `hello ` in front.
     pub fn log(env: Env, str: Symbol) {
-        HelloEvent { message: str.clone() }.publish(&env);
+        HelloEvent {
+            message: str.clone(),
+        }
+        .publish(&env);
         log!(&env, "hello {}", str);
     }
 }
