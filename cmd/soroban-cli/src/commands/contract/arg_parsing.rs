@@ -122,6 +122,13 @@ pub fn build_host_function_parameters(
                     if let Some(signer) = signer {
                         signers.push(signer);
                     }
+                } else if matches!(i.type_, ScSpecTypeDef::MuxedAddress) {
+                    let addr = resolve_address(&s, config)?;
+                    let signer = resolve_signer(&s, config);
+                    s = addr;
+                    if let Some(signer) = signer {
+                        signers.push(signer);
+                    }
                 }
                 spec.from_string(&s, &i.type_)
                     .map_err(|error| Error::CannotParseArg { arg: name, error })
