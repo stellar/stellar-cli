@@ -410,7 +410,7 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stderr(predicates::str::contains(
-            r#"Event: [{"symbol":"hello"},{"symbol":""}] = {"symbol":"world"}"#,
+            r#"Event: [{"symbol":"hello_event"}] = {"map":[{"key":{"symbol":"str"},"val":{"symbol":"world"}}]}"#,
         ))
         .stderr(predicates::str::contains(
             r#"Log: {"vec":[{"string":"hello {}"},{"symbol":"world"}]}"#,
