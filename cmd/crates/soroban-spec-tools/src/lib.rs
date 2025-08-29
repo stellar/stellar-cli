@@ -540,8 +540,7 @@ impl Spec {
                 | ScVal::LedgerKeyNonce(_),
                 _,
             )
-            | (ScVal::Address(_), ScType::Address)
-            | (ScVal::Address(_), ScType::MuxedAddress)
+            | (ScVal::Address(_), ScType::Address | ScType::MuxedAddress)
             | (ScVal::Bytes(_), ScType::Bytes | ScType::BytesN(_)) => to_json(val)?,
 
             (val, ScType::Result(inner)) => self.xdr_to_json(val, &inner.ok_type)?,
@@ -730,9 +729,7 @@ impl Spec {
 
             (ScVal::ContractInstance(_), _) => todo!(),
 
-            (ScVal::Address(v), ScType::Address) => sc_address_to_json(v),
-
-            (ScVal::Address(v), ScType::MuxedAddress) => sc_address_to_json(v),
+            (ScVal::Address(v), ScType::Address | ScType::MuxedAddress) => sc_address_to_json(v),
 
             (ok_val, ScType::Result(result_type)) => {
                 let ScSpecTypeResult { ok_type, .. } = result_type.as_ref();
