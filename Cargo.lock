@@ -4551,6 +4551,7 @@ dependencies = [
  "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
+ "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
  "stellar-strkey 0.0.11",
@@ -4849,6 +4850,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "soroban-token-spec"
+version = "23.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f14917787d7a92236db3efcbc3d56b6c734c5f498021f5d1911bf1ce438905c1"
+dependencies = [
+ "soroban-sdk",
+ "soroban-token-sdk",
+]
+
+[[package]]
 name = "soroban-wasmi"
 version = "0.31.1-soroban.20.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4888,6 +4899,17 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stellar-asset-spec"
+version = "23.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8836d90140537acb8ddad19b1d6104c164bb5311afa00bd7e2ad3fc91a2c2e63"
+dependencies = [
+ "soroban-sdk",
+ "soroban-token-sdk",
+ "soroban-token-spec",
+]
 
 [[package]]
 name = "stellar-bye"

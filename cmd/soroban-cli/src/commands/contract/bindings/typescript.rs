@@ -66,7 +66,7 @@ impl NetworkRunnable for Cmd {
         let spec = match contract {
             contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
             contract_spec::Contract::StellarAssetContract => {
-                soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetFnSpec::spec_xdr())?
+                soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
             }
         };
 

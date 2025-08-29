@@ -67,6 +67,9 @@ version = "23.0.0-rc.3"
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "23.0.0-rc.3"
 
+[workspace.dependencies.stellar-asset-spec]
+version = "23.0.0-rc.3"
+
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"

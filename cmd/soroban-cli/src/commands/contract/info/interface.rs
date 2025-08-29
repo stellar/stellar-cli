@@ -59,7 +59,7 @@ impl Cmd {
                 (spec.spec_base64.unwrap(), spec.spec)
             }
             shared::Contract::StellarAssetContract => {
-                Spec::spec_to_base64(&soroban_sdk::token::StellarAssetFnSpec::spec_xdr())?
+                Spec::spec_to_base64(stellar_asset_spec::xdr())?
             }
         };
 
