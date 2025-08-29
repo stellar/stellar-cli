@@ -224,7 +224,7 @@ impl NetworkRunnable for Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq;
+            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
 
             return Ok(TxnResult::Res(extension));
         }
