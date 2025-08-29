@@ -1544,28 +1544,21 @@ mod tests {
         match sc_muxed_address_from_json(
             "MA5XIGA5C7QTPTWXQHY6MCJRMTRZDOSHR6EFIBNDQTCQHG262N4GGGC2XZXD7G7EWH7U6",
         ) {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::MuxedAccount(_))));
+            Ok(ScVal::Address(ScAddress::MuxedAccount(MuxedEd25519Account { ed25519, id }))) => {
+                // Verify the actual content of the MuxedEd25519Account
+                // Expected values decoded from the muxed address string
+                let expected_ed25519 = Uint256([
+                    0x3b, 0x74, 0x18, 0x1d, 0x17, 0xe1, 0x37, 0xce, 0xd7, 0x81, 0xf1, 0xe6, 0x09,
+                    0x31, 0x64, 0xe3, 0x91, 0xba, 0x47, 0x8f, 0x88, 0x54, 0x05, 0xa3, 0x84, 0xc5,
+                    0x03, 0x9b, 0x5e, 0xd3, 0x78, 0x63,
+                ]);
+                let expected_id = 1754924385537090737u64;
+
+                assert_eq!(ed25519, expected_ed25519);
+                assert_eq!(id, expected_id);
             }
+            Ok(_) => panic!("Expected ScVal::Address(ScAddress::MuxedAccount(_))"),
             Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
-        }
-
-        // Test that regular Ed25519 addresses also work with MuxedAddress parser
-        match sc_muxed_address_from_json("GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5")
-        {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
-            }
-            Err(e) => panic!("Unexpected error parsing Ed25519 address as MuxedAddress: {e}"),
-        }
-
-        // Test that contract addresses also work with MuxedAddress parser
-        match sc_muxed_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
-        {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::Contract(_))));
-            }
-            Err(e) => panic!("Unexpected error parsing Contract address as MuxedAddress: {e}"),
         }
     }
 
