@@ -4,8 +4,8 @@ use crate::storage_types::{INSTANCE_BUMP_AMOUNT, INSTANCE_LIFETIME_THRESHOLD};
 use crate::{admin, allowance, balance, metadata};
 use soroban_sdk::token::{self, Interface as _};
 use soroban_sdk::{contract, contractevent, contractimpl, Address, Env, MuxedAddress, String};
+use soroban_token_sdk::events::{Approve, Burn, MintWithAmountOnly, TransferWithAmountOnly};
 use soroban_token_sdk::metadata::TokenMetadata;
-use soroban_token_sdk::events::{TransferWithAmountOnly, Approve, Burn, MintWithAmountOnly};
 
 #[contractevent(data_format = "single-value")]
 pub struct SetAdmin {
@@ -51,7 +51,8 @@ impl Token {
         MintWithAmountOnly {
             to: to.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     pub fn set_admin(e: Env, new_admin: Address) {
@@ -66,7 +67,8 @@ impl Token {
         SetAdmin {
             admin: admin.clone(),
             new_admin: new_admin.clone(),
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 }
 
@@ -94,7 +96,8 @@ impl token::Interface for Token {
             spender: spender.clone(),
             amount,
             expiration_ledger,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn balance(e: Env, id: Address) -> i128 {
@@ -120,7 +123,8 @@ impl token::Interface for Token {
             from: from.clone(),
             to: to_address,
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
@@ -139,7 +143,8 @@ impl token::Interface for Token {
             from: from.clone(),
             to: to.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn burn(e: Env, from: Address, amount: i128) {
@@ -155,7 +160,8 @@ impl token::Interface for Token {
         Burn {
             from: from.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
@@ -172,7 +178,8 @@ impl token::Interface for Token {
         Burn {
             from: from.clone(),
             amount,
-        }.publish(&e);
+        }
+        .publish(&e);
     }
 
     fn decimals(e: Env) -> u32 {

@@ -1,6 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String,
+    Symbol, Vec,
 };
 
 const COUNTER: Symbol = symbol_short!("COUNTER");
