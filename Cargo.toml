@@ -64,6 +64,9 @@ version = "23.0.0-rc.2"
 [workspace.dependencies.soroban-token-sdk]
 version = "23.0.0-rc.2"
 
+[workspace.dependencies.stellar-asset-spec]
+version = "23.0.0-rc.3"
+
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "23.0.0-rc.2"
 
