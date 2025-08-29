@@ -163,6 +163,10 @@ pub enum Entry {
         name: String,
         cases: Vec<ErrorEnumCase>,
     },
+    Event {
+        doc: String,
+        name: String,
+    },
 }
 
 impl From<&ScSpecTypeDef> for Type {
@@ -240,7 +244,10 @@ impl From<&ScSpecEntry> for Entry {
                 name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(EnumCase::from).collect(),
             },
-            ScSpecEntry::EventV0(_) => todo!("EventV0 is not implemented yet"),
+            ScSpecEntry::EventV0(e) => Entry::Event {
+                doc: e.doc.to_utf8_string_lossy(),
+                name: e.name.to_utf8_string_lossy(),
+            },
         }
     }
 }
