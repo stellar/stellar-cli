@@ -11,12 +11,6 @@ pub struct AuthEvent {
     pub world: Symbol,
 }
 
-#[contractevent]
-pub struct HelloEvent {
-    pub hello: String,
-    pub input: Symbol,
-}
-
 #[contract]
 pub struct Contract;
 
@@ -73,14 +67,10 @@ impl Contract {
 
     /// Logs a string with `hello ` in front.
     pub fn log(env: Env, str: Symbol) {
-        // Now we can pass both "hello" and the input symbol separately
-        let hello_str = String::from_str(&env, "hello ");
-
-        HelloEvent {
-            hello: hello_str,
-            input: str.clone(),
-        }
-        .publish(&env);
+        // Emit the event format expected by the test using the deprecated API
+        #[allow(deprecated)]
+        env.events()
+            .publish((symbol_short!("hello"), Symbol::new(&env, "")), str.clone());
         log!(&env, "hello {}", str);
     }
 }

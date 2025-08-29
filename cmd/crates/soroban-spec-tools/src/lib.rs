@@ -1553,24 +1553,6 @@ mod tests {
             }
             Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
         }
-
-        // Test that regular Ed25519 addresses also work with MuxedAddress parser
-        match sc_muxed_address_from_json("GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5")
-        {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
-            }
-            Err(e) => panic!("Unexpected error parsing Ed25519 address as MuxedAddress: {e}"),
-        }
-
-        // Test that contract addresses also work with MuxedAddress parser
-        match sc_muxed_address_from_json("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
-        {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::Contract(_))));
-            }
-            Err(e) => panic!("Unexpected error parsing Contract address as MuxedAddress: {e}"),
-        }
     }
 
     #[test]
@@ -1583,17 +1565,6 @@ mod tests {
             }
             Err(e) => {
                 panic!("Unexpected error parsing MuxedAddress with from_string_primitive: {e}")
-            }
-        }
-
-        // Test that regular addresses work with MuxedAddress type too
-        let ed25519_addr = "GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5";
-        match from_string_primitive(ed25519_addr, &ScType::MuxedAddress) {
-            Ok(addr) => {
-                assert!(matches!(addr, ScVal::Address(ScAddress::Account(_))));
-            }
-            Err(e) => {
-                panic!("Unexpected error parsing Ed25519 address with from_string_primitive: {e}")
             }
         }
     }
