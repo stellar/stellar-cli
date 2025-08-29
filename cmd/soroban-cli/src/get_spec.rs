@@ -74,7 +74,7 @@ pub async fn get_remote_contract_spec(
             }
         }
         ContractExecutable::StellarAsset => {
-            soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetSpec::spec_xdr())?
+            soroban_spec::read::parse_raw(&soroban_sdk::token::StellarAssetFnSpec::spec_xdr())?
         }
     })
 }
