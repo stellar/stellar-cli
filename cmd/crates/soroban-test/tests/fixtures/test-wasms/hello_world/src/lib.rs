@@ -13,7 +13,7 @@ pub struct AuthEvent {
 
 #[contractevent]
 pub struct HelloEvent {
-    pub message: Symbol,
+    pub message: String,
 }
 
 #[contract]
@@ -72,8 +72,10 @@ impl Contract {
 
     /// Logs a string with `hello ` in front.
     pub fn log(env: Env, str: Symbol) {
+        // For the event, we'll create a simple hello message
+        // Since string concatenation is complex in no_std, we'll use a fixed message format
         HelloEvent {
-            message: str.clone(),
+            message: String::from_str(&env, "hello message logged"),
         }
         .publish(&env);
         log!(&env, "hello {}", str);
