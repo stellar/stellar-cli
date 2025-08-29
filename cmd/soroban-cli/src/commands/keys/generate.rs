@@ -47,7 +47,9 @@ pub struct Cmd {
     #[arg(long, short = 's')]
     pub as_secret: bool,
 
-    /// Save in OS-specific secure store
+    /// Save the new key in your OS's credential secure store.
+    ///
+    /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
     #[arg(long)]
     pub secure_store: bool,
 
