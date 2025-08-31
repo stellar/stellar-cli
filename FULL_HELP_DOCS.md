@@ -269,6 +269,9 @@ Generate code client bindings for a contract
 * `typescript` — Generate a TypeScript / JavaScript package
 * `python` — Generate Python bindings
 * `java` — Generate Java bindings
+* `flutter` — Generate Flutter bindings
+* `swift` — Generate Swift bindings
+* `php` — Generate PHP bindings
 
 
 
@@ -331,6 +334,30 @@ Generate Python bindings
 Generate Java bindings
 
 **Usage:** `stellar contract bindings java`
+
+
+
+## `stellar contract bindings flutter`
+
+Generate Flutter bindings
+
+**Usage:** `stellar contract bindings flutter`
+
+
+
+## `stellar contract bindings swift`
+
+Generate Swift bindings
+
+**Usage:** `stellar contract bindings swift`
+
+
+
+## `stellar contract bindings php`
+
+Generate PHP bindings
+
+**Usage:** `stellar contract bindings php`
 
 
 
