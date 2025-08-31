@@ -850,6 +850,8 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
 
         (ScType::Address, Value::String(s)) => sc_address_from_json(s)?,
 
+        (ScType::MuxedAddress, Value::String(s)) => sc_address_from_json(s)?,
+
         // Bytes parsing
         (bytes @ ScType::BytesN(_), Value::Number(n)) => {
             from_json_primitives(&Value::String(format!("{n}")), bytes)?
