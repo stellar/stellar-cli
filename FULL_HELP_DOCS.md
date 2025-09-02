@@ -3113,14 +3113,14 @@ The subcommand for CLI plugins
 
 ###### **Subcommands:**
 
-* `search` — Search for for CLI plugins using GitHub
+* `search` — Search for CLI plugins using GitHub
 * `ls` — List installed plugins
 
 
 
 ## `stellar plugin search`
 
-Search for for CLI plugins using GitHub
+Search for CLI plugins using GitHub
 
 **Usage:** `stellar plugin search`
 
