@@ -232,10 +232,6 @@ skip = [
     { crate = "windows_x86_64_gnu", reason = "temp", version = "0.52.6"},
     { crate = "windows_x86_64_msvc", reason = "temp", version = "0.52.6"},
     # { crate = "dir-sys", reason = "temp", version }
-    #
-    # update tracing-subscriber
-    { crate = "regex-syntax", reason = "temp", version = "0.8.4" },
-    { crate = "regex-automata", reason = "temp", version = "0.4.7" },
 
     # wasm-gen update
     { crate = "byteorder", reason = "temp", version = "1.5.0" },
@@ -265,7 +261,7 @@ allow-git = []
 
 [sources.allow-org]
 # 1 or more github.com organizations to allow git sources for
-github = ["stellar"]
+# github = ["stellar"]
 # 1 or more gitlab.com organizations to allow git sources for
 # gitlab = [""]
 # 1 or more bitbucket.org organizations to allow git sources for
