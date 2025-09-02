@@ -50,6 +50,7 @@ soroban-spec-typescript = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
+stellar-asset-spec = { workspace = true }
 soroban-rpc = { workspace = true }
 stellar-ledger = { workspace = true, optional = true }
 
