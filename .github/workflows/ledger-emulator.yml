@@ -33,7 +33,7 @@ jobs:
     env:
       CI_TESTS: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - name: Setup Colima and Docker (macOS only)
         if: runner.os == 'macos'
