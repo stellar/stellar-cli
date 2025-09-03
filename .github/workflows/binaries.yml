@@ -41,7 +41,7 @@ jobs:
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - run: rustup update
     - run: rustup target add ${{ matrix.sys.target }}
 
@@ -59,7 +59,7 @@ jobs:
         cargo build --package ${{ matrix.crate.name }} --release --target ${{ matrix.sys.target }}
     - name: Build provenance for binary attestation (release only)
       if: github.event_name == 'release'
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: target/${{ matrix.sys.target }}/release/${{ matrix.crate.binary }}${{ matrix.sys.ext }}
     - name: Compress
@@ -77,7 +77,7 @@ jobs:
     needs: build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup vars
         run: |
@@ -89,7 +89,7 @@ jobs:
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
       - name: Uncompress Artifact

@@ -1,6 +1,6 @@
 [package]
 name = "test_empty_constructor"
-version = "23.1.0"
+version = "23.1.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"

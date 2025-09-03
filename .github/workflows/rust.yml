@@ -37,7 +37,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: rustup update
       - run: cargo fmt --all --check
 
@@ -49,15 +49,15 @@ jobs:
         check: [advisories, bans, licenses, sources]
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad
         with:
           command: check ${{ matrix.check }}
 
   check-generated-full-help-docs:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
@@ -84,7 +84,7 @@ jobs:
     env:
       CI_TESTS: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - name: Use the minimum supported Rust version
         if: matrix.rust == 'msrv'
@@ -118,7 +118,7 @@ jobs:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check that Cargo.tomls do not contain git dependencies for release
         run: |
           ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
