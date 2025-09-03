@@ -17,5 +17,5 @@ jobs:
   validate-rust-git-rev-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: stellar/actions/rust-check-git-rev-deps@main
