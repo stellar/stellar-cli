@@ -66,7 +66,7 @@ jobs:
       - run: make generate-full-help-doc
       - run: git add -N . && git diff HEAD --exit-code
 
-  build-and-test: &build-job-template
+  build-and-test:
     strategy:
       fail-fast: false
       matrix:
@@ -77,36 +77,14 @@ jobs:
           - os: ubuntu-jammy-8-cores-arm64
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
-    env:
-      CI_TESTS: true
-    steps: &build-steps
-      - uses: actions/checkout@v5
-      - uses: stellar/actions/rust-cache@main
-      - name: Use the minimum supported Rust version
-        if: matrix.rust == 'msrv'
-        run: |
-          msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
-          rustup override set $msrv
-          rustup component add clippy --toolchain $msrv
-      - run: rustup update
-      - run: cargo version
-      - run: rustup target add ${{ matrix.sys.target }}
-      - run: rustup target add wasm32v1-none
-      - if: runner.os == 'Linux'
-        run:
-          sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu
-          g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
-      - run: cargo clippy --all-targets --target ${{ matrix.sys.target }}
-      - run: make test
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
+    steps:
+      - uses: ./.github/actions/build-and-test
+        with:
+          target: ${{ matrix.sys.target }}
+          rust-version: ${{ matrix.rust }}
 
   build-and-test-macos:
-    <<: *build-job-template
-    if:
-      github.event_name == 'push' && (github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
     strategy:
       fail-fast: false
       matrix:
@@ -116,12 +94,15 @@ jobs:
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: ./.github/actions/build-and-test
+        with:
+          target: ${{ matrix.sys.target }}
+          rust-version: ${{ matrix.rust }}
 
   build-and-test-windows:
-    <<: *build-job-template
-    if:
-      github.event_name == 'push' && (github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
     strategy:
       fail-fast: false
       matrix:
@@ -129,6 +110,12 @@ jobs:
         sys:
           - os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: ./.github/actions/build-and-test
+        with:
+          target: ${{ matrix.sys.target }}
+          rust-version: ${{ matrix.rust }}
 
   disallow-git-deps:
     # This job fails if a release is being prepared and there are still crate
