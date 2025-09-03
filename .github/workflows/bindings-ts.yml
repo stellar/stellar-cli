@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20.x"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - name: install optional dependencies (Linux only)
