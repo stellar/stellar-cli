@@ -78,6 +78,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -96,6 +97,7 @@ jobs:
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -112,6 +114,7 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}

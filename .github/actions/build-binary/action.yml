@@ -17,7 +17,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/checkout@v5
     - run: rustup update
     - run: rustup target add ${{ inputs.target }}
     - if: runner.os == 'Linux'
