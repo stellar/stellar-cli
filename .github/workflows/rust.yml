@@ -24,6 +24,8 @@ jobs:
         cargo-deny,
         check-generated-full-help-docs,
         build-and-test,
+        build-and-test-macos,
+        build-and-test-windows,
         disallow-git-deps,
         publish-dry-run,
       ]
@@ -64,7 +66,7 @@ jobs:
       - run: make generate-full-help-doc
       - run: git add -N . && git diff HEAD --exit-code
 
-  build-and-test:
+  build-and-test: &build-job-template
     strategy:
       fail-fast: false
       matrix:
@@ -74,16 +76,10 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-jammy-8-cores-arm64
             target: aarch64-unknown-linux-gnu
-          - os: macos-13
-            target: x86_64-apple-darwin
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: windows-latest-8-cores
-            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     env:
       CI_TESTS: true
-    steps:
+    steps: &build-steps
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - name: Use the minimum supported Rust version
@@ -105,6 +101,34 @@ jobs:
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CARGO_BUILD_TARGET: ${{ matrix.sys.target }}
+
+  build-and-test-macos:
+    <<: *build-job-template
+    if:
+      github.event_name == 'push' && (github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/'))
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, latest]
+        sys:
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+
+  build-and-test-windows:
+    <<: *build-job-template
+    if:
+      github.event_name == 'push' && (github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/'))
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [msrv, latest]
+        sys:
+          - os: windows-latest-8-cores
+            target: x86_64-pc-windows-msvc
 
   disallow-git-deps:
     # This job fails if a release is being prepared and there are still crate
