@@ -624,7 +624,7 @@ async fn expected_contract_ledger_key(contract_id: &str, storage_key: &str) -> L
     let contract_bytes: [u8; 32] = Contract::from_string(contract_id).unwrap().0;
     let contract_id = Hash(contract_bytes);
     LedgerKey::ContractData(LedgerKeyContractData {
-        contract: ScAddress::Contract(contract_id),
+        contract: ScAddress::Contract(contract_id.into()),
         key: ScVal::Symbol(storage_key.try_into().unwrap()),
         durability: ContractDataDurability::Persistent,
     })
