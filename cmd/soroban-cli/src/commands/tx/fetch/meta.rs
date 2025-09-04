@@ -30,7 +30,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let resp = self.args.fetch_transaction(global_args).await?;
-        if let Some(meta) = resp.result_meta {
+        if let Some(ref meta) = resp.result_meta {
             match self.output {
                 args::OutputFormat::Json => {
                     println!("{}", serde_json::to_string(&meta)?);
@@ -40,6 +40,7 @@ impl Cmd {
                     println!("{meta_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {
+                    self.args.print_tx_summary(&resp);
                     println!("{}", serde_json::to_string_pretty(&meta)?);
                 }
             }

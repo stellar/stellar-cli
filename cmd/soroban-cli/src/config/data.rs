@@ -182,6 +182,7 @@ impl TryFrom<GetTransactionResponse> for Action {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
                 status: res.status,
+                ledger: res.ledger,
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
                 result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
                 result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
