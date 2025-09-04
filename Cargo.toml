@@ -75,7 +75,7 @@ version = "23.0.0-rc.3"
 package = "stellar-rpc-client"
 version = "23.0.0-rc.6"
 git = "https://github.com/stellar/rs-stellar-rpc-client"
-branch = "serde-le"
+branch = "main"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

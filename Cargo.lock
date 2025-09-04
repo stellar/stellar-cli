@@ -4937,7 +4937,7 @@ dependencies = [
 [[package]]
 name = "stellar-rpc-client"
 version = "23.0.0-rc.6"
-source = "git+https://github.com/stellar/rs-stellar-rpc-client?branch=serde-le#058cb550473141df2d9744d7f0caa54f37a2708a"
+source = "git+https://github.com/stellar/rs-stellar-rpc-client?branch=main#0070d9c5197c3079a14dcc2860f25737f8731650"
 dependencies = [
  "clap",
  "hex",
