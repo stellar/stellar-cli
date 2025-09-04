@@ -1895,7 +1895,11 @@ Create a claimable balance that can be claimed by specified accounts
 
   Default value: `native`
 * `--amount <AMOUNT>` — Amount of asset to store in the entry, in stroops. 1 stroop = 0.0000001 of the asset
-* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants. Examples: - --claimant alice (unconditional) - --claimant 'bob:{"before_absolute_time":"1735689599"}' - --claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'
+* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants.
+
+   Examples:
+
+   - `--claimant alice (unconditional)` - `--claimant 'bob:{"before_absolute_time":"1735689599"}'` - `--claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'`
 
 
 
@@ -2462,7 +2466,11 @@ Create a claimable balance that can be claimed by specified accounts
 
   Default value: `native`
 * `--amount <AMOUNT>` — Amount of asset to store in the entry, in stroops. 1 stroop = 0.0000001 of the asset
-* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants. Examples: - --claimant alice (unconditional) - --claimant 'bob:{"before_absolute_time":"1735689599"}' - --claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'
+* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants.
+
+   Examples:
+
+   - `--claimant alice (unconditional)` - `--claimant 'bob:{"before_absolute_time":"1735689599"}'` - `--claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'`
 
 
 
