@@ -36,10 +36,12 @@ pub struct Args {
 
     /// Claimants of the claimable balance. Format: account_id or account_id:predicate_json
     /// Can be specified multiple times for multiple claimants.
+    ///
     /// Examples:
-    /// - --claimant alice (unconditional)
-    /// - --claimant 'bob:{"before_absolute_time":"1735689599"}'
-    /// - --claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'
+    ///
+    /// - `--claimant alice (unconditional)`
+    /// - `--claimant 'bob:{"before_absolute_time":"1735689599"}'`
+    /// - `--claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'`
     #[arg(long = "claimant", action = clap::ArgAction::Append)]
     pub claimants: Vec<String>,
 }
