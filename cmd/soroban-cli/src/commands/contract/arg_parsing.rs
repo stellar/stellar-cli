@@ -1,4 +1,5 @@
 use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::contract::deploy::wasm::CONSTRUCTOR_FUNCTION_NAME;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
 use crate::xdr::{
@@ -79,7 +80,11 @@ pub fn build_host_function_parameters(
         .max_term_width(300);
 
     for ScSpecFunctionV0 { name, .. } in spec.find_functions()? {
-        cmd = cmd.subcommand(build_custom_cmd(&name.to_utf8_string_lossy(), &spec)?);
+        let function_name = name.to_utf8_string_lossy();
+        // Filter out the constructor function from the invoke command
+        if function_name != CONSTRUCTOR_FUNCTION_NAME {
+            cmd = cmd.subcommand(build_custom_cmd(&function_name, &spec)?);
+        }
     }
     cmd.build();
     let long_help = cmd.render_long_help();
