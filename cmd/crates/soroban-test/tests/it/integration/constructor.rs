@@ -28,7 +28,13 @@ async fn deploy_constructor_contract() {
     let build = constructor_cmd(&sandbox, value, "--build-only")
         .assert()
         .stdout_as_str();
-    let tx = xdr::TransactionEnvelope::from_xdr_base64(&build, Limits::none()).unwrap();
+    let tx = match xdr::TransactionEnvelope::from_xdr_base64(&build, Limits::none()) {
+        Ok(tx) => tx,
+        Err(e) => panic!(
+            "Failed to decode XDR from base64: {:?}\nInput: '{}'",
+            e, build
+        ),
+    };
     let ops = if let xdr::TransactionEnvelope::Tx(TransactionV1Envelope {
         tx: Transaction { operations, .. },
         ..
