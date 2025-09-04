@@ -59,3 +59,6 @@ it = []
 emulator-tests = ["stellar-ledger/emulator-tests"]
 version_lt_23 = []
 version_gte_23 = []
+
+[profile.dev.package."*"]
+debug = 0
