@@ -20,57 +20,60 @@ exclude = [
 ]
 
 [workspace.package]
-version = "23.0.1"
+version = "23.1.2"
 rust-version = "1.89.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
-version = "=23.0.1"
+version = "=23.1.2"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-spec-json]
-version = "=23.0.1"
+version = "=23.1.2"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "23.0.1"
+version = "23.1.2"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "23.0.1"
+version = "23.1.2"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.stellar-ledger]
-version = "=23.0.1"
+version = "=23.1.2"
 path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "23.0.0-rc.2"
+version = "23.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "23.0.0-rc.2"
+version = "23.0.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "23.0.0-rc.2"
+version = "23.0.1"
 
 [workspace.dependencies.soroban-sdk]
-version = "23.0.0-rc.2.1"
+version = "23.0.1"
 
 [workspace.dependencies.soroban-env-host]
-version = "23.0.0-rc.2"
+version = "23.0.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "23.0.0-rc.2"
+version = "23.0.1"
+
+[workspace.dependencies.stellar-asset-spec]
+version = "23.0.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "23.0.0-rc.2"
+version = "23.0.1"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "23.0.0-rc.6"
+version = "23.0.0"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
@@ -95,8 +98,8 @@ clap = { version = "4.1.8", features = [
 ] }
 clap_complete = "4.1.4"
 tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
-tracing-appender = "0.2.2"
+tracing-subscriber = "0.3.20"
+tracing-appender = "0.2.3"
 which = "4.4.0"
 wasmparser = "0.116.1"
 directories = "5.0.1"
