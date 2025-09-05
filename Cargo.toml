@@ -74,6 +74,8 @@ version = "23.0.1"
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
 version = "23.0.0"
+git = "https://github.com/stellar/rs-stellar-rpc-client"
+branch = "feat/add-tx-ledger"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

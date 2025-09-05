@@ -64,4 +64,11 @@ impl Args {
         }
         Ok(tx)
     }
+
+    pub fn print_tx_summary(tx: &GetTransactionResponse) {
+        println!("Transaction Status: {}", tx.status);
+        if let Some(ledger) = tx.ledger {
+            println!("Transaction Ledger: {ledger}");
+        }
+    }
 }
