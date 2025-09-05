@@ -1,0 +1,40 @@
+name: 'Build and Test Rust'
+description: 'Common build and test steps for Rust projects'
+inputs:
+  target:
+    description: 'Rust target triple'
+    required: true
+  rust-version:
+    description: 'Rust version (msrv or latest)'
+    required: true
+    default: 'latest'
+runs:
+  using: 'composite'
+  steps:
+    - uses: stellar/actions/rust-cache@main
+    - name: Use the minimum supported Rust version
+      if: ${{ inputs.rust-version == 'msrv' }}
+      shell: bash
+      run: |
+        msrv="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages | map(.rust_version) | map(values) | min')"
+        rustup override set $msrv
+        rustup component add clippy --toolchain $msrv
+    - run: rustup update
+      shell: bash
+    - run: cargo version
+      shell: bash
+    - run: rustup target add ${{ inputs.target }}
+      shell: bash
+    - run: rustup target add wasm32v1-none
+      shell: bash
+    - if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
+      shell: bash
+    - run: cargo clippy --all-targets --target ${{ inputs.target }}
+      shell: bash
+    - run: make test
+      shell: bash
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        CARGO_BUILD_TARGET: ${{ inputs.target }}
+        CI_TESTS: true

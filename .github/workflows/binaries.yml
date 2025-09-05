@@ -32,49 +32,61 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-22.04-arm # Use 22 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+
+  build-macos:
+    if: github.event_name == 'release' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')))
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - name: stellar-cli
+            binary: stellar
+        sys:
           - os: macos-14
             target: aarch64-apple-darwin
           - os: macos-13
             target: x86_64-apple-darwin
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+
+  build-windows:
+    if: github.event_name == 'release' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')))
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - name: stellar-cli
+            binary: stellar
+        sys:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-    - uses: actions/checkout@v5
-    - run: rustup update
-    - run: rustup target add ${{ matrix.sys.target }}
-
-    - if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get -y install libudev-dev libdbus-1-dev
-
-    - name: Setup vars
-      run: |
-        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
-        echo "VERSION=${version}" >> $GITHUB_ENV
-        echo "NAME=${{ matrix.crate.name }}-${version}-${{ matrix.sys.target }}" >> $GITHUB_ENV
-
-    - name: Build
-      run: |
-        cargo build --package ${{ matrix.crate.name }} --release --target ${{ matrix.sys.target }}
-    - name: Build provenance for binary attestation (release only)
-      if: github.event_name == 'release'
-      uses: actions/attest-build-provenance@v3
-      with:
-        subject-path: target/${{ matrix.sys.target }}/release/${{ matrix.crate.binary }}${{ matrix.sys.ext }}
-    - name: Compress
-      run: |
-          cd target/${{ matrix.sys.target }}/release
-          tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
-
-    - name: Upload to Artifacts
-      uses: ./.github/actions/artifact-upload
-      with:
-        name: ${{ env.NAME }}.tar.gz
-        path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+          binary-ext: ${{ matrix.sys.ext }}
 
   installer:
-    needs: build
+    needs: [build, build-macos, build-windows]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
