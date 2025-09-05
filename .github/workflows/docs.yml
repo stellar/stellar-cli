@@ -13,4 +13,4 @@ jobs:
   docs-validation:
     uses: stellar/stellar-docs/.github/workflows/build.yml@main
     with:
-      stellar-cli-ref: ${{ github.ref }}
+      stellar-cli-ref: ${{ github.sha }}
