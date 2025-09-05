@@ -40,7 +40,7 @@ impl Cmd {
                     println!("{meta_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {
-                    self.args.print_tx_summary(&resp);
+                    args::Args::print_tx_summary(&resp);
                     println!("{}", serde_json::to_string_pretty(&meta)?);
                 }
             }
