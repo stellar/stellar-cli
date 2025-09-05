@@ -128,7 +128,6 @@ glob = "0.3.1"
 fqdn = "0.3.12"
 open = "5.3.0"
 url = "2.5.2"
-wasm-gen = "0.1.4"
 zeroize = "1.8.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"], optional = true }
 whoami = "1.5.2"
@@ -136,6 +135,7 @@ serde_with = "3.11.0"
 rustc_version = "0.4.1"
 prettytable = "0.10.0"
 clap-markdown = "0.1.5"
+wasm-encoder = "0.235.0"
 
 [build-dependencies]
 crate-git-revision = "0.0.6"
