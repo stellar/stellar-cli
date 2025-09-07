@@ -1,6 +1,7 @@
+use std::ffi::OsString;
 use clap::ValueEnum;
 use stellar_xdr::{
-    cli::{decode::InputFormat, Channel},
+    cli::{Channel},
     curr::TypeVariant,
 };
 
@@ -13,9 +14,31 @@ pub enum Error {
 /// Decode a transaction envelope from XDR to JSON
 #[derive(Debug, clap::Parser, Clone, Default)]
 pub struct Cmd {
+    /// XDR or files containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub input: Vec<OsString>,
+    // Input format
+    #[arg(long = "input", value_enum, default_value_t)]
+    pub input_format: InputFormat,
     // Output format
-    #[arg(long, value_enum, default_value_t)]
-    pub output: OutputFormat,
+    #[arg(long = "output", value_enum, default_value_t)]
+    pub output_format: OutputFormat,
+}
+
+#[derive(Default, Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
+pub enum InputFormat {
+    #[default]
+    SingleBase64,
+    Single,
+}
+
+impl From<InputFormat> for stellar_xdr::cli::decode::InputFormat {
+    fn from(v: InputFormat) -> Self {
+        match v {
+            InputFormat::SingleBase64 => Self::SingleBase64,
+            InputFormat::Single => Self::Single,
+        }
+    }
 }
 
 #[derive(Default, Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -37,10 +60,10 @@ impl From<OutputFormat> for stellar_xdr::cli::decode::OutputFormat {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let cmd = stellar_xdr::cli::decode::Cmd {
-            files: vec![],
-            r#type: TypeVariant::TransactionEnvelope.to_string(),
-            input: InputFormat::SingleBase64,
-            output: self.output.into(),
+            input: self.input.clone(),
+            r#type: TypeVariant::TransactionEnvelope.name().to_string(),
+            input_format: self.input_format.into(),
+            output_format: self.output_format.into(),
         };
         cmd.run(&Channel::Curr)?;
         Ok(())
