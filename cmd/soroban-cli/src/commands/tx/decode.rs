@@ -1,9 +1,6 @@
-use std::ffi::OsString;
 use clap::ValueEnum;
-use stellar_xdr::{
-    cli::{Channel},
-    curr::TypeVariant,
-};
+use std::ffi::OsString;
+use stellar_xdr::{cli::Channel, curr::TypeVariant};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
