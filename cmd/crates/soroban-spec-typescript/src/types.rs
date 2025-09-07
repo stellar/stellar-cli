@@ -131,6 +131,7 @@ pub enum Type {
     Tuple { elements: Vec<Type> },
     Error { message: Option<String> },
     Custom { name: String },
+    MuxedAddress,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -167,6 +168,10 @@ pub enum Entry {
         doc: String,
         name: String,
         cases: Vec<ErrorEnumCase>,
+    },
+    Event {
+        doc: String,
+        name: String,
     },
 }
 
@@ -208,6 +213,7 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Error => Type::Error { message: None },
             ScSpecTypeDef::Bytes => Type::Bytes,
             ScSpecTypeDef::String => Type::String,
+            ScSpecTypeDef::MuxedAddress => Type::MuxedAddress,
             ScSpecTypeDef::Address => Type::Address,
             ScSpecTypeDef::Void => Type::Void,
             ScSpecTypeDef::Timepoint => Type::Timepoint,
@@ -249,6 +255,13 @@ impl From<&ScSpecEntry> for Entry {
                 doc: e.doc.to_utf8_string_lossy(),
                 name: e.name.to_utf8_string_lossy(),
                 cases: e.cases.iter().map(Into::into).collect(),
+            },
+            ScSpecEntry::EventV0(e) => Entry::Event {
+                doc: format!(
+                    "{}\nWarning: This is a stub; events are not supported yet",
+                    e.doc.to_utf8_string_lossy()
+                ),
+                name: e.name.to_utf8_string_lossy(),
             },
         }
     }

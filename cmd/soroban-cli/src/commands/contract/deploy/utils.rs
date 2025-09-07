@@ -2,14 +2,12 @@ use regex::Regex;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(
-        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
-    )]
+    #[error("alias must have only letters, numbers, underscores and dashes")]
     InvalidAliasFormat { alias: String },
 }
 
 pub fn alias_validator(alias: &str) -> Result<String, Error> {
-    let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
+    let regex = Regex::new(r"^[a-zA-Z0-9_-]+$").unwrap();
 
     if regex.is_match(alias) {
         Ok(alias.into())
@@ -46,7 +44,7 @@ mod tests {
 
     #[test]
     fn test_alias_validator_with_invalid_inputs() {
-        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
+        let invalid_inputs = ["", "invalid!", "oh no"];
 
         for input in invalid_inputs {
             let result = alias_validator(input);

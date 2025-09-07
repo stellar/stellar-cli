@@ -1,15 +1,20 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
-use crate::xdr::{
-    Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-    LedgerFootprint, Limits, Memo, Operation, OperationBody, OperationMeta, Preconditions,
-    RestoreFootprintOp, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+use crate::{
+    log::extract_events,
+    xdr::{
+        Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
+        LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
+        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
+        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
+        TtlEntry, WriteXdr,
+    },
 };
 use clap::{command, Parser};
 use stellar_strkey::DecodeError;
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::extend,
         global,
@@ -129,7 +134,7 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = crate::print::Print::new(args.map_or(true, |a| a.quiet));
+        let print = crate::print::Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
@@ -156,14 +161,14 @@ impl NetworkRunnable for Cmd {
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
-                ext: ExtensionPoint::V0,
+                ext: SorobanTransactionDataExt::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: vec![].try_into()?,
-                        read_write: entry_keys.try_into()?,
+                        read_write: entry_keys.clone().try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
-                    read_bytes: 0,
+                    disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
@@ -172,52 +177,111 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
+        let tx = simulate_and_assemble_transaction(&client, &tx)
+            .await?
+            .transaction()
+            .clone();
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(*tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
         let meta = res
             .result_meta
             .as_ref()
             .ok_or(Error::MissingOperationResult)?;
-        let events = res.events()?;
+
         tracing::trace!(?meta);
-        if !events.is_empty() {
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
-        }
+
+        let events = extract_events(meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found &
         // restored the entry, so we have to inspect the result meta to tell if it worked or not.
-        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
-            return Err(Error::LedgerEntryNotFound);
+        let changes = match meta {
+            TransactionMeta::V4(TransactionMetaV4 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support restoring a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            TransactionMeta::V3(TransactionMetaV3 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support restoring a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            _ => return Err(Error::LedgerEntryNotFound),
         };
-        tracing::debug!("Operations:\nlen:{}\n{operations:#?}", operations.len());
+        tracing::debug!("Changes:\nlen:{}\n{changes:#?}", changes.len());
 
-        // Simply check if there is exactly one entry here. We only support extending a single
-        // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
-            return Err(Error::LedgerEntryNotFound);
+        if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
+            let entry = client.get_full_ledger_entries(&entry_keys).await?;
+            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+
+            return Ok(TxnResult::Res(extension));
         }
 
-        if operations.len() != 1 {
-            tracing::warn!(
-                "Unexpected number of operations: {}. Currently only handle one.",
-                operations[0].changes.len()
-            );
-        }
         Ok(TxnResult::Res(
-            parse_operations(&operations.to_vec()).ok_or(Error::MissingOperationResult)?,
+            parse_changes(&changes.to_vec()).ok_or(Error::LedgerEntryNotFound)?,
         ))
     }
 }
 
-fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
-    ops.first().and_then(|op| {
-        op.changes.iter().find_map(|entry| match entry {
-            LedgerEntryChange::Updated(LedgerEntry {
+fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
+    match changes.len() {
+        // Handle case with 2 changes (original expected format)
+        2 => match (&changes[0], &changes[1]) {
+            (
+                LedgerEntryChange::State(_),
+                LedgerEntryChange::Restored(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Updated(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                })
+                | LedgerEntryChange::Created(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                }),
+            ) => Some(*live_until_ledger_seq),
+            _ => None,
+        },
+        // Handle case with 1 change (single "Restored" type change)
+        1 => match &changes[0] {
+            LedgerEntryChange::Restored(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Updated(LedgerEntry {
                 data:
                     LedgerEntryData::Ttl(TtlEntry {
                         live_until_ledger_seq,
@@ -234,6 +298,257 @@ fn parse_operations(ops: &[OperationMeta]) -> Option<u32> {
                 ..
             }) => Some(*live_until_ledger_seq),
             _ => None,
-        })
-    })
+        },
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, TtlEntry};
+
+    #[test]
+    fn test_parse_changes_two_changes_restored() {
+        // Test the original expected format with 2 changes
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 12345,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Restored(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(12345));
+    }
+
+    #[test]
+    fn test_parse_changes_two_changes_updated() {
+        // Test the original expected format with 2 changes, but second change is Updated
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 67890,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Updated(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(67890));
+    }
+
+    #[test]
+    fn test_parse_changes_two_changes_created() {
+        // Test the original expected format with 2 changes, but second change is Created
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 11111,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Created(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(11111));
+    }
+
+    #[test]
+    fn test_parse_changes_single_change_restored() {
+        // Test the new single change format with Restored type
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 22222,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![LedgerEntryChange::Restored(LedgerEntry {
+            data: LedgerEntryData::Ttl(ttl_entry),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(22222));
+    }
+
+    #[test]
+    fn test_parse_changes_single_change_updated() {
+        // Test the new single change format with Updated type
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 33333,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![LedgerEntryChange::Updated(LedgerEntry {
+            data: LedgerEntryData::Ttl(ttl_entry),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(33333));
+    }
+
+    #[test]
+    fn test_parse_changes_single_change_created() {
+        // Test the new single change format with Created type
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 44444,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![LedgerEntryChange::Created(LedgerEntry {
+            data: LedgerEntryData::Ttl(ttl_entry),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(44444));
+    }
+
+    #[test]
+    fn test_parse_changes_invalid_two_changes() {
+        // Test invalid 2-change format (first change is not State)
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 55555,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::Restored(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Restored(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_changes_invalid_single_change() {
+        // Test invalid single change format (not TTL data)
+        let changes = vec![LedgerEntryChange::Restored(LedgerEntry {
+            data: LedgerEntryData::Account(crate::xdr::AccountEntry {
+                account_id: crate::xdr::AccountId(crate::xdr::PublicKey::PublicKeyTypeEd25519(
+                    crate::xdr::Uint256([0; 32]),
+                )),
+                balance: 0,
+                seq_num: SequenceNumber(0),
+                num_sub_entries: 0,
+                inflation_dest: None,
+                flags: 0,
+                home_domain: crate::xdr::String32::default(),
+                thresholds: crate::xdr::Thresholds::default(),
+                signers: crate::xdr::VecM::default(),
+                ext: crate::xdr::AccountEntryExt::V0,
+            }),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_changes_empty_changes() {
+        // Test empty changes array
+        let changes = vec![];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_changes_three_changes() {
+        // Test with 3 changes (should return None)
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 66666,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Restored(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Updated(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_changes_mixed_invalid_types() {
+        // Test with mixed valid and invalid change types
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 77777,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
+    }
 }

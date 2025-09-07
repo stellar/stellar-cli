@@ -28,20 +28,20 @@ jobs:
           - name: stellar-cli
             binary: stellar
         sys:
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          - os: ubuntu-22.04 # Use 22 to get an older version of glibc for increased compat
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-22.04-arm # Use 22 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
           - os: macos-14
             target: aarch64-apple-darwin
-          - os: macos-14
+          - os: macos-13
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - run: rustup update
     - run: rustup target add ${{ matrix.sys.target }}
 
@@ -54,59 +54,30 @@ jobs:
         echo "VERSION=${version}" >> $GITHUB_ENV
         echo "NAME=${{ matrix.crate.name }}-${version}-${{ matrix.sys.target }}" >> $GITHUB_ENV
 
-    - name: Package (release only)
-      if: github.event_name == 'release'
-      run: cargo package --no-verify --package ${{ matrix.crate.name }}
-
-    - name: Package Extract (release only)
-      if: github.event_name == 'release'
-      run: |
-        cd target/package
-        tar xvfz ${{ matrix.crate.name }}-$VERSION.crate
-        echo "BUILD_WORKING_DIR=target/package/${{ matrix.crate.name }}-$VERSION" >> $GITHUB_ENV
-
     - name: Build
-      working-directory: ${{ env.BUILD_WORKING_DIR }}
       run: |
-        cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
-
-    - name: Build provenance for attestation (release only)
+        cargo build --package ${{ matrix.crate.name }} --release --target ${{ matrix.sys.target }}
+    - name: Build provenance for binary attestation (release only)
       if: github.event_name == 'release'
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: target/${{ matrix.sys.target }}/release/${{ matrix.crate.binary }}${{ matrix.sys.ext }}
-
     - name: Compress
       run: |
           cd target/${{ matrix.sys.target }}/release
           tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
 
     - name: Upload to Artifacts
-      uses: actions/upload-artifact@v4
+      uses: ./.github/actions/artifact-upload
       with:
         name: ${{ env.NAME }}.tar.gz
         path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
 
-    - name: Upload to Release (release only)
-      if: github.event_name == 'release'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          await github.rest.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: ${{ github.event.release.id }},
-            name: '${{ env.NAME }}.tar.gz',
-            data: fs.readFileSync('target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'),
-          });
-
   installer:
     needs: build
     runs-on: windows-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup vars
         run: |
@@ -118,13 +89,11 @@ jobs:
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
-
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
-
       - name: Build Installer
         shell: powershell
         run: |
@@ -132,30 +101,8 @@ jobs:
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
           mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
-
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/artifact-upload
         with:
           name: ${{ env.STELLAR_CLI_INSTALLER }}
           path: ${{ env.STELLAR_CLI_INSTALLER }}
-
-      - name: Build provenance for attestation (release only)
-        if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: ${{ env.STELLAR_CLI_INSTALLER }}
-
-      - name: Upload to Release (release only)
-        if: github.event_name == 'release'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ github.event.release.id }},
-              name: '${{ env.STELLAR_CLI_INSTALLER }}',
-              data: fs.readFileSync('${{ env.STELLAR_CLI_INSTALLER }}'),
-            });
-

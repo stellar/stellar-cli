@@ -1,6 +1,6 @@
 [package]
 name = "soroban-hello"
-version = "22.2.0"
+version = "23.1.2"
 edition = "2021"
 publish = false
 

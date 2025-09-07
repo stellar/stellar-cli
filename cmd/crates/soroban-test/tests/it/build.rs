@@ -1,19 +1,27 @@
+use assert_fs::TempDir;
+use fs_extra::dir::CopyOptions;
 use predicates::prelude::predicate;
+use shell_escape::escape;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
 use std::env;
 use std::io::Cursor;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[test]
 fn build_all() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release
-cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path(), call_path(), add2_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release
+cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path(),
+        call_path(),
+        add2_path()
+    );
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -29,7 +37,10 @@ fn build_package_by_name() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path()
+    );
     sandbox
         .new_assert_cmd("contract")
         .current_dir(fixture_path)
@@ -54,7 +65,7 @@ fn build_package_by_current_dir() {
         .assert()
         .success()
         .stdout(predicate::eq(
-            with_flags("cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release"),
+            with_flags("cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32v1-none --release"),
         ));
 }
 
@@ -83,7 +94,10 @@ fn build_all_when_in_non_package_directory() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/src/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", parent_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        parent_path()
+    );
 
     sandbox
         .new_assert_cmd("contract")
@@ -100,7 +114,10 @@ fn build_default_members() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-default-members/");
-    let expected = format!("cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32-unknown-unknown --release", add_path());
+    let expected = format!(
+        "cargo rustc --manifest-path={} --crate-type=cdylib --target=wasm32v1-none --release",
+        add_path()
+    );
 
     sandbox
         .new_assert_cmd("contract")
@@ -113,16 +130,19 @@ fn build_default_members() {
 }
 
 #[test]
-#[ignore] // TODO: unignore -- reproduces unfixed bug https://github.com/stellar/stellar-cli/issues/1694
-fn build_with_metadata() {
+fn build_with_metadata_rewrite() {
     let sandbox = TestEnv::default();
+    let outdir = sandbox.dir().join("out");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
-    let outdir = sandbox.dir().join("out");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add");
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("contract meta=added on build")
@@ -133,7 +153,7 @@ fn build_with_metadata() {
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(&fixture_path)
+        .current_dir(&dir_path)
         .arg("build")
         .arg("--meta")
         .arg("meta_replaced=some_new_meta")
@@ -142,13 +162,91 @@ fn build_with_metadata() {
         .assert()
         .success();
 
+    let entries = get_entries(&dir_path, &outdir);
+    let expected_entries = vec![
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "Description".try_into().unwrap(),
+            val: "A test add contract".try_into().unwrap(),
+        }),
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "meta_replaced".try_into().unwrap(),
+            val: "some_new_meta".try_into().unwrap(),
+        }),
+    ];
+
+    assert_eq!(entries, expected_entries);
+}
+
+#[test]
+fn build_with_metadata_diff_dir() {
+    let sandbox = TestEnv::default();
+    let outdir1 = sandbox.dir().join("out-1");
+    let outdir2 = sandbox.dir().join("out-2");
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--meta")
+        .arg("contract meta=added on build")
+        .arg("--out-dir")
+        .arg(&outdir1)
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--meta")
+        .arg("meta_replaced=some_new_meta")
+        .arg("--out-dir")
+        .arg(&outdir2)
+        .assert()
+        .success();
+
+    let entries_dir1 = get_entries(&dir_path, &outdir1);
+    let expected_entries_dir1 = vec![
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "Description".try_into().unwrap(),
+            val: "A test add contract".try_into().unwrap(),
+        }),
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "contract meta".try_into().unwrap(),
+            val: "added on build".try_into().unwrap(),
+        }),
+    ];
+
+    let entries_dir2 = get_entries(&dir_path, &outdir2);
+    let expected_entries_dir2 = vec![
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "Description".try_into().unwrap(),
+            val: "A test add contract".try_into().unwrap(),
+        }),
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "meta_replaced".try_into().unwrap(),
+            val: "some_new_meta".try_into().unwrap(),
+        }),
+    ];
+
+    assert_eq!(entries_dir1, expected_entries_dir1);
+    assert_eq!(entries_dir2, expected_entries_dir2);
+}
+
+fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
     // verify that the metadata added in the contract code via contractmetadata! macro is present
     // as well as the meta that is included on build
-    let wasm_path = fixture_path.join(&outdir).join("add.wasm");
+    let wasm_path = fixture_path.join(outdir).join("add.wasm");
     let wasm = std::fs::read(wasm_path).unwrap();
     let spec = Spec::new(&wasm).unwrap();
     let meta = spec.meta_base64.unwrap();
-    let entries = ScMetaEntry::read_xdr_base64_iter(&mut Limited::new(
+    ScMetaEntry::read_xdr_base64_iter(&mut Limited::new(
         Cursor::new(meta.as_bytes()),
         Limits::none(),
     ))
@@ -163,20 +261,7 @@ fn build_with_metadata() {
         _ => true,
     })
     .collect::<Result<Vec<_>, _>>()
-    .unwrap();
-
-    let expected_entries = vec![
-        ScMetaEntry::ScMetaV0(ScMetaV0 {
-            key: "Description".try_into().unwrap(),
-            val: "A test add contract".try_into().unwrap(),
-        }),
-        ScMetaEntry::ScMetaV0(ScMetaV0 {
-            key: "meta_replaced".try_into().unwrap(),
-            val: "some_new_meta".try_into().unwrap(),
-        }),
-    ];
-
-    assert_eq!(entries, expected_entries);
+    .unwrap()
 }
 
 fn add_path() -> String {
@@ -218,14 +303,20 @@ fn parent_path() -> String {
 fn with_flags(expected: &str) -> String {
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
-    let registry_prefix = registry_prefix.display();
+    let registry_prefix = registry_prefix.display().to_string();
+    #[cfg(windows)]
+    let registry_prefix = registry_prefix.replace('\\', "/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
         expected.split('\n').map(ToString::to_string).collect()
     } else {
         expected
             .split('\n')
-            .map(|x| format!("CARGO_BUILD_RUSTFLAGS=--remap-path-prefix={registry_prefix}= {x}",))
+            .map(|x| {
+                let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
+                let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
+            })
             .collect()
     };
 
@@ -241,7 +332,7 @@ fn with_flags(expected: &str) -> String {
 //
 // See make_rustflags_to_remap_absolute_paths
 #[test]
-#[ignore] // TODO https://github.com/stellar/stellar-cli/issues/1867
+#[ignore = "TODO https://github.com/stellar/stellar-cli/issues/1867"]
 fn remap_absolute_paths() {
     #[derive(Eq, PartialEq, Copy, Clone)]
     enum Remap {
@@ -266,7 +357,7 @@ fn remap_absolute_paths() {
             .success();
 
         let wasm_path = manifest_path
-            .join("target/wasm32-unknown-unknown/release")
+            .join("target/wasm32v1-none/release")
             .join(format!("{contract_name}.wasm"));
 
         let cargo_home = home::cargo_home().unwrap();

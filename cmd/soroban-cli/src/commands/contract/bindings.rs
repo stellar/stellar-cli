@@ -1,6 +1,10 @@
+pub mod flutter;
+pub mod java;
 pub mod json;
+pub mod php;
 pub mod python;
 pub mod rust;
+pub mod swift;
 pub mod typescript;
 
 #[derive(Debug, clap::Subcommand)]
@@ -16,6 +20,18 @@ pub enum Cmd {
 
     /// Generate Python bindings
     Python(python::Cmd),
+
+    /// Generate Java bindings
+    Java(java::Cmd),
+
+    /// Generate Flutter bindings
+    Flutter(flutter::Cmd),
+
+    /// Generate Swift bindings
+    Swift(swift::Cmd),
+
+    /// Generate PHP bindings
+    Php(php::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,6 +47,18 @@ pub enum Error {
 
     #[error(transparent)]
     Python(#[from] python::Error),
+
+    #[error(transparent)]
+    Java(#[from] java::Error),
+
+    #[error(transparent)]
+    Flutter(#[from] flutter::Error),
+
+    #[error(transparent)]
+    Swift(#[from] swift::Error),
+
+    #[error(transparent)]
+    Php(#[from] php::Error),
 }
 
 impl Cmd {
@@ -40,6 +68,10 @@ impl Cmd {
             Cmd::Rust(rust) => rust.run()?,
             Cmd::Typescript(ts) => ts.run().await?,
             Cmd::Python(python) => python.run()?,
+            Cmd::Java(java) => java.run()?,
+            Cmd::Flutter(flutter) => flutter.run()?,
+            Cmd::Swift(swift) => swift.run()?,
+            Cmd::Php(php) => php.run()?,
         }
         Ok(())
     }

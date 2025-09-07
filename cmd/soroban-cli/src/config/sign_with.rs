@@ -1,4 +1,5 @@
 use crate::{
+    config::UnresolvedMuxedAccount,
     print::Print,
     signer::{self, ledger, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
@@ -29,6 +30,8 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Ledger(#[from] signer::ledger::Error),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -58,12 +61,14 @@ pub struct Args {
 }
 
 impl Args {
+    // when a default_signer_account is provided, it will be used as the tx signer if the user does not specify a signer. The default signer should be the tx's source_account.
     pub async fn sign_tx_env(
         &self,
         tx: &TransactionEnvelope,
         locator: &locator::Args,
         network: &Network,
         quiet: bool,
+        default_signer_account: Option<&UnresolvedMuxedAccount>,
     ) -> Result<TransactionEnvelope, Error> {
         let print = Print::new(quiet);
         let signer = if self.sign_with_lab {
@@ -72,7 +77,7 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            let ledger = ledger(
+            let ledger = ledger::new(
                 self.hd_path
                     .unwrap_or_default()
                     .try_into()
@@ -84,7 +89,15 @@ impl Args {
                 print,
             }
         } else {
-            let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSignWithKey)?;
+            // default to using the source account local key, if the user did not pass in a key
+            let key_or_name = match self.sign_with_key.as_deref() {
+                Some(k) => k,
+                None => match default_signer_account {
+                    Some(UnresolvedMuxedAccount::AliasOrSecret(ref s)) => s.as_str(),
+                    _ => return Err(Error::NoSignWithKey),
+                },
+            };
+
             let secret = locator.get_secret_key(key_or_name)?;
             secret.signer(self.hd_path, print).await?
         };

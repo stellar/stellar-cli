@@ -89,7 +89,7 @@ impl Cmd {
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
-        };
+        }
         Ok(())
     }
 }
@@ -99,12 +99,14 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<Hash>;
 
+    #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -152,7 +154,12 @@ impl NetworkRunnable for Cmd {
         // Don't check whether the contract is already installed when the user
         // has requested to perform simulation only and is hoping to get a
         // transaction back.
-        if !self.fee.sim_only {
+        #[cfg(feature = "version_lt_23")]
+        let should_check = !self.fee.sim_only;
+        #[cfg(feature = "version_gte_23")]
+        let should_check = true;
+
+        if should_check {
             let code_key =
                 xdr::LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
             let contract_data = client.get_ledger_entries(&[code_key]).await?;
@@ -188,16 +195,17 @@ impl NetworkRunnable for Cmd {
         let txn = simulate_and_assemble_transaction(&client, &tx_without_preflight).await?;
         let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
 
+        #[cfg(feature = "version_lt_23")]
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(txn));
         }
 
-        let signed_txn = &self.config.sign_with_local_key(*txn).await?;
+        let signed_txn = &self.config.sign(*txn).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
 
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
         }
 
@@ -226,7 +234,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         }
 
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
 

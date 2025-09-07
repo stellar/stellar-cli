@@ -2,7 +2,7 @@
 
 [alias] # command aliases
 f = "fmt"
-md-gen = "run --bin doc-gen --features clap-markdown"
+md-gen = "run --bin doc-gen"
 s = "run --quiet --"
 # b = "build"
 # c = "check"
@@ -21,11 +21,17 @@ s = "run --quiet --"
 # target = "triple"             # build for the target triple (ignored by `cargo install`)
 # target-dir = "target"         # path of where to place all generated artifacts
 rustflags = [
-    "-Wclippy::pedantic",
+    "-Dwarnings",
+    "-Dclippy::all",
+    "-Dclippy::pedantic",
+    "-Aclippy::doc_markdown",
     "-Aclippy::needless_pass_by_value",
     "-Aclippy::must_use_candidate",
     "-Aclippy::missing_panics_doc",
     "-Aclippy::missing_errors_doc",
+    "-Aclippy::result_large_err",
+    "-Aclippy::large-enum-variant",
+    "-Aclippy::unnecessary_debug_formatting",
     # "-Aclippy::missing_safety_doc",
     # "-Aclippy::inline_always",
     # "-Aclippy::default_trait_access",

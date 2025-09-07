@@ -14,6 +14,8 @@ use crate::{
     xdr,
 };
 
+use stellar_xdr::curr::ContractId;
+
 #[derive(Debug, clap::Args, Clone, Default)]
 #[command(group(
     clap::ArgGroup::new("Source")
@@ -162,7 +164,8 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
     } else if let Some(contract_id) = &args.contract_id {
         let contract_id =
             contract_id.resolve_contract_id(&args.locator, &network.network_passphrase)?;
-        let derived_address = xdr::ScAddress::Contract(xdr::Hash(contract_id.0)).to_string();
+        let derived_address =
+            xdr::ScAddress::Contract(ContractId(xdr::Hash(contract_id.0))).to_string();
         print.globeln(format!("Downloading contract spec: {derived_address}"));
         let res = wasm::fetch_from_contract(&contract_id, network).await;
         if let Some(ContractIsStellarAsset) = res.as_ref().err() {
@@ -182,6 +185,6 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
             },
         })
     } else {
-        return Err(Error::MissingArg);
+        Err(Error::MissingArg)
     }
 }

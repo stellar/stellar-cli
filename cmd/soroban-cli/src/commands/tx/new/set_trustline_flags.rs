@@ -46,25 +46,25 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
 
         if cmd.op.set_authorize {
             set_flag(xdr::TrustLineFlags::AuthorizedFlag);
-        };
+        }
         if cmd.op.set_authorize_to_maintain_liabilities {
             set_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
-        };
+        }
         if cmd.op.set_trustline_clawback_enabled {
             set_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
-        };
+        }
 
         let mut clear_flags = 0;
         let mut clear_flag = |flag: xdr::TrustLineFlags| clear_flags |= flag as u32;
         if cmd.op.clear_authorize {
             clear_flag(xdr::TrustLineFlags::AuthorizedFlag);
-        };
+        }
         if cmd.op.clear_authorize_to_maintain_liabilities {
             clear_flag(xdr::TrustLineFlags::AuthorizedToMaintainLiabilitiesFlag);
-        };
+        }
         if cmd.op.clear_trustline_clawback_enabled {
             clear_flag(xdr::TrustLineFlags::TrustlineClawbackEnabledFlag);
-        };
+        }
 
         Ok(xdr::OperationBody::SetTrustLineFlags(
             xdr::SetTrustLineFlagsOp {

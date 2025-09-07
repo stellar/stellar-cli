@@ -1,12 +1,14 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
+use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 
 use crate::{
+    log::extract_events,
     print::Print,
     xdr::{
         Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
         LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
-        SequenceNumber, SorobanResources, SorobanTransactionData, Transaction, TransactionExt,
-        TransactionMeta, TransactionMetaV3, TtlEntry, WriteXdr,
+        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
+        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
+        TtlEntry, WriteXdr,
     },
 };
 use clap::{command, Parser};
@@ -88,6 +90,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    IntError(#[from] TryFromIntError),
 }
 
 impl Cmd {
@@ -124,13 +128,14 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<u32>;
 
+    #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
-        let print = Print::new(args.map_or(false, |a| a.quiet));
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
@@ -159,14 +164,14 @@ impl NetworkRunnable for Cmd {
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
-                ext: ExtensionPoint::V0,
+                ext: SorobanTransactionDataExt::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
-                    read_bytes: 0,
+                    disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
@@ -180,40 +185,51 @@ impl NetworkRunnable for Cmd {
             .transaction()
             .clone();
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        let events = res.events()?;
-        if !events.is_empty() {
-            crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
-        }
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
+        let events = extract_events(&meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.
-        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
-            return Err(Error::LedgerEntryNotFound);
+        let changes = match meta {
+            TransactionMeta::V4(TransactionMetaV4 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support extending a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            TransactionMeta::V3(TransactionMetaV3 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support extending a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            _ => return Err(Error::LedgerEntryNotFound),
         };
 
-        // Simply check if there is exactly one entry here. We only support extending a single
-        // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
-            return Err(Error::LedgerEntryNotFound);
-        }
-
-        if operations[0].changes.is_empty() {
+        if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq;
-            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
-                return Ok(TxnResult::Res(extension));
-            }
+            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+
+            return Ok(TxnResult::Res(extension));
         }
 
-        match (&operations[0].changes[0], &operations[0].changes[1]) {
+        match (&changes[0], &changes[1]) {
             (
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {

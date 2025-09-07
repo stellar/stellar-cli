@@ -93,7 +93,7 @@ impl Cmd {
                         print.warnln(format!(
                             "Overwriting existing contract id: {existing_contract}"
                         ));
-                    };
+                    }
 
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
@@ -152,14 +152,15 @@ impl NetworkRunnable for Cmd {
         }
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        #[cfg(feature = "version_lt_23")]
         if self.fee.sim_only {
             return Ok(TxnResult::Txn(Box::new(txn)));
         }
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
+            .send_transaction_polling(&self.config.sign(txn).await?)
             .await?
             .try_into()?;
-        if args.map_or(true, |a| !a.no_cache) {
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }
 
@@ -175,7 +176,7 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(Hash(contract_id.0));
+    let contract = ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract_id.0)));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),

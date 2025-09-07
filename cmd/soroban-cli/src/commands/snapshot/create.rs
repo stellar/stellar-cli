@@ -459,13 +459,13 @@ impl Cmd {
     // C-address or a contract alias.
     fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
         address.parse().ok().or_else(|| {
-            Some(ScAddress::Contract(
+            Some(ScAddress::Contract(stellar_xdr::curr::ContractId(
                 self.locator
                     .resolve_contract_id(address, network_passphrase)
                     .ok()?
                     .0
                     .into(),
-            ))
+            )))
         })
     }
 }
@@ -566,7 +566,7 @@ async fn cache_bucket(
 
         let stream = response
             .bytes_stream()
-            .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+            .map(|result| result.map_err(std::io::Error::other));
         let stream_reader = StreamReader::new(stream);
         let buf_reader = BufReader::new(stream_reader);
         let mut decoder = GzipDecoder::new(buf_reader);
@@ -665,10 +665,17 @@ fn data_into_key(d: &LedgerEntry) -> LedgerKey {
                 ConfigSettingEntry::ContractExecutionLanes(_) => {
                     ConfigSettingId::ContractExecutionLanes
                 }
-                ConfigSettingEntry::BucketlistSizeWindow(_) => {
-                    ConfigSettingId::BucketlistSizeWindow
-                }
                 ConfigSettingEntry::EvictionIterator(_) => ConfigSettingId::EvictionIterator,
+                ConfigSettingEntry::LiveSorobanStateSizeWindow(_) => {
+                    ConfigSettingId::LiveSorobanStateSizeWindow
+                }
+                ConfigSettingEntry::ContractParallelComputeV0(_) => {
+                    ConfigSettingId::ContractParallelComputeV0
+                }
+                ConfigSettingEntry::ContractLedgerCostExtV0(_) => {
+                    ConfigSettingId::ContractLedgerCostExtV0
+                }
+                ConfigSettingEntry::ScpTiming(_) => ConfigSettingId::ScpTiming,
             },
         }),
         LedgerEntryData::Ttl(e) => LedgerKey::Ttl(LedgerKeyTtl {

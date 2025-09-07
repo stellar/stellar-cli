@@ -1,13 +1,13 @@
-use clap::Parser;
-
-use crate::rpc::{self};
-
 use super::{config::locator, global};
+use clap::Parser;
 
 pub mod add;
 pub mod default;
+pub mod health;
+pub mod info;
 pub mod ls;
 pub mod rm;
+pub mod settings;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -52,6 +52,15 @@ pub enum Cmd {
     #[cfg(feature = "version_lt_23")]
     #[command(subcommand)]
     Container(crate::commands::container::Cmd),
+
+    /// Fetch the health of the configured RPC
+    Health(health::Cmd),
+
+    /// Checks the health of the configured RPC
+    Info(info::Cmd),
+
+    /// Fetch the network's config settings
+    Settings(settings::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -68,6 +77,15 @@ pub enum Error {
     #[error(transparent)]
     Ls(#[from] ls::Error),
 
+    #[error(transparent)]
+    Health(#[from] health::Error),
+
+    #[error(transparent)]
+    Info(#[from] info::Error),
+
+    #[error(transparent)]
+    Settings(#[from] settings::Error),
+
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Start(#[from] crate::commands::container::start::Error),
@@ -79,22 +97,6 @@ pub enum Error {
     #[cfg(feature = "version_lt_23")]
     #[error(transparent)]
     Container(#[from] crate::commands::container::Error),
-
-    #[error(transparent)]
-    Config(#[from] locator::Error),
-
-    #[error("network arg or rpc url and network passphrase are required if using the network")]
-    Network,
-    #[error(transparent)]
-    Rpc(#[from] rpc::Error),
-    #[error(transparent)]
-    HttpClient(#[from] reqwest::Error),
-    #[error("Failed to parse JSON from {0}, {1}")]
-    FailedToParseJSON(String, serde_json::Error),
-    #[error("Invalid URL {0}")]
-    InvalidUrl(String),
-    #[error("Inproper response {0}")]
-    InproperResponse(String),
 }
 
 impl Cmd {
@@ -119,7 +121,10 @@ impl Cmd {
                 );
                 cmd.run(global_args).await?;
             }
-        };
+            Cmd::Health(cmd) => cmd.run(global_args).await?,
+            Cmd::Info(cmd) => cmd.run(global_args).await?,
+            Cmd::Settings(cmd) => cmd.run(global_args).await?,
+        }
         Ok(())
     }
 }

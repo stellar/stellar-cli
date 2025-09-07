@@ -24,7 +24,7 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Key(#[from] key::Error),
-    #[error("Account alias not Found{0}")]
+    #[error("Account alias \"{0}\" not Found")]
     AccountAliasNotFound(String),
 }
 
@@ -56,9 +56,13 @@ impl UnresolvedScAddress {
                 eprintln!(
                     "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
                 );
-                Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0)))
+                Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+                    xdr::Hash(contract.0),
+                )))
             }
-            (Ok(contract), _) => Ok(xdr::ScAddress::Contract(xdr::Hash(contract.0))),
+            (Ok(contract), _) => Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+                xdr::Hash(contract.0),
+            ))),
             (_, Ok(key)) => Ok(xdr::ScAddress::Account(
                 key.muxed_account(None)?.account_id(),
             )),

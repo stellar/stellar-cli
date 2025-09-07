@@ -2,7 +2,7 @@ use soroban_cli::{
     commands,
     xdr::{Limits, WriteXdr},
 };
-use soroban_test::{TestEnv, Wasm};
+use soroban_test::{AssertExt, TestEnv, Wasm};
 use std::fmt::Display;
 
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
@@ -32,6 +32,7 @@ pub enum DeployKind {
     BuildOnly,
     #[default]
     Normal,
+    #[cfg(feature = "version_lt_23")]
     SimOnly,
 }
 
@@ -40,6 +41,7 @@ impl Display for DeployKind {
         match self {
             DeployKind::BuildOnly => write!(f, "--build-only"),
             DeployKind::Normal => write!(f, ""),
+            #[cfg(feature = "version_lt_23")]
             DeployKind::SimOnly => write!(f, "--sim-only"),
         }
     }
@@ -79,6 +81,8 @@ pub async fn deploy_contract(
 ) -> String {
     let mut cmd = sandbox.cmd_with_config::<_, commands::contract::deploy::wasm::Cmd>(
         &[
+            "--config-dir",
+            &sandbox.config_dir().to_string_lossy(),
             "--fee",
             "1000000",
             "--wasm",
@@ -94,14 +98,15 @@ pub async fn deploy_contract(
         .run_cmd_with(cmd, deployer.as_deref().unwrap_or("test"))
         .await
         .unwrap();
+
     match kind {
-        DeployKind::BuildOnly | DeployKind::SimOnly => match res.to_envelope() {
+        DeployKind::Normal => (),
+        _ => match res.to_envelope() {
             commands::txn_result::TxnEnvelopeResult::TxnEnvelope(e) => {
                 return e.to_xdr_base64(Limits::none()).unwrap()
             }
             commands::txn_result::TxnEnvelopeResult::Res(_) => todo!(),
         },
-        DeployKind::Normal => (),
     }
     res.into_result().unwrap().to_string()
 }
@@ -112,14 +117,26 @@ pub async fn extend_contract(sandbox: &TestEnv, id: &str) {
 
 pub async fn extend(sandbox: &TestEnv, id: &str, value: Option<&str>) {
     let mut args = vec!["--id", id, "--ledgers-to-extend", "100001"];
+
     if let Some(value) = value {
         args.push("--key");
         args.push(value);
     }
+
     sandbox
         .new_assert_cmd("contract")
         .arg("extend")
         .args(args)
         .assert()
         .success();
+}
+
+pub fn test_address(sandbox: &TestEnv) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .assert()
+        .success()
+        .stdout_as_str()
 }

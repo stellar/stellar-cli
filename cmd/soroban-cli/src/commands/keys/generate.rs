@@ -34,12 +34,13 @@ pub struct Cmd {
     pub name: KeyName,
 
     /// Do not fund address
+    #[cfg(feature = "version_lt_23")]
     #[arg(long)]
     pub no_fund: bool,
 
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
-    #[arg(long, conflicts_with = "default_seed")]
+    #[arg(long)]
     pub seed: Option<String>,
 
     /// Output the generated identity as a secret key
@@ -56,11 +57,6 @@ pub struct Cmd {
     /// When generating a secret key, which `hd_path` should be used from the original `seed_phrase`.
     #[arg(long)]
     pub hd_path: Option<usize>,
-
-    /// Generate the default seed phrase. Useful for testing.
-    /// Equivalent to --seed 0000000000000000
-    #[arg(long, short = 'd', conflicts_with = "seed")]
-    pub default_seed: bool,
 
     #[command(flatten)]
     pub network: network::Args,
@@ -86,6 +82,7 @@ impl Cmd {
             print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
         }
 
+        #[cfg(feature = "version_lt_23")]
         if !self.fund {
             print.warnln(
                 "Behavior of `generate` will change in the \
@@ -98,29 +95,41 @@ impl Cmd {
         let path = self.config_locator.write_identity(&self.name, &secret)?;
         print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
+        #[cfg(feature = "version_lt_23")]
         if !self.no_fund {
-            let addr = secret.public_key(self.hd_path)?;
-            let network = self.network.get(&self.config_locator)?;
-            network
-                .fund_address(&addr)
-                .await
-                .map_err(|e| {
-                    tracing::warn!("fund_address failed: {e}");
-                })
-                .unwrap_or_default();
-            print.checkln(format!(
-                "Account {:?} funded on {:?}",
-                self.name, network.network_passphrase
-            ));
+            self.fund(&secret, &print).await?;
+        }
+        #[cfg(feature = "version_gte_23")]
+        if self.fund {
+            self.fund(&secret, &print).await?;
         }
 
+        Ok(())
+    }
+
+    async fn fund(&self, secret: &Secret, print: &Print) -> Result<(), Error> {
+        let addr = secret.public_key(self.hd_path)?;
+        let network = self.network.get(&self.config_locator)?;
+        let formatted_name = self.name.to_string();
+        network
+            .fund_address(&addr)
+            .await
+            .map_err(|e| {
+                tracing::warn!("fund_address failed: {e}");
+            })
+            .unwrap_or_default();
+        print.checkln(format!(
+            "Account {} funded on {:?}",
+            formatted_name, network.network_passphrase
+        ));
         Ok(())
     }
 
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            Ok(secure_store::save_secret(print, &self.name, seed_phrase)?)
+            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            Ok(secret.parse()?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
             Ok(secret.private_key(self.hd_path)?.into())
@@ -130,18 +139,13 @@ impl Cmd {
     }
 
     fn seed_phrase(&self) -> Result<SeedPhrase, Error> {
-        Ok(if self.default_seed {
-            secret::test_seed_phrase()
-        } else {
-            secret::seed_phrase_from_seed(self.seed.as_deref())
-        }?)
+        Ok(secret::seed_phrase_from_seed(self.seed.as_deref())?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::config::{address::KeyName, key::Key, secret::Secret};
-    use keyring::{mock, set_default_credential_builder};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -152,13 +156,13 @@ mod tests {
 
         let cmd = super::Cmd {
             name: KeyName("test_name".to_string()),
+            #[cfg(feature = "version_lt_23")]
             no_fund: true,
             seed: None,
             as_secret: false,
             secure_store: false,
             config_locator: locator.clone(),
             hd_path: None,
-            default_seed: false,
             network: super::network::Args::default(),
             fund: false,
             overwrite: false,
@@ -197,8 +201,10 @@ mod tests {
         assert!(matches!(identity, Key::Secret(Secret::SecretKey { .. })));
     }
 
+    #[cfg(feature = "additional-libs")]
     #[tokio::test]
     async fn test_storing_secret_in_secure_store() {
+        use keyring::{mock, set_default_credential_builder};
         set_default_credential_builder(mock::default_credential_builder());
         let (test_locator, mut cmd) = set_up_test();
         cmd.secure_store = true;
@@ -208,5 +214,27 @@ mod tests {
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
         assert!(matches!(identity, Key::Secret(Secret::SecureStore { .. })));
+    }
+
+    #[cfg(not(feature = "additional-libs"))]
+    #[tokio::test]
+    async fn test_storing_in_secure_store_returns_error_when_additional_libs_not_enabled() {
+        let (test_locator, mut cmd) = set_up_test();
+        cmd.secure_store = true;
+        let global_args = global_args();
+
+        let result = cmd.run(&global_args).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Secure Store keys are not allowed: additional-libs feature must be enabled")
+        );
+
+        let identity_result = test_locator.read_identity("test_name");
+        assert!(identity_result.is_err());
+        assert_eq!(
+            identity_result.unwrap_err().to_string(),
+            format!("Failed to find config identity for test_name")
+        );
     }
 }

@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fmt::Write;
 
 use clap::{command, Parser};
 
@@ -41,7 +42,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<String, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
@@ -68,9 +69,9 @@ impl Cmd {
                                 pre_release,
                             },
                         ) => {
-                            meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
+                            let _ = writeln!(meta_str, " • Protocol: v{protocol}");
                             if pre_release != &0 {
-                                meta_str.push_str(&format!(" • Pre-release: v{pre_release}\n"));
+                                let _ = writeln!(meta_str, " • Pre-release: v{pre_release}");
                             }
                         }
                     }
@@ -79,6 +80,8 @@ impl Cmd {
             }
         };
 
-        Ok(res)
+        println!("{res}");
+
+        Ok(())
     }
 }

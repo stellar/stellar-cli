@@ -7,6 +7,7 @@ use soroban_test::{TestEnv, LOCAL_NETWORK_PASSPHRASE};
 async fn test_use_rpc_provider_with_auth_header() {
     // mock out http request to rpc provider
     let server = MockServer::start();
+    #[cfg(feature = "version_lt_23")]
     let generate_account_mock = mock_generate_account(&server);
     let get_network_mock = mock_get_network(&server);
     let get_events_mock = mock_get_events(&server);
@@ -24,13 +25,15 @@ async fn test_use_rpc_provider_with_auth_header() {
         .success();
 
     // generate account is being called in `with_rpc_provider`
+    #[cfg(feature = "version_lt_23")]
     generate_account_mock.assert();
     // get_network and get_events are being called in the `stellar events` command
     get_network_mock.assert();
     get_events_mock.assert();
 }
 
-fn mock_generate_account(server: &MockServer) -> Mock {
+#[cfg(feature = "version_lt_23")]
+fn mock_generate_account(server: &MockServer) -> Mock<'_> {
     let cli_version = soroban_cli::commands::version::pkg();
     let agent = format!("soroban-cli/{cli_version}");
     server.mock(|when, then| {
@@ -42,7 +45,7 @@ fn mock_generate_account(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_network(server: &MockServer) -> Mock {
+fn mock_get_network(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")
@@ -64,7 +67,7 @@ fn mock_get_network(server: &MockServer) -> Mock {
     })
 }
 
-fn mock_get_events(server: &MockServer) -> Mock {
+fn mock_get_events(server: &MockServer) -> Mock<'_> {
     server.mock(|when, then| {
         when.method(POST)
             .path("/")
@@ -92,7 +95,11 @@ fn mock_get_events(server: &MockServer) -> Mock {
             "id": 1,
             "result": GetEventsResponse {
                 events: vec![],
-                latest_ledger: 1000
+                latest_ledger: 1000,
+                cursor: "1234-5".to_string(),
+                latest_ledger_close_time: "2023-10-01T00:00:00Z".to_string(),
+                oldest_ledger: 1,
+                oldest_ledger_close_time: "2023-01-01T00:00:00Z".to_string(),
             }
         }));
     })
