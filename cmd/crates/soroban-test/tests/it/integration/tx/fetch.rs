@@ -1,6 +1,6 @@
 use soroban_cli::{
-    commands::tx::fetch::GetTransactionEvents,
     commands::tx::fetch::fee::FeeTable,
+    commands::tx::fetch::GetTransactionEvents,
     utils::transaction_hash,
     xdr::{
         Limits, ReadXdr, TransactionEnvelope, TransactionMeta, TransactionResult,
