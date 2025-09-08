@@ -82,7 +82,8 @@ async fn tx_encode() {
         .stdout_as_str();
 
     // Verify the round-trip: original XDR should match the re-encoded XDR
-    let original_env = TransactionEnvelope::from_xdr_base64(&original_tx_xdr, Limits::none()).unwrap();
+    let original_env =
+        TransactionEnvelope::from_xdr_base64(&original_tx_xdr, Limits::none()).unwrap();
     let encoded_env = TransactionEnvelope::from_xdr_base64(&encoded_xdr, Limits::none()).unwrap();
 
     assert_eq!(original_env, encoded_env);
