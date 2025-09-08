@@ -53,34 +53,12 @@ fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
     // 3. Direct hash format (64 hex chars): 6f2179b3...
 
     if balance_id.starts_with('B') && balance_id.len() > 50 {
-        // StrKey format - decode manually since stellar-strkey doesn't have claimable balance type yet
-        match decode_strkey_to_hex(balance_id) {
-            Ok(hex_string) => {
-                // The StrKey decodes to the full API format (with 00000000 prefix)
-                // So we need to strip the prefix like we do for API format
-                let cleaned_balance_id =
-                    if hex_string.len() == 72 && hex_string.starts_with("00000000") {
-                        &hex_string[8..]
-                    } else {
-                        &hex_string
-                    };
-
-                let balance_id_bytes =
-                    hex::decode(cleaned_balance_id).map_err(|_| tx::args::Error::InvalidHex {
-                        name: "balance-id".to_string(),
-                        hex: balance_id.to_string(),
-                    })?;
-
-                if balance_id_bytes.len() != 32 {
-                    return Err(tx::args::Error::InvalidHex {
-                        name: "balance-id".to_string(),
-                        hex: balance_id.to_string(),
-                    });
-                }
-
-                Ok(balance_id_bytes)
-            }
-            Err(_) => Err(tx::args::Error::InvalidHex {
+        // StrKey format - use stellar-strkey crate to decode claimable balance address
+        match stellar_strkey::Strkey::from_string(balance_id) {
+            Ok(stellar_strkey::Strkey::ClaimableBalance(stellar_strkey::ClaimableBalance::V0(
+                bytes,
+            ))) => Ok(bytes.to_vec()),
+            _ => Err(tx::args::Error::InvalidHex {
                 name: "balance-id".to_string(),
                 hex: balance_id.to_string(),
             }),
@@ -109,39 +87,6 @@ fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
 
         Ok(balance_id_bytes)
     }
-}
-
-fn decode_strkey_to_hex(strkey: &str) -> Result<String, String> {
-    // Claimable balance IDs are not a recognized StrKey type in stellar-strkey,
-    // so we decode them manually using base32
-    decode_strkey_manually(strkey)
-}
-
-fn decode_strkey_manually(strkey: &str) -> Result<String, String> {
-    use base32::{decode, Alphabet};
-
-    // StrKey uses RFC4648 alphabet without padding
-    let alphabet = Alphabet::Rfc4648 { padding: false };
-
-    // Decode the base32 string
-    let bytes = decode(alphabet, strkey).ok_or_else(|| "Failed to decode base32".to_string())?;
-
-    // Validate minimum length (version + payload + crc)
-    if bytes.len() < 3 {
-        return Err(format!("StrKey too short: {} bytes", bytes.len()));
-    }
-
-    // Extract the payload (skip 1-byte version, exclude 2-byte CRC)
-    let payload_end = bytes.len() - 2; // Exclude 2-byte CRC
-    let mut payload = &bytes[1..payload_end];
-
-    // If payload starts with 00 (claimable balance type indicator), skip it to get the 32-byte hash
-    if payload.len() == 33 && payload[0] == 0x00 {
-        payload = &payload[1..]; // Skip the leading 00 to get the actual 32-byte hash
-    }
-
-    // Return with claimable balance type prefix (00000000)
-    Ok(format!("00000000{}", hex::encode(payload)))
 }
 
 #[cfg(test)]
@@ -237,21 +182,6 @@ mod tests {
             expected_hex,
             "Should match expected hex"
         );
-    }
-
-    #[test]
-    fn test_decode_strkey_manually() {
-        let strkey = "BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA";
-        let expected = "00000000c58728e6803ee8ea3232ea7ec5ae59e0bc8912debe7214d027e9e36fefd1d80d";
-
-        let result = decode_strkey_manually(strkey);
-        assert!(
-            result.is_ok(),
-            "Should decode StrKey successfully: {:?}",
-            result
-        );
-        let actual = result.unwrap();
-        assert_eq!(actual, expected, "Should match expected API format");
     }
 
     #[test]

@@ -560,12 +560,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23ce669cd6c8588f79e15cf450314f9638f967fc5770ff1c7c1deb0925ea7cfa"
 
 [[package]]
-name = "base32"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "022dfe9eb35f19ebbcb51e0b40a5ab759f46ad60cadf7297e0bd085afb50e076"
-
-[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4920,7 +4914,6 @@ dependencies = [
  "assert_fs",
  "async-compression",
  "async-trait",
- "base32 0.5.1",
  "base64 0.21.7",
  "bollard",
  "bytesize",
@@ -4980,7 +4973,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.11",
+ "stellar-strkey 0.0.13",
  "stellar-xdr",
  "strsim",
  "strum 0.17.1",
@@ -5200,7 +5193,7 @@ dependencies = [
  "itertools 0.10.5",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 0.0.11",
+ "stellar-strkey 0.0.13",
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
@@ -5254,7 +5247,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.11",
+ "stellar-strkey 0.0.13",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5374,7 +5367,7 @@ dependencies = [
  "serial_test",
  "sha2 0.10.9",
  "slipped10",
- "stellar-strkey 0.0.11",
+ "stellar-strkey 0.0.13",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5414,7 +5407,7 @@ version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12d2bf45e114117ea91d820a846fd1afbe3ba7d717988fee094ce8227a3bf8bd"
 dependencies = [
- "base32 0.4.0",
+ "base32",
  "crate-git-revision",
  "thiserror 1.0.69",
 ]
@@ -5428,16 +5421,6 @@ dependencies = [
  "crate-git-revision",
  "data-encoding",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "stellar-strkey"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0989c9a05eccbd08b60e603a1c7e3ed3ec92c0de73b8681fc964d272ab2b2697"
-dependencies = [
- "crate-git-revision",
- "data-encoding",
 ]
 
 [[package]]
