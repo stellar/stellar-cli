@@ -560,6 +560,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23ce669cd6c8588f79e15cf450314f9638f967fc5770ff1c7c1deb0925ea7cfa"
 
 [[package]]
+name = "base32"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "022dfe9eb35f19ebbcb51e0b40a5ab759f46ad60cadf7297e0bd085afb50e076"
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4914,6 +4920,7 @@ dependencies = [
  "assert_fs",
  "async-compression",
  "async-trait",
+ "base32 0.5.1",
  "base64 0.21.7",
  "bollard",
  "bytesize",
@@ -5235,6 +5242,7 @@ dependencies = [
  "httpmock",
  "markdown",
  "predicates",
+ "reqwest",
  "sep5",
  "serde_json",
  "sha2 0.10.9",
@@ -5406,7 +5414,7 @@ version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12d2bf45e114117ea91d820a846fd1afbe3ba7d717988fee094ce8227a3bf8bd"
 dependencies = [
- "base32",
+ "base32 0.4.0",
  "crate-git-revision",
  "thiserror 1.0.69",
 ]
