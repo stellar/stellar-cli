@@ -1,7 +1,10 @@
 use super::global;
 
 pub mod args;
+
+pub mod decode;
 pub mod edit;
+pub mod encode;
 pub mod fetch;
 pub mod hash;
 pub mod help;
@@ -49,6 +52,8 @@ pub enum Cmd {
     /// Fetch a transaction from the network by hash
     /// If no subcommand is passed in, the transaction envelope will be returned
     Fetch(fetch::Cmd),
+    Decode(decode::Cmd),
+    Encode(encode::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -73,6 +78,10 @@ pub enum Error {
     Update(#[from] update::Error),
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Decode(#[from] decode::Error),
+    #[error(transparent)]
+    Encode(#[from] encode::Error),
 }
 
 impl Cmd {
@@ -87,6 +96,8 @@ impl Cmd {
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Update(cmd) => cmd.run(global_args).await?,
             Cmd::Fetch(cmd) => cmd.run(global_args).await?,
+            Cmd::Decode(cmd) => cmd.run()?,
+            Cmd::Encode(cmd) => cmd.run()?,
         }
         Ok(())
     }
