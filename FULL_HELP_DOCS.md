@@ -1608,6 +1608,8 @@ Sign, Simulate, and Send transactions
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
 * `fetch` — Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
+* `decode` — Decode a transaction envelope from XDR to JSON
+* `encode` — Encode a transaction envelope from JSON to XDR
 
 
 
@@ -3019,6 +3021,60 @@ Fetch the transaction fee information
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `table`:
     Formatted in a table comparing fee types
+
+
+
+
+## `stellar tx decode`
+
+Decode a transaction envelope from XDR to JSON
+
+**Usage:** `stellar tx decode [OPTIONS] [INPUT]...`
+
+###### **Arguments:**
+
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--input <INPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single-base64`, `single`
+
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `json`
+
+  Possible values: `json`, `json-formatted`
+
+
+
+
+## `stellar tx encode`
+
+Encode a transaction envelope from JSON to XDR
+
+**Usage:** `stellar tx encode [OPTIONS] [INPUT]...`
+
+###### **Arguments:**
+
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--input <INPUT_FORMAT>`
+
+  Default value: `json`
+
+  Possible values: `json`
+
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single-base64`, `single`
 
 
 
