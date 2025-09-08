@@ -1,4 +1,5 @@
 use soroban_cli::{
+    commands::tx::fetch::GetTransactionEvents,
     commands::tx::fetch::fee::FeeTable,
     utils::transaction_hash,
     xdr::{
@@ -282,6 +283,92 @@ async fn tx_fetch_fee() {
         parsed.charged.resource_fee + parsed.charged.inclusion_fee,
         parsed.charged.fee
     );
+}
+
+#[tokio::test]
+async fn tx_fetch_events() {
+    let sandbox = &TestEnv::new();
+    let test_account_alias = "test";
+    let contract_id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some(test_account_alias.to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let tx_xdr = sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--build-only")
+        .arg("--id")
+        .arg(contract_id.clone())
+        .arg("--network")
+        .arg("local")
+        .arg("--")
+        .arg("log")
+        .arg("--str")
+        .arg("hi")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let tx_simulated = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(tx_xdr.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg("--sign-with-key")
+        .arg("test")
+        .write_stdin(tx_simulated.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(signed.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let tx_env = TransactionEnvelope::from_xdr_base64(signed.clone(), Limits::none()).unwrap();
+    let tx = if let TransactionEnvelope::Tx(env) = tx_env {
+        env.tx
+    } else {
+        panic!("Expected TransactionEnvelope::Tx, got something else");
+    };
+
+    let tx_hash = hex::encode(transaction_hash(&tx, &sandbox.network.network_passphrase).unwrap());
+
+    // fetch the tx events
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .arg("fetch")
+        .arg("events")
+        .arg("--hash")
+        .arg(&tx_hash)
+        .arg("--network")
+        .arg("local")
+        .arg("--output")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let parsed: GetTransactionEvents = serde_json::from_str(&output).unwrap();
+    assert!(parsed.diagnostic_events.is_empty());
+    assert_eq!(parsed.contract_events.len(), 1);
+    assert_eq!(parsed.transaction_events.len(), 2);
 }
 
 async fn add_account_data(

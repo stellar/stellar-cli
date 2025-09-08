@@ -1,5 +1,6 @@
 use crate::{commands::global, config::network, xdr::Hash};
 use clap::{command, Subcommand};
+pub use soroban_rpc::GetTransactionEvents;
 use std::fmt::Debug;
 
 mod args;
