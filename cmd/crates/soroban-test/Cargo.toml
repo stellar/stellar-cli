@@ -52,6 +52,7 @@ test-case = "3.3.1"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 httpmock = { workspace = true }
+reqwest = { workspace = true }
 
 [features]
 default = []
