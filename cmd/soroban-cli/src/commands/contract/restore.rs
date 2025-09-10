@@ -269,7 +269,17 @@ fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
                     ..
                 }),
             ) => Some(*live_until_ledger_seq),
-            _ => None,
+                (  LedgerEntryChange::Restored(LedgerEntry {
+                    data:
+                        LedgerEntryData::Ttl(TtlEntry {
+                            live_until_ledger_seq,
+                            ..
+                        }),
+                    ..
+                }), LedgerEntryChange::Restored(_)) => Some(*live_until_ledger_seq),
+            _ => {
+                None
+            },
         },
         // Handle case with 1 change (single "Restored" type change)
         1 => match &changes[0] {
