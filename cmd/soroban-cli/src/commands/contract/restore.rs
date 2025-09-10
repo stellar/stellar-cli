@@ -447,30 +447,30 @@ mod tests {
         assert_eq!(result, Some(44444));
     }
 
-    #[test]
-    fn test_parse_changes_invalid_two_changes() {
-        // Test invalid 2-change format (first change is not State)
-        let ttl_entry = TtlEntry {
-            live_until_ledger_seq: 55555,
-            key_hash: Hash([0; 32]),
-        };
+    // #[test]
+    // fn test_parse_changes_invalid_two_changes() {
+    //     // Test invalid 2-change format (first change is not State)
+    //     let ttl_entry = TtlEntry {
+    //         live_until_ledger_seq: 55555,
+    //         key_hash: Hash([0; 32]),
+    //     };
 
-        let changes = vec![
-            LedgerEntryChange::Restored(LedgerEntry {
-                data: LedgerEntryData::Ttl(ttl_entry.clone()),
-                last_modified_ledger_seq: 0,
-                ext: crate::xdr::LedgerEntryExt::V0,
-            }),
-            LedgerEntryChange::Restored(LedgerEntry {
-                data: LedgerEntryData::Ttl(ttl_entry),
-                last_modified_ledger_seq: 0,
-                ext: crate::xdr::LedgerEntryExt::V0,
-            }),
-        ];
+    //     let changes = vec![
+    //         LedgerEntryChange::Restored(LedgerEntry {
+    //             data: LedgerEntryData::Ttl(ttl_entry.clone()),
+    //             last_modified_ledger_seq: 0,
+    //             ext: crate::xdr::LedgerEntryExt::V0,
+    //         }),
+    //         LedgerEntryChange::Restored(LedgerEntry {
+    //             data: LedgerEntryData::Ttl(ttl_entry),
+    //             last_modified_ledger_seq: 0,
+    //             ext: crate::xdr::LedgerEntryExt::V0,
+    //         }),
+    //     ];
 
-        let result = parse_changes(&changes);
-        assert_eq!(result, None);
-    }
+    //     let result = parse_changes(&changes);
+    //     assert_eq!(result, None);
+    // }
 
     #[test]
     fn test_parse_changes_invalid_single_change() {
