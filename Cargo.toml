@@ -79,7 +79,7 @@ branch = "feat/add-tx-ledger"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
-stellar-strkey = "0.0.11"
+stellar-strkey = "0.0.13"
 sep5 = "0.0.4"
 base64 = "0.21.2"
 thiserror = "1.0.46"
@@ -135,3 +135,4 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = "release"
 panic = "unwind"
+
