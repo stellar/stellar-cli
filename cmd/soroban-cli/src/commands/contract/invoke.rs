@@ -244,6 +244,8 @@ impl NetworkRunnable for Cmd {
 
         let (function, spec, host_function_params, signers) = params;
 
+        // `self.fee.build_only` will be checked again below and the fn will return a TxnResult::Txn
+        // if the user passed the --build-only flag
         let (should_send, cached_simulation) = if self.fee.build_only {
             (ShouldSend::Yes, None)
         } else {
