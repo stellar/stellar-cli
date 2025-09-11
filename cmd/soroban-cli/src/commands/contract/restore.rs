@@ -279,7 +279,8 @@ fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
                 ..
             }) => Some(*live_until_ledger_seq),
             _ => None,
-        }).max()
+        })
+        .max()
 }
 
 #[cfg(test)]
@@ -323,7 +324,7 @@ mod tests {
             key_hash: Hash([0; 32]),
         };
 
-        let counter = "COUNTER".parse::<StringM<32>>().unwrap().into();
+        let counter = "COUNTER".parse::<StringM<32>>().unwrap();
         let contract_data_entry = ContractDataEntry {
             ext: ExtensionPoint::default(),
             contract: ScAddress::Contract(ContractId(Hash([0; 32]))),
