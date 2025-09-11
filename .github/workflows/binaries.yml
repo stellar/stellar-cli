@@ -6,7 +6,9 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}-{{ github.event_name	}}
+  group:
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}-{{ github.event_name	}}
   cancel-in-progress: true
 
 defaults:
@@ -19,7 +21,6 @@ permissions:
   attestations: write
 
 jobs:
-
   build:
     strategy:
       fail-fast: false
@@ -42,7 +43,9 @@ jobs:
           binary-name: ${{ matrix.crate.binary }}
 
   build-macos:
-    if: github.event_name == 'release' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')))
+    if:
+      github.event_name == 'release' || github.ref == 'refs/heads/main' ||
+      startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -64,7 +67,9 @@ jobs:
           binary-name: ${{ matrix.crate.binary }}
 
   build-windows:
-    if: github.event_name == 'release' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')))
+    if:
+      github.event_name == 'release' || github.ref == 'refs/heads/main' ||
+      startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
