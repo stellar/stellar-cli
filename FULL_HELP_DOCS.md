@@ -1097,7 +1097,11 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 * `--secret-key` — (deprecated) Enter secret (S) key when prompted
 * `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
-* `--secure-store` — Save the new key in secure store. This only supports seed phrases for now
+* `--secure-store` — Save the new key in your OS's credential secure store.
+
+   On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
+
+   This only supports seed phrases for now.
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
@@ -1160,7 +1164,9 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
 * `--seed <SEED>` — Optional seed to use when generating seed phrase. Random otherwise
 * `-s`, `--as-secret` — Output the generated identity as a secret key
-* `--secure-store` — Save in OS-specific secure store
+* `--secure-store` — Save the new key in your OS's credential secure store.
+
+   On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--hd-path <HD_PATH>` — When generating a secret key, which `hd_path` should be used from the original `seed_phrase`
@@ -1608,6 +1614,8 @@ Sign, Simulate, and Send transactions
 * `sign` — Sign a transaction envelope appending the signature to the envelope
 * `simulate` — Simulate a transaction envelope from stdin
 * `fetch` — Fetch a transaction from the network by hash If no subcommand is passed in, the transaction envelope will be returned
+* `decode` — Decode a transaction envelope from XDR to JSON
+* `encode` — Encode a transaction envelope from JSON to XDR
 
 
 
@@ -1701,6 +1709,8 @@ Create a new transaction
 * `bump-sequence` — Bump sequence number to invalidate older transactions
 * `change-trust` — Create, update, or delete a trustline
 * `claim-claimable-balance` — Claim a claimable balance by its balance ID
+* `clawback` — Clawback an asset from an account
+* `clawback-claimable-balance` — Clawback a claimable balance by its balance ID
 * `create-account` — Create and fund a new account
 * `create-claimable-balance` — Create a claimable balance that can be claimed by specified accounts
 * `create-passive-sell-offer` — Create a passive sell offer on the Stellar DEX
@@ -1834,6 +1844,66 @@ Claim a claimable balance by its balance ID
 
 
 
+## `stellar tx new clawback`
+
+Clawback an asset from an account
+
+**Usage:** `stellar tx new clawback [OPTIONS] --source-account <SOURCE_ACCOUNT> --from <FROM> --asset <ASSET> --amount <AMOUNT>`
+
+###### **Options:**
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--from <FROM>` — Account to clawback assets from, e.g. `GBX...`
+* `--asset <ASSET>` — Asset to clawback
+* `--amount <AMOUNT>` — Amount of the asset to clawback, in stroops. 1 stroop = 0.0000001 of the asset
+
+
+
+## `stellar tx new clawback-claimable-balance`
+
+Clawback a claimable balance by its balance ID
+
+**Usage:** `stellar tx new clawback-claimable-balance [OPTIONS] --source-account <SOURCE_ACCOUNT> --balance-id <BALANCE_ID>`
+
+###### **Options:**
+
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to clawback. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
+
+
+
 ## `stellar tx new create-account`
 
 Create and fund a new account
@@ -1895,7 +1965,11 @@ Create a claimable balance that can be claimed by specified accounts
 
   Default value: `native`
 * `--amount <AMOUNT>` — Amount of asset to store in the entry, in stroops. 1 stroop = 0.0000001 of the asset
-* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants. Examples: - --claimant alice (unconditional) - --claimant 'bob:{"before_absolute_time":"1735689599"}' - --claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'
+* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants.
+
+   Examples:
+
+   - `--claimant alice (unconditional)` - `--claimant 'bob:{"before_absolute_time":"1735689599"}'` - `--claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'`
 
 
 
@@ -2237,8 +2311,17 @@ Add Operation to a transaction
 * `account-merge` — Transfer XLM balance to another account and remove source account
 * `bump-sequence` — Bump sequence number to invalidate older transactions
 * `change-trust` — Create, update, or delete a trustline
+* `claim-claimable-balance` — Claim a claimable balance by its balance ID
+* `clawback` — Clawback an asset from an account
+* `clawback-claimable-balance` — Clawback a claimable balance by its balance ID
 * `create-account` — Create and fund a new account
+* `create-claimable-balance` — Create a claimable balance that can be claimed by specified accounts
+* `create-passive-sell-offer` — Create a passive sell offer on the Stellar DEX
+* `manage-buy-offer` — Create, update, or delete a buy offer
 * `manage-data` — Set, modify, or delete account data entries
+* `manage-sell-offer` — Create, update, or delete a sell offer
+* `path-payment-strict-receive` — Send a payment with a different asset using path finding, specifying the receive amount
+* `path-payment-strict-send` — Send a payment with a different asset using path finding, specifying the send amount
 * `payment` — Send asset to destination account
 * `set-options` — Set account options like flags, signers, and home domain
 * `set-trustline-flags` — Configure authorization and trustline flags for an asset
@@ -2350,6 +2433,110 @@ Create, update, or delete a trustline
 
 
 
+## `stellar tx operation add claim-claimable-balance`
+
+Claim a claimable balance by its balance ID
+
+**Usage:** `stellar tx operation add claim-claimable-balance [OPTIONS] --source-account <SOURCE_ACCOUNT> --balance-id <BALANCE_ID> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to claim (64-character hex string)
+
+
+
+## `stellar tx operation add clawback`
+
+Clawback an asset from an account
+
+**Usage:** `stellar tx operation add clawback [OPTIONS] --source-account <SOURCE_ACCOUNT> --from <FROM> --asset <ASSET> --amount <AMOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--from <FROM>` — Account to clawback assets from, e.g. `GBX...`
+* `--asset <ASSET>` — Asset to clawback
+* `--amount <AMOUNT>` — Amount of the asset to clawback, in stroops. 1 stroop = 0.0000001 of the asset
+
+
+
+## `stellar tx operation add clawback-claimable-balance`
+
+Clawback a claimable balance by its balance ID
+
+**Usage:** `stellar tx operation add clawback-claimable-balance [OPTIONS] --source-account <SOURCE_ACCOUNT> --balance-id <BALANCE_ID> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to clawback. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
+
+
+
 ## `stellar tx operation add create-account`
 
 Create and fund a new account
@@ -2387,6 +2574,125 @@ Create and fund a new account
 
 
 
+## `stellar tx operation add create-claimable-balance`
+
+Create a claimable balance that can be claimed by specified accounts
+
+**Usage:** `stellar tx operation add create-claimable-balance [OPTIONS] --source-account <SOURCE_ACCOUNT> --amount <AMOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--asset <ASSET>` — Asset to be held in the ClaimableBalanceEntry
+
+  Default value: `native`
+* `--amount <AMOUNT>` — Amount of asset to store in the entry, in stroops. 1 stroop = 0.0000001 of the asset
+* `--claimant <CLAIMANTS>` — Claimants of the claimable balance. Format: account_id or account_id:predicate_json Can be specified multiple times for multiple claimants.
+
+   Examples:
+
+   - `--claimant alice (unconditional)` - `--claimant 'bob:{"before_absolute_time":"1735689599"}'` - `--claimant 'charlie:{"and":[{"before_absolute_time":"1735689599"},{"before_relative_time":"3600"}]}'`
+
+
+
+## `stellar tx operation add create-passive-sell-offer`
+
+Create a passive sell offer on the Stellar DEX
+
+**Usage:** `stellar tx operation add create-passive-sell-offer [OPTIONS] --source-account <SOURCE_ACCOUNT> --selling <SELLING> --buying <BUYING> --amount <AMOUNT> --price <PRICE> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--selling <SELLING>` — Asset to sell
+* `--buying <BUYING>` — Asset to buy
+* `--amount <AMOUNT>` — Amount of selling asset to offer, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
+* `--price <PRICE>` — Price of 1 unit of selling asset in terms of buying asset as "numerator:denominator" (e.g., "1:2" means 0.5)
+
+
+
+## `stellar tx operation add manage-buy-offer`
+
+Create, update, or delete a buy offer
+
+**Usage:** `stellar tx operation add manage-buy-offer [OPTIONS] --source-account <SOURCE_ACCOUNT> --selling <SELLING> --buying <BUYING> --amount <AMOUNT> --price <PRICE> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--selling <SELLING>` — Asset to sell
+* `--buying <BUYING>` — Asset to buy
+* `--amount <AMOUNT>` — Amount of buying asset to purchase, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops). Use `0` to remove the offer
+* `--price <PRICE>` — Price of 1 unit of buying asset in terms of selling asset as "numerator:denominator" (e.g., "1:2" means 0.5)
+* `--offer-id <OFFER_ID>` — Offer ID. If 0, will create new offer. Otherwise, will update existing offer
+
+  Default value: `0`
+
+
+
 ## `stellar tx operation add manage-data`
 
 Set, modify, or delete account data entries
@@ -2419,6 +2725,124 @@ Set, modify, or delete account data entries
 * `--sign-with-ledger` — Sign with a ledger wallet
 * `--data-name <DATA_NAME>` — String up to 64 bytes long. If this is a new Name it will add the given name/value pair to the account. If this Name is already present then the associated value will be modified
 * `--data-value <DATA_VALUE>` — Up to 64 bytes long hex string If not present then the existing Name will be deleted. If present then this value will be set in the `DataEntry`
+
+
+
+## `stellar tx operation add manage-sell-offer`
+
+Create, update, or delete a sell offer
+
+**Usage:** `stellar tx operation add manage-sell-offer [OPTIONS] --source-account <SOURCE_ACCOUNT> --selling <SELLING> --buying <BUYING> --amount <AMOUNT> --price <PRICE> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--selling <SELLING>` — Asset to sell
+* `--buying <BUYING>` — Asset to buy
+* `--amount <AMOUNT>` — Amount of selling asset to offer, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops). Use `0` to remove the offer
+* `--price <PRICE>` — Price of 1 unit of selling asset in terms of buying asset as "numerator:denominator" (e.g., "1:2" means 0.5)
+* `--offer-id <OFFER_ID>` — Offer ID. If 0, will create new offer. Otherwise, will update existing offer
+
+  Default value: `0`
+
+
+
+## `stellar tx operation add path-payment-strict-receive`
+
+Send a payment with a different asset using path finding, specifying the receive amount
+
+**Usage:** `stellar tx operation add path-payment-strict-receive [OPTIONS] --source-account <SOURCE_ACCOUNT> --send-asset <SEND_ASSET> --send-max <SEND_MAX> --destination <DESTINATION> --dest-asset <DEST_ASSET> --dest-amount <DEST_AMOUNT> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--send-asset <SEND_ASSET>` — Asset to send (pay with)
+* `--send-max <SEND_MAX>` — Maximum amount of send asset to deduct from sender's account, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
+* `--destination <DESTINATION>` — Account that receives the payment
+* `--dest-asset <DEST_ASSET>` — Asset that the destination will receive
+* `--dest-amount <DEST_AMOUNT>` — Exact amount of destination asset that the destination account will receive, in stroops. 1 stroop = 0.0000001 of the asset
+* `--path <PATH>` — List of intermediate assets for the payment path, comma-separated (up to 5 assets). Each asset should be in the format 'code:issuer' or 'native' for XLM
+
+
+
+## `stellar tx operation add path-payment-strict-send`
+
+Send a payment with a different asset using path finding, specifying the send amount
+
+**Usage:** `stellar tx operation add path-payment-strict-send [OPTIONS] --source-account <SOURCE_ACCOUNT> --send-asset <SEND_ASSET> --send-amount <SEND_AMOUNT> --destination <DESTINATION> --dest-asset <DEST_ASSET> --dest-min <DEST_MIN> [TX_XDR]`
+
+###### **Arguments:**
+
+* `<TX_XDR>` — Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
+* `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+* `--cost` — Output the cost execution to stderr
+* `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+* `--build-only` — Build the transaction and only write the base64 xdr to stdout
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+* `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+* `--sign-with-lab` — Sign with https://lab.stellar.org
+* `--sign-with-ledger` — Sign with a ledger wallet
+* `--send-asset <SEND_ASSET>` — Asset to send (pay with)
+* `--send-amount <SEND_AMOUNT>` — Amount of send asset to deduct from sender's account, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
+* `--destination <DESTINATION>` — Account that receives the payment
+* `--dest-asset <DEST_ASSET>` — Asset that the destination will receive
+* `--dest-min <DEST_MIN>` — Minimum amount of destination asset that the destination account can receive. The operation will fail if this amount cannot be met
+* `--path <PATH>` — List of intermediate assets for the payment path, comma-separated (up to 5 assets). Each asset should be in the format 'code:issuer' or 'native' for XLM
 
 
 
@@ -2737,6 +3161,60 @@ Fetch the transaction fee information
     Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `table`:
     Formatted in a table comparing fee types
+
+
+
+
+## `stellar tx decode`
+
+Decode a transaction envelope from XDR to JSON
+
+**Usage:** `stellar tx decode [OPTIONS] [INPUT]...`
+
+###### **Arguments:**
+
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--input <INPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single-base64`, `single`
+
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `json`
+
+  Possible values: `json`, `json-formatted`
+
+
+
+
+## `stellar tx encode`
+
+Encode a transaction envelope from JSON to XDR
+
+**Usage:** `stellar tx encode [OPTIONS] [INPUT]...`
+
+###### **Arguments:**
+
+* `<INPUT>` — XDR or files containing XDR to decode, or stdin if empty
+
+###### **Options:**
+
+* `--input <INPUT_FORMAT>`
+
+  Default value: `json`
+
+  Possible values: `json`
+
+* `--output <OUTPUT_FORMAT>`
+
+  Default value: `single-base64`
+
+  Possible values: `single-base64`, `single`
 
 
 

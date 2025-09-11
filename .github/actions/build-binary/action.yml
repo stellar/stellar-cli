@@ -1,0 +1,50 @@
+name: 'Build Binary'
+description: 'Common binary build steps'
+inputs:
+  target:
+    description: 'Rust target triple'
+    required: true
+  crate-name:
+    description: 'Crate name to build'
+    required: true
+  binary-name:
+    description: 'Binary name'
+    required: true
+  binary-ext:
+    description: 'Binary extension (e.g. .exe for Windows)'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - run: rustup update
+      shell: bash
+    - run: rustup target add ${{ inputs.target }}
+      shell: bash
+    - if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get -y install libudev-dev libdbus-1-dev
+      shell: bash
+    - name: Setup vars
+      shell: bash
+      run: |
+        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "${{ inputs.crate-name }}") | .version')"
+        echo "VERSION=${version}" >> $GITHUB_ENV
+        echo "NAME=${{ inputs.crate-name }}-${version}-${{ inputs.target }}" >> $GITHUB_ENV
+    - name: Build
+      shell: bash
+      run: cargo build --package ${{ inputs.crate-name }} --release --target ${{ inputs.target }}
+    - name: Build provenance for binary attestation (release only)
+      if: github.event_name == 'release'
+      uses: actions/attest-build-provenance@v3
+      with:
+        subject-path: target/${{ inputs.target }}/release/${{ inputs.binary-name }}${{ inputs.binary-ext }}
+    - name: Compress
+      shell: bash
+      run: |
+        cd target/${{ inputs.target }}/release
+        tar czvf $NAME.tar.gz ${{ inputs.binary-name }}${{ inputs.binary-ext }}
+    - name: Upload to Artifacts
+      uses: ./.github/actions/artifact-upload
+      with:
+        name: ${{ env.NAME }}.tar.gz
+        path: 'target/${{ inputs.target }}/release/${{ env.NAME }}.tar.gz'
