@@ -143,7 +143,7 @@ pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_w
         },
     )
     .await;
-    
+
     // Now build an invoke transaction that can be safely simulated and sent
     let xdr_base64_build_only = sandbox
         .new_assert_cmd("contract")
