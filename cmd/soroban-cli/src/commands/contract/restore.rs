@@ -239,22 +239,10 @@ impl NetworkRunnable for Cmd {
 }
 
 fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
-    if changes.len() == 3 {
-        return None;
-    }
-
     changes
         .iter()
         .filter_map(|change| match change {
-            LedgerEntryChange::State(LedgerEntry {
-                data:
-                    LedgerEntryData::Ttl(TtlEntry {
-                        live_until_ledger_seq,
-                        ..
-                    }),
-                ..
-            })
-            | LedgerEntryChange::Restored(LedgerEntry {
+            LedgerEntryChange::Restored(LedgerEntry {
                 data:
                     LedgerEntryData::Ttl(TtlEntry {
                         live_until_ledger_seq,
@@ -511,36 +499,6 @@ mod tests {
     fn test_parse_changes_empty_changes() {
         // Test empty changes array
         let changes = vec![];
-
-        let result = parse_changes(&changes);
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_parse_changes_three_changes() {
-        // Test with 3 changes (should return None)
-        let ttl_entry = TtlEntry {
-            live_until_ledger_seq: 66666,
-            key_hash: Hash([0; 32]),
-        };
-
-        let changes = vec![
-            LedgerEntryChange::State(LedgerEntry {
-                data: LedgerEntryData::Ttl(ttl_entry.clone()),
-                last_modified_ledger_seq: 0,
-                ext: crate::xdr::LedgerEntryExt::V0,
-            }),
-            LedgerEntryChange::Restored(LedgerEntry {
-                data: LedgerEntryData::Ttl(ttl_entry.clone()),
-                last_modified_ledger_seq: 0,
-                ext: crate::xdr::LedgerEntryExt::V0,
-            }),
-            LedgerEntryChange::Updated(LedgerEntry {
-                data: LedgerEntryData::Ttl(ttl_entry),
-                last_modified_ledger_seq: 0,
-                ext: crate::xdr::LedgerEntryExt::V0,
-            }),
-        ];
 
         let result = parse_changes(&changes);
         assert_eq!(result, None);
