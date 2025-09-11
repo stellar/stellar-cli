@@ -8,6 +8,8 @@ mod args;
 mod bump_sequence;
 mod change_trust;
 mod claim_claimable_balance;
+mod clawback;
+mod clawback_claimable_balance;
 mod create_account;
 mod create_claimable_balance;
 mod create_passive_sell_offer;
@@ -31,6 +33,10 @@ pub enum Cmd {
     ChangeTrust(change_trust::Cmd),
     #[command(about = help::CLAIM_CLAIMABLE_BALANCE)]
     ClaimClaimableBalance(claim_claimable_balance::Cmd),
+    #[command(about = help::CLAWBACK)]
+    Clawback(clawback::Cmd),
+    #[command(about = help::CLAWBACK_CLAIMABLE_BALANCE)]
+    ClawbackClaimableBalance(clawback_claimable_balance::Cmd),
     #[command(about = help::CREATE_ACCOUNT)]
     CreateAccount(create_account::Cmd),
     #[command(about = help::CREATE_CLAIMABLE_BALANCE)]
@@ -75,6 +81,10 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::BumpSequence(bump_sequence::Cmd { op, .. }) => op.into(),
             Cmd::ChangeTrust(change_trust::Cmd { op, .. }) => op.try_into()?,
             Cmd::ClaimClaimableBalance(claim_claimable_balance::Cmd { op, .. }) => op.try_into()?,
+            Cmd::Clawback(clawback::Cmd { op, .. }) => op.try_into()?,
+            Cmd::ClawbackClaimableBalance(clawback_claimable_balance::Cmd { op, .. }) => {
+                op.try_into()?
+            }
             Cmd::CreateAccount(create_account::Cmd { op, .. }) => op.try_into()?,
             Cmd::CreateClaimableBalance(create_claimable_balance::Cmd { op, .. }) => {
                 op.try_into()?
@@ -118,6 +128,16 @@ impl Cmd {
                 cmd.args.source(),
             ),
             Cmd::ClaimClaimableBalance(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::Clawback(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::ClawbackClaimableBalance(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
