@@ -85,7 +85,8 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-macos:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    if:
+      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -104,7 +105,8 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-windows:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    if:
+      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
