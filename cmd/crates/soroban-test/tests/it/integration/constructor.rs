@@ -71,19 +71,19 @@ async fn deploy_constructor_contract() {
     // Test the actual deployment behavior - it may succeed if RPC server is available,
     // or fail with network error if no RPC server is running
     let deploy_result = constructor_cmd(&sandbox, value, "").assert();
-    
+
     if deploy_result.get_output().status.success() {
         // If deployment succeeds, we're in a test environment with RPC server
         // The test has already validated the XDR generation, which is the main fix
         return;
     }
-    
+
     // If deployment fails, verify it's due to network connectivity (expected in most test environments)
     let stderr = String::from_utf8_lossy(&deploy_result.get_output().stderr);
     assert!(
-        stderr.contains("Connection refused") 
-        || stderr.contains("tcp connect error")
-        || stderr.contains("Networking or low-level protocol error"),
+        stderr.contains("Connection refused")
+            || stderr.contains("tcp connect error")
+            || stderr.contains("Networking or low-level protocol error"),
         "Expected network error, but got: {}",
         stderr
     );
