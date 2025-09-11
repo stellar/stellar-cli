@@ -7,7 +7,7 @@ pub mod search;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
-    /// Search for for CLI plugins using GitHub
+    /// Search for CLI plugins using GitHub
     Search(search::Cmd),
 
     /// List installed plugins
