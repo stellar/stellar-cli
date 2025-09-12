@@ -45,7 +45,7 @@ jobs:
   build-macos:
     if:
       github.event_name == 'release' || github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/')
+      startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +69,7 @@ jobs:
   build-windows:
     if:
       github.event_name == 'release' || github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/')
+      startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
