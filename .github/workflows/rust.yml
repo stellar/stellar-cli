@@ -25,7 +25,7 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "Head ref: ${{ github.head_ref }}"
           echo "Base ref: ${{ github.base_ref }}"
-          echo "Condition result: ${{ github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/') }}"
+          echo "Condition result: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}"
 
   complete:
     if: always()
@@ -97,7 +97,7 @@ jobs:
 
   build-and-test-macos:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
     strategy:
       fail-fast: false
       matrix:
@@ -117,7 +117,7 @@ jobs:
 
   build-and-test-windows:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
     strategy:
       fail-fast: false
       matrix:
