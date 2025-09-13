@@ -86,9 +86,11 @@ impl Cmd {
                 println!("{}", serde_json::to_string(&fee_table)?);
             }
             FeeOutputFormat::JsonFormatted => {
+                args::Args::print_tx_summary(&resp);
                 println!("{}", serde_json::to_string_pretty(&fee_table)?);
             }
             FeeOutputFormat::Table => {
+                args::Args::print_tx_summary(&resp);
                 fee_table.print();
             }
         }
