@@ -8,6 +8,7 @@ pub const CREATE_ACCOUNT: &str = "Create and fund a new account";
 pub const CREATE_CLAIMABLE_BALANCE: &str =
     "Create a claimable balance that can be claimed by specified accounts";
 pub const CREATE_PASSIVE_SELL_OFFER: &str = "Create a passive sell offer on the Stellar DEX";
+pub const LIQUIDITY_POOL_DEPOSIT: &str = "Deposit assets into a liquidity pool";
 pub const MANAGE_BUY_OFFER: &str = "Create, update, or delete a buy offer";
 pub const MANAGE_DATA: &str = "Set, modify, or delete account data entries";
 pub const MANAGE_SELL_OFFER: &str = "Create, update, or delete a sell offer";
