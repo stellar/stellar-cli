@@ -46,6 +46,8 @@ pub enum Error {
     InvalidPrice(String),
     #[error("invalid path: {0}")]
     InvalidPath(String),
+    #[error("invalid pool ID format: {0}")]
+    InvalidPoolId(String),
     #[error("invalid hex for {name}: {hex}")]
     InvalidHex { name: String, hex: String },
 }
