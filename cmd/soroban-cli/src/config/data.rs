@@ -186,6 +186,7 @@ impl TryFrom<GetTransactionResponse> for Action {
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
                 result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
                 result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
+                ledger: res.ledger,
                 events: None,
             },
         })
