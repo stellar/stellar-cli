@@ -12,6 +12,7 @@ pub mod clawback_claimable_balance;
 pub mod create_account;
 pub mod create_claimable_balance;
 pub mod create_passive_sell_offer;
+pub mod liquidity_pool_deposit;
 pub mod manage_buy_offer;
 pub mod manage_data;
 pub mod manage_sell_offer;
@@ -42,6 +43,8 @@ pub enum Cmd {
     CreateClaimableBalance(create_claimable_balance::Cmd),
     #[command(about = super::help::CREATE_PASSIVE_SELL_OFFER)]
     CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
+    #[command(about = super::help::LIQUIDITY_POOL_DEPOSIT)]
+    LiquidityPoolDeposit(liquidity_pool_deposit::Cmd),
     #[command(about = super::help::MANAGE_BUY_OFFER)]
     ManageBuyOffer(manage_buy_offer::Cmd),
     #[command(about = super::help::MANAGE_DATA)]
@@ -79,6 +82,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
             Cmd::CreateClaimableBalance(cmd) => cmd.try_into()?,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.try_into()?,
+            Cmd::LiquidityPoolDeposit(cmd) => cmd.try_into()?,
             Cmd::ManageBuyOffer(cmd) => cmd.try_into()?,
             Cmd::ManageData(cmd) => cmd.into(),
             Cmd::ManageSellOffer(cmd) => cmd.try_into()?,
@@ -104,6 +108,7 @@ impl Cmd {
             Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreateClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::LiquidityPoolDeposit(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageBuyOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageData(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
