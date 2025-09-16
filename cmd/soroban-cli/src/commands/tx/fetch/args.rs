@@ -70,6 +70,6 @@ impl Args {
         if let Some(ledger) = tx.ledger {
             println!("Transaction Ledger: {ledger}");
         }
-        println!()
+        println!();
     }
 }

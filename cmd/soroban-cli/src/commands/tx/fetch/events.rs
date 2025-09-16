@@ -45,9 +45,9 @@ impl Cmd {
         match self.output {
             EventsOutputFormat::Text => {
                 args::Args::print_tx_summary(&resp);
-                Self::print_contract_events(contract_events)?;
-                Self::print_transaction_events(transaction_events)?;
-                Self::print_diagnostic_events(diagnostic_events)?;
+                Self::print_contract_events(contract_events);
+                Self::print_transaction_events(transaction_events);
+                Self::print_diagnostic_events(diagnostic_events);
             }
             EventsOutputFormat::JsonFormatted => {
                 args::Args::print_tx_summary(&resp);
@@ -72,14 +72,14 @@ impl Cmd {
                 format!("I128: {:?}", val.to_string())
             }
             other => {
-                format!("Other: {:?}", other)
+                format!("Other: {other:?}")
             }
         }
     }
 
-    fn print_contract_event(event: &xdr::ContractEvent) -> Result<(), Error> {
+    fn print_contract_event(event: &xdr::ContractEvent) {
         if let Some(id) = event.contract_id.as_ref() {
-            println!("  Contract Id: {}", id.to_string());
+            println!("  Contract Id: {id}");
         }
 
         match &event.body {
@@ -88,42 +88,39 @@ impl Cmd {
                     println!("  Topic[{i}]: {}", Self::get_sc_val_string(topic));
                 }
                 println!("  Data: {}", Self::get_sc_val_string(&body.data));
-                Ok(())
             }
         }
     }
 
-    fn print_contract_events(events: &Vec<Vec<xdr::ContractEvent>>) -> Result<(), Error> {
+    fn print_contract_events(events: &[Vec<xdr::ContractEvent>]) {
         if events.is_empty() {
             println!("Contract Events: None");
-            return Ok(());
+            return
         }
         println!("Contract Events:");
         for event in events.iter().flatten() {
-            Self::print_contract_event(event)?;
+            Self::print_contract_event(event);
             println!();
         }
-        Ok(())
     }
 
-    fn print_transaction_events(events: &Vec<xdr::TransactionEvent>) -> Result<(), Error> {
+    fn print_transaction_events(events: &Vec<xdr::TransactionEvent>) {
         if events.is_empty() {
             println!("Transaction Events: None");
-            return Ok(());
+            return
         }
         println!("Transaction Events:");
         for event in events {
             println!("  Transaction State: {:?}", event.stage);
-            Self::print_contract_event(&event.event)?;
+            Self::print_contract_event(&event.event);
             println!();
         }
-        Ok(())
     }
 
-    fn print_diagnostic_events(events: &Vec<xdr::DiagnosticEvent>) -> Result<(), Error> {
+    fn print_diagnostic_events(events: &Vec<xdr::DiagnosticEvent>) {
         if events.is_empty() {
             println!("Diagnostic Events: None");
-            return Ok(());
+            return
         }
 
         println!("Diagnostic Events:");
@@ -132,9 +129,8 @@ impl Cmd {
                 "  In Successful Contract Call: {:?}",
                 event.in_successful_contract_call
             );
-            Self::print_contract_event(&event.event)?;
+            Self::print_contract_event(&event.event);
             println!();
         }
-        Ok(())
     }
 }
