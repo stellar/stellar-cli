@@ -95,7 +95,7 @@ impl Cmd {
     fn print_contract_events(events: &[Vec<xdr::ContractEvent>]) {
         if events.is_empty() {
             println!("Contract Events: None");
-            return
+            return;
         }
         println!("Contract Events:");
         for event in events.iter().flatten() {
@@ -107,7 +107,7 @@ impl Cmd {
     fn print_transaction_events(events: &Vec<xdr::TransactionEvent>) {
         if events.is_empty() {
             println!("Transaction Events: None");
-            return
+            return;
         }
         println!("Transaction Events:");
         for event in events {
@@ -120,7 +120,7 @@ impl Cmd {
     fn print_diagnostic_events(events: &Vec<xdr::DiagnosticEvent>) {
         if events.is_empty() {
             println!("Diagnostic Events: None");
-            return
+            return;
         }
 
         println!("Diagnostic Events:");
