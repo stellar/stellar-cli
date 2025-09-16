@@ -14,6 +14,7 @@ mod create_account;
 mod create_claimable_balance;
 mod create_passive_sell_offer;
 mod liquidity_pool_deposit;
+mod liquidity_pool_withdraw;
 mod manage_buy_offer;
 mod manage_data;
 mod manage_sell_offer;
@@ -46,6 +47,8 @@ pub enum Cmd {
     CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
     #[command(about = help::LIQUIDITY_POOL_DEPOSIT)]
     LiquidityPoolDeposit(liquidity_pool_deposit::Cmd),
+    #[command(about = help::LIQUIDITY_POOL_WITHDRAW)]
+    LiquidityPoolWithdraw(liquidity_pool_withdraw::Cmd),
     #[command(about = help::MANAGE_BUY_OFFER)]
     ManageBuyOffer(manage_buy_offer::Cmd),
     #[command(about = help::MANAGE_DATA)]
@@ -96,6 +99,7 @@ impl TryFrom<&Cmd> for OperationBody {
                 op.try_into()?
             }
             Cmd::LiquidityPoolDeposit(liquidity_pool_deposit::Cmd { op, .. }) => op.try_into()?,
+            Cmd::LiquidityPoolWithdraw(liquidity_pool_withdraw::Cmd { op, .. }) => op.try_into()?,
             Cmd::ManageBuyOffer(manage_buy_offer::Cmd { op, .. }) => op.try_into()?,
             Cmd::ManageData(manage_data::Cmd { op, .. }) => op.into(),
             Cmd::ManageSellOffer(manage_sell_offer::Cmd { op, .. }) => op.try_into()?,
@@ -162,6 +166,11 @@ impl Cmd {
                 cmd.args.source(),
             ),
             Cmd::LiquidityPoolDeposit(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::LiquidityPoolWithdraw(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
