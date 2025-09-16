@@ -165,6 +165,47 @@ impl Cmd {
         print.infoln(format!("Network Passphrase: {network_passphrase}"));
         print.infoln(format!("Network id: {}", hex::encode(network_id)));
 
+        // Get ledger close time and base reserve from RPC
+        let mut ledger_close_time = 0u64;
+        let mut base_reserve = 1u32; // Default value
+        if let Ok(network) = self.network.get(&global_args.locator) {
+            if let Ok(client) = network.rpc_client() {
+                match client
+                    .get_ledgers(
+                        crate::rpc::LedgerStart::Ledger(ledger),
+                        Some(1),
+                        Some("json".to_string()),
+                    )
+                    .await
+                {
+                    Ok(result) if !result.ledgers.is_empty() => {
+                        let ledger_data = &result.ledgers[0];
+
+                        if let Ok(parsed_time) = ledger_data.ledger_close_time.parse::<u64>() {
+                            ledger_close_time = parsed_time;
+                            print.infoln(format!("Ledger Close Time: {ledger_close_time}"));
+                        } else {
+                            print.warnln(format!(
+                                "Failed to parse ledger close time: {}",
+                                ledger_data.ledger_close_time
+                            ));
+                        }
+
+                        if let Some(header_json) = &ledger_data.header_json {
+                            base_reserve = header_json.header.base_reserve;
+                            print.infoln(format!("Base Reserve: {base_reserve}"));
+                        }
+                    }
+                    Ok(_) => print.warnln("No ledger data returned from RPC"),
+                    Err(e) => print.warnln(format!("Failed to get ledger data from RPC: {e}")),
+                }
+            } else {
+                print.warnln("Failed to create RPC client for ledger data");
+            }
+        } else {
+            print.warnln("Network configuration not available for RPC access");
+        }
+
         // Prepare a flat list of buckets to read. They'll be ordered by their
         // level so that they can iterated higher level to lower level.
         let buckets = history
@@ -182,12 +223,11 @@ impl Cmd {
         // The snapshot is what will be written to file at the end. Fields will
         // be updated while parsing the history archive.
         let mut snapshot = LedgerSnapshot {
-            // TODO: Update more of the fields.
             protocol_version: 0,
             sequence_number: ledger,
-            timestamp: 0,
+            timestamp: ledger_close_time,
             network_id: network_id.into(),
-            base_reserve: 1,
+            base_reserve,
             min_persistent_entry_ttl: 0,
             min_temp_entry_ttl: 0,
             max_entry_ttl: 0,
@@ -287,6 +327,18 @@ impl Cmd {
                     if seen.contains(&key) {
                         continue;
                     }
+
+                    // Extract TTL settings from StateArchival config entries before filtering
+                    let Some(val) = val else { continue };
+                    if let LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(
+                        state_archival,
+                    )) = &val.data
+                    {
+                        snapshot.min_persistent_entry_ttl = state_archival.min_persistent_ttl;
+                        snapshot.min_temp_entry_ttl = state_archival.min_temporary_ttl;
+                        snapshot.max_entry_ttl = state_archival.max_entry_ttl;
+                    }
+
                     let keep = match &key {
                         LedgerKey::Account(k) => current.account_ids.contains(&k.account_id),
                         LedgerKey::Trustline(k) => current.account_ids.contains(&k.account_id),
@@ -298,7 +350,6 @@ impl Cmd {
                         continue;
                     }
                     seen.insert(key.clone());
-                    let Some(val) = val else { continue };
                     match &val.data {
                         LedgerEntryData::ContractData(e) => {
                             // If a contract instance references contract
