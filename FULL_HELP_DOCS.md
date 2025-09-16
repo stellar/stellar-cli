@@ -3269,6 +3269,8 @@ Fetch the transaction events
     JSON output of the events with parsed XDRs (one line, not formatted)
   - `json-formatted`:
     Formatted (multiline) JSON output of events with parsed XDRs
+  - `text`:
+    Human readable event output with parsed XDRs
 
 
 
