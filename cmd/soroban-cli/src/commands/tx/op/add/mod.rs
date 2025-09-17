@@ -117,6 +117,7 @@ impl TryFrom<&Cmd> for OperationBody {
 }
 
 impl Cmd {
+    #[allow(clippy::too_many_lines)]
     pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
         let op = OperationBody::try_from(self)?;
         let res = match self {
