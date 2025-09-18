@@ -20,3 +20,6 @@ pub const PATH_PAYMENT_STRICT_RECEIVE: &str =
 pub const PAYMENT: &str = "Send asset to destination account";
 pub const SET_OPTIONS: &str = "Set account options like flags, signers, and home domain";
 pub const SET_TRUSTLINE_FLAGS: &str = "Configure authorization and trustline flags for an asset";
+pub const BEGIN_SPONSORING_FUTURE_RESERVES: &str =
+    "Begin sponsoring future reserves for another account";
+pub const END_SPONSORING_FUTURE_RESERVES: &str = "End sponsoring future reserves";

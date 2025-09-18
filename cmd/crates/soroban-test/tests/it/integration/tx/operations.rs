@@ -1580,3 +1580,87 @@ async fn clawback() {
         .assert()
         .failure();
 }
+
+#[tokio::test]
+async fn begin_sponsoring_future_reserves() {
+    let sandbox = &TestEnv::new();
+    let client = sandbox.network.rpc_client().unwrap();
+    let (test, _test1) = setup_accounts(sandbox);
+
+    // Create a new account to sponsor
+    let sponsored_account = gen_account_no_fund(sandbox, "sponsored");
+
+    let test_balance_before = client.get_account(&test).await.unwrap().balance;
+
+    // Begin sponsoring future reserves for the sponsored account
+    let sponsor_tx = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "begin-sponsoring-future-reserves",
+            "--sponsored-id",
+            &sponsored_account,
+            "--fee",
+            "1000000", // Higher fee for sponsoring operations
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Add create account operation to the sponsoring transaction
+    let create_account_tx = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "op",
+            "add",
+            "create-account",
+            "--destination",
+            &sponsored_account,
+            "--starting-balance",
+            "10000000", // Give it a starting balance to avoid LowReserve
+        ])
+        .write_stdin(sponsor_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Add end sponsoring future reserves operation
+    let complete_tx = sandbox
+        .new_assert_cmd("tx")
+        .args(["op", "add", "end-sponsoring-future-reserves"])
+        .write_stdin(create_account_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Submit the transaction
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(
+            sandbox
+                .new_assert_cmd("tx")
+                .arg("sign")
+                .arg("--sign-with-key=test")
+                .write_stdin(complete_tx.as_bytes())
+                .assert()
+                .success()
+                .stdout_as_str()
+                .as_bytes(),
+        )
+        .assert()
+        .success();
+
+    let test_balance_after = client.get_account(&test).await.unwrap().balance;
+
+    // The sponsored account should exist
+    let sponsored_account_info = client.get_account(&sponsored_account).await.unwrap();
+    assert_eq!(sponsored_account_info.balance, 10000000);
+
+    // The sponsor account balance should be lower due to sponsoring the reserves
+    assert!(
+        test_balance_after < test_balance_before,
+        "Sponsor account should have paid for the sponsored account reserves"
+    );
+}

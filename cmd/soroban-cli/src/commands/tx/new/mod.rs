@@ -4,6 +4,7 @@ use soroban_sdk::xdr::OperationBody;
 use super::global;
 
 pub mod account_merge;
+pub mod begin_sponsoring_future_reserves;
 pub mod bump_sequence;
 pub mod change_trust;
 pub mod claim_claimable_balance;
@@ -12,6 +13,7 @@ pub mod clawback_claimable_balance;
 pub mod create_account;
 pub mod create_claimable_balance;
 pub mod create_passive_sell_offer;
+pub mod end_sponsoring_future_reserves;
 pub mod liquidity_pool_deposit;
 pub mod liquidity_pool_withdraw;
 pub mod manage_buy_offer;
@@ -28,6 +30,8 @@ pub mod set_trustline_flags;
 pub enum Cmd {
     #[command(about = super::help::ACCOUNT_MERGE)]
     AccountMerge(account_merge::Cmd),
+    #[command(about = super::help::BEGIN_SPONSORING_FUTURE_RESERVES)]
+    BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd),
     #[command(about = super::help::BUMP_SEQUENCE)]
     BumpSequence(bump_sequence::Cmd),
     #[command(about = super::help::CHANGE_TRUST)]
@@ -44,6 +48,8 @@ pub enum Cmd {
     CreateClaimableBalance(create_claimable_balance::Cmd),
     #[command(about = super::help::CREATE_PASSIVE_SELL_OFFER)]
     CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
+    #[command(about = super::help::END_SPONSORING_FUTURE_RESERVES)]
+    EndSponsoringFutureReserves(end_sponsoring_future_reserves::Cmd),
     #[command(about = super::help::LIQUIDITY_POOL_DEPOSIT)]
     LiquidityPoolDeposit(liquidity_pool_deposit::Cmd),
     #[command(about = super::help::LIQUIDITY_POOL_WITHDRAW)]
@@ -77,6 +83,7 @@ impl TryFrom<&Cmd> for OperationBody {
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(match cmd {
             Cmd::AccountMerge(cmd) => cmd.try_into()?,
+            Cmd::BeginSponsoringFutureReserves(cmd) => cmd.try_into()?,
             Cmd::BumpSequence(cmd) => cmd.into(),
             Cmd::ChangeTrust(cmd) => cmd.try_into()?,
             Cmd::ClaimClaimableBalance(cmd) => cmd.try_into()?,
@@ -85,6 +92,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::CreateAccount(cmd) => cmd.try_into()?,
             Cmd::CreateClaimableBalance(cmd) => cmd.try_into()?,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.try_into()?,
+            Cmd::EndSponsoringFutureReserves(cmd) => cmd.into(),
             Cmd::LiquidityPoolDeposit(cmd) => cmd.try_into()?,
             Cmd::LiquidityPoolWithdraw(cmd) => cmd.try_into()?,
             Cmd::ManageBuyOffer(cmd) => cmd.try_into()?,
@@ -104,6 +112,9 @@ impl Cmd {
         let op = OperationBody::try_from(self)?;
         match self {
             Cmd::AccountMerge(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::BeginSponsoringFutureReserves(cmd) => {
+                cmd.tx.handle_and_print(op, global_args).await
+            }
             Cmd::BumpSequence(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ClaimClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
@@ -112,6 +123,7 @@ impl Cmd {
             Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreateClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::CreatePassiveSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::EndSponsoringFutureReserves(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::LiquidityPoolDeposit(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::LiquidityPoolWithdraw(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::ManageBuyOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
