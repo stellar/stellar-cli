@@ -1585,19 +1585,22 @@ async fn clawback() {
 async fn begin_sponsoring_future_reserves() {
     let sandbox = &TestEnv::new();
     let client = sandbox.network.rpc_client().unwrap();
-    let (test, _test1) = setup_accounts(sandbox);
 
-    // Create a new account to sponsor
+    // Create sponsor account (use test account as sponsor)
+    let sponsor = test_address(sandbox);
+
+    // Create a new account to sponsor (but don't fund it)
     let sponsored_account = gen_account_no_fund(sandbox, "sponsored");
 
-    let test_balance_before = client.get_account(&test).await.unwrap().balance;
+    let sponsor_balance_before = client.get_account(&sponsor).await.unwrap().balance;
 
-    // Begin sponsoring future reserves for the sponsored account
     let sponsor_tx = sandbox
         .new_assert_cmd("tx")
         .args([
             "new",
             "begin-sponsoring-future-reserves",
+            "--source-account",
+            "test",
             "--sponsored-id",
             &sponsored_account,
             "--fee",
@@ -1608,7 +1611,7 @@ async fn begin_sponsoring_future_reserves() {
         .success()
         .stdout_as_str();
 
-    // Add create account operation to the sponsoring transaction
+    // Add create account operation with sponsor as operation source
     let create_account_tx = sandbox
         .new_assert_cmd("tx")
         .args([
@@ -1618,18 +1621,44 @@ async fn begin_sponsoring_future_reserves() {
             "--destination",
             &sponsored_account,
             "--starting-balance",
-            "10000000", // Give it a starting balance to avoid LowReserve
+            "50000000",
+            "--operation-source-account",
+            "test", // sponsor account
         ])
         .write_stdin(sponsor_tx.as_bytes())
         .assert()
         .success()
         .stdout_as_str();
 
-    // Add end sponsoring future reserves operation
+    // Add end sponsoring future reserves operation with sponsored account as operation source
     let complete_tx = sandbox
         .new_assert_cmd("tx")
-        .args(["op", "add", "end-sponsoring-future-reserves"])
+        .args([
+            "op",
+            "add",
+            "end-sponsoring-future-reserves",
+            "--operation-source-account",
+            "sponsored",
+        ])
         .write_stdin(create_account_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Sign with sponsor first
+    let sponsor_signed_tx = sandbox
+        .new_assert_cmd("tx")
+        .args(["sign", "--sign-with-key=test"])
+        .write_stdin(complete_tx.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Sign with sponsored account second
+    let fully_signed_tx = sandbox
+        .new_assert_cmd("tx")
+        .args(["sign", "--sign-with-key=sponsored"])
+        .write_stdin(sponsor_signed_tx.as_bytes())
         .assert()
         .success()
         .stdout_as_str();
@@ -1638,29 +1667,19 @@ async fn begin_sponsoring_future_reserves() {
     sandbox
         .new_assert_cmd("tx")
         .arg("send")
-        .write_stdin(
-            sandbox
-                .new_assert_cmd("tx")
-                .arg("sign")
-                .arg("--sign-with-key=test")
-                .write_stdin(complete_tx.as_bytes())
-                .assert()
-                .success()
-                .stdout_as_str()
-                .as_bytes(),
-        )
+        .write_stdin(fully_signed_tx.as_bytes())
         .assert()
         .success();
 
-    let test_balance_after = client.get_account(&test).await.unwrap().balance;
+    let sponsor_balance_after = client.get_account(&sponsor).await.unwrap().balance;
 
     // The sponsored account should exist
     let sponsored_account_info = client.get_account(&sponsored_account).await.unwrap();
-    assert_eq!(sponsored_account_info.balance, 10000000);
+    assert_eq!(sponsored_account_info.balance, 50000000);
 
     // The sponsor account balance should be lower due to sponsoring the reserves
     assert!(
-        test_balance_after < test_balance_before,
+        sponsor_balance_after < sponsor_balance_before,
         "Sponsor account should have paid for the sponsored account reserves"
     );
 }
