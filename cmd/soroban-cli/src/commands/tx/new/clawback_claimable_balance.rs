@@ -46,7 +46,7 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     }
 }
 
-fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
+pub fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
     // Handle multiple formats:
     // 1. StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
     // 2. API format with type prefix (72 hex chars): 000000006f2179b3...

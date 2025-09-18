@@ -23,6 +23,7 @@ mod manage_sell_offer;
 mod path_payment_strict_receive;
 mod path_payment_strict_send;
 mod payment;
+mod revoke_sponsorship;
 mod set_options;
 mod set_trustline_flags;
 
@@ -67,6 +68,8 @@ pub enum Cmd {
     PathPaymentStrictSend(path_payment_strict_send::Cmd),
     #[command(about = help::PAYMENT)]
     Payment(payment::Cmd),
+    #[command(about = help::REVOKE_SPONSORSHIP)]
+    RevokeSponsorship(revoke_sponsorship::Cmd),
     #[command(about = help::SET_OPTIONS)]
     SetOptions(set_options::Cmd),
     #[command(about = help::SET_TRUSTLINE_FLAGS)]
@@ -123,6 +126,7 @@ impl TryFrom<&Cmd> for OperationBody {
                 op.try_into()?
             }
             Cmd::Payment(payment::Cmd { op, .. }) => op.try_into()?,
+            Cmd::RevokeSponsorship(revoke_sponsorship::Cmd { op, .. }) => op.try_into()?,
             Cmd::SetOptions(set_options::Cmd { op, .. }) => op.try_into()?,
             Cmd::SetTrustlineFlags(set_trustline_flags::Cmd { op, .. }) => op.try_into()?,
         })
@@ -225,6 +229,11 @@ impl Cmd {
                 cmd.args.source(),
             ),
             Cmd::Payment(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::RevokeSponsorship(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),

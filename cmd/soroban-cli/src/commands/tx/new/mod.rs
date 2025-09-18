@@ -22,6 +22,7 @@ pub mod manage_sell_offer;
 pub mod path_payment_strict_receive;
 pub mod path_payment_strict_send;
 pub mod payment;
+pub mod revoke_sponsorship;
 pub mod set_options;
 pub mod set_trustline_flags;
 
@@ -66,6 +67,8 @@ pub enum Cmd {
     PathPaymentStrictReceive(path_payment_strict_receive::Cmd),
     #[command(about = super::help::PAYMENT)]
     Payment(payment::Cmd),
+    #[command(about = super::help::REVOKE_SPONSORSHIP)]
+    RevokeSponsorship(revoke_sponsorship::Cmd),
     #[command(about = super::help::SET_OPTIONS)]
     SetOptions(set_options::Cmd),
     #[command(about = super::help::SET_TRUSTLINE_FLAGS)]
@@ -101,6 +104,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::PathPaymentStrictSend(cmd) => cmd.try_into()?,
             Cmd::PathPaymentStrictReceive(cmd) => cmd.try_into()?,
             Cmd::Payment(cmd) => cmd.try_into()?,
+            Cmd::RevokeSponsorship(cmd) => cmd.try_into()?,
             Cmd::SetOptions(cmd) => cmd.try_into()?,
             Cmd::SetTrustlineFlags(cmd) => cmd.try_into()?,
         })
@@ -132,6 +136,7 @@ impl Cmd {
             Cmd::PathPaymentStrictSend(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::PathPaymentStrictReceive(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::Payment(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::RevokeSponsorship(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(op, global_args).await,
         }?;
