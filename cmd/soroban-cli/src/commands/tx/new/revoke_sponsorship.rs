@@ -35,14 +35,14 @@ pub struct Args {
     /// Pool ID for liquidity pool sponsorship. Accepts multiple formats:
     /// - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
     /// - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
-    /// - StrKey format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    /// - Address format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     #[arg(long, group = "sponsorship_type")]
     pub liquidity_pool_id: Option<String>,
 
     /// Claimable balance ID for claimable balance sponsorship. Accepts multiple formats:
     /// - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
     /// - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
-    /// - StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
+    /// - Address format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
     #[arg(long, group = "sponsorship_type")]
     pub claimable_balance_id: Option<String>,
 
@@ -53,7 +53,7 @@ pub struct Args {
 
 fn parse_liquidity_pool_id(pool_id: &str) -> Result<Vec<u8>, tx::args::Error> {
     // Handle multiple formats:
-    // 1. StrKey format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    // 1. Address format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     // 2. API format with type prefix (72 hex chars): 000000006f2179b3...
     // 3. Direct hash format (64 hex chars): 6f2179b3...
 
