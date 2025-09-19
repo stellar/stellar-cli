@@ -23,3 +23,4 @@ pub const SET_TRUSTLINE_FLAGS: &str = "Configure authorization and trustline fla
 pub const BEGIN_SPONSORING_FUTURE_RESERVES: &str =
     "Begin sponsoring future reserves for another account";
 pub const END_SPONSORING_FUTURE_RESERVES: &str = "End sponsoring future reserves";
+pub const REVOKE_SPONSORSHIP: &str = "Revoke sponsorship of a ledger entry or signer";
