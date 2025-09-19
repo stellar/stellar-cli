@@ -20,7 +20,7 @@ pub struct Args {
     #[arg(long)]
     pub account_id: address::UnresolvedMuxedAccount,
 
-    /// Asset for trustline sponsorship (format: CODE:ISSUER or native)
+    /// Asset for trustline sponsorship (format: CODE:ISSUER)
     #[arg(long, group = "sponsorship_type")]
     pub asset: Option<builder::Asset>,
 

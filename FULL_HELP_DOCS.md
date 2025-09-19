@@ -2363,7 +2363,7 @@ Revoke sponsorship of a ledger entry or signer
 * `--sign-with-lab` — Sign with https://lab.stellar.org
 * `--sign-with-ledger` — Sign with a ledger wallet
 * `--account-id <ACCOUNT_ID>` — Account ID (required for all sponsorship types)
-* `--asset <ASSET>` — Asset for trustline sponsorship (format: CODE:ISSUER or native)
+* `--asset <ASSET>` — Asset for trustline sponsorship (format: CODE:ISSUER)
 * `--data-name <DATA_NAME>` — Data name for data entry sponsorship
 * `--offer-id <OFFER_ID>` — Offer ID for offer sponsorship
 * `--liquidity-pool-id <LIQUIDITY_POOL_ID>` — Pool ID for liquidity pool sponsorship. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - StrKey format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -3232,7 +3232,7 @@ Revoke sponsorship of a ledger entry or signer
 * `--sign-with-lab` — Sign with https://lab.stellar.org
 * `--sign-with-ledger` — Sign with a ledger wallet
 * `--account-id <ACCOUNT_ID>` — Account ID (required for all sponsorship types)
-* `--asset <ASSET>` — Asset for trustline sponsorship (format: CODE:ISSUER or native)
+* `--asset <ASSET>` — Asset for trustline sponsorship (format: CODE:ISSUER)
 * `--data-name <DATA_NAME>` — Data name for data entry sponsorship
 * `--offer-id <OFFER_ID>` — Offer ID for offer sponsorship
 * `--liquidity-pool-id <LIQUIDITY_POOL_ID>` — Pool ID for liquidity pool sponsorship. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - StrKey format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
