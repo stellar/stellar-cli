@@ -140,3 +140,106 @@ pub fn test_address(sandbox: &TestEnv) -> String {
         .success()
         .stdout_as_str()
 }
+
+pub fn get_sponsoring_count(account: &soroban_cli::xdr::AccountEntry) -> u32 {
+    match &account.ext {
+        soroban_cli::xdr::AccountEntryExt::V1(v1) => match &v1.ext {
+            soroban_cli::xdr::AccountEntryExtensionV1Ext::V2(v2) => v2.num_sponsoring,
+            _ => panic!("Account extension V1 should have V2 extension for sponsoring"),
+        },
+        _ => panic!("Account should have V1 extension for sponsoring"),
+    }
+}
+
+pub fn new_account(sandbox: &TestEnv, name: &str) -> String {
+    sandbox.generate_account(name, None).assert().success();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+pub fn gen_account_no_fund(sandbox: &TestEnv, name: &str) -> String {
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", name])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+// returns test and test1 addresses
+pub fn setup_accounts(sandbox: &TestEnv) -> (String, String) {
+    (test_address(sandbox), new_account(sandbox, "test1"))
+}
+
+pub async fn issue_asset(
+    sandbox: &TestEnv,
+    test: &str,
+    asset: &str,
+    limit: u64,
+    initial_balance: u64,
+) {
+    let client = sandbox.network.rpc_client().unwrap();
+    let test_before = client.get_account(test).await.unwrap();
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "change-trust",
+            "--line",
+            asset,
+            "--limit",
+            limit.to_string().as_str(),
+        ])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("tx")
+        .args(["new", "set-options", "--set-required"])
+        .assert()
+        .success();
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "set-trustline-flags",
+            "--asset",
+            asset,
+            "--trustor",
+            test,
+            "--set-authorize",
+            "--source",
+            "test1",
+        ])
+        .assert()
+        .success();
+
+    let after = client.get_account(test).await.unwrap();
+    assert_eq!(test_before.num_sub_entries + 1, after.num_sub_entries);
+    println!("aa");
+    // Send a payment to the issuer
+    sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "new",
+            "payment",
+            "--destination",
+            test,
+            "--asset",
+            asset,
+            "--amount",
+            initial_balance.to_string().as_str(),
+            "--source=test1",
+        ])
+        .assert()
+        .success();
+}
