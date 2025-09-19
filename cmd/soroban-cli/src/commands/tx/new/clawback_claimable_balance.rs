@@ -64,9 +64,7 @@ pub fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
             }),
         }
     } else {
-        // Hex format - handle both API format (72 chars) and direct hash (64 chars)
         let cleaned_balance_id = if balance_id.len() == 72 && balance_id.starts_with("00000000") {
-            // Remove the 8-character type prefix (00000000 for ClaimableBalanceIdTypeV0)
             &balance_id[8..]
         } else {
             balance_id
