@@ -164,4 +164,15 @@ impl Args {
     pub fn resolve_asset(&self, asset: &builder::Asset) -> Result<xdr::Asset, Error> {
         Ok(asset.resolve(&self.config.locator)?)
     }
+
+    pub fn resolve_signer_key(
+        &self,
+        signer_account: &UnresolvedMuxedAccount,
+    ) -> Result<xdr::SignerKey, Error> {
+        let resolved_account = self.resolve_account_id(signer_account)?;
+        let signer_key = match resolved_account.0 {
+            xdr::PublicKey::PublicKeyTypeEd25519(uint256) => xdr::SignerKey::Ed25519(uint256),
+        };
+        Ok(signer_key)
+    }
 }

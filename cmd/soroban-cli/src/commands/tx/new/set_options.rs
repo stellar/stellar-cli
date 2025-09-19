@@ -37,7 +37,7 @@ pub struct Args {
     pub home_domain: Option<xdr::StringM<32>>,
     #[arg(long, requires = "signer_weight")]
     /// Add, update, or remove a signer from an account.
-    pub signer: Option<xdr::SignerKey>,
+    pub signer: Option<address::UnresolvedMuxedAccount>,
     #[arg(long = "signer-weight", requires = "signer")]
     /// Signer weight is a number from 0-255 (inclusive). The signer is deleted if the weight is 0.
     pub signer_weight: Option<u8>,
@@ -107,11 +107,12 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
             clear_flag(xdr::AccountFlags::ClawbackEnabledFlag);
         }
 
-        let signer = if let (Some(key), Some(signer_weight)) =
-            (cmd.signer.clone(), cmd.signer_weight.as_ref())
+        let signer = if let (Some(signer_account), Some(signer_weight)) =
+            (cmd.signer.as_ref(), cmd.signer_weight.as_ref())
         {
+            let signer_key = tx.resolve_signer_key(signer_account)?;
             Some(xdr::Signer {
-                key,
+                key: signer_key,
                 weight: u32::from(*signer_weight),
             })
         } else {
