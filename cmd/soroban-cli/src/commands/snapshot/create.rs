@@ -421,7 +421,11 @@ impl Cmd {
         network_passphrase: &str,
     ) -> Option<Either<AccountId, ScAddress>> {
         if let Some(contract) = self.resolve_contract(address, network_passphrase) {
-            Some(Either::Right(contract))
+            match contract {
+                ScAddress::Contract(_) => Some(Either::Right(contract)),
+                ScAddress::Account(a) => Some(Either::Left(a)),
+                _ => panic!("address type unsupported")
+            }
         } else {
             self.resolve_account_sync(address).map(Either::Left)
         }
