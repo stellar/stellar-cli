@@ -558,6 +558,7 @@ async fn get_history(
         .await
         .map_err(Error::ReadHistoryHttpStream)?;
 
+    print.clear_previous_line();
     print.globeln(format!("Downloaded history {}", &history_url));
 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
@@ -616,6 +617,7 @@ async fn get_ledger_metadata_from_archive(
 
     fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
 
+    print.clear_previous_line();
     print.globeln(format!("Downloaded ledger headers for ledger {ledger}"));
 
     // Now read the cached file
@@ -630,8 +632,6 @@ async fn get_ledger_metadata_from_archive(
         if header_entry.header.ledger_seq == ledger {
             let close_time = header_entry.header.scp_value.close_time.0;
             let base_reserve = header_entry.header.base_reserve;
-
-            print.infoln(format!("Found ledger header for ledger {ledger}"));
 
             return Ok((close_time, base_reserve));
         }
@@ -655,7 +655,7 @@ async fn cache_bucket(
         let bucket_url =
             format!("{archive_url}/bucket/{bucket_0}/{bucket_1}/{bucket_2}/bucket-{bucket}.xdr.gz");
 
-        print.globe(format!("Downloading bucket {bucket_index} {bucket}…"));
+        print.globeln(format!("Downloading bucket {bucket_index} {bucket}…"));
 
         let bucket_url = Url::from_str(&bucket_url).map_err(Error::ParsingBucketUrl)?;
 
@@ -671,14 +671,12 @@ async fn cache_bucket(
         }
 
         if let Some(len) = response.content_length() {
-            print.clear_line();
-            print.globe(format!(
+            print.clear_previous_line();
+            print.globeln(format!(
                 "Downloaded bucket {bucket_index} {bucket} ({})",
                 ByteSize(len)
             ));
         }
-
-        print.println("");
 
         let stream = response
             .bytes_stream()
