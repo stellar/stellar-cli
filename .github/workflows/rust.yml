@@ -16,6 +16,17 @@ defaults:
     shell: bash
 
 jobs:
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug GitHub context
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Head ref: ${{ github.head_ref }}"
+          echo "Base ref: ${{ github.base_ref }}"
+          echo "Condition result: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}"
+
   complete:
     if: always()
     needs:
@@ -86,7 +97,7 @@ jobs:
 
   build-and-test-macos:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +117,7 @@ jobs:
 
   build-and-test-windows:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:

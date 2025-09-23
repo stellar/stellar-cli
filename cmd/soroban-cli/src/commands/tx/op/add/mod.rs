@@ -5,6 +5,7 @@ pub(crate) use super::super::new;
 
 mod account_merge;
 mod args;
+mod begin_sponsoring_future_reserves;
 mod bump_sequence;
 mod change_trust;
 mod claim_claimable_balance;
@@ -13,12 +14,16 @@ mod clawback_claimable_balance;
 mod create_account;
 mod create_claimable_balance;
 mod create_passive_sell_offer;
+mod end_sponsoring_future_reserves;
+mod liquidity_pool_deposit;
+mod liquidity_pool_withdraw;
 mod manage_buy_offer;
 mod manage_data;
 mod manage_sell_offer;
 mod path_payment_strict_receive;
 mod path_payment_strict_send;
 mod payment;
+mod revoke_sponsorship;
 mod set_options;
 mod set_trustline_flags;
 
@@ -27,6 +32,8 @@ mod set_trustline_flags;
 pub enum Cmd {
     #[command(about = help::ACCOUNT_MERGE)]
     AccountMerge(account_merge::Cmd),
+    #[command(about = help::BEGIN_SPONSORING_FUTURE_RESERVES)]
+    BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd),
     #[command(about = help::BUMP_SEQUENCE)]
     BumpSequence(bump_sequence::Cmd),
     #[command(about = help::CHANGE_TRUST)]
@@ -43,6 +50,12 @@ pub enum Cmd {
     CreateClaimableBalance(create_claimable_balance::Cmd),
     #[command(about = help::CREATE_PASSIVE_SELL_OFFER)]
     CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
+    #[command(about = help::END_SPONSORING_FUTURE_RESERVES)]
+    EndSponsoringFutureReserves(end_sponsoring_future_reserves::Cmd),
+    #[command(about = help::LIQUIDITY_POOL_DEPOSIT)]
+    LiquidityPoolDeposit(liquidity_pool_deposit::Cmd),
+    #[command(about = help::LIQUIDITY_POOL_WITHDRAW)]
+    LiquidityPoolWithdraw(liquidity_pool_withdraw::Cmd),
     #[command(about = help::MANAGE_BUY_OFFER)]
     ManageBuyOffer(manage_buy_offer::Cmd),
     #[command(about = help::MANAGE_DATA)]
@@ -55,6 +68,8 @@ pub enum Cmd {
     PathPaymentStrictSend(path_payment_strict_send::Cmd),
     #[command(about = help::PAYMENT)]
     Payment(payment::Cmd),
+    #[command(about = help::REVOKE_SPONSORSHIP)]
+    RevokeSponsorship(revoke_sponsorship::Cmd),
     #[command(about = help::SET_OPTIONS)]
     SetOptions(set_options::Cmd),
     #[command(about = help::SET_TRUSTLINE_FLAGS)]
@@ -78,6 +93,10 @@ impl TryFrom<&Cmd> for OperationBody {
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
         Ok(match &cmd {
             Cmd::AccountMerge(account_merge::Cmd { op, .. }) => op.try_into()?,
+            Cmd::BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd {
+                op,
+                ..
+            }) => op.try_into()?,
             Cmd::BumpSequence(bump_sequence::Cmd { op, .. }) => op.into(),
             Cmd::ChangeTrust(change_trust::Cmd { op, .. }) => op.try_into()?,
             Cmd::ClaimClaimableBalance(claim_claimable_balance::Cmd { op, .. }) => op.try_into()?,
@@ -92,6 +111,11 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::CreatePassiveSellOffer(create_passive_sell_offer::Cmd { op, .. }) => {
                 op.try_into()?
             }
+            Cmd::EndSponsoringFutureReserves(end_sponsoring_future_reserves::Cmd {
+                op, ..
+            }) => op.into(),
+            Cmd::LiquidityPoolDeposit(liquidity_pool_deposit::Cmd { op, .. }) => op.try_into()?,
+            Cmd::LiquidityPoolWithdraw(liquidity_pool_withdraw::Cmd { op, .. }) => op.try_into()?,
             Cmd::ManageBuyOffer(manage_buy_offer::Cmd { op, .. }) => op.try_into()?,
             Cmd::ManageData(manage_data::Cmd { op, .. }) => op.into(),
             Cmd::ManageSellOffer(manage_sell_offer::Cmd { op, .. }) => op.try_into()?,
@@ -102,6 +126,7 @@ impl TryFrom<&Cmd> for OperationBody {
                 op.try_into()?
             }
             Cmd::Payment(payment::Cmd { op, .. }) => op.try_into()?,
+            Cmd::RevokeSponsorship(revoke_sponsorship::Cmd { op, .. }) => op.try_into()?,
             Cmd::SetOptions(set_options::Cmd { op, .. }) => op.try_into()?,
             Cmd::SetTrustlineFlags(set_trustline_flags::Cmd { op, .. }) => op.try_into()?,
         })
@@ -109,10 +134,16 @@ impl TryFrom<&Cmd> for OperationBody {
 }
 
 impl Cmd {
+    #[allow(clippy::too_many_lines)]
     pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
         let op = OperationBody::try_from(self)?;
         let res = match self {
             Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::BeginSponsoringFutureReserves(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
@@ -157,6 +188,21 @@ impl Cmd {
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
+            Cmd::EndSponsoringFutureReserves(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::LiquidityPoolDeposit(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::LiquidityPoolWithdraw(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
             Cmd::ManageBuyOffer(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
@@ -183,6 +229,11 @@ impl Cmd {
                 cmd.args.source(),
             ),
             Cmd::Payment(cmd) => cmd.op.tx.add_op(
+                op,
+                tx_envelope_from_input(&cmd.args.tx_xdr)?,
+                cmd.args.source(),
+            ),
+            Cmd::RevokeSponsorship(cmd) => cmd.op.tx.add_op(
                 op,
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
