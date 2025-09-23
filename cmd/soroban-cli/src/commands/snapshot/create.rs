@@ -16,11 +16,11 @@ use std::{
 };
 use stellar_xdr::curr::{
     self as xdr, AccountId, Asset, BucketEntry, ConfigSettingEntry, ConfigSettingId,
-    ContractExecutable, Frame, Hash, LedgerEntry, LedgerEntryData, LedgerKey, LedgerKeyAccount,
-    LedgerKeyClaimableBalance, LedgerKeyConfigSetting, LedgerKeyContractCode,
-    LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool, LedgerKeyOffer,
-    LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress, ScContractInstance,
-    ScVal,
+    ContractExecutable, Frame, Hash, LedgerEntry, LedgerEntryData, LedgerHeaderHistoryEntry,
+    LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance, LedgerKeyConfigSetting,
+    LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData, LedgerKeyLiquidityPool,
+    LedgerKeyOffer, LedgerKeyTrustLine, LedgerKeyTtl, Limited, Limits, ReadXdr, ScAddress,
+    ScContractInstance, ScVal,
 };
 use tokio::fs::OpenOptions;
 use tokio::io::BufReader;
@@ -28,7 +28,7 @@ use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::{
-    commands::{config::data, global, HEADING_RPC},
+    commands::{config::data, global, HEADING_ARCHIVE},
     config::{self, locator, network::passphrase},
     print,
     tx::builder,
@@ -73,25 +73,32 @@ pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
     ledger: Option<u32>,
+
     /// Account or contract address/alias to include in the snapshot.
     #[arg(long = "address", help_heading = "Filter Options")]
     address: Vec<String>,
+
     /// WASM hashes to include in the snapshot.
     #[arg(long = "wasm-hash", help_heading = "Filter Options")]
     wasm_hashes: Vec<Hash>,
+
     /// Format of the out file.
     #[arg(long)]
     output: Output,
+
     /// Out path that the snapshot is written to.
     #[arg(long, default_value=default_out_path().into_os_string())]
     out: PathBuf,
+
+    /// Archive URL
+    #[arg(long, help_heading = HEADING_ARCHIVE, env = "STELLAR_ARCHIVE_URL")]
+    archive_url: Option<Url>,
+
     #[command(flatten)]
     locator: locator::Args,
+
     #[command(flatten)]
     network: config::network::Args,
-    /// Archive URL
-    #[arg(long, help_heading = HEADING_RPC, env = "STELLAR_ARCHIVE_URL")]
-    archive_url: Option<Url>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -140,6 +147,10 @@ pub enum Error {
     ParseAssetName(String),
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+    #[error("ledger not found in archive")]
+    LedgerNotFound,
+    #[error("xdr parsing error: {0}")]
+    Xdr(#[from] xdr::Error),
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -165,46 +176,20 @@ impl Cmd {
         print.infoln(format!("Network Passphrase: {network_passphrase}"));
         print.infoln(format!("Network id: {}", hex::encode(network_id)));
 
-        // Get ledger close time and base reserve from RPC
-        let mut ledger_close_time = 0u64;
-        let mut base_reserve = 1u32; // Default value
-        if let Ok(network) = self.network.get(&global_args.locator) {
-            if let Ok(client) = network.rpc_client() {
-                match client
-                    .get_ledgers(
-                        crate::rpc::LedgerStart::Ledger(ledger),
-                        Some(1),
-                        Some("json".to_string()),
-                    )
-                    .await
-                {
-                    Ok(result) if !result.ledgers.is_empty() => {
-                        let ledger_data = &result.ledgers[0];
-
-                        if let Ok(parsed_time) = ledger_data.ledger_close_time.parse::<u64>() {
-                            ledger_close_time = parsed_time;
-                            print.infoln(format!("Ledger Close Time: {ledger_close_time}"));
-                        } else {
-                            print.warnln(format!(
-                                "Failed to parse ledger close time: {}",
-                                ledger_data.ledger_close_time
-                            ));
-                        }
-
-                        if let Some(header_json) = &ledger_data.header_json {
-                            base_reserve = header_json.header.base_reserve;
-                            print.infoln(format!("Base Reserve: {base_reserve}"));
-                        }
-                    }
-                    Ok(_) => print.warnln("No ledger data returned from RPC"),
-                    Err(e) => print.warnln(format!("Failed to get ledger data from RPC: {e}")),
+        // Get ledger close time and base reserve from archive
+        let (ledger_close_time, base_reserve) =
+            match get_ledger_metadata_from_archive(&print, &archive_url, ledger).await {
+                Ok((close_time, reserve)) => {
+                    print.infoln(format!("Ledger Close Time: {close_time}"));
+                    print.infoln(format!("Base Reserve: {reserve}"));
+                    (close_time, reserve)
                 }
-            } else {
-                print.warnln("Failed to create RPC client for ledger data");
-            }
-        } else {
-            print.warnln("Network configuration not available for RPC access");
-        }
+                Err(e) => {
+                    print.warnln(format!("Failed to get ledger metadata from archive: {e}"));
+                    print.infoln("Using default values: close_time=0, base_reserve=1");
+                    (0u64, 1u32) // Default values
+                }
+            };
 
         // Prepare a flat list of buckets to read. They'll be ordered by their
         // level so that they can iterated higher level to lower level.
@@ -480,7 +465,6 @@ impl Cmd {
 
     // Resolve an account address to an account id. The address can be a
     // G-address or a key name (as in `stellar keys address NAME`).
-
     async fn resolve_account(&self, address: &str) -> Option<AccountId> {
         let address: UnresolvedMuxedAccount = address.parse().ok()?;
         Some(AccountId(xdr::PublicKey::PublicKeyTypeEd25519(
@@ -521,6 +505,14 @@ impl Cmd {
     }
 }
 
+fn ledger_to_path_components(ledger: u32) -> (String, String, String, String) {
+    let ledger_hex = format!("{ledger:08x}");
+    let ledger_hex_0 = ledger_hex[0..=1].to_string();
+    let ledger_hex_1 = ledger_hex[2..=3].to_string();
+    let ledger_hex_2 = ledger_hex[4..=5].to_string();
+    (ledger_hex, ledger_hex_0, ledger_hex_1, ledger_hex_2)
+}
+
 async fn get_history(
     print: &print::Print,
     archive_url: &Url,
@@ -529,17 +521,15 @@ async fn get_history(
     let archive_url = archive_url.to_string();
     let archive_url = archive_url.strip_suffix('/').unwrap_or(&archive_url);
     let history_url = if let Some(ledger) = ledger {
-        let ledger_hex = format!("{ledger:08x}");
-        let ledger_hex_0 = &ledger_hex[0..=1];
-        let ledger_hex_1 = &ledger_hex[2..=3];
-        let ledger_hex_2 = &ledger_hex[4..=5];
+        let (ledger_hex, ledger_hex_0, ledger_hex_1, ledger_hex_2) =
+            ledger_to_path_components(ledger);
         format!("{archive_url}/history/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/history-{ledger_hex}.json")
     } else {
         format!("{archive_url}/.well-known/stellar-history.json")
     };
     let history_url = Url::from_str(&history_url).unwrap();
 
-    print.globe(format!("Downloading history {history_url}"));
+    print.globeln(format!("Downloading history {history_url}"));
 
     let response = http::client()
         .get(history_url.as_str())
@@ -553,7 +543,6 @@ async fn get_history(
             let ledger_offset = (ledger + 1) % CHECKPOINT_FREQUENCY;
 
             if ledger_offset != 0 {
-                print.println("");
                 print.errorln(format!(
                     "Ledger {ledger} may not be a checkpoint ledger, try {} or {}",
                     ledger - ledger_offset,
@@ -569,10 +558,86 @@ async fn get_history(
         .await
         .map_err(Error::ReadHistoryHttpStream)?;
 
-    print.clear_line();
     print.globeln(format!("Downloaded history {}", &history_url));
 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
+}
+
+async fn get_ledger_metadata_from_archive(
+    print: &print::Print,
+    archive_url: &Url,
+    ledger: u32,
+) -> Result<(u64, u32), Error> {
+    let archive_url = archive_url.to_string();
+    let archive_url = archive_url.strip_suffix('/').unwrap_or(&archive_url);
+
+    // Calculate the path to the ledger header file
+    let (ledger_hex, ledger_hex_0, ledger_hex_1, ledger_hex_2) = ledger_to_path_components(ledger);
+    let ledger_url = format!(
+        "{archive_url}/ledger/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/ledger-{ledger_hex}.xdr.gz"
+    );
+
+    print.globeln(format!("Downloading ledger headers {ledger_url}"));
+
+    let ledger_url = Url::from_str(&ledger_url).map_err(Error::ParsingBucketUrl)?;
+    let response = http::client()
+        .get(ledger_url.as_str())
+        .send()
+        .await
+        .map_err(Error::DownloadingHistory)?;
+
+    if !response.status().is_success() {
+        return Err(Error::DownloadingHistoryGotStatusCode(response.status()));
+    }
+
+    // Cache the ledger file to disk like bucket files
+    let ledger_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
+    let cache_path = ledger_dir.join(format!("ledger-{ledger_hex}.xdr"));
+    let dl_path = cache_path.with_extension("dl");
+
+    let stream = response
+        .bytes_stream()
+        .map(|result| result.map_err(std::io::Error::other));
+    let stream_reader = StreamReader::new(stream);
+    let buf_reader = BufReader::new(stream_reader);
+    let mut decoder = GzipDecoder::new(buf_reader);
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&dl_path)
+        .await
+        .map_err(Error::WriteOpeningCachedBucket)?;
+
+    tokio::io::copy(&mut decoder, &mut file)
+        .await
+        .map_err(Error::StreamingBucket)?;
+
+    fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+
+    print.globeln(format!("Downloaded ledger headers for ledger {ledger}"));
+
+    // Now read the cached file
+    let file = std::fs::File::open(&cache_path).map_err(Error::ReadOpeningCachedBucket)?;
+    let limited = &mut Limited::new(file, Limits::none());
+
+    // Find the specific ledger header entry we need
+    let entries = Frame::<LedgerHeaderHistoryEntry>::read_xdr_iter(limited);
+    for entry in entries {
+        let Frame(header_entry) = entry.map_err(Error::Xdr)?;
+
+        if header_entry.header.ledger_seq == ledger {
+            let close_time = header_entry.header.scp_value.close_time.0;
+            let base_reserve = header_entry.header.base_reserve;
+
+            print.infoln(format!("Found ledger header for ledger {ledger}"));
+
+            return Ok((close_time, base_reserve));
+        }
+    }
+
+    Err(Error::LedgerNotFound)
 }
 
 async fn cache_bucket(
