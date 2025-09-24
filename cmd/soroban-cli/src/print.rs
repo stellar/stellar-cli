@@ -31,14 +31,6 @@ impl Print {
         }
     }
 
-    pub fn clear_line(&self) {
-        if cfg!(windows) {
-            eprint!("\r");
-        } else {
-            eprint!("\r\x1b[2K");
-        }
-    }
-
     pub fn clear_previous_line(&self) {
         if !self.quiet {
             if cfg!(windows) {
