@@ -277,10 +277,10 @@ impl Cmd {
                     .map_err(Error::ReadOpeningCachedBucket)?;
 
                 let message = format!("Searching bucket {i} {bucket}");
-                print.search(format!("{message}…"));
+                print.searchln(format!("{message}…"));
 
                 if let Ok(metadata) = file.metadata() {
-                    print.clear_line();
+                    print.clear_previous_line();
                     print.searchln(format!("{message} ({})", ByteSize(metadata.len())));
                 }
 
