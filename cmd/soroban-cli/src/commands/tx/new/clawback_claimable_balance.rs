@@ -17,7 +17,7 @@ pub struct Args {
     /// Balance ID of the claimable balance to clawback. Accepts multiple formats:
     /// - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
     /// - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461
-    /// - StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
+    /// - Address format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
     #[arg(long)]
     pub balance_id: String,
 }
@@ -46,14 +46,14 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
     }
 }
 
-fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
+pub fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
     // Handle multiple formats:
-    // 1. StrKey format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
+    // 1. Address format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
     // 2. API format with type prefix (72 hex chars): 000000006f2179b3...
     // 3. Direct hash format (64 hex chars): 6f2179b3...
 
     if balance_id.starts_with('B') && balance_id.len() > 50 {
-        // StrKey format - use stellar-strkey crate to decode claimable balance address
+        // Address format - use stellar-strkey crate to decode claimable balance address
         match stellar_strkey::Strkey::from_string(balance_id) {
             Ok(stellar_strkey::Strkey::ClaimableBalance(stellar_strkey::ClaimableBalance::V0(
                 bytes,
@@ -64,9 +64,7 @@ fn parse_balance_id(balance_id: &str) -> Result<Vec<u8>, tx::args::Error> {
             }),
         }
     } else {
-        // Hex format - handle both API format (72 chars) and direct hash (64 chars)
         let cleaned_balance_id = if balance_id.len() == 72 && balance_id.starts_with("00000000") {
-            // Remove the 8-character type prefix (00000000 for ClaimableBalanceIdTypeV0)
             &balance_id[8..]
         } else {
             balance_id
