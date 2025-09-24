@@ -309,19 +309,9 @@ impl Cmd {
                             continue;
                         }
                     };
+
                     if seen.contains(&key) {
                         continue;
-                    }
-
-                    // Extract TTL settings from StateArchival config entries before filtering
-                    let Some(val) = val else { continue };
-                    if let LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(
-                        state_archival,
-                    )) = &val.data
-                    {
-                        snapshot.min_persistent_entry_ttl = state_archival.min_persistent_ttl;
-                        snapshot.min_temp_entry_ttl = state_archival.min_temporary_ttl;
-                        snapshot.max_entry_ttl = state_archival.max_entry_ttl;
                     }
 
                     let keep = match &key {
@@ -329,20 +319,37 @@ impl Cmd {
                         LedgerKey::Trustline(k) => current.account_ids.contains(&k.account_id),
                         LedgerKey::ContractData(k) => current.contract_ids.contains(&k.contract),
                         LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash),
+                        LedgerKey::ConfigSetting(_) => true,
                         _ => false,
                     };
+
                     if !keep {
                         continue;
                     }
+
                     seen.insert(key.clone());
+
+                    let Some(val) = val else {
+                        continue;
+                    };
+
                     match &val.data {
+                        LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(
+                            state_archival,
+                        )) => {
+                            snapshot.min_persistent_entry_ttl = state_archival.min_persistent_ttl;
+                            snapshot.min_temp_entry_ttl = state_archival.min_temporary_ttl;
+                            snapshot.max_entry_ttl = state_archival.max_entry_ttl;
+                            false
+                        }
+
                         LedgerEntryData::ContractData(e) => {
                             // If a contract instance references contract
                             // executable stored in another ledger entry, add
                             // that ledger entry to the filter so that Wasm for
                             // any filtered contract is collected too in the
                             // second pass.
-                            if keep && e.key == ScVal::LedgerKeyContractInstance {
+                            if e.key == ScVal::LedgerKeyContractInstance {
                                 match &e.val {
                                     ScVal::ContractInstance(ScContractInstance {
                                         executable: ContractExecutable::Wasm(hash),
