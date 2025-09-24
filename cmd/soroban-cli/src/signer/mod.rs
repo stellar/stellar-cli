@@ -1,10 +1,10 @@
-use crate::xdr::{
+use crate::{commands::contract::arg_parsing::SignerKey, xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
-};
+}};
 use ed25519_dalek::ed25519::signature::Signer as _;
 use sha2::{Digest, Sha256};
 
@@ -64,7 +64,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
     source_key: &ed25519_dalek::SigningKey,
-    signers: &[ed25519_dalek::SigningKey],
+    signers: &[SignerKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
@@ -118,27 +118,55 @@ pub fn sign_soroban_authorizations(
                     });
                 }
             };
-            let signer = if let Some(s) = signers
-                .iter()
-                .find(|s| needle == s.verifying_key().as_bytes())
-            {
-                s
-            } else if needle == source_address {
-                // This is the source address, so we can sign it
-                source_key
-            } else {
-                // We don't have a signer for this address
+
+            let mut signer: Option<&SignerKey> = None;
+            for s in signers {
+                match s {
+                    SignerKey::Local(signing_key) => {
+                        if needle == signing_key.verifying_key().as_bytes() {
+                            signer = Some(s);
+                        }
+                    },
+                    SignerKey::Other(_signer) => todo!(),
+                }
+            }
+
+            let sk= SignerKey::Local(source_key.clone());
+            if needle == source_address {
+                signer = Some(&sk);
+            }
+
+            if signer.is_none() {
                 return Err(Error::MissingSignerForAddress {
                     address: stellar_strkey::Strkey::PublicKeyEd25519(
                         stellar_strkey::ed25519::PublicKey(*needle),
                     )
                     .to_string(),
-                });
-            };
+                }); 
+            }
+
+
+            // let signer = if let Some(s) = signers
+            //     .iter()
+            //     .find(|s| needle == s.verifying_key().as_bytes())
+            // {
+            //     s
+            // } else if needle == source_address {
+            //     // This is the source address, so we can sign it
+            //     source_key
+            // } else {
+            //     // We don't have a signer for this address
+            //     return Err(Error::MissingSignerForAddress {
+            //         address: stellar_strkey::Strkey::PublicKeyEd25519(
+            //             stellar_strkey::ed25519::PublicKey(*needle),
+            //         )
+            //         .to_string(),
+            //     });
+            // };
 
             sign_soroban_authorization_entry(
                 raw_auth,
-                signer,
+                &signer.unwrap(), // handle this
                 signature_expiration_ledger,
                 &network_id,
             )
@@ -152,7 +180,7 @@ pub fn sign_soroban_authorizations(
 
 fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
-    signer: &ed25519_dalek::SigningKey,
+    signer: &SignerKey,
     signature_expiration_ledger: u32,
     network_id: &Hash,
 ) -> Result<SorobanAuthorizationEntry, Error> {
@@ -176,23 +204,33 @@ fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let signature = signer.sign(&payload);
+    let signature = match signer {
+        SignerKey::Local(signing_key) => {
+            signing_key.sign(&payload)
+        },
+        SignerKey::Other(_signer) => todo!(),
+    };
+
+    let public_key_vec = match signer {
+        SignerKey::Local(signing_key) => {
+            signing_key
+                    .verifying_key()
+                    .to_bytes()
+                    .to_vec()
+        },
+        SignerKey::Other(_signer) => todo!(),
+    };
 
     let map = ScMap::sorted_from(vec![
         (
             ScVal::Symbol(ScSymbol("public_key".try_into()?)),
             ScVal::Bytes(
-                signer
-                    .verifying_key()
-                    .to_bytes()
-                    .to_vec()
-                    .try_into()
-                    .map_err(Error::Xdr)?,
+                public_key_vec.try_into().map_err(Error::Xdr)?,
             ),
         ),
         (
             ScVal::Symbol(ScSymbol("signature".try_into()?)),
-            ScVal::Bytes(
+            ScVal::Bytes (
                 signature
                     .to_bytes()
                     .to_vec()
