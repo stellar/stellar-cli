@@ -1587,13 +1587,13 @@ Any invalid contract id passed as `--address` will be ignored.
 * `--out <OUT>` — Out path that the snapshot is written to
 
   Default value: `snapshot.json`
+* `--archive-url <ARCHIVE_URL>` — Archive URL
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 * `-n`, `--network <NETWORK>` — Name of network to use from config
-* `--archive-url <ARCHIVE_URL>` — Archive URL
 
 
 
