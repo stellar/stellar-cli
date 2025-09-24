@@ -42,11 +42,11 @@ impl Print {
     pub fn clear_previous_line(&self) {
         if !self.quiet {
             if cfg!(windows) {
-                eprint!("\x1b[1A\x1b[2K\r");
+                eprint!("\x1b[2A\r\x1b[2K");
             } else {
-                // Move up one line, clear entire line, move to beginning
                 eprint!("\x1b[1A\x1b[2K\r");
             }
+
             io::stderr().flush().unwrap();
         }
     }
