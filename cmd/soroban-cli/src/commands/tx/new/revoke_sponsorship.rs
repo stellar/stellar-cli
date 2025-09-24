@@ -96,13 +96,10 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
 
         let revoke_op = if let Some(signer_key) = &cmd.op.signer_key {
             // Signer sponsorship
-            let resolved_account = cmd.tx.resolve_account_id(signer_key)?;
-            let signer_key = match resolved_account.0 {
-                xdr::PublicKey::PublicKeyTypeEd25519(uint256) => xdr::SignerKey::Ed25519(uint256),
-            };
+            let resolved_signer_key = cmd.tx.resolve_signer_key(signer_key)?;
             xdr::RevokeSponsorshipOp::Signer(xdr::RevokeSponsorshipOpSigner {
                 account_id: account_id_key,
-                signer_key,
+                signer_key: resolved_signer_key,
             })
         } else if let Some(asset) = &cmd.op.asset {
             // Trustline sponsorship
