@@ -104,7 +104,7 @@ pub fn sign_soroban_authorizations(
 
             // See if we have a signer for this authorizationEntry
             // If not, then we Error
-            let needle = match address {
+            let needle: &[u8; 32] = match address {
                 ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
                 ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
                 ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
@@ -120,18 +120,15 @@ pub fn sign_soroban_authorizations(
             };
 
             let mut signer: Option<&SignerKey> = None;
+            // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
+            // println!("NEedle Muxed {:?}", needle_muxed);
             for s in signers {
-                match s {
-                    SignerKey::Local(signing_key) => {
-                        if needle == signing_key.verifying_key().as_bytes() {
-                            signer = Some(s);
-                        }
-                    },
-                    SignerKey::Other(_signer) => todo!(),
+                if s.matches_verifying_key(needle) {
+                    signer = Some(s);
                 }
             }
 
-            let sk= SignerKey::Local(source_key.clone());
+            let sk= SignerKey::Local(source_key.clone()); //this may not necessarily be a local signer
             if needle == source_address {
                 signer = Some(&sk);
             }
@@ -300,6 +297,15 @@ impl Signer {
                 }))
             }
             _ => Err(Error::UnsupportedTransactionEnvelopeType),
+        }
+    }
+
+    pub fn get_public_key(&self) {
+        match &self.kind {
+            SignerKind::Local(_local_key) => todo!("local key"),
+            SignerKind::Ledger(_ledger) => todo!("ledger key"),
+            SignerKind::Lab => todo!("lab"),
+            SignerKind::SecureStore(_secure_store_entry) => todo!("secure store"),
         }
     }
 }

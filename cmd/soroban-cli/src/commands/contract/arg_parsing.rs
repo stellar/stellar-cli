@@ -8,7 +8,7 @@ use crate::xdr::{
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
@@ -307,7 +307,104 @@ pub enum SignerKey {
     Other(Signer),
 }
 
+impl SignerKey {
+    pub fn verifying_key(&self) -> VerifyingKey {
+        match self {
+            SignerKey::Local(s) => s.verifying_key(),
+            SignerKey::Other(_s) => todo!()
+        }
+    }
+
+    pub fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
+        match self {
+            SignerKey::Local(s) => {
+            // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
+                needle == s.verifying_key().as_bytes()
+                // if s.matches_verifying_key(needle) {
+                //     signer = Some(s);
+                // }
+                // if needle == s.verifying_key().as_bytes() {
+                //     signer = Some(s);
+                // }
+                // s.verifying_key(),
+            }
+            SignerKey::Other(_s) => {
+                // can i get the public key?
+                _s.get_public_key();
+                let _needle_muxed_acct = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
+                // needle_muxed_acct == 
+                todo!()
+            }
+        }
+
+    }
+}
+
+// impl SignerKey {
+//     pub fn verifying_key(&self) -> VerifyingKey {
+//         match self {
+//             SignerKey::Local(s) => s.verifying_key(),
+//             SignerKey::Other(s) => todo!(),
+//         }
+//     }
+//     pub fn sign(&self, msg: &[u8]) -> Result<Signature, SignError> {
+//         match self {
+//             SignerKey::Local(s) => s.sign(msg),
+//             SignerKey::Other(s) => s.sign(msg),
+//         }
+//     }
+// }
+
+
+// pub trait SignerKeyTrait {
+//     fn verifying_key(&self) -> VerifyingKey;
+//     fn sign(&self, msg: &[u8]) -> Result<Signature, SignerKeyError>;
+// }
+
+// #[derive(thiserror::Error, Debug)]
+// pub enum SignerKeyError {
+//     #[error("secure store error: {0}")]
+//     SecureStore(String),
+//     #[error("in-memory sign error: {0}")]
+//     InMemory(String),
+// }
+
+// pub struct LocalSigner {
+//     sk: ed25519_dalek::SigningKey,
+// }
+
+// impl LocalSigner {
+//     pub fn new(sk: ed25519_dalek::SigningKey) -> Self { Self { sk } }
+// }
+
+// impl SignerKeyTrait for LocalSigner {
+//     fn verifying_key(&self) -> VerifyingKey { self.sk.verifying_key() }
+//     fn sign(&self, msg: &[u8]) -> Result<Signature, SignerKeyError> {
+//         Ok(signature::Signer::<Signature>::try_sign(&self.sk, msg)
+//             .map_err(|e| SignerKeyError::InMemory(e.to_string()))?)
+//     }
+// }
+
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SignerKey> {
+    // let key = config.locator.read_key(addr_or_alias).unwrap();
+
+    // match key {
+    //     config::key::Key::PublicKey(_public) => todo!(),
+    //     config::key::Key::MuxedAccount(_muxed_account) => todo!(),
+    //     config::key::Key::Secret(secret) => {
+    //         match secret {
+    //             config::secret::Secret::SecretKey { secret_key } => key.private_key(None),
+    //             config::secret::Secret::SeedPhrase { seed_phrase } => key.private_key(None),
+    //             config::secret::Secret::Ledger => todo!(),
+    //             config::secret::Secret::SecureStore { entry_name } => todo!(),
+    //         }
+    //     },
+    // }
+
+    let key = config.locator.read_key(addr_or_alias);
+    let m = key.unwrap().muxed_account(None).unwrap();
+    println!("muxed {:?}", m);
+
     if let Some(pk) = config
         .locator
         .read_key(addr_or_alias)
