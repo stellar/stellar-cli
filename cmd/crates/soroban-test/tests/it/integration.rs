@@ -1,5 +1,6 @@
 mod bindings;
 mod constructor;
+mod contract;
 mod cookbook;
 mod custom_types;
 mod dotenv;
