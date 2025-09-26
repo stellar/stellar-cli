@@ -315,7 +315,7 @@ impl SignerKey {
         }
     }
 
-    pub fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
+    pub async fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
         match self {
             SignerKey::Local(s) => {
             // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));

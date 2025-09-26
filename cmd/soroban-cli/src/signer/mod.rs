@@ -65,7 +65,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
-pub fn sign_soroban_authorizations(
+pub async fn sign_soroban_authorizations(
     raw: &Transaction,
     source_key: &ed25519_dalek::SigningKey,
     signers: &[SignerKey],
@@ -126,7 +126,7 @@ pub fn sign_soroban_authorizations(
         // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
         // println!("NEedle Muxed {:?}", needle_muxed);
         for s in signers {
-            if s.matches_verifying_key(needle) {
+            if s.matches_verifying_key(needle).await {
                 signer = Some(s);
             }
         }

@@ -115,7 +115,7 @@ impl Args {
             signers,
             seq_num,
             &network.network_passphrase,
-        )?)
+        ).await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
