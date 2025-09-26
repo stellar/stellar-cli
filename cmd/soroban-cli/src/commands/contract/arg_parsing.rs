@@ -320,20 +320,10 @@ impl SignerKey {
             SignerKey::Local(s) => {
             // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
                 needle == s.verifying_key().as_bytes()
-                // if s.matches_verifying_key(needle) {
-                //     signer = Some(s);
-                // }
-                // if needle == s.verifying_key().as_bytes() {
-                //     signer = Some(s);
-                // }
-                // s.verifying_key(),
             }
-            SignerKey::Other(_s) => {
-                // can i get the public key?
-                _s.get_public_key();
-                let _needle_muxed_acct = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
-                // needle_muxed_acct == 
-                todo!()
+            SignerKey::Other(s) => {
+                let signer_pk = s.get_public_key().await.unwrap();
+                signer_pk.0 == *needle
             }
         }
 

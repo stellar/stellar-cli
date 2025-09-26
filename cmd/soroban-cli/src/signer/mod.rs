@@ -9,7 +9,7 @@ use crate::{
         WriteXdr,
     },
 };
-use ed25519_dalek::ed25519::signature::Signer as _;
+use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
@@ -168,7 +168,7 @@ pub async fn sign_soroban_authorizations(
             &signer.unwrap(), // handle this
             signature_expiration_ledger,
             &network_id,
-        )?;
+        ).await?;
         signed_auths.push(signed);
     }
 
@@ -177,7 +177,7 @@ pub async fn sign_soroban_authorizations(
     Ok(Some(tx))
 }
 
-fn sign_soroban_authorization_entry(
+async fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
     signer: &SignerKey,
     signature_expiration_ledger: u32,
@@ -205,12 +205,12 @@ fn sign_soroban_authorization_entry(
     let payload = Sha256::digest(preimage);
     let signature = match signer {
         SignerKey::Local(signing_key) => signing_key.sign(&payload),
-        SignerKey::Other(_signer) => todo!(),
+        SignerKey::Other(signer) => signer.sign_payload(&payload).await?,
     };
 
     let public_key_vec = match signer {
         SignerKey::Local(signing_key) => signing_key.verifying_key().to_bytes().to_vec(),
-        SignerKey::Other(_signer) => todo!(),
+        SignerKey::Other(signer) => signer.get_public_key().await?.0.to_vec(),
     };
 
     let map = ScMap::sorted_from(vec![
@@ -293,13 +293,48 @@ impl Signer {
         }
     }
 
-    pub fn get_public_key(&self) {
+    pub async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error>{
         match &self.kind {
             SignerKind::Local(_local_key) => todo!("local key"),
             SignerKind::Ledger(_ledger) => todo!("ledger key"),
             SignerKind::Lab => todo!("lab"),
-            SignerKind::SecureStore(_secure_store_entry) => todo!("secure store"),
+            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
         }
+    }
+
+     pub async fn sign_payload(
+        &self,
+        payload: &[u8],
+    ) -> Result<Ed25519Signature, Error> {
+        match &self.kind {
+            SignerKind::Local(_local_key) => todo!("local key"),
+            SignerKind::Ledger(_ledger) => todo!("ledger"),
+            SignerKind::Lab => todo!("lab"),
+            SignerKind::SecureStore(secure_store_entry) => {
+                let p = <[u8; 32]>::try_from(payload)?;
+                secure_store_entry.sign_payload(p)
+            }
+        }
+        // match &tx_env {
+        //     TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
+        //         let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
+        //         self.print
+        //             .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
+        //         let decorated_signature = match &self.kind {
+        //             SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
+        //             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
+        //             SignerKind::Ledger(ledger) => ledger.sign_transaction_hash(&tx_hash).await?,
+        //             SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash)?,
+        //         };
+        //         let mut sigs = signatures.clone().into_vec();
+        //         sigs.push(decorated_signature);
+        //         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
+        //             tx: tx.clone(),
+        //             signatures: sigs.try_into()?,
+        //         }))
+        //     }
+        //     _ => Err(Error::UnsupportedTransactionEnvelopeType),
+        // }
     }
 }
 
@@ -346,6 +381,10 @@ pub struct SecureStoreEntry {
 }
 
 impl SecureStoreEntry {
+    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        Ok(secure_store::get_public_key(&self.name, self.hd_path)?)
+    }
+
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let hint = SignatureHint(
             secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
@@ -355,5 +394,11 @@ impl SecureStoreEntry {
 
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
+    }
+
+    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+        let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
+        let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
+        Ok(sig)
     }
 }
