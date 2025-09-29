@@ -485,11 +485,12 @@ Deploy a wasm contract
 
 Fetch a contract's Wasm binary
 
-**Usage:** `stellar contract fetch [OPTIONS] --id <CONTRACT_ID>`
+**Usage:** `stellar contract fetch [OPTIONS]`
 
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to fetch
+* `--wasm-hash <WASM_HASH>` — Wasm to fetch
 * `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
