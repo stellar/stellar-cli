@@ -13,14 +13,15 @@ To avoid this each of the subcommands has the `--build-only` argument, which as 
 
 Let's return to the first example of creating `bob`s account:
 
-  ```sh
+```sh
 stellar tx new create-account \
-    --source alice \
-    --destination bob \
-    --starting-balance 100_000_000 \
-    --build-only
-  ```
-  would output something like:
+  --source alice \
+  --destination bob \
+  --starting-balance 100_000_000 \
+  --build-only
+```
+
+would output something like:
 
 ```sh
 AAAAAgAAAADwSUp9CwmVlPN40mKX1I1j39y6DmYc36QS1aK2x6eYVQAAAGQAEcMsAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAACTMkzn1TwPo8SIhnKvnyuv9K2/aWjpX9NTYfyiA7vXaAAAAAAX14QAAAAAAAAAAAA==
@@ -44,6 +45,7 @@ This should output something like:
 ```sh
 AAAAAgAAAAAebE8Ewg9uzvHRAl+UmvP0kixsyp238kkz0zOy+91FeQAAAGQAFJk4AAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAPpiy8qfSw4pLYG/Bav78FfrFWlte7YQfiHX41DQ+nGWAAAAAAX14QAAAAAAAAAAAfvdRXkAAABA4kjz9Yeub/IrzogjMr57U4nYwCmSJAXxIW+7Xyjan/UweIByF7uEhVS4gEl1N138uq07njVxZwRMtugWyMleCg==
 ```
+
 You can again [view it in lab and see that there is now a signature attached to the transaction envelope](https://lab.stellar.org/xdr/view?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015;&xdr$blob=AAAAAgAAAAAebE8Ewg9uzvHRAl+UmvP0kixsyp238kkz0zOy+91FeQAAAGQAFJk4AAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAPpiy8qfSw4pLYG//Bav78FfrFWlte7YQfiHX41DQ+nGWAAAAAAX14QAAAAAAAAAAAfvdRXkAAABA4kjz9Yeub//IrzogjMr57U4nYwCmSJAXxIW+7Xyjan//UweIByF7uEhVS4gEl1N138uq07njVxZwRMtugWyMleCg==;;).
 
 :::tip
