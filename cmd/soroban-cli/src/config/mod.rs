@@ -105,13 +105,13 @@ impl Args {
         signers: &[SignerKey],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_key = self.key_pair()?;
+        let source_account = self.source_account().await.unwrap();// handle this!
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_key,
+            &source_account,
             signers,
             seq_num,
             &network.network_passphrase,

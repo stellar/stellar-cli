@@ -9,7 +9,7 @@ use crate::{
         WriteXdr,
     },
 };
-use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
+use ed25519_dalek::{ed25519::signature::{Signer as _}, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
@@ -46,6 +46,8 @@ pub enum Error {
     SecureStore(#[from] secure_store::Error),
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
+    #[error(transparent)]
+    Decode(#[from] stellar_strkey::DecodeError),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -67,7 +69,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 // transaction. If unable to sign, return an error.
 pub async fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_key: &ed25519_dalek::SigningKey,
+    _source_account: &xdr::MuxedAccount,
     signers: &[SignerKey],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
@@ -86,9 +88,6 @@ pub async fn sign_soroban_authorizations(
     };
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
-
-    let verification_key = source_key.verifying_key();
-    let source_address = verification_key.as_bytes();
 
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice().iter() {
@@ -294,7 +293,11 @@ impl Signer {
 
     pub async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error>{
         match &self.kind {
-            SignerKind::Local(_local_key) => todo!("local key"),
+            SignerKind::Local(local_key) => {
+                
+                let k = local_key.key.verifying_key().as_bytes().clone();
+                Ok(stellar_strkey::ed25519::PublicKey::from_payload(&k)?)
+            },
             SignerKind::Ledger(_ledger) => todo!("ledger key"),
             SignerKind::Lab => todo!("lab"),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
@@ -306,7 +309,10 @@ impl Signer {
         payload: &[u8],
     ) -> Result<Ed25519Signature, Error> {
         match &self.kind {
-            SignerKind::Local(_local_key) => todo!("local key"),
+            SignerKind::Local(local_key) => {
+                let p = <[u8; 32]>::try_from(payload)?;
+                local_key.sign_payload(p)
+            },
             SignerKind::Ledger(_ledger) => todo!("ledger"),
             SignerKind::Lab => todo!("lab"),
             SignerKind::SecureStore(secure_store_entry) => {
@@ -326,6 +332,10 @@ impl LocalKey {
         let hint = SignatureHint(self.key.verifying_key().to_bytes()[28..].try_into()?);
         let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
         Ok(DecoratedSignature { hint, signature })
+    }
+
+    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+        Ok(self.key.sign(&payload))
     }
 }
 

@@ -362,36 +362,8 @@ impl SignerKey {
 // }
 
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SignerKey> {
-
-    // match key {
-    //     config::key::Key::PublicKey(_public) => todo!(),
-    //     config::key::Key::MuxedAccount(_muxed_account) => todo!(),
-    //     config::key::Key::Secret(secret) => {
-    //         match secret {
-    //             config::secret::Secret::SecretKey { secret_key } => key.private_key(None),
-    //             config::secret::Secret::SeedPhrase { seed_phrase } => key.private_key(None),
-    //             config::secret::Secret::Ledger => todo!(),
-    //             config::secret::Secret::SecureStore { entry_name } => todo!(),
-    //         }
-    //     },
-    // }
-
-    let key = config.locator.read_key(addr_or_alias);
-    let m = key.unwrap().muxed_account(None).unwrap();
-    println!("muxed {:?}", m);
-
-    if let Some(pk) = config
-        .locator
-        .read_key(addr_or_alias)
-        .ok()?
-        .private_key(None)
-        .ok()
-    {
-        Some(SignerKey::Local(SigningKey::from_bytes(&pk.0)))
-    } else {
-        let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
-        let print = Print::new(false);
-        let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
-        Some(SignerKey::Other(signer))
-    }
+    let secret = config.locator.get_secret_key(addr_or_alias).unwrap();
+    let print = Print::new(false);
+    let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
+    Some(SignerKey::Other(signer))
 }
