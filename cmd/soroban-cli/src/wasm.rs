@@ -138,3 +138,9 @@ pub async fn fetch_from_contract(
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
 }
+
+pub async fn fetch_from_wasm_hash(hash: Hash, network: &Network) -> Result<Vec<u8>, Error> {
+    tracing::trace!(?network);
+    let client = network.rpc_client()?;
+    Ok(get_remote_wasm_from_hash(&client, &hash).await?)
+}

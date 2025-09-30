@@ -1,3 +1,4 @@
+use std::io::{self, Write};
 use std::{env, fmt::Display};
 
 use crate::xdr::{Error as XdrError, Transaction};
@@ -30,11 +31,15 @@ impl Print {
         }
     }
 
-    pub fn clear_line(&self) {
-        if cfg!(windows) {
-            eprint!("\r");
-        } else {
-            eprint!("\r\x1b[2K");
+    pub fn clear_previous_line(&self) {
+        if !self.quiet {
+            if cfg!(windows) {
+                eprint!("\x1b[2A\r\x1b[2K");
+            } else {
+                eprint!("\x1b[1A\x1b[2K\r");
+            }
+
+            io::stderr().flush().unwrap();
         }
     }
 
