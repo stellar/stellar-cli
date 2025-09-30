@@ -8,7 +8,7 @@ use crate::xdr::{
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
@@ -301,20 +301,12 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-//todo: rename the variants
 pub enum SignerKey {
     Local(SigningKey),
     Other(Signer),
 }
 
 impl SignerKey {
-    pub fn verifying_key(&self) -> VerifyingKey {
-        match self {
-            SignerKey::Local(s) => s.verifying_key(),
-            SignerKey::Other(_s) => todo!()
-        }
-    }
-
     pub async fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
         match self {
             SignerKey::Local(s) => {
@@ -331,12 +323,6 @@ impl SignerKey {
 }
 
 // impl SignerKey {
-//     pub fn verifying_key(&self) -> VerifyingKey {
-//         match self {
-//             SignerKey::Local(s) => s.verifying_key(),
-//             SignerKey::Other(s) => todo!(),
-//         }
-//     }
 //     pub fn sign(&self, msg: &[u8]) -> Result<Signature, SignError> {
 //         match self {
 //             SignerKey::Local(s) => s.sign(msg),
@@ -376,7 +362,6 @@ impl SignerKey {
 // }
 
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SignerKey> {
-    // let key = config.locator.read_key(addr_or_alias).unwrap();
 
     // match key {
     //     config::key::Key::PublicKey(_public) => todo!(),
@@ -404,7 +389,7 @@ async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Si
     {
         Some(SignerKey::Local(SigningKey::from_bytes(&pk.0)))
     } else {
-        let secret = config.locator.get_secret_key(addr_or_alias).ok().unwrap(); // handl;e error
+        let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
         let print = Print::new(false);
         let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
         Some(SignerKey::Other(signer))

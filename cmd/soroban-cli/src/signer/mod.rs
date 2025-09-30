@@ -99,7 +99,6 @@ pub async fn sign_soroban_authorizations(
         } = auth
         else {
             // Doesn't need special signing
-            // return Ok(auth);
             signed_auths.push(auth);
             continue;
         };
@@ -315,26 +314,6 @@ impl Signer {
                 secure_store_entry.sign_payload(p)
             }
         }
-        // match &tx_env {
-        //     TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-        //         let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
-        //         self.print
-        //             .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
-        //         let decorated_signature = match &self.kind {
-        //             SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
-        //             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-        //             SignerKind::Ledger(ledger) => ledger.sign_transaction_hash(&tx_hash).await?,
-        //             SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash)?,
-        //         };
-        //         let mut sigs = signatures.clone().into_vec();
-        //         sigs.push(decorated_signature);
-        //         Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
-        //             tx: tx.clone(),
-        //             signatures: sigs.try_into()?,
-        //         }))
-        //     }
-        //     _ => Err(Error::UnsupportedTransactionEnvelopeType),
-        // }
     }
 }
 
