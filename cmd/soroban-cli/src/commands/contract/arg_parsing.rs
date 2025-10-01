@@ -56,7 +56,7 @@ pub enum Error {
     Signer(#[from] signer::Error),
 }
 
-pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SignerKey>);
+pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<Signer>);
 
 fn running_cmd() -> String {
     let mut args: Vec<String> = env::args().collect();
@@ -106,7 +106,7 @@ pub async fn build_host_function_parameters(
     let func = spec.find_function(function)?;
     // create parsed_args in same order as the inputs to func
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
-    let mut signers = Vec::<SignerKey>::new();
+    let mut signers = Vec::<Signer>::new();
     for i in func.inputs.iter() {
         let name = i.name.to_utf8_string()?;
         if let Some(mut val) = matches_.get_raw(&name) {
@@ -302,60 +302,9 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-pub struct SignerKey(pub Signer);
-
-impl SignerKey {
-    pub async fn sign_payload(&self, payload: &[u8]) -> Result<ed25519_dalek::Signature, Error>{
-        Ok(self.0.sign_payload(payload).await?)
-    }
-
-    pub async fn get_public_key(&self) -> Result<[u8; 32], Error>{
-        Ok(self.0.get_public_key().await?)
-    }
-}
-
-// impl SignerKey {
-//     pub fn sign(&self, msg: &[u8]) -> Result<Signature, SignError> {
-//         match self {
-//             SignerKey::Local(s) => s.sign(msg),
-//             SignerKey::Other(s) => s.sign(msg),
-//         }
-//     }
-// }
-
-
-// pub trait SignerKeyTrait {
-//     fn verifying_key(&self) -> VerifyingKey;
-//     fn sign(&self, msg: &[u8]) -> Result<Signature, SignerKeyError>;
-// }
-
-// #[derive(thiserror::Error, Debug)]
-// pub enum SignerKeyError {
-//     #[error("secure store error: {0}")]
-//     SecureStore(String),
-//     #[error("in-memory sign error: {0}")]
-//     InMemory(String),
-// }
-
-// pub struct LocalSigner {
-//     sk: ed25519_dalek::SigningKey,
-// }
-
-// impl LocalSigner {
-//     pub fn new(sk: ed25519_dalek::SigningKey) -> Self { Self { sk } }
-// }
-
-// impl SignerKeyTrait for LocalSigner {
-//     fn verifying_key(&self) -> VerifyingKey { self.sk.verifying_key() }
-//     fn sign(&self, msg: &[u8]) -> Result<Signature, SignerKeyError> {
-//         Ok(signature::Signer::<Signature>::try_sign(&self.sk, msg)
-//             .map_err(|e| SignerKeyError::InMemory(e.to_string()))?)
-//     }
-// }
-
-async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SignerKey> {
+async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).unwrap();
     let print = Print::new(false);
     let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
-    Some(SignerKey(signer))
+    Some(signer)
 }

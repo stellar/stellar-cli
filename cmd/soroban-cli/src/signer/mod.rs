@@ -1,5 +1,4 @@
 use crate::{
-    commands::contract::arg_parsing::SignerKey,
     xdr::{
         self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
         HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
@@ -70,7 +69,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 pub async fn sign_soroban_authorizations(
     raw: &Transaction,
     _source_account: &xdr::MuxedAccount,
-    signers: &[SignerKey],
+    signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
@@ -120,14 +119,15 @@ pub async fn sign_soroban_authorizations(
             }
         };
 
-        let mut signer: Option<&SignerKey> = None;
+        let mut signer: Option<&Signer> = None;
         for s in signers {
-            let pk = s.get_public_key().await.unwrap();
+            let pk = s.get_public_key().await?;
             if needle == &pk {
                  signer = Some(s);
             }
         }
 
+        // do we need this still?
         // if needle == source_address {
         //     signer = Some(&sk);
         // }
@@ -140,24 +140,6 @@ pub async fn sign_soroban_authorizations(
                 .to_string(),
             });
         }
-
-        // let signer = if let Some(s) = signers
-        //     .iter()
-        //     .find(|s| needle == s.verifying_key().as_bytes())
-        // {
-        //     s
-        // } else if needle == source_address {
-        //     // This is the source address, so we can sign it
-        //     source_key
-        // } else {
-        //     // We don't have a signer for this address
-        //     return Err(Error::MissingSignerForAddress {
-        //         address: stellar_strkey::Strkey::PublicKeyEd25519(
-        //             stellar_strkey::ed25519::PublicKey(*needle),
-        //         )
-        //         .to_string(),
-        //     });
-        // };
 
         let signed = sign_soroban_authorization_entry(
             raw_auth,
@@ -176,7 +158,7 @@ pub async fn sign_soroban_authorizations(
 
 async fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
-    signer: &SignerKey,
+    signer: &Signer,
     signature_expiration_ledger: u32,
     network_id: &Hash,
 ) -> Result<SorobanAuthorizationEntry, Error> {
@@ -200,8 +182,8 @@ async fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let signature = signer.sign_payload(&payload).await.unwrap();
-    let public_key_vec = signer.get_public_key().await.unwrap().to_vec();
+    let signature = signer.sign_payload(&payload).await?;
+    let public_key_vec = signer.get_public_key().await?.to_vec();
 
     let map = ScMap::sorted_from(vec![
         (
@@ -282,17 +264,6 @@ impl Signer {
         }
     }
 
-    // pub async fn get_raw_public_key(&self) -> Result<[u8; 32], Error> {
-    //     match &self.kind {
-    //         SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
-    //         SignerKind::Ledger(_) => todo!("ledger key"),
-    //         SignerKind::Lab => todo!("lab"),
-    //         SignerKind::SecureStore(secure_store_entry) => {
-    //             let pk = secure_store_entry.get_public_key().await?;
-    //             Ok(*pk.as_bytes()) // assuming `PublicKey` has `.as_bytes() -> &[u8; 32]`
-    //         }
-    //     }
-    // }
     pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
             SignerKind::Local(local_key) => {

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    commands::contract::arg_parsing::SignerKey, signer, xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM}, Pwd
+    signer::{self, Signer}, xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM}, Pwd
 };
 use network::Network;
 
@@ -102,7 +102,7 @@ impl Args {
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
-        signers: &[SignerKey],
+        signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let source_account = self.source_account().await.unwrap();// handle this!
