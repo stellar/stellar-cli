@@ -174,7 +174,6 @@ impl NetworkRunnable for Cmd {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            #[cfg(feature = "version_gte_23")]
             let is_build = self.fee.build_only;
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?

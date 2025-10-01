@@ -83,7 +83,6 @@ impl Cmd {
         let path = self.config_locator.write_identity(&self.name, &secret)?;
         print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
-        #[cfg(feature = "version_gte_23")]
         if self.fund {
             self.fund(&secret, &print).await?;
         }

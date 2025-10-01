@@ -58,4 +58,3 @@ reqwest = { workspace = true }
 default = []
 it = []
 emulator-tests = ["stellar-ledger/emulator-tests"]
-version_gte_23 = []

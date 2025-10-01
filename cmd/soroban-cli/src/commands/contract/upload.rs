@@ -151,7 +151,6 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
         }
 
-        #[cfg(feature = "version_gte_23")]
         let should_check = true;
 
         if should_check {
