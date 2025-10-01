@@ -111,7 +111,7 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
-      - run: choco install innosetup -y
+      - run: winget install -e --id JRSoftware.InnoSetup -v 6.2.2 --silent --accept-source-agreements --accept-package-agreements --disable-interactivity
       - name: Build Installer
         shell: powershell
         run: |
