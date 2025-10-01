@@ -303,8 +303,8 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
-    let secret = config.locator.get_secret_key(addr_or_alias).unwrap();
+    let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
     let print = Print::new(false);
-    let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
+    let signer = secret.signer(None, print).await.ok()?;
     Some(signer)
 }

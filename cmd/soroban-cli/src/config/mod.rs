@@ -6,7 +6,9 @@ use std::{
 };
 
 use crate::{
-    signer::{self, Signer}, xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM}, Pwd
+    signer::{self, Signer},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    Pwd,
 };
 use network::Network;
 
@@ -105,7 +107,7 @@ impl Args {
         signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_account = self.source_account().await.unwrap();// handle this!
+        let source_account = self.source_account().await?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
@@ -115,7 +117,8 @@ impl Args {
             signers,
             seq_num,
             &network.network_passphrase,
-        ).await?)
+        )
+        .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

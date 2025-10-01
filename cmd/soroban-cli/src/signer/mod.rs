@@ -1,12 +1,9 @@
-use crate::{
-    xdr::{
-        self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
-        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
-        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
-        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
-        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
-    },
+use crate::xdr::{
+    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
+    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
+    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
+    TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
@@ -89,7 +86,7 @@ pub async fn sign_soroban_authorizations(
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
     let mut signed_auths = Vec::with_capacity(body.auth.len());
-    for raw_auth in body.auth.as_slice().iter() {
+    for raw_auth in body.auth.as_slice() {
         let mut auth = raw_auth.clone();
         let SorobanAuthorizationEntry {
             credentials: SorobanCredentials::Address(ref mut credentials),
@@ -123,7 +120,7 @@ pub async fn sign_soroban_authorizations(
         for s in signers {
             let pk = s.get_public_key().await?;
             if needle == &pk {
-                 signer = Some(s);
+                signer = Some(s);
             }
         }
 
@@ -132,7 +129,16 @@ pub async fn sign_soroban_authorizations(
         //     signer = Some(&sk);
         // }
 
-        if signer.is_none() {
+        if let Some(signer) = signer {
+            let signed = sign_soroban_authorization_entry(
+                raw_auth,
+                signer, // handle this
+                signature_expiration_ledger,
+                &network_id,
+            )
+            .await?;
+            signed_auths.push(signed);
+        } else {
             return Err(Error::MissingSignerForAddress {
                 address: stellar_strkey::Strkey::PublicKeyEd25519(
                     stellar_strkey::ed25519::PublicKey(*needle),
@@ -140,15 +146,6 @@ pub async fn sign_soroban_authorizations(
                 .to_string(),
             });
         }
-
-        let signed = sign_soroban_authorization_entry(
-            raw_auth,
-            &signer.unwrap(), // handle this
-            signature_expiration_ledger,
-            &network_id,
-        )
-        .await?;
-        signed_auths.push(signed);
     }
 
     body.auth = signed_auths.try_into()?;
@@ -266,9 +263,7 @@ impl Signer {
 
     pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
-            SignerKind::Local(local_key) => {
-                Ok(*local_key.key.verifying_key().as_bytes())
-            }
+            SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
             SignerKind::Ledger(_ledger) => todo!("ledger key"),
             SignerKind::Lab => todo!("lab"),
             SignerKind::SecureStore(secure_store_entry) => {

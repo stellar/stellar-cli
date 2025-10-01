@@ -253,7 +253,8 @@ impl NetworkRunnable for Cmd {
                         &slop,
                         &entries,
                         config,
-                    ).await?
+                    )
+                    .await?
                     .2,
                 )
             }
