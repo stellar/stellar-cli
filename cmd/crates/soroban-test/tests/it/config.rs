@@ -1,4 +1,4 @@
-use crate::util::{add_key, add_test_id, NoFund, SecretKind, DEFAULT_SEED_PHRASE};
+use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
 use predicates::prelude::predicate;
 use soroban_cli::commands::network;
 use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
@@ -120,7 +120,6 @@ fn generate_key() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("--seed")
         .arg("0000000000000000")
         .arg("test_2")
@@ -279,7 +278,6 @@ fn cannot_create_contract_with_test_name() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("d")
         .assert()
         .success();
@@ -308,7 +306,6 @@ fn cannot_create_key_with_alias() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("t")
         .assert()
         .stderr(predicate::str::contains(
