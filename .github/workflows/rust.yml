@@ -162,22 +162,19 @@ jobs:
             target: x86_64-unknown-linux-gnu
             cargo-hack-feature-options:
               --feature-powerset --skip emulator-tests
-              --ignore-unknown-features
             additional-deb-packages: libudev-dev libdbus-1-dev
           #        - os: ubuntu-jammy-8-cores-arm64
           #          target: aarch64-unknown-linux-gnu
-          #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default --ignore-unknown-features
+          #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default
           #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
           - os: macos-13
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
               --feature-powerset --skip emulator-tests
-              --ignore-unknown-features
           - os: macos-latest
             target: aarch64-apple-darwin
             cargo-hack-feature-options:
               --feature-powerset --skip emulator-tests
-              --ignore-unknown-features
           # Windows builds notes:
           #
           # The different features that need testing are split over unique
@@ -196,7 +193,7 @@ jobs:
           - os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             cargo-hack-feature-options:
-              --features additional-libs --ignore-unknown-features
+              --features additional-libs
 
     uses: stellar/actions/.github/workflows/rust-publish-dry-run-v2.yml@main
     with:
