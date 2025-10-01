@@ -131,15 +131,15 @@ pub async fn sign_soroban_authorizations(
 
         match signer {
             Some(signer) => {
-                let signed = sign_soroban_authorization_entry(
+                let signed_entry = sign_soroban_authorization_entry(
                     raw_auth,
                     signer, // handle this
                     signature_expiration_ledger,
                     &network_id,
                 )
                 .await?;
-                signed_auths.push(signed);
-            },
+                signed_auths.push(signed_entry);
+            }
             None => {
                 return Err(Error::MissingSignerForAddress {
                     address: stellar_strkey::Strkey::PublicKeyEd25519(
@@ -264,6 +264,8 @@ impl Signer {
         }
     }
 
+    // when we implement this for ledger we'll need it to be awaited
+    #[allow(clippy::unused_async)]
     pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
@@ -276,6 +278,8 @@ impl Signer {
         }
     }
 
+    // when we implement this for ledger we'll need it to be awaited
+    #[allow(clippy::unused_async)]
     pub async fn sign_payload(&self, payload: &[u8]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
             SignerKind::Local(local_key) => {
