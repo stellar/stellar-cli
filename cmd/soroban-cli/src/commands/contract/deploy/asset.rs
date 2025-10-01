@@ -147,19 +147,18 @@ impl NetworkRunnable for Cmd {
             network_passphrase,
             source_account,
         )?;
+
         if self.fee.build_only {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
+
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
-        #[cfg(feature = "version_lt_23")]
-        if self.fee.sim_only {
-            return Ok(TxnResult::Txn(Box::new(txn)));
-        }
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign(txn).await?)
             .await?
             .try_into()?;
+
         if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp, &network.rpc_uri()?)?;
         }

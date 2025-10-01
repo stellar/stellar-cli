@@ -41,12 +41,6 @@ struct AliasEntry {
 }
 
 impl Cmd {
-    #[cfg(feature = "version_lt_23")]
-    pub fn run(&self) -> Result<(), Error> {
-        Self::read_from_config_dir(&self.config_locator.config_dir()?, false)
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
     #[cfg(feature = "version_gte_23")]
     pub fn run(&self) -> Result<(), Error> {
         let config_dirs = self.config_locator.local_and_global()?;

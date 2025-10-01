@@ -151,11 +151,6 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
         }
 
-        // Don't check whether the contract is already installed when the user
-        // has requested to perform simulation only and is hoping to get a
-        // transaction back.
-        #[cfg(feature = "version_lt_23")]
-        let should_check = !self.fee.sim_only;
         #[cfg(feature = "version_gte_23")]
         let should_check = true;
 
@@ -194,12 +189,6 @@ impl NetworkRunnable for Cmd {
 
         let txn = simulate_and_assemble_transaction(&client, &tx_without_preflight).await?;
         let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
-
-        #[cfg(feature = "version_lt_23")]
-        if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn));
-        }
-
         let signed_txn = &self.config.sign(*txn).await?;
 
         print.globeln("Submitting install transaction…");

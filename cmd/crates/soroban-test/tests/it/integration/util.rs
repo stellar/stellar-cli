@@ -32,8 +32,6 @@ pub enum DeployKind {
     BuildOnly,
     #[default]
     Normal,
-    #[cfg(feature = "version_lt_23")]
-    SimOnly,
 }
 
 impl Display for DeployKind {
@@ -41,8 +39,6 @@ impl Display for DeployKind {
         match self {
             DeployKind::BuildOnly => write!(f, "--build-only"),
             DeployKind::Normal => write!(f, ""),
-            #[cfg(feature = "version_lt_23")]
-            DeployKind::SimOnly => write!(f, "--sim-only"),
         }
     }
 }

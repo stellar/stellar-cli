@@ -15,8 +15,4 @@ fn set_protocol_features() {
     if major_version >= 23 {
         println!("cargo:rustc-cfg=feature=\"version_gte_23\"");
     }
-
-    if major_version < 23 && std::env::var("CARGO_FEATURE_VERSION_GTE_23").is_err() {
-        println!("cargo:rustc-cfg=feature=\"version_lt_23\"");
-    }
 }

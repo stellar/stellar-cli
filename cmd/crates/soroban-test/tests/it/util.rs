@@ -68,9 +68,6 @@ pub trait NoFund {
 
 impl NoFund for Command {
     fn no_fund(&mut self) -> &mut Self {
-        #[cfg(feature = "version_lt_23")]
-        return self.arg("--no-fund");
-        #[cfg(not(feature = "version_lt_23"))]
         return self;
     }
 }

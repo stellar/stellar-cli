@@ -36,7 +36,6 @@ doctest = false
 [features]
 default = ["additional-libs"]
 additional-libs = ["dep:wasm-opt", "dep:keyring", "dep:stellar-ledger"]
-version_lt_23 = []
 version_gte_23 = []
 emulator-tests = ["stellar-ledger/emulator-tests"]
 

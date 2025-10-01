@@ -104,20 +104,6 @@ pub enum Error {
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
-#[cfg(feature = "version_lt_23")]
-pub struct Args {
-    /// Use global config
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub global: bool,
-
-    /// Location of config directory, default is "."
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub config_dir: Option<PathBuf>,
-}
-
-#[derive(Debug, clap::Args, Default, Clone)]
-#[group(skip)]
-#[cfg(not(feature = "version_lt_23"))]
 #[cfg(feature = "version_gte_23")]
 pub struct Args {
     /// ⚠️ Deprecated: global config is always on
@@ -168,16 +154,6 @@ impl Location {
 }
 
 impl Args {
-    #[cfg(feature = "version_lt_23")]
-    pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        if self.global {
-            self.global_config_path()
-        } else {
-            self.local_config()
-        }
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
     #[cfg(feature = "version_gte_23")]
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
@@ -340,21 +316,6 @@ impl Args {
         KeyType::Network.remove(name, &self.config_dir()?)
     }
 
-    #[cfg(feature = "version_lt_23")]
-    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
-        let path = self.alias_path(alias)?;
-
-        if !path.exists() {
-            return Ok(None);
-        }
-
-        let content = fs::read_to_string(path)?;
-        let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-        Ok(Some(data))
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
     #[cfg(feature = "version_gte_23")]
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
         let file_name = format!("{alias}.json");
