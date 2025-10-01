@@ -121,18 +121,15 @@ pub async fn sign_soroban_authorizations(
         };
 
         let mut signer: Option<&SignerKey> = None;
-        // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
-        // println!("NEedle Muxed {:?}", needle_muxed);
         for s in signers {
             if s.matches_verifying_key(needle).await {
                 signer = Some(s);
             }
         }
 
-        let sk = SignerKey::Local(source_key.clone()); //this may not necessarily be a local signer
-        if needle == source_address {
-            signer = Some(&sk);
-        }
+        // if needle == source_address {
+        //     signer = Some(&sk);
+        // }
 
         if signer.is_none() {
             return Err(Error::MissingSignerForAddress {
@@ -202,12 +199,12 @@ async fn sign_soroban_authorization_entry(
 
     let payload = Sha256::digest(preimage);
     let signature = match signer {
-        SignerKey::Local(signing_key) => signing_key.sign(&payload),
+        // SignerKey::Local(signing_key) => signing_key.sign(&payload),
         SignerKey::Other(signer) => signer.sign_payload(&payload).await?,
     };
 
     let public_key_vec = match signer {
-        SignerKey::Local(signing_key) => signing_key.verifying_key().to_bytes().to_vec(),
+        // SignerKey::Local(signing_key) => signing_key.verifying_key().to_bytes().to_vec(),
         SignerKey::Other(signer) => signer.get_public_key().await?.0.to_vec(),
     };
 

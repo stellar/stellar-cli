@@ -8,7 +8,6 @@ use crate::xdr::{
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
-use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
@@ -302,17 +301,12 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 pub enum SignerKey {
-    Local(SigningKey),
     Other(Signer),
 }
 
 impl SignerKey {
     pub async fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
         match self {
-            SignerKey::Local(s) => {
-            // let needle_muxed = xdr::MuxedAccount::Ed25519(xdr::Uint256(*needle));
-                needle == s.verifying_key().as_bytes()
-            }
             SignerKey::Other(s) => {
                 let signer_pk = s.get_public_key().await.unwrap();
                 signer_pk.0 == *needle
