@@ -65,7 +65,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 // transaction. If unable to sign, return an error.
 pub async fn sign_soroban_authorizations(
     raw: &Transaction,
-    _source_account: &xdr::MuxedAccount,
+    source_signer: &Signer,
     signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
@@ -118,16 +118,14 @@ pub async fn sign_soroban_authorizations(
 
         let mut signer: Option<&Signer> = None;
         for s in signers {
-            let pk = s.get_public_key().await?;
-            if needle == &pk {
+            if needle == &s.get_public_key().await? {
                 signer = Some(s);
             }
         }
 
-        // do we need this still?
-        // if needle == source_address {
-        //     signer = Some(&sk);
-        // }
+        if needle == &source_signer.get_public_key().await? {
+            signer = Some(source_signer);
+        }
 
         match signer {
             Some(signer) => {
