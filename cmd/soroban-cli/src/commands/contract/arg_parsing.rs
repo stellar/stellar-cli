@@ -2,7 +2,7 @@ use crate::commands::contract::arg_parsing::Error::HelpMessage;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
 use crate::print::Print;
-use crate::signer::Signer;
+use crate::signer::{self, Signer};
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
 };
@@ -52,6 +52,8 @@ pub enum Error {
     HelpMessage(String),
     #[error("Unsupported ScAddress {0}")]
     UnsupportedScAddress(String),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SignerKey>);
@@ -300,19 +302,15 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-pub enum SignerKey {
-    Other(Signer),
-}
+pub struct SignerKey(pub Signer);
 
 impl SignerKey {
-    pub async fn matches_verifying_key(&self, needle: &[u8; 32]) -> bool {
-        match self {
-            SignerKey::Other(s) => {
-                let signer_pk = s.get_public_key().await.unwrap();
-                signer_pk.0 == *needle
-            }
-        }
+    pub async fn sign_payload(&self, payload: &[u8]) -> Result<ed25519_dalek::Signature, Error>{
+        Ok(self.0.sign_payload(payload).await?)
+    }
 
+    pub async fn get_public_key(&self) -> Result<[u8; 32], Error>{
+        Ok(self.0.get_public_key().await?)
     }
 }
 
@@ -359,5 +357,5 @@ async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Si
     let secret = config.locator.get_secret_key(addr_or_alias).unwrap();
     let print = Print::new(false);
     let signer = secret.signer(None, print).await.ok()?; // can the hd_path be none here??
-    Some(SignerKey::Other(signer))
+    Some(SignerKey(signer))
 }

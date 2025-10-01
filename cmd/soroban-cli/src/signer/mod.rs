@@ -9,7 +9,7 @@ use crate::{
         WriteXdr,
     },
 };
-use ed25519_dalek::{ed25519::signature::{Signer as _}, Signature as Ed25519Signature};
+use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
@@ -122,8 +122,9 @@ pub async fn sign_soroban_authorizations(
 
         let mut signer: Option<&SignerKey> = None;
         for s in signers {
-            if s.matches_verifying_key(needle).await {
-                signer = Some(s);
+            let pk = s.get_public_key().await.unwrap();
+            if needle == &pk {
+                 signer = Some(s);
             }
         }
 
@@ -163,7 +164,8 @@ pub async fn sign_soroban_authorizations(
             &signer.unwrap(), // handle this
             signature_expiration_ledger,
             &network_id,
-        ).await?;
+        )
+        .await?;
         signed_auths.push(signed);
     }
 
@@ -198,15 +200,8 @@ async fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let signature = match signer {
-        // SignerKey::Local(signing_key) => signing_key.sign(&payload),
-        SignerKey::Other(signer) => signer.sign_payload(&payload).await?,
-    };
-
-    let public_key_vec = match signer {
-        // SignerKey::Local(signing_key) => signing_key.verifying_key().to_bytes().to_vec(),
-        SignerKey::Other(signer) => signer.get_public_key().await?.0.to_vec(),
-    };
+    let signature = signer.sign_payload(&payload).await.unwrap();
+    let public_key_vec = signer.get_public_key().await.unwrap().to_vec();
 
     let map = ScMap::sorted_from(vec![
         (
@@ -246,8 +241,7 @@ pub enum SignerKind {
     SecureStore(SecureStoreEntry),
 }
 
-// Instead of using `sign_tx` and `sign_tx_env` directly, it is advised to instead use the sign_with module
-// which allows for signing with a local key, lab or a ledger device
+// It is advised to use the sign_with module, which handles creating a Signer with the appropriate SignerKind
 impl Signer {
     pub async fn sign_tx(
         &self,
@@ -288,28 +282,37 @@ impl Signer {
         }
     }
 
-    pub async fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error>{
+    // pub async fn get_raw_public_key(&self) -> Result<[u8; 32], Error> {
+    //     match &self.kind {
+    //         SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
+    //         SignerKind::Ledger(_) => todo!("ledger key"),
+    //         SignerKind::Lab => todo!("lab"),
+    //         SignerKind::SecureStore(secure_store_entry) => {
+    //             let pk = secure_store_entry.get_public_key().await?;
+    //             Ok(*pk.as_bytes()) // assuming `PublicKey` has `.as_bytes() -> &[u8; 32]`
+    //         }
+    //     }
+    // }
+    pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
             SignerKind::Local(local_key) => {
-                
-                let k = local_key.key.verifying_key().as_bytes().clone();
-                Ok(stellar_strkey::ed25519::PublicKey::from_payload(&k)?)
-            },
+                Ok(*local_key.key.verifying_key().as_bytes())
+            }
             SignerKind::Ledger(_ledger) => todo!("ledger key"),
             SignerKind::Lab => todo!("lab"),
-            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
+            SignerKind::SecureStore(secure_store_entry) => {
+                let pk = secure_store_entry.get_public_key()?;
+                Ok(pk.0)
+            }
         }
     }
 
-     pub async fn sign_payload(
-        &self,
-        payload: &[u8],
-    ) -> Result<Ed25519Signature, Error> {
+    pub async fn sign_payload(&self, payload: &[u8]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
             SignerKind::Local(local_key) => {
                 let p = <[u8; 32]>::try_from(payload)?;
                 local_key.sign_payload(p)
-            },
+            }
             SignerKind::Ledger(_ledger) => todo!("ledger"),
             SignerKind::Lab => todo!("lab"),
             SignerKind::SecureStore(secure_store_entry) => {
