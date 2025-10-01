@@ -129,22 +129,25 @@ pub async fn sign_soroban_authorizations(
         //     signer = Some(&sk);
         // }
 
-        if let Some(signer) = signer {
-            let signed = sign_soroban_authorization_entry(
-                raw_auth,
-                signer, // handle this
-                signature_expiration_ledger,
-                &network_id,
-            )
-            .await?;
-            signed_auths.push(signed);
-        } else {
-            return Err(Error::MissingSignerForAddress {
-                address: stellar_strkey::Strkey::PublicKeyEd25519(
-                    stellar_strkey::ed25519::PublicKey(*needle),
+        match signer {
+            Some(signer) => {
+                let signed = sign_soroban_authorization_entry(
+                    raw_auth,
+                    signer, // handle this
+                    signature_expiration_ledger,
+                    &network_id,
                 )
-                .to_string(),
-            });
+                .await?;
+                signed_auths.push(signed);
+            },
+            None => {
+                return Err(Error::MissingSignerForAddress {
+                    address: stellar_strkey::Strkey::PublicKeyEd25519(
+                        stellar_strkey::ed25519::PublicKey(*needle),
+                    )
+                    .to_string(),
+                });
+            }
         }
     }
 
