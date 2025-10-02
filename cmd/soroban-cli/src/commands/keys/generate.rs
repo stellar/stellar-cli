@@ -33,11 +33,6 @@ pub struct Cmd {
     /// Name of identity
     pub name: KeyName,
 
-    /// Do not fund address
-    #[cfg(feature = "version_lt_23")]
-    #[arg(long)]
-    pub no_fund: bool,
-
     /// Optional seed to use when generating seed phrase.
     /// Random otherwise.
     #[arg(long)]
@@ -84,24 +79,10 @@ impl Cmd {
             print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
         }
 
-        #[cfg(feature = "version_lt_23")]
-        if !self.fund {
-            print.warnln(
-                "Behavior of `generate` will change in the \
-            future, and it will no longer fund by default. If you want to fund please \
-            provide `--fund` flag. If you don't need to fund your keys in the future, ignore this \
-            warning. It can be suppressed with -q flag.",
-            );
-        }
         let secret = self.secret(&print)?;
         let path = self.config_locator.write_identity(&self.name, &secret)?;
         print.checkln(format!("Key saved with alias {} in {path:?}", self.name));
 
-        #[cfg(feature = "version_lt_23")]
-        if !self.no_fund {
-            self.fund(&secret, &print).await?;
-        }
-        #[cfg(feature = "version_gte_23")]
         if self.fund {
             self.fund(&secret, &print).await?;
         }
@@ -158,8 +139,6 @@ mod tests {
 
         let cmd = super::Cmd {
             name: KeyName("test_name".to_string()),
-            #[cfg(feature = "version_lt_23")]
-            no_fund: true,
             seed: None,
             as_secret: false,
             secure_store: false,

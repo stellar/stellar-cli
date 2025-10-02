@@ -174,9 +174,6 @@ impl NetworkRunnable for Cmd {
         let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            #[cfg(feature = "version_lt_23")]
-            let is_build = self.fee.build_only || self.fee.sim_only;
-            #[cfg(feature = "version_gte_23")]
             let is_build = self.fee.build_only;
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
@@ -283,12 +280,6 @@ impl NetworkRunnable for Cmd {
 
         let txn = simulate_and_assemble_transaction(&client, &txn).await?;
         let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
-
-        #[cfg(feature = "version_lt_23")]
-        if self.fee.sim_only {
-            print.checkln("Done!");
-            return Ok(TxnResult::Txn(txn));
-        }
 
         print.log_transaction(&txn, &network, true)?;
         let signed_txn = &config.sign(*txn).await?;

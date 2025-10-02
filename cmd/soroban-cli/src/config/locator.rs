@@ -104,21 +104,6 @@ pub enum Error {
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
-#[cfg(feature = "version_lt_23")]
-pub struct Args {
-    /// Use global config
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub global: bool,
-
-    /// Location of config directory, default is "."
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub config_dir: Option<PathBuf>,
-}
-
-#[derive(Debug, clap::Args, Default, Clone)]
-#[group(skip)]
-#[cfg(not(feature = "version_lt_23"))]
-#[cfg(feature = "version_gte_23")]
 pub struct Args {
     /// ⚠️ Deprecated: global config is always on
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
@@ -168,17 +153,6 @@ impl Location {
 }
 
 impl Args {
-    #[cfg(feature = "version_lt_23")]
-    pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        if self.global {
-            self.global_config_path()
-        } else {
-            self.local_config()
-        }
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
-    #[cfg(feature = "version_gte_23")]
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
         if self.global {
             let print = Print::new(false);
@@ -340,22 +314,6 @@ impl Args {
         KeyType::Network.remove(name, &self.config_dir()?)
     }
 
-    #[cfg(feature = "version_lt_23")]
-    fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
-        let path = self.alias_path(alias)?;
-
-        if !path.exists() {
-            return Ok(None);
-        }
-
-        let content = fs::read_to_string(path)?;
-        let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-        Ok(Some(data))
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
-    #[cfg(feature = "version_gte_23")]
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
         let file_name = format!("{alias}.json");
         let config_dirs = self.local_and_global()?;
@@ -484,7 +442,6 @@ impl Args {
     }
 
     pub fn global_config_path(&self) -> Result<PathBuf, Error> {
-        #[cfg(feature = "version_gte_23")]
         if let Some(config_dir) = &self.config_dir {
             return Ok(config_dir.clone());
         }
@@ -493,7 +450,6 @@ impl Args {
     }
 }
 
-#[cfg(feature = "version_gte_23")]
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
@@ -560,7 +516,6 @@ impl KeyType {
             let path = self.path(location.as_ref(), key);
 
             if let Ok(t) = Self::read_from_path(&path) {
-                #[cfg(feature = "version_gte_23")]
                 if let Location::Local(config_dir) = location {
                     print_deprecation_warning(&config_dir);
                 }
@@ -621,7 +576,6 @@ impl KeyType {
             let mut files = self.read_dir(&path)?;
             files.sort();
 
-            #[cfg(feature = "version_gte_23")]
             if let Location::Local(config_dir) = pwd {
                 if files.len() > 1 && print_warning {
                     print_deprecation_warning(config_dir);

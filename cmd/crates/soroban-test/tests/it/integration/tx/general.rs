@@ -20,17 +20,6 @@ async fn simulate() {
         },
     )
     .await;
-    #[cfg(feature = "version_lt_23")]
-    let xdr_base64_sim_only = deploy_contract(
-        sandbox,
-        HELLO_WORLD,
-        DeployOptions {
-            kind: DeployKind::SimOnly,
-            salt: salt.clone(),
-            ..Default::default()
-        },
-    )
-    .await;
     let tx_env =
         TransactionEnvelope::from_xdr_base64(&xdr_base64_build_only, Limits::none()).unwrap();
     let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env.clone()).unwrap();
@@ -41,15 +30,6 @@ async fn simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    #[cfg(feature = "version_lt_23")]
-    {
-        let tx_env_from_cli_tx =
-            TransactionEnvelope::from_xdr_base64(&assembled_str, Limits::none()).unwrap();
-        let tx_env_sim_only =
-            TransactionEnvelope::from_xdr_base64(&xdr_base64_sim_only, Limits::none()).unwrap();
-        assert_eq!(tx_env_from_cli_tx, tx_env_sim_only);
-        assert_eq!(xdr_base64_sim_only, assembled_str);
-    }
     let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx)
         .await
         .unwrap();
