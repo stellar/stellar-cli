@@ -111,8 +111,10 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
-      - run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements
-      - run: |
+      - shell: powershell
+        run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements
+      - shell: powershell
+        run: |
           $innoPath = "C:\Program Files (x86)\Inno Setup 6"
           echo $innoPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build Installer
