@@ -20,38 +20,11 @@ pub enum Cmd {
     /// List networks
     Ls(ls::Cmd),
 
-    /// ⚠️ Deprecated: use `stellar container start` instead
-    ///
-    /// Start network
-    ///
-    /// Start a container running a Stellar node, RPC, API, and friendbot (faucet).
-    ///
-    /// `stellar network start NETWORK [OPTIONS]`
-    ///
-    /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
-    ///
-    /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
-    #[cfg(feature = "version_lt_23")]
-    Start(crate::commands::container::StartCmd),
-
-    /// ⚠️ Deprecated: use `stellar container stop` instead
-    ///
-    /// Stop a network started with `network start`. For example, if you ran `stellar network start local`, you can use `stellar network stop local` to stop it.
-    #[cfg(feature = "version_lt_23")]
-    Stop(crate::commands::container::StopCmd),
-
     /// Set the default network that will be used on all commands.
     /// This allows you to skip `--network` or setting a environment variable,
     /// while reusing this value in all commands that require it.
     #[command(name = "use")]
     Default(default::Cmd),
-
-    /// ⚠️ Deprecated: use `stellar container` instead
-    ///
-    /// Commands to start, stop and get logs for a quickstart container
-    #[cfg(feature = "version_lt_23")]
-    #[command(subcommand)]
-    Container(crate::commands::container::Cmd),
 
     /// Fetch the health of the configured RPC
     Health(health::Cmd),
@@ -85,18 +58,6 @@ pub enum Error {
 
     #[error(transparent)]
     Settings(#[from] settings::Error),
-
-    #[cfg(feature = "version_lt_23")]
-    #[error(transparent)]
-    Start(#[from] crate::commands::container::start::Error),
-
-    #[cfg(feature = "version_lt_23")]
-    #[error(transparent)]
-    Stop(#[from] crate::commands::container::stop::Error),
-
-    #[cfg(feature = "version_lt_23")]
-    #[error(transparent)]
-    Container(#[from] crate::commands::container::Error),
 }
 
 impl Cmd {
@@ -106,21 +67,6 @@ impl Cmd {
             Cmd::Add(cmd) => cmd.run()?,
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
-            #[cfg(feature = "version_lt_23")]
-            Cmd::Container(cmd) => cmd.run(global_args).await?,
-
-            #[cfg(feature = "version_lt_23")]
-            Cmd::Start(cmd) => {
-                eprintln!("⚠️ Warning: `network start` has been deprecated. Use `container start` instead");
-                cmd.run(global_args).await?;
-            }
-            #[cfg(feature = "version_lt_23")]
-            Cmd::Stop(cmd) => {
-                println!(
-                    "⚠️ Warning: `network stop` has been deprecated. Use `container stop` instead"
-                );
-                cmd.run(global_args).await?;
-            }
             Cmd::Health(cmd) => cmd.run(global_args).await?,
             Cmd::Info(cmd) => cmd.run(global_args).await?,
             Cmd::Settings(cmd) => cmd.run(global_args).await?,

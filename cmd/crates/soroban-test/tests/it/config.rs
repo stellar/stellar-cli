@@ -1,4 +1,4 @@
-use crate::util::{add_key, add_test_id, NoFund, SecretKind, DEFAULT_SEED_PHRASE};
+use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
 use predicates::prelude::predicate;
 use soroban_cli::commands::network;
 use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
@@ -98,37 +98,6 @@ fn multiple_networks() {
             "testnet".to_owned()
         ]
     );
-
-    #[cfg(feature = "version_lt_23")]
-    {
-        let sub_dir = sandbox.dir().join("sub_directory");
-        fs::create_dir(&sub_dir).unwrap();
-
-        TestEnv::cmd_arr_with_pwd::<network::add::Cmd>(
-            &[
-                "--rpc-url",
-                "https://127.0.0.1",
-                "--network-passphrase",
-                "Local Sandbox Stellar Network ; September 2022",
-                "local3",
-            ],
-            &sub_dir,
-        )
-        .run()
-        .unwrap();
-
-        assert_eq!(
-            ls().as_slice(),
-            [
-                "local2".to_owned(),
-                "local3".to_owned(),
-                "local".to_owned(),
-                "futurenet".to_owned(),
-                "mainnet".to_owned(),
-                "testnet".to_owned()
-            ]
-        );
-    }
 }
 
 #[test]
@@ -151,7 +120,6 @@ fn generate_key() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("--seed")
         .arg("0000000000000000")
         .arg("test_2")
@@ -250,58 +218,6 @@ fn use_env() {
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
 }
 
-#[cfg(feature = "version_lt_23")]
-#[test]
-fn config_dirs_precedence() {
-    let sandbox = TestEnv::default();
-
-    sandbox
-        .new_assert_cmd("keys")
-        .env(
-            "SOROBAN_SECRET_KEY",
-            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
-        )
-        .arg("add")
-        .arg("alice")
-        .assert()
-        .success();
-
-    fs::rename(
-        sandbox.dir().join(".stellar"),
-        sandbox.dir().join("_soroban"),
-    )
-    .unwrap();
-
-    sandbox
-        .new_assert_cmd("keys")
-        .env(
-            "SOROBAN_SECRET_KEY",
-            "SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG",
-        )
-        .arg("add")
-        .arg("alice")
-        .assert()
-        .success();
-
-    fs::rename(
-        sandbox.dir().join("_soroban"),
-        sandbox.dir().join(".soroban"),
-    )
-    .unwrap();
-
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("secret")
-        .arg("alice")
-        .arg("--verbose")
-        .assert()
-        .success()
-        .stderr(predicate::str::contains(
-            "WARN soroban_cli::utils: the .stellar and .soroban config directories exist at path",
-        ))
-        .stdout("SAQMV6P3OWM2SKCK3OEWNXSRYWK5RNNUL5CPHQGIJF2WVT4EI2BZ63GG\n");
-}
-
 #[test]
 fn set_default_identity() {
     let sandbox = TestEnv::default();
@@ -362,7 +278,6 @@ fn cannot_create_contract_with_test_name() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("d")
         .assert()
         .success();
@@ -391,7 +306,6 @@ fn cannot_create_key_with_alias() {
     sandbox
         .new_assert_cmd("keys")
         .arg("generate")
-        .no_fund()
         .arg("t")
         .assert()
         .stderr(predicate::str::contains(

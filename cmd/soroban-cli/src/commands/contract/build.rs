@@ -10,11 +10,12 @@ use std::{
     env,
     ffi::OsStr,
     fmt::Debug,
-    fs, io,
+    fs,
+    io::{self, Cursor},
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 use crate::{commands::global, print::Print};
 
@@ -114,6 +115,8 @@ pub enum Error {
     MetaArg(String),
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
+    #[error(transparent)]
+    Xdr(#[from] stellar_xdr::curr::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -296,7 +299,17 @@ impl Cmd {
         }
 
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let xdr = self.encoded_new_meta()?;
+        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
+        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
+        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+    }
+
+    fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
+        let mut new_meta: Vec<ScMetaEntry> = Vec::new();
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -308,17 +321,15 @@ impl Cmd {
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             let meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 { key, val });
-            let xdr: Vec<u8> = meta_entry
-                .to_xdr(Limits::none())
-                .map_err(|e| Error::MetaArg(format!("failed to encode metadata entry: {e}")))?;
-
-            wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+            new_meta.push(meta_entry);
         }
 
-        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
-        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
-        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in new_meta {
+            entry.write_xdr(&mut writer)?;
+        }
+        Ok(buffer)
     }
 
     fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {

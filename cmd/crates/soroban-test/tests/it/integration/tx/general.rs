@@ -6,10 +6,6 @@ use crate::integration::util::{
     deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
 };
 
-pub mod decode_encode;
-pub mod fetch;
-pub mod operations;
-
 #[tokio::test]
 async fn simulate() {
     let sandbox = &TestEnv::new();
@@ -19,17 +15,6 @@ async fn simulate() {
         HELLO_WORLD,
         DeployOptions {
             kind: DeployKind::BuildOnly,
-            salt: salt.clone(),
-            ..Default::default()
-        },
-    )
-    .await;
-    #[cfg(feature = "version_lt_23")]
-    let xdr_base64_sim_only = deploy_contract(
-        sandbox,
-        HELLO_WORLD,
-        DeployOptions {
-            kind: DeployKind::SimOnly,
             salt: salt.clone(),
             ..Default::default()
         },
@@ -45,15 +30,6 @@ async fn simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    #[cfg(feature = "version_lt_23")]
-    {
-        let tx_env_from_cli_tx =
-            TransactionEnvelope::from_xdr_base64(&assembled_str, Limits::none()).unwrap();
-        let tx_env_sim_only =
-            TransactionEnvelope::from_xdr_base64(&xdr_base64_sim_only, Limits::none()).unwrap();
-        assert_eq!(tx_env_from_cli_tx, tx_env_sim_only);
-        assert_eq!(xdr_base64_sim_only, assembled_str);
-    }
     let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx)
         .await
         .unwrap();

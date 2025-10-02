@@ -26,6 +26,7 @@ pub mod version;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
+pub const HEADING_ARCHIVE: &str = "Options (Archive)";
 pub const HEADING_GLOBAL: &str = "Options (Global)";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
@@ -114,7 +115,6 @@ impl Root {
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
             Cmd::Doctor(doctor) => doctor.run(&self.global_args).await?,
-            #[cfg(feature = "version_gte_23")]
             Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
@@ -176,7 +176,6 @@ pub enum Cmd {
     Container(container::Cmd),
 
     /// Manage cli configuration
-    #[cfg(feature = "version_gte_23")]
     #[command(subcommand)]
     Config(cfg::Cmd),
 
