@@ -258,20 +258,6 @@ impl NetworkRunnable for Cmd {
             None
         };
 
-        if self.fee.build_only {
-            // For build-only mode, use a dummy sequence number since we don't need to submit
-            let txn = Box::new(build_create_contract_tx(
-                wasm_hash,
-                1, // dummy sequence number for build-only
-                self.fee.fee,
-                source_account,
-                contract_id_preimage,
-                constructor_params.as_ref(),
-            )?);
-            print.checkln("Transaction built!");
-            return Ok(TxnResult::Txn(txn));
-        }
-
         // For network operations, verify the network passphrase
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -288,6 +274,11 @@ impl NetworkRunnable for Cmd {
             contract_id_preimage,
             constructor_params.as_ref(),
         )?);
+
+        if self.fee.build_only {
+            print.checkln("Transaction built!");
+            return Ok(TxnResult::Txn(txn));
+        }
 
         print.infoln("Simulating deploy transaction…");
 
