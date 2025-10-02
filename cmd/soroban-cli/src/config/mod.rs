@@ -6,7 +6,10 @@ use std::{
 };
 
 use crate::{
-    print::Print, signer::{self, Signer}, xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM}, Pwd
+    print::Print,
+    signer::{self, Signer},
+    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    Pwd,
 };
 use network::Network;
 
