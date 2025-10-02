@@ -268,7 +268,7 @@ impl Signer {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
             SignerKind::Ledger(_ledger) => todo!("ledger key"),
-            SignerKind::Lab => todo!("lab"),
+            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
                 let pk = secure_store_entry.get_public_key()?;
                 Ok(pk.0)
@@ -285,7 +285,7 @@ impl Signer {
                 local_key.sign_payload(p)
             }
             SignerKind::Ledger(_ledger) => todo!("ledger"),
-            SignerKind::Lab => todo!("lab"),
+            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
                 let p = <[u8; 32]>::try_from(payload)?;
                 secure_store_entry.sign_payload(p)
