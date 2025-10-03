@@ -43,8 +43,9 @@ build-test-wasms:
 
 build-test: build-test-wasms install
 
-generate-full-help-doc:
+docs:
 	cargo run --bin doc-gen
+	./node_modules/.bin/prettier --write --log-level warn FULL_HELP_DOCS.md
 
 test: build-test
 	cargo test --workspace --exclude soroban-test
@@ -56,12 +57,15 @@ e2e-test:
 
 check:
 	cargo clippy --all-targets
+	cargo fmt --all --check
+	./node_modules/.bin/prettier --check '**/*.md' --log-level warn
 
 watch:
 	cargo watch --clear --watch-when-idle --shell '$(MAKE)'
 
 fmt:
 	cargo fmt --all
+	./node_modules/.bin/prettier --write '**/*.md' --log-level warn
 
 clean:
 	cargo clean
