@@ -41,15 +41,9 @@ pub enum Error {
         received_value: String,
     },
     #[error("Missing required argument '{arg}' of type {expected_type}\n\nSuggestions:\n- Add the argument: --{arg} <value>\n- Or use a file: --{arg}-file-path <path-to-json-file>\n- Check the contract specification for required arguments")]
-    MissingArgument {
-        arg: String,
-        expected_type: String,
-    },
+    MissingArgument { arg: String, expected_type: String },
     #[error("Cannot read file {file_path:?}: {error}\n\nSuggestions:\n- Check if the file exists and is readable\n- Ensure the file path is correct\n- Verify file permissions")]
-    MissingFileArg {
-        file_path: PathBuf,
-        error: String,
-    },
+    MissingFileArg { file_path: PathBuf, error: String },
     #[error("cannot print result {result:?}: {error}")]
     CannotPrintResult {
         result: ScVal,
@@ -66,10 +60,7 @@ pub enum Error {
         length: usize,
     },
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})\n\nSuggestions:\n- Reduce the number of arguments\n- Consider using file-based arguments for complex data\n- Check if some arguments can be combined")]
-    MaxNumberOfArgumentsReached { 
-        current: usize, 
-        maximum: usize 
-    },
+    MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
     #[error(transparent)]
@@ -127,7 +118,7 @@ fn build_host_function_parameters_with_filter(
     let func = get_function_spec(&spec, &function)?;
     let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
-    
+
     Ok((function, spec, invoke_args, signers))
 }
 
@@ -154,7 +145,7 @@ fn parse_command_matches(
 ) -> Result<(String, clap::ArgMatches), Error> {
     let long_help = cmd.render_long_help();
     let maybe_matches = cmd.try_get_matches_from(slop);
-    
+
     let Some((function, matches_)) = (match maybe_matches {
         Ok(mut matches) => matches.remove_subcommand(),
         Err(e) => {
@@ -166,7 +157,7 @@ fn parse_command_matches(
     }) else {
         return Err(HelpMessage(format!("{long_help}")));
     };
-    
+
     Ok((function.to_string(), matches_))
 }
 
@@ -189,11 +180,9 @@ fn parse_function_arguments(
     let parsed_args = func
         .inputs
         .iter()
-        .map(|i| {
-            parse_single_argument(i, matches_, spec, config, &mut signers)
-        })
+        .map(|i| parse_single_argument(i, matches_, spec, config, &mut signers))
         .collect::<Result<Vec<_>, Error>>()?;
-    
+
     Ok((parsed_args, signers))
 }
 
@@ -206,12 +195,15 @@ fn parse_single_argument(
 ) -> Result<ScVal, Error> {
     let name = input.name.to_utf8_string()?;
     let expected_type_name = get_type_name(&input.type_);
-    
+
     if let Some(mut val) = matches_.get_raw(&name) {
         let s = val.next().unwrap().to_string_lossy().to_string();
-        
+
         // Handle address types with signer resolution
-        if matches!(input.type_, ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress) {
+        if matches!(
+            input.type_,
+            ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+        ) {
             let trimmed_s = s.trim_matches('"');
             let addr = resolve_address(trimmed_s, config)?;
             if let Some(signer) = resolve_signer(trimmed_s, config) {
@@ -219,12 +211,19 @@ fn parse_single_argument(
             }
             return parse_argument_with_validation(&name, &addr, &input.type_, spec, config);
         }
-        
+
         parse_argument_with_validation(&name, &s, &input.type_, spec, config)
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
         Ok(ScVal::Void)
     } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-        parse_file_argument(&name, arg_path, &input.type_, expected_type_name, spec, config)
+        parse_file_argument(
+            &name,
+            arg_path,
+            &input.type_,
+            expected_type_name,
+            spec,
+            config,
+        )
     } else {
         Err(Error::MissingArgument {
             arg: name,
@@ -242,21 +241,19 @@ fn parse_file_argument(
     config: &config::Args,
 ) -> Result<ScVal, Error> {
     if matches!(type_def, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
-        let bytes = std::fs::read(arg_path)
-            .map_err(|e| Error::MissingFileArg {
-                file_path: arg_path.clone(),
-                error: e.to_string(),
-            })?;
-        ScVal::try_from(&bytes)
-            .map_err(|()| Error::CannotParseArg {
-                arg: name.to_string(),
-                error: soroban_spec_tools::Error::Unknown,
-                expected_type: expected_type_name,
-                received_value: format!("{} bytes from file", bytes.len()),
-            })
+        let bytes = std::fs::read(arg_path).map_err(|e| Error::MissingFileArg {
+            file_path: arg_path.clone(),
+            error: e.to_string(),
+        })?;
+        ScVal::try_from(&bytes).map_err(|()| Error::CannotParseArg {
+            arg: name.to_string(),
+            error: soroban_spec_tools::Error::Unknown,
+            expected_type: expected_type_name,
+            received_value: format!("{} bytes from file", bytes.len()),
+        })
     } else {
-        let file_contents = std::fs::read_to_string(arg_path)
-            .map_err(|e| Error::MissingFileArg {
+        let file_contents =
+            std::fs::read_to_string(arg_path).map_err(|e| Error::MissingFileArg {
                 file_path: arg_path.clone(),
                 error: e.to_string(),
             })?;
@@ -282,13 +279,14 @@ fn build_invoke_contract_args(
             length: function.len(),
         })?;
 
-    let final_args = parsed_args
-        .clone()
-        .try_into()
-        .map_err(|_| Error::MaxNumberOfArgumentsReached {
-            current: parsed_args.len(),
-            maximum: ScVec::default().max_len(),
-        })?;
+    let final_args =
+        parsed_args
+            .clone()
+            .try_into()
+            .map_err(|_| Error::MaxNumberOfArgumentsReached {
+                current: parsed_args.len(),
+                maximum: ScVec::default().max_len(),
+            })?;
 
     Ok(InvokeContractArgs {
         contract_address: contract_address_arg,
@@ -411,7 +409,9 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
                 stellar_xdr::curr::ScAddress::MuxedAccount(account) => account.to_string(),
                 stellar_xdr::curr::ScAddress::ClaimableBalance(_)
                 | stellar_xdr::curr::ScAddress::LiquidityPool(_) => {
-                    return Err(Error::UnsupportedScAddress { address: addr.to_string() })
+                    return Err(Error::UnsupportedScAddress {
+                        address: addr.to_string(),
+                    })
                 }
             }
         }
@@ -459,7 +459,9 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
         ScSpecTypeDef::String => "string".to_string(),
         ScSpecTypeDef::Bytes => "bytes (raw binary data)".to_string(),
         ScSpecTypeDef::BytesN(n) => format!("bytes{} (exactly {} bytes)", n.n, n.n),
-        ScSpecTypeDef::Address => "address (G... for account, C... for contract, or identity name)".to_string(),
+        ScSpecTypeDef::Address => {
+            "address (G... for account, C... for contract, or identity name)".to_string()
+        }
         ScSpecTypeDef::MuxedAddress => "muxed address (M... or identity name)".to_string(),
         ScSpecTypeDef::Void => "void (no value)".to_string(),
         ScSpecTypeDef::Error => "error".to_string(),
@@ -467,17 +469,19 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
         ScSpecTypeDef::Duration => "duration (time span)".to_string(),
         ScSpecTypeDef::Option(inner) => format!("optional {}", get_type_name(&inner.value_type)),
         ScSpecTypeDef::Vec(inner) => format!("vector of {}", get_type_name(&inner.element_type)),
-        ScSpecTypeDef::Map(map_type) => format!("map from {} to {}", 
-            get_type_name(&map_type.key_type), 
-            get_type_name(&map_type.value_type)),
+        ScSpecTypeDef::Map(map_type) => format!(
+            "map from {} to {}",
+            get_type_name(&map_type.key_type),
+            get_type_name(&map_type.value_type)
+        ),
         ScSpecTypeDef::Tuple(tuple_type) => {
-            let types: Vec<String> = tuple_type.value_types.iter()
-                .map(get_type_name)
-                .collect();
+            let types: Vec<String> = tuple_type.value_types.iter().map(get_type_name).collect();
             format!("tuple({})", types.join(", "))
-        },
+        }
         ScSpecTypeDef::Result(_) => "result".to_string(),
-        ScSpecTypeDef::Udt(udt) => format!("user-defined type '{}'", udt.name.to_utf8_string_lossy()),
+        ScSpecTypeDef::Udt(udt) => {
+            format!("user-defined type '{}'", udt.name.to_utf8_string_lossy())
+        }
     }
 }
 
@@ -501,22 +505,37 @@ fn parse_argument_with_validation(
     config: &config::Args,
 ) -> Result<ScVal, Error> {
     let expected_type_name = get_type_name(expected_type);
-    
+
     // Pre-validate JSON for non-primitive types
-    if !matches!(expected_type, 
-        ScSpecTypeDef::U64 | ScSpecTypeDef::I64 | ScSpecTypeDef::U128 | ScSpecTypeDef::I128 |
-        ScSpecTypeDef::U32 | ScSpecTypeDef::I32 | ScSpecTypeDef::U256 | ScSpecTypeDef::I256 |
-        ScSpecTypeDef::Bool | ScSpecTypeDef::Symbol | ScSpecTypeDef::String |
-        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress | ScSpecTypeDef::Void
+    if !matches!(
+        expected_type,
+        ScSpecTypeDef::U64
+            | ScSpecTypeDef::I64
+            | ScSpecTypeDef::U128
+            | ScSpecTypeDef::I128
+            | ScSpecTypeDef::U32
+            | ScSpecTypeDef::I32
+            | ScSpecTypeDef::U256
+            | ScSpecTypeDef::I256
+            | ScSpecTypeDef::Bool
+            | ScSpecTypeDef::Symbol
+            | ScSpecTypeDef::String
+            | ScSpecTypeDef::Address
+            | ScSpecTypeDef::MuxedAddress
+            | ScSpecTypeDef::Void
     ) {
         validate_json_arg(arg_name, value)?;
     }
-    
+
     // Handle special address types
-    if matches!(expected_type, ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress) {
+    if matches!(
+        expected_type,
+        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+    ) {
         let trimmed_value = value.trim_matches('"');
         let addr = resolve_address(trimmed_value, config)?;
-        return spec.from_string(&addr, expected_type)
+        return spec
+            .from_string(&addr, expected_type)
             .map_err(|error| Error::CannotParseArg {
                 arg: arg_name.to_string(),
                 error,
@@ -524,7 +543,7 @@ fn parse_argument_with_validation(
                 received_value: value.to_string(),
             });
     }
-    
+
     // Parse the argument
     spec.from_string(value, expected_type)
         .map_err(|error| Error::CannotParseArg {
@@ -538,15 +557,24 @@ fn parse_argument_with_validation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::curr::{ScSpecTypeDef, ScSpecTypeVec, ScSpecTypeOption};
+    use stellar_xdr::curr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
 
     #[test]
     fn test_get_type_name_primitives() {
-        assert_eq!(get_type_name(&ScSpecTypeDef::U32), "u32 (unsigned 32-bit integer)");
-        assert_eq!(get_type_name(&ScSpecTypeDef::I64), "i64 (signed 64-bit integer)");
+        assert_eq!(
+            get_type_name(&ScSpecTypeDef::U32),
+            "u32 (unsigned 32-bit integer)"
+        );
+        assert_eq!(
+            get_type_name(&ScSpecTypeDef::I64),
+            "i64 (signed 64-bit integer)"
+        );
         assert_eq!(get_type_name(&ScSpecTypeDef::Bool), "bool (true/false)");
         assert_eq!(get_type_name(&ScSpecTypeDef::String), "string");
-        assert_eq!(get_type_name(&ScSpecTypeDef::Address), "address (G... for account, C... for contract, or identity name)");
+        assert_eq!(
+            get_type_name(&ScSpecTypeDef::Address),
+            "address (G... for account, C... for contract, or identity name)"
+        );
     }
 
     #[test]
@@ -554,7 +582,10 @@ mod tests {
         let option_type = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::U32),
         }));
-        assert_eq!(get_type_name(&option_type), "optional u32 (unsigned 32-bit integer)");
+        assert_eq!(
+            get_type_name(&option_type),
+            "optional u32 (unsigned 32-bit integer)"
+        );
 
         let vec_type = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
             element_type: Box::new(ScSpecTypeDef::String),
@@ -577,8 +608,13 @@ mod tests {
         // Invalid JSON should return an error
         let result = validate_json_arg("test_arg", r#"{"key": value}"#); // Missing quotes around value
         assert!(result.is_err());
-        
-        if let Err(Error::InvalidJsonArg { arg, json_error, received_value }) = result {
+
+        if let Err(Error::InvalidJsonArg {
+            arg,
+            json_error,
+            received_value,
+        }) = result
+        {
             assert_eq!(arg, "test_arg");
             assert_eq!(received_value, r#"{"key": value}"#);
             assert!(json_error.contains("expected"));
@@ -591,10 +627,10 @@ mod tests {
     fn test_validate_json_arg_malformed() {
         // Test various malformed JSON cases
         let test_cases = vec![
-            r#"{"key": }"#,           // Missing value
-            r#"{key: "value"}"#,      // Missing quotes around key
-            r#"{"key": "value",}"#,   // Trailing comma
-            r#"{"key" "value"}"#,     // Missing colon
+            r#"{"key": }"#,         // Missing value
+            r#"{key: "value"}"#,    // Missing quotes around key
+            r#"{"key": "value",}"#, // Trailing comma
+            r#"{"key" "value"}"#,   // Missing colon
         ];
 
         for case in test_cases {
