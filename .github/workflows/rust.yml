@@ -97,7 +97,8 @@ jobs:
 
   build-and-test-macos:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref,
+      'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -117,7 +118,8 @@ jobs:
 
   build-and-test-windows:
     if:
-      github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+      github.ref == 'refs/heads/main' || startsWith(github.ref,
+      'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -159,23 +161,20 @@ jobs:
           - os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             cargo-hack-feature-options:
-              --feature-powerset --skip version_lt_23,emulator-tests
-              --group-features default,version_gte_23 --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
             additional-deb-packages: libudev-dev libdbus-1-dev
           #        - os: ubuntu-jammy-8-cores-arm64
           #          target: aarch64-unknown-linux-gnu
-          #          cargo-hack-feature-options: --feature-powerset --skip version_gte_23,emulator-tests --group-features default,version_lt_23 --ignore-unknown-features
+          #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default
           #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
           - os: macos-13
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
-              --feature-powerset --skip version_lt_23,emulator-tests
-              --group-features default,version_gte_23 --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
           - os: macos-latest
             target: aarch64-apple-darwin
             cargo-hack-feature-options:
-              --feature-powerset --skip version_lt_23,emulator-tests
-              --group-features default,version_gte_23 --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
           # Windows builds notes:
           #
           # The different features that need testing are split over unique
