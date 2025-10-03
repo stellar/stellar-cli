@@ -32,7 +32,7 @@ jobs:
     needs:
       [
         cargo-deny,
-        check-fmt,
+        check,
         build-and-test,
         build-and-test-macos,
         build-and-test-windows,
@@ -41,8 +41,7 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - if:
-          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
 
   cargo-deny:
@@ -58,7 +57,7 @@ jobs:
         with:
           command: check ${{ matrix.check }}
 
-  check-fmt:
+  check:
     runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v5
