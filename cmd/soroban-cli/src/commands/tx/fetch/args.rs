@@ -33,10 +33,10 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+    /// JSON output with parsed XDRs (one line, not formatted)
     #[default]
     Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+    /// Formatted (multiline) JSON output with parsed XDRs
     JsonFormatted,
     /// Original RPC output (containing XDRs)
     Xdr,
@@ -70,5 +70,6 @@ impl Args {
         if let Some(ledger) = tx.ledger {
             println!("Transaction Ledger: {ledger}");
         }
+        println!();
     }
 }
