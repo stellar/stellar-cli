@@ -122,7 +122,16 @@ fn build_host_function_parameters_with_filter(
     filter_constructor: bool,
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
+    let cmd = build_clap_command(&spec, filter_constructor)?;
+    let (function, matches_) = parse_command_matches(cmd, slop)?;
+    let func = get_function_spec(&spec, &function)?;
+    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
+    let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
+    
+    Ok((function, spec, invoke_args, signers))
+}
 
+fn build_clap_command(spec: &Spec, filter_constructor: bool) -> Result<clap::Command, Error> {
     let mut cmd = clap::Command::new(running_cmd())
         .no_binary_name(true)
         .term_width(300)
@@ -132,19 +141,23 @@ fn build_host_function_parameters_with_filter(
         let function_name = name.to_utf8_string_lossy();
         // Filter out the constructor function from the invoke command
         if !filter_constructor || function_name != CONSTRUCTOR_FUNCTION_NAME {
-            cmd = cmd.subcommand(build_custom_cmd(&function_name, &spec)?);
+            cmd = cmd.subcommand(build_custom_cmd(&function_name, spec)?);
         }
     }
     cmd.build();
-    let long_help = cmd.render_long_help();
+    Ok(cmd)
+}
 
-    // try_get_matches_from returns an error if `help`, `--help` or `-h`are passed in the slop
-    // see clap documentation for more info: https://github.com/clap-rs/clap/blob/v4.1.8/src/builder/command.rs#L586
+fn parse_command_matches(
+    mut cmd: clap::Command,
+    slop: &[OsString],
+) -> Result<(String, clap::ArgMatches), Error> {
+    let long_help = cmd.render_long_help();
     let maybe_matches = cmd.try_get_matches_from(slop);
+    
     let Some((function, matches_)) = (match maybe_matches {
-        Ok(mut matches) => &matches.remove_subcommand(),
+        Ok(mut matches) => matches.remove_subcommand(),
         Err(e) => {
-            // to not exit immediately (to be able to fetch help message in tests), check for an error
             if e.kind() == DisplayHelp {
                 return Err(HelpMessage(e.to_string()));
             }
@@ -153,106 +166,135 @@ fn build_host_function_parameters_with_filter(
     }) else {
         return Err(HelpMessage(format!("{long_help}")));
     };
+    
+    Ok((function.to_string(), matches_))
+}
 
-    let func = spec.find_function(function)
+fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Error> {
+    spec.find_function(function)
         .map_err(|_| Error::FunctionNotFoundInContractSpec {
-            function_name: function.clone(),
-            available_functions: get_available_functions(&spec),
-        })?;
-    // create parsed_args in same order as the inputs to func
+            function_name: function.to_string(),
+            available_functions: get_available_functions(spec),
+        })
+        .cloned()
+}
+
+fn parse_function_arguments(
+    func: &ScSpecFunctionV0,
+    matches_: &clap::ArgMatches,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<(Vec<ScVal>, Vec<SigningKey>), Error> {
     let mut signers: Vec<SigningKey> = vec![];
     let parsed_args = func
         .inputs
         .iter()
         .map(|i| {
-            let name = i.name.to_utf8_string()?;
-            let expected_type_name = get_type_name(&i.type_);
-            
-            if let Some(mut val) = matches_.get_raw(&name) {
-                let s = val
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-                
-                // Handle address types with signer resolution
-                if matches!(
-                    i.type_,
-                    ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
-                ) {
-                    let trimmed_s = s.trim_matches('"');
-                    let addr = resolve_address(trimmed_s, config)?;
-                    let signer = resolve_signer(trimmed_s, config);
-                    if let Some(signer) = signer {
-                        signers.push(signer);
-                    }
-                    return parse_argument_with_validation(&name, &addr, &i.type_, &spec, config);
-                }
-                
-                // Use enhanced validation for other types
-                parse_argument_with_validation(&name, &s, &i.type_, &spec, config)
-            } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
-                Ok(ScVal::Void)
-            } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-                if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
-                    let bytes = std::fs::read(arg_path)
-                        .map_err(|e| Error::MissingFileArg {
-                            file_path: arg_path.clone(),
-                            error: e.to_string(),
-                        })?;
-                    Ok(ScVal::try_from(&bytes)
-                        .map_err(|()| Error::CannotParseArg {
-                            arg: name.clone(),
-                            error: soroban_spec_tools::Error::Unknown,
-                            expected_type: expected_type_name,
-                            received_value: format!("{} bytes from file", bytes.len()),
-                        })?)
-                } else {
-                    let file_contents = std::fs::read_to_string(arg_path)
-                        .map_err(|e| Error::MissingFileArg {
-                            file_path: arg_path.clone(),
-                            error: e.to_string(),
-                        })?;
-                    tracing::debug!(
-                        "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
-                        i.type_,
-                        file_contents.len()
-                    );
-                    parse_argument_with_validation(&name, &file_contents, &i.type_, &spec, config)
-                }
-            } else {
-                Err(Error::MissingArgument {
-                    arg: name,
-                    expected_type: expected_type_name,
-                })
-            }
+            parse_single_argument(i, matches_, spec, config, &mut signers)
         })
         .collect::<Result<Vec<_>, Error>>()?;
+    
+    Ok((parsed_args, signers))
+}
 
+fn parse_single_argument(
+    input: &stellar_xdr::curr::ScSpecFunctionInputV0,
+    matches_: &clap::ArgMatches,
+    spec: &Spec,
+    config: &config::Args,
+    signers: &mut Vec<SigningKey>,
+) -> Result<ScVal, Error> {
+    let name = input.name.to_utf8_string()?;
+    let expected_type_name = get_type_name(&input.type_);
+    
+    if let Some(mut val) = matches_.get_raw(&name) {
+        let s = val.next().unwrap().to_string_lossy().to_string();
+        
+        // Handle address types with signer resolution
+        if matches!(input.type_, ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress) {
+            let trimmed_s = s.trim_matches('"');
+            let addr = resolve_address(trimmed_s, config)?;
+            if let Some(signer) = resolve_signer(trimmed_s, config) {
+                signers.push(signer);
+            }
+            return parse_argument_with_validation(&name, &addr, &input.type_, spec, config);
+        }
+        
+        parse_argument_with_validation(&name, &s, &input.type_, spec, config)
+    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
+        Ok(ScVal::Void)
+    } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
+        parse_file_argument(&name, arg_path, &input.type_, expected_type_name, spec, config)
+    } else {
+        Err(Error::MissingArgument {
+            arg: name,
+            expected_type: expected_type_name,
+        })
+    }
+}
+
+fn parse_file_argument(
+    name: &str,
+    arg_path: &PathBuf,
+    type_def: &ScSpecTypeDef,
+    expected_type_name: String,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<ScVal, Error> {
+    if matches!(type_def, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
+        let bytes = std::fs::read(arg_path)
+            .map_err(|e| Error::MissingFileArg {
+                file_path: arg_path.clone(),
+                error: e.to_string(),
+            })?;
+        ScVal::try_from(&bytes)
+            .map_err(|()| Error::CannotParseArg {
+                arg: name.to_string(),
+                error: soroban_spec_tools::Error::Unknown,
+                expected_type: expected_type_name,
+                received_value: format!("{} bytes from file", bytes.len()),
+            })
+    } else {
+        let file_contents = std::fs::read_to_string(arg_path)
+            .map_err(|e| Error::MissingFileArg {
+                file_path: arg_path.clone(),
+                error: e.to_string(),
+            })?;
+        tracing::debug!(
+            "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+            type_def,
+            file_contents.len()
+        );
+        parse_argument_with_validation(name, &file_contents, type_def, spec, config)
+    }
+}
+
+fn build_invoke_contract_args(
+    contract_id: &stellar_strkey::Contract,
+    function: &str,
+    parsed_args: Vec<ScVal>,
+) -> Result<InvokeContractArgs, Error> {
     let contract_address_arg = xdr::ScAddress::Contract(ContractId(Hash(contract_id.0)));
     let function_symbol_arg = function
         .try_into()
         .map_err(|()| Error::FunctionNameTooLong {
-            function_name: function.clone(),
+            function_name: function.to_string(),
             length: function.len(),
         })?;
 
-    let final_args =
-        parsed_args
-            .clone()
-            .try_into()
-            .map_err(|_| Error::MaxNumberOfArgumentsReached {
-                current: parsed_args.len(),
-                maximum: ScVec::default().max_len(),
-            })?;
+    let final_args = parsed_args
+        .clone()
+        .try_into()
+        .map_err(|_| Error::MaxNumberOfArgumentsReached {
+            current: parsed_args.len(),
+            maximum: ScVec::default().max_len(),
+        })?;
 
-    let invoke_args = InvokeContractArgs {
+    Ok(InvokeContractArgs {
         contract_address: contract_address_arg,
         function_name: function_symbol_arg,
         args: final_args,
-    };
-
-    Ok((function.clone(), spec, invoke_args, signers))
+    })
 }
 
 pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error> {
@@ -441,14 +483,13 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
 
 /// Gets available function names for error messages
 fn get_available_functions(spec: &Spec) -> String {
-    spec.find_functions()
-        .map(|functions| {
-            functions
-                .map(|f| f.name.to_utf8_string_lossy())
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
-        .unwrap_or_else(|_| "unknown".to_string())
+    match spec.find_functions() {
+        Ok(functions) => functions
+            .map(|f| f.name.to_utf8_string_lossy())
+            .collect::<Vec<_>>()
+            .join(", "),
+        Err(_) => "unknown".to_string(),
+    }
 }
 
 /// Enhanced argument parsing with better error handling
@@ -558,7 +599,7 @@ mod tests {
 
         for case in test_cases {
             let result = validate_json_arg("test_arg", case);
-            assert!(result.is_err(), "Expected error for case: {}", case);
+            assert!(result.is_err(), "Expected error for case: {case}");
         }
     }
 }
