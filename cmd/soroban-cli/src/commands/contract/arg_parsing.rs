@@ -2,12 +2,13 @@ use crate::commands::contract::arg_parsing::Error::HelpMessage;
 use crate::commands::contract::deploy::wasm::CONSTRUCTOR_FUNCTION_NAME;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
+use crate::print::Print;
+use crate::signer::{self, Signer};
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
-use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
@@ -52,9 +53,11 @@ pub enum Error {
     HelpMessage(String),
     #[error("Unsupported ScAddress {0}")]
     UnsupportedScAddress(String),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
-pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
+pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<Signer>);
 
 fn running_cmd() -> String {
     let mut args: Vec<String> = env::args().collect();
@@ -66,7 +69,7 @@ fn running_cmd() -> String {
     format!("{} --", args.join(" "))
 }
 
-pub fn build_host_function_parameters(
+pub async fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
@@ -126,60 +129,60 @@ fn build_host_function_parameters_with_filter(
 
     let func = spec.find_function(function)?;
     // create parsed_args in same order as the inputs to func
-    let mut signers: Vec<SigningKey> = vec![];
-    let parsed_args = func
-        .inputs
-        .iter()
-        .map(|i| {
-            let name = i.name.to_utf8_string()?;
-            if let Some(mut val) = matches_.get_raw(&name) {
-                let mut s = val
-                    .next()
-                    .unwrap()
-                    .to_string_lossy()
-                    .trim_matches('"')
-                    .to_string();
-                if matches!(
-                    i.type_,
-                    ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
-                ) {
-                    let addr = resolve_address(&s, config)?;
-                    let signer = resolve_signer(&s, config);
-                    s = addr;
-                    if let Some(signer) = signer {
-                        signers.push(signer);
-                    }
+    let mut parsed_args = Vec::with_capacity(func.inputs.len());
+    let mut signers = Vec::<Signer>::new();
+    for i in func.inputs.iter() {
+        let name = i.name.to_utf8_string()?;
+        if let Some(mut val) = matches_.get_raw(&name) {
+            let mut s = val
+                .next()
+                .unwrap()
+                .to_string_lossy()
+                .trim_matches('"')
+                .to_string();
+            if matches!(
+                i.type_,
+                ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+            ) {
+                let addr = resolve_address(&s, config)?;
+                let signer = resolve_signer(&s, config).await;
+                s = addr;
+                if let Some(signer) = signer {
+                    signers.push(signer);
                 }
-                spec.from_string(&s, &i.type_)
-                    .map_err(|error| Error::CannotParseArg { arg: name, error })
-            } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
-                Ok(ScVal::Void)
-            } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-                if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
-                    Ok(ScVal::try_from(
-                        &std::fs::read(arg_path)
-                            .map_err(|_| Error::MissingFileArg(arg_path.clone()))?,
-                    )
-                    .map_err(|()| Error::CannotParseArg {
-                        arg: name.clone(),
-                        error: soroban_spec_tools::Error::Unknown,
-                    })?)
-                } else {
-                    let file_contents = std::fs::read_to_string(arg_path)
-                        .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
-                    tracing::debug!(
-                        "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
-                        i.type_,
-                        file_contents.len()
-                    );
-                    spec.from_string(&file_contents, &i.type_)
-                        .map_err(|error| Error::CannotParseArg { arg: name, error })
-                }
-            } else {
-                Err(Error::MissingArgument(name))
             }
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+            let scval = spec
+                .from_string(&s, &i.type_)
+                .map_err(|error| Error::CannotParseArg { arg: name, error })?;
+
+            parsed_args.push(scval);
+        } else if matches!(i.type_, ScSpecTypeDef::Option(_)) {
+            parsed_args.push(ScVal::Void);
+        } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
+            if matches!(i.type_, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
+                let bytes =
+                    std::fs::read(arg_path).map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
+                parsed_args.push(ScVal::try_from(&bytes).map_err(|()| Error::CannotParseArg {
+                    arg: name.clone(),
+                    error: soroban_spec_tools::Error::Unknown,
+                })?);
+            } else {
+                let file_contents = std::fs::read_to_string(arg_path)
+                    .map_err(|_| Error::MissingFileArg(arg_path.clone()))?;
+                tracing::debug!(
+                    "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+                    i.type_,
+                    file_contents.len()
+                );
+                parsed_args.push(
+                    spec.from_string(&file_contents, &i.type_)
+                        .map_err(|error| Error::CannotParseArg { arg: name, error })?,
+                );
+            }
+        } else {
+            return Err(Error::MissingArgument(name));
+        }
+    }
 
     let contract_address_arg = xdr::ScAddress::Contract(ContractId(Hash(contract_id.0)));
     let function_symbol_arg = function
@@ -323,12 +326,9 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SigningKey> {
-    config
-        .locator
-        .read_key(addr_or_alias)
-        .ok()?
-        .private_key(None)
-        .ok()
-        .map(|pk| SigningKey::from_bytes(&pk.0))
+async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
+    let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
+    let print = Print::new(false);
+    let signer = secret.signer(None, print).await.ok()?;
+    Some(signer)
 }
