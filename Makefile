@@ -58,14 +58,14 @@ e2e-test:
 check:
 	cargo clippy --all-targets
 	cargo fmt --all --check
-	./node_modules/.bin/prettier --check '**/*.md' --log-level warn
+	./node_modules/.bin/prettier --check '**/*.{md,mdx}' --log-level warn
 
 watch:
 	cargo watch --clear --watch-when-idle --shell '$(MAKE)'
 
 fmt:
 	cargo fmt --all
-	./node_modules/.bin/prettier --write '**/*.md' --log-level warn
+	./node_modules/.bin/prettier --write '**/*.{md,mdx}' --log-level warn
 
 clean:
 	cargo clean
