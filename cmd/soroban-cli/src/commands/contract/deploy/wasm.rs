@@ -218,9 +218,6 @@ impl NetworkRunnable for Cmd {
         };
 
         let client = network.rpc_client()?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
         let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
@@ -234,6 +231,9 @@ impl NetworkRunnable for Cmd {
         let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
             wasm::Args { wasm: wasm.clone() }.read()?
         } else {
+            if self.fee.build_only {
+                return Err(Error::WasmNotProvided);
+            }
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
@@ -245,7 +245,7 @@ impl NetworkRunnable for Cmd {
                 let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
                 slop.extend_from_slice(&self.slop);
                 Some(
-                    arg_parsing::build_host_function_parameters(
+                    arg_parsing::build_constructor_parameters(
                         &stellar_strkey::Contract(contract_id.0),
                         &slop,
                         &entries,
@@ -258,6 +258,11 @@ impl NetworkRunnable for Cmd {
         } else {
             None
         };
+
+        // For network operations, verify the network passphrase
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
 
         // Get the account sequence number
         let account_details = client.get_account(&source_account.to_string()).await?;

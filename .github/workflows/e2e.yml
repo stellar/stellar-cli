@@ -39,7 +39,7 @@ jobs:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
     with:
-      js-stellar-sdk-npm-version: v14.0.0-rc.3
+      js-stellar-sdk-npm-version: v14.2.0
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"

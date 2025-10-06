@@ -31,9 +31,8 @@ jobs:
     if: always()
     needs:
       [
-        fmt,
         cargo-deny,
-        check-generated-full-help-docs,
+        check,
         build-and-test,
         build-and-test-macos,
         build-and-test-windows,
@@ -42,17 +41,8 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - if:
-          contains(needs.*.result, 'failure') || contains(needs.*.result,
-          'cancelled')
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
-
-  fmt:
-    runs-on: ubuntu-latest-8-cores
-    steps:
-      - uses: actions/checkout@v5
-      - run: rustup update
-      - run: cargo fmt --all --check
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -67,15 +57,15 @@ jobs:
         with:
           command: check ${{ matrix.check }}
 
-  check-generated-full-help-docs:
+  check:
     runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
-      - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
-      - run: make generate-full-help-doc
-      - run: git add -N . && git diff HEAD --exit-code
+      - run: rustup update
+      - run: npm install
+      - run: make check
 
   build-and-test:
     strategy:
@@ -96,9 +86,7 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-macos:
-    if:
-      github.ref == 'refs/heads/main' || startsWith(github.ref,
-      'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -117,9 +105,7 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-windows:
-    if:
-      github.ref == 'refs/heads/main' || startsWith(github.ref,
-      'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -161,23 +147,20 @@ jobs:
           - os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             cargo-hack-feature-options:
-              --feature-powerset --skip emulator-tests --group-features default
-              --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
             additional-deb-packages: libudev-dev libdbus-1-dev
           #        - os: ubuntu-jammy-8-cores-arm64
           #          target: aarch64-unknown-linux-gnu
-          #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests --group-features default --ignore-unknown-features
+          #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default
           #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
           - os: macos-13
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
-              --feature-powerset --skip emulator-tests --group-features default
-              --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
           - os: macos-latest
             target: aarch64-apple-darwin
             cargo-hack-feature-options:
-              --feature-powerset --skip emulator-tests --group-features default
-              --ignore-unknown-features
+              --feature-powerset --skip emulator-tests
           # Windows builds notes:
           #
           # The different features that need testing are split over unique
