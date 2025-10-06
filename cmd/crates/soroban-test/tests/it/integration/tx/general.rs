@@ -103,31 +103,41 @@ async fn txn_hash() {
 #[tokio::test]
 async fn build_simulate_sign_send() {
     let sandbox = &TestEnv::new();
-    build_sim_sign_send(sandbox, "test", "--sign-with-key=test").await;
+    // Generate a fresh account that hasn't been used yet to avoid sequence number conflicts
+    sandbox.generate_account("fresh", None).assert().success();
+    build_sim_sign_send(sandbox, "fresh", "--sign-with-key=fresh").await;
 }
 
 pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_with: &str) {
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("upload")
-        .args([
-            "--wasm",
-            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
-            "--source",
-            account,
-        ])
-        .assert()
-        .success();
-
-    let xdr_base64_build_only = deploy_contract(
+    // First deploy a contract normally so we have something to invoke
+    let contract_id = deploy_contract(
         sandbox,
         HELLO_WORLD,
         DeployOptions {
-            kind: DeployKind::BuildOnly,
+            deployer: Some(account.to_string()),
             ..Default::default()
         },
     )
     .await;
+
+    // Now build an invoke transaction that can be safely simulated and sent
+    let xdr_base64_build_only = sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--build-only",
+            "--id",
+            &contract_id,
+            "--source",
+            account,
+            "--",
+            "hello",
+            "--world",
+            "test",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
     let tx_simulated = sandbox
         .new_assert_cmd("tx")
         .arg("simulate")

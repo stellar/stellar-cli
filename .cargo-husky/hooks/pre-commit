@@ -2,5 +2,8 @@
 
 set -ex
 
-cargo fmt --check || (cargo fmt && exit 1)
-make generate-full-help-doc
+make docs > /dev/null
+make fmt > /dev/null
+
+set +x
+git diff --exit-code > /dev/null || (echo "\nERROR: Staged files were modified by hooks. Please review and stage the changes." && exit 1)
