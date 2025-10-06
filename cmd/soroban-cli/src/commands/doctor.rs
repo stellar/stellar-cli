@@ -7,7 +7,7 @@ use std::process::Command;
 use crate::{
     commands::global,
     config::{
-        self,
+        self, data,
         locator::{self, KeyType},
         network::{Network, DEFAULTS as DEFAULT_NETWORKS},
     },
@@ -36,6 +36,9 @@ pub enum Error {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Data(#[from] data::Error),
 }
 
 impl Cmd {
@@ -46,6 +49,7 @@ impl Cmd {
         check_rust_version(&print);
         check_wasm_target(&print);
         show_config_path(&print, &self.config_locator)?;
+        show_data_path(&print)?;
         show_xdr_version(&print);
         inspect_networks(&print, &self.config_locator).await?;
 
@@ -60,6 +64,14 @@ fn show_config_path(print: &Print, config_locator: &locator::Args) -> Result<(),
         "Config directory: {}",
         global_path.to_string_lossy()
     ));
+
+    Ok(())
+}
+
+fn show_data_path(print: &Print) -> Result<(), Error> {
+    let path = data::data_local_dir()?;
+
+    print.dirln(format!("Data directory: {}", path.to_string_lossy()));
 
     Ok(())
 }

@@ -118,3 +118,4 @@ create_print_functions!(log, logln, "📔");
 create_print_functions!(event, eventln, "📅");
 create_print_functions!(blank, blankln, " ");
 create_print_functions!(gear, gearln, "⚙️");
+create_print_functions!(dir, dirln, "📁");
