@@ -671,7 +671,7 @@ async fn cache_bucket(
 
     // Validate cached bucket if it exists
     if cache_path.exists() {
-        if let Err(_) = validate_bucket_hash(&cache_path, bucket) {
+        if validate_bucket_hash(&cache_path, bucket).is_err() {
             print.warnln(format!(
                 "Cached bucket {bucket} is corrupted, re-downloading"
             ));
