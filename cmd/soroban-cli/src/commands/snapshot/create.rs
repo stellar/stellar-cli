@@ -105,52 +105,78 @@ pub struct Cmd {
 pub enum Error {
     #[error("wasm hash invalid: {0}")]
     WasmHashInvalid(String),
+
     #[error("downloading history: {0}")]
     DownloadingHistory(reqwest::Error),
+
     #[error("downloading history: got status code {0}")]
     DownloadingHistoryGotStatusCode(reqwest::StatusCode),
+
     #[error("json decoding history: {0}")]
     JsonDecodingHistory(serde_json::Error),
+
     #[error("opening cached bucket to read: {0}")]
     ReadOpeningCachedBucket(io::Error),
+
     #[error("parsing bucket url: {0}")]
     ParsingBucketUrl(url::ParseError),
+
     #[error("getting bucket: {0}")]
     GettingBucket(reqwest::Error),
+
     #[error("getting bucket: got status code {0}")]
     GettingBucketGotStatusCode(reqwest::StatusCode),
+
     #[error("opening cached bucket to write: {0}")]
     WriteOpeningCachedBucket(io::Error),
+
     #[error("streaming bucket: {0}")]
     StreamingBucket(io::Error),
+
     #[error("read XDR frame bucket entry: {0}")]
     ReadXdrFrameBucketEntry(xdr::Error),
+
     #[error("renaming temporary downloaded file to final destination: {0}")]
     RenameDownloadFile(io::Error),
+
     #[error("getting bucket directory: {0}")]
     GetBucketDir(data::Error),
+
     #[error("reading history http stream: {0}")]
     ReadHistoryHttpStream(reqwest::Error),
+
     #[error("writing ledger snapshot: {0}")]
     WriteLedgerSnapshot(soroban_ledger_snapshot::Error),
+
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
+
     #[error(transparent)]
     Network(#[from] config::network::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("archive url not configured")]
     ArchiveUrlNotConfigured,
+
     #[error("parsing asset name: {0}")]
     ParseAssetName(String),
+
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+
     #[error("ledger not found in archive")]
     LedgerNotFound,
+
     #[error("xdr parsing error: {0}")]
     Xdr(#[from] xdr::Error),
+
+    #[error("corrupted bucket file: expected hash {expected}, got {actual}")]
+    CorruptedBucket { expected: String, actual: String },
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -617,6 +643,23 @@ async fn get_ledger_metadata_from_archive(
     Err(Error::LedgerNotFound)
 }
 
+fn validate_bucket_hash(cache_path: &PathBuf, expected_hash: &str) -> Result<(), Error> {
+    let file = std::fs::File::open(cache_path).map_err(Error::ReadOpeningCachedBucket)?;
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut std::io::BufReader::new(file), &mut hasher)
+        .map_err(Error::ReadOpeningCachedBucket)?;
+    let actual_hash = hex::encode(hasher.finalize());
+
+    if actual_hash != expected_hash {
+        return Err(Error::CorruptedBucket {
+            expected: expected_hash.to_string(),
+            actual: actual_hash,
+        });
+    }
+
+    Ok(())
+}
+
 async fn cache_bucket(
     print: &print::Print,
     archive_url: &Url,
@@ -625,6 +668,19 @@ async fn cache_bucket(
 ) -> Result<PathBuf, Error> {
     let bucket_dir = data::bucket_dir().map_err(Error::GetBucketDir)?;
     let cache_path = bucket_dir.join(format!("bucket-{bucket}.xdr"));
+
+    // Validate cached bucket if it exists
+    if cache_path.exists() {
+        if let Err(_) = validate_bucket_hash(&cache_path, bucket) {
+            print.warnln(format!(
+                "Cached bucket {bucket} is corrupted, re-downloading"
+            ));
+            std::fs::remove_file(&cache_path).ok();
+        } else {
+            return Ok(cache_path);
+        }
+    }
+
     if !cache_path.exists() {
         let bucket_0 = &bucket[0..=1];
         let bucket_1 = &bucket[2..=3];
