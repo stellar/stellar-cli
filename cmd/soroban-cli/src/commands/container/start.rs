@@ -142,16 +142,17 @@ impl Runner {
                 }),
                 config,
             )
-            .await.map_err(|e| {
-                match &e {
-                    bollard::errors::Error::DockerResponseServerError { status_code, .. } => {
-                        if *status_code == 409 {
-                            return Error::ContainerAlreadyRunning(self.container_name().get_internal_container_name());
-                        }
-                        return Error::CreateContainerFailed(e)
-                    },
-                    _ => return Error::CreateContainerFailed(e)
+            .await
+            .map_err(|e| match &e {
+                bollard::errors::Error::DockerResponseServerError { status_code, .. } => {
+                    if *status_code == 409 {
+                        return Error::ContainerAlreadyRunning(
+                            self.container_name().get_internal_container_name(),
+                        );
+                    }
+                    Error::CreateContainerFailed(e)
                 }
+                _ => Error::CreateContainerFailed(e),
             })?;
 
         docker
