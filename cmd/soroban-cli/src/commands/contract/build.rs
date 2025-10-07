@@ -398,7 +398,7 @@ impl Cmd {
         let optimized_size = optimized_wasm_bytes.len();
 
         let size_description = if optimized_size > 0 {
-            format!("{optimized_size} bytes (original size was {size} bytes)")
+            format!("{optimized_size} bytes optimized (original size was {size} bytes)")
         } else {
             format!("{size} bytes")
         };
