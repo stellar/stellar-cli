@@ -28,6 +28,9 @@ pub enum Error {
 
     #[error("⛔ ️Failed to create container: {0}")]
     CreateContainerFailed(#[from] bollard::errors::Error),
+
+    #[error("⛔ ️ a container named {0:?} already running")]
+    ContainerAlreadyRunning(String),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -139,7 +142,18 @@ impl Runner {
                 }),
                 config,
             )
-            .await?;
+            .await
+            .map_err(|e| match &e {
+                bollard::errors::Error::DockerResponseServerError { status_code, .. } => {
+                    if *status_code == 409 {
+                        return Error::ContainerAlreadyRunning(
+                            self.container_name().get_internal_container_name(),
+                        );
+                    }
+                    Error::CreateContainerFailed(e)
+                }
+                _ => Error::CreateContainerFailed(e),
+            })?;
 
         docker
             .start_container(

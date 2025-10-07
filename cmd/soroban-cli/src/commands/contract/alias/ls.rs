@@ -5,7 +5,6 @@ use std::path::Path;
 use std::{fs, process};
 
 use crate::commands::config::network;
-#[cfg(feature = "version_gte_23")]
 use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
 
@@ -41,13 +40,6 @@ struct AliasEntry {
 }
 
 impl Cmd {
-    #[cfg(feature = "version_lt_23")]
-    pub fn run(&self) -> Result<(), Error> {
-        Self::read_from_config_dir(&self.config_locator.config_dir()?, false)
-    }
-
-    #[cfg(not(feature = "version_lt_23"))]
-    #[cfg(feature = "version_gte_23")]
     pub fn run(&self) -> Result<(), Error> {
         let config_dirs = self.config_locator.local_and_global()?;
 
@@ -106,7 +98,6 @@ impl Cmd {
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
                 for entry in list {
-                    #[cfg(feature = "version_gte_23")]
                     if !found && deprecation_mode {
                         print_deprecation_warning(config_dir);
                     }

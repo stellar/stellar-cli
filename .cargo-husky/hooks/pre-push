@@ -10,4 +10,4 @@ cargo clippy --all -- -Dwarnings
 
 cargo build
 cargo test --all || (echo "might need to rebuild make build-snapshot" && exit 1)
-make generate-full-help-doc
+make docs
