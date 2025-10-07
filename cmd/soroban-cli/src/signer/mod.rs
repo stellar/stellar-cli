@@ -287,7 +287,10 @@ impl Signer {
                 let p = <[u8; 32]>::try_from(payload)?;
                 local_key.sign_payload(p)
             }
-            SignerKind::Ledger(_ledger) => todo!("ledger"),
+            SignerKind::Ledger(ledger) => Ok({
+                let p = <[u8; 32]>::try_from(payload)?;
+                ledger.sign_payload(p).await?
+            }),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
                 let p = <[u8; 32]>::try_from(payload)?;
