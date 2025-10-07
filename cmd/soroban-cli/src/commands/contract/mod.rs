@@ -81,7 +81,7 @@ pub enum Cmd {
     ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
-    /// Optimize a WASM file
+    /// (Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
     Optimize(optimize::Cmd),
 
     /// Print the current value of a contract-data ledger entry
@@ -165,7 +165,7 @@ impl Cmd {
             }
             Cmd::Upload(upload) => upload.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
-            Cmd::Optimize(optimize) => optimize.run()?,
+            Cmd::Optimize(optimize) => optimize.run(global_args)?,
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,

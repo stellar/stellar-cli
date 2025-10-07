@@ -93,7 +93,7 @@ Tools for smart contract developers
 - `upload` — Install a WASM file to the ledger without creating a contract instance
 - `install` — (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
 - `invoke` — Invoke a contract function
-- `optimize` — Optimize a WASM file
+- `optimize` — (Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
 - `read` — Print the current value of a contract-data ledger entry
 - `restore` — Restore an evicted value for a contract-data legder entry
 
@@ -357,6 +357,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 - `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+- `--optimize` — Optimize the generated wasm
 
 ## `stellar contract extend`
 
@@ -789,7 +790,7 @@ stellar contract invoke ... -- --help
 
 ## `stellar contract optimize`
 
-Optimize a WASM file
+(Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
 
 **Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
