@@ -116,7 +116,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 ###### **Options:**
 
-- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -479,7 +479,7 @@ Deploy builtin Soroban Asset Contract
 
 ###### **Options:**
 
-- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
