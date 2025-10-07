@@ -265,8 +265,8 @@ impl Cmd {
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
                     optimized_wasm_bytes = fs::read(&path).map_err(Error::ReadingWasmFile)?;
 
-                    fs::copy(&path, &final_path).map_err(Error::CopyingWasmFile)?;
-                    fs::remove_file(&path).map_err(Error::DeletingArtifact)?;
+                    fs::remove_file(&final_path).map_err(Error::DeletingArtifact)?;
+                    fs::rename(&path, &final_path).map_err(Error::CopyingWasmFile)?;
                 }
 
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
