@@ -267,7 +267,10 @@ impl Signer {
     pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
-            SignerKind::Ledger(_ledger) => todo!("ledger key"),
+            SignerKind::Ledger(ledger) => {
+                let pk = ledger.public_key().await?;
+                Ok(pk.0)
+            }
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
                 let pk = secure_store_entry.get_public_key()?;
