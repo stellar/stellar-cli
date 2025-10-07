@@ -75,19 +75,19 @@ pub async fn build_host_function_parameters(
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true).await
 }
 
-pub fn build_constructor_parameters(
+pub async fn build_constructor_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false)
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false).await
 }
 
-fn build_host_function_parameters_with_filter(
+async fn build_host_function_parameters_with_filter(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
