@@ -61,14 +61,14 @@ pub enum Cmd {
     /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
-    /// (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+    /// (Deprecated, use `contract info`) Inspect a WASM file listing contract functions, meta, etc
     #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
     Upload(upload::Cmd),
 
-    /// (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+    /// (Deprecated, use `contract upload`) Install a WASM file to the ledger without creating a contract instance
     Install(upload::Cmd),
 
     /// Invoke a contract function
@@ -81,7 +81,7 @@ pub enum Cmd {
     ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
-    /// (Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
+    /// (Deprecated, use `build --optimize`) Optimize a WASM file
     Optimize(optimize::Cmd),
 
     /// Print the current value of a contract-data ledger entry

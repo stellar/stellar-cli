@@ -256,17 +256,20 @@ impl Cmd {
                     target_file_path
                 };
 
-                let optimized_file_path = if self.optimize {
+                let wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
+                let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
+
+                if self.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
+                    optimized_wasm_bytes = fs::read(&path).map_err(Error::ReadingWasmFile)?;
 
-                    Some(path)
-                } else {
-                    None
-                };
+                    fs::copy(&path, &final_path).map_err(Error::CopyingWasmFile)?;
+                    fs::remove_file(&path).map_err(Error::DeletingArtifact)?;
+                }
 
-                Self::print_build_summary(&print, &final_path, optimized_file_path)?;
+                Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
             }
         }
 
@@ -379,48 +382,40 @@ impl Cmd {
         Ok(buffer)
     }
 
-    fn print_wasm_info(
+    fn print_build_summary(
         print: &Print,
-        path: &PathBuf,
-        wasm_bytes: &Vec<u8>,
-        label: &str,
-    ) -> Result<(), Error> {
+        path: &Path,
+        wasm_bytes: Vec<u8>,
+        optimized_wasm_bytes: Vec<u8>,
+    ) {
+        print.infoln("Build Summary:");
+
         let rel_path = path
             .strip_prefix(env::current_dir().unwrap())
             .unwrap_or(path);
-        let wasm_size = wasm::len(path)?;
+
+        let size = wasm_bytes.len();
+        let optimized_size = optimized_wasm_bytes.len();
+
+        let size_description = if optimized_size > 0 {
+            format!("{optimized_size} bytes (original size was {size} bytes)")
+        } else {
+            format!("{size} bytes")
+        };
+
+        let bytes = if optimized_size > 0 {
+            &optimized_wasm_bytes
+        } else {
+            &wasm_bytes
+        };
 
         print.blankln(format!(
-            "{label} File: {path} ({wasm_size} bytes)",
+            "Wasm File: {path} ({size_description})",
             path = rel_path.display()
         ));
 
-        print.blankln(format!(
-            "{label} Hash: {}",
-            hex::encode(Sha256::digest(wasm_bytes))
-        ));
-
-        Ok(())
-    }
-
-    fn print_build_summary(
-        print: &Print,
-        target_file_path: &PathBuf,
-        optimized_file_path: Option<PathBuf>,
-    ) -> Result<(), Error> {
-        print.infoln("Build Summary:");
-        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        Self::print_wasm_info(print, target_file_path, &wasm_bytes, "Wasm")?;
-
-        if let Some(optimized_path) = optimized_file_path {
-            let optimized_wasm_bytes = fs::read(&optimized_path).map_err(Error::ReadingWasmFile)?;
-            Self::print_wasm_info(
-                print,
-                &optimized_path,
-                &optimized_wasm_bytes,
-                "Optimized Wasm",
-            )?;
-        }
+        print.blankln(format!("Wasm Hash: {}", hex::encode(Sha256::digest(bytes))));
+        print.blankln(format!("Wasm Size: {size_description}"));
 
         let parser = wasmparser::Parser::new(0);
         let export_names: Vec<&str> = parser
@@ -450,8 +445,6 @@ impl Cmd {
         }
 
         print.checkln("Build Complete\n");
-
-        Ok(())
     }
 }
 

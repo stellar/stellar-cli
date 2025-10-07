@@ -89,11 +89,11 @@ Tools for smart contract developers
 - `id` — Generate the contract id for a given contract or asset
 - `info` — Access info about contracts
 - `init` — Initialize a Soroban contract project
-- `inspect` — (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+- `inspect` — (Deprecated, use `contract info`) Inspect a WASM file listing contract functions, meta, etc
 - `upload` — Install a WASM file to the ledger without creating a contract instance
-- `install` — (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+- `install` — (Deprecated, use `contract upload`) Install a WASM file to the ledger without creating a contract instance
 - `invoke` — Invoke a contract function
-- `optimize` — (Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
+- `optimize` — (Deprecated, use `build --optimize`) Optimize a WASM file
 - `read` — Print the current value of a contract-data ledger entry
 - `restore` — Restore an evicted value for a contract-data legder entry
 
@@ -662,7 +662,7 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 ## `stellar contract inspect`
 
-(Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+(Deprecated, use `contract info`) Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
@@ -714,7 +714,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 ## `stellar contract install`
 
-(Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+(Deprecated, use `contract upload`) Install a WASM file to the ledger without creating a contract instance
 
 **Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
@@ -790,7 +790,7 @@ stellar contract invoke ... -- --help
 
 ## `stellar contract optimize`
 
-(Deprecated in favor of `build --optimize` subcommand) Optimize a WASM file
+(Deprecated, use `build --optimize`) Optimize a WASM file
 
 **Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
