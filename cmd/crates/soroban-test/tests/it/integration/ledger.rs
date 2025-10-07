@@ -1,5 +1,6 @@
 use soroban_rpc::{GetLatestLedgerResponse, GetLedgersResponse};
 use soroban_test::{AssertExt, TestEnv};
+mod entry;
 
 #[tokio::test]
 async fn ledger_latest() {
