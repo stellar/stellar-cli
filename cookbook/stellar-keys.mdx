@@ -5,7 +5,6 @@ description: Manage stellar keys
 custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/stellar-keys.mdx
 ---
 
-
 This guide walks you through generating, inspecting, and removing a Stellar identity using the CLI.
 
 ### 1. Generate a New Identity
@@ -16,14 +15,13 @@ Run the following command to create a new keypair and save it under the alias na
 stellar keys generate test
 ```
 
-
 Output:
+
 ```
 ✅ Key saved with alias test in ".config/soroban/identity/test.toml"
 ```
 
 The CLI stores this identity in a TOML file.
-
 
 ### 2. Verify the Identity File
 
@@ -34,22 +32,25 @@ cd .config/soroban/identity && ls
 ```
 
 Output:
+
 ```
 test.toml
 ```
 
 The file test.toml contains the seed phrase for your identity.
 
-
 ### 3. View the Seed Phrase
+
 ```
 cat test.toml
 ```
 
 Output:
+
 ```
 seed_phrase = "patrol clean public grocery roof aim have valve cherry dismiss lunar tail duty license capable little version banana amount often cover dice couple party"
 ```
+
 Note: The seed phrase is sensitive information. Handle it with care and never expose it publicly.
 
 ### 4. Derive the Secret Key
@@ -61,25 +62,28 @@ stellar keys secret test
 ```
 
 Output:
+
 ```
 SCJP663VYFZPYN75H2DYJA3FYUBP5UR23HZ4ZDHDMDY6TXVYUYMWNKTI
 ```
-Note: The secret key is sensitive information. Handle it with care and never expose it publicly.
 
+Note: The secret key is sensitive information. Handle it with care and never expose it publicly.
 
 ### 5. Derive the Public Key
 
 To display the corresponding public key for the test identity:
+
 ```bash
 stellar keys public-key test
 ```
 
 Output:
+
 ```
 GD3BFFX7DTNJAGDVVM5RYGGQQNURZTH4VSBLWF55YXY3L6T2WWZK57EI
 ```
-This is the public address of your key. 
 
+This is the public address of your key.
 
 ### 6. Fund this account
 
@@ -88,19 +92,21 @@ stellar keys fund test
 ```
 
 Output:
+
 ```
 ✅ Account test funded on "Test SDF Network ; September 2015"
 ```
 
-
 ### 7. Remove the Identity
 
 When you no longer need this identity, remove it using:
+
 ```
 stellar keys rm test
 ```
 
 Output:
+
 ```
 ℹ️  Removing the key's cli config file
 ```
