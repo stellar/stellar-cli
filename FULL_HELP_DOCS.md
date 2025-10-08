@@ -68,7 +68,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 - `-v`, `--verbose` — Log DEBUG events
 - `--very-verbose` [alias: `vv`] — Log DEBUG and TRACE events
-- `--list` — List installed plugins. E.g. `stellar-hello`
+- `--list` — ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
 - `--no-cache` — Do not cache your simulations and transactions
 
 ## `stellar contract`

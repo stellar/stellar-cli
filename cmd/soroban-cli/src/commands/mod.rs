@@ -87,6 +87,8 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
+                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
+                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
                 let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
