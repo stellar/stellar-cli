@@ -1,14 +1,11 @@
 ---
 title: Create Claimable Balance
 hide_table_of_contents: true
-description:
-  Create claimable balances with various claim predicates using the Stellar CLI
+description: Create claimable balances with various claim predicates using the Stellar CLI
 custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/tx-new-create-claimable-balance.mdx
 ---
 
-Claimable balances allow you to send payments that can be claimed by the
-recipient based on specific conditions. This is useful for escrow-like
-functionality, conditional payments, or time-locked transfers.
+Claimable balances allow you to send payments that can be claimed by the recipient based on specific conditions. This is useful for escrow-like functionality, conditional payments, or time-locked transfers.
 
 ## Setup
 
@@ -83,8 +80,7 @@ stellar tx new create-claimable-balance \
 
 ### Before Relative Time
 
-Create a claimable balance that must be claimed within 1 hour (3600 seconds)
-from creation:
+Create a claimable balance that must be claimed within 1 hour (3600 seconds) from creation:
 
 ```bash
 stellar tx new create-claimable-balance \
@@ -98,8 +94,7 @@ stellar tx new create-claimable-balance \
 
 ### Not Predicate
 
-Create a claimable balance that can be claimed after a certain time (NOT before
-relative time):
+Create a claimable balance that can be claimed after a certain time (NOT before relative time):
 
 ```bash
 stellar tx new create-claimable-balance \
@@ -109,8 +104,7 @@ stellar tx new create-claimable-balance \
   --claimant 'bob:{"not":{"before_relative_time":"7200"}}'
 ```
 
-This means: "Can be claimed, but NOT before 2 hours have passed" (effectively:
-can be claimed after 2 hours).
+This means: "Can be claimed, but NOT before 2 hours have passed" (effectively: can be claimed after 2 hours).
 
 ### And Predicate
 
@@ -144,8 +138,7 @@ This means: "Can be claimed within 1 hour OR after June 1, 2024".
 
 ### Mixed Claimants with Different Predicates
 
-Create a claimable balance with multiple claimants having different claim
-conditions:
+Create a claimable balance with multiple claimants having different claim conditions:
 
 ```bash
 stellar tx new create-claimable-balance \
@@ -163,8 +156,7 @@ This creates a balance where:
 
 ### Escrow-Style Payment
 
-Create an escrow where the recipient has 30 days to claim, otherwise it returns
-to sender:
+Create an escrow where the recipient has 30 days to claim, otherwise it returns to sender:
 
 ```bash
 stellar tx new create-claimable-balance \
@@ -194,19 +186,18 @@ stellar tx new create-claimable-balance \
 
 ## Understanding Predicates
 
-**Note**: Predicates must be valid JSON, so you must use proper quoting and
-escaping.
+**Note**: Predicates must be valid JSON, so you must use proper quoting and escaping.
 
 ### Predicate Types
 
-| Type                   | Description                               | Example                                 |
-| ---------------------- | ----------------------------------------- | --------------------------------------- |
-| `unconditional`        | Can be claimed anytime                    | `"unconditional"`                       |
-| `before_absolute_time` | Must claim before specific timestamp      | `{"before_absolute_time":"1735689599"}` |
-| `before_relative_time` | Must claim within X seconds from creation | `{"before_relative_time":"3600"}`       |
-| `not`                  | Negates another predicate                 | `{"not":{...}}`                         |
-| `and`                  | Both predicates must be true              | `{"and":[{...},{...}]}`                 |
-| `or`                   | Either predicate can be true              | `{"or":[{...},{...}]}`                  |
+| Type | Description | Example |
+| --- | --- | --- |
+| `unconditional` | Can be claimed anytime | `"unconditional"` |
+| `before_absolute_time` | Must claim before specific timestamp | `{"before_absolute_time":"1735689599"}` |
+| `before_relative_time` | Must claim within X seconds from creation | `{"before_relative_time":"3600"}` |
+| `not` | Negates another predicate | `{"not":{...}}` |
+| `and` | Both predicates must be true | `{"and":[{...},{...}]}` |
+| `or` | Either predicate can be true | `{"or":[{...},{...}]}` |
 
 ### Time Format Notes
 
@@ -251,9 +242,7 @@ stellar tx new create-claimable-balance \
 
 - `--amount`: Amount in stroops (1 XLM = 10,000,000 stroops)
 - `--asset`: Use "native" for XLM or "CODE:ISSUER" format for other assets
-- `--claimant`: Account with optional predicate (can be specified multiple
-  times)
-- Predicates are evaluated when the claimable balance is claimed, not when
-  created
+- `--claimant`: Account with optional predicate (can be specified multiple times)
+- Predicates are evaluated when the claimable balance is claimed, not when created
 - `And` and `Or` predicates must have exactly 2 sub-predicates
 - Complex predicates can be nested to create sophisticated claim conditions
