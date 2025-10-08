@@ -9,16 +9,16 @@ This guide walks you through generating, inspecting, and removing a Stellar iden
 
 ### 1. Generate a New Identity
 
-Run the following command to create a new keypair and save it under the alias named `test`:
+Run the following command to create a new keypair and save it under the alias named `carol`:
 
 ```bash
-stellar keys generate test
+stellar keys generate carol
 ```
 
 Output:
 
 ```
-✅ Key saved with alias test in ".config/soroban/identity/test.toml"
+✅ Key saved with alias carol in ".config/soroban/identity/carol.toml"
 ```
 
 The CLI stores this identity in a TOML file.
@@ -34,15 +34,15 @@ cd .config/soroban/identity && ls
 Output:
 
 ```
-test.toml
+carol.toml
 ```
 
-The file test.toml contains the seed phrase for your identity.
+The file carol.toml contains the seed phrase for your identity.
 
 ### 3. View the Seed Phrase
 
 ```
-cat test.toml
+cat carol.toml
 ```
 
 Output:
@@ -55,10 +55,10 @@ Note: The seed phrase is sensitive information. Handle it with care and never ex
 
 ### 4. Derive the Secret Key
 
-To display the secret key for the test identity:
+To display the secret key for the carol identity:
 
 ```bash
-stellar keys secret test
+stellar keys secret carol
 ```
 
 Output:
@@ -71,10 +71,10 @@ Note: The secret key is sensitive information. Handle it with care and never exp
 
 ### 5. Derive the Public Key
 
-To display the corresponding public key for the test identity:
+To display the corresponding public key for the carol identity:
 
-```bash
-stellar keys public-key test
+```bas
+stellar keys public-key carol
 ```
 
 Output:
@@ -88,13 +88,13 @@ This is the public address of your key.
 ### 6. Fund this account
 
 ```bash
-stellar keys fund test
+stellar keys fund carol
 ```
 
 Output:
 
 ```
-✅ Account test funded on "Test SDF Network ; September 2015"
+✅ Account carol funded on "Test SDF Network ; September 2015"
 ```
 
 ### 7. Remove the Identity
@@ -102,7 +102,7 @@ Output:
 When you no longer need this identity, remove it using:
 
 ```
-stellar keys rm test
+stellar keys rm carol
 ```
 
 Output:
@@ -111,4 +111,4 @@ Output:
 ℹ️  Removing the key's cli config file
 ```
 
-At this point, the identity file test.toml is deleted, and the alias is no longer available in the CLI.
+At this point, the identity file carol.toml is deleted, and the alias is no longer available in the CLI.
