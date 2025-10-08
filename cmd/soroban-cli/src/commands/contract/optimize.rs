@@ -3,8 +3,6 @@ use std::{fmt::Debug, path::PathBuf};
 #[cfg(feature = "additional-libs")]
 use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
-#[cfg(feature = "additional-libs")]
-use crate::commands::global;
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -38,18 +36,12 @@ pub enum Error {
 
 impl Cmd {
     #[cfg(not(feature = "additional-libs"))]
-    pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self) -> Result<(), Error> {
         Err(Error::Install)
     }
 
     #[cfg(feature = "additional-libs")]
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        use crate::print::Print;
-
-        let print = Print::new(global_args.quiet);
-        print
-            .warnln("`stellar contract optimize` is deprecated and will be removed in the future. Use `stellar contract build --optimize` instead.");
-
+    pub fn run(&self) -> Result<(), Error> {
         optimize(false, self.wasm.clone(), self.wasm_out.clone())
     }
 }

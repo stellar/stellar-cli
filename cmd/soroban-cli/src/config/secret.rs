@@ -38,12 +38,14 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// (deprecated) Enter secret (S) key when prompted
+    /// ⚠️ Deprecated, use `--secure-store`. Enter secret (S) key when prompted
     #[arg(long)]
     pub secret_key: bool,
-    /// (deprecated) Enter key using 12-24 word seed phrase
+
+    /// ⚠️ Deprecated, use `--secure-store`. Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
+
     /// Save the new key in your OS's credential secure store.
     ///
     /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
