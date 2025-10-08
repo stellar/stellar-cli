@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::{path::PathBuf, process::Command};
 use which::which;
 
@@ -56,6 +57,7 @@ pub fn list() -> Result<Vec<String>, Error> {
         })
         .filter(|s| !(utils::is_hex_string(s) && s.len() > MAX_HEX_LENGTH))
         .map(|s| s.replace("soroban-", "").replace("stellar-", ""))
+        .unique()
         .collect())
 }
 
