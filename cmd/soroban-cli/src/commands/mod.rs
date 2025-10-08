@@ -3,7 +3,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
-use crate::config;
+use crate::{config, print::Print, utils::deprecate_message};
 
 pub mod cache;
 pub mod cfg;
@@ -110,6 +110,16 @@ impl Root {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
+        let print = Print::new(self.global_args.quiet);
+
+        if self.global_args.locator.global {
+            deprecate_message(
+                print,
+                "--global",
+                "Global configuration is now the default behavior.",
+            );
+        }
+
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
