@@ -27,7 +27,7 @@ The CLI stores this identity in a TOML file.
 
 Navigate to the configuration directory and list the contents:
 
-```bash
+```bash cookbooktest.ignore
 cd .config/soroban/identity && ls
 ```
 
@@ -41,7 +41,7 @@ The file carol.toml contains the seed phrase for your identity.
 
 ### 3. View the Seed Phrase
 
-```
+```bash cookbooktest.ignore
 cat carol.toml
 ```
 
@@ -73,7 +73,7 @@ Note: The secret key is sensitive information. Handle it with care and never exp
 
 To display the corresponding public key for the carol identity:
 
-```bas
+```bash
 stellar keys public-key carol
 ```
 
@@ -101,7 +101,7 @@ Output:
 
 When you no longer need this identity, remove it using:
 
-```
+```bash
 stellar keys rm carol
 ```
 
