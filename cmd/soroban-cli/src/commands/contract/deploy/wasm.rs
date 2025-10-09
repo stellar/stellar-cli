@@ -250,7 +250,8 @@ impl NetworkRunnable for Cmd {
                         &slop,
                         &entries,
                         config,
-                    )?
+                    )
+                    .await?
                     .2,
                 )
             }
