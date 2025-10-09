@@ -7,7 +7,7 @@ pub mod claimable_balance;
 pub mod config;
 pub mod contract;
 pub mod liquidity_pool;
-pub mod wasm;
+pub mod contract_code;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -24,7 +24,7 @@ pub enum Cmd {
     ///Fetch a liquidity pool ledger entry by id
     LiquidityPool(liquidity_pool::Cmd),
     /// Fetch WASM bytecode by hash
-    Wasm(wasm::Cmd),
+    ContractCode(contract_code::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -40,7 +40,7 @@ pub enum Error {
     #[error(transparent)]
     LiquidityPool(#[from] liquidity_pool::Error),
     #[error(transparent)]
-    Wasm(#[from] wasm::Error),
+    Wasm(#[from] contract_code::Error),
 }
 
 impl Cmd {
@@ -51,7 +51,7 @@ impl Cmd {
             Cmd::Config(cmd) => cmd.run().await?,
             Cmd::ClaimableBalance(cmd) => cmd.run().await?,
             Cmd::LiquidityPool(cmd) => cmd.run().await?,
-            Cmd::Wasm(cmd) => cmd.run().await?,
+            Cmd::ContractCode(cmd) => cmd.run().await?,
         }
         Ok(())
     }

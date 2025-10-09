@@ -341,7 +341,7 @@ async fn ledger_entry_contract_data() {
 
 // top level test
 #[tokio::test]
-async fn ledger_entry_wasm_hash() {
+async fn ledger_entry_contract_code() {
     let sandbox = &TestEnv::new();
     let test_account_alias = "test";
     let wasm = HELLO_WORLD;
@@ -370,7 +370,7 @@ async fn ledger_entry_wasm_hash() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
-        .arg("wasm")
+        .arg("contract-code")
         .arg(&contract_wasm_hash)
         .arg("--network")
         .arg("testnet")
