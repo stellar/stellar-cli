@@ -7,6 +7,7 @@ This document provides best practices for assembling argument objects when invok
 ### 1. JSON Syntax Errors
 
 **Problem**: Malformed JSON in dynamically generated arguments
+
 ```bash
 # ❌ WRONG - Missing quotes around string values
 stellar contract invoke --id $CONTRACT_ID -- transfer --from alice --to bob --amount {value: 100}
@@ -16,6 +17,7 @@ stellar contract invoke --id $CONTRACT_ID -- transfer --from alice --to bob --am
 ```
 
 **Solution**: Always validate JSON syntax
+
 ```bash
 # ✅ CORRECT - Proper JSON formatting
 stellar contract invoke --id $CONTRACT_ID -- transfer --from alice --to bob --amount '{"value": 100}'
@@ -29,15 +31,17 @@ stellar contract invoke --id $CONTRACT_ID -- transfer --from alice --to bob --am
 ### 2. Type Mismatches
 
 **Problem**: Passing wrong data types
+
 ```bash
 # ❌ WRONG - Passing string when number expected
 stellar contract invoke --id $CONTRACT_ID -- set_balance --account alice --balance "100"
 
-# ❌ WRONG - Passing number when string expected  
+# ❌ WRONG - Passing number when string expected
 stellar contract invoke --id $CONTRACT_ID -- set_name --account alice --name 123
 ```
 
 **Solution**: Match the expected types from contract specification
+
 ```bash
 # ✅ CORRECT - Number without quotes
 stellar contract invoke --id $CONTRACT_ID -- set_balance --account alice --balance 100
@@ -49,12 +53,14 @@ stellar contract invoke --id $CONTRACT_ID -- set_name --account alice --name "Al
 ### 3. Address Format Issues
 
 **Problem**: Incorrect address formats
+
 ```bash
 # ❌ WRONG - Invalid address format
 stellar contract invoke --id $CONTRACT_ID -- transfer --from invalid_address --to bob --amount 100
 ```
 
 **Solution**: Use proper address formats
+
 ```bash
 # ✅ CORRECT - Account address (starts with G)
 stellar contract invoke --id $CONTRACT_ID -- transfer --from GDAT5HWTGIU4TSSZ4752OUC4SABDLTLZFRPZUJ3D6LKBNEPA7V2CIG54 --to bob --amount 100
@@ -69,6 +75,7 @@ stellar contract invoke --id $CONTRACT_ID -- transfer --from alice --to bob --am
 ### 4. Complex Object Assembly
 
 **Problem**: Errors in complex nested objects
+
 ```bash
 # ❌ WRONG - Malformed nested JSON
 COMPLEX_ARG='{
@@ -80,6 +87,7 @@ COMPLEX_ARG='{
 ```
 
 **Solution**: Use proper JSON construction techniques
+
 ```bash
 # ✅ CORRECT - Use jq for complex JSON construction
 COMPLEX_ARG=$(jq -n \
@@ -112,6 +120,7 @@ stellar contract invoke --id $CONTRACT_ID -- update_user --data-file-path user_d
 ## Bash Script Best Practices
 
 ### 1. Variable Escaping
+
 ```bash
 # ✅ CORRECT - Proper variable escaping
 USER_NAME="Alice Smith"
@@ -126,6 +135,7 @@ stellar contract invoke --id "$CONTRACT_ID" -- transfer \
 ```
 
 ### 2. Error Handling
+
 ```bash
 #!/bin/bash
 
@@ -156,6 +166,7 @@ echo "Contract invocation successful"
 ```
 
 ### 3. JSON Validation Function
+
 ```bash
 #!/bin/bash
 
@@ -189,7 +200,7 @@ For complex arguments, use file-based input:
 cat > transfer_args.json << EOF
 {
   "from": "alice",
-  "to": "bob", 
+  "to": "bob",
   "amount": 100,
   "memo": {
     "type": "payment",
@@ -213,18 +224,21 @@ stellar contract invoke --id "$CONTRACT_ID" -- complex_transfer \
 ## Debugging Tips
 
 ### 1. Use --help to see expected argument types
+
 ```bash
 stellar contract invoke --id "$CONTRACT_ID" -- --help
 stellar contract invoke --id "$CONTRACT_ID" -- function_name --help
 ```
 
 ### 2. Test JSON separately
+
 ```bash
 # Test your JSON with jq before using it
 echo '{"key": "value"}' | jq .
 ```
 
 ### 3. Use dry-run mode (if available)
+
 ```bash
 # Use simulation mode to test without executing
 stellar contract invoke --id "$CONTRACT_ID" --send=no -- function_name --arg value
@@ -235,7 +249,7 @@ stellar contract invoke --id "$CONTRACT_ID" --send=no -- function_name --arg val
 The enhanced CLI now provides detailed error messages:
 
 - **JSON Validation Errors**: Check for missing quotes, trailing commas, or malformed syntax
-- **Type Mismatch Errors**: Verify the argument type matches the contract specification  
+- **Type Mismatch Errors**: Verify the argument type matches the contract specification
 - **Missing Argument Errors**: Ensure all required arguments are provided
 - **Address Format Errors**: Use proper Stellar address formats (G..., C..., M..., or identity names)
 
