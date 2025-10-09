@@ -4,9 +4,7 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{
-        self, LedgerKey, LedgerKeyData, MuxedAccount, String64, 
-    },
+    xdr::{self, LedgerKey, LedgerKeyData, MuxedAccount, String64},
 };
 use clap::{command, Parser};
 
@@ -21,8 +19,8 @@ pub struct Cmd {
     pub account: String,
 
     /// Fetch key-value data entries attached to an account (see manageDataOp)
-    #[arg(long)]
-    pub data_name: Option<Vec<String>>,
+    #[arg(long, required=true)]
+    pub data_name: Vec<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -53,19 +51,17 @@ impl Cmd {
     }
 
     fn insert_data_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if let Some(data_name) = &self.data_name {
-            let acc = self.muxed_account(&self.account)?;
-            for data_name in data_name {
-                let data_name: xdr::StringM<64> = data_name
-                    .parse()
-                    .map_err(|_| Error::InvalidDataName(data_name.clone()))?;
-                let data_name = String64(data_name);
-                let key = LedgerKey::Data(LedgerKeyData {
-                    account_id: acc.clone().account_id(),
-                    data_name,
-                });
-                ledger_keys.push(key);
-            }
+        let acc = self.muxed_account(&self.account)?;
+        for data_name in &self.data_name {
+            let data_name: xdr::StringM<64> = data_name
+                .parse()
+                .map_err(|_| Error::InvalidDataName(data_name.clone()))?;
+            let data_name = String64(data_name);
+            let key = LedgerKey::Data(LedgerKeyData {
+                account_id: acc.clone().account_id(),
+                data_name,
+            });
+            ledger_keys.push(key);
         }
 
         Ok(())

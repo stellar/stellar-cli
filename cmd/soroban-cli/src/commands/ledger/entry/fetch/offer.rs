@@ -4,9 +4,7 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{
-        LedgerKey, LedgerKeyOffer, MuxedAccount
-    },
+    xdr::{LedgerKey, LedgerKeyOffer, MuxedAccount},
 };
 use clap::{command, Parser};
 
@@ -21,8 +19,8 @@ pub struct Cmd {
     pub account: String,
 
     /// ID of an offer made on the Stellar DEX
-    #[arg(long)]
-    pub offer: Option<Vec<i64>>,
+    #[arg(long, required=true)]
+    pub offer: Vec<i64>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -54,15 +52,13 @@ impl Cmd {
     }
 
     fn insert_offer_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if let Some(offer) = &self.offer {
-            let acc = self.muxed_account(&self.account)?;
-            for offer in offer {
-                let key = LedgerKey::Offer(LedgerKeyOffer {
-                    seller_id: acc.clone().account_id(),
-                    offer_id: *offer,
-                });
-                ledger_keys.push(key);
-            }
+        let acc = self.muxed_account(&self.account)?;
+        for offer in &self.offer {
+            let key = LedgerKey::Offer(LedgerKeyOffer {
+                seller_id: acc.clone().account_id(),
+                offer_id: *offer,
+            });
+            ledger_keys.push(key);
         }
 
         Ok(())

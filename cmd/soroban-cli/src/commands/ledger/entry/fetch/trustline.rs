@@ -4,7 +4,9 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{ AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey, LedgerKeyTrustLine, MuxedAccount, PublicKey, TrustLineAsset, Uint256,
+    xdr::{
+        AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey, LedgerKeyTrustLine,
+        MuxedAccount, PublicKey, TrustLineAsset, Uint256,
     },
 };
 use clap::{command, Parser};
@@ -21,8 +23,8 @@ pub struct Cmd {
     pub account: String,
 
     /// Assets to get trustline info for
-    #[arg(long)]
-    pub asset: Option<Vec<String>>,
+    #[arg(long, required=true)]
+    pub asset: Vec<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -53,43 +55,41 @@ impl Cmd {
     }
 
     fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if let Some(asset) = &self.asset {
-            let acc = self.muxed_account(&self.account)?;
-            for asset in asset {
-                let asset = if asset.eq_ignore_ascii_case("XLM") {
-                    TrustLineAsset::Native
-                } else if asset.contains(':') {
-                    let mut parts = asset.split(':');
-                    let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
-                    let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
-                    if parts.next().is_some() {
-                        Err(Error::InvalidAsset(asset.clone()))?;
-                    }
-                    let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
-                    let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
+        let acc = self.muxed_account(&self.account)?;
+        for asset in &self.asset {
+            let asset = if asset.eq_ignore_ascii_case("XLM") {
+                TrustLineAsset::Native
+            } else if asset.contains(':') {
+                let mut parts = asset.split(':');
+                let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
+                let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
+                if parts.next().is_some() {
+                    Err(Error::InvalidAsset(asset.clone()))?;
+                }
+                let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
+                let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
 
-                    match code.len() {
-                        4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
-                            asset_code: AssetCode4(code.as_bytes().try_into()?),
-                            issuer,
-                        }),
-                        12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
-                            asset_code: AssetCode12(code.as_bytes().try_into()?),
-                            issuer,
-                        }),
-                        _ => Err(Error::InvalidAsset(asset.clone()))?,
-                    }
-                } else {
-                    Err(Error::InvalidAsset(asset.clone()))?
-                };
+                match code.len() {
+                    4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
+                        asset_code: AssetCode4(code.as_bytes().try_into()?),
+                        issuer,
+                    }),
+                    12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
+                        asset_code: AssetCode12(code.as_bytes().try_into()?),
+                        issuer,
+                    }),
+                    _ => Err(Error::InvalidAsset(asset.clone()))?,
+                }
+            } else {
+                Err(Error::InvalidAsset(asset.clone()))?
+            };
 
-                let key = LedgerKey::Trustline(LedgerKeyTrustLine {
-                    account_id: acc.clone().account_id(),
-                    asset,
-                });
+            let key = LedgerKey::Trustline(LedgerKeyTrustLine {
+                account_id: acc.clone().account_id(),
+                asset,
+            });
 
-                ledger_keys.push(key);
-            }
+            ledger_keys.push(key);
         }
         Ok(())
     }
