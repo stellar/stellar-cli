@@ -15,14 +15,18 @@ pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
 ) -> Result<Assembled, Error> {
+    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx: tx.clone(),
+        signatures: VecM::default(),
+    });
+
+    tracing::trace!(
+        "Simulation transaction envelope: {}",
+        envelope.to_xdr_base64(Limits::none())?
+    );
+
     let sim_res = client
-        .simulate_transaction_envelope(
-            &TransactionEnvelope::Tx(TransactionV1Envelope {
-                tx: tx.clone(),
-                signatures: VecM::default(),
-            }),
-            None,
-        )
+        .simulate_transaction_envelope(&envelope, None)
         .await?;
     tracing::trace!("{sim_res:#?}");
 
