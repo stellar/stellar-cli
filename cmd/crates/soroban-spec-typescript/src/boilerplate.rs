@@ -14,7 +14,7 @@ static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src/project_temp
 
 const NETWORK_PASSPHRASE_TESTNET: &str = "Test SDF Network ; September 2015";
 const NETWORK_PASSPHRASE_FUTURENET: &str = "Test SDF Future Network ; October 2022";
-const NETWORK_PASSPHRASE_STANDALONE: &str = "Standalone Network ; February 2017";
+const NETWORK_PASSPHRASE_LOCAL: &str = "Standalone Network ; February 2017";
 
 pub struct Project(PathBuf);
 
@@ -125,7 +125,7 @@ impl Project {
         let network = match network_passphrase {
             NETWORK_PASSPHRASE_TESTNET => "testnet",
             NETWORK_PASSPHRASE_FUTURENET => "futurenet",
-            NETWORK_PASSPHRASE_STANDALONE => "standalone",
+            NETWORK_PASSPHRASE_LOCAL => "local",
             _ => "unknown",
         };
         format!(
