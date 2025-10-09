@@ -5,13 +5,10 @@ use super::args::Args;
 use crate::{
     commands::config::{self, locator},
     xdr::{
-        self, AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey,
-        LedgerKeyAccount, LedgerKeyData, LedgerKeyOffer, LedgerKeyTrustLine, MuxedAccount,
-        PublicKey, String64, TrustLineAsset, Uint256,
+        self, LedgerKey, LedgerKeyAccount, LedgerKeyData, LedgerKeyOffer, MuxedAccount, String64, 
     },
 };
 use clap::{command, Parser};
-use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,11 +18,6 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub args: Args,
-
-    //Options
-    /// Assets to get trustline info for
-    #[arg(long)]
-    pub asset: Option<Vec<String>>,
 
     /// Fetch key-value data entries attached to an account (see manageDataOp)
     #[arg(long)]
@@ -64,7 +56,6 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let mut ledger_keys = vec![];
         self.insert_account_keys(&mut ledger_keys)?;
-        self.insert_asset_keys(&mut ledger_keys)?;
         self.insert_data_keys(&mut ledger_keys)?;
         self.insert_offer_keys(&mut ledger_keys)?;
 
@@ -82,48 +73,6 @@ impl Cmd {
 
         ledger_keys.push(key);
 
-        Ok(())
-    }
-
-    fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if let Some(asset) = &self.asset {
-            let acc = self.muxed_account(&self.account)?;
-            for asset in asset {
-                let asset = if asset.eq_ignore_ascii_case("XLM") {
-                    TrustLineAsset::Native
-                } else if asset.contains(':') {
-                    let mut parts = asset.split(':');
-                    let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
-                    let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
-                    if parts.next().is_some() {
-                        Err(Error::InvalidAsset(asset.clone()))?;
-                    }
-                    let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
-                    let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
-
-                    match code.len() {
-                        4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
-                            asset_code: AssetCode4(code.as_bytes().try_into()?),
-                            issuer,
-                        }),
-                        12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
-                            asset_code: AssetCode12(code.as_bytes().try_into()?),
-                            issuer,
-                        }),
-                        _ => Err(Error::InvalidAsset(asset.clone()))?,
-                    }
-                } else {
-                    Err(Error::InvalidAsset(asset.clone()))?
-                };
-
-                let key = LedgerKey::Trustline(LedgerKeyTrustLine {
-                    account_id: acc.clone().account_id(),
-                    asset,
-                });
-
-                ledger_keys.push(key);
-            }
-        }
         Ok(())
     }
 

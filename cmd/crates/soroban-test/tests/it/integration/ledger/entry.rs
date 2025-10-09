@@ -82,39 +82,7 @@ async fn ledger_entry_account_only_with_account_addr() {
 }
 
 #[tokio::test]
-async fn ledger_entry_account_asset_xlm() {
-    let sandbox = &TestEnv::new();
-    let account_alias = "new_account";
-    let new_account_addr = new_account(sandbox, account_alias);
-    let output = sandbox
-        .new_assert_cmd("ledger")
-        .arg("entry")
-        .arg("fetch")
-        .arg("account")
-        .arg(account_alias)
-        .arg("--network")
-        .arg("testnet")
-        .arg("--asset")
-        // though xlm does not have, nor need, a trustline, "xlm" is a valid argument to `--asset`
-        // this test is including it to make sure that the account ledger entry is still included in the output
-        .arg("xlm")
-        .assert()
-        .success()
-        .stdout_as_str();
-
-    let (_, expected_key) = expected_account_ledger_key(&new_account_addr).await;
-
-    let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed.entries.is_empty());
-    assert_eq!(parsed.entries[0].key, expected_key);
-    assert!(matches!(
-        parsed.entries[0].val,
-        LedgerEntryData::Account { .. }
-    ));
-}
-
-#[tokio::test]
-async fn ledger_entry_account_asset_usdc() {
+async fn ledger_entry_trustline_asset_usdc() {
     let sandbox = &TestEnv::new();
     let test_account_alias = "test";
     let test_account_address = test_address(sandbox);
@@ -137,7 +105,8 @@ async fn ledger_entry_account_asset_usdc() {
         .new_assert_cmd("ledger")
         .arg("entry")
         .arg("fetch")
-        .arg("account")
+        .arg("trustline")
+        .arg("--account")
         .arg(test_account_alias)
         .arg("--network")
         .arg("testnet")
@@ -147,7 +116,7 @@ async fn ledger_entry_account_asset_usdc() {
         .success()
         .stdout_as_str();
 
-    let (account_id, expected_account_key) =
+    let (account_id, _expected_account_key) =
         expected_account_ledger_key(&test_account_address).await;
     let issuer_account_id = get_account_id(&issuer_address);
 
@@ -163,11 +132,7 @@ async fn ledger_entry_account_asset_usdc() {
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
     assert!(!parsed.entries.is_empty());
 
-    let account_entry = &parsed.entries[0];
-    assert_eq!(account_entry.key, expected_account_key);
-    assert!(matches!(account_entry.val, LedgerEntryData::Account { .. }));
-
-    let trustline_entry = &parsed.entries[1];
+    let trustline_entry = &parsed.entries[0];
     assert_eq!(trustline_entry.key, expected_trustline_key);
     assert!(matches!(
         trustline_entry.val,
