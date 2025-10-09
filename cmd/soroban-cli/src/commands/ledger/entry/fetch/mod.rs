@@ -9,6 +9,7 @@ pub mod contract_data;
 pub mod liquidity_pool;
 pub mod contract_code;
 pub mod trustline;
+pub mod account_data;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -28,6 +29,8 @@ pub enum Cmd {
     ContractCode(contract_code::Cmd),
     /// UPDATE
     Trustline(trustline::Cmd),
+    /// UPDATE
+    Data(account_data::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -46,6 +49,8 @@ pub enum Error {
     Wasm(#[from] contract_code::Error),
     #[error(transparent)]
     Trustline(#[from] trustline::Error),
+    #[error(transparent)]
+    Data(#[from] account_data::Error),
 }
 
 impl Cmd {
@@ -58,6 +63,7 @@ impl Cmd {
             Cmd::LiquidityPool(cmd) => cmd.run().await?,
             Cmd::ContractCode(cmd) => cmd.run().await?,
             Cmd::Trustline(cmd) => cmd.run().await?,
+            Cmd::Data(cmd) => cmd.run().await?,
         }
         Ok(())
     }
