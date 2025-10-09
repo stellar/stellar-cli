@@ -20,12 +20,13 @@ use stellar_xdr::curr::ContractId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to parse argument '{arg}': {error}\n\nContext: Expected type {expected_type}, but received: '{received_value}'\n\nSuggestions:\n- Check if the value is valid JSON\n- Ensure the type matches the expected argument type\n- For addresses, use format: G... (account), C... (contract), or identity name\n- For numbers, ensure no quotes around the value\n- For booleans, use 'true' or 'false' (without quotes)")]
+    #[error("Failed to parse argument '{arg}': {error}\n\nContext: Expected type {expected_type}, but received: '{received_value}'\n\nSuggestion: {suggestion}")]
     CannotParseArg {
         arg: String,
         error: soroban_spec_tools::Error,
         expected_type: String,
         received_value: String,
+        suggestion: String,
     },
     #[error("Invalid JSON in argument '{arg}': {json_error}\n\nReceived value: '{received_value}'\n\nSuggestions:\n- Check for missing quotes around strings\n- Ensure proper JSON syntax (commas, brackets, etc.)\n- For complex objects, consider using --{arg}-file-path to load from a file")]
     InvalidJsonArg {
@@ -197,7 +198,15 @@ fn parse_single_argument(
     let expected_type_name = get_type_name(&input.type_);
 
     if let Some(mut val) = matches_.get_raw(&name) {
-        let s = val.next().unwrap().to_string_lossy().to_string();
+        let s = match val.next() {
+            Some(v) => v.to_string_lossy().to_string(),
+            None => {
+                return Err(Error::MissingArgument {
+                    arg: name.clone(),
+                    expected_type: expected_type_name,
+                });
+            }
+        };
 
         // Handle address types with signer resolution
         if matches!(
@@ -250,6 +259,8 @@ fn parse_file_argument(
             error: soroban_spec_tools::Error::Unknown,
             expected_type: expected_type_name,
             received_value: format!("{} bytes from file", bytes.len()),
+            suggestion: "Ensure the file contains valid binary data for the expected byte type"
+                .to_string(),
         })
     } else {
         let file_contents =
@@ -496,19 +507,10 @@ fn get_available_functions(spec: &Spec) -> String {
     }
 }
 
-/// Enhanced argument parsing with better error handling
-fn parse_argument_with_validation(
-    arg_name: &str,
-    value: &str,
-    expected_type: &ScSpecTypeDef,
-    spec: &Spec,
-    config: &config::Args,
-) -> Result<ScVal, Error> {
-    let expected_type_name = get_type_name(expected_type);
-
-    // Pre-validate JSON for non-primitive types
-    if !matches!(
-        expected_type,
+/// Checks if a type is a primitive type that doesn't require JSON validation
+fn is_primitive_type(type_def: &ScSpecTypeDef) -> bool {
+    matches!(
+        type_def,
         ScSpecTypeDef::U64
             | ScSpecTypeDef::I64
             | ScSpecTypeDef::U128
@@ -523,7 +525,65 @@ fn parse_argument_with_validation(
             | ScSpecTypeDef::Address
             | ScSpecTypeDef::MuxedAddress
             | ScSpecTypeDef::Void
-    ) {
+    )
+}
+
+/// Generates context-aware suggestions based on the expected type and error
+fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) -> String {
+    match expected_type {
+        ScSpecTypeDef::U64 | ScSpecTypeDef::I64 | ScSpecTypeDef::U128 | ScSpecTypeDef::I128
+        | ScSpecTypeDef::U32 | ScSpecTypeDef::I32 | ScSpecTypeDef::U256 | ScSpecTypeDef::I256 => {
+            if received_value.starts_with('"') && received_value.ends_with('"') {
+                "For numbers, ensure no quotes around the value (e.g., use 100 instead of \"100\")".to_string()
+            } else if received_value.contains('.') {
+                "Integer types don't support decimal values - use a whole number".to_string()
+            } else {
+                "Ensure the value is a valid integer within the type's range".to_string()
+            }
+        }
+        ScSpecTypeDef::Bool => {
+            "For booleans, use 'true' or 'false' (without quotes)".to_string()
+        }
+        ScSpecTypeDef::String => {
+            if !received_value.starts_with('"') || !received_value.ends_with('"') {
+                "For strings, ensure the value is properly quoted (e.g., \"hello world\")".to_string()
+            } else {
+                "Check for proper string escaping if the string contains special characters".to_string()
+            }
+        }
+        ScSpecTypeDef::Address => {
+            "For addresses, use format: G... (account), C... (contract), or identity name (e.g., alice)".to_string()
+        }
+        ScSpecTypeDef::MuxedAddress => {
+            "For muxed addresses, use format: M... or identity name".to_string()
+        }
+        ScSpecTypeDef::Vec(_) => {
+            "For arrays, use JSON array format: [\"item1\", \"item2\"] or [{\"key\": \"value\"}]".to_string()
+        }
+        ScSpecTypeDef::Map(_) => {
+            "For maps, use JSON object format: {\"key1\": \"value1\", \"key2\": \"value2\"}".to_string()
+        }
+        ScSpecTypeDef::Option(_) => {
+            "For optional values, use null for none or the expected value type".to_string()
+        }
+        _ => {
+            "Check the contract specification for the correct argument format and type".to_string()
+        }
+    }
+}
+
+/// Enhanced argument parsing with better error handling
+fn parse_argument_with_validation(
+    arg_name: &str,
+    value: &str,
+    expected_type: &ScSpecTypeDef,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<ScVal, Error> {
+    let expected_type_name = get_type_name(expected_type);
+
+    // Pre-validate JSON for non-primitive types
+    if !is_primitive_type(expected_type) {
         validate_json_arg(arg_name, value)?;
     }
 
@@ -539,8 +599,9 @@ fn parse_argument_with_validation(
             .map_err(|error| Error::CannotParseArg {
                 arg: arg_name.to_string(),
                 error,
-                expected_type: expected_type_name,
+                expected_type: expected_type_name.clone(),
                 received_value: value.to_string(),
+                suggestion: get_context_suggestions(expected_type, value),
             });
     }
 
@@ -551,6 +612,7 @@ fn parse_argument_with_validation(
             error,
             expected_type: expected_type_name,
             received_value: value.to_string(),
+            suggestion: get_context_suggestions(expected_type, value),
         })
 }
 
@@ -637,5 +699,71 @@ mod tests {
             let result = validate_json_arg("test_arg", case);
             assert!(result.is_err(), "Expected error for case: {case}");
         }
+    }
+
+    #[test]
+    fn test_context_aware_error_messages() {
+        use stellar_xdr::curr::ScSpecTypeDef;
+
+        // Test context-aware suggestions for different types
+
+        // Test u64 with quoted value
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::U64, "\"100\"");
+        assert!(suggestion.contains("no quotes around the value"));
+        assert!(suggestion.contains("use 100 instead of \"100\""));
+
+        // Test u64 with decimal value
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::U64, "100.5");
+        assert!(suggestion.contains("don't support decimal values"));
+
+        // Test string without quotes
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::String, "hello");
+        assert!(suggestion.contains("properly quoted"));
+
+        // Test address type
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::Address, "invalid_addr");
+        assert!(suggestion.contains("G... (account), C... (contract)"));
+
+        // Test boolean type
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::Bool, "yes");
+        assert!(suggestion.contains("'true' or 'false'"));
+
+        println!("=== Context-Aware Error Message Examples ===");
+        println!("U64 with quotes: {}", suggestion);
+
+        let decimal_suggestion = get_context_suggestions(&ScSpecTypeDef::U64, "100.5");
+        println!("U64 with decimal: {}", decimal_suggestion);
+
+        let string_suggestion = get_context_suggestions(&ScSpecTypeDef::String, "hello");
+        println!("String without quotes: {}", string_suggestion);
+
+        let address_suggestion = get_context_suggestions(&ScSpecTypeDef::Address, "invalid");
+        println!("Invalid address: {}", address_suggestion);
+    }
+
+    #[test]
+    fn test_error_message_format() {
+        use stellar_xdr::curr::ScSpecTypeDef;
+
+        // Test that our CannotParseArg error formats correctly
+        let error = Error::CannotParseArg {
+            arg: "amount".to_string(),
+            error: soroban_spec_tools::Error::InvalidValue(Some(ScSpecTypeDef::U64)),
+            expected_type: "u64 (unsigned 64-bit integer)".to_string(),
+            received_value: "\"100\"".to_string(),
+            suggestion:
+                "For numbers, ensure no quotes around the value (e.g., use 100 instead of \"100\")"
+                    .to_string(),
+        };
+
+        let error_message = format!("{}", error);
+        println!("\n=== Complete Error Message Example ===");
+        println!("{}", error_message);
+
+        // Verify the error message contains all expected parts
+        assert!(error_message.contains("Failed to parse argument 'amount'"));
+        assert!(error_message.contains("Expected type u64 (unsigned 64-bit integer)"));
+        assert!(error_message.contains("received: '\"100\"'"));
+        assert!(error_message.contains("Suggestion: For numbers, ensure no quotes"));
     }
 }
