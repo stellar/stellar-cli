@@ -729,16 +729,16 @@ mod tests {
         assert!(suggestion.contains("'true' or 'false'"));
 
         println!("=== Context-Aware Error Message Examples ===");
-        println!("U64 with quotes: {}", suggestion);
+        println!("U64 with quotes: {suggestion}");
 
         let decimal_suggestion = get_context_suggestions(&ScSpecTypeDef::U64, "100.5");
-        println!("U64 with decimal: {}", decimal_suggestion);
+        println!("U64 with decimal: {decimal_suggestion}");
 
         let string_suggestion = get_context_suggestions(&ScSpecTypeDef::String, "hello");
-        println!("String without quotes: {}", string_suggestion);
+        println!("String without quotes: {string_suggestion}");
 
         let address_suggestion = get_context_suggestions(&ScSpecTypeDef::Address, "invalid");
-        println!("Invalid address: {}", address_suggestion);
+        println!("Invalid address: {address_suggestion}");
     }
 
     #[test]
@@ -756,9 +756,9 @@ mod tests {
                     .to_string(),
         };
 
-        let error_message = format!("{}", error);
+        let error_message = format!("{error}");
         println!("\n=== Complete Error Message Example ===");
-        println!("{}", error_message);
+        println!("{error_message}");
 
         // Verify the error message contains all expected parts
         assert!(error_message.contains("Failed to parse argument 'amount'"));
