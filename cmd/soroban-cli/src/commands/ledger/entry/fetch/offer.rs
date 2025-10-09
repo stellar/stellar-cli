@@ -5,7 +5,7 @@ use super::args::Args;
 use crate::{
     commands::config::{self, locator},
     xdr::{
-        LedgerKey, LedgerKeyAccount, MuxedAccount
+        LedgerKey, LedgerKeyOffer, MuxedAccount
     },
 };
 use clap::{command, Parser};
@@ -13,15 +13,16 @@ use clap::{command, Parser};
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Account alias or public key to lookup, default is test identity
-    pub account: String,
-
     #[command(flatten)]
     pub args: Args,
 
-    /// Hide the account ledger entry from the output
+    /// Account alias or public key to lookup, default is test identity
     #[arg(long)]
-    pub hide_account: bool,
+    pub account: String,
+
+    /// ID of an offer made on the Stellar DEX
+    #[arg(long)]
+    pub offer: Option<Vec<i64>>,
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
@@ -47,20 +48,22 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let mut ledger_keys = vec![];
-        self.insert_account_keys(&mut ledger_keys)?;
+        self.insert_offer_keys(&mut ledger_keys)?;
+
         Ok(self.args.run(ledger_keys).await?)
     }
 
-    fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if self.hide_account {
-            return Ok(());
+    fn insert_offer_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        if let Some(offer) = &self.offer {
+            let acc = self.muxed_account(&self.account)?;
+            for offer in offer {
+                let key = LedgerKey::Offer(LedgerKeyOffer {
+                    seller_id: acc.clone().account_id(),
+                    offer_id: *offer,
+                });
+                ledger_keys.push(key);
+            }
         }
-        let acc = self.muxed_account(&self.account)?;
-        let key = LedgerKey::Account(LedgerKeyAccount {
-            account_id: acc.account_id(),
-        });
-
-        ledger_keys.push(key);
 
         Ok(())
     }

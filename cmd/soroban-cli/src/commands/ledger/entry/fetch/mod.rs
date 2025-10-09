@@ -10,6 +10,7 @@ pub mod liquidity_pool;
 pub mod contract_code;
 pub mod trustline;
 pub mod account_data;
+pub mod offer;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -29,8 +30,10 @@ pub enum Cmd {
     ContractCode(contract_code::Cmd),
     /// UPDATE
     Trustline(trustline::Cmd),
-    /// UPDATE
+    /// Fetch key-value data entries attached to an account (see manageDataOp)
     Data(account_data::Cmd),
+    /// UPDATE
+    Offer(offer::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -51,6 +54,8 @@ pub enum Error {
     Trustline(#[from] trustline::Error),
     #[error(transparent)]
     Data(#[from] account_data::Error),
+    #[error(transparent)]
+    Offer(#[from] offer::Error),
 }
 
 impl Cmd {
@@ -64,6 +69,7 @@ impl Cmd {
             Cmd::ContractCode(cmd) => cmd.run().await?,
             Cmd::Trustline(cmd) => cmd.run().await?,
             Cmd::Data(cmd) => cmd.run().await?,
+            Cmd::Offer(cmd) => cmd.run().await?,
         }
         Ok(())
     }
