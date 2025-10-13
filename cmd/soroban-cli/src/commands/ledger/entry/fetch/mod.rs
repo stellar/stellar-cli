@@ -25,7 +25,7 @@ pub enum Cmd {
     ClaimableBalance(claimable_balance::Cmd),
     ///Fetch a liquidity pool ledger entry by id
     LiquidityPool(liquidity_pool::Cmd),
-    /// Fetch WASM bytecode by hash
+    /// Fetch a Contract's WASM bytecode by WASM hash
     ContractCode(contract_code::Cmd),
     /// Fetch a trustline by account and asset
     Trustline(trustline::Cmd),
