@@ -19,7 +19,7 @@ pub struct Cmd {
     pub account: String,
 
     /// ID of an offer made on the Stellar DEX
-    #[arg(long, required=true)]
+    #[arg(long, required = true)]
     pub offer: Vec<i64>,
 
     /// If identity is a seed phrase use this hd path, default is 0

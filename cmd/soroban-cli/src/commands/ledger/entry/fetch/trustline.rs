@@ -23,7 +23,7 @@ pub struct Cmd {
     pub account: String,
 
     /// Assets to get trustline info for
-    #[arg(long, required=true)]
+    #[arg(long, required = true)]
     pub asset: Vec<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0

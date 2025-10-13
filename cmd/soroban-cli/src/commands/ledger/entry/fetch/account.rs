@@ -4,9 +4,7 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{
-        LedgerKey, LedgerKeyAccount, MuxedAccount
-    },
+    xdr::{LedgerKey, LedgerKeyAccount, MuxedAccount},
 };
 use clap::{command, Parser};
 

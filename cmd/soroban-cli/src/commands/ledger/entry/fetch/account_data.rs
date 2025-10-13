@@ -19,7 +19,7 @@ pub struct Cmd {
     pub account: String,
 
     /// Fetch key-value data entries attached to an account (see manageDataOp)
-    #[arg(long, required=true)]
+    #[arg(long, required = true)]
     pub data_name: Vec<String>,
 
     /// If identity is a seed phrase use this hd path, default is 0

@@ -2,15 +2,15 @@ use clap::Parser;
 use std::fmt::Debug;
 
 pub mod account;
+pub mod account_data;
 pub mod args;
 pub mod claimable_balance;
 pub mod config;
+pub mod contract_code;
 pub mod contract_data;
 pub mod liquidity_pool;
-pub mod contract_code;
-pub mod trustline;
-pub mod account_data;
 pub mod offer;
+pub mod trustline;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
