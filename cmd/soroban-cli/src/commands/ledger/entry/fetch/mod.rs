@@ -15,7 +15,6 @@ pub mod offer;
 #[derive(Debug, Parser)]
 pub enum Cmd {
     /// Fetch account entry by public key or alias.
-    /// Additional account-related keys are available with optional flags.
     Account(account::Cmd),
     /// Fetch contract ledger entry by address or alias and storage key.
     ContractData(contract_data::Cmd),
@@ -28,11 +27,11 @@ pub enum Cmd {
     LiquidityPool(liquidity_pool::Cmd),
     /// Fetch WASM bytecode by hash
     ContractCode(contract_code::Cmd),
-    /// UPDATE
+    /// Fetch a trustline by account and asset
     Trustline(trustline::Cmd),
     /// Fetch key-value data entries attached to an account (see manageDataOp)
     Data(account_data::Cmd),
-    /// UPDATE
+    /// Fetch an offer by account and offer id
     Offer(offer::Cmd),
 }
 

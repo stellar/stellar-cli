@@ -4004,18 +4004,21 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 
 ###### **Subcommands:**
 
-* `account` — Fetch account entry by public key or alias. Additional account-related keys are available with optional flags
-* `contract` — Fetch contract ledger entry by address or alias and storage key
+* `account` — Fetch account entry by public key or alias
+* `contract-data` — Fetch contract ledger entry by address or alias and storage key
 * `config` — Fetch the current network config by `ConfigSettingId`. All config settings are returned if no id is provided
 * `claimable-balance` — Fetch a claimable balance ledger entry by id
 * `liquidity-pool` — Fetch a liquidity pool ledger entry by id
-* `wasm` — Fetch WASM bytecode by hash
+* `contract-code` — Fetch WASM bytecode by hash
+* `trustline` — Fetch a trustline by account and asset
+* `data` — Fetch key-value data entries attached to an account (see manageDataOp)
+* `offer` — Fetch an offer by account and offer id
 
 
 
 ## `stellar ledger entry fetch account`
 
-Fetch account entry by public key or alias. Additional account-related keys are available with optional flags
+Fetch account entry by public key or alias
 
 **Usage:** `stellar ledger entry fetch account [OPTIONS] <ACCOUNT>`
 
@@ -4043,19 +4046,16 @@ Fetch account entry by public key or alias. Additional account-related keys are 
   - `xdr`:
     Original RPC output (containing XDRs)
 
-* `--asset <ASSET>` — Assets to get trustline info for
-* `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
-* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
 * `--hide-account` — Hide the account ledger entry from the output
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
 
 
-## `stellar ledger entry fetch contract`
+## `stellar ledger entry fetch contract-data`
 
 Fetch contract ledger entry by address or alias and storage key
 
-**Usage:** `stellar ledger entry fetch contract [OPTIONS] <CONTRACT>`
+**Usage:** `stellar ledger entry fetch contract-data [OPTIONS] <CONTRACT>`
 
 ###### **Arguments:**
 
@@ -4212,11 +4212,11 @@ Fetch a liquidity pool ledger entry by id
 
 
 
-## `stellar ledger entry fetch wasm`
+## `stellar ledger entry fetch contract-code`
 
 Fetch WASM bytecode by hash
 
-**Usage:** `stellar ledger entry fetch wasm [OPTIONS] [WASM_HASHES]...`
+**Usage:** `stellar ledger entry fetch contract-code [OPTIONS] [WASM_HASHES]...`
 
 ###### **Arguments:**
 
@@ -4242,6 +4242,102 @@ Fetch WASM bytecode by hash
   - `xdr`:
     Original RPC output (containing XDRs)
 
+
+
+
+## `stellar ledger entry fetch trustline`
+
+Fetch a trustline by account and asset
+
+**Usage:** `stellar ledger entry fetch trustline [OPTIONS] --account <ACCOUNT> --asset <ASSET>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+* `--account <ACCOUNT>` — Account alias or public key to lookup, default is test identity
+* `--asset <ASSET>` — Assets to get trustline info for
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+
+
+
+## `stellar ledger entry fetch data`
+
+Fetch key-value data entries attached to an account (see manageDataOp)
+
+**Usage:** `stellar ledger entry fetch data [OPTIONS] --account <ACCOUNT> --data-name <DATA_NAME>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+* `--account <ACCOUNT>` — Account alias or public key to lookup, default is test identity
+* `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+
+
+
+## `stellar ledger entry fetch offer`
+
+Fetch an offer by account and offer id
+
+**Usage:** `stellar ledger entry fetch offer [OPTIONS] --account <ACCOUNT> --offer <OFFER>`
+
+###### **Options:**
+
+* `--rpc-url <RPC_URL>` — RPC server endpoint
+* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+* `-n`, `--network <NETWORK>` — Name of network to use from config
+* `--global` — ⚠️ Deprecated: global config is always on
+* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+* `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+  - `json-formatted`:
+    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `xdr`:
+    Original RPC output (containing XDRs)
+
+* `--account <ACCOUNT>` — Account alias or public key to lookup, default is test identity
+* `--offer <OFFER>` — ID of an offer made on the Stellar DEX
+* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
 
 
