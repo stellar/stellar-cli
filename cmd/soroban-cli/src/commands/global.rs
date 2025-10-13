@@ -39,7 +39,7 @@ pub struct Args {
     #[arg(long, visible_alias = "vv", global = true, help_heading = HEADING_GLOBAL)]
     pub very_verbose: bool,
 
-    /// List installed plugins. E.g. `stellar-hello`
+    /// ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
     #[arg(long)]
     pub list: bool,
 

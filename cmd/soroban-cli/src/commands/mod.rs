@@ -3,7 +3,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
-use crate::config;
+use crate::{config, print::Print, utils::deprecate_message};
 
 pub mod cache;
 pub mod cfg;
@@ -87,6 +87,8 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
+                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
+                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
                 let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
@@ -110,6 +112,16 @@ impl Root {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
+        let print = Print::new(self.global_args.quiet);
+
+        if self.global_args.locator.global {
+            deprecate_message(
+                print,
+                "--global",
+                "Global configuration is now the default behavior.",
+            );
+        }
+
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
