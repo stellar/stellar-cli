@@ -13,6 +13,7 @@ use clap::{command, Parser};
 #[group(skip)]
 pub struct Cmd {
     /// Contract alias or address to fetch
+    #[arg(long)]
     pub contract: config::UnresolvedContract,
 
     #[command(flatten)]
