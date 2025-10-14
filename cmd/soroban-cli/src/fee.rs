@@ -1,10 +1,13 @@
+use std::io::stderr;
+
 use clap::arg;
+use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;
-use crate::xdr;
-
+use crate::commands::tx::fetch;
+use crate::commands::tx::fetch::fee::FeeTable;
 use crate::commands::HEADING_RPC;
-use crate::print::Print;
+use crate::xdr;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -40,25 +43,16 @@ impl Args {
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway })
     }
 
-    pub fn print_cost_info(&self, assembled: &Assembled) {
+    pub fn print_cost_info(&self, res: &GetTransactionResponse) -> Result<(), fetch::Error> {
         if !self.cost {
-            return;
+            return Ok(());
         }
 
-        let print = Print::new(false);
-        let txn = assembled.transaction();
+        let fee_table = FeeTable::new_from_transaction_response(res)?;
 
-        // Extract fee information from the transaction
-        if let xdr::TransactionExt::V1(xdr::SorobanTransactionData { resource_fee, .. }) = &txn.ext
-        {
-            let total_fee = i64::from(txn.fee);
-            let base_fee = total_fee - resource_fee;
+        fee_table.table().print(&mut stderr())?;
 
-            print.infoln("Cost info:");
-            print.blankln(format!("Total Fee: {total_fee} stroops"));
-            print.blankln(format!("Resource Fee: {resource_fee} stroops"));
-            print.blankln(format!("Base Inclusion Fee: {base_fee} stroops"));
-        }
+        Ok(())
     }
 }
 
