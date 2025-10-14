@@ -26,7 +26,7 @@ pub struct Cmd {
     #[arg(long, required = true)]
     pub asset: Vec<String>,
 
-    /// If identity is a seed phrase use this hd path, default is 0
+    /// If account is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
 }
