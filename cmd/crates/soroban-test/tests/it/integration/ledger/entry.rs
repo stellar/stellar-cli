@@ -325,63 +325,6 @@ async fn ledger_entry_contract_code() {
 }
 
 #[tokio::test]
-async fn ledger_entry_config_setting_id() {
-    let sandbox = &TestEnv::new();
-    // for individual ids
-    let output = sandbox
-        .new_assert_cmd("ledger")
-        .arg("entry")
-        .arg("fetch")
-        .arg("config")
-        .arg((ConfigSettingId::ContractMaxSizeBytes as i32).to_string())
-        .arg((ConfigSettingId::ContractDataEntrySizeBytes as i32).to_string())
-        .arg("--network")
-        .arg("testnet")
-        .assert()
-        .success()
-        .stdout_as_str();
-    let parsed_output: FullLedgerEntries =
-        serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
-
-    let expected_key_1 = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
-        config_setting_id: ConfigSettingId::ContractMaxSizeBytes,
-    });
-    let expected_key_2 = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
-        config_setting_id: ConfigSettingId::ContractDataEntrySizeBytes,
-    });
-    assert_eq!(parsed_output.entries[0].key, expected_key_1);
-    assert_eq!(parsed_output.entries[1].key, expected_key_2);
-    assert!(matches!(
-        parsed_output.entries[0].val,
-        LedgerEntryData::ConfigSetting { .. }
-    ));
-    assert!(matches!(
-        parsed_output.entries[1].val,
-        LedgerEntryData::ConfigSetting { .. }
-    ));
-
-    // for all ids
-    let output = sandbox
-        .new_assert_cmd("ledger")
-        .arg("entry")
-        .arg("fetch")
-        .arg("config")
-        .arg("--network")
-        .arg("testnet")
-        .assert()
-        .success()
-        .stdout_as_str();
-    let parsed_output: FullLedgerEntries =
-        serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
-    assert_eq!(
-        parsed_output.entries.len(),
-        ConfigSettingId::variants().len()
-    );
-}
-
-#[tokio::test]
 async fn ledger_entry_claimable_balance() {
     let sandbox = &TestEnv::new();
     // create a claimable balance

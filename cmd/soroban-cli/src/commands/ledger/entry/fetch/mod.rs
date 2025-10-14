@@ -5,7 +5,6 @@ pub mod account;
 pub mod account_data;
 pub mod args;
 pub mod claimable_balance;
-pub mod config;
 pub mod contract_code;
 pub mod contract_data;
 pub mod liquidity_pool;
@@ -18,9 +17,6 @@ pub enum Cmd {
     Account(account::Cmd),
     /// Fetch contract ledger entry by address or alias and storage key.
     ContractData(contract_data::Cmd),
-    /// Fetch the current network config by `ConfigSettingId`.
-    /// All config settings are returned if no id is provided.
-    Config(config::Cmd),
     ///Fetch a claimable balance ledger entry by id
     ClaimableBalance(claimable_balance::Cmd),
     ///Fetch a liquidity pool ledger entry by id
@@ -42,8 +38,6 @@ pub enum Error {
     #[error(transparent)]
     ContractData(#[from] contract_data::Error),
     #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     ClaimableBalance(#[from] claimable_balance::Error),
     #[error(transparent)]
     LiquidityPool(#[from] liquidity_pool::Error),
@@ -62,7 +56,6 @@ impl Cmd {
         match self {
             Cmd::Account(cmd) => cmd.run().await?,
             Cmd::ContractData(cmd) => cmd.run().await?,
-            Cmd::Config(cmd) => cmd.run().await?,
             Cmd::ClaimableBalance(cmd) => cmd.run().await?,
             Cmd::LiquidityPool(cmd) => cmd.run().await?,
             Cmd::ContractCode(cmd) => cmd.run().await?,
