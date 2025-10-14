@@ -69,7 +69,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 * `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 * `-v`, `--verbose` — Log DEBUG events
 * `--very-verbose` [alias: `vv`] — Log DEBUG and TRACE events
-* `--list` — List installed plugins. E.g. `stellar-hello`
+* `--list` — ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
 * `--no-cache` — Do not cache your simulations and transactions
 
 
@@ -92,11 +92,11 @@ Tools for smart contract developers
 * `id` — Generate the contract id for a given contract or asset
 * `info` — Access info about contracts
 * `init` — Initialize a Soroban contract project
-* `inspect` — (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+* `inspect` — ⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
 * `upload` — Install a WASM file to the ledger without creating a contract instance
-* `install` — (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+* `install` — ⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
 * `invoke` — Invoke a contract function
-* `optimize` — Optimize a WASM file
+* `optimize` — ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 * `read` — Print the current value of a contract-data ledger entry
 * `restore` — Restore an evicted value for a contract-data legder entry
 
@@ -123,7 +123,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 ###### **Options:**
 
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -392,6 +392,7 @@ To view the commands that will be executed, without executing them, use the --pr
    If ommitted, wasm files are written only to the cargo target directory.
 * `--print-commands-only` — Print commands to build without executing them
 * `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+* `--optimize` — Optimize the generated wasm
 
 
 
@@ -522,7 +523,7 @@ Deploy builtin Soroban Asset Contract
 
 ###### **Options:**
 
-* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+* `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -735,7 +736,7 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 ## `stellar contract inspect`
 
-(Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
@@ -793,7 +794,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 ## `stellar contract install`
 
-(Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
 
 **Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
@@ -840,7 +841,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 * `--id <CONTRACT_ID>` — Contract ID to invoke
-* `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+* `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -875,7 +876,7 @@ stellar contract invoke ... -- --help
 
 ## `stellar contract optimize`
 
-Optimize a WASM file
+⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 
 **Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
@@ -1096,8 +1097,8 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 ###### **Options:**
 
-* `--secret-key` — (deprecated) Enter secret (S) key when prompted
-* `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
+* `--secret-key` — ⚠️ Deprecated, use `--secure-store`. Enter secret (S) key when prompted
+* `--seed-phrase` — ⚠️ Deprecated, use `--secure-store`. Enter key using 12-24 word seed phrase
 * `--secure-store` — Save the new key in your OS's credential secure store.
 
    On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.

@@ -13,6 +13,8 @@ use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
 use crate::log::extract_events;
+use crate::print::Print;
+use crate::utils::deprecate_message;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -42,19 +44,25 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: config::UnresolvedContract,
+
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+
+    /// ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction.
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
+
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
@@ -132,7 +140,13 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let res = self.invoke(global_args).await?.to_envelope();
+
+        if self.is_view {
+            deprecate_message(print, "--is-view", "Use `--send=no` instead.");
+        }
+
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(output) => {
@@ -301,12 +315,6 @@ impl NetworkRunnable for Cmd {
         let txn = simulate_and_assemble_transaction(&client, &tx).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
-
-        #[cfg(feature = "version_lt_23")]
-        if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn));
-        }
-
         let sim_res = assembled.sim_response();
 
         if global_args.is_none_or(|a| !a.no_cache) {

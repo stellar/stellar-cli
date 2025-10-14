@@ -5,8 +5,6 @@ use std::{fmt::Debug, path::PathBuf};
 use tracing::debug;
 
 use super::SpecOutput;
-use crate::commands::global::Args;
-use crate::print::Print;
 use crate::{config::locator, wasm};
 
 #[derive(Parser, Debug, Clone)]
@@ -35,11 +33,7 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &Args) -> Result<(), Error> {
-        Print::new(global_args.quiet).warnln(
-            "`contract inspect` has been deprecated in favor of `contract info`. \
-            Please use `contract info` instead.",
-        );
+    pub fn run(&self) -> Result<(), Error> {
         let wasm = self.wasm.parse()?;
         debug!("File: {}", self.wasm.wasm.to_string_lossy());
         let output = match self.output {
