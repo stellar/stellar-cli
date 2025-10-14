@@ -25,13 +25,14 @@ pub struct Cmd {
     pub durability: Durability,
 
     /// Storage key (symbols only)
-    #[arg(long = "key")]
+    #[arg(long = "key", required_unless_present = "key_xdr")]
     pub key: Option<Vec<String>>,
 
     /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr")]
+    #[arg(long = "key-xdr", required_unless_present = "key")]
     pub key_xdr: Option<Vec<String>>,
 }
+
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
