@@ -51,7 +51,7 @@ impl Args {
         // Extract fee information from the transaction
         if let xdr::TransactionExt::V1(xdr::SorobanTransactionData { resource_fee, .. }) = &txn.ext
         {
-            let total_fee = txn.fee as i64;
+            let total_fee = i64::from(txn.fee);
             let base_fee = total_fee - resource_fee;
 
             print.infoln("Cost info:");
