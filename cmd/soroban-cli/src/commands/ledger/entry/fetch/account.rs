@@ -17,10 +17,6 @@ pub struct Cmd {
     #[command(flatten)]
     pub args: Args,
 
-    /// Hide the account ledger entry from the output
-    #[arg(long)]
-    pub hide_account: bool,
-
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
     pub hd_path: Option<usize>,
@@ -50,9 +46,6 @@ impl Cmd {
     }
 
     fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        if self.hide_account {
-            return Ok(());
-        }
         let acc = self.muxed_account(&self.account)?;
         let key = LedgerKey::Account(LedgerKeyAccount {
             account_id: acc.account_id(),
