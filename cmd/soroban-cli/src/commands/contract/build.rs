@@ -507,7 +507,7 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     }
 
     if env::var("RUSTFLAGS").is_ok() {
-        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
+        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible. Use CARGO_BUILD_RUSTFLAGS instead, which the CLI will merge with remapping.");
         return Ok(None);
     }
 
