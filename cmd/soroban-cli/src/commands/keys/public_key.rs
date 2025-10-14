@@ -14,7 +14,8 @@ pub enum Error {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Name of identity to lookup, default test identity used if not provided
+    /// Name of identity to lookup
+    /// To get the public key of a ledger device use the name "ledger" and make sure that your device is unlocked.
     pub name: UnresolvedMuxedAccount,
 
     /// If identity is a seed phrase use this hd path, default is 0
