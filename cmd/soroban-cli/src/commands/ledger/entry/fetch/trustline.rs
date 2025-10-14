@@ -18,7 +18,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub args: Args,
 
-    /// Account alias or public key to lookup, default is test identity
+    /// Account alias or address to lookup
     #[arg(long)]
     pub account: String,
 

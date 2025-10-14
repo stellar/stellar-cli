@@ -11,7 +11,7 @@ use clap::{command, Parser};
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Account alias or public key to lookup, default is test identity
+    /// Account alias or address to lookup
     pub account: String,
 
     #[command(flatten)]
