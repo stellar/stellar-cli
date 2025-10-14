@@ -4,8 +4,9 @@ use crate::{
     log::extract_events,
     print::Print,
     xdr::{
-        Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-        LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
+        ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
+        ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
+        LedgerKey, LedgerKeyConfigSetting, Limits, Memo, Operation, OperationBody, Preconditions,
         SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
         Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
         TtlEntry, WriteXdr,
@@ -23,8 +24,6 @@ use crate::{
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
 };
-
-const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -92,6 +91,10 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     IntError(#[from] TryFromIntError),
+    #[error("Failed to fetch state archival settings from network")]
+    StateArchivalSettingsNotFound,
+    #[error("Ledgers to extend ({requested}) exceeds network maximum ({max})")]
+    LedgersToExtendTooLarge { requested: u32, max: u32 },
 }
 
 impl Cmd {
@@ -112,14 +115,41 @@ impl Cmd {
         Ok(())
     }
 
-    fn ledgers_to_extend(&self) -> u32 {
-        let res = u32::min(self.ledgers_to_extend, MAX_LEDGERS_TO_EXTEND);
-        if res < self.ledgers_to_extend {
-            tracing::warn!(
-                "Ledgers to extend is too large, using max value of {MAX_LEDGERS_TO_EXTEND}"
-            );
+    async fn get_max_entry_ttl(client: &rpc::Client) -> Result<u32, Error> {
+        let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+            config_setting_id: ConfigSettingId::StateArchival,
+        });
+
+        let entries = client.get_full_ledger_entries(&[key]).await?;
+
+        if let Some(entry) = entries.entries.first() {
+            if let LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(settings)) =
+                &entry.val
+            {
+                return Ok(settings.max_entry_ttl);
+            }
         }
-        res
+
+        Err(Error::StateArchivalSettingsNotFound)
+    }
+
+    async fn ledgers_to_extend(&self, client: &rpc::Client) -> Result<u32, Error> {
+        let max_entry_ttl = Self::get_max_entry_ttl(client).await?;
+
+        tracing::trace!(
+            "Checking ledgers_to_extend: requested={}, max_entry_ttl={}",
+            self.ledgers_to_extend,
+            max_entry_ttl
+        );
+
+        if self.ledgers_to_extend > max_entry_ttl {
+            return Err(Error::LedgersToExtendTooLarge {
+                requested: self.ledgers_to_extend,
+                max: max_entry_ttl,
+            });
+        }
+
+        Ok(self.ledgers_to_extend)
     }
 }
 
@@ -141,7 +171,7 @@ impl NetworkRunnable for Cmd {
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
         let source_account = config.source_account().await?;
-        let extend_to = self.ledgers_to_extend();
+        let extend_to = self.ledgers_to_extend(&client).await?;
 
         // Get the account sequence number
         let account_details = client
