@@ -1002,6 +1002,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 - `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+- `--overwrite` — Overwrite existing identity if it already exists
 
 ## `stellar keys public-key`
 
