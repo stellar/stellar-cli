@@ -152,7 +152,8 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
+        let txn =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
         let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign(txn).await?)
