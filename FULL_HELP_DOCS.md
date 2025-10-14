@@ -1107,6 +1107,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 * `--global` — ⚠️ Deprecated: global config is always on
 * `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 * `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+* `--overwrite` — Overwrite existing identity if it already exists
 
 
 
@@ -4007,7 +4008,6 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 
 * `account` — Fetch account entry by public key or alias
 * `contract-data` — Fetch contract ledger entry by address or alias and storage key
-* `config` — Fetch the current network config by `ConfigSettingId`. All config settings are returned if no id is provided
 * `claimable-balance` — Fetch a claimable balance ledger entry by id
 * `liquidity-pool` — Fetch a liquidity pool ledger entry by id
 * `contract-code` — Fetch a Contract's WASM bytecode by WASM hash
@@ -4021,14 +4021,11 @@ Fetch ledger entries. This command supports all types of ledger entries supporte
 
 Fetch account entry by public key or alias
 
-**Usage:** `stellar ledger entry fetch account [OPTIONS] <ACCOUNT>`
-
-###### **Arguments:**
-
-* `<ACCOUNT>` — Account alias or address to lookup
+**Usage:** `stellar ledger entry fetch account [OPTIONS] --account <ACCOUNT>`
 
 ###### **Options:**
 
+* `--account <ACCOUNT>` — Account alias or address to lookup
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -4047,7 +4044,6 @@ Fetch account entry by public key or alias
   - `xdr`:
     Original RPC output (containing XDRs)
 
-* `--hide-account` — Hide the account ledger entry from the output
 * `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
 
@@ -4056,14 +4052,11 @@ Fetch account entry by public key or alias
 
 Fetch contract ledger entry by address or alias and storage key
 
-**Usage:** `stellar ledger entry fetch contract-data [OPTIONS] <CONTRACT>`
-
-###### **Arguments:**
-
-* `<CONTRACT>` — Contract alias or address to fetch
+**Usage:** `stellar ledger entry fetch contract-data [OPTIONS] --contract <CONTRACT>`
 
 ###### **Options:**
 
+* `--contract <CONTRACT>` — Contract alias or address to fetch
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -4097,68 +4090,15 @@ Fetch contract ledger entry by address or alias and storage key
 
 
 
-## `stellar ledger entry fetch config`
-
-Fetch the current network config by `ConfigSettingId`. All config settings are returned if no id is provided
-
-**Usage:** `stellar ledger entry fetch config [OPTIONS] [CONFIG_SETTING_IDS]...`
-
-###### **Arguments:**
-
-* `<CONFIG_SETTING_IDS>` — Valid config setting IDs (Config Setting ID => Name):
-   0 => ContractMaxSizeBytes
-   1 => ContractComputeV0
-   2 => ContractLedgerCostV0
-   3 => ContractHistoricalDataV0
-   4 => ContractEventsV0
-   5 => ContractBandwidthV0
-   6 => ContractCostParamsCpuInstructions
-   7 => ContractCostParamsMemoryBytes
-   8 => ContractDataKeySizeBytes
-   9 => ContractDataEntrySizeBytes
-   10 => StateArchival
-   11 => ContractExecutionLanes
-   12 => LiveSorobanStateSizeWindow
-   13 => EvictionIterator
-   14 => ContractParallelComputeV0
-   15 => ContractLedgerCostExtV0
-   16 => ScpTiming
-
-###### **Options:**
-
-* `--rpc-url <RPC_URL>` — RPC server endpoint
-* `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-* `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-* `-n`, `--network <NETWORK>` — Name of network to use from config
-* `--global` — ⚠️ Deprecated: global config is always on
-* `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
-* `--output <OUTPUT>` — Format of the output
-
-  Default value: `json`
-
-  Possible values:
-  - `json`:
-    JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`:
-    Formatted (multiline) JSON output of the ledger entry with parsed XDRs
-  - `xdr`:
-    Original RPC output (containing XDRs)
-
-
-
-
 ## `stellar ledger entry fetch claimable-balance`
 
 Fetch a claimable balance ledger entry by id
 
-**Usage:** `stellar ledger entry fetch claimable-balance [OPTIONS] [IDS]...`
-
-###### **Arguments:**
-
-* `<IDS>` — Claimable Balance Ids to fetch an entry for
+**Usage:** `stellar ledger entry fetch claimable-balance [OPTIONS]`
 
 ###### **Options:**
 
+* `--id <ID>` — Claimable Balance Ids to fetch an entry for
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -4184,14 +4124,11 @@ Fetch a claimable balance ledger entry by id
 
 Fetch a liquidity pool ledger entry by id
 
-**Usage:** `stellar ledger entry fetch liquidity-pool [OPTIONS] [IDS]...`
-
-###### **Arguments:**
-
-* `<IDS>` — Liquidity pool ids
+**Usage:** `stellar ledger entry fetch liquidity-pool [OPTIONS]`
 
 ###### **Options:**
 
+* `--id <ID>` — Liquidity pool ids
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -4217,14 +4154,11 @@ Fetch a liquidity pool ledger entry by id
 
 Fetch a Contract's WASM bytecode by WASM hash
 
-**Usage:** `stellar ledger entry fetch contract-code [OPTIONS] [WASM_HASHES]...`
-
-###### **Arguments:**
-
-* `<WASM_HASHES>` — Get WASM bytecode by hash
+**Usage:** `stellar ledger entry fetch contract-code [OPTIONS]`
 
 ###### **Options:**
 
+* `--wasm-hash <WASM_HASH>` — Get WASM bytecode by hash
 * `--rpc-url <RPC_URL>` — RPC server endpoint
 * `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 * `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -4274,7 +4208,7 @@ Fetch a trustline by account and asset
 
 * `--account <ACCOUNT>` — Account alias or address to lookup
 * `--asset <ASSET>` — Assets to get trustline info for
-* `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+* `--hd-path <HD_PATH>` — If account is a seed phrase use this hd path, default is 0
 
 
 
