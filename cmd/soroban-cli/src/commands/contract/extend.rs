@@ -210,7 +210,7 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = simulate_and_assemble_transaction(&client, &tx)
+        let tx = simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config())
             .await?
             .transaction()
             .clone();
