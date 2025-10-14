@@ -27,7 +27,7 @@ use crate::integration::util::{deploy_contract, test_address, DeployOptions, HEL
 // account data tests
 // todo: test with --offer,
 #[tokio::test]
-async fn ledger_entry_account_only_with_account_alias() {
+async fn ledger_entry_account_with_alias() {
     let sandbox = &TestEnv::new();
     let account_alias = "new_account";
     let new_account_addr = new_account(sandbox, account_alias);
@@ -36,6 +36,7 @@ async fn ledger_entry_account_only_with_account_alias() {
         .arg("entry")
         .arg("fetch")
         .arg("account")
+        .arg("--account")
         .arg(account_alias)
         .arg("--network")
         .arg("testnet")
@@ -55,7 +56,7 @@ async fn ledger_entry_account_only_with_account_alias() {
 }
 
 #[tokio::test]
-async fn ledger_entry_account_only_with_account_addr() {
+async fn ledger_entry_account_with_account_addr() {
     let sandbox = &TestEnv::new();
     let new_account_addr = new_account(sandbox, "new_account");
     let output = sandbox
@@ -63,6 +64,7 @@ async fn ledger_entry_account_only_with_account_addr() {
         .arg("entry")
         .arg("fetch")
         .arg("account")
+        .arg("--account")
         .arg(&new_account_addr)
         .arg("--network")
         .arg("testnet")
@@ -178,46 +180,6 @@ async fn ledger_entry_account_data() {
     assert!(matches!(data_entry.val, LedgerEntryData::Data { .. }));
 }
 
-#[ignore]
-#[tokio::test]
-async fn ledger_entries_hide_account() {
-    let sandbox = &TestEnv::new();
-    let account_alias = "new_account";
-    let new_account_addr = new_account(sandbox, account_alias);
-    let data_name = "test_data_key";
-    add_account_data(sandbox, account_alias, data_name, "abcdef").await;
-
-    let output = sandbox
-        .new_assert_cmd("ledger")
-        .arg("entry")
-        .arg("fetch")
-        .arg("account")
-        .arg(account_alias)
-        .arg("--network")
-        .arg("testnet")
-        .arg("--hide-account")
-        .arg("--data-name")
-        .arg(data_name)
-        .assert()
-        .success()
-        .stdout_as_str();
-
-    let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed.entries.is_empty());
-    assert_eq!(parsed.entries.len(), 1);
-
-    let (account_id, _) = expected_account_ledger_key(&new_account_addr).await;
-
-    let data_entry = &parsed.entries[0];
-    let name_bounded_string = StringM::<64>::try_from(data_name).unwrap();
-    let expected_data_key = LedgerKey::Data(LedgerKeyData {
-        account_id,
-        data_name: String64::from(name_bounded_string),
-    });
-    assert_eq!(data_entry.key, expected_data_key);
-    assert!(matches!(data_entry.val, LedgerEntryData::Data { .. }));
-}
-
 // contract data tests
 #[tokio::test]
 async fn ledger_entry_contract_data() {
@@ -250,6 +212,7 @@ async fn ledger_entry_contract_data() {
         .arg("entry")
         .arg("fetch")
         .arg("contract-data")
+        .arg("--contract")
         .arg(&contract_id)
         .arg("--network")
         .arg("testnet")
@@ -268,6 +231,7 @@ async fn ledger_entry_contract_data() {
         .arg("entry")
         .arg("fetch")
         .arg("contract-data")
+        .arg("--contract")
         .arg(&contract_id)
         .arg("--network")
         .arg("testnet")
@@ -334,6 +298,7 @@ async fn ledger_entry_contract_code() {
         .arg("entry")
         .arg("fetch")
         .arg("contract-code")
+        .arg("--wasm-hash")
         .arg(&contract_wasm_hash)
         .arg("--network")
         .arg("testnet")
@@ -437,6 +402,7 @@ async fn ledger_entry_claimable_balance() {
         .arg("entry")
         .arg("fetch")
         .arg("claimable-balance")
+        .arg("--id")
         .arg(id.to_string())
         .arg("--network")
         .arg("local")
@@ -489,6 +455,7 @@ async fn ledger_entry_liquidity_pool() {
         .arg("entry")
         .arg("fetch")
         .arg("liquidity-pool")
+        .arg("--id")
         .arg(pool_id.to_string())
         .arg("--network")
         .arg("local")
