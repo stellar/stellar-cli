@@ -6,7 +6,8 @@ use clap::{command, Parser};
 #[group(skip)]
 pub struct Cmd {
     /// Get WASM bytecode by hash
-    pub wasm_hashes: Vec<String>,
+    #[arg(long)]
+    pub wasm_hash: Vec<String>,
 
     #[command(flatten)]
     pub args: Args,
@@ -28,10 +29,10 @@ impl Cmd {
     }
 
     fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        for wasm_hash in &self.wasm_hashes {
+        for hash in &self.wasm_hash {
             let hash = Hash(
-                soroban_spec_tools::utils::contract_id_from_str(wasm_hash)
-                    .map_err(|_| Error::InvalidHash(wasm_hash.clone()))?,
+                soroban_spec_tools::utils::contract_id_from_str(hash)
+                    .map_err(|_| Error::InvalidHash(hash.clone()))?,
             );
             let key = LedgerKey::ContractCode(LedgerKeyContractCode { hash });
             ledger_keys.push(key);

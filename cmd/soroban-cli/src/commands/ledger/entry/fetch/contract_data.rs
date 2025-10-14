@@ -19,7 +19,6 @@ pub struct Cmd {
     #[command(flatten)]
     pub args: Args,
 
-    //Options
     /// Storage entry durability
     #[arg(long, value_enum, default_value = "persistent")]
     pub durability: Durability,

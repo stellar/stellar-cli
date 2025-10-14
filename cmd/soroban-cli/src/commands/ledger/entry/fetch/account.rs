@@ -12,6 +12,7 @@ use clap::{command, Parser};
 #[group(skip)]
 pub struct Cmd {
     /// Account alias or address to lookup
+    #[arg(long)]
     pub account: String,
 
     #[command(flatten)]

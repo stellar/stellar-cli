@@ -9,7 +9,8 @@ use std::fmt::Debug;
 #[group(skip)]
 pub struct Cmd {
     /// Liquidity pool ids
-    pub ids: Vec<String>,
+    #[arg(long)]
+    pub id: Vec<String>,
 
     #[command(flatten)]
     pub args: Args,
@@ -33,7 +34,7 @@ impl Cmd {
     }
 
     fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        for x in &self.ids {
+        for x in &self.id {
             let padded_hex = padded_hex_from_str(x, 32)?;
             let hash_bytes: [u8; 32] = padded_hex
                 .try_into()
