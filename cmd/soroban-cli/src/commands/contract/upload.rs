@@ -186,13 +186,17 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating install transaction…");
 
-        let txn = simulate_and_assemble_transaction(
+        let assembled = simulate_and_assemble_transaction(
             &client,
             &tx_without_preflight,
             self.fee.resource_config(),
         )
         .await?;
-        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
+
+        self.fee.print_cost_info(&assembled);
+
+        let txn = Box::new(assembled.transaction().clone());
         let signed_txn = &self.config.sign(*txn).await?;
 
         print.globeln("Submitting install transaction…");

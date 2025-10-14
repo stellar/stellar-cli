@@ -315,6 +315,9 @@ impl NetworkRunnable for Cmd {
         let txn =
             simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
+
+        self.fee.print_cost_info(&assembled);
+
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
 
