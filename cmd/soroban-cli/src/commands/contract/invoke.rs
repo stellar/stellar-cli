@@ -210,7 +210,7 @@ impl Cmd {
             self.fee.fee,
             account_id,
         )?;
-        Ok(simulate_and_assemble_transaction(rpc_client, &tx).await?)
+        Ok(simulate_and_assemble_transaction(rpc_client, &tx, self.fee.resource_config()).await?)
     }
 }
 
@@ -312,7 +312,8 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
+        let txn =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();

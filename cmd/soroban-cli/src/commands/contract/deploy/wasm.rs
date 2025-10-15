@@ -283,7 +283,8 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating deploy transaction…");
 
-        let txn = simulate_and_assemble_transaction(&client, &txn).await?;
+        let txn =
+            simulate_and_assemble_transaction(&client, &txn, self.fee.resource_config()).await?;
         let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
 
         print.log_transaction(&txn, &network, true)?;
