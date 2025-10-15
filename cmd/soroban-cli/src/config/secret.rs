@@ -126,13 +126,16 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name } = self {
-            Ok(secure_store::get_public_key(entry_name, index)?)
-        } else {
-            let key = self.key_pair(index)?;
-            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-                key.verifying_key().as_bytes(),
-            )?)
+        match &self {
+            Secret::SecureStore { entry_name } => {
+                Ok(secure_store::get_public_key(entry_name, index)?)
+            },
+            _ => {
+                let key = self.key_pair(index)?;
+                Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                    key.verifying_key().as_bytes(),
+                )?)
+            }
         }
     }
 
