@@ -17,6 +17,9 @@ pub struct Args {
     /// Number of instructions to simulate
     #[arg(long, help_heading = HEADING_RPC)]
     pub instructions: Option<u32>,
+    /// Allow this many extra instructions when budgeting resources during transaction simulation
+    #[arg(long, help_heading = HEADING_RPC)]
+    pub instruction_leeway: Option<u64>,
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
@@ -29,6 +32,11 @@ impl Args {
         } else {
             add_padding_to_instructions(txn)
         }
+    }
+
+    pub fn resource_config(&self) -> Option<soroban_rpc::ResourceConfig> {
+        self.instruction_leeway
+            .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway })
     }
 }
 
@@ -51,6 +59,7 @@ impl Default for Args {
             fee: 100,
             cost: false,
             instructions: None,
+            instruction_leeway: None,
             build_only: false,
         }
     }

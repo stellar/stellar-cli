@@ -31,6 +31,9 @@ pub enum Error {
 
     #[error("secret input error")]
     PasswordRead,
+
+    #[error("An identity with the name '{0}' already exists")]
+    IdentityAlreadyExists(String),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -48,11 +51,24 @@ pub struct Cmd {
     /// Add a public key, ed25519, or muxed account, e.g. G1.., M2..
     #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
     pub public_key: Option<String>,
+
+    /// Overwrite existing identity if it already exists.
+    #[arg(long)]
+    pub overwrite: bool,
 }
 
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
+
+        if self.config_locator.read_identity(&self.name).is_ok() {
+            if !self.overwrite {
+                return Err(Error::IdentityAlreadyExists(self.name.to_string()));
+            }
+
+            print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
+        }
+
         let key = if let Some(key) = self.public_key.as_ref() {
             key.parse()?
         } else {
