@@ -4,14 +4,14 @@ use soroban_cli::{
     tx::builder::TxExt,
     xdr::{
         self, AccountId, AlphaNum4, Asset, AssetCode4, ChangeTrustAsset, ChangeTrustOp,
-        ClaimPredicate, ClaimableBalanceId, Claimant, ClaimantV0, ConfigSettingId,
-        ContractDataDurability, CreateClaimableBalanceOp, CreateClaimableBalanceResult, Hash,
-        LedgerEntryData, LedgerKey, LedgerKeyAccount, LedgerKeyClaimableBalance,
-        LedgerKeyConfigSetting, LedgerKeyContractCode, LedgerKeyContractData, LedgerKeyData,
-        LedgerKeyLiquidityPool, LedgerKeyTrustLine, Limits, LiquidityPoolConstantProductParameters,
-        LiquidityPoolParameters, Operation, OperationBody, OperationResult, OperationResultTr,
-        PoolId, PublicKey, ScAddress, ScVal, String64, StringM, TransactionEnvelope,
-        TransactionResult, TransactionResultResult, TrustLineAsset, Uint256, VecM, WriteXdr,
+        ClaimPredicate, ClaimableBalanceId, Claimant, ClaimantV0, ContractDataDurability,
+        CreateClaimableBalanceOp, CreateClaimableBalanceResult, Hash, LedgerEntryData, LedgerKey,
+        LedgerKeyAccount, LedgerKeyClaimableBalance, LedgerKeyContractCode, LedgerKeyContractData,
+        LedgerKeyData, LedgerKeyLiquidityPool, LedgerKeyTrustLine, Limits,
+        LiquidityPoolConstantProductParameters, LiquidityPoolParameters, Operation, OperationBody,
+        OperationResult, OperationResultTr, PoolId, PublicKey, ScAddress, ScVal, String64, StringM,
+        TransactionEnvelope, TransactionResult, TransactionResultResult, TrustLineAsset, Uint256,
+        VecM, WriteXdr,
     },
 };
 
