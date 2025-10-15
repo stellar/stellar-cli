@@ -32,7 +32,6 @@ pub struct Cmd {
     pub key_xdr: Option<Vec<String>>,
 }
 
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
