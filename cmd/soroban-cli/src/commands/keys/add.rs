@@ -11,7 +11,7 @@ use crate::{
         secret::{self, Secret},
     },
     print::Print,
-    signer::secure_store,
+    signer::{secure_store, ledger}
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -51,12 +51,12 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let key = if let Some(key) = self.public_key.as_ref() {
             key.parse()?
         } else {
-            self.read_secret(&print)?.into()
+            self.read_secret(&print).await?.into()
         };
 
         let path = self.config_locator.write_key(&self.name, &key)?;
@@ -66,7 +66,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn read_secret(&self, print: &Print) -> Result<Secret, Error> {
+    async fn read_secret(&self, print: &Print) -> Result<Secret, Error> {
         if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
         } else if self.secrets.secure_store {
@@ -83,6 +83,13 @@ impl Cmd {
 
             let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
             Ok(secret.parse()?)
+        } else if self.secrets.ledger {
+            // get the public key
+            let default_hd_path = 0;
+            let ledger = ledger::new(default_hd_path).await.unwrap();
+            let public_key = ledger.public_key().await.unwrap();
+            let entry = format!("ledger-{}", public_key);
+            Ok(entry.parse::<Secret>()?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;

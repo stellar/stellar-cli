@@ -31,6 +31,8 @@ pub enum Error {
     SecureStore(#[from] secure_store::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
+    #[error("Ledger Device does not reveal secret key")]
+    LedgerDeviceDoesNotRevealSecretKey,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
 }
@@ -53,6 +55,9 @@ pub struct Args {
     /// This only supports seed phrases for now.
     #[arg(long)]
     pub secure_store: bool,
+
+    #[arg(long)]
+    pub ledger: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -60,7 +65,7 @@ pub struct Args {
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
-    Ledger,
+    Ledger { address: String },
     SecureStore { entry_name: String },
 }
 
@@ -76,8 +81,11 @@ impl FromStr for Secret {
             Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
             })
-        } else if s == "ledger" {
-            Ok(Secret::Ledger)
+        } else if s.starts_with("ledger") {
+            let address = s.strip_prefix("ledger-").unwrap().to_owned();
+            Ok(Secret::Ledger{
+                address
+            })
         } else if s.starts_with(secure_store::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
@@ -120,7 +128,9 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::Ledger => panic!("Ledger does not reveal secret key"),
+            Secret::Ledger { .. } => { 
+                return Err(Error::LedgerDeviceDoesNotRevealSecretKey)
+            },
             Secret::SecureStore { .. } => {
                 return Err(Error::SecureStoreDoesNotRevealSecretKey);
             }
@@ -144,7 +154,7 @@ impl Secret {
                 let key = self.key_pair(hd_path)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::Ledger => {
+            Secret::Ledger{ .. } => {
                 let hd_path: u32 = hd_path
                     .unwrap_or_default()
                     .try_into()
