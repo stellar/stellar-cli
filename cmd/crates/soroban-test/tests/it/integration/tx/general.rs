@@ -30,7 +30,7 @@ async fn simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx)
+    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx, None)
         .await
         .unwrap();
     let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
