@@ -1,9 +1,11 @@
 use crate::{commands::global, config::network, xdr::Hash};
 use clap::{command, Subcommand};
+pub use soroban_rpc::GetTransactionEvents;
 use std::fmt::Debug;
 
 mod args;
 mod envelope;
+mod events;
 pub mod fee;
 mod meta;
 mod result;
@@ -26,6 +28,8 @@ pub enum FetchCommands {
     Meta(meta::Cmd),
     /// Fetch the transaction fee information
     Fee(fee::Cmd),
+    /// Fetch the transaction events
+    Events(events::Cmd),
     /// Fetch the transaction envelope
     #[command(hide = true)]
     Envelope(envelope::Cmd),
@@ -60,6 +64,8 @@ pub enum Error {
     Envelope(#[from] envelope::Error),
 
     #[error(transparent)]
+    Events(#[from] events::Error),
+    #[error(transparent)]
     NotSupported(#[from] fee::Error),
 
     #[error("the following required argument was not provided: {0}")]
@@ -76,6 +82,7 @@ impl Cmd {
             Some(FetchCommands::Meta(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Envelope(cmd)) => cmd.run(global_args).await?,
             Some(FetchCommands::Fee(cmd)) => cmd.run(global_args).await?,
+            Some(FetchCommands::Events(cmd)) => cmd.run(global_args).await?,
             None => {
                 envelope::Cmd {
                     args: args::Args {
