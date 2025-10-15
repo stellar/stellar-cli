@@ -125,10 +125,18 @@ impl Secret {
         })
     }
 
+
+    // stopping point, i want to make this async but a lot of things rely on this fn that aren't currently async. it will be a big refactor an im not sure it should be done all at once. 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
         match &self {
             Secret::SecureStore { entry_name } => {
                 Ok(secure_store::get_public_key(entry_name, index)?)
+            },
+            Secret::Ledger => {
+                //TODO: handle unwrap
+                let hd_path: u32 = index.unwrap_or(0).try_into().unwrap();
+                let ledger = ledger::new(hd_path).await.unwrap();
+                Ok(ledger.public_key().await.unwrap())
             },
             _ => {
                 let key = self.key_pair(index)?;
@@ -136,6 +144,8 @@ impl Secret {
                     key.verifying_key().as_bytes(),
                 )?)
             }
+            // Secret::SecretKey { secret_key } => todo!(),
+            // Secret::SeedPhrase { seed_phrase } => todo!(),
         }
     }
 
