@@ -3241,6 +3241,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 - `result` — Fetch the transaction result
 - `meta` — Fetch the transaction meta
 - `fee` — Fetch the transaction fee information
+- `events` — Fetch the transaction events
 
 ###### **Options:**
 
@@ -3254,8 +3255,8 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch result`
@@ -3276,8 +3277,8 @@ Fetch the transaction result
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch meta`
@@ -3298,8 +3299,8 @@ Fetch the transaction meta
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch fee`
@@ -3323,6 +3324,28 @@ Fetch the transaction fee information
   - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `table`: Formatted in a table comparing fee types
+
+## `stellar tx fetch events`
+
+Fetch the transaction events
+
+**Usage:** `stellar tx fetch events [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+- `--hash <HASH>` — Transaction hash to fetch
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`: JSON output of the events with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output of events with parsed XDRs
+  - `text`: Human readable event output with parsed XDRs
 
 ## `stellar tx decode`
 
