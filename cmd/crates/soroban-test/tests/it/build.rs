@@ -432,6 +432,12 @@ fn build_always_injects_cli_version() {
 
     let ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) = cli_version_entry;
     let version_string = val.to_string();
-    assert!(version_string.contains('#'), "CLI version should be in format 'version#git'");
-    assert!(!version_string.is_empty(), "CLI version should not be empty");
+    assert!(
+        version_string.contains('#'),
+        "CLI version should be in format 'version#git'"
+    );
+    assert!(
+        !version_string.is_empty(),
+        "CLI version should not be empty"
+    );
 }
