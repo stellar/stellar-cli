@@ -14,8 +14,7 @@ use crate::xdr::{
 use clap::{arg, command, Parser};
 use rand::Rng;
 
-use soroban_spec_tools::contract as contract_spec;
-
+use crate::commands::tx::fetch;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -30,6 +29,7 @@ use crate::{
     utils::{self, rpc::get_remote_wasm_from_hash},
     wasm,
 };
+use soroban_spec_tools::contract as contract_spec;
 
 pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 
@@ -74,52 +74,78 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Install(#[from] upload::Error),
+
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
+
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
         error: stellar_strkey::DecodeError,
     },
+
     #[error("cannot parse WASM hash {wasm_hash}: {error}")]
     CannotParseWasmHash {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
+
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
     #[error(transparent)]
     Infallible(#[from] std::convert::Infallible),
+
     #[error(transparent)]
     WasmId(#[from] contract::id::wasm::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error(transparent)]
     ContractSpec(#[from] contract_spec::Error),
+
     #[error(transparent)]
     ArgParse(#[from] arg_parsing::Error),
+
     #[error("Only ed25519 accounts are allowed")]
     OnlyEd25519AccountsAllowed,
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -282,20 +308,22 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating deploy transaction…");
 
-        let txn = simulate_and_assemble_transaction(&client, &txn).await?;
-        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
+        let assembled =
+            simulate_and_assemble_transaction(&client, &txn, self.fee.resource_config()).await?;
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
+
+        let txn = Box::new(assembled.transaction().clone());
 
         print.log_transaction(&txn, &network, true)?;
         let signed_txn = &config.sign(*txn).await?;
         print.globeln("Submitting deploy transaction…");
 
-        let get_txn_resp = client
-            .send_transaction_polling(signed_txn)
-            .await?
-            .try_into()?;
+        let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
+
+        self.fee.print_cost_info(&get_txn_resp)?;
 
         if global_args.is_none_or(|a| !a.no_cache) {
-            data::write(get_txn_resp, &network.rpc_uri()?)?;
+            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {

@@ -14,6 +14,7 @@ use crate::{
 };
 use clap::{command, Parser};
 
+use crate::commands::tx::fetch;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -31,13 +32,17 @@ pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
     pub ledgers_to_extend: u32,
+
     /// Only print the new Time To Live ledger
     #[arg(long)]
     pub ttl_ledger_only: bool,
+
     #[command(flatten)]
     pub key: key::Args,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -64,37 +69,57 @@ pub enum Error {
         key: String,
         error: soroban_spec_tools::Error,
     },
+
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
 
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("either `--key` or `--key-xdr` are required")]
     KeyIsRequired,
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("Ledger entry not found")]
     LedgerEntryNotFound,
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Key(#[from] key::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error(transparent)]
     IntError(#[from] TryFromIntError),
+
     #[error("Failed to fetch state archival settings from network")]
     StateArchivalSettingsNotFound,
+
     #[error("Ledgers to extend ({requested}) exceeds network maximum ({max})")]
     LedgersToExtendTooLarge { requested: u32, max: u32 },
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -210,13 +235,15 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = simulate_and_assemble_transaction(&client, &tx)
-            .await?
-            .transaction()
-            .clone();
+        let assembled =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+
+        let tx = assembled.transaction().clone();
         let res = client
             .send_transaction_polling(&config.sign(tx).await?)
             .await?;
+        self.fee.print_cost_info(&res)?;
+
         if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }

@@ -10,6 +10,7 @@ use crate::xdr::{
 use clap::{command, Parser};
 
 use super::restore;
+use crate::commands::tx::fetch;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -33,10 +34,13 @@ const PUBLIC_NETWORK_PASSPHRASE: &str = "Public Global Stellar Network ; Septemb
 pub struct Cmd {
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
+
     #[command(flatten)]
     pub wasm: wasm::Args,
+
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
@@ -46,38 +50,57 @@ pub struct Cmd {
 pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
     #[error("cannot parse WASM file {wasm}: {error}")]
     CannotParseWasm {
         wasm: std::path::PathBuf,
         error: wasm::Error,
     },
+
     #[error("the deployed smart contract {wasm} was built with Soroban Rust SDK v{version}, a release candidate version not intended for use with the Stellar Public Network. To deploy anyway, use --ignore-checks")]
     ContractCompiledWithReleaseCandidateSdk {
         wasm: std::path::PathBuf,
         version: String,
     },
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Builder(#[from] builder::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -186,12 +209,20 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating install transaction…");
 
-        let txn = simulate_and_assemble_transaction(&client, &tx_without_preflight).await?;
-        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx_without_preflight,
+            self.fee.resource_config(),
+        )
+        .await?;
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
+
+        let txn = Box::new(assembled.transaction().clone());
         let signed_txn = &self.config.sign(*txn).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
+        self.fee.print_cost_info(&txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
