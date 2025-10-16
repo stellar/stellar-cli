@@ -163,6 +163,13 @@ fn build_with_metadata_rewrite() {
         .success();
 
     let entries = get_entries(&dir_path, &outdir);
+
+    // Filter out CLI version for comparison
+    let filtered_entries: Vec<_> = entries
+        .into_iter()
+        .filter(|entry| !matches!(entry, ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) if key.to_string() == "cliver"))
+        .collect();
+
     let expected_entries = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
@@ -174,7 +181,7 @@ fn build_with_metadata_rewrite() {
         }),
     ];
 
-    assert_eq!(entries, expected_entries);
+    assert_eq!(filtered_entries, expected_entries);
 }
 
 #[test]
@@ -212,6 +219,20 @@ fn build_with_metadata_diff_dir() {
         .success();
 
     let entries_dir1 = get_entries(&dir_path, &outdir1);
+
+    let entries_dir2 = get_entries(&dir_path, &outdir2);
+
+    // Filter out CLI version for comparison
+    let filtered_entries_dir1: Vec<_> = entries_dir1
+        .into_iter()
+        .filter(|entry| !matches!(entry, ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) if key.to_string() == "cliver"))
+        .collect();
+
+    let filtered_entries_dir2: Vec<_> = entries_dir2
+        .into_iter()
+        .filter(|entry| !matches!(entry, ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) if key.to_string() == "cliver"))
+        .collect();
+
     let expected_entries_dir1 = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
@@ -223,7 +244,6 @@ fn build_with_metadata_diff_dir() {
         }),
     ];
 
-    let entries_dir2 = get_entries(&dir_path, &outdir2);
     let expected_entries_dir2 = vec![
         ScMetaEntry::ScMetaV0(ScMetaV0 {
             key: "Description".try_into().unwrap(),
@@ -235,8 +255,8 @@ fn build_with_metadata_diff_dir() {
         }),
     ];
 
-    assert_eq!(entries_dir1, expected_entries_dir1);
-    assert_eq!(entries_dir2, expected_entries_dir2);
+    assert_eq!(filtered_entries_dir1, expected_entries_dir1);
+    assert_eq!(filtered_entries_dir2, expected_entries_dir2);
 }
 
 fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
@@ -379,4 +399,45 @@ fn remap_absolute_paths() {
 
     assert!(!remap_has_abs_paths);
     assert!(noremap_has_abs_paths);
+}
+
+#[test]
+fn build_always_injects_cli_version() {
+    let sandbox = TestEnv::default();
+    let outdir = sandbox.dir().join("out");
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add");
+
+    // Build contract without any metadata args
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--out-dir")
+        .arg(&outdir)
+        .assert()
+        .success();
+
+    let entries = get_entries(&dir_path, &outdir);
+
+    // Verify that CLI version is present
+    let cli_version_entry = entries
+        .iter()
+        .find(|entry| matches!(entry, ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) if key.to_string() == "cliver"))
+        .expect("CLI version metadata entry should be present");
+
+    let ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) = cli_version_entry;
+    let version_string = val.to_string();
+    assert!(
+        version_string.contains('#'),
+        "CLI version should be in format 'version#git'"
+    );
+    assert!(
+        !version_string.is_empty(),
+        "CLI version should not be empty"
+    );
 }
