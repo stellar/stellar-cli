@@ -163,7 +163,6 @@ fn build_with_metadata_rewrite() {
         .success();
 
     let entries = get_entries(&dir_path, &outdir);
-    assert_cli_version_present(&entries);
 
     // Filter out CLI version for comparison
     let filtered_entries: Vec<_> = entries
@@ -220,10 +219,8 @@ fn build_with_metadata_diff_dir() {
         .success();
 
     let entries_dir1 = get_entries(&dir_path, &outdir1);
-    assert_cli_version_present(&entries_dir1);
 
     let entries_dir2 = get_entries(&dir_path, &outdir2);
-    assert_cli_version_present(&entries_dir2);
 
     // Filter out CLI version for comparison
     let filtered_entries_dir1: Vec<_> = entries_dir1
@@ -260,18 +257,6 @@ fn build_with_metadata_diff_dir() {
 
     assert_eq!(filtered_entries_dir1, expected_entries_dir1);
     assert_eq!(filtered_entries_dir2, expected_entries_dir2);
-}
-
-fn assert_cli_version_present(entries: &[ScMetaEntry]) {
-    let cli_version_entry = entries
-        .iter()
-        .find(|entry| matches!(entry, ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. }) if key.to_string() == "cliver"))
-        .expect("CLI version metadata entry should be present");
-
-    let ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) = cli_version_entry;
-    let version_string = val.to_string();
-    assert!(version_string.contains("#"), "CLI version should be in format 'version#git'");
-    assert!(!version_string.is_empty(), "CLI version should not be empty");
 }
 
 fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
@@ -447,6 +432,6 @@ fn build_always_injects_cli_version() {
 
     let ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) = cli_version_entry;
     let version_string = val.to_string();
-    assert!(version_string.contains("#"), "CLI version should be in format 'version#git'");
+    assert!(version_string.contains('#'), "CLI version should be in format 'version#git'");
     assert!(!version_string.is_empty(), "CLI version should not be empty");
 }
