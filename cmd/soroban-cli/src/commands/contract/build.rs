@@ -18,7 +18,7 @@ use std::{
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 use crate::{
-    commands::{contract::optimize, global},
+    commands::{contract::optimize, global, version},
     print::Print,
     wasm,
 };
@@ -245,7 +245,7 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.handle_contract_metadata_args(&target_file_path)?;
+                self.inject_meta(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -343,11 +343,7 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn handle_contract_metadata_args(&self, target_file_path: &PathBuf) -> Result<(), Error> {
-        if self.meta.is_empty() {
-            return Ok(());
-        }
-
+    fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let xdr = self.encoded_new_meta()?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
@@ -360,6 +356,15 @@ impl Cmd {
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
+
+        // Always inject CLI version
+        let cli_meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "cliver".to_string().try_into().unwrap(),
+            val: version::one_line().clone().try_into().unwrap(),
+        });
+        new_meta.push(cli_meta_entry);
+
+        // Add args provided meta
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()

@@ -49,3 +49,9 @@ xdr curr ({})",
     ]
     .join("\n")
 }
+
+pub fn one_line() -> String {
+    let pkg = pkg();
+    let git = git();
+    format!("{pkg}#{git}")
+}
