@@ -131,7 +131,7 @@ pub async fn sign_soroban_authorizations(
             Some(signer) => {
                 let signed_entry = sign_soroban_authorization_entry(
                     raw_auth,
-                    signer, // handle this
+                    signer,
                     signature_expiration_ledger,
                     &network_id,
                 )
