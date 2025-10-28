@@ -17,7 +17,11 @@ use std::{
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
-use crate::{commands::global, print::Print};
+use crate::{
+    commands::{contract::optimize, global, version},
+    print::Print,
+    wasm,
+};
 
 /// Build a contract from source
 ///
@@ -32,6 +36,7 @@ use crate::{commands::global, print::Print};
 /// To view the commands that will be executed, without executing them, use the
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]
@@ -41,12 +46,15 @@ pub struct Cmd {
     /// If omitted, all packages that build for crate-type cdylib are built.
     #[arg(long)]
     pub package: Option<String>,
+
     /// Build with the specified profile
     #[arg(long, default_value = "release")]
     pub profile: String,
+
     /// Build with the list of features activated, space or comma separated
     #[arg(long, help_heading = "Features")]
     pub features: Option<String>,
+
     /// Build with the all features activated
     #[arg(
         long,
@@ -55,9 +63,11 @@ pub struct Cmd {
         help_heading = "Features"
     )]
     pub all_features: bool,
+
     /// Build with the default feature not activated
     #[arg(long, help_heading = "Features")]
     pub no_default_features: bool,
+
     /// Directory to copy wasm files to
     ///
     /// If provided, wasm files can be found in the cargo target directory, and
@@ -66,12 +76,18 @@ pub struct Cmd {
     /// If ommitted, wasm files are written only to the cargo target directory.
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
+
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
+
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
+
+    /// Optimize the generated wasm.
+    #[arg(long)]
+    pub optimize: bool,
 }
 
 fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
@@ -89,34 +105,54 @@ fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
 pub enum Error {
     #[error(transparent)]
     Metadata(#[from] cargo_metadata::Error),
+
     #[error(transparent)]
     CargoCmd(io::Error),
+
     #[error("exit status {0}")]
     Exit(ExitStatus),
+
     #[error("package {package} not found")]
     PackageNotFound { package: String },
+
     #[error("finding absolute path of Cargo.toml: {0}")]
     AbsolutePath(io::Error),
+
     #[error("creating out directory: {0}")]
     CreatingOutDir(io::Error),
+
     #[error("deleting existing artifact: {0}")]
     DeletingArtifact(io::Error),
+
     #[error("copying wasm file: {0}")]
     CopyingWasmFile(io::Error),
+
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
+
     #[error("retreiving CARGO_HOME: {0}")]
     CargoHome(io::Error),
+
     #[error("reading wasm file: {0}")]
     ReadingWasmFile(io::Error),
+
     #[error("writing wasm file: {0}")]
     WritingWasmFile(io::Error),
+
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
+
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
+
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
+
+    #[error(transparent)]
+    Optimize(#[from] optimize::Error),
+
+    #[error(transparent)]
+    Wasm(#[from] wasm::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -202,13 +238,14 @@ impl Cmd {
                     return Err(Error::Exit(status));
                 }
 
-                let file = format!("{}.wasm", p.name.replace('-', "_"));
+                let wasm_name = p.name.replace('-', "_");
+                let file = format!("{wasm_name}.wasm");
                 let target_file_path = Path::new(target_dir)
                     .join(&wasm_target)
                     .join(&self.profile)
                     .join(&file);
 
-                self.handle_contract_metadata_args(&target_file_path)?;
+                self.inject_meta(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -219,7 +256,20 @@ impl Cmd {
                     target_file_path
                 };
 
-                Self::print_build_summary(&print, &final_path)?;
+                let wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
+                let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
+
+                if self.optimize {
+                    let mut path = final_path.clone();
+                    path.set_extension("optimized.wasm");
+                    optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
+                    optimized_wasm_bytes = fs::read(&path).map_err(Error::ReadingWasmFile)?;
+
+                    fs::remove_file(&final_path).map_err(Error::DeletingArtifact)?;
+                    fs::rename(&path, &final_path).map_err(Error::CopyingWasmFile)?;
+                }
+
+                Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
             }
         }
 
@@ -293,11 +343,7 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn handle_contract_metadata_args(&self, target_file_path: &PathBuf) -> Result<(), Error> {
-        if self.meta.is_empty() {
-            return Ok(());
-        }
-
+    fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let xdr = self.encoded_new_meta()?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
@@ -310,6 +356,15 @@ impl Cmd {
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
+
+        // Always inject CLI version
+        let cli_meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "cliver".to_string().try_into().unwrap(),
+            val: version::one_line().clone().try_into().unwrap(),
+        });
+        new_meta.push(cli_meta_entry);
+
+        // Add args provided meta
         for (k, v) in self.meta.clone() {
             let key: StringM = k
                 .clone()
@@ -332,19 +387,40 @@ impl Cmd {
         Ok(buffer)
     }
 
-    fn print_build_summary(print: &Print, target_file_path: &PathBuf) -> Result<(), Error> {
+    fn print_build_summary(
+        print: &Print,
+        path: &Path,
+        wasm_bytes: Vec<u8>,
+        optimized_wasm_bytes: Vec<u8>,
+    ) {
         print.infoln("Build Summary:");
-        let rel_target_file_path = target_file_path
-            .strip_prefix(env::current_dir().unwrap())
-            .unwrap_or(target_file_path);
-        print.blankln(format!("Wasm File: {}", rel_target_file_path.display()));
 
-        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let rel_path = path
+            .strip_prefix(env::current_dir().unwrap())
+            .unwrap_or(path);
+
+        let size = wasm_bytes.len();
+        let optimized_size = optimized_wasm_bytes.len();
+
+        let size_description = if optimized_size > 0 {
+            format!("{optimized_size} bytes optimized (original size was {size} bytes)")
+        } else {
+            format!("{size} bytes")
+        };
+
+        let bytes = if optimized_size > 0 {
+            &optimized_wasm_bytes
+        } else {
+            &wasm_bytes
+        };
 
         print.blankln(format!(
-            "Wasm Hash: {}",
-            hex::encode(Sha256::digest(&wasm_bytes))
+            "Wasm File: {path} ({size_description})",
+            path = rel_path.display()
         ));
+
+        print.blankln(format!("Wasm Hash: {}", hex::encode(Sha256::digest(bytes))));
+        print.blankln(format!("Wasm Size: {size_description}"));
 
         let parser = wasmparser::Parser::new(0);
         let export_names: Vec<&str> = parser
@@ -363,6 +439,7 @@ impl Cmd {
             .map(|export| export.name)
             .sorted()
             .collect();
+
         if export_names.is_empty() {
             print.blankln("Exported Functions: None found");
         } else {
@@ -371,9 +448,8 @@ impl Cmd {
                 print.blankln(format!("  • {name}"));
             }
         }
-        print.checkln("Build Complete");
 
-        Ok(())
+        print.checkln("Build Complete\n");
     }
 }
 
@@ -436,7 +512,7 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     }
 
     if env::var("RUSTFLAGS").is_ok() {
-        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
+        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible. Use CARGO_BUILD_RUSTFLAGS instead, which the CLI will merge with remapping.");
         return Ok(None);
     }
 

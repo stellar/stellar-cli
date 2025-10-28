@@ -7,22 +7,29 @@ use stellar_xdr::curr::{
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
-use soroban_rpc::{Error, LogEvents, LogResources, RestorePreamble, SimulateTransactionResponse};
+use soroban_rpc::{
+    Error, LogEvents, LogResources, ResourceConfig, RestorePreamble, SimulateTransactionResponse,
+};
 
 pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
 
 pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
+    resource_config: Option<ResourceConfig>,
 ) -> Result<Assembled, Error> {
+    let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx: tx.clone(),
+        signatures: VecM::default(),
+    });
+
+    tracing::trace!(
+        "Simulation transaction envelope: {}",
+        envelope.to_xdr_base64(Limits::none())?
+    );
+
     let sim_res = client
-        .simulate_transaction_envelope(
-            &TransactionEnvelope::Tx(TransactionV1Envelope {
-                tx: tx.clone(),
-                signatures: VecM::default(),
-            }),
-            None,
-        )
+        .next_simulate_transaction_envelope(&envelope, None, resource_config)
         .await?;
     tracing::trace!("{sim_res:#?}");
 

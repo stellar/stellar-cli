@@ -12,12 +12,16 @@ use soroban_spec::read::FromWasmError;
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
+use crate::commands::tx::fetch;
 use crate::log::extract_events;
+use crate::print::Print;
+use crate::utils::deprecate_message;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
         contract::arg_parsing::{build_host_function_parameters, output_to_string},
         global,
+        tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
@@ -42,19 +46,25 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: config::UnresolvedContract,
+
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+
+    /// ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction.
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
+
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
@@ -79,49 +89,75 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
+
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
+
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
+
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
+
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error("error loading signing key: {0}")]
     SignatureError(#[from] ed25519_dalek::SignatureError),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+
     #[error(transparent)]
     Clap(#[from] clap::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error("Contract Error\n{0}: {1}")]
     ContractInvoke(String, String),
+
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
     #[error(transparent)]
     ContractSpec(#[from] contract::Error),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
+
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl From<Infallible> for Error {
@@ -132,7 +168,13 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let res = self.invoke(global_args).await?.to_envelope();
+
+        if self.is_view {
+            deprecate_message(print, "--is-view", "Use `--send=no` instead.");
+        }
+
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(output) => {
@@ -196,7 +238,7 @@ impl Cmd {
             self.fee.fee,
             account_id,
         )?;
-        Ok(simulate_and_assemble_transaction(rpc_client, &tx).await?)
+        Ok(simulate_and_assemble_transaction(rpc_client, &tx, self.fee.resource_config()).await?)
     }
 }
 
@@ -298,7 +340,8 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
+        let txn =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
         let assembled = self.fee.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
@@ -317,6 +360,8 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign(*txn).await?)
             .await?;
+
+        self.fee.print_cost_info(&res)?;
 
         if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

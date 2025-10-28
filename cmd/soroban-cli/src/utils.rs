@@ -2,10 +2,13 @@ use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
-use crate::xdr::{
-    self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, ScMap,
-    ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+use crate::{
+    print::Print,
+    xdr::{
+        self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits,
+        ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
+        TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+    },
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
@@ -107,6 +110,13 @@ pub fn find_config_dir(mut pwd: std::path::PathBuf) -> std::io::Result<std::path
 pub(crate) fn into_signing_key(key: &PrivateKey) -> ed25519_dalek::SigningKey {
     let secret: ed25519_dalek::SecretKey = key.0;
     ed25519_dalek::SigningKey::from_bytes(&secret)
+}
+
+pub fn deprecate_message(print: Print, arg: &str, hint: &str) {
+    print.warnln(
+        format!("`{arg}` is deprecated and will be removed in future versions of the CLI. {hint}")
+            .trim(),
+    );
 }
 
 /// Used in tests

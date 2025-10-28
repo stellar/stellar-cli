@@ -68,7 +68,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `-q`, `--quiet` — Do not write logs to stderr including `INFO`
 - `-v`, `--verbose` — Log DEBUG events
 - `--very-verbose` [alias: `vv`] — Log DEBUG and TRACE events
-- `--list` — List installed plugins. E.g. `stellar-hello`
+- `--list` — ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
 - `--no-cache` — Do not cache your simulations and transactions
 
 ## `stellar contract`
@@ -89,11 +89,11 @@ Tools for smart contract developers
 - `id` — Generate the contract id for a given contract or asset
 - `info` — Access info about contracts
 - `init` — Initialize a Soroban contract project
-- `inspect` — (Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+- `inspect` — ⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
 - `upload` — Install a WASM file to the ledger without creating a contract instance
-- `install` — (Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+- `install` — ⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
 - `invoke` — Invoke a contract function
-- `optimize` — Optimize a WASM file
+- `optimize` — ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 - `read` — Print the current value of a contract-data ledger entry
 - `restore` — Restore an evicted value for a contract-data legder entry
 
@@ -116,7 +116,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 ###### **Options:**
 
-- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -150,6 +150,7 @@ Deploy builtin Soroban Asset Contract
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 
@@ -357,6 +358,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 - `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+- `--optimize` — Optimize the generated wasm
 
 ## `stellar contract extend`
 
@@ -400,6 +402,7 @@ If no keys are specified the contract itself is extended.
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract deploy`
@@ -434,6 +437,7 @@ Deploy a wasm contract
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
@@ -478,7 +482,7 @@ Deploy builtin Soroban Asset Contract
 
 ###### **Options:**
 
-- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+- `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -661,7 +665,7 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 ## `stellar contract inspect`
 
-(Deprecated in favor of `contract info` subcommand) Inspect a WASM file listing contract functions, meta, etc
+⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
 
 **Usage:** `stellar contract inspect [OPTIONS] --wasm <WASM>`
 
@@ -705,6 +709,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--wasm <WASM>` — Path to wasm binary
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
@@ -713,7 +718,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 ## `stellar contract install`
 
-(Deprecated in favor of `contract upload` subcommand) Install a WASM file to the ledger without creating a contract instance
+⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
 
 **Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
 
@@ -736,6 +741,7 @@ Install a WASM file to the ledger without creating a contract instance
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--wasm <WASM>` — Path to wasm binary
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
@@ -759,7 +765,7 @@ stellar contract invoke ... -- --help
 ###### **Options:**
 
 - `--id <CONTRACT_ID>` — Contract ID to invoke
-- `--is-view` — View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+- `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
@@ -777,6 +783,7 @@ stellar contract invoke ... -- --help
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--send <SEND>` — Whether or not to send a transaction
 
@@ -789,7 +796,7 @@ stellar contract invoke ... -- --help
 
 ## `stellar contract optimize`
 
-Optimize a WASM file
+⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 
 **Usage:** `stellar contract optimize [OPTIONS] --wasm <WASM>...`
 
@@ -877,6 +884,7 @@ If no keys are specificed the contract itself is restored.
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar doctor`
@@ -990,8 +998,8 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 ###### **Options:**
 
-- `--secret-key` — (deprecated) Enter secret (S) key when prompted
-- `--seed-phrase` — (deprecated) Enter key using 12-24 word seed phrase
+- `--secret-key` — ⚠️ Deprecated, use `--secure-store`. Enter secret (S) key when prompted
+- `--seed-phrase` — ⚠️ Deprecated, use `--secure-store`. Enter key using 12-24 word seed phrase
 - `--secure-store` — Save the new key in your OS's credential secure store.
 
   On Mac this uses Keychain, on Windows it is Secure Store Service, and on \*nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
@@ -1001,6 +1009,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 - `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+- `--overwrite` — Overwrite existing identity if it already exists
 
 ## `stellar keys public-key`
 
@@ -1567,6 +1576,7 @@ Transfer XLM balance to another account and remove source account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1595,6 +1605,7 @@ Begin sponsoring future reserves for another account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1623,6 +1634,7 @@ Bump sequence number to invalidate older transactions
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1651,6 +1663,7 @@ Create, update, or delete a trustline
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1682,6 +1695,7 @@ Claim a claimable balance by its balance ID
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1710,6 +1724,7 @@ Clawback an asset from an account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1740,6 +1755,7 @@ Clawback a claimable balance by its balance ID
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1768,6 +1784,7 @@ Create and fund a new account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1799,6 +1816,7 @@ Create a claimable balance that can be claimed by specified accounts
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1835,6 +1853,7 @@ Create a passive sell offer on the Stellar DEX
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1866,6 +1885,7 @@ End sponsoring future reserves
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1893,6 +1913,7 @@ Deposit assets into a liquidity pool
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1930,6 +1951,7 @@ Withdraw assets from a liquidity pool
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1961,6 +1983,7 @@ Create, update, or delete a buy offer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -1995,6 +2018,7 @@ Set, modify, or delete account data entries
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2024,6 +2048,7 @@ Create, update, or delete a sell offer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2058,6 +2083,7 @@ Send a payment with a different asset using path finding, specifying the send am
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2091,6 +2117,7 @@ Send a payment with a different asset using path finding, specifying the receive
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2124,6 +2151,7 @@ Send asset to destination account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2157,6 +2185,7 @@ Revoke sponsorship of a ledger entry or signer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2191,6 +2220,7 @@ Set account options like flags, signers, and home domain
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2234,6 +2264,7 @@ Configure authorization and trustline flags for an asset
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2317,6 +2348,7 @@ Transfer XLM balance to another account and remove source account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2350,6 +2382,7 @@ Begin sponsoring future reserves for another account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2383,6 +2416,7 @@ Bump sequence number to invalidate older transactions
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2416,6 +2450,7 @@ Create, update, or delete a trustline
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2452,6 +2487,7 @@ Claim a claimable balance by its balance ID
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2485,6 +2521,7 @@ Clawback an asset from an account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2520,6 +2557,7 @@ Clawback a claimable balance by its balance ID
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2553,6 +2591,7 @@ Create and fund a new account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2589,6 +2628,7 @@ Create a claimable balance that can be claimed by specified accounts
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2630,6 +2670,7 @@ Create a passive sell offer on the Stellar DEX
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2666,6 +2707,7 @@ End sponsoring future reserves
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2698,6 +2740,7 @@ Deposit assets into a liquidity pool
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2740,6 +2783,7 @@ Withdraw assets from a liquidity pool
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2776,6 +2820,7 @@ Create, update, or delete a buy offer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2815,6 +2860,7 @@ Set, modify, or delete account data entries
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2849,6 +2895,7 @@ Create, update, or delete a sell offer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2888,6 +2935,7 @@ Send a payment with a different asset using path finding, specifying the receive
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2926,6 +2974,7 @@ Send a payment with a different asset using path finding, specifying the send am
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -2964,6 +3013,7 @@ Send asset to destination account
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -3002,6 +3052,7 @@ Revoke sponsorship of a ledger entry or signer
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -3041,6 +3092,7 @@ Set account options like flags, signers, and home domain
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -3089,6 +3141,7 @@ Configure authorization and trustline flags for an asset
 
 - `--cost` — Output the cost execution to stderr
 - `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
@@ -3175,6 +3228,7 @@ Simulate a transaction envelope from stdin
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 
 ## `stellar tx fetch`
 
@@ -3187,6 +3241,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 - `result` — Fetch the transaction result
 - `meta` — Fetch the transaction meta
 - `fee` — Fetch the transaction fee information
+- `events` — Fetch the transaction events
 
 ###### **Options:**
 
@@ -3200,8 +3255,8 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch result`
@@ -3222,8 +3277,8 @@ Fetch the transaction result
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch meta`
@@ -3244,8 +3299,8 @@ Fetch the transaction meta
   Default value: `json`
 
   Possible values:
-  - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
-  - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+  - `json`: JSON output with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
 ## `stellar tx fetch fee`
@@ -3269,6 +3324,28 @@ Fetch the transaction fee information
   - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `table`: Formatted in a table comparing fee types
+
+## `stellar tx fetch events`
+
+Fetch the transaction events
+
+**Usage:** `stellar tx fetch events [OPTIONS] --hash <HASH>`
+
+###### **Options:**
+
+- `--hash <HASH>` — Transaction hash to fetch
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`: JSON output of the events with parsed XDRs (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output of events with parsed XDRs
+  - `text`: Human readable event output with parsed XDRs
 
 ## `stellar tx decode`
 

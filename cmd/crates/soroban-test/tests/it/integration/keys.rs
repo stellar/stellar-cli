@@ -90,3 +90,56 @@ async fn overwrite_identity() {
 
     assert_ne!(initial_pubkey, pubkey_for_identity(sandbox, "test2"));
 }
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn overwrite_identity_with_add() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test3")
+        .assert()
+        .success();
+
+    let initial_pubkey = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test3")
+        .assert()
+        .stdout_as_str();
+
+    // Try to add a key with the same name, should fail
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("test3")
+        .arg("--public-key")
+        .arg("GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC")
+        .assert()
+        .stderr(predicate::str::contains(
+            "error: An identity with the name 'test3' already exists",
+        ));
+
+    // Verify the key wasn't changed
+    assert_eq!(initial_pubkey, pubkey_for_identity(sandbox, "test3"));
+
+    // Try again with --overwrite flag, should succeed
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("test3")
+        .arg("--public-key")
+        .arg("GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC")
+        .arg("--overwrite")
+        .assert()
+        .stderr(predicate::str::contains("Overwriting identity 'test3'"))
+        .success();
+
+    // Verify the key was changed
+    assert_ne!(initial_pubkey, pubkey_for_identity(sandbox, "test3"));
+    assert_eq!(
+        "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC",
+        pubkey_for_identity(sandbox, "test3").trim()
+    );
+}

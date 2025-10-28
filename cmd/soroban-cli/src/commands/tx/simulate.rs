@@ -29,8 +29,13 @@ pub struct Cmd {
     /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
     #[arg()]
     pub tx_xdr: Option<OsString>,
+
     #[clap(flatten)]
     pub config: config::Args,
+
+    /// Allow this many extra instructions when budgeting resources during transaction simulation
+    #[arg(long)]
+    pub instruction_leeway: Option<u64>,
 }
 
 impl Cmd {
@@ -58,7 +63,10 @@ impl NetworkRunnable for Cmd {
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
-        let tx = simulate_and_assemble_transaction(&client, &tx).await?;
+        let resource_config = self
+            .instruction_leeway
+            .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
+        let tx = simulate_and_assemble_transaction(&client, &tx, resource_config).await?;
         Ok(tx)
     }
 }

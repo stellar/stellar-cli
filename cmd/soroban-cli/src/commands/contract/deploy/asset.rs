@@ -10,6 +10,7 @@ use clap::{arg, command, Parser};
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
+use crate::commands::tx::fetch;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -29,24 +30,39 @@ use crate::commands::contract::deploy::utils::alias_validator;
 pub enum Error {
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error(transparent)]
     Client(#[from] SorobanRpcError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Builder(#[from] builder::Error),
+
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl From<Infallible> for Error {
@@ -152,15 +168,19 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        let assembled =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
+
+        let txn = assembled.transaction().clone();
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign(txn).await?)
-            .await?
-            .try_into()?;
+            .await?;
+
+        self.fee.print_cost_info(&get_txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
-            data::write(get_txn_resp, &network.rpc_uri()?)?;
+            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
         Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))

@@ -8,7 +8,7 @@ use crate::utils::contract_id_hash_from_asset;
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
+    /// ID of the Stellar classic asset to wrap, e.g. "native", "USDC:G...5", "USDC:alias"
     #[arg(long)]
     pub asset: builder::Asset,
 

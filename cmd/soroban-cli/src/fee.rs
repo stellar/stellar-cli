@@ -1,9 +1,13 @@
+use std::io::stderr;
+
 use clap::arg;
+use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;
-use crate::xdr;
-
+use crate::commands::tx::fetch;
+use crate::commands::tx::fetch::fee::FeeTable;
 use crate::commands::HEADING_RPC;
+use crate::xdr;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -17,6 +21,9 @@ pub struct Args {
     /// Number of instructions to simulate
     #[arg(long, help_heading = HEADING_RPC)]
     pub instructions: Option<u32>,
+    /// Allow this many extra instructions when budgeting resources during transaction simulation
+    #[arg(long, help_heading = HEADING_RPC)]
+    pub instruction_leeway: Option<u64>,
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_RPC)]
     pub build_only: bool,
@@ -29,6 +36,23 @@ impl Args {
         } else {
             add_padding_to_instructions(txn)
         }
+    }
+
+    pub fn resource_config(&self) -> Option<soroban_rpc::ResourceConfig> {
+        self.instruction_leeway
+            .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway })
+    }
+
+    pub fn print_cost_info(&self, res: &GetTransactionResponse) -> Result<(), fetch::Error> {
+        if !self.cost {
+            return Ok(());
+        }
+
+        let fee_table = FeeTable::new_from_transaction_response(res)?;
+
+        fee_table.table().print(&mut stderr())?;
+
+        Ok(())
     }
 }
 
@@ -51,6 +75,7 @@ impl Default for Args {
             fee: 100,
             cost: false,
             instructions: None,
+            instruction_leeway: None,
             build_only: false,
         }
     }
