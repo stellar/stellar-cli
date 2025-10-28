@@ -40,6 +40,35 @@ impl FromStr for UnresolvedScAddress {
 }
 
 impl UnresolvedScAddress {
+    pub async fn resolve_async(self,
+        locator: &locator::Args,
+        network_passphrase: &str,
+    ) -> Result<xdr::ScAddress, Error> {
+           let alias = match self {
+            UnresolvedScAddress::Resolved(addr) => return Ok(addr),
+            UnresolvedScAddress::Alias(alias) => alias,
+        };
+        let contract = UnresolvedContract::resolve_alias(&alias, locator, network_passphrase);
+        let key = locator.read_key(&alias);
+        match (contract, key) {
+            (Ok(contract), Ok(_)) => {
+                eprintln!(
+                    "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
+                );
+                Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+                    xdr::Hash(contract.0),
+                )))
+            }
+            (Ok(contract), _) => Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+                xdr::Hash(contract.0),
+            ))),
+            (_, Ok(key)) => Ok(xdr::ScAddress::Account(
+                key.muxed_account_async(None).await?.account_id(),
+            )),
+            _ => Err(Error::AccountAliasNotFound(alias)),
+        }
+    }
+
     pub fn resolve(
         self,
         locator: &locator::Args,

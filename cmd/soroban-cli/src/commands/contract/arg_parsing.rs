@@ -144,7 +144,7 @@ async fn build_host_function_parameters_with_filter(
                 i.type_,
                 ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
             ) {
-                let addr = resolve_address(&s, config)?;
+                let addr = resolve_address(&s, config).await?;
                 let signer = resolve_signer(&s, config).await;
                 s = addr;
                 if let Some(signer) = signer {
@@ -306,12 +306,12 @@ pub fn output_to_string(
     Ok(TxnResult::Res(res_str))
 }
 
-fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
+async fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
     let sc_address: UnresolvedScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
         addr @ UnresolvedScAddress::Alias(_) => {
-            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr = addr.resolve_async(&config.locator, &config.get_network()?.network_passphrase).await?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
