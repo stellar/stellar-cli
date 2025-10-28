@@ -29,8 +29,10 @@ pub struct Cmd {
     /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
     #[arg()]
     pub tx_xdr: Option<OsString>,
+
     #[clap(flatten)]
     pub config: config::Args,
+
     /// Allow this many extra instructions when budgeting resources during transaction simulation
     #[arg(long)]
     pub instruction_leeway: Option<u64>,
