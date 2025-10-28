@@ -180,7 +180,8 @@ async fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let signature = signer.sign_payload(&payload).await?;
+    let p:[u8; 32] = payload.as_slice().try_into()?;
+    let signature = signer.sign_payload(p).await?;
     let public_key_vec = signer.get_public_key().await?.to_vec();
 
     let map = ScMap::sorted_from(vec![
@@ -278,17 +279,15 @@ impl Signer {
 
     // when we implement this for ledger we'll need it to be awaited
     #[allow(clippy::unused_async)]
-    pub async fn sign_payload(&self, payload: &[u8]) -> Result<Ed25519Signature, Error> {
+    pub async fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
             SignerKind::Local(local_key) => {
-                let p = <[u8; 32]>::try_from(payload)?;
-                local_key.sign_payload(p)
+                local_key.sign_payload(payload)
             }
             SignerKind::Ledger(_ledger) => todo!("ledger"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
-                let p = <[u8; 32]>::try_from(payload)?;
-                secure_store_entry.sign_payload(p)
+                secure_store_entry.sign_payload(payload)
             }
         }
     }
