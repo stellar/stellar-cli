@@ -53,18 +53,26 @@ struct DefaultArgs {
 pub enum Error {
     #[error(transparent)]
     Args(#[from] args::Error),
+
     #[error(transparent)]
     Result(#[from] result::Error),
+
     #[error(transparent)]
     Meta(#[from] meta::Error),
+
     #[error(transparent)]
     Envelope(#[from] envelope::Error),
+
     #[error(transparent)]
     Events(#[from] events::Error),
     #[error(transparent)]
     NotSupported(#[from] fee::Error),
+
     #[error("the following required argument was not provided: {0}")]
     MissingArg(String),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl Cmd {

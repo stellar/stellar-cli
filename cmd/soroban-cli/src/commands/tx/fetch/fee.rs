@@ -122,7 +122,7 @@ pub struct FeeTable {
 }
 
 impl FeeTable {
-    fn new_from_transaction_response(resp: &GetTransactionResponse) -> Result<Self, Error> {
+    pub fn new_from_transaction_response(resp: &GetTransactionResponse) -> Result<Self, Error> {
         let (tx_result, tx_meta, tx_envelope) = Self::unpack_tx_response(resp)?;
         let proposed = Self::extract_proposed_fees(&tx_envelope);
         let charged = Self::extract_charged_fees(&tx_meta, &tx_result);
@@ -266,7 +266,7 @@ impl FeeTable {
         self.proposed.fee - self.charged.fee
     }
 
-    fn table(&self) -> Table {
+    pub fn table(&self) -> Table {
         let mut table = Table::new();
         table.set_format(Self::table_format());
 
@@ -351,7 +351,7 @@ impl FeeTable {
         table
     }
 
-    fn print(&self) {
+    pub fn print(&self) {
         self.table().printstd();
     }
 

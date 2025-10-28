@@ -29,7 +29,7 @@ pub async fn simulate_and_assemble_transaction(
     );
 
     let sim_res = client
-        .simulate_transaction_envelope(&envelope, None, resource_config)
+        .next_simulate_transaction_envelope(&envelope, None, resource_config)
         .await?;
     tracing::trace!("{sim_res:#?}");
 

@@ -1,9 +1,13 @@
+use std::io::stderr;
+
 use clap::arg;
+use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;
-use crate::xdr;
-
+use crate::commands::tx::fetch;
+use crate::commands::tx::fetch::fee::FeeTable;
 use crate::commands::HEADING_RPC;
+use crate::xdr;
 
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
@@ -37,6 +41,18 @@ impl Args {
     pub fn resource_config(&self) -> Option<soroban_rpc::ResourceConfig> {
         self.instruction_leeway
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway })
+    }
+
+    pub fn print_cost_info(&self, res: &GetTransactionResponse) -> Result<(), fetch::Error> {
+        if !self.cost {
+            return Ok(());
+        }
+
+        let fee_table = FeeTable::new_from_transaction_response(res)?;
+
+        fee_table.table().print(&mut stderr())?;
+
+        Ok(())
     }
 }
 
