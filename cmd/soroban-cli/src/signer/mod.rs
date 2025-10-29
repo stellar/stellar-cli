@@ -179,7 +179,7 @@ fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let p:[u8; 32] = payload.as_slice().try_into()?;
+    let p: [u8; 32] = payload.as_slice().try_into()?;
     let signature = signer.sign_payload(p)?;
     let public_key_vec = signer.get_public_key()?.to_vec();
 
@@ -278,14 +278,10 @@ impl Signer {
     // when we implement this for ledger we'll need it to be async so we can await the user approved the tx on the ledger device
     pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
-            SignerKind::Local(local_key) => {
-                local_key.sign_payload(payload)
-            }
+            SignerKind::Local(local_key) => local_key.sign_payload(payload),
             SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
-            SignerKind::SecureStore(secure_store_entry) => {
-                secure_store_entry.sign_payload(payload)
-            }
+            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
         }
     }
 }
