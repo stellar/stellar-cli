@@ -435,7 +435,7 @@ impl Spec {
                 enum_case == &name.to_utf8_string_lossy()
             })
             .ok_or_else(|| {
-                Error::EnumCase(enum_case.to_string(), union.name.to_utf8_string_lossy())
+                Error::EnumCase(enum_case.clone(), union.name.to_utf8_string_lossy())
             })?;
 
         let mut res = vec![ScVal::Symbol(ScSymbol(
