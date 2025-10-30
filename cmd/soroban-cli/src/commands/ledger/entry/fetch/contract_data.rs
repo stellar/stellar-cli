@@ -57,6 +57,14 @@ impl Cmd {
             .contract
             .resolve_contract_id(&self.args.locator, &network.network_passphrase)?;
         let contract_address_arg = ScAddress::Contract(ContractId(Hash(contract_id.0)));
+        
+        let contract_instance_key = LedgerKey::ContractData(LedgerKeyContractData {
+            contract: contract_address_arg.clone(),
+            key: ScVal::LedgerKeyContractInstance, 
+            durability: ContractDataDurability::Persistent,
+        });
+
+        ledger_keys.push(contract_instance_key);
 
         if let Some(keys) = &self.key {
             for key in keys {
