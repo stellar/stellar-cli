@@ -277,7 +277,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let name = if name == "Error" {
                 format!("{name}s")
             } else {
-                name.to_string()
+                name.clone()
             };
             format!(
                 r"{doc}export enum {name} {{
@@ -292,7 +292,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let name = if name == "Error" {
                 format!("{name}s")
             } else {
-                name.to_string()
+                name.clone()
             };
             format!(
                 r"{doc}export const {name} = {{
@@ -340,14 +340,14 @@ pub fn func_input_to_ts(input: &types::FunctionInput) -> String {
 
 pub fn func_input_to_arg_name(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, .. } = input;
-    name.to_string()
+    name.clone()
 }
 
 pub fn parse_arg_to_scval(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, value, .. } = input;
     match value {
         types::Type::Address => format!("{name}: new Address({name})"),
-        _ => name.to_string(),
+        _ => name.clone(),
     }
 }
 
