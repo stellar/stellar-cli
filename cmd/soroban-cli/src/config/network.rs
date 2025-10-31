@@ -168,8 +168,8 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
 impl Network {
     pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_url = Url::from_str(&self.rpc_url)
-            .map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))?;
+        let rpc_url =
+            Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
             let mut local_url = rpc_url;
             local_url.set_path("/friendbot");

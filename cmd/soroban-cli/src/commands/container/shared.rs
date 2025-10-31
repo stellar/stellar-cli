@@ -77,9 +77,7 @@ impl Args {
                 Docker::connect_with_named_pipe(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
             }
             _ => {
-                return Err(Error::UnsupportedURISchemeError {
-                    uri: host.clone(),
-                });
+                return Err(Error::UnsupportedURISchemeError { uri: host.clone() });
             }
         }?;
 
