@@ -159,7 +159,7 @@ fn parse_command_matches(
         return Err(HelpMessage(format!("{long_help}")));
     };
 
-    Ok((function.to_string(), matches_))
+    Ok((function.clone(), matches_))
 }
 
 fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Error> {
