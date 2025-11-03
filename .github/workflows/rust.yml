@@ -156,7 +156,7 @@ jobs:
           - os: macos-13
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
-              --feature-powerset --skip emulator-tests,
+              --feature-powerset --skip emulator-tests
           - os: macos-latest
             target: aarch64-apple-darwin
             cargo-hack-feature-options:
@@ -185,5 +185,5 @@ jobs:
     with:
       runs-on: ${{ matrix.os }}
       target: ${{ matrix.target }}
-      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }} --skip doc-gen
+      cargo-hack-feature-options: ${{ matrix.cargo-hack-feature-options }}
       additional-deb-packages: ${{ matrix.additional-deb-packages }}

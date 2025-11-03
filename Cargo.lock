@@ -1444,6 +1444,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
+name = "doc-gen"
+version = "23.1.4"
+dependencies = [
+ "clap-markdown",
+ "soroban-cli",
+]
+
+[[package]]
 name = "docker_credential"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4919,7 +4927,6 @@ dependencies = [
  "cargo_metadata",
  "chrono",
  "clap",
- "clap-markdown",
  "clap_complete",
  "crate-git-revision",
  "csv",
