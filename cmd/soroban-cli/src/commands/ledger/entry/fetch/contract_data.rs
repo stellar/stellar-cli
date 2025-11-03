@@ -24,12 +24,16 @@ pub struct Cmd {
     pub durability: Durability,
 
     /// Storage key (symbols only)
-    #[arg(long = "key", required_unless_present = "key_xdr")]
+    #[arg(long = "key", required_unless_present_any = vec!("key_xdr", "instance"))]
     pub key: Option<Vec<String>>,
 
     /// Storage key (base64-encoded XDR)
-    #[arg(long = "key-xdr", required_unless_present = "key")]
+    #[arg(long = "key-xdr", required_unless_present_any = vec!("key", "instance"))]
     pub key_xdr: Option<Vec<String>>,
+
+    /// If the contract instance ledger entry should be included in the output
+    #[arg(long = "instance", required_unless_present_any = vec!("key", "key_xdr"))]
+    pub instance: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -57,14 +61,15 @@ impl Cmd {
             .contract
             .resolve_contract_id(&self.args.locator, &network.network_passphrase)?;
         let contract_address_arg = ScAddress::Contract(ContractId(Hash(contract_id.0)));
-        
-        let contract_instance_key = LedgerKey::ContractData(LedgerKeyContractData {
-            contract: contract_address_arg.clone(),
-            key: ScVal::LedgerKeyContractInstance, 
-            durability: ContractDataDurability::Persistent,
-        });
+        if self.instance {
+            let contract_instance_key = LedgerKey::ContractData(LedgerKeyContractData {
+                contract: contract_address_arg.clone(),
+                key: ScVal::LedgerKeyContractInstance,
+                durability: ContractDataDurability::Persistent,
+            });
 
-        ledger_keys.push(contract_instance_key);
+            ledger_keys.push(contract_instance_key);
+        }
 
         if let Some(keys) = &self.key {
             for key in keys {
