@@ -220,7 +220,7 @@ impl NetworkRunnable for Cmd {
             self.wasm_hash
                 .as_ref()
                 .ok_or(Error::WasmNotProvided)?
-                .to_string()
+                .clone()
         };
 
         let wasm_hash = Hash(
