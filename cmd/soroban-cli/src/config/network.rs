@@ -168,8 +168,8 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
 impl Network {
     pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_url = Url::from_str(&self.rpc_url)
-            .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
+        let rpc_url =
+            Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
             let mut local_url = rpc_url;
             local_url.set_path("/friendbot");
@@ -183,7 +183,7 @@ impl Network {
             tracing::debug!("URL {url:?}");
             let mut url = Url::from_str(&url).map_err(|e| {
                 tracing::error!("{e}");
-                Error::InvalidUrl(url.to_string())
+                Error::InvalidUrl(url.clone())
             })?;
             url.query_pairs_mut().append_pair("addr", addr);
             Ok(url)
@@ -220,13 +220,13 @@ impl Network {
     }
 
     pub fn rpc_uri(&self) -> Result<Url, Error> {
-        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
+        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))
     }
 
     pub fn rpc_client(&self) -> Result<Client, Error> {
         let mut header_hash_map = HashMap::new();
         for (header_name, header_value) in &self.rpc_headers {
-            header_hash_map.insert(header_name.to_string(), header_value.to_string());
+            header_hash_map.insert(header_name.clone(), header_value.clone());
         }
 
         let header_map: HeaderMap = (&header_hash_map)

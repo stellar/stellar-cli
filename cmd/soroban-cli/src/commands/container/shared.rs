@@ -77,9 +77,7 @@ impl Args {
                 Docker::connect_with_named_pipe(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
             }
             _ => {
-                return Err(Error::UnsupportedURISchemeError {
-                    uri: host.to_string(),
-                });
+                return Err(Error::UnsupportedURISchemeError { uri: host.clone() });
             }
         }?;
 
@@ -136,7 +134,7 @@ impl Name {
     }
 
     pub fn get_external_container_name(&self) -> String {
-        self.0.to_string()
+        self.0.clone()
     }
 }
 

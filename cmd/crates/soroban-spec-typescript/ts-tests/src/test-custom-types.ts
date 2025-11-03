@@ -162,11 +162,9 @@ test('tuple', async t => {
 })
 
 test('option', async t => {
-  // this makes sense
   t.deepEqual((await contract.option({ option: 1 })).result, 1)
 
-  // this passes but shouldn't
-  t.deepEqual((await contract.option({ option: undefined })).result, undefined)
+  t.deepEqual((await contract.option({ option: undefined })).result, null)
 
   // this is the behavior we probably want, but fails
   // t.deepEqual(await contract.option(), undefined) // typing and implementation require the object

@@ -36,15 +36,10 @@ use crate::{
 };
 use crate::{config::address::UnresolvedMuxedAccount, utils::http};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Output {
+    #[default]
     Json,
-}
-
-impl Default for Output {
-    fn default() -> Self {
-        Self::Json
-    }
 }
 
 fn default_out_path() -> PathBuf {
