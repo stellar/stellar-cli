@@ -1,0 +1,108 @@
+---
+title: Add meta information to a contract
+hide_table_of_contents: true
+description: Add custom metadata such as name, description, and version to your contract during build
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/add-contract-meta.mdx
+---
+
+Contract metadata allows you to add custom information to your contract, such as name, description, version, author, and other key-value pairs. This metadata is stored in the contract's WASM file and can be viewed after deployment.
+
+## Adding metadata during build
+
+Use the `--meta` flag with the `stellar contract build` command to add metadata key-value pairs. You can specify multiple `--meta` flags to add multiple metadata entries:
+
+```bash
+stellar contract build \
+    --meta name=MyContract \
+    --meta description="A sample smart contract for demonstration" \
+    --meta version=1.0.0 \
+    --meta author=Alice \
+    --meta license=MIT
+```
+
+Each `--meta` flag takes a single argument in the format `key=value`. The key and value are trimmed of whitespace.
+
+## Viewing contract metadata
+
+After building and deploying your contract, you can view its metadata using the `stellar contract info meta` command:
+
+```bash
+stellar contract info meta \
+    --id <contract-id> \
+    --output text
+```
+
+This will display all metadata entries in a readable format:
+
+```
+Contract meta:
+ • name: MyContract
+ • description: A sample smart contract for demonstration
+ • version: 1.0.0
+ • author: Alice
+ • license: MIT
+ • rsver: 1.75.0 (Rust version)
+ • rssdkver: 20.1.0 (Soroban SDK version and its commit hash)
+```
+
+## Metadata output formats
+
+The `stellar contract info meta` command supports multiple output formats:
+
+- **Text format** (default): Human-readable format
+```bash
+stellar contract info meta --id <contract-id> --output text
+```
+
+- **JSON format**: Structured JSON output
+```bash
+stellar contract info meta --id <contract-id> --output json
+```
+
+- **JSON formatted**: Pretty-printed JSON output
+```bash
+stellar contract info meta --id <contract-id> --output json-formatted
+```
+
+- **XDR Base64**: Raw XDR-encoded metadata in base64
+```bash
+stellar contract info meta --id <contract-id> --output xdr-base64
+```
+
+## Example workflow
+
+1. Build your contract with metadata:
+
+```bash
+stellar contract build \
+    --meta name=TokenContract \
+    --meta description="ERC-20 style token contract" \
+    --meta version=2.1.0 \
+    --meta author=Stellar \
+    --meta repository=https://github.com/stellar/example-contract
+```
+
+2. Deploy the contract:
+
+```bash
+stellar contract deploy \
+    --source S... \
+    --network testnet \
+    --wasm /path/to/target/wasm32v1-none/release/my_contract.wasm
+```
+
+3. View the metadata:
+
+```bash
+stellar contract info meta \
+    --id <contract-id> \
+    --output json-formatted
+```
+
+## Notes
+
+- Metadata keys and values are validated during build. Invalid keys or values will result in an error.
+- The contract automatically includes some built-in metadata like Rust version (`rsver`) and Soroban SDK version (`rssdkver`).
+- Metadata is stored in the `contractmetav0` custom section of the WASM file.
+- All metadata entries are preserved when the contract is installed and deployed on the network.
+
