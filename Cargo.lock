@@ -875,8 +875,7 @@ dependencies = [
 [[package]]
 name = "clap-markdown"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2a2617956a06d4885b490697b5307ebb09fec10b088afc18c81762d848c2339"
+source = "git+https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66#42956b342cef3325d9060fc43995d595e7c8aa66"
 dependencies = [
  "clap",
 ]
@@ -1443,6 +1442,14 @@ name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
+
+[[package]]
+name = "doc-gen"
+version = "23.1.4"
+dependencies = [
+ "clap-markdown",
+ "soroban-cli",
+]
 
 [[package]]
 name = "docker_credential"
@@ -4920,7 +4927,6 @@ dependencies = [
  "cargo_metadata",
  "chrono",
  "clap",
- "clap-markdown",
  "clap_complete",
  "crate-git-revision",
  "csv",
