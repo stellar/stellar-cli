@@ -39,7 +39,7 @@ impl Cmd {
             let padded_hex = padded_hex_from_str(x, 32)?;
             let hash_bytes: [u8; 32] = padded_hex
                 .try_into()
-                .map_err(|_| Error::InvalidHash(x.to_string()))?;
+                .map_err(|_| Error::InvalidHash(x.clone()))?;
             let hash = Hash(hash_bytes);
             let key = LedgerKey::ClaimableBalance(LedgerKeyClaimableBalance {
                 balance_id: ClaimableBalanceIdTypeV0(hash),
