@@ -23,12 +23,15 @@ jobs:
           - ubuntu-latest-8-cores
           # ARM
           - ubuntu-jammy-8-cores-arm64
-          # Intel
+          # Apple Silicon
           - macos-15
+          # Apple Intel
+          - macos-15-intel
         exclude:
           # Only run Linux x64 tests on pull request to save some time
           - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
           - sys: ${{ github.event_name != 'push' && 'macos-15' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-15-intel' }}
     runs-on: ${{ matrix.sys }}
     env:
       CI_TESTS: true

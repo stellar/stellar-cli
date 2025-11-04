@@ -23,9 +23,10 @@ jobs:
           - os: ubuntu-latest-8-cores
           # ARM
           - os: ubuntu-jammy-8-cores-arm64
-          # Intel
+          # Apple Silicon
           - os: macos-15
-          # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
+          # Apple Intel
+          - os: macos-15-intel
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
     uses: stellar/system-test/.github/workflows/test.yml@master
