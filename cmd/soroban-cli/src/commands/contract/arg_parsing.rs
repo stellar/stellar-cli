@@ -184,7 +184,7 @@ async fn parse_function_arguments(
     let mut signers = Vec::<Signer>::new();
 
     for i in func.inputs.iter() {
-         parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args).await?;
+        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args).await?;
     }
 
     Ok((parsed_args, signers))
@@ -196,7 +196,7 @@ async fn parse_single_argument(
     spec: &Spec,
     config: &config::Args,
     signers: &mut Vec<Signer>,
-    parsed_args: &mut Vec<ScVal>
+    parsed_args: &mut Vec<ScVal>,
 ) -> Result<(), Error> {
     let name = input.name.to_utf8_string()?;
     let expected_type_name = get_type_name(&input.type_); //-0--
@@ -222,11 +222,23 @@ async fn parse_single_argument(
             if let Some(signer) = resolve_signer(trimmed_s, config).await {
                 signers.push(signer);
             }
-            parsed_args.push( parse_argument_with_validation(&name, &addr, &input.type_, spec, config)?);
-            return Ok(())
+            parsed_args.push(parse_argument_with_validation(
+                &name,
+                &addr,
+                &input.type_,
+                spec,
+                config,
+            )?);
+            return Ok(());
         }
 
-        parsed_args.push(parse_argument_with_validation(&name, &s, &input.type_, spec, config)?);
+        parsed_args.push(parse_argument_with_validation(
+            &name,
+            &s,
+            &input.type_,
+            spec,
+            config,
+        )?);
         Ok(())
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
         parsed_args.push(ScVal::Void);
