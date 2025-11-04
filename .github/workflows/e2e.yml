@@ -20,9 +20,9 @@ jobs:
       matrix:
         sys:
           # x64
-          - os: ubuntu-latest
+          - os: ubuntu-latest-8-cores
           # ARM
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-jammy-8-cores-arm64
           # Apple Silicon
           - os: macos-15
           # Apple Intel
