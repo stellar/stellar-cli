@@ -24,7 +24,7 @@ jobs:
           # ARM
           - os: ubuntu-jammy-8-cores-arm64
           # Intel
-          - os: macos-13
+          - os: macos-15
           # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
