@@ -35,7 +35,7 @@ jobs:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: ${{ matrix.sys.os }}
-      quickstart-tag: "future"
+      quickstart-tag: "testing"
   systems-test-linux:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
@@ -44,4 +44,4 @@ jobs:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"
-      quickstart-tag: "future"
+      quickstart-tag: "testing"
