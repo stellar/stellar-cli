@@ -21,10 +21,8 @@ jobs:
           - ubuntu-latest-8-cores
           # ARM
           - ubuntu-jammy-8-cores-arm64
-          # Apple Silicon
-          - macos-15
-          # Apple Intel
-          - macos-15-intel
+          # Apple Intel (this runner has better support to nested virtualization)
+          - macos-15-large
         exclude:
           # Only run Linux x64 tests on pull request to save some time
           - sys:
