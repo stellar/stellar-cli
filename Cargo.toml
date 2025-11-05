@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "cmd/stellar-cli",
     "cmd/soroban-cli",
+    "cmd/doc-gen",
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",

@@ -24,10 +24,6 @@ path = "src/bin/soroban.rs"
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
 bin-dir = "{ bin }{ binary-ext }"
 
-[[bin]]
-name = "doc-gen"
-path = "src/bin/doc-gen.rs"
-
 [lib]
 name = "soroban_cli"
 path = "src/lib.rs"
@@ -133,7 +129,6 @@ whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
 prettytable = "0.10.0"
-clap-markdown = "0.1.5"
 
 [build-dependencies]
 crate-git-revision = "0.0.6"

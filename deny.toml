@@ -258,7 +258,10 @@ unknown-git = "deny"
 # if not specified. If it is specified but empty, no registries are allowed.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
-allow-git = []
+allow-git = [
+  # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
+  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
+]
 
 [sources.allow-org]
 # 1 or more github.com organizations to allow git sources for
