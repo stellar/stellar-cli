@@ -73,7 +73,7 @@ pub struct Cmd {
     /// If provided, wasm files can be found in the cargo target directory, and
     /// the specified directory.
     ///
-    /// If ommitted, wasm files are written only to the cargo target directory.
+    /// If omitted, wasm files are written only to the cargo target directory.
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
 
@@ -130,7 +130,7 @@ pub enum Error {
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
 
-    #[error("retreiving CARGO_HOME: {0}")]
+    #[error("retrieving CARGO_HOME: {0}")]
     CargoHome(io::Error),
 
     #[error("reading wasm file: {0}")]

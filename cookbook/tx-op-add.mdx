@@ -9,7 +9,7 @@ As seen before you can use pipes to pass a transaction envelope between commands
 
 To add an operation to a transaction you can use the `tx op add` command. This command takes the transaction envolope from the previous command and adds an operation to it.
 
-Let's consider a more complicated example. Consider issuing an asset, here `USDC` with the requirement that only the issuer can transfer funds to the distrubtor.
+Let's consider a more complicated example. Consider issuing an asset, here `USDC` with the requirement that only the issuer can transfer funds to the distributor.
 
 ```sh
 
@@ -38,7 +38,7 @@ stellar tx new set-options --fee 1000 --source issuer --set-clawback-enabled --s
 | stellar tx sign --sign-with-key distributor \
 | stellar tx send
 
-# Next is an example of sandwiching an operation. That is giving permission in one operation, preforming the operation, and then removing the permission in a third operation.
+# Next is an example of sandwiching an operation. That is giving permission in one operation, performing the operation, and then removing the permission in a third operation.
 # Here is an example of minting new assets to the distributor with a sandwich transaction
 # First authorize the distributor to receive the asset
 stellar tx new set-trustline-flags --fee 1000 --build-only --source issuer --asset $ASSET --trustor $distributor_PK --set-authorize \

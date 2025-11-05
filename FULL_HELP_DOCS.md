@@ -394,7 +394,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
   If provided, wasm files can be found in the cargo target directory, and the specified directory.
 
-  If ommitted, wasm files are written only to the cargo target directory.
+  If omitted, wasm files are written only to the cargo target directory.
 
 - `--optimize` — Optimize the generated wasm
 
