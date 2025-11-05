@@ -68,6 +68,7 @@ jobs:
       - run: make check
 
   build-and-test:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +87,6 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-macos:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
