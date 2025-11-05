@@ -28,22 +28,12 @@ jobs:
         exclude:
           # Only run Linux x64 tests on pull request to save some time
           - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
-          - sys: ${{ github.event_name != 'push' && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     env:
       CI_TESTS: true
     steps:
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
-      - name: Setup Colima and Docker (macOS only)
-        if: runner.os == 'macos'
-        run: |
-          brew install docker
-          brew install colima
-          colima start
-      - name: Set DOCKER_HOST to Colima socket
-        if: runner.os == 'macos'
-        run: echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
