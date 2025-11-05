@@ -34,6 +34,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
+      - name: Setup Colima and Docker (macOS only)
+        if: runner.os == 'macos'
+        run: |
+          brew update
+          brew install colima docker
+          colima start
+          export DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock
+          echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
