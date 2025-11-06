@@ -84,7 +84,15 @@ fn run_command(
             }
             "--manifest-path" => {
                 // this defaults to the hello_world manifest path in fixtures/test-wasms
-                let hello_world_manifest_path = get_repo_root().join("cmd").join("crates").join("soroban-test").join("tests").join("fixtures").join("test-wasms").join("hello_world").join("Cargo.toml");
+                let hello_world_manifest_path = get_repo_root()
+                    .join("cmd")
+                    .join("crates")
+                    .join("soroban-test")
+                    .join("tests")
+                    .join("fixtures")
+                    .join("test-wasms")
+                    .join("hello_world")
+                    .join("Cargo.toml");
                 modified_args.push(arg.to_string());
                 modified_args.push(hello_world_manifest_path.display().to_string());
                 skip_next = true;
