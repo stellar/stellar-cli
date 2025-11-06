@@ -39,7 +39,7 @@ jobs:
         run: |
           brew update
           brew install colima docker
-          colima start
+          colima start --network-address
           export DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock
           echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
       - name: install optional dependencies (Linux only)
