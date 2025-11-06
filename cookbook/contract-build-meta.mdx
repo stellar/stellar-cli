@@ -15,13 +15,19 @@ stellar contract build \
 ```
 
 :::tip
-You can use a tool like wasm-tools to print out the text form of a WASM file, and see that your wasm file has the new meta data that you've added on build.
 
+You can use a tool like [wasm-tools](https://github.com/bytecodealliance/wasm-tools) to print out the text form of a WASM file, and see that your wasm file has the new meta data that you've added on build.
+
+```bash cookbooktest.ignore
+wasm-tools print target/wasm32v1-none/release/test_hello_world.wasm
 ```
-$ wasm-tools print target/wasm32v1-none/release/test_hello_world.wasm
 
-...
-  (@custom "contractmetav0" (after data) "\00\00\00\00\00\00\00\06cliver\00\00\00\00\00<23.1.4#v20.0.0-643-g52a86ecf1e11974b5f82a7b3b674b50a66ea1163\00\00\00\00\00\00\00\03one\00\00\00\00\03two\00\00\00\00\00\00\00\00\05three\00\00\00\00\00\00\04four")
+
+Example truncated output:
+
+```bash cookbooktest.ignore
+(@custom "contractmetav0" (after data)
+"\00\00\00\00\00\00\00\06cliver\00\00\00\00\00<23.1.4#v20.0.0-643-g52a86ecf1e11974b5f82a7b3b674b50a66ea1163\00\00\00\00\00\00\00\03one\00\00\00\00\03two\00\00\00\00\00\00\00\00\05three\00\00\00\00\00\00\04four")
 )
 ```
 :::
