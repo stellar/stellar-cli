@@ -7,20 +7,22 @@ custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/contr
 
 To build a smart contract, use the `stellar contract build` command. The `--meta` option will allow you to add additional meta data entries to the `contractmetav0` custom section of the resulting WASM file at build time.
 
+```bash cookbooktest.ignore
+export SHA=$(git rev-parse HEAD)
+```
+
 ```bash
 stellar contract build \
     --manifest-path ./cmd/crates/soroban-test/tests/fixtures/test-wasms/hello_world/Cargo.toml \
     --meta source_repo=https://github.com/stellar/stellar-cli \
-    --meta commit_sha=$(git rev-parse HEAD)
+    --meta commit_sha=$SHA
 ```
 
 You can then use `stellar contract info meta` to see the meta data:
 ```bash
-stella contract info meta \
+stellar contract info meta \
   --wasm target/wasm32v1-none/release/test_hello_world.wasm
 ```
-
-Example truncated output:
 
 ```bash cookbooktest.ignore
 Contract meta:
