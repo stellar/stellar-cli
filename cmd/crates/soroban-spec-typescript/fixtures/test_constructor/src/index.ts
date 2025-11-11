@@ -17,6 +17,7 @@ import type {
   i128,
   u256,
   i256,
+  AssembledTransactionOptions,
   Option,
   Typepoint,
   Duration,
@@ -39,22 +40,7 @@ export interface Client {
    * Construct and simulate a counter transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Counter value
    */
-  counter: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<u32>>
+  counter: (options?: AssembledTransactionOptions<u32>) => Promise<AssembledTransaction<u32>>
 
 }
 export class Client extends ContractClient {
