@@ -140,14 +140,14 @@ impl Cmd {
             for (i, segment) in topic.split(',').enumerate() {
                 if i > 4 {
                     return Err(Error::InvalidTopicFilter {
-                        topic: topic.to_string(),
+                        topic: topic.clone(),
                     });
                 }
 
                 if segment != "*" {
                     if let Err(e) = xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
                         return Err(Error::InvalidSegment {
-                            topic: topic.to_string(),
+                            topic: topic.clone(),
                             segment: segment.to_string(),
                             error: e,
                         });

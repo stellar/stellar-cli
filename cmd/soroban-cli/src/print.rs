@@ -7,8 +7,6 @@ use crate::{
     config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
 };
 
-const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
-
 #[derive(Clone)]
 pub struct Print {
     pub quiet: bool,
@@ -45,14 +43,13 @@ impl Print {
 
     // Some terminals like vscode's and macOS' default terminal will not render
     // the subsequent space if the emoji codepoints size is 2; in this case,
-    // we need an additional space.
+    // we need an additional space. We also need an additional space if `TERM_PROGRAM` is not
+    // defined (e.g. vhs running in a docker container).
     pub fn compute_emoji<T: Display + Sized>(&self, emoji: T) -> String {
-        if let Ok(term_program) = env::var("TERM_PROGRAM") {
-            if TERMS.contains(&term_program.as_str())
-                && (emoji.to_string().chars().count() == 2 || format!("{emoji}") == " ")
-            {
-                return format!("{emoji} ");
-            }
+        if should_add_additional_space()
+            && (emoji.to_string().chars().count() == 2 || format!("{emoji}") == " ")
+        {
+            return format!("{emoji} ");
         }
 
         emoji.to_string()
@@ -100,6 +97,17 @@ macro_rules! create_print_functions {
             }
         }
     };
+}
+
+fn should_add_additional_space() -> bool {
+    const TERMS: &[&str] = &["Apple_Terminal", "vscode", "unknown"];
+    let term_program = env::var("TERM_PROGRAM").unwrap_or("unknown".to_string());
+
+    if TERMS.contains(&term_program.as_str()) {
+        return true;
+    }
+
+    false
 }
 
 create_print_functions!(bucket, bucketln, "🪣");

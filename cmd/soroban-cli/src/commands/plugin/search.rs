@@ -59,7 +59,7 @@ impl Cmd {
                 writeln!(&mut stdout, "  {description}")?;
             }
 
-            print.blankln(item.html_url.to_string());
+            print.blankln(item.html_url.clone());
         }
         Ok(())
     }
