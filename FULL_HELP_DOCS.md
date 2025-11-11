@@ -129,7 +129,7 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -157,7 +157,7 @@ Deploy builtin Soroban Asset Contract
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -200,7 +200,7 @@ Remove contract alias
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -227,7 +227,7 @@ Add contract alias
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -249,7 +249,7 @@ Show the contract id associated with a given alias
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -323,7 +323,7 @@ Generate a TypeScript / JavaScript package
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -441,7 +441,7 @@ If no keys are specified the contract itself is extended.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -487,7 +487,7 @@ Deploy a wasm contract
 
 - `--salt <SALT>` — Custom salt 32-byte salt for the token id
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -519,7 +519,7 @@ Fetch a contract's Wasm binary
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -552,7 +552,7 @@ Deploy builtin Soroban Asset Contract
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -579,7 +579,7 @@ Deploy normal Wasm Contract
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -631,7 +631,7 @@ Outputs no data when no data is present in the contract.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -670,7 +670,7 @@ Outputs no data when no data is present in the contract.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -709,7 +709,7 @@ Outputs no data when no data is present in the contract.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -735,7 +735,7 @@ If the contract has a meta entry like `source_repo=github:user/repo`, this comma
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -808,7 +808,7 @@ Install a WASM file to the ledger without creating a contract instance
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -846,7 +846,7 @@ Install a WASM file to the ledger without creating a contract instance
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -898,7 +898,7 @@ stellar contract invoke ... -- --help
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -959,7 +959,7 @@ Print the current value of a contract-data ledger entry
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1002,7 +1002,7 @@ If no keys are specificed the contract itself is restored.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
@@ -1076,7 +1076,7 @@ Watch the network for contract events
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1191,7 +1191,7 @@ Fund an identity on a test network
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1228,7 +1228,7 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1331,7 +1331,7 @@ Add a new network
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — Optional header (e.g. API Key) to include in requests to the RPC
+- `--rpc-header <RPC_HEADERS>` — Optional header to include in requests to the RPC, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 
 ## `stellar network rm`
@@ -1404,7 +1404,7 @@ Fetch the health of the configured RPC
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1433,7 +1433,7 @@ Checks the health of the configured RPC
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1463,7 +1463,7 @@ Fetch the network's config settings
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1632,7 +1632,7 @@ Any invalid contract id passed as `--address` will be ignored.
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1692,7 +1692,7 @@ Fetch the source account's seq-num and increment for the given tx
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1723,7 +1723,7 @@ Calculate the hash of a transaction envelope
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1789,7 +1789,7 @@ Transfer XLM balance to another account and remove source account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1824,7 +1824,7 @@ Begin sponsoring future reserves for another account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1859,7 +1859,7 @@ Bump sequence number to invalidate older transactions
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1897,7 +1897,7 @@ Create, update, or delete a trustline
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1932,7 +1932,7 @@ Claim a claimable balance by its balance ID
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -1969,7 +1969,7 @@ Clawback an asset from an account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2004,7 +2004,7 @@ Clawback a claimable balance by its balance ID
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2042,7 +2042,7 @@ Create and fund a new account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2085,7 +2085,7 @@ Create a claimable balance that can be claimed by specified accounts
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2123,7 +2123,7 @@ Create a passive sell offer on the Stellar DEX
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2157,7 +2157,7 @@ End sponsoring future reserves
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2201,7 +2201,7 @@ Deposit assets into a liquidity pool
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2239,7 +2239,7 @@ Withdraw assets from a liquidity pool
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2280,7 +2280,7 @@ Create, update, or delete a buy offer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2316,7 +2316,7 @@ Set, modify, or delete account data entries
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2357,7 +2357,7 @@ Create, update, or delete a sell offer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2397,7 +2397,7 @@ Send a payment with a different asset using path finding, specifying the send am
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2437,7 +2437,7 @@ Send a payment with a different asset using path finding, specifying the receive
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2477,7 +2477,7 @@ Send asset to destination account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2518,7 +2518,7 @@ Revoke sponsorship of a ledger entry or signer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2568,7 +2568,7 @@ Set account options like flags, signers, and home domain
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2610,7 +2610,7 @@ Configure authorization and trustline flags for an asset
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2693,7 +2693,7 @@ Transfer XLM balance to another account and remove source account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2733,7 +2733,7 @@ Begin sponsoring future reserves for another account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2773,7 +2773,7 @@ Bump sequence number to invalidate older transactions
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2816,7 +2816,7 @@ Create, update, or delete a trustline
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2856,7 +2856,7 @@ Claim a claimable balance by its balance ID
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2898,7 +2898,7 @@ Clawback an asset from an account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2938,7 +2938,7 @@ Clawback a claimable balance by its balance ID
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -2981,7 +2981,7 @@ Create and fund a new account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3029,7 +3029,7 @@ Create a claimable balance that can be claimed by specified accounts
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3072,7 +3072,7 @@ Create a passive sell offer on the Stellar DEX
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3111,7 +3111,7 @@ End sponsoring future reserves
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3160,7 +3160,7 @@ Deposit assets into a liquidity pool
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3203,7 +3203,7 @@ Withdraw assets from a liquidity pool
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3249,7 +3249,7 @@ Create, update, or delete a buy offer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3290,7 +3290,7 @@ Set, modify, or delete account data entries
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3336,7 +3336,7 @@ Create, update, or delete a sell offer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3381,7 +3381,7 @@ Send a payment with a different asset using path finding, specifying the receive
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3426,7 +3426,7 @@ Send a payment with a different asset using path finding, specifying the send am
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3471,7 +3471,7 @@ Send asset to destination account
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3517,7 +3517,7 @@ Revoke sponsorship of a ledger entry or signer
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3572,7 +3572,7 @@ Set account options like flags, signers, and home domain
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3619,7 +3619,7 @@ Configure authorization and trustline flags for an asset
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3641,7 +3641,7 @@ Send a transaction envelope to the network
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3670,7 +3670,7 @@ Sign a transaction envelope appending the signature to the envelope
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3701,7 +3701,7 @@ Simulate a transaction envelope from stdin
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3733,7 +3733,7 @@ Fetch a transaction from the network by hash If no subcommand is passed in, the 
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3758,7 +3758,7 @@ Fetch the transaction result
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3783,7 +3783,7 @@ Fetch the transaction meta
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3808,7 +3808,7 @@ Fetch the transaction fee information
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -3833,7 +3833,7 @@ Fetch the transaction events
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -4495,7 +4495,7 @@ Get the latest ledger sequence and information from the network
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -4533,7 +4533,7 @@ Get the latest ledger sequence and information from the network
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
@@ -4557,6 +4557,6 @@ Fetch network feestats
 ###### **Options (RPC):**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
