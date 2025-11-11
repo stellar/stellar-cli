@@ -1,10 +1,11 @@
+use clap::{command, Parser};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::path::Path;
 use std::{fs, process};
 
-use clap::{command, Parser};
-
 use crate::commands::config::network;
+use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
 
 #[derive(Parser, Debug, Clone)]
@@ -40,7 +41,19 @@ struct AliasEntry {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let config_dir = self.config_locator.config_dir()?;
+        let config_dirs = self.config_locator.local_and_global()?;
+
+        for cfg in config_dirs {
+            match cfg {
+                Location::Local(config_dir) => Self::read_from_config_dir(&config_dir, true)?,
+                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir, false)?,
+            }
+        }
+
+        Ok(())
+    }
+
+    fn read_from_config_dir(config_dir: &Path, deprecation_mode: bool) -> Result<(), Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")
@@ -60,7 +73,7 @@ impl Cmd {
                 let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
                 for network_passphrase in data.ids.keys() {
-                    let network_passphrase = network_passphrase.to_string();
+                    let network_passphrase = network_passphrase.clone();
                     let contract = data
                         .ids
                         .get(&network_passphrase)
@@ -85,6 +98,9 @@ impl Cmd {
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
                 for entry in list {
+                    if !found && deprecation_mode {
+                        print_deprecation_warning(config_dir);
+                    }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);
                 }
@@ -93,7 +109,7 @@ impl Cmd {
             }
         }
 
-        if !found {
+        if !found && !deprecation_mode {
             eprintln!("⚠️ No aliases defined for network");
 
             process::exit(1);

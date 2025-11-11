@@ -1,14 +1,22 @@
 use std::fmt::Debug;
+use std::fmt::Write;
 
 use clap::{command, Parser};
-use stellar_xdr::curr::ScEnvMetaEntry;
 
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 
-use crate::commands::contract::info::env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta};
-use crate::commands::contract::info::shared;
-use crate::commands::contract::info::shared::{fetch_wasm, MetasInfoOutput};
+use crate::{
+    commands::{
+        contract::info::{
+            env_meta::Error::{NoEnvMetaPresent, NoSACEnvMeta},
+            shared::{self, fetch, Fetched, MetasInfoOutput},
+        },
+        global,
+    },
+    print::Print,
+    xdr::{ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion},
+};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -34,13 +42,14 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<String, Error> {
-        let bytes = fetch_wasm(&self.common).await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+        let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
-        let Some(bytes) = bytes else {
-            return Err(NoSACEnvMeta());
+        let spec = match contract {
+            shared::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?,
+            shared::Contract::StellarAssetContract => return Err(NoSACEnvMeta()),
         };
-        let spec = Spec::new(&bytes)?;
 
         let Some(env_meta_base64) = spec.env_meta_base64 else {
             return Err(NoEnvMetaPresent());
@@ -54,12 +63,16 @@ impl Cmd {
                 let mut meta_str = "Contract env-meta:\n".to_string();
                 for env_meta_entry in &spec.env_meta {
                     match env_meta_entry {
-                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(v) => {
-                            let protocol = v >> 32;
-                            let interface = v & 0xffff_ffff;
-                            meta_str.push_str(&format!(" • Protocol: v{protocol}\n"));
-                            meta_str.push_str(&format!(" • Interface: v{interface}\n"));
-                            meta_str.push_str(&format!(" • Interface Version: {v}\n"));
+                        ScEnvMetaEntry::ScEnvMetaKindInterfaceVersion(
+                            ScEnvMetaEntryInterfaceVersion {
+                                protocol,
+                                pre_release,
+                            },
+                        ) => {
+                            let _ = writeln!(meta_str, " • Protocol: v{protocol}");
+                            if pre_release != &0 {
+                                let _ = writeln!(meta_str, " • Pre-release: v{pre_release}");
+                            }
                         }
                     }
                 }
@@ -67,6 +80,8 @@ impl Cmd {
             }
         };
 
-        Ok(res)
+        println!("{res}");
+
+        Ok(())
     }
 }

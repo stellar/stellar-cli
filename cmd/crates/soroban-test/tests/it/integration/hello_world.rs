@@ -1,4 +1,3 @@
-use predicates::boolean::PredicateBooleanExt;
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -6,12 +5,10 @@ use soroban_cli::{
     },
     config::{locator, secret},
 };
-use soroban_rpc::GetLatestLedgerResponse;
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
-use crate::integration::util::extend_contract;
-
 use super::util::{deploy_hello, extend, HELLO_WORLD};
+use crate::integration::util::extend_contract;
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
@@ -19,19 +16,16 @@ async fn invoke_view_with_non_existent_source_account() {
     let sandbox = &TestEnv::new();
     let id = deploy_hello(sandbox).await;
     let world = "world";
-    let mut cmd = hello_world_cmd(&id, world);
-    cmd.config.source_account = String::new();
-    cmd.is_view = true;
-    let res = sandbox.run_cmd_with(cmd, "test").await.unwrap();
+    let cmd = hello_world_cmd(&id, world);
+    let res = sandbox.run_cmd_with(cmd, "").await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
 
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
-async fn invoke() {
+async fn invoke_contract() {
     let sandbox = &TestEnv::new();
-    let c = soroban_rpc::Client::new(&sandbox.rpc_url).unwrap();
-    let GetLatestLedgerResponse { sequence, .. } = c.get_latest_ledger().await.unwrap();
+
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -56,49 +50,59 @@ async fn invoke() {
 
     let secret_key = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
+        .arg("test")
+        .assert()
+        .stdout_as_str();
+    let public_key = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
         .arg("test")
         .assert()
         .stdout_as_str();
     let secret_key_1 = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("test")
         .arg("--hd-path=1")
         .assert()
         .stdout_as_str();
-    let dir = sandbox.dir();
-    let seed_phrase = std::fs::read_to_string(dir.join(".soroban/identity/test.toml")).unwrap();
+    let dir = sandbox.config_dir();
+    let seed_phrase = std::fs::read_to_string(dir.join("identity/test.toml")).unwrap();
     let s = toml::from_str::<secret::Secret>(&seed_phrase).unwrap();
     let secret::Secret::SeedPhrase { seed_phrase } = s else {
         panic!("Expected seed phrase")
     };
+
+    sandbox
+        .new_assert_cmd("cache")
+        .arg("clean")
+        .assert()
+        .success();
+
     let id = &deploy_hello(sandbox).await;
     extend_contract(sandbox, id).await;
-    let uid = sandbox
+
+    let output = sandbox
         .new_assert_cmd("cache")
         .arg("actionlog")
         .arg("ls")
         .assert()
         .stdout_as_str();
-    ulid::Ulid::from_string(&uid).expect("invalid ulid");
+    let lines = output.split('\n').collect::<Vec<&str>>();
+    let uid = lines.last().expect("uid should be present");
+    ulid::Ulid::from_string(&uid).expect(format!("invalid ulid: {uid:?}").as_str());
+
     // Note that all functions tested here have no state
     invoke_hello_world(sandbox, id);
 
-    sandbox
-        .new_assert_cmd("events")
-        .arg("--start-ledger")
-        .arg(&sequence.to_string())
-        .arg("--id")
-        .arg(id)
-        .assert()
-        .stdout(predicates::str::contains(id).not())
-        .success();
     invoke_hello_world_with_lib(sandbox, id).await;
+
     let config_locator = locator::Args {
         global: false,
         config_dir: Some(dir.to_path_buf()),
     };
+
     config_locator
         .write_identity(
             "testone",
@@ -107,16 +111,20 @@ async fn invoke() {
             },
         )
         .unwrap();
-    let sk_from_file = std::fs::read_to_string(dir.join(".soroban/identity/testone.toml")).unwrap();
+
+    let sk_from_file = std::fs::read_to_string(dir.join("identity/testone.toml")).unwrap();
 
     assert_eq!(sk_from_file, format!("secret_key = \"{secret_key_1}\"\n"));
+
     let secret_key_1_readin = sandbox
         .new_assert_cmd("keys")
-        .arg("show")
+        .arg("secret")
         .arg("testone")
         .assert()
         .stdout_as_str();
+
     assert_eq!(secret_key_1, secret_key_1_readin);
+
     // list all files recursively from dir including in hidden folders
     for entry in walkdir::WalkDir::new(dir) {
         println!("{}", entry.unwrap().path().display());
@@ -129,15 +137,17 @@ async fn invoke() {
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
+    invoke_with_pk(sandbox, id, &public_key).await;
     // This does add an identity to local config
     invoke_with_id(sandbox, id).await;
     handles_kebab_case(sandbox, id).await;
     fetch(sandbox, id).await;
     invoke_prng_u64_in_range_test(sandbox, id).await;
+
     invoke_log(sandbox, id);
 }
 
-fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
+pub(crate) fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
@@ -154,7 +164,7 @@ fn invoke_hello_world(sandbox: &TestEnv, id: &str) {
 
 fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
     contract::invoke::Cmd {
-        contract_id: id.to_string(),
+        contract_id: id.parse().unwrap(),
         slop: vec!["hello".into(), format!("--world={arg}").into()],
         ..Default::default()
     }
@@ -257,6 +267,7 @@ async fn contract_data_read() {
         .await
         .unwrap();
     assert_eq!(res.trim(), "1");
+
     extend(sandbox, id, Some(KEY)).await;
 
     sandbox
@@ -317,7 +328,7 @@ async fn half_max_instructions() {
         .arg("--fee")
         .arg("1000000")
         .arg("--instructions")
-        .arg(&(u32::MAX / 2).to_string())
+        .arg((u32::MAX / 2).to_string())
         .arg("--wasm")
         .arg(wasm.path())
         .arg("--ignore-checks")
@@ -332,6 +343,10 @@ async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
 
 async fn invoke_with_sk(sandbox: &TestEnv, id: &str, sk: &str) {
     invoke_with_source(sandbox, sk, id).await;
+}
+
+async fn invoke_with_pk(sandbox: &TestEnv, id: &str, pk: &str) {
+    invoke_with_source(sandbox, pk, id).await;
 }
 
 async fn invoke_with_id(sandbox: &TestEnv, id: &str) {
@@ -357,7 +372,7 @@ async fn fetch(sandbox: &TestEnv, id: &str) {
     let f = sandbox.dir().join("contract.wasm");
     let cmd = sandbox.cmd_arr::<fetch::Cmd>(&[
         "--rpc-url",
-        &sandbox.rpc_url,
+        &sandbox.network.rpc_url,
         "--network-passphrase",
         LOCAL_NETWORK_PASSPHRASE,
         "--id",
@@ -382,6 +397,7 @@ async fn invoke_prng_u64_in_range_test(sandbox: &TestEnv, id: &str) {
         .await
         .is_ok());
 }
+
 fn invoke_log(sandbox: &TestEnv, id: &str) {
     sandbox
         .new_assert_cmd("contract")
@@ -394,12 +410,9 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
         .assert()
         .success()
         .stderr(predicates::str::contains(
-            "INFO contract_event: soroban_cli::log::event: 1: DiagnosticEvent {",
+            r#"Event: [{"symbol":"hello"},{"symbol":""}] = {"symbol":"world"}"#,
         ))
-        .stderr(predicates::str::contains("StringM(hello)"))
         .stderr(predicates::str::contains(
-            "INFO log_event: soroban_cli::log::event: 2: DiagnosticEvent",
-        ))
-        .stderr(predicates::str::contains("StringM(hello {})"))
-        .stderr(predicates::str::contains("StringM(world)"));
+            r#"Log: {"vec":[{"string":"hello {}"},{"symbol":"world"}]}"#,
+        ));
 }

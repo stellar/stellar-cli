@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.4.1"
+version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -24,23 +24,18 @@ path = "src/bin/soroban.rs"
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
 bin-dir = "{ bin }{ binary-ext }"
 
-[[bin]]
-name = "doc-gen"
-path = "src/bin/doc-gen.rs"
-required-features = ["clap-markdown"]
-
 [lib]
 name = "soroban_cli"
 path = "src/lib.rs"
 doctest = false
 
 [features]
-default = []
-opt = ["dep:wasm-opt"]
+default = ["additional-libs"]
+additional-libs = ["dep:wasm-opt", "dep:keyring", "dep:stellar-ledger"]
+emulator-tests = ["stellar-ledger/emulator-tests"]
 
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
@@ -49,7 +44,10 @@ soroban-spec-typescript = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
 soroban-sdk = { workspace = true }
+stellar-asset-spec = { workspace = true }
 soroban-rpc = { workspace = true }
+stellar-ledger = { workspace = true, optional = true }
+
 clap = { workspace = true, features = [
     "derive",
     "env",
@@ -73,25 +71,28 @@ rand = "0.8.5"
 wasmparser = { workspace = true }
 sha2 = { workspace = true }
 csv = "1.1.6"
-ed25519-dalek = { workspace = true }
+# zeroize feature ensures that all sensitive data is zeroed out when dropped
+ed25519-dalek = { workspace = true, features = ["zeroize"] }
+reqwest = { version = "0.12.7", default-features = false, features = [
+    "rustls-tls",
+    "http2",
+    "json",
+    "blocking",
+    "stream",
+] }
 jsonrpsee-http-client = "0.20.1"
 jsonrpsee-core = "0.20.1"
-hyper = "0.14.27"
-hyper-tls = "0.5"
-http = "0.2.9"
 regex = "1.6.0"
-wasm-opt = { version = "0.114.0", optional = true }
-chrono = { version = "0.4.27", features = ["serde"]}
+wasm-opt = { version = "0.116.1", optional = true }
+chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
-dirs = "4.0.0"
-toml = "0.5.9"
+toml = { workspace = true }
 itertools = "0.10.5"
 shlex = "1.1.0"
 sep5 = { workspace = true }
 ethnum = { workspace = true }
-clap-markdown = { version = "0.1.4", optional = true }
 which = { workspace = true, features = ["regex"] }
-strsim = "0.10.0"
+strsim = "0.11.1"
 heck = "0.5.0"
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
@@ -103,17 +104,12 @@ directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
 strum = "0.17.1"
 strum_macros = "0.17.1"
-gix = { version = "0.58.0", default-features = false, features = [
-    "blocking-http-transport-reqwest-rust-tls",
-    "worktree-mutation",
-] }
-ureq = { version = "2.9.1", features = ["json"] }
-async-compression = { version = "0.4.12", features = [ "tokio", "gzip" ] }
-
+async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
+shell-escape = "0.1.5"
 tempfile = "3.8.1"
-toml_edit = "0.21.0"
+toml_edit = { workspace = true }
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = { workspace=true }
+bollard = { workspace = true }
 futures-util = "0.3.30"
 futures = "0.3.30"
 home = "0.5.9"
@@ -123,20 +119,26 @@ humantime = "2.1.0"
 phf = { version = "0.11.2", features = ["macros"] }
 semver = "1.0.0"
 glob = "0.3.1"
-
-# For hyper-tls
-[target.'cfg(unix)'.dependencies]
-openssl = { version = "=0.10.55", features = ["vendored"] }
+fqdn = "0.3.12"
+open = "5.3.0"
+url = "2.5.2"
+wasm-gen = "0.1.4"
+zeroize = "1.8.1"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"], optional = true }
+whoami = "1.5.2"
+serde_with = "3.11.0"
+rustc_version = "0.4.1"
+prettytable = "0.10.0"
 
 [build-dependencies]
-crate-git-revision = "0.0.4"
+crate-git-revision = "0.0.6"
 serde.workspace = true
 thiserror.workspace = true
-ureq = { version = "2.9.1", features = ["json"] }
 
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
-predicates = "2.1.5"
+predicates = { workspace = true }
 walkdir = "2.5.0"
+mockito = "1.5.0"

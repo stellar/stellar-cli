@@ -6,14 +6,16 @@ Docs: https://developers.stellar.org
 
 ## Install
 
-```
-cargo install --locked stellar-cli
-```
-
-To install with the `opt` feature, which includes a WASM optimization feature and wasm-opt built in:
+Install with Homebrew (macOS, Linux):
 
 ```
-cargo install --locked stellar-cli --features opt
+brew install stellar-cli
+```
+
+To install without features that depend on additional libraries:
+
+```
+cargo install --locked stellar-cli --no-default-features
 ```
 
 ## Usage

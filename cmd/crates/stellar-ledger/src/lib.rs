@@ -1,21 +1,26 @@
 use hd_path::HdPath;
-use ledger_transport::{APDUCommand, Exchange};
+use ledger_transport::APDUCommand;
+pub use ledger_transport::Exchange;
+
 use ledger_transport_hid::{
     hidapi::{HidApi, HidError},
-    LedgerHIDError, TransportNativeHID,
+    LedgerHIDError,
 };
 
-use soroban_env_host::xdr::{Hash, Transaction};
+pub use ledger_transport_hid::TransportNativeHID;
+
 use std::vec;
 use stellar_strkey::DecodeError;
 use stellar_xdr::curr::{
-    self as xdr, Limits, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    WriteXdr,
+    self as xdr, Hash, Limits, Transaction, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
 pub use crate::signer::Blob;
 pub mod hd_path;
 mod signer;
+
+pub mod emulator_test_support;
 
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
@@ -80,6 +85,8 @@ pub struct LedgerSigner<T: Exchange> {
 unsafe impl<T> Send for LedgerSigner<T> where T: Exchange {}
 unsafe impl<T> Sync for LedgerSigner<T> where T: Exchange {}
 
+/// # Errors
+/// Could fail to make the connection to the Ledger device
 pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
     Ok(LedgerSigner {
         transport: get_transport()?,
@@ -93,6 +100,9 @@ where
     pub fn new(transport: T) -> Self {
         Self { transport }
     }
+
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device
     pub fn native() -> Result<LedgerSigner<TransportNativeHID>, Error> {
         Ok(LedgerSigner {
             transport: get_transport()?,
@@ -299,23 +309,17 @@ pub fn test_network_hash() -> Hash {
     Hash(sha2::Sha256::digest(TEST_NETWORK_PASSPHRASE).into())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "http-transport"))]
 mod test {
-    mod test_helpers {
-        pub mod test {
-            include!("../tests/utils/mod.rs");
-        }
-    }
     use httpmock::prelude::*;
     use serde_json::json;
 
+    use super::emulator_test_support::http_transport::Emulator;
     use crate::Blob;
-    use test_helpers::test::emulator_http_transport::EmulatorHttpTransport;
 
-    use soroban_env_host::xdr::Transaction;
     use std::vec;
 
-    use soroban_env_host::xdr::{self, Operation, OperationBody, Uint256};
+    use super::xdr::{self, Operation, OperationBody, Transaction, Uint256};
 
     use crate::{test_network_hash, Error, LedgerSigner};
 
@@ -323,8 +327,8 @@ mod test {
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 
-    fn ledger(server: &MockServer) -> LedgerSigner<EmulatorHttpTransport> {
-        let transport = EmulatorHttpTransport::new(&server.host(), server.port());
+    fn ledger(server: &MockServer) -> LedgerSigner<Emulator> {
+        let transport = Emulator::new(&server.host(), server.port());
         LedgerSigner::new(transport)
     }
 

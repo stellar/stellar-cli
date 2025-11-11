@@ -1,0 +1,145 @@
+use clap::Parser;
+use soroban_sdk::xdr::OperationBody;
+
+use super::global;
+
+pub mod account_merge;
+pub mod begin_sponsoring_future_reserves;
+pub mod bump_sequence;
+pub mod change_trust;
+pub mod claim_claimable_balance;
+pub mod clawback;
+pub mod clawback_claimable_balance;
+pub mod create_account;
+pub mod create_claimable_balance;
+pub mod create_passive_sell_offer;
+pub mod end_sponsoring_future_reserves;
+pub mod liquidity_pool_deposit;
+pub mod liquidity_pool_withdraw;
+pub mod manage_buy_offer;
+pub mod manage_data;
+pub mod manage_sell_offer;
+pub mod path_payment_strict_receive;
+pub mod path_payment_strict_send;
+pub mod payment;
+pub mod revoke_sponsorship;
+pub mod set_options;
+pub mod set_trustline_flags;
+
+#[derive(Debug, Parser)]
+#[allow(clippy::doc_markdown)]
+pub enum Cmd {
+    #[command(about = super::help::ACCOUNT_MERGE)]
+    AccountMerge(account_merge::Cmd),
+    #[command(about = super::help::BEGIN_SPONSORING_FUTURE_RESERVES)]
+    BeginSponsoringFutureReserves(begin_sponsoring_future_reserves::Cmd),
+    #[command(about = super::help::BUMP_SEQUENCE)]
+    BumpSequence(bump_sequence::Cmd),
+    #[command(about = super::help::CHANGE_TRUST)]
+    ChangeTrust(change_trust::Cmd),
+    #[command(about = super::help::CLAIM_CLAIMABLE_BALANCE)]
+    ClaimClaimableBalance(claim_claimable_balance::Cmd),
+    #[command(about = super::help::CLAWBACK)]
+    Clawback(clawback::Cmd),
+    #[command(about = super::help::CLAWBACK_CLAIMABLE_BALANCE)]
+    ClawbackClaimableBalance(clawback_claimable_balance::Cmd),
+    #[command(about = super::help::CREATE_ACCOUNT)]
+    CreateAccount(create_account::Cmd),
+    #[command(about = super::help::CREATE_CLAIMABLE_BALANCE)]
+    CreateClaimableBalance(create_claimable_balance::Cmd),
+    #[command(about = super::help::CREATE_PASSIVE_SELL_OFFER)]
+    CreatePassiveSellOffer(create_passive_sell_offer::Cmd),
+    #[command(about = super::help::END_SPONSORING_FUTURE_RESERVES)]
+    EndSponsoringFutureReserves(end_sponsoring_future_reserves::Cmd),
+    #[command(about = super::help::LIQUIDITY_POOL_DEPOSIT)]
+    LiquidityPoolDeposit(liquidity_pool_deposit::Cmd),
+    #[command(about = super::help::LIQUIDITY_POOL_WITHDRAW)]
+    LiquidityPoolWithdraw(liquidity_pool_withdraw::Cmd),
+    #[command(about = super::help::MANAGE_BUY_OFFER)]
+    ManageBuyOffer(manage_buy_offer::Cmd),
+    #[command(about = super::help::MANAGE_DATA)]
+    ManageData(manage_data::Cmd),
+    #[command(about = super::help::MANAGE_SELL_OFFER)]
+    ManageSellOffer(manage_sell_offer::Cmd),
+    #[command(about = super::help::PATH_PAYMENT_STRICT_SEND)]
+    PathPaymentStrictSend(path_payment_strict_send::Cmd),
+    #[command(about = super::help::PATH_PAYMENT_STRICT_RECEIVE)]
+    PathPaymentStrictReceive(path_payment_strict_receive::Cmd),
+    #[command(about = super::help::PAYMENT)]
+    Payment(payment::Cmd),
+    #[command(about = super::help::REVOKE_SPONSORSHIP)]
+    RevokeSponsorship(revoke_sponsorship::Cmd),
+    #[command(about = super::help::SET_OPTIONS)]
+    SetOptions(set_options::Cmd),
+    #[command(about = super::help::SET_TRUSTLINE_FLAGS)]
+    SetTrustlineFlags(set_trustline_flags::Cmd),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Tx(#[from] super::args::Error),
+}
+
+impl TryFrom<&Cmd> for OperationBody {
+    type Error = super::args::Error;
+    fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
+        Ok(match cmd {
+            Cmd::AccountMerge(cmd) => cmd.try_into()?,
+            Cmd::BeginSponsoringFutureReserves(cmd) => cmd.try_into()?,
+            Cmd::BumpSequence(cmd) => cmd.into(),
+            Cmd::ChangeTrust(cmd) => cmd.try_into()?,
+            Cmd::ClaimClaimableBalance(cmd) => cmd.try_into()?,
+            Cmd::Clawback(cmd) => cmd.try_into()?,
+            Cmd::ClawbackClaimableBalance(cmd) => cmd.try_into()?,
+            Cmd::CreateAccount(cmd) => cmd.try_into()?,
+            Cmd::CreateClaimableBalance(cmd) => cmd.try_into()?,
+            Cmd::CreatePassiveSellOffer(cmd) => cmd.try_into()?,
+            Cmd::EndSponsoringFutureReserves(cmd) => cmd.into(),
+            Cmd::LiquidityPoolDeposit(cmd) => cmd.try_into()?,
+            Cmd::LiquidityPoolWithdraw(cmd) => cmd.try_into()?,
+            Cmd::ManageBuyOffer(cmd) => cmd.try_into()?,
+            Cmd::ManageData(cmd) => cmd.into(),
+            Cmd::ManageSellOffer(cmd) => cmd.try_into()?,
+            Cmd::PathPaymentStrictSend(cmd) => cmd.try_into()?,
+            Cmd::PathPaymentStrictReceive(cmd) => cmd.try_into()?,
+            Cmd::Payment(cmd) => cmd.try_into()?,
+            Cmd::RevokeSponsorship(cmd) => cmd.try_into()?,
+            Cmd::SetOptions(cmd) => cmd.try_into()?,
+            Cmd::SetTrustlineFlags(cmd) => cmd.try_into()?,
+        })
+    }
+}
+
+impl Cmd {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let op = OperationBody::try_from(self)?;
+        match self {
+            Cmd::AccountMerge(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::BeginSponsoringFutureReserves(cmd) => {
+                cmd.tx.handle_and_print(op, global_args).await
+            }
+            Cmd::BumpSequence(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ChangeTrust(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ClaimClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::Clawback(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ClawbackClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::CreateAccount(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::CreateClaimableBalance(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::CreatePassiveSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::EndSponsoringFutureReserves(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::LiquidityPoolDeposit(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::LiquidityPoolWithdraw(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ManageBuyOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ManageData(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::ManageSellOffer(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::PathPaymentStrictSend(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::PathPaymentStrictReceive(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::Payment(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::RevokeSponsorship(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+        }?;
+        Ok(())
+    }
+}

@@ -7,12 +7,14 @@ use std::{fmt::Debug, fs, io};
 
 use clap::{arg, command, Parser};
 
-use crate::commands::{global, NetworkRunnable};
-use crate::config::{
-    self, locator,
-    network::{self, Network},
+use crate::{
+    commands::{global, NetworkRunnable},
+    config::{
+        self, locator,
+        network::{self, Network},
+    },
+    wasm, xdr, Pwd,
 };
-use crate::{wasm, Pwd};
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -20,7 +22,10 @@ use crate::{wasm, Pwd};
 pub struct Cmd {
     /// Contract ID to fetch
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
-    pub contract_id: String,
+    pub contract_id: Option<config::UnresolvedContract>,
+    /// Wasm to fetch
+    #[arg(long = "wasm-hash", conflicts_with = "contract_id")]
+    pub wasm_hash: Option<String>,
     /// Where to write output otherwise stdout is used
     #[arg(long, short = 'o')]
     pub out_file: Option<std::path::PathBuf>,
@@ -61,6 +66,10 @@ pub enum Error {
     CannotCreateContractDir(PathBuf),
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+    #[error("wasm hash is invalid {0:?}")]
+    InvalidWasmHash(String),
+    #[error("must provide one of --wasm-hash, or --id")]
+    MissingArg,
 }
 
 impl From<Infallible> for Error {
@@ -109,6 +118,21 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<Vec<u8>, Error> {
         let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
-        return Ok(wasm::fetch_from_contract(&self.contract_id, &network, &self.locator).await?);
+        if let Some(contract_id) = &self.contract_id {
+            Ok(wasm::fetch_from_contract(
+                &contract_id.resolve_contract_id(&self.locator, &network.network_passphrase)?,
+                &network,
+            )
+            .await?)
+        } else if let Some(wasm_hash) = &self.wasm_hash {
+            let hash = hex::decode(wasm_hash)
+                .map_err(|_| Error::InvalidWasmHash(wasm_hash.clone()))?
+                .try_into()
+                .map_err(|_| Error::InvalidWasmHash(wasm_hash.clone()))?;
+            let hash = xdr::Hash(hash);
+            Ok(wasm::fetch_from_wasm_hash(hash, &network).await?)
+        } else {
+            Err(Error::MissingArg)
+        }
     }
 }

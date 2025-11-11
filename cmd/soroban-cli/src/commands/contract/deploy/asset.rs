@@ -1,49 +1,68 @@
-use clap::{arg, command, Parser};
-use soroban_env_host::{
-    xdr::{
-        Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
-        Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
-        LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-        ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
-    },
-    HostError,
+use crate::config::locator;
+use crate::print::Print;
+use crate::xdr::{
+    Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
+    Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
+    LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
 };
+use clap::{arg, command, Parser};
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
+use crate::commands::tx::fetch;
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     config::{self, data, network},
-    rpc::{Client, Error as SorobanRpcError},
-    utils::{contract_id_hash_from_asset, parsing::parse_asset},
+    rpc::Error as SorobanRpcError,
+    tx::builder,
+    utils::contract_id_hash_from_asset,
 };
+
+use crate::commands::contract::deploy::utils::alias_validator;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error(transparent)]
     Client(#[from] SorobanRpcError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error(transparent)]
     Config(#[from] config::Error),
-    #[error(transparent)]
-    ParseAssetError(#[from] crate::utils::parsing::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Builder(#[from] builder::Error),
+
+    #[error(transparent)]
+    Asset(#[from] builder::asset::Error),
+
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl From<Infallible> for Error {
@@ -57,20 +76,48 @@ impl From<Infallible> for Error {
 pub struct Cmd {
     /// ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
     #[arg(long)]
-    pub asset: String,
+    pub asset: builder::Asset,
 
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
+
+    /// The alias that will be used to save the assets's id.
+    /// Whenever used, `--alias` will always overwrite the existing contract id
+    /// configuration without asking for confirmation.
+    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
+    pub alias: Option<String>,
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.run_against_rpc_server(None, None).await?.to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
+                let network = self.config.get_network()?;
+
+                if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing contract id: {existing_contract}"
+                        ));
+                    }
+
+                    self.config.locator.save_contract_id(
+                        &network.network_passphrase,
+                        &contract,
+                        &alias,
+                    )?;
+                }
+
                 println!("{contract}");
             }
         }
@@ -90,45 +137,50 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Error> {
         let config = config.unwrap_or(&self.config);
         // Parse asset
-        let asset = parse_asset(&self.asset)?;
+        let asset = self.asset.resolve(&config.locator)?;
 
         let network = config.get_network()?;
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.key_pair()?;
+
+        let source_account = config.source_account().await?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
         // TODO: use symbols for the method names (both here and in serve)
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
         let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
-            &asset,
+            asset,
             &contract_id,
             sequence + 1,
             self.fee.fee,
             network_passphrase,
-            &key,
+            source_account,
         )?;
+
         if self.fee.build_only {
-            return Ok(TxnResult::Txn(tx));
+            return Ok(TxnResult::Txn(Box::new(tx)));
         }
-        let txn = client.simulate_and_assemble_transaction(&tx).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
-        if self.fee.sim_only {
-            return Ok(TxnResult::Txn(txn));
-        }
+
+        let assembled =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
+
+        let txn = assembled.transaction().clone();
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign_with_local_key(txn).await?)
-            .await?
-            .try_into()?;
-        if args.map_or(true, |a| !a.no_cache) {
-            data::write(get_txn_resp, &network.rpc_uri()?)?;
+            .send_transaction_polling(&self.config.sign(txn).await?)
+            .await?;
+
+        self.fee.print_cost_info(&get_txn_resp)?;
+
+        if args.is_none_or(|a| !a.no_cache) {
+            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
         Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))
@@ -136,14 +188,14 @@ impl NetworkRunnable for Cmd {
 }
 
 fn build_wrap_token_tx(
-    asset: &Asset,
-    contract_id: &Hash,
+    asset: impl Into<Asset>,
+    contract_id: &stellar_strkey::Contract,
     sequence: i64,
     fee: u32,
     _network_passphrase: &str,
-    key: &ed25519_dalek::SigningKey,
+    source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(contract_id.clone());
+    let contract = ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract_id.0)));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),
@@ -158,7 +210,8 @@ fn build_wrap_token_tx(
             durability: ContractDataDurability::Persistent,
         }),
     ];
-    if asset != &Asset::Native {
+    let asset = asset.into();
+    if asset != Asset::Native {
         read_write.push(ContractData(LedgerKeyContractData {
             contract,
             key: ScVal::Vec(Some(
@@ -172,7 +225,7 @@ fn build_wrap_token_tx(
         source_account: None,
         body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
+                contract_id_preimage: ContractIdPreimage::Asset(asset),
                 executable: ContractExecutable::StellarAsset,
             }),
             auth: VecM::default(),
@@ -180,7 +233,7 @@ fn build_wrap_token_tx(
     };
 
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account,
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

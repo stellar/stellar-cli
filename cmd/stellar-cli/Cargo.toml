@@ -6,7 +6,7 @@ repository = "https://github.com/stellar/stellar-cli"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.4.1"
+version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 autobins = false
@@ -16,17 +16,14 @@ default-run = "stellar"
 name = "stellar"
 path = "src/bin/stellar.rs"
 
-[[bin]]
-name = "soroban"
-path = "src/bin/soroban.rs"
-
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }{ archive-suffix }"
 bin-dir = "{ bin }{ binary-ext }"
 
 [features]
-default = []
-opt = ["soroban-cli/opt"]
+default = ["additional-libs"]
+additional-libs = ["soroban-cli/additional-libs"]
+emulator-tests = ["soroban-cli/emulator-tests"]
 
 [dependencies]
 soroban-cli = { workspace = true }

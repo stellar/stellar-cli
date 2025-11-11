@@ -1,0 +1,39 @@
+name: 'Artifact upload'
+description: 'Uploads artifact to release'
+inputs:
+  name:
+    description: "Name of the artifact to upload"
+    required: true
+  path:
+    description: "Path of the artifact to upload"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+
+    - name: Build provenance for attestation (release only)
+      if: github.event_name == 'release'
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: ${{ inputs.path }}
+
+    - name: Upload to Release (release only)
+      if: github.event_name == 'release'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          await github.rest.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: ${{ github.event.release.id }},
+            name: '${{ inputs.name }}',
+            data: fs.readFileSync('${{ inputs.path }}'),
+          });
+    
+

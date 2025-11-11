@@ -115,8 +115,10 @@ impl CustomAccountInterface for Contract {
                         return Err(Error::NotPermitted);
                     }
                 }
-                Context::CreateContractHostFn(_) => return Err(Error::InvalidContext),
-            };
+                Context::CreateContractWithCtorHostFn(_) | Context::CreateContractHostFn(_) => {
+                    return Err(Error::InvalidContext)
+                }
+            }
         }
 
         // Dummy public key verification check

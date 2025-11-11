@@ -1,9 +1,6 @@
-use crate::config::locator;
-use crate::config::network::Network;
+use crate::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
 use clap::arg;
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
-use soroban_rpc::Client;
 use soroban_spec_tools::contract::{self, Spec};
 use std::{
     fs, io,
@@ -11,10 +8,14 @@ use std::{
 };
 use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
 
-use crate::utils::rpc::get_remote_wasm_from_hash;
-use crate::utils::{self};
-
-use crate::wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken};
+use crate::{
+    config::{
+        locator,
+        network::{Error as NetworkError, Network},
+    },
+    utils::{self, rpc::get_remote_wasm_from_hash},
+    wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -41,12 +42,14 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error("unexpected contract data {0:?}")]
-    UnexpectedContractToken(ContractDataEntry),
+    UnexpectedContractToken(Box<ContractDataEntry>),
     #[error(
         "cannot fetch wasm for contract because the contract is \
     a network built-in asset contract that does not have a downloadable code binary"
     )]
     ContractIsStellarAsset,
+    #[error(transparent)]
+    Network(#[from] NetworkError),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -118,17 +121,11 @@ pub fn len(p: &Path) -> Result<u64, Error> {
 }
 
 pub async fn fetch_from_contract(
-    contract_id: &str,
+    stellar_strkey::Contract(contract_id): &stellar_strkey::Contract,
     network: &Network,
-    locator: &locator::Args,
 ) -> Result<Vec<u8>, Error> {
     tracing::trace!(?network);
-
-    let contract_id = &locator
-        .resolve_contract_id(contract_id, &network.network_passphrase)?
-        .0;
-
-    let client = Client::new(&network.rpc_url)?;
+    let client = network.rpc_client()?;
     client
         .verify_network_passphrase(Some(&network.network_passphrase))
         .await?;
@@ -139,5 +136,11 @@ pub async fn fetch_from_contract(
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
         };
     }
-    Err(UnexpectedContractToken(data_entry))
+    Err(UnexpectedContractToken(Box::new(data_entry)))
+}
+
+pub async fn fetch_from_wasm_hash(hash: Hash, network: &Network) -> Result<Vec<u8>, Error> {
+    tracing::trace!(?network);
+    let client = network.rpc_client()?;
+    Ok(get_remote_wasm_from_hash(&client, &hash).await?)
 }

@@ -1,3 +1,5 @@
+use crate::{commands::global, print::Print, utils::deprecate_message};
+
 use super::{deploy, id};
 
 #[derive(Debug, clap::Subcommand)]
@@ -17,10 +19,19 @@ pub enum Error {
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+
         match &self {
-            Cmd::Id(id) => id.run()?,
-            Cmd::Deploy(asset) => asset.run().await?,
+            Cmd::Id(id) => {
+                deprecate_message(
+                    print,
+                    "stellar contract asset id",
+                    "Use `stellar contract id asset` instead.",
+                );
+                id.run()?;
+            }
+            Cmd::Deploy(asset) => asset.run(global_args).await?,
         }
         Ok(())
     }

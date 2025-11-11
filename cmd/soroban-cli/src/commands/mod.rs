@@ -3,14 +3,20 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
-use crate::config;
+use crate::{config, print::Print, utils::deprecate_message};
 
 pub mod cache;
+pub mod cfg;
 pub mod completion;
+pub mod container;
 pub mod contract;
+pub mod doctor;
+pub mod env;
 pub mod events;
+pub mod fee_stats;
 pub mod global;
 pub mod keys;
+pub mod ledger;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
@@ -20,6 +26,8 @@ pub mod version;
 pub mod txn_result;
 
 pub const HEADING_RPC: &str = "Options (RPC)";
+pub const HEADING_ARCHIVE: &str = "Options (Archive)";
+pub const HEADING_GLOBAL: &str = "Options (Global)";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
@@ -35,7 +43,7 @@ For additional information see:
 
 - Stellar Docs: https://developers.stellar.org
 - Smart Contract Docs: https://developers.stellar.org/docs/build/smart-contracts/overview
-- CLI Docs: https://developers.stellar.org/docs/tools/stellar-cli";
+- CLI Docs: https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli";
 
 // long_about is shown when someone uses `--help`; short help when using `-h`
 const LONG_ABOUT: &str = "
@@ -79,18 +87,16 @@ impl Root {
     pub fn new() -> Result<Self, Error> {
         Self::try_parse().map_err(|e| {
             if std::env::args().any(|s| s == "--list") {
-                let plugins = plugin::list().unwrap_or_default();
-                if plugins.is_empty() {
-                    println!("No Plugins installed. E.g. soroban-hello");
-                } else {
-                    println!("Installed Plugins:\n    {}", plugins.join("\n    "));
-                }
+                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
+                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
+                let _ = plugin::ls::Cmd.run();
                 std::process::exit(0);
             }
+
             match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::run() {
+                ErrorKind::InvalidSubcommand => match plugin::default::run() {
                     Ok(()) => Error::Clap(e),
-                    Err(e) => Error::Plugin(e),
+                    Err(e) => Error::PluginDefault(e),
                 },
                 _ => Error::Clap(e),
             }
@@ -104,19 +110,37 @@ impl Root {
     {
         Self::from_arg_matches_mut(&mut Self::command().get_matches_from(itr))
     }
+
     pub async fn run(&mut self) -> Result<(), Error> {
+        let print = Print::new(self.global_args.quiet);
+
+        if self.global_args.locator.global {
+            deprecate_message(
+                print,
+                "--global",
+                "Global configuration is now the default behavior.",
+            );
+        }
+
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
+            Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
             Cmd::Contract(contract) => contract.run(&self.global_args).await?,
+            Cmd::Doctor(doctor) => doctor.run(&self.global_args).await?,
+            Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
+            Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
-            Cmd::Keys(id) => id.run().await?,
+            Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
-            Cmd::Cache(data) => data.run()?,
-        };
+            Cmd::Cache(cache) => cache.run()?,
+            Cmd::Env(env) => env.run(&self.global_args)?,
+            Cmd::Ledger(env) => env.run(&self.global_args).await?,
+            Cmd::FeeStats(env) => env.run(&self.global_args).await?,
+        }
         Ok(())
     }
 }
@@ -134,16 +158,38 @@ pub enum Cmd {
     /// Tools for smart contract developers
     #[command(subcommand)]
     Contract(contract::Cmd),
+
+    /// Diagnose and troubleshoot CLI and network issues
+    Doctor(doctor::Cmd),
+
     /// Watch the network for contract events
     Events(events::Cmd),
+
+    /// Prints the environment variables
+    ///
+    /// Prints to stdout in a format that can be used as .env file. Environment
+    /// variables have precedence over defaults.
+    ///
+    /// Pass a name to get the value of a single environment variable.
+    ///
+    /// If there are no environment variables in use, prints the defaults.
+    Env(env::Cmd),
 
     /// Create and manage identities including keys and addresses
     #[command(subcommand)]
     Keys(keys::Cmd),
 
-    /// Start and configure networks
+    /// Configure connection to networks
     #[command(subcommand)]
     Network(network::Cmd),
+
+    /// Start local networks in containers
+    #[command(subcommand)]
+    Container(container::Cmd),
+
+    /// Manage cli configuration
+    #[command(subcommand)]
+    Config(cfg::Cmd),
 
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
@@ -159,11 +205,24 @@ pub enum Cmd {
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
+
     /// Cache for transactions and contract specs
     #[command(subcommand)]
     Cache(cache::Cmd),
+
     /// Print version information
     Version(version::Cmd),
+
+    /// The subcommand for CLI plugins
+    #[command(subcommand)]
+    Plugin(plugin::Cmd),
+
+    /// Fetch ledger information
+    #[command(subcommand)]
+    Ledger(ledger::Cmd),
+
+    /// Fetch network feestats
+    FeeStats(fee_stats::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -171,24 +230,54 @@ pub enum Error {
     // TODO: stop using Debug for displaying errors
     #[error(transparent)]
     Contract(#[from] contract::Error),
+
+    #[error(transparent)]
+    Doctor(#[from] doctor::Error),
+
     #[error(transparent)]
     Events(#[from] events::Error),
+
     #[error(transparent)]
     Keys(#[from] keys::Error),
+
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
+
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
+
     #[error(transparent)]
     Plugin(#[from] plugin::Error),
+
+    #[error(transparent)]
+    PluginDefault(#[from] plugin::default::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Config(#[from] cfg::Error),
+
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+
     #[error(transparent)]
     Tx(#[from] tx::Error),
+
     #[error(transparent)]
     Cache(#[from] cache::Error),
+
+    #[error(transparent)]
+    Env(#[from] env::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
+
+    #[error(transparent)]
+    FeeStats(#[from] fee_stats::Error),
 }
 
 #[async_trait]

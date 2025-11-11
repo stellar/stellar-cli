@@ -1,13 +1,13 @@
-use crate::{
-    commands::contract::Durability,
-    config::{locator, network::Network},
-    wasm,
-};
-use clap::arg;
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, LedgerKey, LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress,
     ScVal,
 };
+use crate::{
+    commands::contract::Durability,
+    config::{alias, locator, network::Network},
+    wasm,
+};
+use clap::arg;
 use std::path::PathBuf;
 
 #[derive(thiserror::Error, Debug)]
@@ -34,7 +34,7 @@ pub struct Args {
         required_unless_present = "wasm",
         required_unless_present = "wasm_hash"
     )]
-    pub contract_id: Option<String>,
+    pub contract_id: Option<alias::UnresolvedContract>,
     /// Storage key (symbols only)
     #[arg(long = "key", conflicts_with = "key_xdr")]
     pub key: Option<Vec<String>>,
@@ -97,14 +97,19 @@ impl Args {
         } else {
             vec![ScVal::LedgerKeyContractInstance]
         };
-        let contract =
-            locator.resolve_contract_id(self.contract_id.as_ref().unwrap(), network_passphrase)?;
+        let contract = self
+            .contract_id
+            .as_ref()
+            .unwrap()
+            .resolve_contract_id(locator, network_passphrase)?;
 
         Ok(keys
             .into_iter()
             .map(|key| {
                 LedgerKey::ContractData(LedgerKeyContractData {
-                    contract: ScAddress::Contract(xdr::Hash(contract.0)),
+                    contract: ScAddress::Contract(stellar_xdr::curr::ContractId(xdr::Hash(
+                        contract.0,
+                    ))),
                     durability: (&self.durability).into(),
                     key,
                 })

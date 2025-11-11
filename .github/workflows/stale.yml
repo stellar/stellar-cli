@@ -1,0 +1,28 @@
+---
+name: "Stale Issues / PRs"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *" # approx 9:30am daily
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v10
+        with:
+          debug-only: false
+          days-before-stale: 90
+          days-before-close: -1
+          stale-issue-message:
+            "This issue is stale because it has been assigned for 90 days with
+            no activity."
+          stale-pr-message:
+            "This pull request is stale because it has been open for 90 days
+            with no activity."
+          stale-issue-label: stale
+          stale-pr-label: stale
+          remove-stale-when-updated: true
+          delete-branch: true
+          include-only-assigned: true

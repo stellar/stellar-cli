@@ -1,45 +1,31 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
 use clap::{command, Parser};
-use soroban_spec_tools::contract as contract_spec;
-use soroban_spec_typescript::{self as typescript, boilerplate::Project};
-use stellar_strkey::DecodeError;
+use soroban_spec_tools::contract as spec_tools;
+use soroban_spec_typescript::boilerplate::Project;
 
-use crate::wasm;
+use crate::print::Print;
 use crate::{
-    commands::{contract::fetch, global, NetworkRunnable},
-    config::{
-        self, locator,
-        network::{self, Network},
-    },
-    get_spec::{self, get_remote_contract_spec},
+    commands::{contract::info::shared as contract_spec, global, NetworkRunnable},
+    config,
 };
+use soroban_spec_tools::contract::Spec;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Path to optional wasm binary
-    #[arg(long)]
-    pub wasm: Option<std::path::PathBuf>,
+    #[command(flatten)]
+    pub wasm_or_hash_or_contract_id: contract_spec::Args,
     /// Where to place generated project
     #[arg(long)]
     pub output_dir: PathBuf,
     /// Whether to overwrite output directory if it already exists
     #[arg(long)]
     pub overwrite: bool,
-    /// The contract ID/address on the network
-    #[arg(long, visible_alias = "id")]
-    pub contract_id: String,
-    #[command(flatten)]
-    pub locator: locator::Args,
-    #[command(flatten)]
-    pub network: network::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("failed generate TS from file: {0}")]
-    GenerateTSFromFile(typescript::GenerateFromFileError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -53,24 +39,13 @@ pub enum Error {
     NotUtf8(OsString),
 
     #[error(transparent)]
-    Network(#[from] network::Error),
-
-    #[error(transparent)]
-    Locator(#[from] locator::Error),
-    #[error(transparent)]
-    Fetch(#[from] fetch::Error),
-    #[error(transparent)]
-    Spec(#[from] contract_spec::Error),
-    #[error(transparent)]
-    Wasm(#[from] wasm::Error),
+    Spec(#[from] spec_tools::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
-    #[error("cannot parse contract ID {0}: {1}")]
-    CannotParseContractId(String, DecodeError),
     #[error(transparent)]
-    UtilsError(#[from] get_spec::Error),
+    WasmOrContract(#[from] contract_spec::Error),
     #[error(transparent)]
-    Config(#[from] config::Error),
+    Xdr(#[from] crate::xdr::Error),
 }
 
 #[async_trait::async_trait]
@@ -81,32 +56,20 @@ impl NetworkRunnable for Cmd {
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        _config: Option<&config::Args>,
     ) -> Result<(), Error> {
-        let spec = if let Some(wasm) = &self.wasm {
-            let wasm: wasm::Args = wasm.into();
-            wasm.parse()?.spec
-        } else {
-            let network = config.map_or_else(
-                || self.network.get(&self.locator).map_err(Error::from),
-                |c| c.get_network().map_err(Error::from),
-            )?;
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
 
-            let contract_id = self
-                .locator
-                .resolve_contract_id(&self.contract_id, &network.network_passphrase)?
-                .0;
+        let contract_spec::Fetched { contract, source } =
+            contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
 
-            get_remote_contract_spec(
-                &contract_id,
-                &self.locator,
-                &self.network,
-                global_args,
-                config,
-            )
-            .await
-            .map_err(Error::from)?
+        let spec = match contract {
+            contract_spec::Contract::Wasm { wasm_bytes } => Spec::new(&wasm_bytes)?.spec,
+            contract_spec::Contract::StellarAssetContract => {
+                soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
+            }
         };
+
         if self.output_dir.is_file() {
             return Err(Error::IsFile(self.output_dir.clone()));
         }
@@ -119,16 +82,6 @@ impl NetworkRunnable for Cmd {
         }
         std::fs::create_dir_all(&self.output_dir)?;
         let p: Project = self.output_dir.clone().try_into()?;
-        let Network {
-            rpc_url,
-            network_passphrase,
-            ..
-        } = self.network.get(&self.locator).ok().unwrap_or_else(|| {
-            network::DEFAULTS
-                .get("futurenet")
-                .expect("why did we remove the default futurenet network?")
-                .into()
-        });
         let absolute_path = self.output_dir.canonicalize()?;
         let file_name = absolute_path
             .file_name()
@@ -136,24 +89,29 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
+        let (resolved_address, network) = match source {
+            contract_spec::Source::Contract {
+                resolved_address,
+                network,
+            } => {
+                print.infoln(format!("Embedding contract address: {resolved_address}"));
+                (Some(resolved_address), Some(network))
+            }
+            contract_spec::Source::Wasm { network, .. } => (None, Some(network)),
+            contract_spec::Source::File { .. } => (None, None),
+        };
         p.init(
             contract_name,
-            &self.contract_id,
-            &rpc_url,
-            &network_passphrase,
+            resolved_address.as_deref(),
+            network.as_ref().map(|n| n.rpc_url.as_ref()),
+            network.as_ref().map(|n| n.network_passphrase.as_ref()),
             &spec,
         )?;
-        std::process::Command::new("npm")
-            .arg("install")
-            .current_dir(&self.output_dir)
-            .spawn()?
-            .wait()?;
-        std::process::Command::new("npm")
-            .arg("run")
-            .arg("build")
-            .current_dir(&self.output_dir)
-            .spawn()?
-            .wait()?;
+        print.checkln("Generated!");
+        print.infoln(format!(
+            "Run \"npm install && npm run build\" in {:?} to build the JavaScript NPM package.",
+            self.output_dir
+        ));
         Ok(())
     }
 }

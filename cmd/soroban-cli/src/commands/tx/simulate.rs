@@ -1,6 +1,9 @@
-use crate::xdr::{self, TransactionEnvelope, WriteXdr};
+use crate::{
+    assembled::{simulate_and_assemble_transaction, Assembled},
+    xdr::{self, TransactionEnvelope, WriteXdr},
+};
 use async_trait::async_trait;
-use soroban_rpc::Assembled;
+use std::ffi::OsString;
 
 use crate::commands::{config, global, NetworkRunnable};
 
@@ -14,15 +17,25 @@ pub enum Error {
     Rpc(#[from] crate::rpc::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+    #[error(transparent)]
+    Network(#[from] config::network::Error),
 }
 
 /// Command to simulate a transaction envelope via rpc
-/// e.g. `cat file.txt | soroban tx simulate`
+/// e.g. `stellar tx simulate file.txt` or `cat file.txt | stellar tx simulate`
 #[derive(Debug, clap::Parser, Clone, Default)]
 #[group(skip)]
 pub struct Cmd {
+    /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty
+    #[arg()]
+    pub tx_xdr: Option<OsString>,
+
     #[clap(flatten)]
-    pub config: super::super::config::Args,
+    pub config: config::Args,
+
+    /// Allow this many extra instructions when budgeting resources during transaction simulation
+    #[arg(long)]
+    pub instruction_leeway: Option<u64>,
 }
 
 impl Cmd {
@@ -48,8 +61,12 @@ impl NetworkRunnable for Cmd {
     ) -> Result<Self::Result, Self::Error> {
         let config = config.unwrap_or(&self.config);
         let network = config.get_network()?;
-        let client = crate::rpc::Client::new(&network.rpc_url)?;
-        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_stdin()?)?;
-        Ok(client.simulate_and_assemble_transaction(&tx).await?)
+        let client = network.rpc_client()?;
+        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
+        let resource_config = self
+            .instruction_leeway
+            .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
+        let tx = simulate_and_assemble_transaction(&client, &tx, resource_config).await?;
+        Ok(tx)
     }
 }

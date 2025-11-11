@@ -4,6 +4,7 @@ import {
   AssembledTransaction,
   Client as ContractClient,
   ClientOptions as ContractClientOptions,
+  MethodOptions,
   Result,
   Spec as ContractSpec,
 } from '@stellar/stellar-sdk/contract';
@@ -30,12 +31,7 @@ if (typeof window !== 'undefined') {
 }
 
 
-export const networks = {
-  futurenet: {
-    networkPassphrase: "Test SDF Future Network ; October 2022",
-    contractId: "CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK",
-  }
-} as const
+
 
 
 /**
@@ -56,6 +52,7 @@ export enum RoyalCard {
 }
 
 export type TupleStruct = readonly [Test,  SimpleEnum];
+
 export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tuple", values: readonly [TupleStruct]} | {tag: "Enum", values: readonly [SimpleEnum]} | {tag: "Asset", values: readonly [string, i128]} | {tag: "Void", values: void};
 
 export const Errors = {
@@ -63,6 +60,14 @@ export const Errors = {
    * Please provide an odd number
    */
   1: {message:"NumberMustBeOdd"}
+}
+
+export const Erroneous = {
+  /**
+   * Some contract libraries contain extra #[contracterror] definitions that end up compiled
+   * into the main contract types. We need to make sure tooling deals with this properly.
+   */
+  100: {message:"HowCouldYou"}
 }
 
 export interface Client {
@@ -631,6 +636,20 @@ export interface Client {
 
 }
 export class Client extends ContractClient {
+  static async deploy<T = Client>(
+    /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
+    options: MethodOptions &
+      Omit<ContractClientOptions, "contractId"> & {
+        /** The hash of the Wasm blob, which must already be installed on-chain. */
+        wasmHash: Buffer | string;
+        /** Salt used to generate the contract's ID. Passed through to {@link Operation.createCustomContract}. Default: random. */
+        salt?: Buffer | Uint8Array;
+        /** The format used to decode `wasmHash`, if it's provided as a string. */
+        format?: "hex" | "base64";
+      }
+  ): Promise<AssembledTransaction<T>> {
+    return ContractClient.deploy(null, options)
+  }
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAAAQAAAC9UaGlzIGlzIGZyb20gdGhlIHJ1c3QgZG9jIGFib3ZlIHRoZSBzdHJ1Y3QgVGVzdAAAAAAAAAAABFRlc3QAAAADAAAAAAAAAAFhAAAAAAAABAAAAAAAAAABYgAAAAAAAAEAAAAAAAAAAWMAAAAAAAAR",
@@ -639,6 +658,7 @@ export class Client extends ContractClient {
         "AAAAAQAAAAAAAAAAAAAAC1R1cGxlU3RydWN0AAAAAAIAAAAAAAAAATAAAAAAAAfQAAAABFRlc3QAAAAAAAAAATEAAAAAAAfQAAAAClNpbXBsZUVudW0AAA==",
         "AAAAAgAAAAAAAAAAAAAAC0NvbXBsZXhFbnVtAAAAAAUAAAABAAAAAAAAAAZTdHJ1Y3QAAAAAAAEAAAfQAAAABFRlc3QAAAABAAAAAAAAAAVUdXBsZQAAAAAAAAEAAAfQAAAAC1R1cGxlU3RydWN0AAAAAAEAAAAAAAAABEVudW0AAAABAAAH0AAAAApTaW1wbGVFbnVtAAAAAAABAAAAAAAAAAVBc3NldAAAAAAAAAIAAAATAAAACwAAAAAAAAAAAAAABFZvaWQ=",
         "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAQAAABxQbGVhc2UgcHJvdmlkZSBhbiBvZGQgbnVtYmVyAAAAD051bWJlck11c3RCZU9kZAAAAAAB",
+        "AAAABAAAAAAAAAAAAAAACUVycm9uZW91cwAAAAAAAAEAAACsU29tZSBjb250cmFjdCBsaWJyYXJpZXMgY29udGFpbiBleHRyYSAjW2NvbnRyYWN0ZXJyb3JdIGRlZmluaXRpb25zIHRoYXQgZW5kIHVwIGNvbXBpbGVkCmludG8gdGhlIG1haW4gY29udHJhY3QgdHlwZXMuIFdlIG5lZWQgdG8gbWFrZSBzdXJlIHRvb2xpbmcgZGVhbHMgd2l0aCB0aGlzIHByb3Blcmx5LgAAAAtIb3dDb3VsZFlvdQAAAABk",
         "AAAAAAAAAAAAAAAFaGVsbG8AAAAAAAABAAAAAAAAAAVoZWxsbwAAAAAAABEAAAABAAAAEQ==",
         "AAAAAAAAAAAAAAAEd29pZAAAAAAAAAAA",
         "AAAAAAAAAAAAAAADdmFsAAAAAAAAAAABAAAAAA==",

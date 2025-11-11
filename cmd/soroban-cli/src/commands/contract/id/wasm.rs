@@ -1,9 +1,9 @@
-use clap::{arg, command, Parser};
-use sha2::{Digest, Sha256};
-use soroban_env_host::xdr::{
+use crate::xdr::{
     self, AccountId, ContractIdPreimage, ContractIdPreimageFromAddress, Hash, HashIdPreimage,
     HashIdPreimageContractId, Limits, PublicKey, ScAddress, Uint256, WriteXdr,
 };
+use clap::{arg, command, Parser};
+use sha2::{Digest, Sha256};
 
 use crate::config;
 
@@ -20,34 +20,39 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    ParseError(#[from] crate::utils::parsing::Error),
-    #[error(transparent)]
     ConfigError(#[from] config::Error),
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("cannot parse salt {0}")]
     CannotParseSalt(String),
+    #[error("only Ed25519 accounts are allowed")]
+    OnlyEd25519AccountsAllowed,
 }
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         let salt: [u8; 32] = soroban_spec_tools::utils::padded_hex_from_str(&self.salt, 32)
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?
             .try_into()
             .map_err(|_| Error::CannotParseSalt(self.salt.clone()))?;
-        let contract_id_preimage =
-            contract_preimage(&self.config.key_pair()?.verifying_key(), salt);
+        let source_account = match self.config.source_account().await? {
+            xdr::MuxedAccount::Ed25519(uint256) => stellar_strkey::ed25519::PublicKey(uint256.0),
+            xdr::MuxedAccount::MuxedEd25519(_) => return Err(Error::OnlyEd25519AccountsAllowed),
+        };
+        let contract_id_preimage = contract_preimage(&source_account, salt);
         let contract_id = get_contract_id(
             contract_id_preimage.clone(),
             &self.config.get_network()?.network_passphrase,
         )?;
-        let strkey_contract_id = stellar_strkey::Contract(contract_id.0).to_string();
-        println!("{strkey_contract_id}");
+        println!("{contract_id}");
         Ok(())
     }
 }
 
-pub fn contract_preimage(key: &ed25519_dalek::VerifyingKey, salt: [u8; 32]) -> ContractIdPreimage {
-    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.to_bytes().into()));
+pub fn contract_preimage(
+    key: &stellar_strkey::ed25519::PublicKey,
+    salt: [u8; 32],
+) -> ContractIdPreimage {
+    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(key.0.into()));
     ContractIdPreimage::Address(ContractIdPreimageFromAddress {
         address: ScAddress::Account(source_account),
         salt: Uint256(salt),
@@ -57,12 +62,14 @@ pub fn contract_preimage(key: &ed25519_dalek::VerifyingKey, salt: [u8; 32]) -> C
 pub fn get_contract_id(
     contract_id_preimage: ContractIdPreimage,
     network_passphrase: &str,
-) -> Result<Hash, Error> {
+) -> Result<stellar_strkey::Contract, Error> {
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
     let preimage = HashIdPreimage::ContractId(HashIdPreimageContractId {
         network_id,
         contract_id_preimage,
     });
     let preimage_xdr = preimage.to_xdr(Limits::none())?;
-    Ok(Hash(Sha256::digest(preimage_xdr).into()))
+    Ok(stellar_strkey::Contract(
+        Sha256::digest(preimage_xdr).into(),
+    ))
 }

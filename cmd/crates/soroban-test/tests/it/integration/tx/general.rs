@@ -1,0 +1,167 @@
+use soroban_cli::assembled::simulate_and_assemble_transaction;
+use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
+use soroban_test::{AssertExt, TestEnv};
+
+use crate::integration::util::{
+    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+};
+
+#[tokio::test]
+async fn simulate() {
+    let sandbox = &TestEnv::new();
+    let salt = Some(String::from("A"));
+    let xdr_base64_build_only = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            kind: DeployKind::BuildOnly,
+            salt: salt.clone(),
+            ..Default::default()
+        },
+    )
+    .await;
+    let tx_env =
+        TransactionEnvelope::from_xdr_base64(&xdr_base64_build_only, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(tx_env.clone()).unwrap();
+    let assembled_str = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(xdr_base64_build_only.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx, None)
+        .await
+        .unwrap();
+    let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
+    assert_eq!(
+        txn_env.to_xdr_base64(Limits::none()).unwrap(),
+        assembled_str
+    );
+}
+
+fn test_tx_string(sandbox: &TestEnv) -> String {
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("upload")
+        .args([
+            "--wasm",
+            HELLO_WORLD.path().as_os_str().to_str().unwrap(),
+            "--build-only",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str()
+}
+
+#[tokio::test]
+async fn sequence_number_next() {
+    let sandbox = &TestEnv::new();
+    let tx_base64 = test_tx_string(sandbox);
+    let test = test_address(sandbox);
+    let client = sandbox.network.rpc_client().unwrap();
+    let test_account = client.get_account(&test).await.unwrap();
+    let test_account_seq_num = test_account.seq_num.as_ref();
+
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("update")
+        .arg("seq-num")
+        .arg("next")
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
+    assert_eq!(
+        tx.seq_num,
+        soroban_cli::xdr::SequenceNumber(test_account_seq_num + 1)
+    );
+}
+
+#[tokio::test]
+async fn txn_hash() {
+    let sandbox = &TestEnv::new();
+
+    let xdr_base64 = "AAAAAgAAAACVk/0xt9tV/cUbF53iwQ3tkKLlq9zG2wV5qd9lRjZjlQAHt/sAFsKTAAAABAAAAAEAAAAAAAAAAAAAAABmOg6nAAAAAAAAAAEAAAAAAAAAGAAAAAAAAAABfcHs35M1GZ/JkY2+DHMs4dEUaqjynMnDYK/Gp0eulN8AAAAIdHJhbnNmZXIAAAADAAAAEgAAAAEFO1FR2Wg49QFY5KPOFAQ0bV5fN+7LD2GSQvOaHSH44QAAABIAAAAAAAAAAJWT/TG321X9xRsXneLBDe2QouWr3MbbBXmp32VGNmOVAAAACgAAAAAAAAAAAAAAADuaygAAAAABAAAAAQAAAAEFO1FR2Wg49QFY5KPOFAQ0bV5fN+7LD2GSQvOaHSH44QAAAY9SyLSVABbC/QAAABEAAAABAAAAAwAAAA8AAAASYXV0aGVudGljYXRvcl9kYXRhAAAAAAANAAAAJUmWDeWIDoxodDQXD2R2YFuP5K65ooYyx5lc87qDHZdjHQAAAAAAAAAAAAAPAAAAEGNsaWVudF9kYXRhX2pzb24AAAANAAAAcnsidHlwZSI6IndlYmF1dGhuLmdldCIsImNoYWxsZW5nZSI6ImhnMlRhOG8wWTliWFlyWlMyZjhzWk1kRFp6ektCSXhQNTZSd1FaNE90bTgiLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjQ1MDcifQAAAAAADwAAAAlzaWduYXR1cmUAAAAAAAANAAAAQBcpuTFMxzkAdBs+5VIyJCBHaNuwEAva+kZVET4YuHVKF8gNII567RhxsnhBBSo5dDvssTN6vf2i42eEty66MtoAAAAAAAAAAX3B7N+TNRmfyZGNvgxzLOHRFGqo8pzJw2CvxqdHrpTfAAAACHRyYW5zZmVyAAAAAwAAABIAAAABBTtRUdloOPUBWOSjzhQENG1eXzfuyw9hkkLzmh0h+OEAAAASAAAAAAAAAACVk/0xt9tV/cUbF53iwQ3tkKLlq9zG2wV5qd9lRjZjlQAAAAoAAAAAAAAAAAAAAAA7msoAAAAAAAAAAAEAAAAAAAAAAwAAAAYAAAABfcHs35M1GZ/JkY2+DHMs4dEUaqjynMnDYK/Gp0eulN8AAAAUAAAAAQAAAAYAAAABBTtRUdloOPUBWOSjzhQENG1eXzfuyw9hkkLzmh0h+OEAAAAUAAAAAQAAAAeTiL4Gr2piUAmsXTev1ZzJ4kE2NUGZ0QMObd05iAMyzAAAAAMAAAAGAAAAAX3B7N+TNRmfyZGNvgxzLOHRFGqo8pzJw2CvxqdHrpTfAAAAEAAAAAEAAAACAAAADwAAAAdCYWxhbmNlAAAAABIAAAABBTtRUdloOPUBWOSjzhQENG1eXzfuyw9hkkLzmh0h+OEAAAABAAAAAAAAAACVk/0xt9tV/cUbF53iwQ3tkKLlq9zG2wV5qd9lRjZjlQAAAAYAAAABBTtRUdloOPUBWOSjzhQENG1eXzfuyw9hkkLzmh0h+OEAAAAVAAABj1LItJUAAAAAAEyTowAAGMgAAAG4AAAAAAADJBsAAAABRjZjlQAAAEASFnAIzNqpfdzv6yT0rSLMUDFgt7a/inCHurNCG55Jp8Imho04qRH+JNdkq0BgMC7yAJqH4N6Y2iGflFt3Lp4L";
+
+    let expected_hash = "bcc9fa60c8f6607c981d6e1c65d77ae07617720113f9080fe5883d8e4a331a68";
+
+    let hash = sandbox
+        .new_assert_cmd("tx")
+        .arg("hash")
+        .write_stdin(xdr_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(hash.trim(), expected_hash);
+}
+
+#[tokio::test]
+async fn build_simulate_sign_send() {
+    let sandbox = &TestEnv::new();
+    // Generate a fresh account that hasn't been used yet to avoid sequence number conflicts
+    sandbox.generate_account("fresh", None).assert().success();
+    build_sim_sign_send(sandbox, "fresh", "--sign-with-key=fresh").await;
+}
+
+pub(crate) async fn build_sim_sign_send(sandbox: &TestEnv, account: &str, sign_with: &str) {
+    // First deploy a contract normally so we have something to invoke
+    let contract_id = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            deployer: Some(account.to_string()),
+            ..Default::default()
+        },
+    )
+    .await;
+
+    // Now build an invoke transaction that can be safely simulated and sent
+    let xdr_base64_build_only = sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--build-only",
+            "--id",
+            &contract_id,
+            "--source",
+            account,
+            "--",
+            "hello",
+            "--world",
+            "test",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let tx_simulated = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(xdr_base64_build_only.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    dbg!("{tx_simulated}");
+
+    let tx_signed = sandbox
+        .new_assert_cmd("tx")
+        .arg("sign")
+        .arg(sign_with)
+        .write_stdin(tx_simulated.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+    dbg!("{tx_signed}");
+
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("send")
+        .write_stdin(tx_signed.as_bytes())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("SUCCESS"));
+}

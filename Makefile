@@ -1,6 +1,5 @@
 all: check build test
 
-export RUSTFLAGS=-Dwarnings -Dclippy::all -Dclippy::pedantic
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
 ifeq (${REPOSITORY_COMMIT_HASH},"")
@@ -10,10 +9,12 @@ endif
 # By default make `?=` operator will treat empty assignment as a set value and will not use the default value.
 # Both cases should fallback to default of getting the version from git tag.
 ifeq ($(strip $(REPOSITORY_VERSION)),)
-	override REPOSITORY_VERSION = "$(shell git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
+	override REPOSITORY_VERSION = "$(shell ( git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//' ) )"
 endif  
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
+
+SOROBAN_PORT?=8000
 
 # The following works around incompatibility between the rust and the go linkers -
 # the rust would generate an object file with min-version of 13.0 where-as the go
@@ -29,6 +30,7 @@ install_rust: install
 install:
 	cargo install --force --locked --path ./cmd/stellar-cli --debug
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
+	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot: typescript-bindings-fixtures
@@ -37,32 +39,33 @@ build:
 	cargo build
 
 build-test-wasms:
-	cargo build --package 'test_*' --profile test-wasms --target wasm32-unknown-unknown
+	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms install
 
-generate-full-help-doc:
-	cargo run --bin doc-gen --features clap-markdown
-
-generate-examples-list:
-	curl -sSL https://api.github.com/repos/stellar/soroban-examples/git/trees/main \
-		| jq -r '.tree[] | select(.type != "blob" and .path != "hello_world" and (.path | startswith(".") | not)) | .path' \
-		> cmd/soroban-cli/example_contracts.list
+docs:
+	cargo run --package doc-gen
+	./node_modules/.bin/prettier --write --log-level warn FULL_HELP_DOCS.md
 
 test: build-test
-	cargo test
+	cargo test --workspace --exclude soroban-test
+	cargo test --workspace --exclude soroban-test --features additional-libs
+	cargo test -p soroban-test -- --skip integration::
 
 e2e-test:
-	cargo test --test it -- --ignored
+	cargo test --features it --test it -- integration
 
 check:
 	cargo clippy --all-targets
+	cargo fmt --all --check
+	./node_modules/.bin/prettier --check '**/*.{md,mdx}' --log-level warn
 
 watch:
 	cargo watch --clear --watch-when-idle --shell '$(MAKE)'
 
 fmt:
 	cargo fmt --all
+	./node_modules/.bin/prettier --write '**/*.{md,mdx}' --log-level warn
 
 clean:
 	cargo clean
@@ -72,10 +75,12 @@ publish:
 
 typescript-bindings-fixtures: build-test-wasms
 	cargo run -- contract bindings typescript \
-					--wasm ./target/wasm32-unknown-unknown/test-wasms/test_custom_types.wasm \
-					--contract-id CBYMYMSDF6FBDNCFJCRC7KMO4REYFPOH2U4N7FXI3GJO6YXNCQ43CDSK \
-					--network futurenet \
+					--wasm ./target/wasm32v1-none/test-wasms/test_custom_types.wasm \
 					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_custom_types \
+					--overwrite && \
+	cargo run -- contract bindings typescript \
+					--wasm ./target/wasm32v1-none/test-wasms/test_constructor.wasm \
+					--output-dir ./cmd/crates/soroban-spec-typescript/fixtures/test_constructor \
 					--overwrite
 
 

@@ -1,35 +1,37 @@
+use crate::commands::contract::deploy::utils::alias_validator;
 use std::array::TryFromSliceError;
+use std::ffi::OsString;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
+use crate::xdr::{
+    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+    CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
+    InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo, MuxedAccount, Operation, OperationBody,
+    Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
+    VecM, WriteXdr,
+};
 use clap::{arg, command, Parser};
 use rand::Rng;
-use regex::Regex;
-use soroban_env_host::{
-    xdr::{
-        AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-        CreateContractArgs, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, Limits,
-        Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScAddress,
-        SequenceNumber, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
-    },
-    HostError,
-};
 
+use crate::commands::tx::fetch;
 use crate::{
-    commands::{contract::install, HEADING_RPC},
-    config::{self, data, locator, network},
-    rpc::{self, Client},
-    utils, wasm,
-};
-use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::{self, id::wasm::get_contract_id},
+        contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
+        NetworkRunnable, HEADING_RPC,
     },
+    config::{self, data, locator, network},
     print::Print,
+    rpc,
+    utils::{self, rpc::get_remote_wasm_from_hash},
+    wasm,
 };
+use soroban_spec_tools::contract as contract_spec;
+
+pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
@@ -63,58 +65,87 @@ pub struct Cmd {
     /// configuration without asking for confirmation.
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
+    /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
+    #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
+    pub slop: Vec<OsString>,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Install(#[from] install::Error),
-    #[error(transparent)]
-    Host(#[from] HostError),
+    Install(#[from] upload::Error),
+
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("jsonrpc error: {0}")]
     JsonRpc(#[from] jsonrpsee_core::Error),
+
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
+
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
         error: stellar_strkey::DecodeError,
     },
+
     #[error("cannot parse WASM hash {wasm_hash}: {error}")]
     CannotParseWasmHash {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
+
     #[error("Must provide either --wasm or --wash-hash")]
     WasmNotProvided,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
     #[error(transparent)]
     Infallible(#[from] std::convert::Infallible),
+
     #[error(transparent)]
     WasmId(#[from] contract::id::wasm::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
-    #[error(
-        "alias must be 1-30 chars long, and have only letters, numbers, underscores and dashes"
-    )]
-    InvalidAliasFormat { alias: String },
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
+    #[error(transparent)]
+    ContractSpec(#[from] contract_spec::Error),
+
+    #[error(transparent)]
+    ArgParse(#[from] arg_parsing::Error),
+
+    #[error("Only ed25519 accounts are allowed")]
+    OnlyEd25519AccountsAllowed,
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -129,6 +160,17 @@ impl Cmd {
                 let network = self.config.get_network()?;
 
                 if let Some(alias) = self.alias.clone() {
+                    if let Some(existing_contract) = self
+                        .config
+                        .locator
+                        .get_contract_id(&alias, &network.network_passphrase)?
+                    {
+                        let print = Print::new(global_args.quiet);
+                        print.warnln(format!(
+                            "Overwriting existing alias {alias:?} that currently links to contract ID: {existing_contract}"
+                        ));
+                    }
+
                     self.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
@@ -143,35 +185,26 @@ impl Cmd {
     }
 }
 
-fn alias_validator(alias: &str) -> Result<String, Error> {
-    let regex = Regex::new(r"^[a-zA-Z0-9_-]{1,30}$").unwrap();
-
-    if regex.is_match(alias) {
-        Ok(alias.into())
-    } else {
-        Err(Error::InvalidAliasFormat {
-            alias: alias.into(),
-        })
-    }
-}
-
 #[async_trait::async_trait]
 impl NetworkRunnable for Cmd {
     type Error = Error;
-    type Result = TxnResult<String>;
+    type Result = TxnResult<stellar_strkey::Contract>;
 
+    #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
     async fn run_against_rpc_server(
         &self,
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
-    ) -> Result<TxnResult<String>, Error> {
-        let print = Print::new(global_args.map_or(false, |a| a.quiet));
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
+        let print = Print::new(global_args.is_some_and(|a| a.quiet));
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let hash = if self.fee.build_only || self.fee.sim_only {
+            let is_build = self.fee.build_only;
+            let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
-                install::Cmd {
+                upload::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
                     fee: self.fee.clone(),
@@ -187,15 +220,17 @@ impl NetworkRunnable for Cmd {
             self.wasm_hash
                 .as_ref()
                 .ok_or(Error::WasmNotProvided)?
-                .to_string()
+                .clone()
         };
 
-        let wasm_hash = Hash(utils::contract_id_from_str(&wasm_hash).map_err(|e| {
-            Error::CannotParseWasmHash {
-                wasm_hash: wasm_hash.clone(),
-                error: e,
-            }
-        })?);
+        let wasm_hash = Hash(
+            utils::contract_id_from_str(&wasm_hash)
+                .map_err(|e| Error::CannotParseWasmHash {
+                    wasm_hash: wasm_hash.clone(),
+                    error: e,
+                })?
+                .0,
+        );
 
         print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
 
@@ -208,26 +243,63 @@ impl NetworkRunnable for Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
+        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
+            return Err(Error::OnlyEd25519AccountsAllowed);
+        };
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
+        let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+            address: ScAddress::Account(source_account.clone()),
+            salt: Uint256(salt),
+        });
+        let contract_id =
+            get_contract_id(contract_id_preimage.clone(), &network.network_passphrase)?;
+        let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
+            wasm::Args { wasm: wasm.clone() }.read()?
+        } else {
+            if self.fee.build_only {
+                return Err(Error::WasmNotProvided);
+            }
+            get_remote_wasm_from_hash(&client, &wasm_hash).await?
+        };
+        let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
+        let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
+        let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
+            if func.inputs.is_empty() {
+                None
+            } else {
+                let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+                slop.extend_from_slice(&self.slop);
+                Some(
+                    arg_parsing::build_constructor_parameters(
+                        &stellar_strkey::Contract(contract_id.0),
+                        &slop,
+                        &entries,
+                        config,
+                    )?
+                    .2,
+                )
+            }
+        } else {
+            None
+        };
+
+        // For network operations, verify the network passphrase
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let key = config.key_pair()?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client.get_account(&source_account.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
-        let (txn, contract_id) = build_create_contract_tx(
+        let txn = Box::new(build_create_contract_tx(
             wasm_hash,
             sequence + 1,
             self.fee.fee,
-            &network.network_passphrase,
-            salt,
-            &key,
-        )?;
+            source_account,
+            contract_id_preimage,
+            constructor_params.as_ref(),
+        )?);
 
         if self.fee.build_only {
             print.checkln("Transaction built!");
@@ -236,27 +308,23 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating deploy transaction…");
 
-        let txn = client.simulate_and_assemble_transaction(&txn).await?;
-        let txn = self.fee.apply_to_assembled_txn(txn).transaction().clone();
+        let assembled =
+            simulate_and_assemble_transaction(&client, &txn, self.fee.resource_config()).await?;
+        let assembled = self.fee.apply_to_assembled_txn(assembled);
 
-        if self.fee.sim_only {
-            print.checkln("Done!");
-            return Ok(TxnResult::Txn(txn));
-        }
+        let txn = Box::new(assembled.transaction().clone());
 
-        print.globeln("Submitting deploy transaction…");
         print.log_transaction(&txn, &network, true)?;
+        let signed_txn = &config.sign(*txn).await?;
+        print.globeln("Submitting deploy transaction…");
 
-        let get_txn_resp = client
-            .send_transaction_polling(&config.sign_with_local_key(txn).await?)
-            .await?
-            .try_into()?;
+        let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
 
-        if global_args.map_or(true, |a| !a.no_cache) {
-            data::write(get_txn_resp, &network.rpc_uri()?)?;
+        self.fee.print_cost_info(&get_txn_resp)?;
+
+        if global_args.is_none_or(|a| !a.no_cache) {
+            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
-
-        let contract_id = stellar_strkey::Contract(contract_id.0).to_string();
 
         if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
             print.linkln(url);
@@ -269,35 +337,39 @@ impl NetworkRunnable for Cmd {
 }
 
 fn build_create_contract_tx(
-    hash: Hash,
+    wasm_hash: Hash,
     sequence: i64,
     fee: u32,
-    network_passphrase: &str,
-    salt: [u8; 32],
-    key: &ed25519_dalek::SigningKey,
-) -> Result<(Transaction, Hash), Error> {
-    let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(
-        key.verifying_key().to_bytes().into(),
-    ));
-
-    let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-        address: ScAddress::Account(source_account),
-        salt: Uint256(salt),
-    });
-    let contract_id = get_contract_id(contract_id_preimage.clone(), network_passphrase)?;
-
-    let op = Operation {
-        source_account: None,
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
-            host_function: HostFunction::CreateContract(CreateContractArgs {
-                contract_id_preimage,
-                executable: ContractExecutable::Wasm(hash),
+    key: AccountId,
+    contract_id_preimage: ContractIdPreimage,
+    constructor_params: Option<&InvokeContractArgs>,
+) -> Result<Transaction, Error> {
+    let op = if let Some(InvokeContractArgs { args, .. }) = constructor_params {
+        Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                host_function: HostFunction::CreateContractV2(CreateContractArgsV2 {
+                    contract_id_preimage,
+                    executable: ContractExecutable::Wasm(wasm_hash),
+                    constructor_args: args.clone(),
+                }),
+                auth: VecM::default(),
             }),
-            auth: VecM::default(),
-        }),
+        }
+    } else {
+        Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                host_function: HostFunction::CreateContract(CreateContractArgs {
+                    contract_id_preimage,
+                    executable: ContractExecutable::Wasm(wasm_hash),
+                }),
+                auth: VecM::default(),
+            }),
+        }
     };
     let tx = Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account: key.into(),
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,
@@ -306,7 +378,7 @@ fn build_create_contract_tx(
         ext: TransactionExt::V0,
     };
 
-    Ok((tx, Hash(contract_id.into())))
+    Ok(tx)
 }
 
 #[cfg(test)]
@@ -319,46 +391,28 @@ mod tests {
             .unwrap()
             .try_into()
             .unwrap();
+        let salt = [0u8; 32];
+        let key =
+            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
+                .unwrap();
+        let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+            key.verifying_key().to_bytes(),
+        )));
+
+        let contract_id_preimage = ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+            address: ScAddress::Account(source_account.clone()),
+            salt: Uint256(salt),
+        });
+
         let result = build_create_contract_tx(
             Hash(hash),
             300,
             1,
-            "Public Global Stellar Network ; September 2015",
-            [0u8; 32],
-            &utils::parse_secret_key("SBFGFF27Y64ZUGFAIG5AMJGQODZZKV2YQKAVUUN4HNE24XZXD2OEUVUP")
-                .unwrap(),
+            source_account,
+            contract_id_preimage,
+            None,
         );
 
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_alias_validator_with_valid_inputs() {
-        let valid_inputs = [
-            "hello",
-            "123",
-            "hello123",
-            "hello_123",
-            "123_hello",
-            "123-hello",
-            "hello-123",
-            "HeLlo-123",
-        ];
-
-        for input in valid_inputs {
-            let result = alias_validator(input);
-            assert!(result.is_ok());
-            assert!(result.unwrap() == input);
-        }
-    }
-
-    #[test]
-    fn test_alias_validator_with_invalid_inputs() {
-        let invalid_inputs = ["", "invalid!", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"];
-
-        for input in invalid_inputs {
-            let result = alias_validator(input);
-            assert!(result.is_err());
-        }
     }
 }

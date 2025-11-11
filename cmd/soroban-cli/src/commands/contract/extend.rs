@@ -1,26 +1,30 @@
-use std::{fmt::Debug, path::Path, str::FromStr};
-
-use clap::{command, Parser};
-use soroban_env_host::xdr::{
-    Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-    LedgerEntryData, LedgerFootprint, Limits, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, SequenceNumber, SorobanResources, SorobanTransactionData, Transaction,
-    TransactionExt, TransactionMeta, TransactionMetaV3, TtlEntry, Uint256, WriteXdr,
-};
+use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 
 use crate::{
+    log::extract_events,
+    print::Print,
+    xdr::{
+        ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
+        ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
+        LedgerKey, LedgerKeyConfigSetting, Limits, Memo, Operation, OperationBody, Preconditions,
+        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
+        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
+        TtlEntry, WriteXdr,
+    },
+};
+use clap::{command, Parser};
+
+use crate::commands::tx::fetch;
+use crate::{
+    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         NetworkRunnable,
     },
     config::{self, data, locator, network},
-    key,
-    rpc::{self, Client},
-    wasm, Pwd,
+    key, rpc, wasm, Pwd,
 };
-
-const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -28,13 +32,17 @@ pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
     pub ledgers_to_extend: u32,
+
     /// Only print the new Time To Live ledger
     #[arg(long)]
     pub ttl_ledger_only: bool,
+
     #[command(flatten)]
     pub key: key::Args,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
     pub fee: crate::fee::Args,
 }
@@ -61,31 +69,57 @@ pub enum Error {
         key: String,
         error: soroban_spec_tools::Error,
     },
+
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
 
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("either `--key` or `--key-xdr` are required")]
     KeyIsRequired,
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("Ledger entry not found")]
     LedgerEntryNotFound,
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Key(#[from] key::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
+    #[error(transparent)]
+    IntError(#[from] TryFromIntError),
+
+    #[error("Failed to fetch state archival settings from network")]
+    StateArchivalSettingsNotFound,
+
+    #[error("Ledgers to extend ({requested}) exceeds network maximum ({max})")]
+    LedgersToExtendTooLarge { requested: u32, max: u32 },
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
@@ -106,14 +140,41 @@ impl Cmd {
         Ok(())
     }
 
-    fn ledgers_to_extend(&self) -> u32 {
-        let res = u32::min(self.ledgers_to_extend, MAX_LEDGERS_TO_EXTEND);
-        if res < self.ledgers_to_extend {
-            tracing::warn!(
-                "Ledgers to extend is too large, using max value of {MAX_LEDGERS_TO_EXTEND}"
-            );
+    async fn get_max_entry_ttl(client: &rpc::Client) -> Result<u32, Error> {
+        let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+            config_setting_id: ConfigSettingId::StateArchival,
+        });
+
+        let entries = client.get_full_ledger_entries(&[key]).await?;
+
+        if let Some(entry) = entries.entries.first() {
+            if let LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(settings)) =
+                &entry.val
+            {
+                return Ok(settings.max_entry_ttl);
+            }
         }
-        res
+
+        Err(Error::StateArchivalSettingsNotFound)
+    }
+
+    async fn ledgers_to_extend(&self, client: &rpc::Client) -> Result<u32, Error> {
+        let max_entry_ttl = Self::get_max_entry_ttl(client).await?;
+
+        tracing::trace!(
+            "Checking ledgers_to_extend: requested={}, max_entry_ttl={}",
+            self.ledgers_to_extend,
+            max_entry_ttl
+        );
+
+        if self.ledgers_to_extend > max_entry_ttl {
+            return Err(Error::LedgersToExtendTooLarge {
+                requested: self.ledgers_to_extend,
+                max: max_entry_ttl,
+            });
+        }
+
+        Ok(self.ledgers_to_extend)
     }
 }
 
@@ -122,27 +183,29 @@ impl NetworkRunnable for Cmd {
     type Error = Error;
     type Result = TxnResult<u32>;
 
+    #[allow(clippy::too_many_lines)]
     async fn run_against_rpc_server(
         &self,
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
+        let print = Print::new(args.is_some_and(|a| a.quiet));
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
-        let client = Client::new(&network.rpc_url)?;
-        let key = config.key_pair()?;
-        let extend_to = self.ledgers_to_extend();
+        let client = network.rpc_client()?;
+        let source_account = config.source_account().await?;
+        let extend_to = self.ledgers_to_extend(&client).await?;
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let tx = Transaction {
-            source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        let tx = Box::new(Transaction {
+            source_account,
             fee: self.fee.fee,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
@@ -156,64 +219,74 @@ impl NetworkRunnable for Cmd {
             }]
             .try_into()?,
             ext: TransactionExt::V1(SorobanTransactionData {
-                ext: ExtensionPoint::V0,
+                ext: SorobanTransactionDataExt::V0,
                 resources: SorobanResources {
                     footprint: LedgerFootprint {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
                     instructions: self.fee.instructions.unwrap_or_default(),
-                    read_bytes: 0,
+                    disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
             }),
-        };
+        });
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = client
-            .simulate_and_assemble_transaction(&tx)
-            .await?
-            .transaction()
-            .clone();
+        let assembled =
+            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+
+        let tx = assembled.transaction().clone();
         let res = client
-            .send_transaction_polling(&config.sign_with_local_key(tx).await?)
+            .send_transaction_polling(&config.sign(tx).await?)
             .await?;
-        if args.map_or(true, |a| !a.no_cache) {
+        self.fee.print_cost_info(&res)?;
+
+        if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        let events = res.events()?;
-        if !events.is_empty() {
-            tracing::info!("Events:\n {events:#?}");
-        }
-        let meta = res
-            .result_meta
-            .as_ref()
-            .ok_or(Error::MissingOperationResult)?;
+        let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
+        let events = extract_events(&meta);
+
+        crate::log::event::all(&events);
+        crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found & extended
         // the entry, so we have to inspect the result meta to tell if it worked or not.
-        let TransactionMeta::V3(TransactionMetaV3 { operations, .. }) = meta else {
-            return Err(Error::LedgerEntryNotFound);
+        let changes = match meta {
+            TransactionMeta::V4(TransactionMetaV4 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support extending a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            TransactionMeta::V3(TransactionMetaV3 { operations, .. }) => {
+                // Simply check if there is exactly one entry here. We only support extending a single
+                // entry via this command (which we should fix separately, but).
+                if operations.is_empty() {
+                    return Err(Error::LedgerEntryNotFound);
+                }
+
+                operations[0].changes.clone()
+            }
+            _ => return Err(Error::LedgerEntryNotFound),
         };
 
-        // Simply check if there is exactly one entry here. We only support extending a single
-        // entry via this command (which we should fix separately, but).
-        if operations.len() == 0 {
-            return Err(Error::LedgerEntryNotFound);
-        }
-
-        if operations[0].changes.is_empty() {
+        if changes.is_empty() {
+            print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq;
-            if entry.latest_ledger + i64::from(extend_to) < i64::from(extension) {
-                return Ok(TxnResult::Res(extension));
-            }
+            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+
+            return Ok(TxnResult::Res(extension));
         }
 
-        match (&operations[0].changes[0], &operations[0].changes[1]) {
+        match (&changes[0], &changes[1]) {
             (
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {

@@ -3,20 +3,17 @@ use std::{
     io::{self, stdout},
 };
 
-use clap::{command, Parser, ValueEnum};
-use soroban_env_host::{
-    xdr::{
-        ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
-        Limits, ScVal, WriteXdr,
-    },
-    HostError,
+use crate::xdr::{
+    ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
+    Limits, ScVal, WriteXdr,
 };
+use clap::{command, Parser, ValueEnum};
 
 use crate::{
     commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
-    rpc::{self, Client, FullLedgerEntries, FullLedgerEntry},
+    rpc::{self, FullLedgerEntries, FullLedgerEntry},
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -28,7 +25,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub key: key::Args,
     #[command(flatten)]
-    config: config::Args,
+    config: config::ArgsLocatorAndNetwork,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
@@ -77,10 +74,6 @@ pub enum Error {
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
     Xdr(#[from] XdrError),
-    #[error(transparent)]
-    // TODO: the Display impl of host errors is pretty user-unfriendly
-    //       (it just calls Debug). I think we can do better than that
-    Host(#[from] HostError),
     #[error("no matching contract data entries were found for the specified contract id")]
     NoContractDataEntryFoundForContractID,
     #[error(transparent)]
@@ -89,6 +82,8 @@ pub enum Error {
     OnlyDataAllowed,
     #[error(transparent)]
     Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Network(#[from] config::network::Error),
 }
 
 impl Cmd {
@@ -128,7 +123,7 @@ impl Cmd {
                         error: e,
                     })?,
                     last_modified_ledger.to_string(),
-                    live_until_ledger_seq.to_string(),
+                    live_until_ledger_seq.unwrap_or_default().to_string(),
                 ],
                 Output::Json => [
                     serde_json::to_string_pretty(&key).map_err(|error| {
@@ -179,14 +174,15 @@ impl NetworkRunnable for Cmd {
 
     async fn run_against_rpc_server(
         &self,
-        _: Option<&global::Args>,
-        config: Option<&config::Args>,
+        _global_args: Option<&global::Args>,
+        _config: Option<&config::Args>,
     ) -> Result<FullLedgerEntries, Error> {
-        let config = config.unwrap_or(&self.config);
-        let network = config.get_network()?;
+        let locator = self.config.locator.clone();
+        let network = self.config.network.get(&locator)?;
+
         tracing::trace!(?network);
-        let client = Client::new(&network.rpc_url)?;
-        let keys = self.key.parse_keys(&config.locator, &network)?;
+        let client = network.rpc_client()?;
+        let keys = self.key.parse_keys(&locator, &network)?;
         Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }

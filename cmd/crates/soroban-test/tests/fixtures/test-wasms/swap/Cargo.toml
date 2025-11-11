@@ -1,11 +1,10 @@
 [package]
 name = "test_swap"
-version.workspace = true
+version = "23.1.4"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
 publish = false
-rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

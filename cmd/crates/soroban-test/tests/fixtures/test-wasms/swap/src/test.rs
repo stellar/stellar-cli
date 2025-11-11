@@ -11,15 +11,17 @@ use token::Client as TokenClient;
 use token::StellarAssetClient as TokenAdminClient;
 
 fn create_token_contract<'a>(e: &Env, admin: &Address) -> (TokenClient<'a>, TokenAdminClient<'a>) {
-    let contract_address = e.register_stellar_asset_contract(admin.clone());
+    let contract_address = e
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
     (
         TokenClient::new(e, &contract_address),
         TokenAdminClient::new(e, &contract_address),
     )
 }
 
-fn create_atomic_swap_contract(e: &Env) -> AtomicSwapContractClient {
-    AtomicSwapContractClient::new(e, &e.register_contract(None, AtomicSwapContract {}))
+fn create_atomic_swap_contract(e: &Env) -> AtomicSwapContractClient<'_> {
+    AtomicSwapContractClient::new(e, &e.register(AtomicSwapContract {}, ()))
 }
 
 #[test]

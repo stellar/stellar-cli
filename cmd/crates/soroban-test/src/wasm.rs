@@ -1,7 +1,7 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
 use sha2::{Digest, Sha256};
-use soroban_env_host::xdr;
+use soroban_cli::xdr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,7 +30,7 @@ impl Wasm<'_> {
     ///
     /// # if not found
     pub fn path(&self) -> PathBuf {
-        let path = find_target_dir().unwrap().join("wasm32-unknown-unknown");
+        let path = find_target_dir().unwrap().join("wasm32v1-none");
         let mut path = match self {
             Wasm::Release(name) => path.join("release").join(name),
             Wasm::Custom(profile, name) => path.join(profile).join(name),

@@ -6,10 +6,11 @@ repository = "https://github.com/stellar/soroban-test"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "21.4.1"
+version.workspace = true
 edition = "2021"
 rust-version.workspace = true
 autobins = false
+publish = false
 
 
 [lib]
@@ -17,24 +18,27 @@ crate-type = ["rlib", "cdylib"]
 
 
 [dependencies]
-soroban-env-host = { workspace = true }
 soroban-spec = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
 stellar-strkey = { workspace = true }
-soroban-sdk = { workspace = true }
 sep5 = { workspace = true }
 soroban-cli = { workspace = true }
 soroban-rpc = { workspace = true }
+stellar-ledger = { workspace = true }
 
+markdown = "1.0.0"
+shell-words = "1.1.0"
 thiserror = "1.0.31"
 sha2 = "0.10.6"
 assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
-predicates = "2.1.5"
+predicates = { workspace = true }
 fs_extra = "1.3.0"
-toml = "0.8.10"
-
+toml = { workspace = true }
+testcontainers = { workspace = true }
+home = "0.5.9"
+shell-escape = "0.1.5"
 
 [dev-dependencies]
 serde_json = "1.0.93"
@@ -43,6 +47,14 @@ tokio = "1.28.1"
 walkdir = "2.4.0"
 ulid.workspace = true
 ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+test-case = "3.3.1"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+httpmock = { workspace = true }
+reqwest = { workspace = true }
 
 [features]
+default = []
 it = []
+emulator-tests = ["stellar-ledger/emulator-tests"]

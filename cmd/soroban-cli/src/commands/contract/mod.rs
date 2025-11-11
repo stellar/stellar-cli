@@ -10,13 +10,13 @@ pub mod id;
 pub mod info;
 pub mod init;
 pub mod inspect;
-pub mod install;
 pub mod invoke;
 pub mod optimize;
 pub mod read;
 pub mod restore;
+pub mod upload;
 
-use crate::commands::global;
+use crate::{commands::global, print::Print, utils::deprecate_message};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -53,14 +53,23 @@ pub enum Cmd {
     #[command(subcommand)]
     Info(info::Cmd),
 
-    /// Initialize a Soroban project with an example contract
+    /// Initialize a Soroban contract project.
+    ///
+    /// This command will create a Cargo workspace project and add a sample Stellar contract.
+    /// The name of the contract can be specified by `--name`. It can be run multiple times
+    /// with different names in order to generate multiple contracts, and files won't
+    /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
-    /// Inspect a WASM file listing contract functions, meta, etc
+    /// ⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
+    #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
-    Install(install::Cmd),
+    Upload(upload::Cmd),
+
+    /// ⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
+    Install(upload::Cmd),
 
     /// Invoke a contract function
     ///
@@ -72,7 +81,7 @@ pub enum Cmd {
     ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
-    /// Optimize a WASM file
+    /// ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
     Optimize(optimize::Cmd),
 
     /// Print the current value of a contract-data ledger entry
@@ -120,7 +129,7 @@ pub enum Error {
     Inspect(#[from] inspect::Error),
 
     #[error(transparent)]
-    Install(#[from] install::Error),
+    Install(#[from] upload::Error),
 
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -137,20 +146,44 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+
         match &self {
-            Cmd::Asset(asset) => asset.run().await?,
+            Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
-            Cmd::Build(build) => build.run()?,
+            Cmd::Build(build) => build.run(global_args)?,
             Cmd::Extend(extend) => extend.run().await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
-            Cmd::Id(id) => id.run()?,
-            Cmd::Info(info) => info.run().await?,
+            Cmd::Id(id) => id.run().await?,
+            Cmd::Info(info) => info.run(global_args).await?,
             Cmd::Init(init) => init.run(global_args)?,
-            Cmd::Inspect(inspect) => inspect.run()?,
-            Cmd::Install(install) => install.run(global_args).await?,
+            Cmd::Inspect(inspect) => {
+                deprecate_message(
+                    print,
+                    "stellar contract inspect",
+                    "Use `stellar contract info` instead.",
+                );
+                inspect.run()?;
+            }
+            Cmd::Install(install) => {
+                deprecate_message(
+                    print,
+                    "stellar contract install",
+                    "Use `stellar contract upload` instead.",
+                );
+                install.run(global_args).await?;
+            }
+            Cmd::Upload(upload) => upload.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
-            Cmd::Optimize(optimize) => optimize.run()?,
+            Cmd::Optimize(optimize) => {
+                deprecate_message(
+                    print,
+                    "stellar contract optimize",
+                    "Use `stellar contract build --optimize` instead.",
+                );
+                optimize.run()?;
+            }
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run().await?,
@@ -167,11 +200,11 @@ pub enum Durability {
     Temporary,
 }
 
-impl From<&Durability> for soroban_env_host::xdr::ContractDataDurability {
+impl From<&Durability> for crate::xdr::ContractDataDurability {
     fn from(d: &Durability) -> Self {
         match d {
-            Durability::Persistent => soroban_env_host::xdr::ContractDataDurability::Persistent,
-            Durability::Temporary => soroban_env_host::xdr::ContractDataDurability::Temporary,
+            Durability::Persistent => crate::xdr::ContractDataDurability::Persistent,
+            Durability::Temporary => crate::xdr::ContractDataDurability::Temporary,
         }
     }
 }

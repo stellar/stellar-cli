@@ -59,7 +59,8 @@ pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
 ///
 /// If `serde_json::to_string_pretty` fails to serialize the spec entries.
 pub fn generate(spec: &[ScSpecEntry]) -> String {
-    let collected: Vec<_> = spec.iter().map(Entry::from).collect();
+    let mut collected: Vec<_> = spec.iter().map(Entry::from).collect();
+    collected.sort();
     serde_json::to_string_pretty(&collected).expect("serialization of the spec entries should not have any failure cases as all keys are strings and the serialize implementations are derived")
 }
 
@@ -72,7 +73,7 @@ mod test {
     use super::generate;
 
     const EXAMPLE_WASM: &[u8] =
-        include_bytes!("../../../../target/wasm32-unknown-unknown/test-wasms/test_udt.wasm");
+        include_bytes!("../../../../target/wasm32v1-none/test-wasms/test_udt.wasm");
 
     #[test]
     fn example() {
@@ -82,19 +83,85 @@ mod test {
             json,
             r#"[
   {
-    "type": "enum",
+    "type": "function",
     "doc": "",
-    "name": "UdtEnum2",
-    "cases": [
+    "name": "add",
+    "inputs": [
       {
         "doc": "",
-        "name": "A",
-        "value": 10
+        "name": "a",
+        "value": {
+          "type": "custom",
+          "name": "UdtEnum"
+        }
       },
       {
         "doc": "",
-        "name": "B",
-        "value": 15
+        "name": "b",
+        "value": {
+          "type": "custom",
+          "name": "UdtEnum"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "type": "i64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "doc": "",
+    "name": "UdtStruct",
+    "fields": [
+      {
+        "doc": "",
+        "name": "a",
+        "value": {
+          "type": "i64"
+        }
+      },
+      {
+        "doc": "",
+        "name": "b",
+        "value": {
+          "type": "i64"
+        }
+      },
+      {
+        "doc": "",
+        "name": "c",
+        "value": {
+          "type": "vec",
+          "element": {
+            "type": "i64"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "doc": "",
+    "name": "UdtTuple",
+    "fields": [
+      {
+        "doc": "",
+        "name": "0",
+        "value": {
+          "type": "i64"
+        }
+      },
+      {
+        "doc": "",
+        "name": "1",
+        "value": {
+          "type": "vec",
+          "element": {
+            "type": "i64"
+          }
+        }
       }
     ]
   },
@@ -141,85 +208,19 @@ mod test {
     ]
   },
   {
-    "type": "struct",
+    "type": "enum",
     "doc": "",
-    "name": "UdtTuple",
-    "fields": [
+    "name": "UdtEnum2",
+    "cases": [
       {
         "doc": "",
-        "name": "0",
-        "value": {
-          "type": "i64"
-        }
+        "name": "A",
+        "value": 10
       },
       {
         "doc": "",
-        "name": "1",
-        "value": {
-          "type": "vec",
-          "element": {
-            "type": "i64"
-          }
-        }
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "doc": "",
-    "name": "UdtStruct",
-    "fields": [
-      {
-        "doc": "",
-        "name": "a",
-        "value": {
-          "type": "i64"
-        }
-      },
-      {
-        "doc": "",
-        "name": "b",
-        "value": {
-          "type": "i64"
-        }
-      },
-      {
-        "doc": "",
-        "name": "c",
-        "value": {
-          "type": "vec",
-          "element": {
-            "type": "i64"
-          }
-        }
-      }
-    ]
-  },
-  {
-    "type": "function",
-    "doc": "",
-    "name": "add",
-    "inputs": [
-      {
-        "doc": "",
-        "name": "a",
-        "value": {
-          "type": "custom",
-          "name": "UdtEnum"
-        }
-      },
-      {
-        "doc": "",
-        "name": "b",
-        "value": {
-          "type": "custom",
-          "name": "UdtEnum"
-        }
-      }
-    ],
-    "outputs": [
-      {
-        "type": "i64"
+        "name": "B",
+        "value": 15
       }
     ]
   }

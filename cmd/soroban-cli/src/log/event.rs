@@ -1,44 +1,78 @@
-use tracing::{debug, info, span, Level};
+use tracing::debug;
 
-use crate::xdr;
+use crate::{print::Print, xdr};
+use xdr::{
+    ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
+};
 
-pub fn events(events: &[xdr::DiagnosticEvent]) {
-    for (i, event) in events.iter().enumerate() {
-        let span = if is_contract_event(event) {
-            span!(Level::INFO, "contract_event")
-        } else if is_log_event(event) {
-            span!(Level::INFO, "log_event")
-        } else {
-            span!(Level::DEBUG, "diagnostic_event")
-        };
-
-        let _enter = span.enter();
-
-        if span.metadata().unwrap().level() == &Level::INFO {
-            info!("{i}: {event:#?}");
-        } else {
-            debug!("{i}: {event:#?}");
-        }
+pub fn all(events: &[DiagnosticEvent]) {
+    for (index, event) in events.iter().enumerate() {
+        let json = serde_json::to_string(event).unwrap();
+        let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
+        print_event(&xdr, &json, index);
     }
 }
 
-fn is_contract_event(event: &xdr::DiagnosticEvent) -> bool {
-    matches!(event.event.type_, xdr::ContractEventType::Contract)
-}
+pub fn contract(events: &[DiagnosticEvent], print: &Print) {
+    for event in events.iter().cloned() {
+        match event {
+            DiagnosticEvent {
+                event:
+                    ContractEvent {
+                        contract_id: Some(contract_id),
+                        body: ContractEventBody::V0(ContractEventV0 { topics, data, .. }),
+                        type_: ContractEventType::Contract,
+                        ..
+                    },
+                in_successful_contract_call,
+                ..
+            } => {
+                let topics = serde_json::to_string(&topics).unwrap();
+                let data = serde_json::to_string(&data).unwrap();
+                let status = if in_successful_contract_call {
+                    "Success"
+                } else {
+                    "Failure"
+                };
 
-fn is_log_event(event: &xdr::DiagnosticEvent) -> bool {
-    match &event.event.body {
-        xdr::ContractEventBody::V0(xdr::ContractEventV0 { topics, .. })
-            if topics.len() == 1
-                && matches!(event.event.type_, xdr::ContractEventType::Diagnostic) =>
-        {
-            topics[0] == xdr::ScVal::Symbol(str_to_sc_symbol("log"))
+                print.eventln(format!(
+                    "{contract_id} - {status} - Event: {topics} = {data}"
+                ));
+            }
+
+            DiagnosticEvent {
+                event:
+                    ContractEvent {
+                        contract_id: Some(contract_id),
+                        body: ContractEventBody::V0(ContractEventV0 { topics, data, .. }),
+                        type_: ContractEventType::Diagnostic,
+                        ..
+                    },
+                in_successful_contract_call,
+                ..
+            } => {
+                if topics[0] == xdr::ScVal::Symbol(str_to_sc_symbol("log")) {
+                    let status = if in_successful_contract_call {
+                        "Success"
+                    } else {
+                        "Failure"
+                    };
+
+                    let data = serde_json::to_string(&data).unwrap();
+                    print.logln(format!("{contract_id} - {status} - Log: {data}"));
+                }
+            }
+
+            _ => {}
         }
-        xdr::ContractEventBody::V0(_) => false,
     }
 }
 
 fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     let inner: xdr::StringM<32> = s.try_into().unwrap();
     xdr::ScSymbol(inner)
+}
+
+fn print_event(xdr: &str, json: &str, index: usize) {
+    debug!("{index}: {xdr} {json}");
 }

@@ -3,6 +3,7 @@
 //! off-chain.
 //! This example demonstrates how multi-party authorization can be implemented.
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{contract, contractimpl, token, Address, Env, IntoVal};
 
@@ -14,7 +15,6 @@ impl AtomicSwapContract {
     // Swap token A for token B atomically. Settle for the minimum requested price
     // for each party (this is an arbitrary choice; both parties could have
     // received the full amount as well).
-    #[allow(clippy::too_many_arguments)]
     pub fn swap(
         env: Env,
         a: Address,

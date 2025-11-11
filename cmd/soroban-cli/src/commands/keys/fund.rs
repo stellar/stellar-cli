@@ -1,13 +1,12 @@
+use crate::{commands::global, config::network, print::Print};
 use clap::command;
 
-use crate::config::network;
-
-use super::address;
+use super::public_key;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Address(#[from] address::Error),
+    Address(#[from] public_key::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
 }
@@ -19,16 +18,20 @@ pub struct Cmd {
     pub network: network::Args,
     /// Address to fund
     #[command(flatten)]
-    pub address: address::Cmd,
+    pub address: public_key::Cmd,
 }
 
 impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        let addr = self.address.public_key()?;
-        self.network
-            .get(&self.address.locator)?
-            .fund_address(&addr)
-            .await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+        let addr = self.address.public_key().await?;
+        let network = self.network.get(&self.address.locator)?;
+        let formatted_name = self.address.name.to_string();
+        network.fund_address(&addr).await?;
+        print.checkln(format!(
+            "Account {} funded on {:?}",
+            formatted_name, network.network_passphrase
+        ));
         Ok(())
     }
 }

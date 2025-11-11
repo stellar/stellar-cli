@@ -1,11 +1,13 @@
 use clap::{arg, command, Parser};
 use std::io;
 
-use soroban_env_host::xdr::{self, Limits, ReadXdr};
+use crate::xdr::{self, Limits, ReadXdr};
 
 use super::{global, NetworkRunnable};
-use crate::config::{self, locator, network};
-use crate::rpc;
+use crate::{
+    config::{self, locator, network},
+    rpc,
+};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -40,7 +42,7 @@ pub struct Cmd {
         num_args = 1..=6,
         help_heading = "FILTERS"
     )]
-    contract_ids: Vec<String>,
+    contract_ids: Vec<config::UnresolvedContract>,
     /// A set of (up to 4) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segment filters, separated by
     /// commas, with an asterisk (`*` character) indicating a wildcard segment.
@@ -138,14 +140,14 @@ impl Cmd {
             for (i, segment) in topic.split(',').enumerate() {
                 if i > 4 {
                     return Err(Error::InvalidTopicFilter {
-                        topic: topic.to_string(),
+                        topic: topic.clone(),
                     });
                 }
 
                 if segment != "*" {
                     if let Err(e) = xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
                         return Err(Error::InvalidSegment {
-                            topic: topic.to_string(),
+                            topic: topic.clone(),
                             segment: segment.to_string(),
                             error: e,
                         });
@@ -155,6 +157,10 @@ impl Cmd {
         }
 
         let response = self.run_against_rpc_server(None, None).await?;
+
+        if response.events.is_empty() {
+            eprintln!("No events");
+        }
 
         for event in &response.events {
             match self.output {
@@ -207,7 +213,7 @@ impl NetworkRunnable for Cmd {
             self.network.get(&self.locator)
         }?;
 
-        let client = rpc::Client::new(&network.rpc_url)?;
+        let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
@@ -216,9 +222,8 @@ impl NetworkRunnable for Cmd {
             .contract_ids
             .iter()
             .map(|id| {
-                Ok(self
-                    .locator
-                    .resolve_contract_id(id, &network.network_passphrase)?
+                Ok(id
+                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
                     .to_string())
             })
             .collect::<Result<Vec<_>, Error>>()?;

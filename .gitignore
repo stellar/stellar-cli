@@ -8,3 +8,5 @@ test_snapshots
 .vscode/settings.json
 .idea
 local.sh
+.stellar
+.zed

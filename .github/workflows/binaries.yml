@@ -6,15 +6,21 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}-{{ github.event_name	}}
+  group:
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}-{{ github.event_name	}}
   cancel-in-progress: true
 
 defaults:
   run:
     shell: bash
 
-jobs:
+permissions:
+  id-token: write
+  contents: write
+  attestations: write
 
+jobs:
   build:
     strategy:
       fail-fast: false
@@ -22,65 +28,103 @@ jobs:
         crate:
           - name: stellar-cli
             binary: stellar
-          - name: soroban-cli
-            binary: soroban
         sys:
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          - os: ubuntu-22.04 # Use 22 to get an older version of glibc for increased compat
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-20.04 # Use 20.04 to get an older version of glibc for increased compat
+          - os: ubuntu-22.04-arm # Use 22 to get an older version of glibc for increased compat
             target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+
+  build-macos:
+    if:
+      github.event_name == 'release' || github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - name: stellar-cli
+            binary: stellar
+        sys:
           - os: macos-14
-            target: x86_64-apple-darwin
-          - os: macos-12
             target: aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.sys.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+
+  build-windows:
+    if:
+      github.event_name == 'release' || github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - name: stellar-cli
+            binary: stellar
+        sys:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-    - uses: actions/checkout@v3
-    - run: rustup update
-    - run: rustup target add ${{ matrix.sys.target }}
-    - if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
-      run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev
-    - name: Setup vars
-      run: |
-        version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
-        echo "VERSION=${version}" >> $GITHUB_ENV
-        echo "NAME=${{ matrix.crate.name }}-${version}-${{ matrix.sys.target }}" >> $GITHUB_ENV
-    - name: Package (release only)
-      if: github.event_name == 'release'
-      run: cargo package --no-verify --package ${{ matrix.crate.name }}
-    - name: Package Extract (release only)
-      if: github.event_name == 'release'
-      run: |
-        cd target/package
-        tar xvfz ${{ matrix.crate.name }}-$VERSION.crate
-        echo "BUILD_WORKING_DIR=target/package/${{ matrix.crate.name }}-$VERSION" >> $GITHUB_ENV
-    - name: Build
-      env:
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-      working-directory: ${{ env.BUILD_WORKING_DIR }}
-      run: cargo build --target-dir="$GITHUB_WORKSPACE/target" --package ${{ matrix.crate.name }} --features opt --release --target ${{ matrix.sys.target }}
-    - name: Compress
-      run: |
-          cd target/${{ matrix.sys.target }}/release
-          tar czvf $NAME.tar.gz ${{ matrix.crate.binary }}${{ matrix.sys.ext }}
-    - name: Upload to Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ env.NAME }}
-        path: 'target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'
-    - name: Upload to Release (release only)
-      if: github.event_name == 'release'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          await github.rest.repos.uploadReleaseAsset({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: ${{ github.event.release.id }},
-            name: '${{ env.NAME }}.tar.gz',
-            data: fs.readFileSync('target/${{ matrix.sys.target }}/release/${{ env.NAME }}.tar.gz'),
-          });
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-binary
+        with:
+          target: ${{ matrix.sys.target }}
+          crate-name: ${{ matrix.crate.name }}
+          binary-name: ${{ matrix.crate.binary }}
+          binary-ext: ${{ matrix.sys.ext }}
+
+  installer:
+    needs: [build, build-macos, build-windows]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup vars
+        run: |
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
+          installer_basename="stellar-cli-installer-${version}-x86_64-pc-windows-msvc"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "STELLAR_CLI_INSTALLER_BASENAME=${installer_basename}" >> $GITHUB_ENV
+          echo "STELLAR_CLI_INSTALLER=${installer_basename}.exe" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+      - name: Uncompress Artifact
+        run: tar xvf ${{ env.ARTIFACT_NAME }}
+      - shell: powershell
+        run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements
+      - shell: powershell
+        run: |
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6"
+          echo $innoPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build Installer
+        shell: powershell
+        run: |
+          $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
+          ISCC.exe installer.iss
+          mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
+      - name: Upload Artifact
+        uses: ./.github/actions/artifact-upload
+        with:
+          name: ${{ env.STELLAR_CLI_INSTALLER }}
+          path: ${{ env.STELLAR_CLI_INSTALLER }}

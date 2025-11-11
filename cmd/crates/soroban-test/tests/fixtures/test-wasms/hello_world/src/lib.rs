@@ -1,9 +1,15 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String,
+    Symbol, Vec,
 };
 
 const COUNTER: Symbol = symbol_short!("COUNTER");
+
+#[contractevent]
+pub struct AuthEvent {
+    pub world: Symbol,
+}
 
 #[contract]
 pub struct Contract;
@@ -25,7 +31,7 @@ impl Contract {
     pub fn auth(env: Env, addr: Address, world: Symbol) -> Address {
         addr.require_auth();
         // Emit test event
-        env.events().publish(("auth",), world);
+        AuthEvent { world }.publish(&env);
 
         addr
     }
@@ -58,12 +64,13 @@ impl Contract {
 
     #[allow(unused_variables)]
     pub fn multi_word_cmd(env: Env, contract_owner: String) {}
+
     /// Logs a string with `hello ` in front.
     pub fn log(env: Env, str: Symbol) {
-        env.events().publish(
-            (Symbol::new(&env, "hello"), Symbol::new(&env, "")),
-            str.clone(),
-        );
+        // Emit the event format expected by the test using the deprecated API
+        #[allow(deprecated)]
+        env.events()
+            .publish((symbol_short!("hello"), Symbol::new(&env, "")), str.clone());
         log!(&env, "hello {}", str);
     }
 }
@@ -77,7 +84,7 @@ mod test {
     #[test]
     fn test_hello() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, Contract);
+        let contract_id = env.register(Contract, ());
         let client = ContractClient::new(&env, &contract_id);
         let world = symbol_short!("world");
         let res = client.hello(&world);

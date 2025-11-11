@@ -1,14 +1,13 @@
+use std::io::{self, Write};
 use std::{env, fmt::Display};
 
-use soroban_env_host::xdr::{Error as XdrError, Transaction};
+use crate::xdr::{Error as XdrError, Transaction};
 
 use crate::{
-    config::network::Network,
-    utils::{explorer_url_for_transaction, transaction_hash},
+    config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
 };
 
-const TERMS: &[&str] = &["Apple_Terminal", "vscode"];
-
+#[derive(Clone)]
 pub struct Print {
     pub quiet: bool,
 }
@@ -30,22 +29,27 @@ impl Print {
         }
     }
 
-    pub fn clear_line(&self) {
-        if cfg!(windows) {
-            eprint!("\r");
-        } else {
-            eprint!("\r\x1b[2K");
+    pub fn clear_previous_line(&self) {
+        if !self.quiet {
+            if cfg!(windows) {
+                eprint!("\x1b[2A\r\x1b[2K");
+            } else {
+                eprint!("\x1b[1A\x1b[2K\r");
+            }
+
+            io::stderr().flush().unwrap();
         }
     }
 
     // Some terminals like vscode's and macOS' default terminal will not render
     // the subsequent space if the emoji codepoints size is 2; in this case,
-    // we need an additional space.
+    // we need an additional space. We also need an additional space if `TERM_PROGRAM` is not
+    // defined (e.g. vhs running in a docker container).
     pub fn compute_emoji<T: Display + Sized>(&self, emoji: T) -> String {
-        if let Ok(term_program) = env::var("TERM_PROGRAM") {
-            if TERMS.contains(&term_program.as_str()) && emoji.to_string().chars().count() == 2 {
-                return format!("{emoji} ");
-            }
+        if should_add_additional_space()
+            && (emoji.to_string().chars().count() == 2 || format!("{emoji}") == " ")
+        {
+            return format!("{emoji} ");
         }
 
         emoji.to_string()
@@ -95,6 +99,17 @@ macro_rules! create_print_functions {
     };
 }
 
+fn should_add_additional_space() -> bool {
+    const TERMS: &[&str] = &["Apple_Terminal", "vscode", "unknown"];
+    let term_program = env::var("TERM_PROGRAM").unwrap_or("unknown".to_string());
+
+    if TERMS.contains(&term_program.as_str()) {
+        return true;
+    }
+
+    false
+}
+
 create_print_functions!(bucket, bucketln, "🪣");
 create_print_functions!(check, checkln, "✅");
 create_print_functions!(error, errorln, "❌");
@@ -105,3 +120,10 @@ create_print_functions!(plus, plusln, "➕");
 create_print_functions!(save, saveln, "💾");
 create_print_functions!(search, searchln, "🔎");
 create_print_functions!(warn, warnln, "⚠️");
+create_print_functions!(exclaim, exclaimln, "❗️");
+create_print_functions!(arrow, arrowln, "➡️");
+create_print_functions!(log, logln, "📔");
+create_print_functions!(event, eventln, "📅");
+create_print_functions!(blank, blankln, "  ");
+create_print_functions!(gear, gearln, "⚙️");
+create_print_functions!(dir, dirln, "📁");

@@ -2,7 +2,7 @@ name: Ledger Emulator Tests
 
 on:
   push:
-    branches: [main, release/**]
+    branches: [ main, release/** ]
   pull_request:
 
 concurrency:
@@ -15,14 +15,38 @@ defaults:
 
 jobs:
   emulator-tests:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sys:
+          # x64
+          - ubuntu-latest-8-cores
+          # ARM
+          - ubuntu-jammy-8-cores-arm64
+          # Intel
+          - macos-13
+        exclude:
+          # Only run Linux x64 tests on pull request to save some time
+          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
+    runs-on: ${{ matrix.sys }}
     env:
       CI_TESTS: true
     steps:
-    - uses: actions/checkout@v3
-    - uses: stellar/actions/rust-cache@main
-    - name: install libudev-dev
-      run: |
-        sudo apt install -y libudev-dev
-    - run: |
-        cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
+      - uses: actions/checkout@v5
+      - uses: stellar/actions/rust-cache@main
+      - name: Setup Colima and Docker (macOS only)
+        if: runner.os == 'macos'
+        run: |
+          brew install docker
+          brew install colima
+          colima start
+      - name: Set DOCKER_HOST to Colima socket
+        if: runner.os == 'macos'
+        run: echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
+      - name: install optional dependencies (Linux only)
+        run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+        if: runner.os == 'Linux'
+      - run: RUST_BACKTRACE=1 cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture
+      - run: RUST_BACKTRACE=1 cargo build --features emulator-tests,additional-libs
+      - run: RUST_BACKTRACE=1 cargo test --features emulator-tests --package soroban-test --test it -- emulator
