@@ -69,7 +69,7 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
-    /// RPC Header(s) to include in requests to the RPC provider
+    /// RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
     #[arg(
         long = "rpc-header",
         env = "STELLAR_RPC_HEADERS",
@@ -130,7 +130,7 @@ pub struct Network {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
-    /// Optional header (e.g. API Key) to include in requests to the RPC
+    /// Optional header to include in requests to the RPC, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
     #[arg(
         long = "rpc-header",
         env = "STELLAR_RPC_HEADERS",
