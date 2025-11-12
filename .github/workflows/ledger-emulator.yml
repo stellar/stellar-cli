@@ -31,24 +31,43 @@ jobs:
     runs-on: ${{ matrix.sys }}
     env:
       CI_TESTS: true
-      TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=1' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
+      TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=3' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
     steps:
       - uses: actions/checkout@v5
+
       - uses: stellar/actions/rust-cache@main
-      - name: Setup Colima and Docker (macOS only)
+
+      - name: Install Colima & Docker
         if: runner.os == 'macos'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          brew update
+          echo "::group::Installing Colima & Docker"
           brew install colima docker
+          echo "::endgroup::"
+
+      - name: Start Colima
+        if: runner.os == 'macos'
+        shell: bash
+        run: |
+          echo "::group::Starting Colima"
           CPU_COUNT=$(sysctl -n hw.ncpu)
           TOTAL_MEMORY=$(sysctl hw.memsize | awk '{print $2/1024/1024/1024}')
           MEMORY=$(awk "BEGIN {printf \"%.0f\", $TOTAL_MEMORY * 0.75}")
-          colima start --arch x86_64 --vm-type=vz --mount-type=virtiofs --cpu $CPU_COUNT --memory $MEMORY --network-address
+          echo "CPU_COUNT: $CPU_COUNT"
+          echo "TOTAL_MEMORY: $TOTAL_MEMORY"
+          colima start --arch x86_64 --vm-type=vz --mount-type=9p --cpu $CPU_COUNT --memory $TOTAL_MEMORY
           export DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock
           echo "DOCKER_HOST=unix:///Users/runner/.colima/default/docker.sock" >> $GITHUB_ENV
+          echo "::endgroup::"
+
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
+
       - run: RUST_BACKTRACE=1 cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture $TEST_THREADS
+
       - run: RUST_BACKTRACE=1 cargo build --features emulator-tests,additional-libs
+
       - run: RUST_BACKTRACE=1 cargo test --features emulator-tests --package soroban-test --test it -- emulator $TEST_THREADS
