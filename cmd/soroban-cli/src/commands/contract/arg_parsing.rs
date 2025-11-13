@@ -343,8 +343,6 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
             .long_help(spec.doc(name, type_)?);
-        println!("ok, do i get the arg?"); // i do! ok, so i think whatever i did "solved" the .doc error, but there is another one?
-        // ok, i need to double check that whatever i did "solved" something that was an error before lol
 
         file_arg = file_arg
             .long(&file_arg_name)
@@ -353,8 +351,6 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .hide(true)
             .value_parser(value_parser!(PathBuf))
             .conflicts_with(name);
-
-        println!("do i get the file arg?"); // yep
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(value_name.into_boxed_str());

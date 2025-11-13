@@ -1211,15 +1211,59 @@ impl Spec {
                         name,
                         type_,
                         ..
-                    }) => format!(
-                        "{}({})",
-                        name.to_utf8_string_lossy(),
-                        type_
-                            .iter()
-                            .map(|type_| self.arg_value_name(type_, depth + 1))
-                            .collect::<Option<Vec<String>>>()?
-                            .join(",")
-                    ),
+                    }) => {
+                        if depth > 1 {
+                            match &type_[0] {
+                                stellar_xdr::curr::ScSpecTypeDef::Vec(type_vec) => {
+                                    let element_type = type_vec.element_type.clone();
+                                    match *element_type {
+                                        stellar_xdr::curr::ScSpecTypeDef::Udt(udt_type) => {
+                                            println!("the udt_type {:?}", udt_type.name.to_utf8_string_lossy());
+                                            return Some(format!("{:?}",
+                                                udt_type.name.to_utf8_string_lossy() 
+                                            ))
+                                        }
+                                        _ => {
+                                            println!("not a udt");
+                                        }
+
+                                    }
+                                }
+                                _ => {
+                                    println!("or there");
+                                }
+
+                            }
+                            format!(
+                                "{}({:?})",
+                                name.to_utf8_string_lossy(),
+                                type_
+                            //         .iter()
+                            // // maybe just return the type itself as a string if the depth is greater than x
+                            //         .map(|type_| self.arg_value_name(type_, depth + 1))
+                            //         .collect::<Option<Vec<String>>>()?
+                            //         .join(",")
+                            )
+                            // when depth > 2
+                            // --recursive <List(Array<List(Array<hhhhhhhList(VecM([Vec(ScSpecTypeVec { element_type: Udt(ScSpecTypeUdt { name: StringM(RecursiveEnum) }) })])) | Void>) | Void>) | Void>\n
+
+                            // when depth > 1
+                            // --recursive <List(Array<hhhhhhhList(VecM([Vec(ScSpecTypeVec { element_type: Udt(ScSpecTypeUdt { name: StringM(RecursiveEnum) }) })])) | Void>) | Void>
+                            
+                        } else {
+                            format!(
+                                "{}({})",
+                                name.to_utf8_string_lossy(),
+                                type_
+                                    .iter()
+                            // maybe just return the type itself as a string if the depth is greater than x
+                                    .map(|type_| self.arg_value_name(type_, depth + 1))
+                                    .collect::<Option<Vec<String>>>()?
+                                    .join(",")
+                            )
+
+                        }
+                    }
                 })
             })
             .collect::<Option<Vec<_>>>()
