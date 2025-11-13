@@ -17,8 +17,10 @@ use std::{
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
+#[cfg(feature = "additional-libs")]
+use crate::commands::contract::optimize;
 use crate::{
-    commands::{contract::optimize, global, version},
+    commands::{global, version},
     print::Print,
     wasm,
 };
@@ -86,7 +88,8 @@ pub struct Cmd {
     pub meta: Vec<(String, String)>,
 
     /// Optimize the generated wasm.
-    #[arg(long)]
+    #[cfg_attr(feature = "additional-libs", arg(long))]
+    #[cfg_attr(not(feature = "additional-libs"), arg(long, hide = true))]
     pub optimize: bool,
 }
 
@@ -145,9 +148,13 @@ pub enum Error {
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
 
+    #[error("must install with \"additional-libs\" feature.")]
+    OptimizeFeatureNotEnabled,
+
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
 
+    #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Optimize(#[from] optimize::Error),
 
@@ -257,8 +264,10 @@ impl Cmd {
                 };
 
                 let wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
+                #[cfg_attr(not(feature = "additional-libs"), allow(unused_mut))]
                 let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
 
+                #[cfg(feature = "additional-libs")]
                 if self.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
@@ -267,6 +276,11 @@ impl Cmd {
 
                     fs::remove_file(&final_path).map_err(Error::DeletingArtifact)?;
                     fs::rename(&path, &final_path).map_err(Error::CopyingWasmFile)?;
+                }
+
+                #[cfg(not(feature = "additional-libs"))]
+                if self.optimize {
+                    return Err(Error::OptimizeFeatureNotEnabled);
                 }
 
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
