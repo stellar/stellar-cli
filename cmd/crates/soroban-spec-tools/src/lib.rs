@@ -1,6 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
-use std::{collections::HashMap, fmt::Write};
 use std::str::FromStr;
+use std::fmt::Write;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
@@ -143,9 +143,7 @@ impl Spec {
             }
         };
 
-        let mut ctx = Ctx{udt_state: HashMap::new()};
-        if let Some(mut ex) = self.example_with_context(&mut ctx, type_) {
-            println!("the {:?} example that is returned {:?}", name, ex);
+        if let Some(mut ex) = self.example(0, type_) {
             if ex.contains(' ') {
                 ex = format!("'{ex}'");
             } else if ex.contains('"') {
@@ -1262,20 +1260,10 @@ fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
         .join(" | ")
 }
 
-#[derive(Debug)]
-pub struct Ctx {
-    udt_state: HashMap<String, UdtState>
-}
-
-#[derive(Debug)]
-pub enum UdtState {
-    Visited(u8)
-}
-
 // Example implementation
 impl Spec {
     #[must_use]
-    pub fn example_with_context(&self, ctx: &mut Ctx, type_: &ScType) -> Option<String> {
+    pub fn example(&self, depth: usize, type_: &ScType) -> Option<String> {
         #[allow(clippy::match_same_arms)]
         match type_ {
             ScType::U64 => Some("1".to_string()),
@@ -1299,11 +1287,11 @@ impl Spec {
             ScType::String => Some("\"hello world\"".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
-                self.example_with_context(ctx, value_type.as_ref())
+                self.example(depth, value_type.as_ref())
             }
             ScType::Vec(val) => {
                 let ScSpecTypeVec { element_type } = val.as_ref();
-                let inner = self.example_with_context(ctx, element_type.as_ref())?;
+                let inner = self.example(depth, element_type.as_ref())?;
                 Some(format!("[ {inner} ]"))
             }
             ScType::Result(val) => {
@@ -1311,15 +1299,15 @@ impl Spec {
                     ok_type,
                     error_type,
                 } = val.as_ref();
-                let ok = self.example_with_context(ctx, ok_type.as_ref())?;
-                let error = self.example_with_context(ctx, error_type.as_ref())?;
+                let ok = self.example(depth, ok_type.as_ref())?;
+                let error = self.example(depth, error_type.as_ref())?;
                 Some(format!("Result<{ok}, {error}>"))
             }
             ScType::Tuple(val) => {
                 let ScSpecTypeTuple { value_types } = val.as_ref();
                 let names = value_types
                     .iter()
-                    .map(|t| self.example_with_context(ctx, t))
+                    .map(|t| self.example(depth, t))
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
                 Some(format!("[{names}]"))
@@ -1330,8 +1318,8 @@ impl Spec {
                     value_type,
                 } = map.as_ref();
                 let (mut key, val) = (
-                    self.example_with_context(ctx, key_type.as_ref())?,
-                    self.example_with_context(ctx, value_type.as_ref())?,
+                    self.example(depth, key_type.as_ref())?,
+                    self.example(depth, value_type.as_ref())?,
                 );
                 if !matches!(key_type.as_ref(), ScType::Symbol) {
                     key = format!("\"{key}\"");
@@ -1344,7 +1332,7 @@ impl Spec {
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                self.example_udts_with_context(ctx, name.to_utf8_string_lossy().as_ref())
+                self.example_udts(depth, name.to_utf8_string_lossy().as_ref())
             }
             ScType::MuxedAddress => {
                 Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
@@ -1354,50 +1342,17 @@ impl Spec {
         }
     }
 
-    fn example_udts_with_context(&self, ctx: &mut Ctx, name: &str) -> Option<String> {
-        // this is where we get the recursion for self referencing types - self.example calls `self.example_udts`, which continues to call this fn because it continues to match on udt
-
-            // this is self: Ok(UdtUnionV0(ScSpecUdtUnionV0 { doc: StringM(), lib: StringM(), name: StringM(RecursiveEnum), 
-            //     cases: VecM([
-                    
-            //         TupleV0(ScSpecUdtUnionCaseTupleV0 { doc: StringM(), name: StringM(List), type_: VecM([Vec(ScSpecTypeVec { element_type: Udt(ScSpecTypeUdt { name: StringM(RecursiveEnum) }) })]) }), 
-                    
-            //         VoidV0(ScSpecUdtUnionCaseVoidV0 { doc: StringM(), name: StringM(Void) })]) }))
-        
-        println!("ctx.udt_state {:?}", ctx.udt_state);
-        let state = ctx.udt_state.get(name);
-        if state.is_some() {
-            if matches!(state, Some(UdtState::Visited(1))){
-                println!("increasing visit count{:?} {:?}", name, state);
-                ctx.udt_state.remove(&name.to_string());
-                ctx.udt_state.insert(name.to_string(), UdtState::Visited(2));
-            } else {
-                println!("returning null {:?} {:?}", name, state);
-                return Some("null".to_string()); // or "[]", or r#"{"$ref":"RecursiveEnum"}"#, etc.
-            }
-
-            // cycle found - how many times has it been visited?
-        } else {
-            println!("tis none for {:?}", name);
-            ctx.udt_state.insert(name.to_string(), UdtState::Visited(1));
+    fn example_udts(&self, depth: usize, name: &str) -> Option<String> {
+        if depth > 2 {
+            return Some(name.to_string());
         }
 
-        // if matches!(ctx.udt_state.get(name), Some(UdtState::Visited(_))) {
-        //     println!("do i get here? name: {:?}", name);
-        //     // **Cycle found** — choose a base case to break recursion.
-        //     // For enums like RecursiveEnum, a sensible default is the non-recursive variant if any,
-        //     // otherwise return a minimal placeholder.
-        //     return Some("null".to_string()); // or "[]", or r#"{"$ref":"RecursiveEnum"}"#, etc.
-        // }
-
-        // ctx.udt_state.insert(name.to_string(), UdtState::Visited(1));
-
-
+        let depth = depth + 1;
         let built = match self.find(name).ok() {
-            // if it is a struct
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
                 // Check if a tuple strukt and handle it just as a tuple going forward
-                let build_struct = if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0"
+                let build_struct = if !strukt.fields.is_empty()
+                    && strukt.fields[0].name.to_utf8_string_lossy() == "0"
                 {
                     let value_types = strukt
                         .fields
@@ -1406,14 +1361,17 @@ impl Spec {
                         .collect::<Vec<_>>()
                         .try_into()
                         .ok()?;
-                    self.example_with_context(ctx, &ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })))
+                    self.example(
+                        depth,
+                        &ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })),
+                    )
                 } else {
                     let inner = strukt
                         .fields
                         .iter()
                         .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
                         .map(|(name, type_)| {
-                            let type_ = self.example_with_context(ctx, type_)?;
+                            let type_ = self.example(depth, type_)?;
                             let name = format!(r#""{name}""#);
                             Some(format!("{name}: {type_}"))
                         })
@@ -1421,10 +1379,9 @@ impl Spec {
                         .join(", ");
                     Some(format!(r"{{ {inner} }}"))
                 };
-                println!("build struct {:?}", build_struct);
                 build_struct
             }
-            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union_with_context(ctx, union),
+            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(depth, union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
@@ -1436,12 +1393,14 @@ impl Spec {
             | None => None,
         };
 
-        // ctx.udt_state.insert(name.to_string(), UdtState::Done(b.clone()));
-        ctx.udt_state.remove(&name.to_string());
         built
     }
 
-    fn example_union_with_context(&self, ctx: &mut Ctx, union: &ScSpecUdtUnionV0) -> Option<String> {
+    fn example_union(
+        &self,
+        depth: usize,
+        union: &ScSpecUdtUnionV0,
+    ) -> Option<String> {
         let res = union
             .cases
             .iter()
@@ -1453,12 +1412,12 @@ impl Spec {
                     name, type_, ..
                 }) => {
                     if type_.len() == 1 {
-                        let single = self.example_with_context(ctx, &type_[0])?;
+                        let single = self.example(depth, &type_[0])?;
                         Some(format!("{{\"{}\":{single}}}", name.to_utf8_string_lossy()))
                     } else {
                         let names = type_
                             .iter()
-                            .map(|t| self.example_with_context(ctx, t))
+                            .map(|t| self.example(depth, t))
                             .collect::<Option<Vec<_>>>()?
                             .join(", ");
                         Some(format!("{{\"{}\":[{names}]}}", name.to_utf8_string_lossy()))

@@ -43,7 +43,6 @@ async fn tuple_help() {
 #[tokio::test]
 async fn strukt_help() {
     let output = invoke_custom("strukt", "--help").await.unwrap();
-    println!("{output}");
     assert!(output.contains("--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",));
     assert!(output.contains("This is from the rust doc above the struct Test",));
 }
