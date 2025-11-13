@@ -28,6 +28,8 @@ jobs:
           - sys:
               ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
     runs-on: ${{ matrix.sys }}
+    env:
+      TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=1' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
     steps:
       - uses: stellar/quickstart@main
         with:
@@ -56,4 +58,5 @@ jobs:
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
       - run:
-          RUST_BACKTRACE=1 cargo test --features it --package soroban-test --test it -- integration --test-threads=1
+          RUST_BACKTRACE=1 cargo test --features it --package soroban-test --test it --
+          integration $TEST_THREADS
