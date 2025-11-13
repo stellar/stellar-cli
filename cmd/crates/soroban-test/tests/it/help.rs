@@ -22,6 +22,8 @@ async fn generate_help() {
         .contains("Example contract method which takes a struct"));
 }
 
+
+
 #[tokio::test]
 async fn vec_help() {
     assert!(invoke_custom("vec", "--help")
@@ -47,6 +49,14 @@ async fn strukt_help() {
 }
 
 #[tokio::test]
+async fn simple_enum() {
+    assert!(invoke_custom("simple", "--help")
+        .await
+        .unwrap()
+        .contains("First|Second|Third"));
+}
+
+#[tokio::test]
 async fn complex_enum_help() {
     let output = invoke_custom("complex", "--help").await.unwrap();
     assert!(output.contains(r#"--complex '{"Struct":{ "a": 1, "b": true, "c": "hello" }}"#,));
@@ -59,9 +69,9 @@ async fn complex_enum_help() {
 }
 
 #[tokio::test]
-async fn recursive_enum_help() {
+async fn recursive_enum() {
     let output = invoke_custom("recursive_enum", "--help").await.unwrap();
-    assert!(output.contains(r#"--complex"#,));
+    assert!(output.contains(r#"--recursive"#,));
     assert!(output.contains(r#""Void"'"#));
 }
 
