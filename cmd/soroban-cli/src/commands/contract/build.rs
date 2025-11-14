@@ -145,7 +145,9 @@ pub enum Error {
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
 
-    #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
+    #[error(
+        "use a rust version other than 1.81, 1.82, 1.83 or 1.91.0 to build contracts (got {0})"
+    )]
     RustVersion(String),
 
     #[error("must install with \"additional-libs\" feature.")]
