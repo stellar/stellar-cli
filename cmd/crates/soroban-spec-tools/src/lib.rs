@@ -1,6 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
-use std::str::FromStr;
 use std::fmt::Write;
+use std::str::FromStr;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
@@ -8,8 +8,8 @@ use stellar_xdr::curr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
     Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
     ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
-    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
+    ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple,
+    ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
     ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
     ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts,
     Uint256, VecM,
@@ -1214,14 +1214,8 @@ impl Spec {
                             match &type_[0] {
                                 stellar_xdr::curr::ScSpecTypeDef::Vec(type_vec) => {
                                     let element_type = type_vec.element_type.clone();
-                                    match *element_type {
-                                        stellar_xdr::curr::ScSpecTypeDef::Udt(udt_type) => {
-                                            return Some(format!(
-                                                "{}",
-                                                udt_type.name.to_utf8_string_lossy()
-                                            ))
-                                        }
-                                        _ => {}
+                                    if let ScSpecTypeDef::Udt(udt_type) = *element_type {
+                                        return Some(udt_type.name.to_utf8_string_lossy());
                                     }
                                 }
                                 _ => {
@@ -1396,11 +1390,7 @@ impl Spec {
         built
     }
 
-    fn example_union(
-        &self,
-        depth: usize,
-        union: &ScSpecUdtUnionV0,
-    ) -> Option<String> {
+    fn example_union(&self, depth: usize, union: &ScSpecUdtUnionV0) -> Option<String> {
         let res = union
             .cases
             .iter()
