@@ -581,6 +581,11 @@ fn get_wasm_target() -> Result<String, Error> {
 
     let v184 = Version::parse("1.84.0").unwrap();
     let v182 = Version::parse("1.82.0").unwrap();
+    let v191 = Version::parse("1.91.0").unwrap();
+
+    if current_version == v191 {
+        return Err(Error::RustVersion(current_version.to_string()));
+    }
 
     if current_version >= v182 && current_version < v184 {
         return Err(Error::RustVersion(current_version.to_string()));
