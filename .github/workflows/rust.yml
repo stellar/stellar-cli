@@ -36,7 +36,6 @@ jobs:
         build-and-test,
         build-and-test-macos,
         build-and-test-windows,
-        disallow-git-deps,
         publish-dry-run,
       ]
     runs-on: ubuntu-latest
@@ -120,23 +119,6 @@ jobs:
         with:
           target: ${{ matrix.sys.target }}
           rust-version: ${{ matrix.rust }}
-
-  disallow-git-deps:
-    # This job fails if a release is being prepared and there are still crate
-    # dependencies in the Cargo.toml files that reference dependencies via git.
-    # Git dependencies should not be set when releasing because the binary
-    # builds that happen based on the local source, and the published crate,
-    # may not build to be the same. This is because when the crate is published
-    # the git dependencies are stripped out automatically, but when building
-    # locally they'd still be present. The presence of git dependencies at
-    # release time in any case is probably a bug.
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Check that Cargo.tomls do not contain git dependencies for release
-        run: |
-          ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')

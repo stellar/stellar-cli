@@ -7,10 +7,18 @@ on:
 
 concurrency:
   group:
-    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+    ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}
   cancel-in-progress: true
 
 jobs:
+  github_context:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "github.sha => ${{ github.sha }}"
+          echo "github.ref => ${{ github.ref }}"
+
   docs-validation:
     uses: stellar/stellar-docs/.github/workflows/build.yml@main
     with:
