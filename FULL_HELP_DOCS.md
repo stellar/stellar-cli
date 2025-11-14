@@ -4270,12 +4270,6 @@ Fetch account entry by public key or alias
 ###### **Options:**
 
 - `--account <ACCOUNT>` — Account alias or address to lookup
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4287,6 +4281,18 @@ Fetch account entry by public key or alias
 
 - `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
 ## `stellar ledger entry fetch contract-data`
 
 Fetch contract ledger entry by address or alias and storage key
@@ -4296,12 +4302,6 @@ Fetch contract ledger entry by address or alias and storage key
 ###### **Options:**
 
 - `--contract <CONTRACT>` — Contract alias or address to fetch
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4322,6 +4322,18 @@ Fetch contract ledger entry by address or alias and storage key
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
 ## `stellar ledger entry fetch claimable-balance`
 
 Fetch a claimable balance ledger entry by id
@@ -4331,12 +4343,6 @@ Fetch a claimable balance ledger entry by id
 ###### **Options:**
 
 - `--id <ID>` — Claimable Balance Ids to fetch an entry for
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4345,6 +4351,18 @@ Fetch a claimable balance ledger entry by id
   - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar ledger entry fetch liquidity-pool`
 
@@ -4355,12 +4373,6 @@ Fetch a liquidity pool ledger entry by id
 ###### **Options:**
 
 - `--id <ID>` — Liquidity pool ids
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4369,6 +4381,18 @@ Fetch a liquidity pool ledger entry by id
   - `json`: JSON output of the ledger entry with parsed XDRs (one line, not formatted)
   - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar ledger entry fetch contract-code`
 
@@ -4379,12 +4403,6 @@ Fetch a Contract's WASM bytecode by WASM hash
 ###### **Options:**
 
 - `--wasm-hash <WASM_HASH>` — Get WASM bytecode by hash
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4394,6 +4412,18 @@ Fetch a Contract's WASM bytecode by WASM hash
   - `json-formatted`: Formatted (multiline) JSON output of the ledger entry with parsed XDRs
   - `xdr`: Original RPC output (containing XDRs)
 
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
 ## `stellar ledger entry fetch trustline`
 
 Fetch a trustline by account and asset
@@ -4402,12 +4432,6 @@ Fetch a trustline by account and asset
 
 ###### **Options:**
 
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4421,6 +4445,18 @@ Fetch a trustline by account and asset
 - `--asset <ASSET>` — Assets to get trustline info for
 - `--hd-path <HD_PATH>` — If account is a seed phrase use this hd path, default is 0
 
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
 ## `stellar ledger entry fetch data`
 
 Fetch key-value data entries attached to an account (see manageDataOp)
@@ -4429,12 +4465,6 @@ Fetch key-value data entries attached to an account (see manageDataOp)
 
 ###### **Options:**
 
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4448,6 +4478,18 @@ Fetch key-value data entries attached to an account (see manageDataOp)
 - `--data-name <DATA_NAME>` — Fetch key-value data entries attached to an account (see manageDataOp)
 - `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
 
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
 ## `stellar ledger entry fetch offer`
 
 Fetch an offer by account and offer id
@@ -4456,12 +4498,6 @@ Fetch an offer by account and offer id
 
 ###### **Options:**
 
-- `--rpc-url <RPC_URL>` — RPC server endpoint
-- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
-- `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--global` — ⚠️ Deprecated: global config is always on
-- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -4474,6 +4510,18 @@ Fetch an offer by account and offer id
 - `--account <ACCOUNT>` — Account alias or address to lookup
 - `--offer <OFFER>` — ID of an offer made on the Stellar DEX
 - `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar ledger latest`
 
