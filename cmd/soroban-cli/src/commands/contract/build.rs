@@ -145,6 +145,9 @@ pub enum Error {
     #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
     RustVersion(String),
 
+    #[error("rust 1.91.0 contains a bug building wasm, use 1.91.1+ instead (https://blog.rust-lang.org/2025/11/10/Rust-1.91.1/)")]
+    RustVersion1910Disallowed,
+
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
 
@@ -521,6 +524,8 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
         return Ok(None);
     }
 
+    check_for_disallowed_rust_versions()?;
+
     let target = get_wasm_target()?;
     let env_var_name = format!("TARGET_{target}_RUSTFLAGS");
 
@@ -576,4 +581,16 @@ fn get_wasm_target() -> Result<String, Error> {
     } else {
         Ok(WASM_TARGET.into())
     }
+}
+
+fn check_for_disallowed_rust_versions() -> Result<(), Error> {
+    let Ok(current_version) = version() else {
+        return Ok(());
+    };
+
+    if current_version == Version::parse("1.91.0").unwrap() {
+        return Err(Error::RustVersion1910Disallowed);
+    }
+
+    Ok(())
 }
