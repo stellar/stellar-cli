@@ -23,9 +23,10 @@ jobs:
           - os: ubuntu-latest-8-cores
           # ARM
           - os: ubuntu-jammy-8-cores-arm64
-          # Intel
-          - os: macos-13
-          # ARM macos is not yet supported, see https://github.com/douglascamata/setup-docker-macos-action
+          # Apple Silicon
+          - os: macos-15
+          # Apple Intel
+          - os: macos-15-intel
           # Windows is not yet supported due to issues with running quickstart image
           # - os: windows-latest-8-cores
     uses: stellar/system-test/.github/workflows/test.yml@master
@@ -34,7 +35,7 @@ jobs:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: ${{ matrix.sys.os }}
-      quickstart-tag: "future"
+      quickstart-tag: "testing"
   systems-test-linux:
     if: github.event_name != 'push'
     uses: stellar/system-test/.github/workflows/test.yml@master
@@ -43,4 +44,4 @@ jobs:
       stellar-cli-ref: ${{ github.ref }}
       test-filter: "^TestDappDevelop$/^.*$"
       runner: "ubuntu-latest"
-      quickstart-tag: "future"
+      quickstart-tag: "testing"

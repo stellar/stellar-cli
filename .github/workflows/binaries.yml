@@ -43,9 +43,6 @@ jobs:
           binary-name: ${{ matrix.crate.binary }}
 
   build-macos:
-    if:
-      github.event_name == 'release' || github.ref == 'refs/heads/main' ||
-      startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
@@ -53,9 +50,9 @@ jobs:
           - name: stellar-cli
             binary: stellar
         sys:
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
