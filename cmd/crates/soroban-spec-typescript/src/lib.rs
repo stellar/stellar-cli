@@ -175,23 +175,6 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
     )
 }
 
-const METHOD_OPTIONS: &str = r"{
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }";
-
 pub fn entry_to_name_and_return_type(entry: &Entry) -> Option<(String, String)> {
     if let Entry::Function { name, outputs, .. } = entry {
         Some((name.to_owned(), outputs_to_return_type(outputs)))
@@ -239,7 +222,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             format!(
                 r"
   {doc}
-  {name}: ({input}options?: {METHOD_OPTIONS}) => Promise<AssembledTransaction<{return_type}>>
+  {name}: ({input}options?: AssembledTransactionOptions<{return_type}>) => Promise<AssembledTransaction<{return_type}>>
 "
             )
         }
