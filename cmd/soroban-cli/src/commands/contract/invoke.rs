@@ -266,7 +266,7 @@ impl NetworkRunnable for Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
         }
 
         let client = network.rpc_client()?;
@@ -282,7 +282,7 @@ impl NetworkRunnable for Cmd {
         .map_err(Error::from)?;
 
         let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
 
         let (function, spec, host_function_params, signers) = params;
 

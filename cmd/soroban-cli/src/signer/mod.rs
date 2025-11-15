@@ -5,7 +5,7 @@ use crate::xdr::{
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
-use ed25519_dalek::ed25519::signature::Signer as _;
+use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
@@ -42,6 +42,8 @@ pub enum Error {
     SecureStore(#[from] secure_store::Error),
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
+    #[error(transparent)]
+    Decode(#[from] stellar_strkey::DecodeError),
 }
 
 fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
@@ -63,8 +65,8 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 // transaction. If unable to sign, return an error.
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_key: &ed25519_dalek::SigningKey,
-    signers: &[ed25519_dalek::SigningKey],
+    source_signer: &Signer,
+    signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
@@ -83,67 +85,68 @@ pub fn sign_soroban_authorizations(
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
-    let verification_key = source_key.verifying_key();
-    let source_address = verification_key.as_bytes();
+    let mut signed_auths = Vec::with_capacity(body.auth.len());
+    for raw_auth in body.auth.as_slice() {
+        let mut auth = raw_auth.clone();
+        let SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(ref mut credentials),
+            ..
+        } = auth
+        else {
+            // Doesn't need special signing
+            signed_auths.push(auth);
+            continue;
+        };
+        let SorobanAddressCredentials { ref address, .. } = credentials;
 
-    let signed_auths = body
-        .auth
-        .as_slice()
-        .iter()
-        .map(|raw_auth| {
-            let mut auth = raw_auth.clone();
-            let SorobanAuthorizationEntry {
-                credentials: SorobanCredentials::Address(ref mut credentials),
-                ..
-            } = auth
-            else {
-                // Doesn't need special signing
-                return Ok(auth);
-            };
-            let SorobanAddressCredentials { ref address, .. } = credentials;
+        // See if we have a signer for this authorizationEntry
+        // If not, then we Error
+        let needle: &[u8; 32] = match address {
+            ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
+            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
+            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
+            ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
+            ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
+                // This address is for a contract. This means we're using a custom
+                // smart-contract account. Currently the CLI doesn't support that yet.
+                return Err(Error::MissingSignerForAddress {
+                    address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
+                        .to_string(),
+                });
+            }
+        };
 
-            // See if we have a signer for this authorizationEntry
-            // If not, then we Error
-            let needle = match address {
-                ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
-                ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
-                ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
-                ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
-                ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
-                    // This address is for a contract. This means we're using a custom
-                    // smart-contract account. Currently the CLI doesn't support that yet.
-                    return Err(Error::MissingSignerForAddress {
-                        address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                            .to_string(),
-                    });
-                }
-            };
-            let signer = if let Some(s) = signers
-                .iter()
-                .find(|s| needle == s.verifying_key().as_bytes())
-            {
-                s
-            } else if needle == source_address {
-                // This is the source address, so we can sign it
-                source_key
-            } else {
-                // We don't have a signer for this address
+        let mut signer: Option<&Signer> = None;
+        for s in signers {
+            if needle == &s.get_public_key()? {
+                signer = Some(s);
+            }
+        }
+
+        if needle == &source_signer.get_public_key()? {
+            signer = Some(source_signer);
+        }
+
+        match signer {
+            Some(signer) => {
+                let signed_entry = sign_soroban_authorization_entry(
+                    raw_auth,
+                    signer,
+                    signature_expiration_ledger,
+                    &network_id,
+                )?;
+                signed_auths.push(signed_entry);
+            }
+            None => {
                 return Err(Error::MissingSignerForAddress {
                     address: stellar_strkey::Strkey::PublicKeyEd25519(
                         stellar_strkey::ed25519::PublicKey(*needle),
                     )
                     .to_string(),
                 });
-            };
-
-            sign_soroban_authorization_entry(
-                raw_auth,
-                signer,
-                signature_expiration_ledger,
-                &network_id,
-            )
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+            }
+        }
+    }
 
     body.auth = signed_auths.try_into()?;
     tx.operations = vec![op].try_into()?;
@@ -152,7 +155,7 @@ pub fn sign_soroban_authorizations(
 
 fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
-    signer: &ed25519_dalek::SigningKey,
+    signer: &Signer,
     signature_expiration_ledger: u32,
     network_id: &Hash,
 ) -> Result<SorobanAuthorizationEntry, Error> {
@@ -176,19 +179,14 @@ fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let signature = signer.sign(&payload);
+    let p: [u8; 32] = payload.as_slice().try_into()?;
+    let signature = signer.sign_payload(p)?;
+    let public_key_vec = signer.get_public_key()?.to_vec();
 
     let map = ScMap::sorted_from(vec![
         (
             ScVal::Symbol(ScSymbol("public_key".try_into()?)),
-            ScVal::Bytes(
-                signer
-                    .verifying_key()
-                    .to_bytes()
-                    .to_vec()
-                    .try_into()
-                    .map_err(Error::Xdr)?,
-            ),
+            ScVal::Bytes(public_key_vec.try_into().map_err(Error::Xdr)?),
         ),
         (
             ScVal::Symbol(ScSymbol("signature".try_into()?)),
@@ -223,8 +221,7 @@ pub enum SignerKind {
     SecureStore(SecureStoreEntry),
 }
 
-// Instead of using `sign_tx` and `sign_tx_env` directly, it is advised to instead use the sign_with module
-// which allows for signing with a local key, lab or a ledger device
+// It is advised to use the sign_with module, which handles creating a Signer with the appropriate SignerKind
 impl Signer {
     pub async fn sign_tx(
         &self,
@@ -264,6 +261,29 @@ impl Signer {
             _ => Err(Error::UnsupportedTransactionEnvelopeType),
         }
     }
+
+    // when we implement this for ledger we'll need it to be async so we can await for the ledger's public key
+    pub fn get_public_key(&self) -> Result<[u8; 32], Error> {
+        match &self.kind {
+            SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
+            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
+            SignerKind::SecureStore(secure_store_entry) => {
+                let pk = secure_store_entry.get_public_key()?;
+                Ok(pk.0)
+            }
+        }
+    }
+
+    // when we implement this for ledger we'll need it to be async so we can await the user approved the tx on the ledger device
+    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+        match &self.kind {
+            SignerKind::Local(local_key) => local_key.sign_payload(payload),
+            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
+            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
+        }
+    }
 }
 
 pub struct LocalKey {
@@ -275,6 +295,10 @@ impl LocalKey {
         let hint = SignatureHint(self.key.verifying_key().to_bytes()[28..].try_into()?);
         let signature = Signature(self.key.sign(&tx_hash).to_bytes().to_vec().try_into()?);
         Ok(DecoratedSignature { hint, signature })
+    }
+
+    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+        Ok(self.key.sign(&payload))
     }
 }
 
@@ -309,6 +333,10 @@ pub struct SecureStoreEntry {
 }
 
 impl SecureStoreEntry {
+    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        Ok(secure_store::get_public_key(&self.name, self.hd_path)?)
+    }
+
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let hint = SignatureHint(
             secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
@@ -318,5 +346,11 @@ impl SecureStoreEntry {
 
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
+    }
+
+    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+        let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
+        let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
+        Ok(sig)
     }
 }
