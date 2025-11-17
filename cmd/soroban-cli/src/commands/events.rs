@@ -135,27 +135,6 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&mut self) -> Result<(), Error> {
-        // Validate that topics are made up of segments.
-        for topic in &self.topic_filters {
-            for (i, segment) in topic.split(',').enumerate() {
-                if i > 4 {
-                    return Err(Error::InvalidTopicFilter {
-                        topic: topic.clone(),
-                    });
-                }
-
-                if segment != "*" {
-                    if let Err(e) = xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
-                        return Err(Error::InvalidSegment {
-                            topic: topic.clone(),
-                            segment: segment.to_string(),
-                            error: e,
-                        });
-                    }
-                }
-            }
-        }
-
         let response = self.run_against_rpc_server(None, None).await?;
 
         if response.events.is_empty() {
@@ -183,6 +162,38 @@ impl Cmd {
             }
         }
         Ok(())
+    }
+
+    fn parse_topics(&self) -> Result<rpc::TopicFilters, Error> {
+        let mut segments: Vec<rpc::SegmentFilter> = Vec::new();
+        for topic in &self.topic_filters {
+            for (i, segment) in topic.split(',').enumerate() {
+                if i > 4 {
+                    return Err(Error::InvalidTopicFilter {
+                        topic: topic.clone(),
+                    });
+                }
+
+                if segment == "*" || segment == "**" {
+                    segments.push(segment.to_owned());
+                } else {
+                    match xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
+                        Ok(_s) => {
+                            segments.push(segment.to_owned());
+                        }
+                        Err(e) => {
+                            return Err(Error::InvalidSegment {
+                                topic: topic.clone(),
+                                segment: segment.to_string(),
+                                error: e,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(vec![segments])
     }
 
     fn start(&self) -> Result<rpc::EventStart, Error> {
@@ -228,12 +239,14 @@ impl NetworkRunnable for Cmd {
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
+        let parsed_topics = self.parse_topics()?;
+
         Ok(client
             .get_events(
                 start,
                 Some(self.event_type),
                 &contract_ids,
-                &self.topic_filters,
+                &parsed_topics,
                 Some(self.count),
             )
             .await
