@@ -136,9 +136,9 @@ impl Root {
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
+            Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-            Cmd::Ledger(env) => env.run(&self.global_args).await?,
             Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
