@@ -49,6 +49,7 @@ fn parse_u64() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation)]
 fn parse_u128() {
     let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
     let res = &format!("{b}");
@@ -59,6 +60,7 @@ fn parse_u128() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation)]
 fn parse_u256() {
     let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
     let res = &format!("{b}");
@@ -79,6 +81,7 @@ fn parse_u256() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn parse_i128() {
     let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
     let res = &format!("{b}");
@@ -89,6 +92,7 @@ fn parse_i128() {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn parse_i256() {
     let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
     let res = &format!("{b}");
@@ -96,7 +100,7 @@ fn parse_i256() {
     let lo_hi = (b >> 64) as u64;
     // b is negative i128, so hi parts are all ones
     let hi_lo = u64::MAX;
-    let hi_hi = u64::MAX as i64;
+    let hi_hi = -1i64;
     let parsed = from_string_primitive(res, &ScSpecTypeDef::I256).unwrap();
     assert!(
         parsed
@@ -152,7 +156,7 @@ fn parse_bytesn_when_hex_is_all_numbers() {
 
 #[test]
 fn parse_timepoint() {
-    let b = 1760501234u64;
+    let b = 1_760_501_234u64;
     let res = &format!("{b}");
     let parsed = from_string_primitive(res, &ScSpecTypeDef::Timepoint).unwrap();
     assert!(parsed == ScVal::Timepoint(TimePoint::from(b)));
@@ -160,7 +164,7 @@ fn parse_timepoint() {
 
 #[test]
 fn parse_duration() {
-    let b = 1234567u64;
+    let b = 1_234_567u64;
     let res = &format!("{b}");
     let parsed = from_string_primitive(res, &ScSpecTypeDef::Duration).unwrap();
     assert!(parsed == ScVal::Duration(Duration::from(b)));
