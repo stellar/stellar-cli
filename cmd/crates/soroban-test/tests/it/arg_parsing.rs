@@ -1,16 +1,15 @@
 use crate::util::CUSTOM_TYPES;
 use serde_json::json;
 use soroban_cli::xdr::{
-    ScBytes, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeUdt, ScVal,
+    Duration, Int128Parts, Int256Parts, ScBytes, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption,
+    ScSpecTypeUdt, ScVal, TimePoint, UInt128Parts, UInt256Parts,
 };
 use soroban_spec_tools::{from_string_primitive, Spec};
 
 #[test]
 fn parse_bool() {
-    println!(
-        "{:#?}",
-        from_string_primitive("true", &ScSpecTypeDef::Bool,).unwrap()
-    );
+    let parsed = from_string_primitive("true", &ScSpecTypeDef::Bool).unwrap();
+    assert!(parsed == ScVal::Bool(true));
 }
 
 #[test]
@@ -22,7 +21,6 @@ fn parse_null() {
         })),
     )
     .unwrap();
-    println!("{parsed:#?}");
     assert!(parsed == ScVal::Void);
 }
 
@@ -30,39 +28,53 @@ fn parse_null() {
 fn parse_u32() {
     let u32_ = 42u32;
     let res = &format!("{u32_}");
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::U32,).unwrap()
-    );
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::U32).unwrap();
+    assert!(parsed == ScVal::U32(u32_));
 }
 
 #[test]
 fn parse_i32() {
     let i32_ = -42_i32;
     let res = &format!("{i32_}");
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::I32,).unwrap()
-    );
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::I32).unwrap();
+    assert!(parsed == ScVal::I32(i32_));
 }
 
 #[test]
 fn parse_u64() {
     let b = 42_000_000_000u64;
     let res = &format!("{b}");
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::U64,).unwrap()
-    );
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::U64).unwrap();
+    assert!(parsed == ScVal::U64(b));
 }
 
 #[test]
 fn parse_u128() {
     let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
     let res = &format!("{b}");
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::U128,).unwrap()
+    let lo = b as u64;
+    let hi = (b >> 64) as u64;
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::U128).unwrap();
+    assert!(parsed == ScVal::U128(UInt128Parts { hi, lo }));
+}
+
+#[test]
+fn parse_u256() {
+    let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
+    let res = &format!("{b}");
+    let lo_lo = b as u64;
+    let lo_hi = (b >> 64) as u64;
+    let hi_lo = 0u64;
+    let hi_hi = 0u64;
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::U256).unwrap();
+    assert!(
+        parsed
+            == ScVal::U256(UInt256Parts {
+                lo_lo,
+                lo_hi,
+                hi_lo,
+                hi_hi
+            })
     );
 }
 
@@ -70,21 +82,30 @@ fn parse_u128() {
 fn parse_i128() {
     let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
     let res = &format!("{b}");
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::I128,).unwrap()
-    );
+    let lo = b as u64;
+    let hi = (b >> 64) as i64;
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::I128).unwrap();
+    assert!(parsed == ScVal::I128(Int128Parts { hi, lo }));
 }
 
 #[test]
 fn parse_i256() {
     let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
     let res = &format!("{b}");
-    let entries = get_spec();
-    entries.from_string(res, &ScSpecTypeDef::I256).unwrap();
-    println!(
-        "{:#?}",
-        from_string_primitive(res, &ScSpecTypeDef::I256,).unwrap()
+    let lo_lo = b as u64;
+    let lo_hi = (b >> 64) as u64;
+    // b is negative i128, so hi parts are all ones
+    let hi_lo = u64::MAX;
+    let hi_hi = u64::MAX as i64;
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::I256).unwrap();
+    assert!(
+        parsed
+            == ScVal::I256(Int256Parts {
+                lo_lo,
+                lo_hi,
+                hi_lo,
+                hi_hi
+            })
     );
 }
 
@@ -95,7 +116,6 @@ fn parse_bytes() {
         b,
         ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
     );
-    println!("{b:#?}");
 }
 
 #[test]
@@ -105,7 +125,6 @@ fn parse_bytes_when_hex_is_all_numbers() {
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
     );
-    println!("{b:#?}");
 }
 
 #[test]
@@ -119,7 +138,6 @@ fn parse_bytesn() {
         b,
         ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
     );
-    println!("{b:#?}");
 }
 
 #[test]
@@ -130,29 +148,34 @@ fn parse_bytesn_when_hex_is_all_numbers() {
         b,
         ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
     );
-    println!("{b:#?}",);
+}
+
+#[test]
+fn parse_timepoint() {
+    let b = 1760501234u64;
+    let res = &format!("{b}");
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::Timepoint).unwrap();
+    assert!(parsed == ScVal::Timepoint(TimePoint::from(b)));
+}
+
+#[test]
+fn parse_duration() {
+    let b = 1234567u64;
+    let res = &format!("{b}");
+    let parsed = from_string_primitive(res, &ScSpecTypeDef::Duration).unwrap();
+    assert!(parsed == ScVal::Duration(Duration::from(b)));
 }
 
 #[test]
 fn parse_symbol() {
-    // let b = "hello";
-    // let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Symbol, &json! {b}).unwrap();
-    // println!("{res}");
-    println!(
-        "{:#?}",
-        from_string_primitive(r#""hello""#, &ScSpecTypeDef::Symbol).unwrap()
-    );
+    let parsed = from_string_primitive(r#""hello""#, &ScSpecTypeDef::Symbol).unwrap();
+    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()));
 }
 
 #[test]
 fn parse_symbol_with_no_quotation_marks() {
-    // let b = "hello";
-    // let res = &parse_json(&HashMap::new(), &ScSpecTypeDef::Symbol, &json! {b}).unwrap();
-    // println!("{res}");
-    println!(
-        "{:#?}",
-        from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap()
-    );
+    let parsed = from_string_primitive("hello", &ScSpecTypeDef::Symbol).unwrap();
+    assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()));
 }
 
 #[test]
@@ -164,7 +187,6 @@ fn parse_optional_symbol_with_no_quotation_marks() {
         })),
     )
     .unwrap();
-    println!("{parsed:#?}");
     assert!(parsed == ScVal::Symbol("hello".try_into().unwrap()));
 }
 
@@ -177,7 +199,6 @@ fn parse_optional_bool_with_no_quotation_marks() {
         })),
     )
     .unwrap();
-    println!("{parsed:#?}");
     assert!(parsed == ScVal::Bool(true));
 }
 
