@@ -528,19 +528,23 @@ fn get_available_functions(spec: &Spec) -> String {
 fn is_primitive_type(type_def: &ScSpecTypeDef) -> bool {
     matches!(
         type_def,
-        ScSpecTypeDef::U64
-            | ScSpecTypeDef::I64
+        ScSpecTypeDef::U32
+            | ScSpecTypeDef::U64
             | ScSpecTypeDef::U128
-            | ScSpecTypeDef::I128
-            | ScSpecTypeDef::U32
-            | ScSpecTypeDef::I32
             | ScSpecTypeDef::U256
+            | ScSpecTypeDef::I32
+            | ScSpecTypeDef::I64
+            | ScSpecTypeDef::I128
             | ScSpecTypeDef::I256
             | ScSpecTypeDef::Bool
             | ScSpecTypeDef::Symbol
             | ScSpecTypeDef::String
+            | ScSpecTypeDef::Bytes
+            | ScSpecTypeDef::BytesN(_)
             | ScSpecTypeDef::Address
             | ScSpecTypeDef::MuxedAddress
+            | ScSpecTypeDef::Timepoint
+            | ScSpecTypeDef::Duration
             | ScSpecTypeDef::Void
     )
 }
@@ -636,7 +640,7 @@ fn parse_argument_with_validation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::curr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
+    use stellar_xdr::curr::{ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
 
     #[test]
     fn test_get_type_name_primitives() {
@@ -670,6 +674,41 @@ mod tests {
             element_type: Box::new(ScSpecTypeDef::String),
         }));
         assert_eq!(get_type_name(&vec_type), "vector of string");
+    }
+
+    #[test]
+    fn test_is_primitive_type_all_primitives() {
+        assert!(is_primitive_type(&ScSpecTypeDef::U32));
+        assert!(is_primitive_type(&ScSpecTypeDef::I32));
+        assert!(is_primitive_type(&ScSpecTypeDef::U64));
+        assert!(is_primitive_type(&ScSpecTypeDef::I64));
+        assert!(is_primitive_type(&ScSpecTypeDef::U128));
+        assert!(is_primitive_type(&ScSpecTypeDef::I128));
+        assert!(is_primitive_type(&ScSpecTypeDef::U256));
+        assert!(is_primitive_type(&ScSpecTypeDef::I256));
+
+        assert!(is_primitive_type(&ScSpecTypeDef::Bool));
+        assert!(is_primitive_type(&ScSpecTypeDef::Symbol));
+        assert!(is_primitive_type(&ScSpecTypeDef::String));
+        assert!(is_primitive_type(&ScSpecTypeDef::Void));
+        assert!(is_primitive_type(&ScSpecTypeDef::Bytes));
+        assert!(is_primitive_type(&ScSpecTypeDef::BytesN(
+            ScSpecTypeBytesN { n: 32 }
+        )));
+        assert!(is_primitive_type(&ScSpecTypeDef::BytesN(
+            ScSpecTypeBytesN { n: 64 }
+        )));
+
+        assert!(is_primitive_type(&ScSpecTypeDef::Address));
+        assert!(is_primitive_type(&ScSpecTypeDef::MuxedAddress));
+        assert!(is_primitive_type(&ScSpecTypeDef::Timepoint));
+        assert!(is_primitive_type(&ScSpecTypeDef::Duration));
+
+        assert!(!is_primitive_type(&ScSpecTypeDef::Vec(Box::new(
+            ScSpecTypeVec {
+                element_type: Box::new(ScSpecTypeDef::U32),
+            }
+        ))));
     }
 
     #[test]
