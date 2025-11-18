@@ -62,7 +62,7 @@ async fn complex_enum_help() {
 async fn multi_arg_failure() {
     assert!(matches!(
         invoke_custom("multi_args", "--b").await.unwrap_err(),
-        contract::invoke::Error::ArgParsing(arg_parsing::Error::MissingArgument { .. })
+        contract::invoke::Error::ArgParsing(arg_parsing::Error::MissingArgument(_))
     ));
 }
 
