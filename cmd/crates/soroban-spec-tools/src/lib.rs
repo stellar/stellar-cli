@@ -8,7 +8,7 @@ use stellar_xdr::curr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
     Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
     ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
-    ScSpecTypeDef, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple,
+    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple,
     ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
     ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
     ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts,
@@ -157,7 +157,6 @@ impl Spec {
             if ex.contains('"') {}
         }
         if str.is_empty() {
-            println!("example is empty");
             Ok(None)
         } else {
             Ok(Some(Box::leak(str.into_boxed_str())))
@@ -1223,9 +1222,9 @@ impl Spec {
                     }) => {
                         if depth > 1 {
                             match &type_[0] {
-                                stellar_xdr::curr::ScSpecTypeDef::Vec(type_vec) => {
+                                ScType::Vec(type_vec) => {
                                     let element_type = type_vec.element_type.clone();
-                                    if let ScSpecTypeDef::Udt(udt_type) = *element_type {
+                                    if let ScType::Udt(udt_type) = *element_type {
                                         return Some(udt_type.name.to_utf8_string_lossy());
                                     }
                                 }
