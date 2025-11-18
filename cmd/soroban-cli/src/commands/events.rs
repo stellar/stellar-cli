@@ -165,8 +165,9 @@ impl Cmd {
     }
 
     fn parse_topics(&self) -> Result<rpc::TopicFilters, Error> {
-        let mut segments: Vec<rpc::SegmentFilter> = Vec::new();
+        let mut topic_filters: rpc::TopicFilters = Vec::new();
         for topic in &self.topic_filters {
+            let mut topic_filter: rpc::TopicFilter = Vec::new(); // a topic filter is a collection of segments
             for (i, segment) in topic.split(',').enumerate() {
                 if i > 4 {
                     return Err(Error::InvalidTopicFilter {
@@ -175,11 +176,11 @@ impl Cmd {
                 }
 
                 if segment == "*" || segment == "**" {
-                    segments.push(segment.to_owned());
+                    topic_filter.push(segment.to_owned());
                 } else {
                     match xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
                         Ok(_s) => {
-                            segments.push(segment.to_owned());
+                            topic_filter.push(segment.to_owned());
                         }
                         Err(e) => {
                             return Err(Error::InvalidSegment {
@@ -191,9 +192,11 @@ impl Cmd {
                     }
                 }
             }
+            topic_filters.push(topic_filter);
         }
 
-        Ok(vec![segments])
+
+        Ok(topic_filters)
     }
 
     fn start(&self) -> Result<rpc::EventStart, Error> {
