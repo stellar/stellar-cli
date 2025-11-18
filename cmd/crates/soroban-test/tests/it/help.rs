@@ -68,7 +68,7 @@ async fn complex_enum_help() {
 #[tokio::test]
 async fn recursive_enum() {
     let output = invoke_custom("recursive_enum", "--help").await.unwrap();
-    assert!(output.contains("--recursive",));
+    assert!(output.contains("--recursive"));
     assert!(output.contains(r#""Void"'"#));
 }
 
