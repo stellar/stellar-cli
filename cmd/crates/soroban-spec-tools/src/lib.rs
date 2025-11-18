@@ -269,6 +269,17 @@ impl Spec {
                     ScType::U128 | ScType::I128 | ScType::U256 | ScType::I256 => {
                         Ok(Value::String(s.to_owned()))
                     }
+                    ScType::Timepoint | ScType::Duration => {
+                        // timepoint and duration both expect a JSON object with the value
+                        // being the u64 number as a string, and key being the type name
+                        let key = match t {
+                            ScType::Timepoint => "timepoint",
+                            ScType::Duration => "duration",
+                            _ => unreachable!(),
+                        };
+
+                        Ok(json!({ key: s }))
+                    }
                     _ => Ok(val),
                 },
             )
