@@ -74,7 +74,8 @@ version = "23.0.1"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-path = "../rs-stellar-rpc-client"
+git = "https://github.com/stellar/rs-stellar-rpc-client"
+branch = "fix/events-for-base64-topics"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
