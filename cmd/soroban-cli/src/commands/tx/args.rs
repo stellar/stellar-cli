@@ -110,7 +110,7 @@ impl Args {
         }
 
         let txn_resp = client
-            .send_transaction_polling(&self.config.sign(tx).await?)
+            .send_transaction_polling(&self.config.sign(tx, args.quiet).await?)
             .await?;
 
         if !args.no_cache {
