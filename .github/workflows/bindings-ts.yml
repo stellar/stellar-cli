@@ -22,6 +22,7 @@ jobs:
           # Only run Linux x64 tests on pull request to save some time
           - sys:
               ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     steps:
       - uses: stellar/quickstart@main
