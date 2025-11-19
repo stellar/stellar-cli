@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::{
-    signer,
+    print::Print,
+    signer::{self, Signer},
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
 };
@@ -35,7 +36,7 @@ pub enum Error {
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
-    Config(#[from] locator::Error),
+    Locator(#[from] locator::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
@@ -79,6 +80,12 @@ impl Args {
             .await?)
     }
 
+    pub async fn source_signer(&self) -> Result<Signer, Error> {
+        let print = Print::new(true);
+        let secret = &self.source_account.resolve_secret(&self.locator)?;
+        Ok(secret.signer(None, print).await?)
+    }
+
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = &self.source_account.resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path())?)
@@ -104,16 +111,16 @@ impl Args {
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
-        signers: &[ed25519_dalek::SigningKey],
+        signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_key = self.key_pair()?;
+        let source_signer = self.source_signer().await?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_key,
+            &source_signer,
             signers,
             seq_num,
             &network.network_passphrase,

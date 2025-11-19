@@ -2,12 +2,13 @@ use crate::commands::contract::arg_parsing::Error::HelpMessage;
 use crate::commands::contract::deploy::wasm::CONSTRUCTOR_FUNCTION_NAME;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
+use crate::print::Print;
+use crate::signer::{self, Signer};
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
-use ed25519_dalek::SigningKey;
 use heck::ToKebabCase;
 use soroban_spec_tools::Spec;
 use std::collections::HashMap;
@@ -74,9 +75,11 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error("")]
     HelpMessage(String),
+    #[error(transparent)]
+    Signer(#[from] signer::Error),
 }
 
-pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<SigningKey>);
+pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<Signer>);
 
 fn running_cmd() -> String {
     let mut args: Vec<String> = env::args().collect();
@@ -88,25 +91,25 @@ fn running_cmd() -> String {
     format!("{} --", args.join(" "))
 }
 
-pub fn build_host_function_parameters(
+pub async fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true).await
 }
 
-pub fn build_constructor_parameters(
+pub async fn build_constructor_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false)
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false).await
 }
 
-fn build_host_function_parameters_with_filter(
+async fn build_host_function_parameters_with_filter(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
@@ -117,7 +120,7 @@ fn build_host_function_parameters_with_filter(
     let cmd = build_clap_command(&spec, filter_constructor)?;
     let (function, matches_) = parse_command_matches(cmd, slop)?;
     let func = get_function_spec(&spec, &function)?;
-    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
+    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config).await?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
 
     Ok((function, spec, invoke_args, signers))
@@ -171,31 +174,32 @@ fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Er
         .cloned()
 }
 
-fn parse_function_arguments(
+async fn parse_function_arguments(
     func: &ScSpecFunctionV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
     config: &config::Args,
-) -> Result<(Vec<ScVal>, Vec<SigningKey>), Error> {
-    let mut signers: Vec<SigningKey> = vec![];
-    let parsed_args = func
-        .inputs
-        .iter()
-        .map(|i| parse_single_argument(i, matches_, spec, config, &mut signers))
-        .collect::<Result<Vec<_>, Error>>()?;
+) -> Result<(Vec<ScVal>, Vec<Signer>), Error> {
+    let mut parsed_args = Vec::with_capacity(func.inputs.len());
+    let mut signers = Vec::<Signer>::new();
+
+    for i in func.inputs.iter() {
+        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args).await?;
+    }
 
     Ok((parsed_args, signers))
 }
 
-fn parse_single_argument(
+async fn parse_single_argument(
     input: &stellar_xdr::curr::ScSpecFunctionInputV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
     config: &config::Args,
-    signers: &mut Vec<SigningKey>,
-) -> Result<ScVal, Error> {
+    signers: &mut Vec<Signer>,
+    parsed_args: &mut Vec<ScVal>,
+) -> Result<(), Error> {
     let name = input.name.to_utf8_string()?;
-    let expected_type_name = get_type_name(&input.type_);
+    let expected_type_name = get_type_name(&input.type_); //-0--
 
     if let Some(mut val) = matches_.get_raw(&name) {
         let s = match val.next() {
@@ -215,24 +219,40 @@ fn parse_single_argument(
         ) {
             let trimmed_s = s.trim_matches('"');
             let addr = resolve_address(trimmed_s, config)?;
-            if let Some(signer) = resolve_signer(trimmed_s, config) {
+            if let Some(signer) = resolve_signer(trimmed_s, config).await {
                 signers.push(signer);
             }
-            return parse_argument_with_validation(&name, &addr, &input.type_, spec, config);
+            parsed_args.push(parse_argument_with_validation(
+                &name,
+                &addr,
+                &input.type_,
+                spec,
+                config,
+            )?);
+            return Ok(());
         }
 
-        parse_argument_with_validation(&name, &s, &input.type_, spec, config)
+        parsed_args.push(parse_argument_with_validation(
+            &name,
+            &s,
+            &input.type_,
+            spec,
+            config,
+        )?);
+        Ok(())
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
-        Ok(ScVal::Void)
+        parsed_args.push(ScVal::Void);
+        Ok(())
     } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
-        parse_file_argument(
+        parsed_args.push(parse_file_argument(
             &name,
             arg_path,
             &input.type_,
             expected_type_name,
             spec,
             config,
-        )
+        )?);
+        Ok(())
     } else {
         Err(Error::MissingArgument {
             arg: name,
@@ -430,14 +450,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<SigningKey> {
-    config
-        .locator
-        .read_key(addr_or_alias)
-        .ok()?
-        .private_key(None)
-        .ok()
-        .map(|pk| SigningKey::from_bytes(&pk.0))
+async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
+    let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
+    let print = Print::new(false);
+    let signer = secret.signer(None, print).await.ok()?;
+    Some(signer)
 }
 
 /// Validates JSON string and returns a more descriptive error if invalid
@@ -511,19 +528,23 @@ fn get_available_functions(spec: &Spec) -> String {
 fn is_primitive_type(type_def: &ScSpecTypeDef) -> bool {
     matches!(
         type_def,
-        ScSpecTypeDef::U64
-            | ScSpecTypeDef::I64
+        ScSpecTypeDef::U32
+            | ScSpecTypeDef::U64
             | ScSpecTypeDef::U128
-            | ScSpecTypeDef::I128
-            | ScSpecTypeDef::U32
-            | ScSpecTypeDef::I32
             | ScSpecTypeDef::U256
+            | ScSpecTypeDef::I32
+            | ScSpecTypeDef::I64
+            | ScSpecTypeDef::I128
             | ScSpecTypeDef::I256
             | ScSpecTypeDef::Bool
             | ScSpecTypeDef::Symbol
             | ScSpecTypeDef::String
+            | ScSpecTypeDef::Bytes
+            | ScSpecTypeDef::BytesN(_)
             | ScSpecTypeDef::Address
             | ScSpecTypeDef::MuxedAddress
+            | ScSpecTypeDef::Timepoint
+            | ScSpecTypeDef::Duration
             | ScSpecTypeDef::Void
     )
 }
@@ -619,7 +640,7 @@ fn parse_argument_with_validation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::curr::{ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
+    use stellar_xdr::curr::{ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
 
     #[test]
     fn test_get_type_name_primitives() {
@@ -653,6 +674,41 @@ mod tests {
             element_type: Box::new(ScSpecTypeDef::String),
         }));
         assert_eq!(get_type_name(&vec_type), "vector of string");
+    }
+
+    #[test]
+    fn test_is_primitive_type_all_primitives() {
+        assert!(is_primitive_type(&ScSpecTypeDef::U32));
+        assert!(is_primitive_type(&ScSpecTypeDef::I32));
+        assert!(is_primitive_type(&ScSpecTypeDef::U64));
+        assert!(is_primitive_type(&ScSpecTypeDef::I64));
+        assert!(is_primitive_type(&ScSpecTypeDef::U128));
+        assert!(is_primitive_type(&ScSpecTypeDef::I128));
+        assert!(is_primitive_type(&ScSpecTypeDef::U256));
+        assert!(is_primitive_type(&ScSpecTypeDef::I256));
+
+        assert!(is_primitive_type(&ScSpecTypeDef::Bool));
+        assert!(is_primitive_type(&ScSpecTypeDef::Symbol));
+        assert!(is_primitive_type(&ScSpecTypeDef::String));
+        assert!(is_primitive_type(&ScSpecTypeDef::Void));
+        assert!(is_primitive_type(&ScSpecTypeDef::Bytes));
+        assert!(is_primitive_type(&ScSpecTypeDef::BytesN(
+            ScSpecTypeBytesN { n: 32 }
+        )));
+        assert!(is_primitive_type(&ScSpecTypeDef::BytesN(
+            ScSpecTypeBytesN { n: 64 }
+        )));
+
+        assert!(is_primitive_type(&ScSpecTypeDef::Address));
+        assert!(is_primitive_type(&ScSpecTypeDef::MuxedAddress));
+        assert!(is_primitive_type(&ScSpecTypeDef::Timepoint));
+        assert!(is_primitive_type(&ScSpecTypeDef::Duration));
+
+        assert!(!is_primitive_type(&ScSpecTypeDef::Vec(Box::new(
+            ScSpecTypeVec {
+                element_type: Box::new(ScSpecTypeDef::U32),
+            }
+        ))));
     }
 
     #[test]
