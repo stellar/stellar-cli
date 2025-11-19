@@ -24,7 +24,7 @@ jobs:
           # ARM
           - ubuntu-jammy-8-cores-arm64
           # Apple Large Intel (this runner has better support to nested virtualization)
-          - macos-15-large
+          # - macos-15-large (temporarily until the runner becomes more reliable. To be re-enabled in https://github.com/stellar/stellar-cli/issues/2299)
         exclude:
           # Only run Linux x64 tests on pull request to save some time
           - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
