@@ -56,7 +56,7 @@ pub struct Cmd {
     /// **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
     ///
     /// **Example:** topic filter with four segments and the "**" wildcard: --topic "AAAABQAAAAdDT1VOVEVSAA==,*,*,*,**"
-    /// 
+    ///
     /// Note that all of these topic filters are combined with the contract IDs
     /// into a single filter (i.e. combination of type, IDs, and topics).
     #[arg(
@@ -174,7 +174,9 @@ impl Cmd {
 
     fn parse_topics(&self) -> Result<rpc::TopicFilters, Error> {
         if self.topic_filters.len() > 5 {
-            return Err(Error::MaxTopicFilters { filter_count: self.topic_filters.len() });
+            return Err(Error::MaxTopicFilters {
+                filter_count: self.topic_filters.len(),
+            });
         }
         let mut topic_filters: rpc::TopicFilters = Vec::new();
         for topic in &self.topic_filters {
