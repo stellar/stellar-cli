@@ -85,6 +85,8 @@ pub enum Error {
     InvalidFile { path: String },
     #[error("filepath ({path}) cannot be read: {error}")]
     CannotReadFile { path: String, error: String },
+    #[error("max of 5 topic filters allowed per request, received {filter_count}")]
+    MaxTopicFilters { filter_count: usize },
     #[error("cannot parse topic filter {topic} into 1-4 segments")]
     InvalidTopicFilter { topic: String },
     #[error("invalid segment ({segment}) in topic filter ({topic}): {error}")]
@@ -169,6 +171,9 @@ impl Cmd {
     }
 
     fn parse_topics(&self) -> Result<rpc::TopicFilters, Error> {
+        if self.topic_filters.len() > 5 {
+            return Err(Error::MaxTopicFilters { filter_count: self.topic_filters.len() });
+        }
         let mut topic_filters: rpc::TopicFilters = Vec::new();
         for topic in &self.topic_filters {
             let mut topic_filter: rpc::TopicFilter = Vec::new(); // a topic filter is a collection of segments
