@@ -43,11 +43,11 @@ pub struct Cmd {
         help_heading = "FILTERS"
     )]
     contract_ids: Vec<config::UnresolvedContract>,
-    /// A set of (up to 4) topic filters to filter event topics on. A single
-    /// topic filter can contain 1-4 different segment filters, separated by
-    /// commas, with an asterisk (`*` character) indicating a wildcard segment.
+    /// A set of (up to 5) topic filters to filter event topics on. A single
+    /// topic filter can contain 1-4 different segments, separated by
+    /// commas. An asterisk (`*` character) indicates a wildcard segment.
     ///
-    /// In addition to the 4 possible topic filter segments, including the "**" wildcard allows for a flexible number of topics in the returned events. The "**" wildcard must be the last segment in a query.
+    /// In addition to up to 4 possible topic filter segments, the "**" wildcard can also be added, and will allow for a flexible number of topics in the returned events. The "**" wildcard must be the last segment in a query.
     ///
     /// If the "**" wildcard is not included, only events with the exact number of topics as the given filter will be returned.
     ///
@@ -55,6 +55,8 @@ pub struct Cmd {
     ///
     /// **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
     ///
+    /// **Example:** topic filter with four segments and the "**" wildcard: --topic "AAAABQAAAAdDT1VOVEVSAA==,*,*,*,**"
+    /// 
     /// Note that all of these topic filters are combined with the contract IDs
     /// into a single filter (i.e. combination of type, IDs, and topics).
     #[arg(
