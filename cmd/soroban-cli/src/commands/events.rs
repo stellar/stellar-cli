@@ -59,7 +59,7 @@ pub struct Cmd {
     /// into a single filter (i.e. combination of type, IDs, and topics).
     #[arg(
         long = "topic",
-        num_args = 1..=5,
+        num_args = 1.., // allowing 1+ arguments here, and doing additional validation in parse_topics
         help_heading = "FILTERS"
     )]
     topic_filters: Vec<String>,
