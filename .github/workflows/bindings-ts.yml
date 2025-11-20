@@ -16,13 +16,13 @@ jobs:
           - ubuntu-latest-8-cores
           # ARM
           - ubuntu-jammy-8-cores-arm64
-          # Intel
-          - macos-13
+          # Apple Intel (this runner has better support to nested virtualization)
+          - macos-15-large
         exclude:
           # Only run Linux x64 tests on pull request to save some time
           - sys:
               ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
-          - sys: ${{ github.event_name != 'push' && 'macos-13' }}
+          - sys: ${{ github.event_name != 'push' && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     steps:
       - uses: stellar/quickstart@main
