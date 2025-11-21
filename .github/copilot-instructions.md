@@ -113,7 +113,6 @@ stellar keys address test      # Test key operations
 The project uses GitHub Actions with workflows in `.github/workflows/`:
 
 - `rust.yml`: Main CI pipeline with formatting, linting, building, and testing
-- `e2e.yml`: End-to-end system tests
 - `binaries.yml`: Multi-platform binary builds
 
 Always run `make fmt` and `make check` locally before pushing to ensure CI passes.
