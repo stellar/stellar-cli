@@ -131,18 +131,19 @@ impl Spec {
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
             ScType::Udt(ScSpecTypeUdt { name }) => {
                 let spec_type = self.find(&name.to_utf8_string_lossy())?;
-                match spec_type {
+                let spec_type_match = match spec_type {
                     ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
                     | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
                     | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
                     | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
                     | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
                     | ScSpecEntry::EventV0(ScSpecEventV0 { doc, .. }) => doc,
-                }
-                .to_utf8_string_lossy()
+                };
+                spec_type_match.to_utf8_string_lossy()
             }
         };
-        if let Some(mut ex) = self.example(type_) {
+
+        if let Some(mut ex) = self.example(0, type_) {
             if ex.contains(' ') {
                 ex = format!("'{ex}'");
             } else if ex.contains('"') {
@@ -1218,15 +1219,36 @@ impl Spec {
                         name,
                         type_,
                         ..
-                    }) => format!(
-                        "{}({})",
-                        name.to_utf8_string_lossy(),
-                        type_
-                            .iter()
-                            .map(|type_| self.arg_value_name(type_, depth + 1))
-                            .collect::<Option<Vec<String>>>()?
-                            .join(",")
-                    ),
+                    }) => {
+                        if depth > 1 {
+                            match &type_[0] {
+                                ScType::Vec(type_vec) => {
+                                    let element_type = type_vec.element_type.clone();
+                                    if let ScType::Udt(udt_type) = *element_type {
+                                        return Some(udt_type.name.to_utf8_string_lossy());
+                                    }
+                                }
+                                _ => {
+                                    return Some(format!(
+                                        "{}(ScSpecTypeDef::{})",
+                                        name.to_utf8_string_lossy(),
+                                        type_[0].name()
+                                    ))
+                                }
+                            }
+                            format!("{}({})", name.to_utf8_string_lossy(), type_[0].name())
+                        } else {
+                            format!(
+                                "{}({})",
+                                name.to_utf8_string_lossy(),
+                                type_
+                                    .iter()
+                                    .map(|type_| self.arg_value_name(type_, depth + 1))
+                                    .collect::<Option<Vec<String>>>()?
+                                    .join(",")
+                            )
+                        }
+                    }
                 })
             })
             .collect::<Option<Vec<_>>>()
@@ -1245,7 +1267,7 @@ fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
 // Example implementation
 impl Spec {
     #[must_use]
-    pub fn example(&self, type_: &ScType) -> Option<String> {
+    pub fn example(&self, depth: usize, type_: &ScType) -> Option<String> {
         #[allow(clippy::match_same_arms)]
         match type_ {
             ScType::U64 => Some("1".to_string()),
@@ -1269,11 +1291,11 @@ impl Spec {
             ScType::String => Some("\"hello world\"".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
-                self.example(value_type.as_ref())
+                self.example(depth, value_type.as_ref())
             }
             ScType::Vec(val) => {
                 let ScSpecTypeVec { element_type } = val.as_ref();
-                let inner = self.example(element_type.as_ref())?;
+                let inner = self.example(depth, element_type.as_ref())?;
                 Some(format!("[ {inner} ]"))
             }
             ScType::Result(val) => {
@@ -1281,15 +1303,15 @@ impl Spec {
                     ok_type,
                     error_type,
                 } = val.as_ref();
-                let ok = self.example(ok_type.as_ref())?;
-                let error = self.example(error_type.as_ref())?;
+                let ok = self.example(depth, ok_type.as_ref())?;
+                let error = self.example(depth, error_type.as_ref())?;
                 Some(format!("Result<{ok}, {error}>"))
             }
             ScType::Tuple(val) => {
                 let ScSpecTypeTuple { value_types } = val.as_ref();
                 let names = value_types
                     .iter()
-                    .map(|t| self.example(t))
+                    .map(|t| self.example(depth, t))
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
                 Some(format!("[{names}]"))
@@ -1300,8 +1322,8 @@ impl Spec {
                     value_type,
                 } = map.as_ref();
                 let (mut key, val) = (
-                    self.example(key_type.as_ref())?,
-                    self.example(value_type.as_ref())?,
+                    self.example(depth, key_type.as_ref())?,
+                    self.example(depth, value_type.as_ref())?,
                 );
                 if !matches!(key_type.as_ref(), ScType::Symbol) {
                     key = format!("\"{key}\"");
@@ -1314,7 +1336,7 @@ impl Spec {
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                self.example_udts(name.to_utf8_string_lossy().as_ref())
+                self.example_udts(depth, name.to_utf8_string_lossy().as_ref())
             }
             ScType::MuxedAddress => {
                 Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
@@ -1324,11 +1346,17 @@ impl Spec {
         }
     }
 
-    fn example_udts(&self, name: &str) -> Option<String> {
-        match self.find(name).ok() {
+    fn example_udts(&self, depth: usize, name: &str) -> Option<String> {
+        if depth > 2 {
+            return Some(name.to_string());
+        }
+
+        let depth = depth + 1;
+        let built = match self.find(name).ok() {
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
-                // Check if a tuple strukt
-                if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0"
+                // Check if a tuple strukt and handle it just as a tuple going forward
+                let build_struct = if !strukt.fields.is_empty()
+                    && strukt.fields[0].name.to_utf8_string_lossy() == "0"
                 {
                     let value_types = strukt
                         .fields
@@ -1337,22 +1365,27 @@ impl Spec {
                         .collect::<Vec<_>>()
                         .try_into()
                         .ok()?;
-                    return self.example(&ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })));
-                }
-                let inner = strukt
-                    .fields
-                    .iter()
-                    .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
-                    .map(|(name, type_)| {
-                        let type_ = self.example(type_)?;
-                        let name = format!(r#""{name}""#);
-                        Some(format!("{name}: {type_}"))
-                    })
-                    .collect::<Option<Vec<_>>>()?
-                    .join(", ");
-                Some(format!(r"{{ {inner} }}"))
+                    self.example(
+                        depth,
+                        &ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })),
+                    )
+                } else {
+                    let inner = strukt
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
+                        .map(|(name, type_)| {
+                            let type_ = self.example(depth, type_)?;
+                            let name = format!(r#""{name}""#);
+                            Some(format!("{name}: {type_}"))
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                        .join(", ");
+                    Some(format!(r"{{ {inner} }}"))
+                };
+                build_struct
             }
-            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
+            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(depth, union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
@@ -1362,10 +1395,12 @@ impl Spec {
                 | ScSpecEntry::EventV0(_),
             )
             | None => None,
-        }
+        };
+
+        built
     }
 
-    fn example_union(&self, union: &ScSpecUdtUnionV0) -> Option<String> {
+    fn example_union(&self, depth: usize, union: &ScSpecUdtUnionV0) -> Option<String> {
         let res = union
             .cases
             .iter()
@@ -1377,12 +1412,12 @@ impl Spec {
                     name, type_, ..
                 }) => {
                     if type_.len() == 1 {
-                        let single = self.example(&type_[0])?;
+                        let single = self.example(depth, &type_[0])?;
                         Some(format!("{{\"{}\":{single}}}", name.to_utf8_string_lossy()))
                     } else {
                         let names = type_
                             .iter()
-                            .map(|t| self.example(t))
+                            .map(|t| self.example(depth, t))
                             .collect::<Option<Vec<_>>>()?
                             .join(", ");
                         Some(format!("{{\"{}\":[{names}]}}", name.to_utf8_string_lossy()))
