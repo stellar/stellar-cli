@@ -253,7 +253,8 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
+        let quiet = global_args.is_some_and(|g| g.quiet);
+        let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
         tracing::trace!(?network);
@@ -358,7 +359,7 @@ impl NetworkRunnable for Cmd {
         }
 
         let res = client
-            .send_transaction_polling(&config.sign(*txn).await?)
+            .send_transaction_polling(&config.sign(*txn, quiet).await?)
             .await?;
 
         self.fee.print_cost_info(&res)?;

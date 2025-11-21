@@ -91,7 +91,7 @@ impl Args {
         Ok(key.key_pair(self.hd_path())?)
     }
 
-    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction, quiet: bool) -> Result<TransactionEnvelope, Error> {
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
             tx,
             signatures: VecM::default(),
@@ -102,7 +102,7 @@ impl Args {
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
-                false,
+                quiet,
                 Some(&self.source_account),
             )
             .await?)
