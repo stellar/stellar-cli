@@ -54,7 +54,7 @@ test: build-test
 
 # expects a quickstart container running with the rpc exposed at localhost:SOROBAN_PORT
 rpc-test:
-	cargo test --features it --test it -- integration 
+	cargo test --features it --test it -- integration --test-threads=4
 
 check:
 	cargo clippy --all-targets
