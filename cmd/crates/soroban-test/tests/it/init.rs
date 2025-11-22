@@ -3,7 +3,6 @@ use predicates::prelude::predicate;
 use soroban_test::TestEnv;
 
 #[test]
-#[ignore = "We need to ignore these until soroban-sdk is 23.0.0 stable"]
 fn init() {
     let sandbox = TestEnv::default();
     let cli_version = soroban_cli::commands::version::pkg();
@@ -21,11 +20,11 @@ fn init() {
         .assert(predicate::function(|c: &str| {
             let table = toml::from_str::<toml::Table>(c).unwrap();
             let sdk_version = table["workspace"]["dependencies"]["soroban-sdk"].as_str();
-            println!("Check expected version {major}.0.0 matches template's {sdk_version:?}");
+            println!("Check expected version {major} matches template's {sdk_version:?}");
             if is_rc {
-                sdk_version.and_then(|x| x.split('-').next()) == Some(&format!("{major}.0.0"))
+                sdk_version.and_then(|x| x.split('-').next()) == Some(major)
             } else {
-                sdk_version == Some(&format!("{major}.0.0"))
+                sdk_version == Some(major)
             }
         }));
 }

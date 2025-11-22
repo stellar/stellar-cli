@@ -44,6 +44,9 @@ async fn parse() {
     contract_address(sandbox, id).await;
     contract_address_with_alias(sandbox, id).await;
     bytes(sandbox, id).await;
+    bytes_n(sandbox, id).await;
+    timepoint(sandbox, id).await;
+    duration(sandbox, id).await;
     const_enum(sandbox, id).await;
     number_arg_return_ok(sandbox, id);
     void(sandbox, id);
@@ -273,6 +276,39 @@ async fn contract_address_with_alias(sandbox: &TestEnv, id: &str) {
 
 async fn bytes(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(sandbox, id, "bytes", json!("7374656c6c6172")).await;
+}
+
+async fn bytes_n(sandbox: &TestEnv, id: &str) {
+    let bytes = "beeffacebeefface00";
+    invoke_custom(sandbox, id, "bytes_n")
+        .arg("--bytes_n")
+        .arg(bytes)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{bytes}"
+"#,
+        ));
+}
+
+async fn timepoint(sandbox: &TestEnv, id: &str) {
+    let tp = "1633046400";
+    invoke_custom(sandbox, id, "timepoint")
+        .arg("--timepoint")
+        .arg(tp)
+        .assert()
+        .success()
+        .stdout(format!("{tp}\n"));
+}
+
+async fn duration(sandbox: &TestEnv, id: &str) {
+    let dur = "3600";
+    invoke_custom(sandbox, id, "duration")
+        .arg("--duration")
+        .arg(dur)
+        .assert()
+        .success()
+        .stdout(format!("{dur}\n"));
 }
 
 async fn const_enum(sandbox: &TestEnv, id: &str) {

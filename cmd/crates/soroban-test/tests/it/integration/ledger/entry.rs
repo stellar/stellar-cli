@@ -221,8 +221,7 @@ async fn ledger_entry_contract_data() {
         .assert()
         .success()
         .stdout_as_str();
-    let parsed_key_output: FullLedgerEntries =
-        serde_json::from_str(&key_output).expect("Failed to parse JSON");
+    let parsed_key_output: FullLedgerEntries = serde_json::from_str(&key_output).unwrap();
     assert!(!parsed_key_output.entries.is_empty());
 
     // get entry by key xdr
@@ -240,9 +239,7 @@ async fn ledger_entry_contract_data() {
         .assert()
         .success()
         .stdout_as_str();
-
-    let parsed_key_xdr_output: FullLedgerEntries =
-        serde_json::from_str(&key_xdr_output).expect("Failed to parse JSON");
+    let parsed_key_xdr_output: FullLedgerEntries = serde_json::from_str(&key_xdr_output).unwrap();
     assert!(!parsed_key_xdr_output.entries.is_empty());
 
     let expected_contract_data_key = expected_contract_ledger_key(&contract_id, storage_key).await;
@@ -264,6 +261,33 @@ async fn ledger_entry_contract_data() {
 
     // the output should be the same regardless of key format
     assert_eq!(parsed_key_output.entries, parsed_key_xdr_output.entries);
+
+    // get instance data entry
+    let instance_output = sandbox
+        .new_assert_cmd("ledger")
+        .arg("entry")
+        .arg("fetch")
+        .arg("contract-data")
+        .arg("--contract")
+        .arg(&contract_id)
+        .arg("--network")
+        .arg("testnet")
+        .arg("--instance")
+        .assert()
+        .success()
+        .stdout_as_str();
+    let parsed_instance_output: FullLedgerEntries = serde_json::from_str(&instance_output).unwrap();
+    let expected_instance_key = LedgerKey::ContractData(LedgerKeyContractData {
+        contract: ScAddress::Contract(Hash(Contract::from_string(&contract_id).unwrap().0).into()),
+        key: ScVal::LedgerKeyContractInstance,
+        durability: ContractDataDurability::Persistent,
+    });
+    assert!(!parsed_instance_output.entries.is_empty());
+    assert_eq!(parsed_instance_output.entries[0].key, expected_instance_key);
+    assert!(matches!(
+        parsed_instance_output.entries[0].val,
+        LedgerEntryData::ContractData { .. }
+    ));
 }
 
 // top level test

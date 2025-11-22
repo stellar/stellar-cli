@@ -13,4 +13,3 @@ mod secure_store;
 mod snapshot;
 mod tx;
 mod util;
-mod wrap;
