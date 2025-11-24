@@ -172,13 +172,13 @@ impl Cmd {
         Ok(())
     }
 
-    fn parse_topics(&self) -> Result<rpc::TopicFilters, Error> {
+    fn parse_topics(&self) -> Result<Vec<rpc::TopicFilter>, Error> {
         if self.topic_filters.len() > 5 {
             return Err(Error::MaxTopicFilters {
                 filter_count: self.topic_filters.len(),
             });
         }
-        let mut topic_filters: rpc::TopicFilters = Vec::new();
+        let mut topic_filters: Vec<rpc::TopicFilter> = Vec::new();
         for topic in &self.topic_filters {
             let mut topic_filter: rpc::TopicFilter = Vec::new(); // a topic filter is a collection of segments
             for (i, segment) in topic.split(',').enumerate() {
