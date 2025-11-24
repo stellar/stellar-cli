@@ -49,12 +49,7 @@ jobs:
         # the login password doesn't matter, but the keyring must be unlocked for the tests to work
         # this is based on the ci workflow in the keyring crate repo
         run:
-          gnome-keyring-daemon --components=secrets --daemonize --unlock <<<
-          'foobar'
-      - name: Check GNOME Keyring
-        if: runner.os == 'Linux'
-        run: |
-          gnome-keyring-daemon
+          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
       - run: cargo build --features additional-libs
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
