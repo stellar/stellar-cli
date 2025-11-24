@@ -9,6 +9,38 @@ fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
 }
 
+fn merge_snapshots(snapshots: Vec<LedgerSnapshot>) -> LedgerSnapshot {
+    // Use a HashMap to track entries by key, with last-wins semantics
+    let mut merged_entries: HashMap<LedgerKey, (Box<stellar_xdr::curr::LedgerEntry>, Option<u32>)> =
+        HashMap::new();
+
+    // Iterate through snapshots in order, so later entries override earlier ones
+    for snapshot in &snapshots {
+        for (key, (entry, ttl)) in &snapshot.ledger_entries {
+            merged_entries.insert((**key).clone(), (entry.clone(), *ttl));
+        }
+    }
+
+    // Take metadata from the last snapshot
+    let last_snapshot = snapshots.last().unwrap(); // Safe because we checked len >= 2
+
+    // Build the final merged snapshot
+    LedgerSnapshot {
+        protocol_version: last_snapshot.protocol_version,
+        sequence_number: last_snapshot.sequence_number,
+        timestamp: last_snapshot.timestamp,
+        network_id: last_snapshot.network_id,
+        base_reserve: last_snapshot.base_reserve,
+        min_persistent_entry_ttl: last_snapshot.min_persistent_entry_ttl,
+        min_temp_entry_ttl: last_snapshot.min_temp_entry_ttl,
+        max_entry_ttl: last_snapshot.max_entry_ttl,
+        ledger_entries: merged_entries
+            .into_iter()
+            .map(|(k, (e, ttl))| (Box::new(k), (e, ttl)))
+            .collect(),
+    }
+}
+
 /// Merge multiple ledger snapshots into a single snapshot file.
 ///
 /// When the same ledger key appears in multiple snapshots, the entry from
@@ -71,7 +103,7 @@ impl Cmd {
         }
 
         // Merge snapshots
-        let merged = self.merge_snapshots(snapshots);
+        let merged = merge_snapshots(snapshots);
 
         // Write merged snapshot
         merged
@@ -87,39 +119,5 @@ impl Cmd {
         ));
 
         Ok(())
-    }
-
-    fn merge_snapshots(&self, snapshots: Vec<LedgerSnapshot>) -> LedgerSnapshot {
-        // Use a HashMap to track entries by key, with last-wins semantics
-        let mut merged_entries: HashMap<
-            LedgerKey,
-            (Box<stellar_xdr::curr::LedgerEntry>, Option<u32>),
-        > = HashMap::new();
-
-        // Iterate through snapshots in order, so later entries override earlier ones
-        for snapshot in &snapshots {
-            for (key, (entry, ttl)) in &snapshot.ledger_entries {
-                merged_entries.insert((**key).clone(), (entry.clone(), *ttl));
-            }
-        }
-
-        // Take metadata from the last snapshot
-        let last_snapshot = snapshots.last().unwrap(); // Safe because we checked len >= 2
-
-        // Build the final merged snapshot
-        LedgerSnapshot {
-            protocol_version: last_snapshot.protocol_version,
-            sequence_number: last_snapshot.sequence_number,
-            timestamp: last_snapshot.timestamp,
-            network_id: last_snapshot.network_id,
-            base_reserve: last_snapshot.base_reserve,
-            min_persistent_entry_ttl: last_snapshot.min_persistent_entry_ttl,
-            min_temp_entry_ttl: last_snapshot.min_temp_entry_ttl,
-            max_entry_ttl: last_snapshot.max_entry_ttl,
-            ledger_entries: merged_entries
-                .into_iter()
-                .map(|(k, (e, ttl))| (Box::new(k), (e, ttl)))
-                .collect(),
-        }
     }
 }
