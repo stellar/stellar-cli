@@ -1,4 +1,4 @@
-all: check build test
+all: build-test-wasms check build test
 
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
