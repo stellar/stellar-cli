@@ -1587,6 +1587,7 @@ Download a snapshot of a ledger from an archive
 ###### **Subcommands:**
 
 - `create` — Create a ledger snapshot using a history archive
+- `merge` — Merge multiple ledger snapshots into a single snapshot file
 
 ## `stellar snapshot create`
 
@@ -1602,7 +1603,7 @@ If a contract is a Stellar asset contract, it includes the asset issuer's accoun
 
 Any invalid contract id passed as `--address` will be ignored.
 
-**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+**Usage:** `stellar snapshot create [OPTIONS]`
 
 ###### **Filter Options:**
 
@@ -1613,6 +1614,8 @@ Any invalid contract id passed as `--address` will be ignored.
 
 - `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
 - `--output <OUTPUT>` — Format of the out file
+
+  Default value: `json`
 
   Possible values: `json`
 
@@ -1635,6 +1638,28 @@ Any invalid contract id passed as `--address` will be ignored.
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar snapshot merge`
+
+Merge multiple ledger snapshots into a single snapshot file.
+
+When the same ledger key appears in multiple snapshots, the entry from the last snapshot in the argument list takes precedence. Metadata (protocol_version, sequence_number, timestamp, etc.) is taken from the last snapshot.
+
+Example: stellar snapshot merge A.json B.json --out merged.json
+
+This allows combining snapshots from different contract deployments or manually edited snapshots without regenerating from scratch.
+
+**Usage:** `stellar snapshot merge [OPTIONS] <SNAPSHOTS> <SNAPSHOTS>...`
+
+###### **Arguments:**
+
+- `<SNAPSHOTS>` — Snapshot files to merge (at least 2 required)
+
+###### **Options:**
+
+- `-o`, `--out <OUT>` — Output path for the merged snapshot
+
+  Default value: `snapshot.json`
 
 ## `stellar tx`
 
@@ -4321,6 +4346,7 @@ Fetch contract ledger entry by address or alias and storage key
 
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+- `--instance` — If the contract instance ledger entry should be included in the output
 
 ###### **Options (Global):**
 

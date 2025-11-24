@@ -39,6 +39,14 @@ pub enum Output {
     Json,
 }
 
+impl std::fmt::Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Output::Json => write!(f, "json"),
+        }
+    }
+}
+
 fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
 }
@@ -60,7 +68,6 @@ fn default_out_path() -> PathBuf {
 ///
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
-#[command(arg_required_else_help = true)]
 pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
@@ -75,7 +82,7 @@ pub struct Cmd {
     wasm_hashes: Vec<Hash>,
 
     /// Format of the out file.
-    #[arg(long)]
+    #[arg(long, default_value_t = Output::Json)]
     output: Output,
 
     /// Out path that the snapshot is written to.
