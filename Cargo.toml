@@ -74,8 +74,7 @@ version = "23.0.1"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-git = "https://github.com/stellar/rs-stellar-rpc-client"
-branch = "main"
+version = "23.2.1"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
