@@ -64,6 +64,7 @@ jobs:
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: rustup update
       - run: npm install
+      - run: make build-test-wasms
       - run: make check
 
   build-and-test:
