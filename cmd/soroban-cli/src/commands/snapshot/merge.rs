@@ -10,33 +10,41 @@ fn default_out_path() -> PathBuf {
 }
 
 fn merge_snapshots(snapshots: Vec<LedgerSnapshot>) -> LedgerSnapshot {
+    let last_snapshot = snapshots.last().expect("two or more snapshots needed");
+    let protocol_version = last_snapshot.protocol_version;
+    let sequence_number = last_snapshot.sequence_number;
+    let timestamp = last_snapshot.timestamp;
+    let network_id = last_snapshot.network_id;
+    let base_reserve = last_snapshot.base_reserve;
+    let min_persistent_entry_ttl = last_snapshot.min_persistent_entry_ttl;
+    let min_temp_entry_ttl = last_snapshot.min_temp_entry_ttl;
+    let max_entry_ttl = last_snapshot.max_entry_ttl;
+
     // Use a HashMap to track entries by key, with last-wins semantics
     let mut merged_entries: HashMap<LedgerKey, (Box<stellar_xdr::curr::LedgerEntry>, Option<u32>)> =
         HashMap::new();
 
     // Iterate through snapshots in order, so later entries override earlier ones
-    for snapshot in &snapshots {
-        for (key, (entry, ttl)) in &snapshot.ledger_entries {
-            merged_entries.insert((**key).clone(), (entry.clone(), *ttl));
+    // Consume snapshots to avoid cloning
+    for snapshot in snapshots {
+        for (key, entry) in snapshot.ledger_entries {
+            merged_entries.insert(*key, entry);
         }
     }
 
-    // Take metadata from the last snapshot
-    let last_snapshot = snapshots.last().unwrap(); // Safe because we checked len >= 2
-
     // Build the final merged snapshot
     LedgerSnapshot {
-        protocol_version: last_snapshot.protocol_version,
-        sequence_number: last_snapshot.sequence_number,
-        timestamp: last_snapshot.timestamp,
-        network_id: last_snapshot.network_id,
-        base_reserve: last_snapshot.base_reserve,
-        min_persistent_entry_ttl: last_snapshot.min_persistent_entry_ttl,
-        min_temp_entry_ttl: last_snapshot.min_temp_entry_ttl,
-        max_entry_ttl: last_snapshot.max_entry_ttl,
+        protocol_version,
+        sequence_number,
+        timestamp,
+        network_id,
+        base_reserve,
+        min_persistent_entry_ttl,
+        min_temp_entry_ttl,
+        max_entry_ttl,
         ledger_entries: merged_entries
             .into_iter()
-            .map(|(k, (e, ttl))| (Box::new(k), (e, ttl)))
+            .map(|(k, v)| (Box::new(k), v))
             .collect(),
     }
 }
