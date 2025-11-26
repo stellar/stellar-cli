@@ -222,7 +222,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             format!(
                 r"
   {doc}
-  {name}: ({input}options?: AssembledTransactionOptions<{return_type}>) => Promise<AssembledTransaction<{return_type}>>
+  {name}: ({input}options?: MethodOptions) => Promise<AssembledTransaction<{return_type}>>
 "
             )
         }

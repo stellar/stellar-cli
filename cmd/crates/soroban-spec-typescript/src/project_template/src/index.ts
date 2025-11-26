@@ -17,7 +17,6 @@ import type {
   i128,
   u256,
   i256,
-  AssembledTransactionOptions,
   Option,
   Typepoint,
   Duration,
