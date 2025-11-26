@@ -39,14 +39,6 @@ pub enum Output {
     Json,
 }
 
-impl std::fmt::Display for Output {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Output::Json => write!(f, "json"),
-        }
-    }
-}
-
 fn default_out_path() -> PathBuf {
     PathBuf::new().join("snapshot.json")
 }
@@ -82,7 +74,7 @@ pub struct Cmd {
     wasm_hashes: Vec<Hash>,
 
     /// Format of the out file.
-    #[arg(long, default_value_t = Output::Json)]
+    #[arg(long, value_enum, default_value_t)]
     output: Output,
 
     /// Out path that the snapshot is written to.
