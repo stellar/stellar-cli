@@ -17,7 +17,6 @@ import type {
   i128,
   u256,
   i256,
-  AssembledTransactionOptions,
   Option,
   Typepoint,
   Duration,
@@ -40,7 +39,7 @@ export interface Client {
    * Construct and simulate a counter transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Counter value
    */
-  counter: (options?: AssembledTransactionOptions<u32>) => Promise<AssembledTransaction<u32>>
+  counter: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
 }
 export class Client extends ContractClient {
