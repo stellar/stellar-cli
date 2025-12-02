@@ -43,20 +43,6 @@ export interface Test {
   c: string;
 }
 
-export type SimpleEnum = {tag: "First", values: void} | {tag: "Second", values: void} | {tag: "Third", values: void};
-
-export enum RoyalCard {
-  Jack = 11,
-  Queen = 12,
-  King = 13,
-}
-
-export type TupleStruct = readonly [Test,  SimpleEnum];
-
-export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tuple", values: readonly [TupleStruct]} | {tag: "Enum", values: readonly [SimpleEnum]} | {tag: "Asset", values: readonly [string, i128]} | {tag: "Void", values: void};
-
-export type RecursiveEnum = {tag: "List", values: readonly [Array<RecursiveEnum>]} | {tag: "Void", values: void};
-
 export const Errors = {
   /**
    * Please provide an odd number
@@ -84,17 +70,19 @@ export type ComplexEnum = {tag: "Struct", values: readonly [Test]} | {tag: "Tupl
 
 export type TupleStruct = readonly [Test,  SimpleEnum];
 
+export type RecursiveEnum = {tag: "List", values: readonly [Array<RecursiveEnum>]} | {tag: "Void", values: void};
+
 export interface Client {
   /**
    * Construct and simulate a map transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  hello: ({hello}: {hello: string}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
+  map: ({map}: {map: Map<u32, boolean>}, options?: MethodOptions) => Promise<AssembledTransaction<Map<u32, boolean>>>
 
   /**
    * Construct and simulate a not transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Negates a boolean value
    */
-  woid: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
+  not: ({boolean}: {boolean: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a val transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -104,12 +92,22 @@ export interface Client {
   /**
    * Construct and simulate a vec transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  u32_fail_on_even: ({u32_}: {u32_: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u32>>>
+  vec: ({vec}: {vec: Array<u32>}, options?: MethodOptions) => Promise<AssembledTransaction<Array<u32>>>
 
   /**
    * Construct and simulate a card transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  u32_: ({u32_}: {u32_: u32}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
+  card: ({card}: {card: RoyalCard}, options?: MethodOptions) => Promise<AssembledTransaction<RoyalCard>>
+
+  /**
+   * Construct and simulate a i128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  i128: ({i128}: {i128: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
+
+  /**
+   * Construct and simulate a i256 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  i256: ({i256}: {i256: i256}, options?: MethodOptions) => Promise<AssembledTransaction<i256>>
 
   /**
    * Construct and simulate a i32_ transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -124,32 +122,22 @@ export interface Client {
   /**
    * Construct and simulate a u128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  strukt_hel: ({strukt}: {strukt: Test}, options?: MethodOptions) => Promise<AssembledTransaction<Array<string>>>
+  u128: ({u128}: {u128: u128}, options?: MethodOptions) => Promise<AssembledTransaction<u128>>
 
   /**
    * Construct and simulate a u256 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  strukt: ({strukt}: {strukt: Test}, options?: MethodOptions) => Promise<AssembledTransaction<Test>>
+  u256: ({u256}: {u256: u256}, options?: MethodOptions) => Promise<AssembledTransaction<u256>>
 
   /**
    * Construct and simulate a u32_ transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  simple: ({simple}: {simple: SimpleEnum}, options?: MethodOptions) => Promise<AssembledTransaction<SimpleEnum>>
+  u32_: ({u32_}: {u32_: u32}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
   /**
    * Construct and simulate a woid transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  complex: ({complex}: {complex: ComplexEnum}, options?: MethodOptions) => Promise<AssembledTransaction<ComplexEnum>>
-
-  /**
-   * Construct and simulate a recursive_enum transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  recursive_enum: ({recursive}: {recursive: RecursiveEnum}, options?: MethodOptions) => Promise<AssembledTransaction<RecursiveEnum>>
-
-  /**
-   * Construct and simulate a addresse transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  addresse: ({addresse}: {addresse: string}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
+  woid: (options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a bytes transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -159,48 +147,7 @@ export interface Client {
   /**
    * Construct and simulate a hello transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  bytes_n: ({bytes_n}: {bytes_n: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Buffer>>
-
-  /**
-   * Construct and simulate a card transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  card: ({card}: {card: RoyalCard}, options?: MethodOptions) => Promise<AssembledTransaction<RoyalCard>>
-
-  /**
-   * Construct and simulate a boolean transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  boolean: ({boolean}: {boolean: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
-
-  /**
-   * Construct and simulate a not transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Negates a boolean value
-   */
-  not: ({boolean}: {boolean: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
-
-  /**
-   * Construct and simulate a i128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  i128: ({i128}: {i128: i128}, options?: MethodOptions) => Promise<AssembledTransaction<i128>>
-
-  /**
-   * Construct and simulate a u128 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  u128: ({u128}: {u128: u128}, options?: MethodOptions) => Promise<AssembledTransaction<u128>>
-
-  /**
-   * Construct and simulate a multi_args transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  multi_args: ({a, b}: {a: u32, b: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
-
-  /**
-   * Construct and simulate a map transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  map: ({map}: {map: Map<u32, boolean>}, options?: MethodOptions) => Promise<AssembledTransaction<Map<u32, boolean>>>
-
-  /**
-   * Construct and simulate a vec transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  vec: ({vec}: {vec: Array<u32>}, options?: MethodOptions) => Promise<AssembledTransaction<Array<u32>>>
+  hello: ({hello}: {hello: string}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
 
   /**
    * Construct and simulate a tuple transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -216,12 +163,7 @@ export interface Client {
   /**
    * Construct and simulate a simple transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  u256: ({u256}: {u256: u256}, options?: MethodOptions) => Promise<AssembledTransaction<u256>>
-
-  /**
-   * Construct and simulate a i256 transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  i256: ({i256}: {i256: i256}, options?: MethodOptions) => Promise<AssembledTransaction<i256>>
+  simple: ({simple}: {simple: SimpleEnum}, options?: MethodOptions) => Promise<AssembledTransaction<SimpleEnum>>
 
   /**
    * Construct and simulate a string transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -231,48 +173,48 @@ export interface Client {
   /**
    * Construct and simulate a strukt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  strukt: ({strukt}: {strukt: Test}, options?: AssembledTransactionOptions<Test>) => Promise<AssembledTransaction<Test>>
+  strukt: ({strukt}: {strukt: Test}, options?: MethodOptions) => Promise<AssembledTransaction<Test>>
 
   /**
    * Construct and simulate a boolean transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  boolean: ({boolean}: {boolean: boolean}, options?: AssembledTransactionOptions<boolean>) => Promise<AssembledTransaction<boolean>>
+  boolean: ({boolean}: {boolean: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a bytes_n transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  bytes_n: ({bytes_n}: {bytes_n: Buffer}, options?: AssembledTransactionOptions<Buffer>) => Promise<AssembledTransaction<Buffer>>
+  bytes_n: ({bytes_n}: {bytes_n: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Buffer>>
 
   /**
    * Construct and simulate a complex transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  complex: ({complex}: {complex: ComplexEnum}, options?: AssembledTransactionOptions<ComplexEnum>) => Promise<AssembledTransaction<ComplexEnum>>
+  complex: ({complex}: {complex: ComplexEnum}, options?: MethodOptions) => Promise<AssembledTransaction<ComplexEnum>>
 
   /**
    * Construct and simulate a addresse transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  addresse: ({addresse}: {addresse: string}, options?: AssembledTransactionOptions<string>) => Promise<AssembledTransaction<string>>
+  addresse: ({addresse}: {addresse: string}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
 
   /**
    * Construct and simulate a duration transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  duration: ({duration}: {duration: Duration}, options?: AssembledTransactionOptions<Duration>) => Promise<AssembledTransaction<Duration>>
+  duration: ({duration}: {duration: Duration}, options?: MethodOptions) => Promise<AssembledTransaction<Duration>>
 
   /**
    * Construct and simulate a timepoint transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  timepoint: ({timepoint}: {timepoint: Timepoint}, options?: AssembledTransactionOptions<Timepoint>) => Promise<AssembledTransaction<Timepoint>>
+  timepoint: ({timepoint}: {timepoint: Timepoint}, options?: MethodOptions) => Promise<AssembledTransaction<Timepoint>>
 
   /**
    * Construct and simulate a multi_args transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  multi_args: ({a, b}: {a: u32, b: boolean}, options?: AssembledTransactionOptions<u32>) => Promise<AssembledTransaction<u32>>
+  multi_args: ({a, b}: {a: u32, b: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
   /**
    * Construct and simulate a strukt_hel transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Example contract method which takes a struct
    */
-  strukt_hel: ({strukt}: {strukt: Test}, options?: AssembledTransactionOptions<Array<string>>) => Promise<AssembledTransaction<Array<string>>>
+  strukt_hel: ({strukt}: {strukt: Test}, options?: MethodOptions) => Promise<AssembledTransaction<Array<string>>>
 
   /**
    * Construct and simulate a tuple_strukt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -280,9 +222,14 @@ export interface Client {
   tuple_strukt: ({tuple_strukt}: {tuple_strukt: TupleStruct}, options?: MethodOptions) => Promise<AssembledTransaction<TupleStruct>>
 
   /**
+   * Construct and simulate a recursive_enum transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  recursive_enum: ({recursive}: {recursive: RecursiveEnum}, options?: MethodOptions) => Promise<AssembledTransaction<RecursiveEnum>>
+
+  /**
    * Construct and simulate a u32_fail_on_even transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  u32_fail_on_even: ({u32_}: {u32_: u32}, options?: AssembledTransactionOptions<Result<u32>>) => Promise<AssembledTransaction<Result<u32>>>
+  u32_fail_on_even: ({u32_}: {u32_: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u32>>>
 
 }
 export class Client extends ContractClient {
@@ -303,15 +250,8 @@ export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAAAQAAAC9UaGlzIGlzIGZyb20gdGhlIHJ1c3QgZG9jIGFib3ZlIHRoZSBzdHJ1Y3QgVGVzdAAAAAAAAAAABFRlc3QAAAADAAAAAAAAAAFhAAAAAAAABAAAAAAAAAABYgAAAAAAAAEAAAAAAAAAAWMAAAAAAAAR",
-        "AAAAAgAAAAAAAAAAAAAAClNpbXBsZUVudW0AAAAAAAMAAAAAAAAAAAAAAAVGaXJzdAAAAAAAAAAAAAAAAAAABlNlY29uZAAAAAAAAAAAAAAAAAAFVGhpcmQAAAA=",
-        "AAAAAwAAAAAAAAAAAAAACVJveWFsQ2FyZAAAAAAAAAMAAAAAAAAABEphY2sAAAALAAAAAAAAAAVRdWVlbgAAAAAAAAwAAAAAAAAABEtpbmcAAAAN",
-        "AAAAAQAAAAAAAAAAAAAAC1R1cGxlU3RydWN0AAAAAAIAAAAAAAAAATAAAAAAAAfQAAAABFRlc3QAAAAAAAAAATEAAAAAAAfQAAAAClNpbXBsZUVudW0AAA==",
-        "AAAAAgAAAAAAAAAAAAAAC0NvbXBsZXhFbnVtAAAAAAUAAAABAAAAAAAAAAZTdHJ1Y3QAAAAAAAEAAAfQAAAABFRlc3QAAAABAAAAAAAAAAVUdXBsZQAAAAAAAAEAAAfQAAAAC1R1cGxlU3RydWN0AAAAAAEAAAAAAAAABEVudW0AAAABAAAH0AAAAApTaW1wbGVFbnVtAAAAAAABAAAAAAAAAAVBc3NldAAAAAAAAAIAAAATAAAACwAAAAAAAAAAAAAABFZvaWQ=",
-        "AAAAAgAAAAAAAAAAAAAADVJlY3Vyc2l2ZUVudW0AAAAAAAACAAAAAQAAAAAAAAAETGlzdAAAAAEAAAPqAAAH0AAAAA1SZWN1cnNpdmVFbnVtAAAAAAAAAAAAAAAAAAAEVm9pZA==",
-        "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAQAAABxQbGVhc2UgcHJvdmlkZSBhbiBvZGQgbnVtYmVyAAAAD051bWJlck11c3RCZU9kZAAAAAAB",
-        "AAAABAAAAAAAAAAAAAAACUVycm9uZW91cwAAAAAAAAEAAACsU29tZSBjb250cmFjdCBsaWJyYXJpZXMgY29udGFpbiBleHRyYSAjW2NvbnRyYWN0ZXJyb3JdIGRlZmluaXRpb25zIHRoYXQgZW5kIHVwIGNvbXBpbGVkCmludG8gdGhlIG1haW4gY29udHJhY3QgdHlwZXMuIFdlIG5lZWQgdG8gbWFrZSBzdXJlIHRvb2xpbmcgZGVhbHMgd2l0aCB0aGlzIHByb3Blcmx5LgAAAAtIb3dDb3VsZFlvdQAAAABk",
-        "AAAAAAAAAAAAAAAFaGVsbG8AAAAAAAABAAAAAAAAAAVoZWxsbwAAAAAAABEAAAABAAAAEQ==",
-        "AAAAAAAAAAAAAAAEd29pZAAAAAAAAAAA",
+        "AAAAAAAAAAAAAAADbWFwAAAAAAEAAAAAAAAAA21hcAAAAAPsAAAABAAAAAEAAAABAAAD7AAAAAQAAAAB",
+        "AAAAAAAAABdOZWdhdGVzIGEgYm9vbGVhbiB2YWx1ZQAAAAADbm90AAAAAAEAAAAAAAAAB2Jvb2xlYW4AAAAAAQAAAAEAAAAB",
         "AAAAAAAAAAAAAAADdmFsAAAAAAAAAAABAAAAAA==",
         "AAAAAAAAAAAAAAADdmVjAAAAAAEAAAAAAAAAA3ZlYwAAAAPqAAAABAAAAAEAAAPqAAAABA==",
         "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAQAAABxQbGVhc2UgcHJvdmlkZSBhbiBvZGQgbnVtYmVyAAAAD051bWJlck11c3RCZU9kZAAAAAAB",
@@ -320,18 +260,6 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAEaTI1NgAAAAEAAAAAAAAABGkyNTYAAAANAAAAAQAAAA0=",
         "AAAAAAAAAAAAAAAEaTMyXwAAAAEAAAAAAAAABGkzMl8AAAAFAAAAAQAAAAU=",
         "AAAAAAAAAAAAAAAEaTY0XwAAAAEAAAAAAAAABGk2NF8AAAAHAAAAAQAAAAc=",
-        "AAAAAAAAACxFeGFtcGxlIGNvbnRyYWN0IG1ldGhvZCB3aGljaCB0YWtlcyBhIHN0cnVjdAAAAApzdHJ1a3RfaGVsAAAAAAABAAAAAAAAAAZzdHJ1a3QAAAAAB9AAAAAEVGVzdAAAAAEAAAPqAAAAEQ==",
-        "AAAAAAAAAAAAAAAGc3RydWt0AAAAAAABAAAAAAAAAAZzdHJ1a3QAAAAAB9AAAAAEVGVzdAAAAAEAAAfQAAAABFRlc3Q=",
-        "AAAAAAAAAAAAAAAGc2ltcGxlAAAAAAABAAAAAAAAAAZzaW1wbGUAAAAAB9AAAAAKU2ltcGxlRW51bQAAAAAAAQAAB9AAAAAKU2ltcGxlRW51bQAA",
-        "AAAAAAAAAAAAAAAHY29tcGxleAAAAAABAAAAAAAAAAdjb21wbGV4AAAAB9AAAAALQ29tcGxleEVudW0AAAAAAQAAB9AAAAALQ29tcGxleEVudW0A",
-        "AAAAAAAAAAAAAAAOcmVjdXJzaXZlX2VudW0AAAAAAAEAAAAAAAAACXJlY3Vyc2l2ZQAAAAAAB9AAAAANUmVjdXJzaXZlRW51bQAAAAAAAAEAAAfQAAAADVJlY3Vyc2l2ZUVudW0AAAA=",
-        "AAAAAAAAAAAAAAAIYWRkcmVzc2UAAAABAAAAAAAAAAhhZGRyZXNzZQAAABMAAAABAAAAEw==",
-        "AAAAAAAAAAAAAAAFYnl0ZXMAAAAAAAABAAAAAAAAAAVieXRlcwAAAAAAAA4AAAABAAAADg==",
-        "AAAAAAAAAAAAAAAHYnl0ZXNfbgAAAAABAAAAAAAAAAdieXRlc19uAAAAA+4AAAAJAAAAAQAAA+4AAAAJ",
-        "AAAAAAAAAAAAAAAEY2FyZAAAAAEAAAAAAAAABGNhcmQAAAfQAAAACVJveWFsQ2FyZAAAAAAAAAEAAAfQAAAACVJveWFsQ2FyZAAAAA==",
-        "AAAAAAAAAAAAAAAHYm9vbGVhbgAAAAABAAAAAAAAAAdib29sZWFuAAAAAAEAAAABAAAAAQ==",
-        "AAAAAAAAABdOZWdhdGVzIGEgYm9vbGVhbiB2YWx1ZQAAAAADbm90AAAAAAEAAAAAAAAAB2Jvb2xlYW4AAAAAAQAAAAEAAAAB",
-        "AAAAAAAAAAAAAAAEaTEyOAAAAAEAAAAAAAAABGkxMjgAAAALAAAAAQAAAAs=",
         "AAAAAAAAAAAAAAAEdTEyOAAAAAEAAAAAAAAABHUxMjgAAAAKAAAAAQAAAAo=",
         "AAAAAAAAAAAAAAAEdTI1NgAAAAEAAAAAAAAABHUyNTYAAAAMAAAAAQAAAAw=",
         "AAAAAAAAAAAAAAAEdTMyXwAAAAEAAAAAAAAABHUzMl8AAAAEAAAAAQAAAAQ=",
@@ -356,7 +284,9 @@ export class Client extends ContractClient {
         "AAAAAQAAAAAAAAAAAAAAC1R1cGxlU3RydWN0AAAAAAIAAAAAAAAAATAAAAAAAAfQAAAABFRlc3QAAAAAAAAAATEAAAAAAAfQAAAAClNpbXBsZUVudW0AAA==",
         "AAAAAAAAAAAAAAAKbXVsdGlfYXJncwAAAAAAAgAAAAAAAAABYQAAAAAAAAQAAAAAAAAAAWIAAAAAAAABAAAAAQAAAAQ=",
         "AAAAAAAAACxFeGFtcGxlIGNvbnRyYWN0IG1ldGhvZCB3aGljaCB0YWtlcyBhIHN0cnVjdAAAAApzdHJ1a3RfaGVsAAAAAAABAAAAAAAAAAZzdHJ1a3QAAAAAB9AAAAAEVGVzdAAAAAEAAAPqAAAAEQ==",
+        "AAAAAgAAAAAAAAAAAAAADVJlY3Vyc2l2ZUVudW0AAAAAAAACAAAAAQAAAAAAAAAETGlzdAAAAAEAAAPqAAAH0AAAAA1SZWN1cnNpdmVFbnVtAAAAAAAAAAAAAAAAAAAEVm9pZA==",
         "AAAAAAAAAAAAAAAMdHVwbGVfc3RydWt0AAAAAQAAAAAAAAAMdHVwbGVfc3RydWt0AAAH0AAAAAtUdXBsZVN0cnVjdAAAAAABAAAH0AAAAAtUdXBsZVN0cnVjdAA=",
+        "AAAAAAAAAAAAAAAOcmVjdXJzaXZlX2VudW0AAAAAAAEAAAAAAAAACXJlY3Vyc2l2ZQAAAAAAB9AAAAANUmVjdXJzaXZlRW51bQAAAAAAAAEAAAfQAAAADVJlY3Vyc2l2ZUVudW0AAAA=",
         "AAAAAAAAAAAAAAAQdTMyX2ZhaWxfb25fZXZlbgAAAAEAAAAAAAAABHUzMl8AAAAEAAAAAQAAA+kAAAAEAAAAAw==" ]),
       options
     )
@@ -371,18 +301,6 @@ export class Client extends ContractClient {
         i256: this.txFromJSON<i256>,
         i32_: this.txFromJSON<i32>,
         i64_: this.txFromJSON<i64>,
-        strukt_hel: this.txFromJSON<Array<string>>,
-        strukt: this.txFromJSON<Test>,
-        simple: this.txFromJSON<SimpleEnum>,
-        complex: this.txFromJSON<ComplexEnum>,
-        recursive_enum: this.txFromJSON<RecursiveEnum>,
-        addresse: this.txFromJSON<string>,
-        bytes: this.txFromJSON<Buffer>,
-        bytes_n: this.txFromJSON<Buffer>,
-        card: this.txFromJSON<RoyalCard>,
-        boolean: this.txFromJSON<boolean>,
-        not: this.txFromJSON<boolean>,
-        i128: this.txFromJSON<i128>,
         u128: this.txFromJSON<u128>,
         u256: this.txFromJSON<u256>,
         u32_: this.txFromJSON<u32>,
@@ -403,6 +321,7 @@ export class Client extends ContractClient {
         multi_args: this.txFromJSON<u32>,
         strukt_hel: this.txFromJSON<Array<string>>,
         tuple_strukt: this.txFromJSON<TupleStruct>,
+        recursive_enum: this.txFromJSON<RecursiveEnum>,
         u32_fail_on_even: this.txFromJSON<Result<u32>>
   }
 }
