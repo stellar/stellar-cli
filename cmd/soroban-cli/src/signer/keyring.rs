@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::print::Print;
 use ed25519_dalek::Signer;
 use keyring::Entry;
@@ -18,16 +21,26 @@ pub enum Error {
 }
 
 pub struct StellarEntry {
+    inner: Arc<StellarEntryInner>,
+
+}
+
+pub struct StellarEntryInner {
     name: String,
     #[cfg(feature = "additional-libs")]
     keyring: Entry,
+    #[allow(dead_code)]
+    cached_seed: Mutex<Option<SeedPhrase>>,
 }
 
 impl StellarEntry {
     pub fn new(name: &str) -> Result<Self, Error> {
         Ok(StellarEntry {
-            name: name.to_string(),
-            keyring: Entry::new(name, &whoami::username())?,
+            inner: Arc::new(StellarEntryInner {
+                name: name.to_string(),
+                keyring: Entry::new(name, &whoami::username())?,
+                cached_seed: Mutex::new(None)
+            })
         })
     }
 
@@ -35,12 +48,12 @@ impl StellarEntry {
         if let Ok(key) = self.get_public_key(None) {
             print.warnln(format!(
                 "A key for {0} already exists in your operating system's secure store: {1}",
-                self.name, key
+                self.inner.name, key
             ));
         } else {
             print.infoln(format!(
                 "Saving a new key to your operating system's secure store: {0}",
-                self.name
+                self.inner.name
             ));
             self.set_seed_phrase(seed_phrase)?;
         }
@@ -50,13 +63,13 @@ impl StellarEntry {
     fn set_seed_phrase(&self, seed_phrase: SeedPhrase) -> Result<(), Error> {
         let mut data = seed_phrase.seed_phrase.into_phrase();
 
-        self.keyring.set_password(&data)?;
+        self.inner.keyring.set_password(&data)?;
         data.zeroize();
         Ok(())
     }
 
     pub fn delete_seed_phrase(&self, print: &Print) -> Result<(), Error> {
-        match self.keyring.delete_credential() {
+        match self.inner.keyring.delete_credential() {
             Ok(()) => Ok(()),
             Err(e) => match e {
                 keyring::Error::NoEntry => {
@@ -69,7 +82,15 @@ impl StellarEntry {
     }
 
     fn get_seed_phrase(&self) -> Result<SeedPhrase, Error> {
-        Ok(self.keyring.get_password()?.parse()?)
+        let mut guard = self.inner.cached_seed.lock().unwrap();
+
+        if let Some(seed_phrase) = &*guard {
+            return Ok(seed_phrase.clone());
+        }
+
+        let seed_phrase: SeedPhrase = self.inner.keyring.get_password()?.parse()?;
+        *guard = Some(seed_phrase.clone());
+        Ok(seed_phrase)
     }
 
     fn use_key<T>(

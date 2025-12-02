@@ -328,7 +328,7 @@ impl Lab {
 }
 
 pub struct SecureStoreEntry {
-    pub name: String,
+    pub name: String, //remove this
     pub hd_path: Option<usize>,
     pub entry: StellarEntry,
 }
