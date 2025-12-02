@@ -1037,11 +1037,17 @@ Watch the network for contract events
 
   Though the specification supports multiple filter objects (i.e. combinations of type, IDs, and topics), only one set can be specified on the command-line today, though that set can have multiple IDs/topics.
 
-- `--topic <TOPIC_FILTERS>` — A set of (up to 4) topic filters to filter event topics on. A single topic filter can contain 1-4 different segment filters, separated by commas, with an asterisk (`*` character) indicating a wildcard segment.
+- `--topic <TOPIC_FILTERS>` — A set of (up to 5) topic filters to filter event topics on. A single topic filter can contain 1-4 different segments, separated by commas. An asterisk (`*` character) indicates a wildcard segment.
+
+  In addition to up to 4 possible topic filter segments, the "**" wildcard can also be added, and will allow for a flexible number of topics in the returned events. The "**" wildcard must be the last segment in a query.
+
+  If the "\*\*" wildcard is not included, only events with the exact number of topics as the given filter will be returned.
 
   **Example:** topic filter with two segments: `--topic "AAAABQAAAAdDT1VOVEVSAA==,*"`
 
   **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
+
+  **Example:** topic filter with four segments and the "**" wildcard: --topic "AAAABQAAAAdDT1VOVEVSAA==,_,_,\*,**"
 
   Note that all of these topic filters are combined with the contract IDs into a single filter (i.e. combination of type, IDs, and topics).
 
@@ -1587,6 +1593,7 @@ Download a snapshot of a ledger from an archive
 ###### **Subcommands:**
 
 - `create` — Create a ledger snapshot using a history archive
+- `merge` — Merge multiple ledger snapshots into a single snapshot file
 
 ## `stellar snapshot create`
 
@@ -1602,7 +1609,7 @@ If a contract is a Stellar asset contract, it includes the asset issuer's accoun
 
 Any invalid contract id passed as `--address` will be ignored.
 
-**Usage:** `stellar snapshot create [OPTIONS] --output <OUTPUT>`
+**Usage:** `stellar snapshot create [OPTIONS]`
 
 ###### **Filter Options:**
 
@@ -1613,6 +1620,8 @@ Any invalid contract id passed as `--address` will be ignored.
 
 - `--ledger <LEDGER>` — The ledger sequence number to snapshot. Defaults to latest history archived ledger
 - `--output <OUTPUT>` — Format of the out file
+
+  Default value: `json`
 
   Possible values: `json`
 
@@ -1635,6 +1644,28 @@ Any invalid contract id passed as `--address` will be ignored.
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar snapshot merge`
+
+Merge multiple ledger snapshots into a single snapshot file.
+
+When the same ledger key appears in multiple snapshots, the entry from the last snapshot in the argument list takes precedence. Metadata (protocol_version, sequence_number, timestamp, etc.) is taken from the last snapshot.
+
+Example: stellar snapshot merge A.json B.json --out merged.json
+
+This allows combining snapshots from different contract deployments or manually edited snapshots without regenerating from scratch.
+
+**Usage:** `stellar snapshot merge [OPTIONS] <SNAPSHOTS> <SNAPSHOTS>...`
+
+###### **Arguments:**
+
+- `<SNAPSHOTS>` — Snapshot files to merge (at least 2 required)
+
+###### **Options:**
+
+- `-o`, `--out <OUT>` — Output path for the merged snapshot
+
+  Default value: `snapshot.json`
 
 ## `stellar tx`
 
@@ -4321,6 +4352,7 @@ Fetch contract ledger entry by address or alias and storage key
 
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
+- `--instance` — If the contract instance ledger entry should be included in the output
 
 ###### **Options (Global):**
 

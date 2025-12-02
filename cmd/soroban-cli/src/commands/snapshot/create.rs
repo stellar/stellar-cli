@@ -60,7 +60,6 @@ fn default_out_path() -> PathBuf {
 ///
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
-#[command(arg_required_else_help = true)]
 pub struct Cmd {
     /// The ledger sequence number to snapshot. Defaults to latest history archived ledger.
     #[arg(long)]
@@ -75,7 +74,7 @@ pub struct Cmd {
     wasm_hashes: Vec<Hash>,
 
     /// Format of the out file.
-    #[arg(long)]
+    #[arg(long, value_enum, default_value_t)]
     output: Output,
 
     /// Out path that the snapshot is written to.
