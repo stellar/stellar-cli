@@ -46,11 +46,11 @@ impl Cmd {
             "STELLAR_SIGN_WITH_LEDGER",
         ];
 
-        supported.iter().for_each(|key| {
-            if let Some(v) = EnvVar::get(&key) {
+        for key in supported {
+            if let Some(v) = EnvVar::get(key) {
                 vars.push(v);
             }
-        });
+        }
 
         // If a specific name is given, just print that one value
         if let Some(name) = &self.name {
