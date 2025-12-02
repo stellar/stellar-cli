@@ -29,14 +29,15 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let mut vars: Vec<EnvVar> = Vec::new();
 
-        if let Some(v) = EnvVar::get("STELLAR_NETWORK") {
-            vars.push(v);
-        }
+        std::env::vars().for_each(|(key, _)| {
+            if key.starts_with("STELLAR_") && !key.ends_with("_SOURCE") {
+                if let Some(v) = EnvVar::get(&key) {
+                    vars.push(v);
+                }
+            }
+        });
 
-        if let Some(v) = EnvVar::get("STELLAR_ACCOUNT") {
-            vars.push(v);
-        }
-
+        // If a specific name is given, just print that one value
         if let Some(name) = &self.name {
             if let Some(v) = vars.iter().find(|v| &v.key == name) {
                 println!("{}", v.value);
