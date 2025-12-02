@@ -327,7 +327,7 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
+        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
 
