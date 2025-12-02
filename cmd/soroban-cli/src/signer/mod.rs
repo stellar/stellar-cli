@@ -333,7 +333,16 @@ pub struct SecureStoreEntry {
     pub entry: StellarEntry,
 }
 
+// still need the indirection of the secure_store mod so that we can handle things without the keyring crate
 impl SecureStoreEntry {
+    pub fn new(name: String, hd_path: Option<usize>) -> Self {
+        SecureStoreEntry {
+                name: name.clone(),
+                hd_path,
+                entry: StellarEntry::new(&name).unwrap() //fixme!
+        }
+    }
+
     pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         Ok(secure_store::get_public_key_with_entry(&self.entry, self.hd_path)?)
     }

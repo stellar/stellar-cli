@@ -7,7 +7,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind, keyring::StellarEntry},
+    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind},
     utils,
 };
 
@@ -151,11 +151,7 @@ impl Secret {
                     .expect("uszie bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
-                name: entry_name.clone(),
-                hd_path,
-                entry: StellarEntry::new(&entry_name).unwrap() //fixme!
-            }),
+            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry::new(entry_name.to_string(), hd_path)),
         };
         Ok(Signer { kind, print })
     }
