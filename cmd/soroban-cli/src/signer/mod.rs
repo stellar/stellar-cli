@@ -1,10 +1,10 @@
-use crate::xdr::{
+use crate::{signer::keyring::StellarEntry, xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
     InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
     ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
     SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
     TransactionV1Envelope, Uint256, VecM, WriteXdr,
-};
+}};
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
@@ -13,7 +13,7 @@ use crate::{config::network::Network, print::Print, utils::transaction_hash};
 pub mod ledger;
 
 #[cfg(feature = "additional-libs")]
-mod keyring;
+pub mod keyring;
 pub mod secure_store;
 
 #[derive(thiserror::Error, Debug)]
@@ -330,19 +330,20 @@ impl Lab {
 pub struct SecureStoreEntry {
     pub name: String,
     pub hd_path: Option<usize>,
+    pub entry: StellarEntry,
 }
 
 impl SecureStoreEntry {
     pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(secure_store::get_public_key(&self.name, self.hd_path)?)
+        Ok(secure_store::get_public_key_with_entry(&self.entry, self.hd_path)?)
     }
 
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
         let hint = SignatureHint(
-            secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
+            secure_store::get_public_key_with_entry(&self.entry, self.hd_path)?.0[28..].try_into()?,
         );
 
-        let signed_tx_hash = secure_store::sign_tx_data(&self.name, self.hd_path, &tx_hash)?;
+        let signed_tx_hash = secure_store::sign_tx_data_with_entry(&self.entry, self.hd_path, &tx_hash)?;
 
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })

@@ -7,7 +7,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind, keyring::StellarEntry},
     utils,
 };
 
@@ -154,6 +154,7 @@ impl Secret {
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
                 name: entry_name.clone(),
                 hd_path,
+                entry: StellarEntry::new(&entry_name).unwrap() //fixme!
             }),
         };
         Ok(Signer { kind, print })
