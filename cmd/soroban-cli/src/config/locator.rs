@@ -64,6 +64,8 @@ pub enum Error {
     ConfigSerialization,
     // #[error("Config file failed write")]
     // CannotWriteConfigFile,
+    #[error("STELLAR_CONFIG_HOME env variable is not a valid path. Got {0}")]
+    StellarConfigDir(String),
     #[error("XDG_CONFIG_HOME env variable is not a valid path. Got {0}")]
     XdgConfigHome(String),
     #[error(transparent)]
@@ -625,6 +627,10 @@ impl KeyType {
 }
 
 fn global_config_path() -> Result<PathBuf, Error> {
+    if let Ok(config_home) = std::env::var("STELLAR_CONFIG_HOME") {
+        return PathBuf::from_str(&config_home).map_err(|_| Error::StellarConfigDir(config_home));
+    }
+
     let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
