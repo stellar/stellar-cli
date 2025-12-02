@@ -1,6 +1,7 @@
 use crate::{
     commands::global,
     config::locator::{self},
+    env_vars,
     print::Print,
 };
 use clap::Parser;
@@ -28,26 +29,10 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let mut vars: Vec<EnvVar> = Vec::new();
-        let supported = vec![
-            "STELLAR_ACCOUNT",
-            "STELLAR_ARCHIVE_URL",
-            "STELLAR_CONTRACT_ID",
-            "STELLAR_FEE",
-            "STELLAR_INVOKE_VIEW",
-            "STELLAR_NETWORK",
-            "STELLAR_NETWORK_PASSPHRASE",
-            "STELLAR_NO_CACHE",
-            "STELLAR_OPERATION_SOURCE_ACCOUNT",
-            "STELLAR_RPC_HEADERS",
-            "STELLAR_RPC_URL",
-            "STELLAR_SEND",
-            "STELLAR_SIGN_WITH_KEY",
-            "STELLAR_SIGN_WITH_LAB",
-            "STELLAR_SIGN_WITH_LEDGER",
-        ];
+        let supported = env_vars::prefixed("STELLAR");
 
         for key in supported {
-            if let Some(v) = EnvVar::get(key) {
+            if let Some(v) = EnvVar::get(&key) {
                 vars.push(v);
             }
         }

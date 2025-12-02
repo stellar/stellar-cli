@@ -10,7 +10,7 @@ use crate::commands::Error::Contract;
 use crate::config::Config;
 use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
-use crate::{commands, Root};
+use crate::{commands, env_vars, Root};
 use std::error::Error;
 
 #[tokio::main]
@@ -19,23 +19,8 @@ pub async fn main() {
 
     // Map SOROBAN_ env vars to STELLAR_ env vars for backwards compatibility
     // with the soroban-cli prior to when the stellar-cli was released.
-    let vars = &[
-        "ACCOUNT",
-        "ARCHIVE_URL",
-        "CONTRACT_ID",
-        "FEE",
-        "INVOKE_VIEW",
-        "NETWORK",
-        "NETWORK_PASSPHRASE",
-        "NO_CACHE",
-        "OPERATION_SOURCE_ACCOUNT",
-        "RPC_HEADERS",
-        "RPC_URL",
-        "SEND",
-        "SIGN_WITH_KEY",
-        "SIGN_WITH_LAB",
-        "SIGN_WITH_LEDGER",
-    ];
+    //
+    let vars = env_vars::unprefixed();
     for var in vars {
         let soroban_key = format!("SOROBAN_{var}");
         let stellar_key = format!("STELLAR_{var}");
