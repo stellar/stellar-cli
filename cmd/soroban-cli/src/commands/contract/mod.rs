@@ -152,7 +152,7 @@ impl Cmd {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => build.run(global_args)?,
-            Cmd::Extend(extend) => extend.run().await?,
+            Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
             Cmd::Id(id) => id.run().await?,
@@ -186,7 +186,7 @@ impl Cmd {
             }
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
-            Cmd::Restore(restore) => restore.run().await?,
+            Cmd::Restore(restore) => restore.run(global_args).await?,
         }
         Ok(())
     }

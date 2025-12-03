@@ -93,7 +93,10 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(contract) => {
@@ -174,7 +177,7 @@ impl NetworkRunnable for Cmd {
 
         let txn = assembled.transaction().clone();
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign(txn).await?)
+            .send_transaction_polling(&self.config.sign(txn, args.is_some_and(|g| g.quiet)).await?)
             .await?;
 
         self.fee.print_cost_info(&get_txn_resp)?;
