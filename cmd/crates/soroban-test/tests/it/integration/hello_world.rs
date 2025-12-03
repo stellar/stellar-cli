@@ -7,7 +7,7 @@ use soroban_cli::{
 };
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
-use super::util::{deploy_hello, extend, HELLO_WORLD};
+use super::util::{deploy_hello, extend};
 use crate::integration::util::extend_contract;
 
 #[allow(clippy::too_many_lines)]
@@ -315,26 +315,6 @@ async fn contract_data_read() {
         .assert()
         .success()
         .stdout(predicates::str::starts_with("COUNTER,2"));
-}
-
-#[tokio::test]
-#[ignore]
-async fn half_max_instructions() {
-    let sandbox = TestEnv::new();
-    let wasm = HELLO_WORLD;
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--fee")
-        .arg("1000000")
-        .arg("--instructions")
-        .arg((u32::MAX / 2).to_string())
-        .arg("--wasm")
-        .arg(wasm.path())
-        .arg("--ignore-checks")
-        .assert()
-        .stderr("")
-        .stdout_as_str();
 }
 
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {

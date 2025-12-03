@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN,
-    Env, Map, String, Symbol, Val, Vec, I256, U256,
+    Duration, Env, Map, String, Symbol, Timepoint, Val, Vec, I256, U256,
 };
 
 #[contract]
@@ -197,11 +197,11 @@ impl Contract {
         tuple_strukt
     }
 
-    // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {
-    //     timepoint
-    // }
+    pub fn timepoint(_env: Env, timepoint: Timepoint) -> Timepoint {
+        timepoint
+    }
 
-    // pub fn duration(_env: Env, duration: Duration) -> Duration {
-    //     duration
-    // }
+    pub fn duration(_env: Env, duration: Duration) -> Duration {
+        duration
+    }
 }

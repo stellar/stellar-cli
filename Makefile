@@ -1,4 +1,4 @@
-all: check build test
+all: build-test-wasms check build test
 
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
@@ -52,8 +52,9 @@ test: build-test
 	cargo test --workspace --exclude soroban-test --features additional-libs
 	cargo test -p soroban-test -- --skip integration::
 
-e2e-test:
-	cargo test --features it --test it -- integration
+# expects a quickstart container running with the rpc exposed at localhost:SOROBAN_PORT
+rpc-test:
+	cargo test --features it --test it -- integration --test-threads=4
 
 check:
 	cargo clippy --all-targets
@@ -85,4 +86,4 @@ typescript-bindings-fixtures: build-test-wasms
 
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures
+.PHONY: publish clean fmt watch check rpc-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures

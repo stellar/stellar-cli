@@ -26,9 +26,9 @@ jobs:
           # Apple Large Intel (this runner has better support to nested virtualization)
           # - macos-15-large (temporarily until the runner becomes more reliable. To be re-enabled in https://github.com/stellar/stellar-cli/issues/2299)
         exclude:
-          # Only run Linux x64 tests on pull request to save some time
-          - sys: ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
-          - sys: ${{ github.event_name != 'push' && 'macos-15-large' }}
+          # Only run Linux x64 on non-release PRs to save CI minutes
+          - sys: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release/') && 'ubuntu-jammy-8-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release/') && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     env:
       CI_TESTS: true

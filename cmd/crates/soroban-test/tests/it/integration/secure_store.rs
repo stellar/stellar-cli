@@ -2,36 +2,49 @@ use predicates::prelude::predicate;
 use soroban_cli::tx::ONE_XLM;
 use soroban_test::{AssertExt, TestEnv};
 
-fn secure_store_key(sandbox: &TestEnv, name: &str) -> String {
+// All secure store tests are run within one test to avoid issues with multiple
+// tests trying to access the dbus at the same time which can lead to intermittent failures.
+#[tokio::test]
+async fn secure_store_key_management() {
+    let sandbox = &TestEnv::new();
+
+    let secure_key_name = "secure-store-test";
+
+    // generate a new secret key in secure store
     sandbox
         .new_assert_cmd("keys")
-        .args(["generate", "--fund", "--secure-store", name])
+        .args(["generate", secure_key_name, "--secure-store", "--fund"])
+        .assert()
+        .success();
+
+    // validate that we cannot get the secret key back
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg(secure_key_name)
+        .assert()
+        .stderr(predicate::str::contains("does not reveal secret key"))
+        .failure();
+
+    // validate that we can get the public key
+    let secure_store_address = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", secure_key_name])
         .assert()
         .success()
         .stdout_as_str();
+    assert!(secure_store_address.starts_with('G'));
 
+    // use the secure store key to fund a new account
+    let new_key_name = "new";
     sandbox
         .new_assert_cmd("keys")
-        .args(["address", name])
-        .assert()
-        .success()
-        .stdout_as_str()
-}
-
-// test that we can create a create-account tx and sign it with a secure-store key
-#[tokio::test]
-async fn create_account() {
-    let sandbox = &TestEnv::new();
-    let secure_store_address = secure_store_key(sandbox, "secure-store");
-
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["generate", "new"])
+        .args(["generate", new_key_name])
         .assert()
         .success();
     let new_address = sandbox
         .new_assert_cmd("keys")
-        .args(["address", "new"])
+        .args(["address", new_key_name])
         .assert()
         .success()
         .stdout_as_str();
@@ -50,7 +63,7 @@ async fn create_account() {
             "--starting-balance",
             starting_balance.to_string().as_str(),
             "--source",
-            "secure-store",
+            secure_key_name,
         ])
         .assert()
         .success()
@@ -61,38 +74,4 @@ async fn create_account() {
 
     let new_account = client.get_account(&new_address).await.unwrap();
     assert_eq!(new_account.balance, starting_balance);
-}
-
-#[tokio::test]
-async fn get_secret_key() {
-    let sandbox = &TestEnv::new();
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["generate", "secret-key-test", "--secure-store", "--fund"])
-        .assert()
-        .success();
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("secret")
-        .arg("secret-key-test")
-        .assert()
-        .stderr(predicate::str::contains("does not reveal secret key"))
-        .failure();
-}
-
-#[tokio::test]
-async fn public_key_with_secure_store() {
-    let sandbox = &TestEnv::new();
-    sandbox
-        .new_assert_cmd("keys")
-        .args(["generate", "public-key-test", "--secure-store", "--fund"])
-        .assert()
-        .success();
-    sandbox
-        .new_assert_cmd("keys")
-        .arg("public-key")
-        .arg("public-key-test")
-        .assert()
-        .stdout(predicate::str::contains("G"))
-        .success();
 }
