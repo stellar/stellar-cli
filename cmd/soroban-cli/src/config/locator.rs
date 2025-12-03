@@ -455,6 +455,12 @@ impl Args {
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
+    let global_dir = fs::canonicalize(&global_dir).expect("Couldn't expand global directory.");
+
+    // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
+    if dir == global_dir {
+        return;
+    }
 
     print.warnln(format!("A local config was found at {dir:?}."));
     print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
@@ -553,9 +559,19 @@ impl KeyType {
         path
     }
 
+    fn location_to_string(&self, location: &Location) -> String {
+        match location {
+            Location::Local(p) | Location::Global(p) => fs::canonicalize(AsRef::<Path>::as_ref(p))
+                .unwrap_or(p.to_path_buf())
+                .display()
+                .to_string(),
+        }
+    }
+
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
+            .unique_by(|p| self.location_to_string(p))
             .flat_map(|p| self.list(p, true).unwrap_or_default())
             .collect())
     }
