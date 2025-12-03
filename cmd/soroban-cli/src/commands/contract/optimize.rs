@@ -78,16 +78,18 @@ pub fn optimize(
         let mut options = OptimizationOptions::new_optimize_for_size_aggressively();
         options.converge = true;
 
-        // Explicitly set to MVP + sign-ext + mutable-globals, which happens to
+        // Explicitly set to MVP + sign-ext + mutable-globals + bulk-memory, which happens to
         // also be the default featureset, but just to be extra clear we set it
         // explicitly.
         //
         // Formerly Soroban supported only the MVP feature set, but Rust 1.70 as
         // well as Clang generate code with sign-ext + mutable-globals enabled,
         // so Soroban has taken a change to support them also.
+        // Modern Rust toolchains also generate bulk memory operations (memory.fill, memory.copy).
         options.mvp_features_only();
         options.enable_feature(Feature::MutableGlobals);
         options.enable_feature(Feature::SignExt);
+        options.enable_feature(Feature::BulkMemory);
 
         options
             .run(&wasm_arg.wasm, &wasm_out)

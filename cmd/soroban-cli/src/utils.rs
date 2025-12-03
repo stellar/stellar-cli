@@ -41,19 +41,24 @@ static EXPLORERS: phf::Map<&'static str, &'static str> = phf_map! {
     "Public Global Stellar Network ; September 2015" => "https://stellar.expert/explorer/public",
 };
 
+static LAB_CONTRACT_URLS: phf::Map<&'static str, &'static str> = phf_map! {
+    "Test SDF Network ; September 2015" => "https://lab.stellar.org/r/testnet/contract/{contract_id}",
+    "Public Global Stellar Network ; September 2015" => "https://lab.stellar.org/r/mainnet/contract/{contract_id}",
+};
+
 pub fn explorer_url_for_transaction(network: &Network, tx_hash: &str) -> Option<String> {
     EXPLORERS
         .get(&network.network_passphrase)
         .map(|base_url| format!("{base_url}/tx/{tx_hash}"))
 }
 
-pub fn explorer_url_for_contract(
+pub fn lab_url_for_contract(
     network: &Network,
     contract_id: &stellar_strkey::Contract,
 ) -> Option<String> {
-    EXPLORERS
+    LAB_CONTRACT_URLS
         .get(&network.network_passphrase)
-        .map(|base_url| format!("{base_url}/contract/{contract_id}"))
+        .map(|base_url| base_url.replace("{contract_id}", &contract_id.to_string()))
 }
 
 /// # Errors
