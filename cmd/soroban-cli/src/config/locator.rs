@@ -559,19 +559,10 @@ impl KeyType {
         path
     }
 
-    fn location_to_string(&self, location: &Location) -> String {
-        match location {
-            Location::Local(p) | Location::Global(p) => fs::canonicalize(AsRef::<Path>::as_ref(p))
-                .unwrap_or(p.to_path_buf())
-                .display()
-                .to_string(),
-        }
-    }
-
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .unique_by(|p| self.location_to_string(p))
+            .unique_by(|p| location_to_string(p))
             .flat_map(|p| self.list(p, true).unwrap_or_default())
             .collect())
     }
@@ -674,6 +665,15 @@ fn global_config_path() -> Result<PathBuf, Error> {
     }
 
     Ok(stellar_dir)
+}
+
+fn location_to_string(location: &Location) -> String {
+    match location {
+        Location::Local(p) | Location::Global(p) => fs::canonicalize(AsRef::<Path>::as_ref(p))
+            .unwrap_or(p.clone())
+            .display()
+            .to_string(),
+    }
 }
 
 // Use locator.global_config_path() to save configurations.
