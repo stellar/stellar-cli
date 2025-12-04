@@ -13,11 +13,7 @@ use std::{
 use stellar_strkey::{Contract, DecodeError};
 
 use crate::{
-    commands::{global, HEADING_GLOBAL},
-    print::Print,
-    signer::secure_store,
-    utils::find_config_dir,
-    xdr, Pwd,
+    Pwd, commands::{HEADING_GLOBAL, global}, print::Print, signer::{secure_store_entry::{self, SecureStoreEntry}}, utils::find_config_dir, xdr
 };
 
 use super::{
@@ -97,7 +93,7 @@ pub enum Error {
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStoreEntry(#[from] secure_store_entry::Error),
     #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
     SecretKeyOnly(String),
     #[error(transparent)]
@@ -305,7 +301,8 @@ impl Args {
         let identity = self.read_identity(name)?;
 
         if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
-            secure_store::delete_secret(&print, &entry_name)?;
+            let secure_store_entry = SecureStoreEntry::new(entry_name, None);
+            secure_store_entry.delete_secret(&print)?;
         }
 
         print.infoln("Removing the key's cli config file");

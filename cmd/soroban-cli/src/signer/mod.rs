@@ -14,7 +14,6 @@ pub mod ledger;
 
 #[cfg(feature = "additional-libs")]
 pub mod keyring;
-pub mod secure_store;
 pub mod secure_store_entry;
 
 #[derive(thiserror::Error, Debug)]

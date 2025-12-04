@@ -7,7 +7,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, secure_store_entry::SecureStoreEntry, Signer, SignerKind},
+    signer::{self, LocalKey, Signer, SignerKind, ledger, secure_store_entry::{self, SecureStoreEntry}},
     utils,
 };
 
@@ -28,7 +28,7 @@ pub enum Error {
     #[error("Ledger does not reveal secret key")]
     LedgerDoesNotRevealSecretKey,
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStore(#[from] secure_store_entry::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
     #[error(transparent)]
@@ -78,7 +78,7 @@ impl FromStr for Secret {
             })
         } else if s == "ledger" {
             Ok(Secret::Ledger)
-        } else if s.starts_with(secure_store::ENTRY_PREFIX) {
+        } else if s.starts_with(secure_store_entry::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
             })
@@ -129,7 +129,8 @@ impl Secret {
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
         if let Secret::SecureStore { entry_name } = self {
-            Ok(secure_store::get_public_key(entry_name, index)?)
+            let entry = SecureStoreEntry::new(entry_name.to_string(), index);
+            Ok(entry.get_public_key()?)
         } else {
             let key = self.key_pair(index)?;
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(

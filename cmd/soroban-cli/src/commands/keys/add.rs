@@ -11,7 +11,7 @@ use crate::{
         secret::{self, Secret},
     },
     print::Print,
-    signer::secure_store,
+    signer::{secure_store_entry::{self, SecureStoreEntry}},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -24,7 +24,7 @@ pub enum Error {
     Config(#[from] locator::Error),
 
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStoreEntry(#[from] secure_store_entry::Error),
 
     #[error(transparent)]
     SeedPhrase(#[from] sep5::error::Error),
@@ -97,7 +97,7 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            let secret = SecureStoreEntry::create_and_save(&self.name, &seed_phrase, print)?;
             Ok(secret.parse()?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
