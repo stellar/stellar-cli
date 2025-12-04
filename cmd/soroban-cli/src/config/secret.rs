@@ -7,7 +7,7 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    signer::{self, ledger, secure_store, LocalKey, secure_store_entry::SecureStoreEntry, Signer, SignerKind},
     utils,
 };
 
