@@ -102,6 +102,8 @@ pub enum Error {
     SecretKeyOnly(String),
     #[error(transparent)]
     Key(#[from] key::Error),
+    #[error("Unable to get project directory")]
+    ProjectDirsError(),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]

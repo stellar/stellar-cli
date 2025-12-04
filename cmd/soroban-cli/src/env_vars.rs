@@ -12,6 +12,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "NETWORK",
         "NETWORK_PASSPHRASE",
         "NO_CACHE",
+        "NO_UPDATE_CHECK",
         "OPERATION_SOURCE_ACCOUNT",
         "RPC_HEADERS",
         "RPC_URL",
