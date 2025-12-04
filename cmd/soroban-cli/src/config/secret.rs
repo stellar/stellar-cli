@@ -153,7 +153,7 @@ impl Secret {
                 let hd_path: u32 = hd_path
                     .unwrap_or_default()
                     .try_into()
-                    .expect("uszie bigger than u32");
+                    .expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
             Secret::SecureStore { entry_name } => {
