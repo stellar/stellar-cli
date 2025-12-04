@@ -11,7 +11,7 @@ use crate::{
         secret::{self, Secret},
     },
     print::Print,
-    signer::{secure_store_entry::{self, SecureStoreEntry}},
+    signer::secure_store_entry::{self, SecureStoreEntry},
 };
 
 #[derive(thiserror::Error, Debug)]

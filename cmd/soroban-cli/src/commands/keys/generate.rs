@@ -6,7 +6,12 @@ use super::super::config::{
     secret::{self, Secret},
 };
 
-use crate::{commands::global, config::address::KeyName, print::Print, signer::{secure_store_entry::{self, SecureStoreEntry}}};
+use crate::{
+    commands::global,
+    config::address::KeyName,
+    print::Print,
+    signer::secure_store_entry::{self, SecureStoreEntry},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

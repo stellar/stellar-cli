@@ -40,8 +40,8 @@ impl StellarEntry {
                 name: name.to_string(),
                 keyring: Entry::new(name, &whoami::username())?,
                 cached_seed: Mutex::new(None),
-                cached_public_key: Mutex::new(None)
-            })
+                cached_public_key: Mutex::new(None),
+            }),
         })
     }
 

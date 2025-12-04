@@ -1,13 +1,13 @@
 use crate::{
     signer::keyring::StellarEntry,
-    xdr::{self, DecoratedSignature, Signature, SignatureHint}
+    xdr::{self, DecoratedSignature, Signature, SignatureHint},
 };
 
+#[cfg(feature = "additional-libs")]
+use crate::{print::Print, signer::keyring};
 use ed25519_dalek::Signature as Ed25519Signature;
 #[cfg(feature = "additional-libs")]
 use sep5::SeedPhrase;
-#[cfg(feature = "additional-libs")]
-use crate::{print::Print, signer::keyring};
 
 pub(crate) const ENTRY_PREFIX: &str = "secure_store:";
 const ENTRY_SERVICE: &str = "org.stellar.cli";
@@ -38,9 +38,9 @@ pub struct SecureStoreEntry {
 impl SecureStoreEntry {
     pub fn new(name: String, hd_path: Option<usize>) -> Self {
         Self {
-                name: name.clone(),
-                hd_path,
-                entry: StellarEntry::new(&name).unwrap() //fixme!
+            name: name.clone(),
+            hd_path,
+            entry: StellarEntry::new(&name).unwrap(), //fixme!
         }
     }
 
@@ -48,31 +48,29 @@ impl SecureStoreEntry {
         Ok(self.entry.get_public_key(self.hd_path)?)
     }
 
-
     pub fn delete_secret(&self, print: &Print) -> Result<(), Error> {
         Ok(self.entry.delete_seed_phrase(print)?)
     }
 
-    pub fn create_and_save(entry_name: &str, seed_phrase: &SeedPhrase, print: &Print) -> Result<String, Error> {
+    pub fn create_and_save(
+        entry_name: &str,
+        seed_phrase: &SeedPhrase,
+        print: &Print,
+    ) -> Result<String, Error> {
         let entry_name_with_prefix = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{entry_name}");
 
-        let s = Self::new( entry_name_with_prefix.clone(), None);
+        let s = Self::new(entry_name_with_prefix.clone(), None);
         s.entry.write(seed_phrase.clone(), print)?;
 
         Ok(entry_name_with_prefix)
     }
 
-    pub fn sign_tx_data(
-        &self,
-        data: &[u8],
-    ) -> Result<Vec<u8>, Error> {
+    pub fn sign_tx_data(&self, data: &[u8]) -> Result<Vec<u8>, Error> {
         Ok(self.entry.sign_data(data, self.hd_path)?)
     }
 
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let hint = SignatureHint(
-            self.get_public_key()?.0[28..].try_into()?,
-        );
+        let hint = SignatureHint(self.get_public_key()?.0[28..].try_into()?);
 
         let signed_tx_hash = self.sign_tx_data(&tx_hash)?;
 
@@ -92,9 +90,9 @@ impl SecureStoreEntry {
 impl SecureStoreEntry {
     pub fn new(name: String, hd_path: Option<usize>) -> Self {
         SecureStoreEntry {
-                name: name.clone(),
-                hd_path,
-                entry: StellarEntry::new(&name).unwrap() //fixme!
+            name: name.clone(),
+            hd_path,
+            entry: StellarEntry::new(&name).unwrap(), //fixme!
         }
     }
     pub fn get_public_key(_entry_name: &str, _index: Option<usize>) -> Result<PublicKey, Error> {

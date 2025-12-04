@@ -1,10 +1,14 @@
-use crate::{signer::secure_store_entry::SecureStoreEntry, xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
-}};
+use crate::{
+    signer::secure_store_entry::SecureStoreEntry,
+    xdr::{
+        self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
+        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
+        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
+    },
+};
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
@@ -281,7 +285,9 @@ impl Signer {
             SignerKind::Local(local_key) => local_key.sign_payload(payload),
             SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
-            SignerKind::SecureStore(secure_store_entry) => Ok(secure_store_entry.sign_payload(payload)?),
+            SignerKind::SecureStore(secure_store_entry) => {
+                Ok(secure_store_entry.sign_payload(payload)?)
+            }
         }
     }
 }
