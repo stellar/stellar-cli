@@ -35,7 +35,7 @@ jobs:
         with:
           tag: future
           enable: core,rpc
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run:
