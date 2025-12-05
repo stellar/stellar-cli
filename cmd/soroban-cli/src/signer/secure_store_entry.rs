@@ -28,6 +28,7 @@ pub enum Error {
     FeatureNotEnabled,
 }
 
+#[derive(Debug)]
 pub struct SecureStoreEntry {
     pub name: String, //remove this
     pub hd_path: Option<usize>,

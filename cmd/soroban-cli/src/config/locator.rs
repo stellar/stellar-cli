@@ -104,6 +104,8 @@ pub enum Error {
     Key(#[from] key::Error),
 }
 
+pub type CachedKeys = std::collections::HashMap<String, Key>;
+
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
 pub struct Args {
@@ -115,6 +117,9 @@ pub struct Args {
     /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
+
+    #[clap(skip)]
+    pub cached_keys: std::sync::OnceLock<std::sync::Arc<std::sync::Mutex<CachedKeys>>>,
 }
 
 pub enum Location {
@@ -269,11 +274,34 @@ impl Args {
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
-        key_or_name
+        // 1. Check cache
+        if let Some(arc) = self.cached_keys.get() {
+            let map = arc.lock().unwrap();
+            println!("the keys {:?}", map);
+            if let Some(k) = map.get(key_or_name) {
+                println!("found the one we want!");
+                return Ok(k.clone());
+            }
+        }
+
+        println!("getting the key");
+        // 2. Compute key normally
+        let key = key_or_name
             .parse()
-            .or_else(|_| self.read_identity(key_or_name))
+            .or_else(|_| self.read_identity(key_or_name))?;
+
+        // 3. Insert into cache
+        let arc = self.cached_keys.get_or_init(|| {
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()))
+        });
+
+        let mut map = arc.lock().unwrap();
+        map.insert(key_or_name.to_string(), key.clone());
+
+        Ok(key)
     }
 
+    // and then we read from config again here... so it is a new instance of a Secret
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         match self.read_key(key_or_name)? {
             Key::Secret(s) => Ok(s),
@@ -304,7 +332,7 @@ impl Args {
         let print = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
 
-        if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
+        if let Key::Secret(Secret::SecureStore { entry_name, .. }) = identity {
             let secure_store_entry = SecureStoreEntry::new(entry_name, None);
             secure_store_entry.delete_secret(&print)?;
         }

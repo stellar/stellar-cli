@@ -17,7 +17,7 @@ pub enum Error {
     Parse,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Key {
     #[serde(rename = "public_key")]
     PublicKey(Public),
@@ -85,7 +85,7 @@ impl From<&stellar_strkey::ed25519::PublicKey> for Key {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
 pub struct Public(pub stellar_strkey::ed25519::PublicKey);
 
 impl FromStr for Public {
@@ -111,7 +111,7 @@ impl From<&Public> for stellar_strkey::ed25519::MuxedAccount {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
 pub struct MuxedAccount(pub stellar_strkey::ed25519::MuxedAccount);
 
 impl FromStr for MuxedAccount {

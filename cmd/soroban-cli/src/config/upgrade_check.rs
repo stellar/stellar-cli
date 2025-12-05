@@ -4,7 +4,7 @@ use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
 use serde_json;
-use std::fs;
+use std::{fs, sync::OnceLock};
 
 const FILE_NAME: &str = "upgrade_check.json";
 
@@ -38,6 +38,7 @@ impl UpgradeCheck {
         let locator = locator::Args {
             global: false,
             config_dir: None,
+            cached_keys: OnceLock::new() 
         };
         let path = locator.global_config_path()?.join(FILE_NAME);
         if !path.exists() {
@@ -53,6 +54,7 @@ impl UpgradeCheck {
         let locator = locator::Args {
             global: false,
             config_dir: None,
+            cached_keys: OnceLock::new() 
         };
         let path = locator.global_config_path()?.join(FILE_NAME);
         let path = locator::ensure_directory(path)?;

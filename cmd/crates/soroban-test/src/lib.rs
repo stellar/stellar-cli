@@ -26,7 +26,7 @@
 use std::{
     ffi::OsString,
     fmt::Display,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, sync::OnceLock,
 };
 
 use assert_cmd::{assert::Assert, Command};
@@ -277,6 +277,7 @@ impl TestEnv {
             locator: config::locator::Args {
                 global: false,
                 config_dir,
+                cached_keys: OnceLock::new() 
             },
             sign_with: config::sign_with::Args {
                 sign_with_key: None,

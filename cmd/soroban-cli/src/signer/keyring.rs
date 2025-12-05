@@ -20,10 +20,12 @@ pub enum Error {
     FeatureNotEnabled,
 }
 
+#[derive(Debug)]
 pub struct StellarEntry {
     inner: Arc<StellarEntryInner>,
 }
 
+#[derive(Debug)]
 pub struct StellarEntryInner {
     name: String,
     #[cfg(feature = "additional-libs")]

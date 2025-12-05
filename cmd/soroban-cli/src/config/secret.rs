@@ -1,6 +1,6 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{str::FromStr, sync::{Arc, OnceLock}};
 
 use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
@@ -59,13 +59,18 @@ pub struct Args {
     pub secure_store: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Secret {
     SecretKey { secret_key: String },
     SeedPhrase { seed_phrase: String },
     Ledger,
-    SecureStore { entry_name: String },
+    SecureStore { 
+        entry_name: String,
+        #[serde(skip)]
+        #[serde(default)]
+        cached_entry: Arc<OnceLock<SecureStoreEntry>>, 
+    }
 }
 
 impl FromStr for Secret {
@@ -85,6 +90,7 @@ impl FromStr for Secret {
         } else if s.starts_with(secure_store_entry::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
+                cached_entry: OnceLock::new().into(),
             })
         } else {
             Err(Error::InvalidSecretOrSeedPhrase)
@@ -132,7 +138,7 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name } = self {
+        if let Secret::SecureStore { entry_name , .. } = self {
             let entry = SecureStoreEntry::new(entry_name.to_string(), index);
             Ok(entry.get_public_key()?)
         } else {
@@ -156,7 +162,7 @@ impl Secret {
                     .expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name } => {
+            Secret::SecureStore { entry_name , .. } => {
                 SignerKind::SecureStore(SecureStoreEntry::new(entry_name.to_string(), hd_path))
             }
         };
