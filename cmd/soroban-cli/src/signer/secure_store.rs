@@ -36,6 +36,10 @@ mod secure_store_impl {
         Ok(entry.get_public_key(index)?)
     }
 
+    pub fn get_public_key_with_entry(entry: &StellarEntry, index: Option<usize>) -> Result<PublicKey, Error> {
+        Ok(entry.get_public_key(index)?)
+    }
+
     pub fn delete_secret(print: &Print, entry_name: &str) -> Result<(), Error> {
         let entry = StellarEntry::new(entry_name)?;
         Ok(entry.delete_seed_phrase(print)?)
@@ -61,6 +65,14 @@ mod secure_store_impl {
         data: &[u8],
     ) -> Result<Vec<u8>, Error> {
         let entry = StellarEntry::new(entry_name)?;
+        Ok(entry.sign_data(data, hd_path)?)
+    }
+
+    pub fn sign_tx_data_with_entry(
+        entry: &StellarEntry,
+        hd_path: Option<usize>,
+        data: &[u8],
+    ) -> Result<Vec<u8>, Error> {
         Ok(entry.sign_data(data, hd_path)?)
     }
 }
