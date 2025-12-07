@@ -31,16 +31,10 @@ Install with the install script (macOS, Linux):
 curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh
 ```
 
-Or install to `~/.local/bin` without requiring sudo:
+For installation options, run the script with `--help`:
 
 ```sh
-curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --user
-```
-
-Or install to a custom directory:
-
-```sh
-curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --dir=/custom/path
+curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --help
 ```
 
 Install with Homebrew (macOS, Linux):
