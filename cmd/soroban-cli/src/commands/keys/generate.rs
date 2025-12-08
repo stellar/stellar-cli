@@ -94,17 +94,22 @@ impl Cmd {
         let addr = secret.public_key(self.hd_path)?;
         let network = self.network.get(&self.config_locator)?;
         let formatted_name = self.name.to_string();
-        network
-            .fund_address(&addr)
-            .await
-            .map_err(|e| {
-                tracing::warn!("fund_address failed: {e}");
-            })
-            .unwrap_or_default();
-        print.checkln(format!(
-            "Account {} funded on {:?}",
-            formatted_name, network.network_passphrase
-        ));
+
+        match network.fund_address(&addr).await {
+            Ok(()) => print.checkln(format!(
+                "Account {} funded on {:?}",
+                formatted_name, network.network_passphrase
+            )),
+            Err(e) => {
+                tracing::trace!("Account funding error: {:?}", e);
+
+                print.errorln(format!(
+                    "Unable to fund account {} on {:?}",
+                    formatted_name, network.network_passphrase
+                ));
+            }
+        }
+
         Ok(())
     }
 
