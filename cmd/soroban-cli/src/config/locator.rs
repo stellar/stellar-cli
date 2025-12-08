@@ -277,14 +277,11 @@ impl Args {
         // 1. Check cache
         if let Some(arc) = self.cached_keys.get() {
             let map = arc.lock().unwrap();
-            println!("the keys {:?}", map);
             if let Some(k) = map.get(key_or_name) {
-                println!("found the one we want!");
                 return Ok(k.clone());
             }
         }
 
-        println!("getting the key");
         // 2. Compute key normally
         let key = key_or_name
             .parse()

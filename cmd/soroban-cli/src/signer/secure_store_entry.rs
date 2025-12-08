@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     signer::keyring::StellarEntry,
     xdr::{self, DecoratedSignature, Signature, SignatureHint},
@@ -28,11 +30,11 @@ pub enum Error {
     FeatureNotEnabled,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SecureStoreEntry {
     pub name: String, //remove this
     pub hd_path: Option<usize>,
-    pub entry: StellarEntry,
+    pub entry: Arc<StellarEntry>,
 }
 
 #[cfg(feature = "additional-libs")]
@@ -41,7 +43,7 @@ impl SecureStoreEntry {
         Self {
             name: name.clone(),
             hd_path,
-            entry: StellarEntry::new(&name).unwrap(), //fixme!
+            entry: Arc::new(StellarEntry::new(&name).unwrap()), //fixme!
         }
     }
 

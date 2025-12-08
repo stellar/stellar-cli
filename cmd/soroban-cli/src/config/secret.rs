@@ -6,13 +6,9 @@ use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
-    print::Print,
-    signer::{
-        self, ledger,
-        secure_store_entry::{self, SecureStoreEntry},
-        LocalKey, Signer, SignerKind,
-    },
-    utils,
+    print::Print, signer::{
+        self, LocalKey, Signer, SignerKind, ledger, secure_store_entry::{self, SecureStoreEntry}
+    }, utils
 };
 
 use super::key::Key;
@@ -138,8 +134,10 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name , .. } = self {
-            let entry = SecureStoreEntry::new(entry_name.to_string(), index);
+        if let Secret::SecureStore { entry_name , cached_entry } = self {
+            let entry = cached_entry.get_or_init(|| {
+                SecureStoreEntry::new(entry_name.clone(), index)
+            });
             Ok(entry.get_public_key()?)
         } else {
             let key = self.key_pair(index)?;
@@ -162,8 +160,12 @@ impl Secret {
                     .expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name , .. } => {
-                SignerKind::SecureStore(SecureStoreEntry::new(entry_name.to_string(), hd_path))
+            Secret::SecureStore { entry_name , cached_entry } => {
+                let entry = cached_entry.get_or_init(|| {
+                    SecureStoreEntry::new(entry_name.clone(), hd_path)
+                });
+                SignerKind::SecureStore(entry.clone())
+                // SignerKind::SecureStore(SecureStoreEntry::new(entry_name.to_string(), hd_path))
             }
         };
         Ok(Signer { kind, print })
