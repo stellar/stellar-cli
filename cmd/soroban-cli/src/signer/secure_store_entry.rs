@@ -38,11 +38,11 @@ pub struct SecureStoreEntry {
 
 #[cfg(feature = "additional-libs")]
 impl SecureStoreEntry {
-    pub fn new(name: String, hd_path: Option<usize>) -> Self {
-        Self {
+    pub fn new(name: String, hd_path: Option<usize>) -> Result<Self, Error> {
+        Ok(Self {
             hd_path,
-            entry: Arc::new(StellarEntry::new(&name).unwrap()), //fixme!
-        }
+            entry: Arc::new(StellarEntry::new(&name)?),
+        })
     }
 
     pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
@@ -60,7 +60,7 @@ impl SecureStoreEntry {
     ) -> Result<String, Error> {
         let entry_name_with_prefix = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{entry_name}");
 
-        let s = Self::new(entry_name_with_prefix.clone(), None);
+        let s = Self::new(entry_name_with_prefix.clone(), None)?;
         s.entry.write(seed_phrase.clone(), print)?;
 
         Ok(entry_name_with_prefix)
@@ -93,7 +93,7 @@ impl SecureStoreEntry {
         SecureStoreEntry {
             name: name.clone(),
             hd_path,
-            entry: StellarEntry::new(&name).unwrap(), //fixme!
+            entry: StellarEntry::new(&name)?
         }
     }
     pub fn get_public_key(_entry_name: &str, _index: Option<usize>) -> Result<PublicKey, Error> {

@@ -334,7 +334,7 @@ impl Args {
         let identity = self.read_identity(name)?;
 
         if let Key::Secret(Secret::SecureStore { entry_name, .. }) = identity {
-            let secure_store_entry = SecureStoreEntry::new(entry_name, None);
+            let secure_store_entry = SecureStoreEntry::new(entry_name, None)?;
             secure_store_entry.delete_secret(&print)?;
         }
 

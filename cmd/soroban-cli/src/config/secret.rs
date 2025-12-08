@@ -150,8 +150,7 @@ impl Secret {
             cached_entry,
         } = self
         {
-            let entry =
-                cached_entry.get_or_init(|| SecureStoreEntry::new(entry_name.clone(), index));
+            let entry = Self::cached_secure_store_entry(index, entry_name, cached_entry)?;
             Ok(entry.get_public_key()?)
         } else {
             let key = self.key_pair(index)?;
@@ -178,12 +177,27 @@ impl Secret {
                 entry_name,
                 cached_entry,
             } => {
-                let entry =
-                    cached_entry.get_or_init(|| SecureStoreEntry::new(entry_name.clone(), hd_path));
+                let entry = Self::cached_secure_store_entry(hd_path, entry_name, cached_entry)?;
                 SignerKind::SecureStore(entry.clone())
             }
         };
         Ok(Signer { kind, print })
+    }
+
+    fn cached_secure_store_entry(
+        hd_path: Option<usize>,
+        entry_name: &String,
+        cached_entry: &Arc<OnceLock<SecureStoreEntry>>,
+    ) -> Result<SecureStoreEntry, Error> {
+        let entry = if let Some(e) = cached_entry.get() {
+            e.clone()
+        } else {
+            let e = SecureStoreEntry::new(entry_name.clone(), hd_path)?;
+            // It's fine if set fails because another thread initialized it concurrently.
+            let _ = cached_entry.set(e.clone());
+            e
+        };
+        Ok(entry)
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
