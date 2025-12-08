@@ -276,6 +276,7 @@ impl Args {
         KeyType::Identity.read_with_global(name, self)
     }
 
+    // read_key caches the Key after reading it from the config
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
         // check cache for key & return it if its there
         if let Some(arc) = self.cached_keys.get() {

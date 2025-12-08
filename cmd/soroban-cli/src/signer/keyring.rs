@@ -30,7 +30,6 @@ pub struct StellarEntryInner {
     name: String,
     #[cfg(feature = "additional-libs")]
     keyring: Entry,
-    #[allow(dead_code)]
     cached_seed: Mutex<Option<SeedPhrase>>,
 }
 
