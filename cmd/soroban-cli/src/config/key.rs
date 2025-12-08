@@ -85,7 +85,9 @@ impl From<&stellar_strkey::ed25519::PublicKey> for Key {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
+)]
 pub struct Public(pub stellar_strkey::ed25519::PublicKey);
 
 impl FromStr for Public {
@@ -111,7 +113,9 @@ impl From<&Public> for stellar_strkey::ed25519::MuxedAccount {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
+)]
 pub struct MuxedAccount(pub stellar_strkey::ed25519::MuxedAccount);
 
 impl FromStr for MuxedAccount {

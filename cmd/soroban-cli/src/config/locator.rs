@@ -2,6 +2,8 @@ use clap::arg;
 use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::{
     ffi::OsStr,
     fmt::Display,
@@ -104,7 +106,7 @@ pub enum Error {
     Key(#[from] key::Error),
 }
 
-pub type CachedKeys = std::collections::HashMap<String, Key>;
+pub type CachedKeys = HashMap<String, Key>;
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
@@ -119,7 +121,8 @@ pub struct Args {
     pub config_dir: Option<PathBuf>,
 
     #[clap(skip)]
-    pub cached_keys: std::sync::OnceLock<std::sync::Arc<std::sync::Mutex<CachedKeys>>>,
+    // This saves us from reading the same key from the file system more than once for one cmd
+    pub cached_keys: OnceLock<Arc<Mutex<CachedKeys>>>,
 }
 
 pub enum Location {
@@ -274,7 +277,7 @@ impl Args {
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
-        // 1. Check cache
+        // check cache for key & return it if its there
         if let Some(arc) = self.cached_keys.get() {
             let map = arc.lock().unwrap();
             if let Some(k) = map.get(key_or_name) {
@@ -282,17 +285,17 @@ impl Args {
             }
         }
 
-        // 2. Compute key normally
+        // if its not in the cache, read it from config
         let key = key_or_name
             .parse()
             .or_else(|_| self.read_identity(key_or_name))?;
 
-        // 3. Insert into cache
-        let arc = self.cached_keys.get_or_init(|| {
-            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()))
-        });
-
+        // get or initialize the cached keys
+        let arc = self
+            .cached_keys
+            .get_or_init(|| Arc::new(Mutex::new(HashMap::new())));
         let mut map = arc.lock().unwrap();
+        // add the key to cached_keys
         map.insert(key_or_name.to_string(), key.clone());
 
         Ok(key)

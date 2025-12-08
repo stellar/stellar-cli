@@ -1,14 +1,21 @@
 use clap::arg;
 use serde::{Deserialize, Serialize};
-use std::{str::FromStr, sync::{Arc, OnceLock}};
+use std::{
+    str::FromStr,
+    sync::{Arc, OnceLock},
+};
 
 use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
-    print::Print, signer::{
-        self, LocalKey, Signer, SignerKind, ledger, secure_store_entry::{self, SecureStoreEntry}
-    }, utils
+    print::Print,
+    signer::{
+        self, ledger,
+        secure_store_entry::{self, SecureStoreEntry},
+        LocalKey, Signer, SignerKind,
+    },
+    utils,
 };
 
 use super::key::Key;
@@ -58,15 +65,19 @@ pub struct Args {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Secret {
-    SecretKey { secret_key: String },
-    SeedPhrase { seed_phrase: String },
+    SecretKey {
+        secret_key: String,
+    },
+    SeedPhrase {
+        seed_phrase: String,
+    },
     Ledger,
-    SecureStore { 
+    SecureStore {
         entry_name: String,
         #[serde(skip)]
         #[serde(default)]
-        cached_entry: Arc<OnceLock<SecureStoreEntry>>, 
-    }
+        cached_entry: Arc<OnceLock<SecureStoreEntry>>,
+    },
 }
 
 impl FromStr for Secret {
@@ -134,10 +145,13 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name , cached_entry } = self {
-            let entry = cached_entry.get_or_init(|| {
-                SecureStoreEntry::new(entry_name.clone(), index)
-            });
+        if let Secret::SecureStore {
+            entry_name,
+            cached_entry,
+        } = self
+        {
+            let entry =
+                cached_entry.get_or_init(|| SecureStoreEntry::new(entry_name.clone(), index));
             Ok(entry.get_public_key()?)
         } else {
             let key = self.key_pair(index)?;
@@ -160,12 +174,13 @@ impl Secret {
                     .expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name , cached_entry } => {
-                let entry = cached_entry.get_or_init(|| {
-                    SecureStoreEntry::new(entry_name.clone(), hd_path)
-                });
+            Secret::SecureStore {
+                entry_name,
+                cached_entry,
+            } => {
+                let entry =
+                    cached_entry.get_or_init(|| SecureStoreEntry::new(entry_name.clone(), hd_path));
                 SignerKind::SecureStore(entry.clone())
-                // SignerKind::SecureStore(SecureStoreEntry::new(entry_name.to_string(), hd_path))
             }
         };
         Ok(Signer { kind, print })

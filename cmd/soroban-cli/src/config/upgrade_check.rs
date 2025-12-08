@@ -38,7 +38,7 @@ impl UpgradeCheck {
         let locator = locator::Args {
             global: false,
             config_dir: None,
-            cached_keys: OnceLock::new() 
+            cached_keys: OnceLock::new(),
         };
         let path = locator.global_config_path()?.join(FILE_NAME);
         if !path.exists() {
@@ -54,7 +54,7 @@ impl UpgradeCheck {
         let locator = locator::Args {
             global: false,
             config_dir: None,
-            cached_keys: OnceLock::new() 
+            cached_keys: OnceLock::new(),
         };
         let path = locator.global_config_path()?.join(FILE_NAME);
         let path = locator::ensure_directory(path)?;
