@@ -32,7 +32,6 @@ pub enum Error {
 
 #[derive(Debug, Clone)]
 pub struct SecureStoreEntry {
-    pub name: String, //remove this
     pub hd_path: Option<usize>,
     pub entry: Arc<StellarEntry>,
 }
@@ -41,7 +40,6 @@ pub struct SecureStoreEntry {
 impl SecureStoreEntry {
     pub fn new(name: String, hd_path: Option<usize>) -> Self {
         Self {
-            name: name.clone(),
             hd_path,
             entry: Arc::new(StellarEntry::new(&name).unwrap()), //fixme!
         }
