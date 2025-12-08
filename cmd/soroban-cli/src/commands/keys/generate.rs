@@ -96,7 +96,7 @@ impl Cmd {
         let formatted_name = self.name.to_string();
 
         match network.fund_address(&addr).await {
-            Ok(_) => print.checkln(format!(
+            Ok(()) => print.checkln(format!(
                 "Account {} funded on {:?}",
                 formatted_name, network.network_passphrase
             )),
