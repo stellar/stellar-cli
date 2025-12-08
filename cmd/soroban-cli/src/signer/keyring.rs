@@ -32,7 +32,6 @@ pub struct StellarEntryInner {
     keyring: Entry,
     #[allow(dead_code)]
     cached_seed: Mutex<Option<SeedPhrase>>,
-    cached_public_key: Mutex<Option<stellar_strkey::ed25519::PublicKey>>,
 }
 
 impl StellarEntry {
@@ -42,7 +41,6 @@ impl StellarEntry {
                 name: name.to_string(),
                 keyring: Entry::new(name, &whoami::username())?,
                 cached_seed: Mutex::new(None),
-                cached_public_key: Mutex::new(None),
             }),
         })
     }
@@ -121,23 +119,14 @@ impl StellarEntry {
         &self,
         hd_path: Option<usize>,
     ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        let mut guard = self.inner.cached_public_key.lock().unwrap();
-
-        if let Some(key) = &*guard {
-            return Ok(key.clone());
-        }
-
-        let public_key = self.use_key(
+        Ok(self.use_key(
             |keypair| {
                 Ok(stellar_strkey::ed25519::PublicKey(
                     *keypair.verifying_key().as_bytes(),
                 ))
             },
             hd_path,
-        )?;
-
-        *guard = Some(public_key.clone());
-        Ok(public_key)
+        )?)
     }
 
     pub fn sign_data(&self, data: &[u8], hd_path: Option<usize>) -> Result<Vec<u8>, Error> {
