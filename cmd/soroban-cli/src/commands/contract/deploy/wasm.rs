@@ -297,7 +297,7 @@ impl NetworkRunnable for Cmd {
         let txn = Box::new(build_create_contract_tx(
             wasm_hash,
             sequence + 1,
-            self.fee.fee,
+            self.fee.inclusion_fee(),
             source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
@@ -310,8 +310,13 @@ impl NetworkRunnable for Cmd {
 
         print.infoln("Simulating deploy transaction…");
 
-        let assembled =
-            simulate_and_assemble_transaction(&client, &txn, self.fee.resource_config()).await?;
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &txn,
+            self.fee.resource_config(),
+            self.fee.resource_fee,
+        )
+        .await?;
         let assembled = self.fee.apply_to_assembled_txn(assembled);
 
         let txn = Box::new(assembled.transaction().clone());

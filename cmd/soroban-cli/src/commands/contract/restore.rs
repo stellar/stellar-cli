@@ -178,7 +178,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = Box::new(Transaction {
             source_account,
-            fee: self.fee.fee,
+            fee: self.fee.inclusion_fee(),
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
             memo: Memo::None,
@@ -206,8 +206,13 @@ impl NetworkRunnable for Cmd {
         if self.fee.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let assembled =
-            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            self.fee.resource_config(),
+            self.fee.resource_fee,
+        )
+        .await?;
 
         let tx = assembled.transaction().clone();
         let res = client

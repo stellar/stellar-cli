@@ -162,7 +162,7 @@ impl NetworkRunnable for Cmd {
             asset,
             &contract_id,
             sequence + 1,
-            self.fee.fee,
+            self.fee.inclusion_fee(),
             network_passphrase,
             source_account,
         )?;
@@ -171,8 +171,13 @@ impl NetworkRunnable for Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        let assembled =
-            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            self.fee.resource_config(),
+            self.fee.resource_fee,
+        )
+        .await?;
         let assembled = self.fee.apply_to_assembled_txn(assembled);
 
         let txn = assembled.transaction().clone();

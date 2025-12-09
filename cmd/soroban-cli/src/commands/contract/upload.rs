@@ -168,8 +168,12 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let (tx_without_preflight, hash) =
-            build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &source_account)?;
+        let (tx_without_preflight, hash) = build_install_contract_code_tx(
+            &contract,
+            sequence + 1,
+            self.fee.inclusion_fee(),
+            &source_account,
+        )?;
 
         if self.fee.build_only {
             return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
@@ -214,6 +218,7 @@ impl NetworkRunnable for Cmd {
             &client,
             &tx_without_preflight,
             self.fee.resource_config(),
+            self.fee.resource_fee,
         )
         .await?;
         let assembled = self.fee.apply_to_assembled_txn(assembled);

@@ -160,13 +160,18 @@ Deploy builtin Soroban Asset Contract
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract alias`
@@ -444,13 +449,18 @@ If no keys are specified the contract itself is extended.
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract deploy`
@@ -490,13 +500,18 @@ Deploy a wasm contract
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract fetch`
@@ -811,13 +826,18 @@ Install a WASM file to the ledger without creating a contract instance
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract install`
@@ -849,13 +869,18 @@ Install a WASM file to the ledger without creating a contract instance
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract invoke`
@@ -901,13 +926,18 @@ stellar contract invoke ... -- --help
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract optimize`
@@ -1005,13 +1035,18 @@ If no keys are specificed the contract itself is restored.
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar doctor`
@@ -1811,13 +1846,18 @@ Transfer XLM balance to another account and remove source account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -1846,13 +1886,18 @@ Begin sponsoring future reserves for another account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -1881,13 +1926,18 @@ Bump sequence number to invalidate older transactions
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -1919,13 +1969,18 @@ Create, update, or delete a trustline
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -1954,13 +2009,18 @@ Claim a claimable balance by its balance ID
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -1991,13 +2051,18 @@ Clawback an asset from an account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2026,13 +2091,18 @@ Clawback a claimable balance by its balance ID
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2064,13 +2134,18 @@ Create and fund a new account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2107,13 +2182,18 @@ Create a claimable balance that can be claimed by specified accounts
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2145,13 +2225,18 @@ Create a passive sell offer on the Stellar DEX
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2179,13 +2264,18 @@ End sponsoring future reserves
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2223,13 +2313,18 @@ Deposit assets into a liquidity pool
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2261,13 +2356,18 @@ Withdraw assets from a liquidity pool
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2302,13 +2402,18 @@ Create, update, or delete a buy offer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2338,13 +2443,18 @@ Set, modify, or delete account data entries
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2379,13 +2489,18 @@ Create, update, or delete a sell offer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2419,13 +2534,18 @@ Send a payment with a different asset using path finding, specifying the send am
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2459,13 +2579,18 @@ Send a payment with a different asset using path finding, specifying the receive
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2499,13 +2624,18 @@ Send asset to destination account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2540,13 +2670,18 @@ Revoke sponsorship of a ledger entry or signer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2590,13 +2725,18 @@ Set account options like flags, signers, and home domain
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2632,13 +2772,18 @@ Configure authorization and trustline flags for an asset
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2715,13 +2860,18 @@ Transfer XLM balance to another account and remove source account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2755,13 +2905,18 @@ Begin sponsoring future reserves for another account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2795,13 +2950,18 @@ Bump sequence number to invalidate older transactions
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2838,13 +2998,18 @@ Create, update, or delete a trustline
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2878,13 +3043,18 @@ Claim a claimable balance by its balance ID
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2920,13 +3090,18 @@ Clawback an asset from an account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -2960,13 +3135,18 @@ Clawback a claimable balance by its balance ID
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3003,13 +3183,18 @@ Create and fund a new account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3051,13 +3236,18 @@ Create a claimable balance that can be claimed by specified accounts
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3094,13 +3284,18 @@ Create a passive sell offer on the Stellar DEX
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3133,13 +3328,18 @@ End sponsoring future reserves
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3182,13 +3382,18 @@ Deposit assets into a liquidity pool
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3225,13 +3430,18 @@ Withdraw assets from a liquidity pool
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3271,13 +3481,18 @@ Create, update, or delete a buy offer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3312,13 +3527,18 @@ Set, modify, or delete account data entries
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3358,13 +3578,18 @@ Create, update, or delete a sell offer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3403,13 +3628,18 @@ Send a payment with a different asset using path finding, specifying the receive
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3448,13 +3678,18 @@ Send a payment with a different asset using path finding, specifying the send am
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3493,13 +3728,18 @@ Send asset to destination account
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3539,13 +3779,18 @@ Revoke sponsorship of a ledger entry or signer
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3594,13 +3839,18 @@ Set account options like flags, signers, and home domain
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
@@ -3641,13 +3891,18 @@ Configure authorization and trustline flags for an asset
 
 ###### **Options (RPC):**
 
-- `--fee <FEE>` — fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 
   Default value: `100`
 
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm
+
+  Default value: `100`
+
+- `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
 - `--cost` — Output the cost execution to stderr
-- `--instructions <INSTRUCTIONS>` — Number of instructions to simulate
-- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources during transaction simulation
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--rpc-url <RPC_URL>` — RPC server endpoint
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
