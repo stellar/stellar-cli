@@ -24,17 +24,17 @@ jobs:
           # Apple Intel (this runner has better support to nested virtualization)
           - macos-15-large
         exclude:
-          # Only run Linux x64 tests on pull request to save some time
-          - sys:
-              ${{ github.event_name != 'push' && 'ubuntu-jammy-8-cores-arm64' }}
-          - sys: ${{ github.event_name != 'push' && 'macos-15-large' }}
+          # Only run Linux x64 on non-release PRs to save CI minutes
+          - sys: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release/') && 'ubuntu-jammy-8-cores-arm64' }}
+          - sys: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release/') && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     env:
-      TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=1' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
+      TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '2' || '4' }} # macOS has limited resources
     steps:
       - uses: stellar/quickstart@main
         with:
           tag: future
+          enable: core,rpc
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
@@ -49,15 +49,10 @@ jobs:
         # the login password doesn't matter, but the keyring must be unlocked for the tests to work
         # this is based on the ci workflow in the keyring crate repo
         run:
-          gnome-keyring-daemon --components=secrets --daemonize --unlock <<<
-          'foobar'
-      - name: Check GNOME Keyring
-        if: runner.os == 'Linux'
-        run: |
-          gnome-keyring-daemon
+          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
       - run: cargo build --features additional-libs
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
       - run:
           RUST_BACKTRACE=1 cargo test --features it --package soroban-test --test it --
-          integration $TEST_THREADS
+          integration --test-threads=$TEST_THREADS

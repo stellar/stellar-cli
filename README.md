@@ -25,27 +25,39 @@ To understand how to get the most of the Stellar CLI, see the [Stellar CLI Cookb
 
 ## Install
 
+Install with the install script (macOS, Linux):
+
+```sh
+curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh
+```
+
+For installation options, run the script with `--help`:
+
+```sh
+curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --help
+```
+
 Install with Homebrew (macOS, Linux):
 
-```
+```sh
 brew install stellar-cli
 ```
 
 Install the latest version from source:
 
-```
+```sh
 cargo install --locked stellar-cli
 ```
 
 Install without features that depend on additional libraries:
 
-```
+```sh
 cargo install --locked stellar-cli --no-default-features
 ```
 
 Install or run the unreleased main branch with nix:
 
-```
+```console
 $ nix run 'github:stellar/stellar-cli' -- --help
 or install
 $ nix profile install github:stellar/stellar-cli
@@ -55,7 +67,7 @@ For additional information on how to install, see instructions here on the [Deve
 
 Use GitHub Action:
 
-```
+```yaml
 uses: stellar/stellar-cli@v23.0.1
 ```
 
@@ -63,7 +75,7 @@ uses: stellar/stellar-cli@v23.0.1
 
 The Stellar CLI supports some autocompletion. To set up, run the following commands:
 
-```
+```sh
 stellar completion --shell <SHELL>
 ```
 

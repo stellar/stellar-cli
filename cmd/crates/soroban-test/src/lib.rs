@@ -394,6 +394,7 @@ impl AssertExt for Assert {
             .to_owned()
     }
 }
+
 pub trait CommandExt {
     fn json_arg<A>(&mut self, j: A) -> &mut Self
     where
