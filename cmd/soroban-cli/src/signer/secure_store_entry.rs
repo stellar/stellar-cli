@@ -1,18 +1,26 @@
-use std::sync::Arc;
+use stellar_strkey::ed25519::PublicKey;
 
 use crate::{
-    signer::keyring::StellarEntry,
-    xdr::{self, DecoratedSignature, Signature, SignatureHint},
+    xdr::{self, DecoratedSignature},
+    print::Print
 };
 
 #[cfg(feature = "additional-libs")]
-use crate::{print::Print, signer::keyring};
-use ed25519_dalek::Signature as Ed25519Signature;
+use crate::{
+    xdr::{Signature, SignatureHint},
+    signer::keyring::{self, StellarEntry}
+};
 #[cfg(feature = "additional-libs")]
+use std::sync::Arc;
+
+use ed25519_dalek::Signature as Ed25519Signature;
+
 use sep5::SeedPhrase;
 
-pub(crate) const ENTRY_PREFIX: &str = "secure_store:";
+
+#[cfg(feature = "additional-libs")]
 const ENTRY_SERVICE: &str = "org.stellar.cli";
+pub(crate) const ENTRY_PREFIX: &str = "secure_store:";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -33,6 +41,7 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub struct SecureStoreEntry {
     pub hd_path: Option<usize>,
+    #[cfg(feature = "additional-libs")]
     pub entry: Arc<StellarEntry>,
 }
 
@@ -45,7 +54,7 @@ impl SecureStoreEntry {
         })
     }
 
-    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+    pub fn get_public_key(&self) -> Result<PublicKey, Error> {
         Ok(self.entry.get_public_key(self.hd_path)?)
     }
 
@@ -89,34 +98,37 @@ impl SecureStoreEntry {
 
 #[cfg(not(feature = "additional-libs"))]
 impl SecureStoreEntry {
-    pub fn new(name: String, hd_path: Option<usize>) -> Self {
-        SecureStoreEntry {
-            name: name.clone(),
-            hd_path,
-            entry: StellarEntry::new(&name)?
-        }
-    }
-    pub fn get_public_key(_entry_name: &str, _index: Option<usize>) -> Result<PublicKey, Error> {
+    pub fn new(_name: String, _hd_path: Option<usize>) -> Result<Self, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
-    pub fn delete_secret(_print: &Print, _entry_name: &str) -> Result<(), Error> {
+    pub fn get_public_key(&self) -> Result<PublicKey, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
-    pub fn save_secret(
-        _print: &Print,
+    pub fn delete_secret(&self, _print: &Print) -> Result<(), Error> {
+        Err(Error::FeatureNotEnabled)
+    }
+
+    pub fn create_and_save(
         _entry_name: &str,
         _seed_phrase: &SeedPhrase,
+        _print: &Print,
     ) -> Result<String, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
     pub fn sign_tx_data(
-        _entry_name: &str,
-        _hd_path: Option<usize>,
         _data: &[u8],
     ) -> Result<Vec<u8>, Error> {
+        Err(Error::FeatureNotEnabled)
+    }
+
+    pub fn sign_tx_hash(&self, _tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+        Err(Error::FeatureNotEnabled)
+    }
+
+    pub fn sign_payload(&self, _payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         Err(Error::FeatureNotEnabled)
     }
 }
