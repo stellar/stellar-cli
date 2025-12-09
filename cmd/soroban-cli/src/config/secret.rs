@@ -186,13 +186,13 @@ impl Secret {
 
     fn cached_secure_store_entry(
         hd_path: Option<usize>,
-        entry_name: &String,
+        entry_name: &str,
         cached_entry: &Arc<OnceLock<SecureStoreEntry>>,
     ) -> Result<SecureStoreEntry, Error> {
         let entry = if let Some(e) = cached_entry.get() {
             e.clone()
         } else {
-            let e = SecureStoreEntry::new(entry_name.clone(), hd_path)?;
+            let e = SecureStoreEntry::new(entry_name.to_owned(), hd_path)?;
             // It's fine if set fails because another thread initialized it concurrently.
             let _ = cached_entry.set(e.clone());
             e

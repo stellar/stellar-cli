@@ -138,6 +138,8 @@ impl Cmd {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::OnceLock;
+
     use crate::config::{address::KeyName, key::Key, secret::Secret};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
@@ -145,6 +147,7 @@ mod tests {
         let locator = super::locator::Args {
             global: false,
             config_dir: Some(temp_dir.path().to_path_buf()),
+            cached_keys: OnceLock::new(),
         };
 
         let cmd = super::Cmd {
