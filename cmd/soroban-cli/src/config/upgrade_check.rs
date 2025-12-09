@@ -4,7 +4,7 @@ use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
 use serde_json;
-use std::{fs, sync::OnceLock};
+use std::fs;
 
 use super::data::project_dir;
 
