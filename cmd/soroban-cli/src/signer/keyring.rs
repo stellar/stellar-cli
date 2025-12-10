@@ -74,7 +74,7 @@ impl StellarEntry {
                 // clear the cached seed
                 self.inner.cached_seed.lock().unwrap().take();
                 Ok(())
-            },
+            }
             Err(e) => match e {
                 keyring::Error::NoEntry => {
                     print.infoln("This key was already removed from the secure store.");

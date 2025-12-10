@@ -1,3 +1,5 @@
+use super::util::{deploy_hello, extend};
+use crate::integration::util::extend_contract;
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -7,8 +9,6 @@ use soroban_cli::{
 };
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 use std::sync::OnceLock;
-use super::util::{deploy_hello, extend};
-use crate::integration::util::extend_contract;
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn invoke_contract() {
     let config_locator = locator::Args {
         global: false,
         config_dir: Some(dir.to_path_buf()),
-        cached_keys: OnceLock::new()
+        cached_keys: OnceLock::new(),
     };
 
     config_locator
