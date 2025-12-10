@@ -118,14 +118,14 @@ impl StellarEntry {
         &self,
         hd_path: Option<usize>,
     ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(self.use_key(
+        self.use_key(
             |keypair| {
                 Ok(stellar_strkey::ed25519::PublicKey(
                     *keypair.verifying_key().as_bytes(),
                 ))
             },
             hd_path,
-        )?)
+        )
     }
 
     pub fn sign_data(&self, data: &[u8], hd_path: Option<usize>) -> Result<Vec<u8>, Error> {
