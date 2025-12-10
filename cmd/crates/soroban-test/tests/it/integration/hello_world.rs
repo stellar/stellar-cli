@@ -6,7 +6,7 @@ use soroban_cli::{
     config::{locator, secret},
 };
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
-
+use std::sync::OnceLock;
 use super::util::{deploy_hello, extend};
 use crate::integration::util::extend_contract;
 
@@ -101,6 +101,7 @@ async fn invoke_contract() {
     let config_locator = locator::Args {
         global: false,
         config_dir: Some(dir.to_path_buf()),
+        cached_keys: OnceLock::new()
     };
 
     config_locator
