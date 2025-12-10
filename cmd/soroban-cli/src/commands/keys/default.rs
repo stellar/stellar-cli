@@ -21,8 +21,14 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let printer = Print::new(global_args.quiet);
-        let _ = self.config_locator.read_identity(&self.name)?;
 
+        if std::env::var("STELLAR_ACCOUNT").is_ok()
+            && std::env::var("STELLAR_ACCOUNT_SOURCE").is_err()
+        {
+            printer.warnln("Environment variable STELLAR_ACCOUNT is set, which will override this default source account.");
+        }
+
+        let _ = self.config_locator.read_identity(&self.name)?;
         self.config_locator.write_default_identity(&self.name)?;
 
         printer.infoln(format!(

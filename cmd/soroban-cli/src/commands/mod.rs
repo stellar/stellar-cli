@@ -14,6 +14,7 @@ pub mod doctor;
 pub mod env;
 pub mod events;
 pub mod fee_stats;
+pub mod fees;
 pub mod global;
 pub mod keys;
 pub mod ledger;
@@ -139,6 +140,7 @@ impl Root {
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
+            Cmd::Fees(env) => env.run(&self.global_args).await?,
             Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
@@ -187,7 +189,7 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(container::Cmd),
 
-    /// Manage cli configuration
+    /// Manage CLI configuration
     #[command(subcommand)]
     Config(cfg::Cmd),
 
@@ -221,8 +223,12 @@ pub enum Cmd {
     #[command(subcommand)]
     Ledger(ledger::Cmd),
 
-    /// Fetch network feestats
+    /// ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
     FeeStats(fee_stats::Cmd),
+
+    /// Fetch network feestats and configure CLI fee settings
+    #[command(subcommand)]
+    Fees(fees::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -278,6 +284,9 @@ pub enum Error {
 
     #[error(transparent)]
     FeeStats(#[from] fee_stats::Error),
+
+    #[error(transparent)]
+    Fees(#[from] fees::Error),
 }
 
 #[async_trait]

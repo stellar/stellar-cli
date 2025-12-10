@@ -60,7 +60,7 @@ pub struct Args {
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
     /// or a seed phrase (--source "kite urban…").
-    /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
+    /// If `--build-only` was NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: UnresolvedMuxedAccount,
 
@@ -69,6 +69,14 @@ pub struct Args {
 
     #[command(flatten)]
     pub sign_with: sign_with::Args,
+
+    /// ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+    #[arg(long, env = "STELLAR_FEE")]
+    pub fee: Option<u32>,
+
+    /// Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+    #[arg(long, env = "STELLAR_INCLUSION_FEE")]
+    pub inclusion_fee: Option<u32>,
 }
 
 impl Args {
@@ -131,6 +139,17 @@ impl Args {
         Ok(self.network.get(&self.locator)?)
     }
 
+    /// Get the inclusion fee if available from args, otherwise fall back to fee,
+    /// and finally return 100 if nothing is set.
+    ///
+    /// Precedence is:
+    /// 1. inclusion_fee (via clap, arg then env var)
+    /// 2. fee (via clap, arg then env var)
+    /// 3. default of 100 stroops
+    pub fn get_inclusion_fee(&self) -> Result<u32, Error> {
+        Ok(self.inclusion_fee.or(self.fee).unwrap_or(100))
+    }
+
     pub async fn next_sequence_number(
         &self,
         account: impl Into<xdr::AccountId>,
@@ -182,6 +201,7 @@ pub struct Config {
 pub struct Defaults {
     pub network: Option<String>,
     pub identity: Option<String>,
+    pub inclusion_fee: Option<u32>,
 }
 
 impl Config {
@@ -205,6 +225,12 @@ impl Config {
     #[must_use]
     pub fn set_identity(mut self, s: &str) -> Self {
         self.defaults.identity = Some(s.to_string());
+        self
+    }
+
+    #[must_use]
+    pub fn set_inclusion_fee(mut self, uint: Option<u32>) -> Self {
+        self.defaults.inclusion_fee = uint;
         self
     }
 

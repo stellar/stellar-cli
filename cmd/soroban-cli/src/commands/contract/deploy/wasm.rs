@@ -1,4 +1,5 @@
 use crate::commands::contract::deploy::utils::alias_validator;
+use crate::soroban_data;
 use std::array::TryFromSliceError;
 use std::ffi::OsString;
 use std::fmt::Debug;
@@ -21,7 +22,7 @@ use crate::{
         contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable, HEADING_RPC,
+        NetworkRunnable,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -48,15 +49,10 @@ pub struct Cmd {
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     pub wasm_hash: Option<String>,
     /// Custom salt 32-byte salt for the token id
-    #[arg(
-        long,
-        help_heading = HEADING_RPC,
-    )]
+    #[arg(long)]
     pub salt: Option<String>,
     #[command(flatten)]
     pub config: config::Args,
-    #[command(flatten)]
-    pub fee: crate::fee::Args,
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
@@ -65,6 +61,11 @@ pub struct Cmd {
     /// configuration without asking for confirmation.
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
+    #[command(flatten)]
+    pub soroban_data: soroban_data::Args,
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -201,15 +202,16 @@ impl NetworkRunnable for Cmd {
         let print = Print::new(quiet);
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let is_build = self.fee.build_only;
+            let is_build = self.build_only;
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
                 upload::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
-                    fee: self.fee.clone(),
+                    soroban_data: self.soroban_data.clone(),
                     ignore_checks: self.ignore_checks,
+                    build_only: is_build,
                 }
                 .run_against_rpc_server(global_args, Some(config))
                 .await?
@@ -258,7 +260,7 @@ impl NetworkRunnable for Cmd {
         let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
             wasm::Args { wasm: wasm.clone() }.read()?
         } else {
-            if self.fee.build_only {
+            if self.build_only {
                 return Err(Error::WasmNotProvided);
             }
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
@@ -297,13 +299,13 @@ impl NetworkRunnable for Cmd {
         let txn = Box::new(build_create_contract_tx(
             wasm_hash,
             sequence + 1,
-            self.fee.inclusion_fee(),
+            config.get_inclusion_fee()?,
             source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
         )?);
 
-        if self.fee.build_only {
+        if self.build_only {
             print.checkln("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
@@ -313,12 +315,11 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &txn,
-            self.fee.resource_config(),
-            self.fee.resource_fee,
+            self.soroban_data.resource_config(),
+            self.soroban_data.resource_fee,
         )
         .await?;
-        let assembled = self.fee.apply_to_assembled_txn(assembled);
-
+        let assembled = self.soroban_data.apply_to_assembled_txn(assembled);
         let txn = Box::new(assembled.transaction().clone());
 
         print.log_transaction(&txn, &network, true)?;
@@ -327,7 +328,7 @@ impl NetworkRunnable for Cmd {
 
         let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
 
-        self.fee.print_cost_info(&get_txn_resp)?;
+        self.soroban_data.print_cost_info(&get_txn_resp)?;
 
         if global_args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;

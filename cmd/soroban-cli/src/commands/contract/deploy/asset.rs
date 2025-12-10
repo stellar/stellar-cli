@@ -82,13 +82,17 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub soroban_data: crate::soroban_data::Args,
 
     /// The alias that will be used to save the assets's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
     /// configuration without asking for confirmation.
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl Cmd {
@@ -162,30 +166,29 @@ impl NetworkRunnable for Cmd {
             asset,
             &contract_id,
             sequence + 1,
-            self.fee.inclusion_fee(),
+            config.get_inclusion_fee()?,
             network_passphrase,
             source_account,
         )?;
 
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx,
-            self.fee.resource_config(),
-            self.fee.resource_fee,
+            self.soroban_data.resource_config(),
+            self.soroban_data.resource_fee,
         )
         .await?;
-        let assembled = self.fee.apply_to_assembled_txn(assembled);
-
+        let assembled = self.soroban_data.apply_to_assembled_txn(assembled);
         let txn = assembled.transaction().clone();
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign(txn, args.is_some_and(|g| g.quiet)).await?)
             .await?;
 
-        self.fee.print_cost_info(&get_txn_resp)?;
+        self.soroban_data.print_cost_info(&get_txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;

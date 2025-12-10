@@ -3,6 +3,7 @@ use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 use crate::{
     log::extract_events,
     print::Print,
+    soroban_data,
     xdr::{
         ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
         ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
@@ -44,7 +45,11 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub soroban_data: soroban_data::Args,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl FromStr for Cmd {
@@ -210,7 +215,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = Box::new(Transaction {
             source_account,
-            fee: self.fee.inclusion_fee(),
+            fee: config.get_inclusion_fee()?,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
             memo: Memo::None,
@@ -229,21 +234,21 @@ impl NetworkRunnable for Cmd {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
-                    instructions: self.fee.instructions.unwrap_or_default(),
+                    instructions: self.soroban_data.instructions.unwrap_or_default(),
                     disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
             }),
         });
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx,
-            self.fee.resource_config(),
-            self.fee.resource_fee,
+            self.soroban_data.resource_config(),
+            self.soroban_data.resource_fee,
         )
         .await?;
 
@@ -251,7 +256,7 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign(tx, quiet).await?)
             .await?;
-        self.fee.print_cost_info(&res)?;
+        self.soroban_data.print_cost_info(&res)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

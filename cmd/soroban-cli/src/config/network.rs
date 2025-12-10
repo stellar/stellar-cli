@@ -233,14 +233,12 @@ impl Network {
             .try_into()
             .map_err(|_| Error::InvalidHeader)?;
 
-        Ok(
-            rpc::Client::new_with_headers(&self.rpc_url, header_map).map_err(|e| match e {
-                rpc::Error::InvalidRpcUrl(..) | rpc::Error::InvalidRpcUrlFromUriParts(..) => {
-                    Error::InvalidUrl(self.rpc_url.clone())
-                }
-                other => Error::Rpc(other),
-            })?,
-        )
+        rpc::Client::new_with_headers(&self.rpc_url, header_map).map_err(|e| match e {
+            rpc::Error::InvalidRpcUrl(..) | rpc::Error::InvalidRpcUrlFromUriParts(..) => {
+                Error::InvalidUrl(self.rpc_url.clone())
+            }
+            other => Error::Rpc(other),
+        })
     }
 }
 
