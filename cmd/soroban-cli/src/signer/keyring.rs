@@ -70,7 +70,11 @@ impl StellarEntry {
 
     pub fn delete_seed_phrase(&self, print: &Print) -> Result<(), Error> {
         match self.inner.keyring.delete_credential() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                // clear the cached seed
+                self.inner.cached_seed.lock().unwrap().take();
+                Ok(())
+            },
             Err(e) => match e {
                 keyring::Error::NoEntry => {
                     print.infoln("This key was already removed from the secure store.");
