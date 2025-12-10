@@ -18,6 +18,9 @@ pub enum Error {
 
     #[error("Secure Store keys are not allowed: additional-libs feature must be enabled")]
     FeatureNotEnabled,
+
+    #[error("Mutex poisoned")]
+    MutexPoison,
 }
 
 #[derive(Debug)]
@@ -72,7 +75,7 @@ impl StellarEntry {
         match self.inner.keyring.delete_credential() {
             Ok(()) => {
                 // clear the cached seed
-                self.inner.cached_seed.lock().unwrap().take();
+                self.inner.cached_seed.lock().map_err(|_| Error::MutexPoison)?.take();
                 Ok(())
             }
             Err(e) => match e {
