@@ -164,27 +164,48 @@ mod test {
         match (expected, actual) {
             (Key::PublicKey(e), Key::PublicKey(a)) => {
                 assert_eq!(e, a);
-            },
-            (Key::MuxedAccount(e ), Key::MuxedAccount(a)) => {
+            }
+            (Key::MuxedAccount(e), Key::MuxedAccount(a)) => {
                 assert_eq!(e, a);
-            },
-            (Key::Secret(e), Key::Secret(a)) =>  {
-                match (e, a) {
-                    (Secret::SecretKey { secret_key: e_secret_key }, Secret::SecretKey { secret_key: a_secret_key }) => {
-                        assert_eq!(e_secret_key, a_secret_key);
+            }
+            (Key::Secret(e), Key::Secret(a)) => match (e, a) {
+                (
+                    Secret::SecretKey {
+                        secret_key: e_secret_key,
                     },
-                    (Secret::SeedPhrase { seed_phrase: e_seed_phrase }, Secret::SeedPhrase { seed_phrase: a_seed_phrase }) => {
-                        assert_eq!(e_seed_phrase, a_seed_phrase);
+                    Secret::SecretKey {
+                        secret_key: a_secret_key,
                     },
-                    (Secret::Ledger, Secret::Ledger) => todo!(),
-                    (Secret::SecureStore { entry_name: e_entry_name, cached_entry: e_cached_entry }, Secret::SecureStore { entry_name: a_entry_name, cached_entry: a_cached_entry }) => {
-                        assert_eq!(e_entry_name, a_entry_name);
-                        assert!(Arc::ptr_eq(e_cached_entry, a_cached_entry));
-                    },
-                    _ => panic!("keys are not equal {expected:?} != {actual:?}")
+                ) => {
+                    assert_eq!(e_secret_key, a_secret_key);
                 }
+                (
+                    Secret::SeedPhrase {
+                        seed_phrase: e_seed_phrase,
+                    },
+                    Secret::SeedPhrase {
+                        seed_phrase: a_seed_phrase,
+                    },
+                ) => {
+                    assert_eq!(e_seed_phrase, a_seed_phrase);
+                }
+                (Secret::Ledger, Secret::Ledger) => todo!(),
+                (
+                    Secret::SecureStore {
+                        entry_name: e_entry_name,
+                        cached_entry: e_cached_entry,
+                    },
+                    Secret::SecureStore {
+                        entry_name: a_entry_name,
+                        cached_entry: a_cached_entry,
+                    },
+                ) => {
+                    assert_eq!(e_entry_name, a_entry_name);
+                    assert!(Arc::ptr_eq(e_cached_entry, a_cached_entry));
+                }
+                _ => panic!("keys are not equal {expected:?} != {actual:?}"),
             },
-            _ => panic!("keys are not equal {expected:?} != {actual:?}")
+            _ => panic!("keys are not equal {expected:?} != {actual:?}"),
         }
     }
 

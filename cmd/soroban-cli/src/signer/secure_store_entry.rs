@@ -1,14 +1,14 @@
 use stellar_strkey::ed25519::PublicKey;
 
 use crate::{
+    print::Print,
     xdr::{self, DecoratedSignature},
-    print::Print
 };
 
 #[cfg(feature = "additional-libs")]
 use crate::{
+    signer::keyring::{self, StellarEntry},
     xdr::{Signature, SignatureHint},
-    signer::keyring::{self, StellarEntry}
 };
 #[cfg(feature = "additional-libs")]
 use std::sync::Arc;
@@ -16,7 +16,6 @@ use std::sync::Arc;
 use ed25519_dalek::Signature as Ed25519Signature;
 
 use sep5::SeedPhrase;
-
 
 #[cfg(feature = "additional-libs")]
 const ENTRY_SERVICE: &str = "org.stellar.cli";
@@ -118,9 +117,7 @@ impl SecureStoreEntry {
         Err(Error::FeatureNotEnabled)
     }
 
-    pub fn sign_tx_data(
-        _data: &[u8],
-    ) -> Result<Vec<u8>, Error> {
+    pub fn sign_tx_data(_data: &[u8]) -> Result<Vec<u8>, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
