@@ -304,7 +304,6 @@ impl Args {
         Ok(key)
     }
 
-    // and then we read from config again here... so it is a new instance of a Secret
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         match self.read_key(key_or_name)? {
             Key::Secret(s) => Ok(s),
