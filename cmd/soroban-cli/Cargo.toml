@@ -42,7 +42,7 @@ soroban-spec-rust = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-spec-typescript = { workspace = true }
 soroban-ledger-snapshot = { workspace = true }
-stellar-strkey = { workspace = true }
+stellar-strkey = { workspace = true, features = ["cli"] }
 soroban-sdk = { workspace = true }
 stellar-asset-spec = { workspace = true }
 soroban-rpc = { workspace = true }
