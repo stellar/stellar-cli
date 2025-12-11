@@ -8,7 +8,7 @@ fn decode() {
         .new_assert_cmd("strkey")
         .args([
             "decode",
-            "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC",
+            "GAZTAML6YJA5PGKDXONKPSHKL6FYT6OG5I2R7YB7R3B5CETRG7KIJONK",
         ])
         .assert()
         .success()
@@ -20,8 +20,8 @@ fn encode() {
     let sandbox = TestEnv::default();
     sandbox
         .new_assert_cmd("strkey")
-        .args(["encode", r#"{"public_key_ed25519":"1523f803d21e9811733a1d6181f8bff9822e8eb2568d2f9143d0fc9fd8820ada"}"#])
+        .args(["encode", r#"{"public_key_ed25519":"3330317ec241d79943bb9aa7c8ea5f8b89f9c6ea351fe03f8ec3d1127137d484"}"#])
         .assert()
         .success()
-        .stdout(predicate::str::contains("GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC"));
+        .stdout(predicate::str::contains("GAZTAML6YJA5PGKDXONKPSHKL6FYT6OG5I2R7YB7R3B5CETRG7KIJONK"));
 }
