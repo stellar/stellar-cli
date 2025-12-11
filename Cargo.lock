@@ -4972,7 +4972,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.13",
+ "stellar-strkey 0.0.15",
  "stellar-xdr",
  "strsim",
  "strum 0.17.1",
@@ -5192,7 +5192,7 @@ dependencies = [
  "itertools 0.10.5",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 0.0.13",
+ "stellar-strkey 0.0.15",
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
@@ -5246,7 +5246,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.13",
+ "stellar-strkey 0.0.15",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5366,7 +5366,7 @@ dependencies = [
  "serial_test",
  "sha2 0.10.9",
  "slipped10",
- "stellar-strkey 0.0.13",
+ "stellar-strkey 0.0.15",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5430,6 +5430,21 @@ checksum = "ee1832fb50c651ad10f734aaf5d31ca5acdfb197a6ecda64d93fcdb8885af913"
 dependencies = [
  "crate-git-revision",
  "data-encoding",
+]
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97e1a364048067bfcd24e6f1a93bba43eeb79c16b854596c841c3e8bab0bfa0c"
+dependencies = [
+ "clap",
+ "crate-git-revision",
+ "data-encoding",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
