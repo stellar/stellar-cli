@@ -1,4 +1,3 @@
-
 use crate::{commands::global, print::Print};
 
 use super::locator;

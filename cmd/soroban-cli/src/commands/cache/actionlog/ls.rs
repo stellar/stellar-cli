@@ -1,4 +1,3 @@
-
 use crate::config::{data, locator};
 
 #[derive(thiserror::Error, Debug)]

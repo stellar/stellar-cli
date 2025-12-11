@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use clap::Parser;
 use crate::commands::{config::network, global};
 use crate::config::locator;
 use crate::print::Print;
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
