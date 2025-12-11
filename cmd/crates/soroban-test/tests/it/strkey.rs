@@ -12,7 +12,7 @@ fn decode() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("public_key_ed25519"));
+        .stdout(predicate::str::eq(r#"{"public_key_ed25519":"3330317ec241d79943bb9aa7c8ea5f8b89f9c6ea351fe03f8ec3d1127137d484"}"#));
 }
 
 #[test]
@@ -23,5 +23,5 @@ fn encode() {
         .args(["encode", r#"{"public_key_ed25519":"3330317ec241d79943bb9aa7c8ea5f8b89f9c6ea351fe03f8ec3d1127137d484"}"#])
         .assert()
         .success()
-        .stdout(predicate::str::contains("GAZTAML6YJA5PGKDXONKPSHKL6FYT6OG5I2R7YB7R3B5CETRG7KIJONK"));
+        .stdout(predicate::str::eq("GAZTAML6YJA5PGKDXONKPSHKL6FYT6OG5I2R7YB7R3B5CETRG7KIJONK"));
 }
