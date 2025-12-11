@@ -1,4 +1,3 @@
-use clap::{arg, command};
 use sep5::SeedPhrase;
 
 use super::super::config::{

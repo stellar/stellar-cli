@@ -7,7 +7,7 @@ use crate::xdr::{
     LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
     TransactionResult, TransactionResultResult, VecM, WriteXdr,
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 use super::restore;
 use crate::commands::tx::fetch;

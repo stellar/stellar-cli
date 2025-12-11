@@ -1,4 +1,4 @@
-use clap::{arg, Parser};
+use clap::Parser;
 use std::{fmt::Debug, path::PathBuf};
 #[cfg(feature = "additional-libs")]
 use wasm_opt::{Feature, OptimizationError, OptimizationOptions};

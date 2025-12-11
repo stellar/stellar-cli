@@ -7,7 +7,7 @@ use crate::xdr::{
     ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
     Limits, ScVal, WriteXdr,
 };
-use clap::{command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 
 use crate::{
     commands::{global, NetworkRunnable},

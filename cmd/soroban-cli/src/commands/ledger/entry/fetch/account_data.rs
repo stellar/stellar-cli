@@ -6,7 +6,7 @@ use crate::{
     commands::config::{self, locator},
     xdr::{self, LedgerKey, LedgerKeyData, MuxedAccount, String64},
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

@@ -1,4 +1,3 @@
-use clap::command;
 
 use super::locator;
 

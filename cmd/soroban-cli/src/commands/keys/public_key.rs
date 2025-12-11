@@ -1,5 +1,3 @@
-use clap::arg;
-
 use crate::{
     commands::config::{address, locator},
     config::UnresolvedMuxedAccount,

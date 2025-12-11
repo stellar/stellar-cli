@@ -1,6 +1,6 @@
 use super::args::Args;
 use crate::xdr::{Hash, LedgerKey, LedgerKeyContractCode};
-use clap::{command, Parser};
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

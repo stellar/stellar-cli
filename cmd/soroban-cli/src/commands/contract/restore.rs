@@ -10,7 +10,7 @@ use crate::{
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 use stellar_strkey::DecodeError;
 
 use crate::commands::tx::fetch;

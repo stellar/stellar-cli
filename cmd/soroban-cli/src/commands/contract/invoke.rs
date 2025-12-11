@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 

@@ -1,5 +1,4 @@
 use clap::{
-    arg,
     builder::styling::{AnsiColor, Effects, Styles},
 };
 use std::path::PathBuf;

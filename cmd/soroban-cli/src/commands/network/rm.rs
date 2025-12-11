@@ -1,5 +1,4 @@
 use super::locator;
-use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use clap::{command, Parser};
+use clap::Parser;
 
 use crate::commands::{config::network, global};
 use crate::config::locator;

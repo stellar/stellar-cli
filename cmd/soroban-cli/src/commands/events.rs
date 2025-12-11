@@ -1,4 +1,4 @@
-use clap::{arg, command, Parser};
+use clap::Parser;
 use std::io;
 
 use crate::xdr::{self, Limits, ReadXdr};
