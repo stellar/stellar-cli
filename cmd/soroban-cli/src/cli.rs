@@ -102,6 +102,9 @@ fn set_env_from_config() {
     if let Ok(config) = Config::new() {
         set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
         set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+        if let Some(inclusion_fee) = config.defaults.inclusion_fee {
+            set_env_value_from_config("STELLAR_INCLUSION_FEE", Some(inclusion_fee.to_string()));
+        }
     }
 }
 

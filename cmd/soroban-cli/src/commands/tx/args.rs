@@ -5,7 +5,6 @@ use crate::{
         address::{self, UnresolvedMuxedAccount},
         data, network, secret,
     },
-    fee,
     rpc::{self, Client, GetTransactionResponse},
     tx::builder::{self, asset, TxExt},
     xdr::{self, Limits, WriteXdr},
@@ -15,9 +14,10 @@ use crate::{
 #[group(skip)]
 pub struct Args {
     #[clap(flatten)]
-    pub fee: fee::Args,
-    #[clap(flatten)]
     pub config: config::Args,
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -59,6 +59,7 @@ impl Args {
             .config
             .next_sequence_number(source_account.clone().account_id())
             .await?;
+
         // Once we have a way to add operations this will be updated to allow for a different source account
         let operation = xdr::Operation {
             source_account: None,
@@ -66,7 +67,7 @@ impl Args {
         };
         Ok(xdr::Transaction::new_tx(
             source_account,
-            self.fee.fee,
+            self.config.get_inclusion_fee()?,
             seq_num,
             operation,
         ))
@@ -105,7 +106,7 @@ impl Args {
     ) -> Result<TxnEnvelopeResult<GetTransactionResponse>, Error> {
         let network = self.config.get_network()?;
         let client = Client::new(&network.rpc_url)?;
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnEnvelopeResult::TxnEnvelope(Box::new(tx.into())));
         }
 

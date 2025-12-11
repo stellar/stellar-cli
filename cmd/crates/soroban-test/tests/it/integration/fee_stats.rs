@@ -5,7 +5,8 @@ use soroban_test::{AssertExt, TestEnv};
 async fn fee_stats_text_output() {
     let sandbox = &TestEnv::new();
     sandbox
-        .new_assert_cmd("fee-stats")
+        .new_assert_cmd("fees")
+        .arg("stats")
         .arg("--output")
         .arg("text")
         .assert()
@@ -19,7 +20,8 @@ async fn fee_stats_text_output() {
 async fn fee_stats_json_output() {
     let sandbox = &TestEnv::new();
     let output = sandbox
-        .new_assert_cmd("fee-stats")
+        .new_assert_cmd("fees")
+        .arg("stats")
         .arg("--output")
         .arg("json")
         .assert()

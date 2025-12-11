@@ -284,6 +284,8 @@ impl TestEnv {
                 sign_with_lab: false,
                 sign_with_ledger: false,
             },
+            fee: None,
+            inclusion_fee: None,
         }
     }
 

@@ -216,6 +216,10 @@ impl Args {
         Config::new()?.set_identity(name).save()
     }
 
+    pub fn write_default_inclusion_fee(&self, inclusion_fee: Option<u32>) -> Result<(), Error> {
+        Config::new()?.set_inclusion_fee(inclusion_fee).save()
+    }
+
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         Ok(KeyType::Identity
             .list_paths(&self.local_and_global()?)?
