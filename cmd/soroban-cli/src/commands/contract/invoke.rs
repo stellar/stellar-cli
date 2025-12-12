@@ -355,7 +355,7 @@ impl NetworkRunnable for Cmd {
 
         // Need to sign all auth entries
         if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-            txn = Box::new(tx);
+            *txn = tx;
         }
 
         let res = client
