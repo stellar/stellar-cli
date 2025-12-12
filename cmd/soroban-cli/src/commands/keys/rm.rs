@@ -1,5 +1,3 @@
-use clap::command;
-
 use crate::commands::global;
 
 use super::super::config::locator;

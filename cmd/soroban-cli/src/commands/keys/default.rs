@@ -1,5 +1,3 @@
-use clap::command;
-
 use crate::{commands::global, config::locator, print::Print};
 
 #[derive(thiserror::Error, Debug)]

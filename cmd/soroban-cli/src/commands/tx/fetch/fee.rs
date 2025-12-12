@@ -8,7 +8,7 @@ use crate::{
         TransactionMeta, TransactionResult,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 use prettytable::{
     format::{FormatBuilder, LinePosition, LineSeparator, TableFormat},
     Cell, Row, Table,

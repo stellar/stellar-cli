@@ -1,5 +1,3 @@
-use clap::command;
-
 use super::locator;
 
 #[derive(thiserror::Error, Debug)]

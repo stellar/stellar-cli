@@ -9,7 +9,7 @@ use crate::{
         MuxedAccount, PublicKey, TrustLineAsset, Uint256,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
 
 #[derive(Parser, Debug, Clone)]

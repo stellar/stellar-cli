@@ -1,6 +1,5 @@
 use std::io::Write;
 
-use clap::command;
 use sep5::SeedPhrase;
 
 use crate::{

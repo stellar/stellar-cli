@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
+use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::{config, print::Print, utils::deprecate_message};
 

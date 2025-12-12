@@ -1,4 +1,3 @@
-use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
