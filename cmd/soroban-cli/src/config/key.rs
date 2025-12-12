@@ -17,7 +17,7 @@ pub enum Error {
     Parse,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Key {
     #[serde(rename = "public_key")]
     PublicKey(Public),
@@ -85,7 +85,9 @@ impl From<&stellar_strkey::ed25519::PublicKey> for Key {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
+)]
 pub struct Public(pub stellar_strkey::ed25519::PublicKey);
 
 impl FromStr for Public {
@@ -111,7 +113,9 @@ impl From<&Public> for stellar_strkey::ed25519::MuxedAccount {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
+)]
 pub struct MuxedAccount(pub stellar_strkey::ed25519::MuxedAccount);
 
 impl FromStr for MuxedAccount {
@@ -143,13 +147,66 @@ impl TryFrom<Key> for Secret {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use super::*;
 
     fn round_trip(key: &Key) {
         let serialized = toml::to_string(&key).unwrap();
-        println!("{serialized}");
         let deserialized: Key = toml::from_str(&serialized).unwrap();
-        assert_eq!(key, &deserialized);
+
+        assert_key_equality(key, &deserialized);
+    }
+
+    // using this fn instead of just doing assert_eq!(key, deserialized) because Secret::SecureStore keys contain a StellarEntry which contains a keyring::Entry
+    // keyring::Entry comes from the keyring crate which does not implement PartialEq
+    fn assert_key_equality(expected: &Key, actual: &Key) {
+        match (expected, actual) {
+            (Key::PublicKey(e), Key::PublicKey(a)) => {
+                assert_eq!(e, a);
+            }
+            (Key::MuxedAccount(e), Key::MuxedAccount(a)) => {
+                assert_eq!(e, a);
+            }
+            (Key::Secret(e), Key::Secret(a)) => match (e, a) {
+                (
+                    Secret::SecretKey {
+                        secret_key: e_secret_key,
+                    },
+                    Secret::SecretKey {
+                        secret_key: a_secret_key,
+                    },
+                ) => {
+                    assert_eq!(e_secret_key, a_secret_key);
+                }
+                (
+                    Secret::SeedPhrase {
+                        seed_phrase: e_seed_phrase,
+                    },
+                    Secret::SeedPhrase {
+                        seed_phrase: a_seed_phrase,
+                    },
+                ) => {
+                    assert_eq!(e_seed_phrase, a_seed_phrase);
+                }
+                (Secret::Ledger, Secret::Ledger) => todo!(),
+                (
+                    Secret::SecureStore {
+                        entry_name: e_entry_name,
+                        cached_entry: e_cached_entry,
+                    },
+                    Secret::SecureStore {
+                        entry_name: a_entry_name,
+                        cached_entry: a_cached_entry,
+                    },
+                ) => {
+                    assert_eq!(e_entry_name, a_entry_name);
+                    assert!(Arc::ptr_eq(e_cached_entry, a_cached_entry));
+                }
+                _ => panic!("keys are not equal {expected:?} != {actual:?}"),
+            },
+            _ => panic!("keys are not equal {expected:?} != {actual:?}"),
+        }
     }
 
     #[test]

@@ -1,9 +1,13 @@
-use crate::xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+use crate::{
+    signer::secure_store_entry::SecureStoreEntry,
+    xdr::{
+        self, AccountId, DecoratedSignature, Hash, HashIdPreimage,
+        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
+        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
+    },
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
@@ -13,8 +17,8 @@ use crate::{config::network::Network, print::Print, utils::transaction_hash};
 pub mod ledger;
 
 #[cfg(feature = "additional-libs")]
-mod keyring;
-pub mod secure_store;
+pub mod keyring;
+pub mod secure_store_entry;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -39,7 +43,7 @@ pub enum Error {
     #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
     ReturningSignatureFromLab,
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStoreEntry(#[from] secure_store_entry::Error),
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
     #[error(transparent)]
@@ -281,7 +285,9 @@ impl Signer {
             SignerKind::Local(local_key) => local_key.sign_payload(payload),
             SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
-            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
+            SignerKind::SecureStore(secure_store_entry) => {
+                Ok(secure_store_entry.sign_payload(payload)?)
+            }
         }
     }
 }
@@ -324,33 +330,5 @@ impl Lab {
         open::that(url)?;
 
         Err(Error::ReturningSignatureFromLab)
-    }
-}
-
-pub struct SecureStoreEntry {
-    pub name: String,
-    pub hd_path: Option<usize>,
-}
-
-impl SecureStoreEntry {
-    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(secure_store::get_public_key(&self.name, self.hd_path)?)
-    }
-
-    pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let hint = SignatureHint(
-            secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
-        );
-
-        let signed_tx_hash = secure_store::sign_tx_data(&self.name, self.hd_path, &tx_hash)?;
-
-        let signature = Signature(signed_tx_hash.clone().try_into()?);
-        Ok(DecoratedSignature { hint, signature })
-    }
-
-    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
-        let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
-        let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
-        Ok(sig)
     }
 }

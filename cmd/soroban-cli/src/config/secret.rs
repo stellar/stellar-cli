@@ -1,12 +1,19 @@
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{Arc, OnceLock},
+};
 
 use sep5::SeedPhrase;
 use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    signer::{
+        self, ledger,
+        secure_store_entry::{self, SecureStoreEntry},
+        LocalKey, Signer, SignerKind,
+    },
     utils,
 };
 
@@ -27,7 +34,7 @@ pub enum Error {
     #[error("Ledger does not reveal secret key")]
     LedgerDoesNotRevealSecretKey,
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStore(#[from] secure_store_entry::Error),
     #[error("Secure Store does not reveal secret key")]
     SecureStoreDoesNotRevealSecretKey,
     #[error(transparent)]
@@ -54,13 +61,22 @@ pub struct Args {
     pub secure_store: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Secret {
-    SecretKey { secret_key: String },
-    SeedPhrase { seed_phrase: String },
+    SecretKey {
+        secret_key: String,
+    },
+    SeedPhrase {
+        seed_phrase: String,
+    },
     Ledger,
-    SecureStore { entry_name: String },
+    SecureStore {
+        entry_name: String,
+        #[serde(skip)]
+        #[serde(default)]
+        cached_entry: Arc<OnceLock<SecureStoreEntry>>,
+    },
 }
 
 impl FromStr for Secret {
@@ -77,9 +93,10 @@ impl FromStr for Secret {
             })
         } else if s == "ledger" {
             Ok(Secret::Ledger)
-        } else if s.starts_with(secure_store::ENTRY_PREFIX) {
+        } else if s.starts_with(secure_store_entry::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
+                cached_entry: OnceLock::new().into(),
             })
         } else {
             Err(Error::InvalidSecretOrSeedPhrase)
@@ -127,8 +144,13 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name } = self {
-            Ok(secure_store::get_public_key(entry_name, index)?)
+        if let Secret::SecureStore {
+            entry_name,
+            cached_entry,
+        } = self
+        {
+            let entry = Self::cached_secure_store_entry(index, entry_name, cached_entry)?;
+            Ok(entry.get_public_key()?)
         } else {
             let key = self.key_pair(index)?;
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(
@@ -147,15 +169,34 @@ impl Secret {
                 let hd_path: u32 = hd_path
                     .unwrap_or_default()
                     .try_into()
-                    .expect("uszie bigger than u32");
+                    .expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
-                name: entry_name.clone(),
-                hd_path,
-            }),
+            Secret::SecureStore {
+                entry_name,
+                cached_entry,
+            } => {
+                let entry = Self::cached_secure_store_entry(hd_path, entry_name, cached_entry)?;
+                SignerKind::SecureStore(entry.clone())
+            }
         };
         Ok(Signer { kind, print })
+    }
+
+    fn cached_secure_store_entry(
+        hd_path: Option<usize>,
+        entry_name: &str,
+        cached_entry: &Arc<OnceLock<SecureStoreEntry>>,
+    ) -> Result<SecureStoreEntry, Error> {
+        let entry = if let Some(e) = cached_entry.get() {
+            e.clone()
+        } else {
+            let e = SecureStoreEntry::new(entry_name.to_owned(), hd_path)?;
+            // It's fine if set fails because another thread initialized it concurrently.
+            let _ = cached_entry.set(e.clone());
+            e
+        };
+        Ok(entry)
     }
 
     pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {

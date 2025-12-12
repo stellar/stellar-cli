@@ -5,7 +5,12 @@ use super::super::config::{
     secret::{self, Secret},
 };
 
-use crate::{commands::global, config::address::KeyName, print::Print, signer::secure_store};
+use crate::{
+    commands::global,
+    config::address::KeyName,
+    print::Print,
+    signer::secure_store_entry::{self, SecureStoreEntry},
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,7 +27,7 @@ pub enum Error {
     IdentityAlreadyExists(String),
 
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStoreEntry(#[from] secure_store_entry::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -115,7 +120,7 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            let secret = SecureStoreEntry::create_and_save(&self.name, &seed_phrase, print)?;
             Ok(secret.parse()?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
@@ -132,6 +137,8 @@ impl Cmd {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::OnceLock;
+
     use crate::config::{address::KeyName, key::Key, secret::Secret};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
@@ -139,6 +146,7 @@ mod tests {
         let locator = super::locator::Args {
             global: false,
             config_dir: Some(temp_dir.path().to_path_buf()),
+            cached_keys: OnceLock::new(),
         };
 
         let cmd = super::Cmd {

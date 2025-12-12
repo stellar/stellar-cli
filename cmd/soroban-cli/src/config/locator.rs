@@ -1,6 +1,8 @@
 use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::{
     ffi::OsStr,
     fmt::Display,
@@ -14,7 +16,7 @@ use stellar_strkey::{Contract, DecodeError};
 use crate::{
     commands::{global, HEADING_GLOBAL},
     print::Print,
-    signer::secure_store,
+    signer::secure_store_entry::{self, SecureStoreEntry},
     utils::find_config_dir,
     xdr, Pwd,
 };
@@ -96,7 +98,7 @@ pub enum Error {
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
-    SecureStore(#[from] secure_store::Error),
+    SecureStoreEntry(#[from] secure_store_entry::Error),
     #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
     SecretKeyOnly(String),
     #[error(transparent)]
@@ -104,6 +106,8 @@ pub enum Error {
     #[error("Unable to get project directory")]
     ProjectDirsError(),
 }
+
+pub type CachedKeys = HashMap<String, Key>;
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
@@ -116,6 +120,10 @@ pub struct Args {
     /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
+
+    #[clap(skip)]
+    // This saves us from reading the same key from the file system more than once for one cmd
+    pub cached_keys: OnceLock<Arc<Mutex<CachedKeys>>>,
 }
 
 pub enum Location {
@@ -269,10 +277,30 @@ impl Args {
         KeyType::Identity.read_with_global(name, self)
     }
 
+    // read_key caches the Key after reading it from the config
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
-        key_or_name
+        // check cache for key & return it if its there
+        if let Some(arc) = self.cached_keys.get() {
+            let map = arc.lock().unwrap();
+            if let Some(k) = map.get(key_or_name) {
+                return Ok(k.clone());
+            }
+        }
+
+        // if its not in the cache, read it from config
+        let key = key_or_name
             .parse()
-            .or_else(|_| self.read_identity(key_or_name))
+            .or_else(|_| self.read_identity(key_or_name))?;
+
+        // get or initialize the cached keys
+        let arc = self
+            .cached_keys
+            .get_or_init(|| Arc::new(Mutex::new(HashMap::new())));
+        let mut map = arc.lock().unwrap();
+        // add the key to cached_keys
+        map.insert(key_or_name.to_string(), key.clone());
+
+        Ok(key)
     }
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
@@ -305,8 +333,9 @@ impl Args {
         let print = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
 
-        if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
-            secure_store::delete_secret(&print, &entry_name)?;
+        if let Key::Secret(Secret::SecureStore { entry_name, .. }) = identity {
+            let secure_store_entry = SecureStoreEntry::new(entry_name, None)?;
+            secure_store_entry.delete_secret(&print)?;
         }
 
         print.infoln("Removing the key's cli config file");
