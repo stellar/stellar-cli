@@ -1,7 +1,4 @@
-use clap::{
-    arg,
-    builder::styling::{AnsiColor, Effects, Styles},
-};
+use clap::builder::styling::{AnsiColor, Effects, Styles};
 use std::path::PathBuf;
 
 use super::{config, HEADING_GLOBAL};

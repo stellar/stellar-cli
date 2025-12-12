@@ -1,4 +1,3 @@
-use clap::arg;
 use itertools::Itertools;
 use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;

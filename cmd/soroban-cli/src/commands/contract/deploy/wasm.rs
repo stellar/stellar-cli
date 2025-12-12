@@ -11,7 +11,7 @@ use crate::xdr::{
     Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
     VecM, WriteXdr,
 };
-use clap::{arg, command, Parser};
+use clap::Parser;
 use rand::Rng;
 
 use crate::commands::tx::fetch;

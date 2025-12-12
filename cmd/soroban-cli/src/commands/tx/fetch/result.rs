@@ -3,7 +3,7 @@ use crate::{
     commands::global,
     xdr::{self, Limits, WriteXdr},
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

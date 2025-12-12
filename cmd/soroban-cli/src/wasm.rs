@@ -1,5 +1,4 @@
 use crate::xdr::{self, Hash, LedgerKey, LedgerKeyContractCode};
-use clap::arg;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::{self, Spec};
 use std::{

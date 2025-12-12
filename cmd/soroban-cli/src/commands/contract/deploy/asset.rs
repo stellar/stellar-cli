@@ -6,7 +6,7 @@ use crate::xdr::{
     LedgerKeyContractData, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
     ScAddress, ScVal, SequenceNumber, Transaction, TransactionExt, VecM, WriteXdr,
 };
-use clap::{arg, command, Parser};
+use clap::Parser;
 use std::convert::Infallible;
 use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 

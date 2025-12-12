@@ -4,7 +4,6 @@ use crate::{
     signer::{self, ledger, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
 };
-use clap::arg;
 
 use super::{
     locator,

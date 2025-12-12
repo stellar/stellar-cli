@@ -1,6 +1,6 @@
 use async_compression::tokio::bufread::GzipDecoder;
 use bytesize::ByteSize;
-use clap::{arg, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 use futures::StreamExt;
 use humantime::format_duration;
 use itertools::{Either, Itertools};

@@ -2,7 +2,7 @@ use super::shared::{self, Fetched};
 use crate::commands::contract::info::shared::fetch;
 use crate::{commands::global, print::Print, utils::http};
 use base64::Engine as _;
-use clap::{command, Parser};
+use clap::Parser;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;

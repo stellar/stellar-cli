@@ -2,7 +2,7 @@ use super::args::Args;
 use crate::xdr::{
     ClaimableBalanceId::ClaimableBalanceIdTypeV0, Hash, LedgerKey, LedgerKeyClaimableBalance,
 };
-use clap::{command, Parser};
+use clap::Parser;
 use hex::FromHexError;
 use soroban_spec_tools::utils::padded_hex_from_str;
 
