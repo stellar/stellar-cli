@@ -34,7 +34,7 @@ jobs:
       CI_TESTS: true
       TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=1' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: stellar/actions/rust-cache@main
 
