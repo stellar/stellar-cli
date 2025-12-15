@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::env;
 
 use bollard::{
-    container::{Config, CreateContainerOptions, StartContainerOptions},
-    image::CreateImageOptions,
+    models::ContainerCreateBody,
+    query_parameters::{CreateImageOptions, CreateContainerOptions, StartContainerOptions},
     service::{HostConfig, PortBinding},
 };
 use futures_util::TryStreamExt;
@@ -94,7 +94,7 @@ impl Runner {
         let image = self.get_image_name();
         let mut stream = docker.create_image(
             Some(CreateImageOptions {
-                from_image: image.clone(),
+                from_image: Some(image.clone()),
                 ..Default::default()
             }),
             None,
@@ -120,8 +120,7 @@ impl Runner {
                 break;
             }
         }
-
-        let config = Config {
+        let config = ContainerCreateBody {
             image: Some(image),
             cmd: Some(self.get_container_args()),
             attach_stdout: Some(true),
@@ -137,7 +136,7 @@ impl Runner {
         let create_container_response = docker
             .create_container(
                 Some(CreateContainerOptions {
-                    name: self.container_name().get_internal_container_name(),
+                    name: Some(self.container_name().get_internal_container_name()),
                     ..Default::default()
                 }),
                 config,
@@ -158,7 +157,7 @@ impl Runner {
         docker
             .start_container(
                 &create_container_response.id,
-                None::<StartContainerOptions<String>>,
+                None::<StartContainerOptions>,
             )
             .await?;
         self.print.checkln("Started container");
