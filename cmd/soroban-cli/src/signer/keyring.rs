@@ -75,7 +75,11 @@ impl StellarEntry {
         match self.inner.keyring.delete_credential() {
             Ok(()) => {
                 // clear the cached seed
-                self.inner.cached_seed.lock().map_err(|_| Error::MutexPoison)?.take();
+                self.inner
+                    .cached_seed
+                    .lock()
+                    .map_err(|_| Error::MutexPoison)?
+                    .take();
                 Ok(())
             }
             Err(e) => match e {
