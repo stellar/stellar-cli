@@ -3,7 +3,7 @@ use std::env;
 
 use bollard::{
     models::ContainerCreateBody,
-    query_parameters::{CreateImageOptions, CreateContainerOptions, StartContainerOptions},
+    query_parameters::{CreateContainerOptions, CreateImageOptions, StartContainerOptions},
     service::{HostConfig, PortBinding},
 };
 use futures_util::TryStreamExt;
@@ -155,10 +155,7 @@ impl Runner {
             })?;
 
         docker
-            .start_container(
-                &create_container_response.id,
-                None::<StartContainerOptions>,
-            )
+            .start_container(&create_container_response.id, None::<StartContainerOptions>)
             .await?;
         self.print.checkln("Started container");
         self.print_instructions();

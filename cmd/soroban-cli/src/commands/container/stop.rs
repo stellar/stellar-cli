@@ -44,7 +44,11 @@ impl Cmd {
         ));
 
         docker
-            .stop_container(&container_name.get_internal_container_name(), None::<StopContainerOptions>).await
+            .stop_container(
+                &container_name.get_internal_container_name(),
+                None::<StopContainerOptions>,
+            )
+            .await
             .map_err(|e| {
                 let msg = e.to_string();
 
