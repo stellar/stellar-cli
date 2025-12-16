@@ -53,6 +53,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `snapshot` — Download a snapshot of a ledger from an archive
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
+- `strkey` — Decode and encode strkey
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
@@ -1292,11 +1293,15 @@ Output an identity's secret key
 
 Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
 
-**Usage:** `stellar keys use [OPTIONS] <NAME>`
+**Usage:** `stellar keys use [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
 - `<NAME>` — Set the default network name
+
+###### **Options:**
+
+- `--clear` — Clear the default source account
 
 ###### **Options (Global):**
 
@@ -4140,6 +4145,65 @@ Generate arbitrary XDR values
 Print version information
 
 **Usage:** `stellar xdr version`
+
+## `stellar strkey`
+
+Decode and encode strkey
+
+**Usage:** `stellar strkey <COMMAND>`
+
+###### **Subcommands:**
+
+- `decode` — Decode strkey
+- `encode` — Encode strkey
+- `zero` — Generate the zero strkey
+- `version` — Print version information
+
+## `stellar strkey decode`
+
+Decode strkey
+
+**Usage:** `stellar strkey decode <STRKEY>`
+
+###### **Arguments:**
+
+- `<STRKEY>` — Strkey to decode
+
+## `stellar strkey encode`
+
+Encode strkey
+
+**Usage:** `stellar strkey encode <JSON>`
+
+###### **Arguments:**
+
+- `<JSON>` — JSON for Strkey to encode
+
+## `stellar strkey zero`
+
+Generate the zero strkey
+
+**Usage:** `stellar strkey zero [OPTIONS] <STRKEY>`
+
+###### **Arguments:**
+
+- `<STRKEY>` — Strkey type to generate the zero value for
+
+  Possible values: `public_key_ed25519`, `pre_auth_tx`, `hash_x`, `muxed_account_ed25519`, `signed_payload_ed25519`, `contract`, `liquidity_pool`, `claimable_balance_v0`
+
+###### **Options:**
+
+- `--output <OUTPUT>` — Output format
+
+  Default value: `strkey`
+
+  Possible values: `strkey`, `json`
+
+## `stellar strkey version`
+
+Print version information
+
+**Usage:** `stellar strkey version`
 
 ## `stellar completion`
 

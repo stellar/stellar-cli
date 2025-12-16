@@ -207,6 +207,12 @@ impl Config {
         self
     }
 
+    #[must_use]
+    pub fn clear_identity(mut self) -> Self {
+        self.defaults.identity = None;
+        self
+    }
+
     pub fn save(&self) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
         let path = cli_config_file()?;

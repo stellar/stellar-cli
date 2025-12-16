@@ -143,3 +143,89 @@ async fn overwrite_identity_with_add() {
         pubkey_for_identity(sandbox, "test3").trim()
     );
 }
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn set_default_identity() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test4")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("test4")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `test4`",
+        ))
+        .success();
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn clear_default_identity() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test5")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("test5")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `test5`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("--clear")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account has been cleared",
+        ))
+        .success();
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn validate_use_without_name() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .assert()
+        .stderr(predicate::str::contains(
+            "error: Identify name is required unless --clear is specified",
+        ))
+        .failure();
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn validate_use_with_both_name_and_clear() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("test5")
+        .arg("--clear")
+        .assert()
+        .stderr(predicate::str::contains(
+            "error: Identify name cannot be used with --clear",
+        ))
+        .failure();
+}
