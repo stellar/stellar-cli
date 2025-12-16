@@ -1,4 +1,4 @@
-use predicates::prelude::predicate;
+use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_test::AssertExt;
 use soroban_test::TestEnv;
 
@@ -188,6 +188,13 @@ async fn clear_default_identity() {
         .success();
 
     sandbox
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_ACCOUNT")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=test5"))
+        .success();
+
+    sandbox
         .new_assert_cmd("keys")
         .arg("use")
         .arg("--clear")
@@ -195,6 +202,13 @@ async fn clear_default_identity() {
         .stderr(predicate::str::contains(
             "The default source account has been cleared",
         ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_ACCOUNT")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=").not())
         .success();
 }
 
