@@ -14,7 +14,7 @@ pub struct Args {
     /// Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
     #[arg(long, env = "STELLAR_RESOURCE_FEE", help_heading = HEADING_RPC)]
     pub resource_fee: Option<u64>,
-    /// ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+    /// ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
     #[arg(long, help_heading = HEADING_RPC)]
     pub instructions: Option<u32>,
     /// Allow this many extra instructions when budgeting resources with transaction simulation
