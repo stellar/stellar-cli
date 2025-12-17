@@ -1,5 +1,5 @@
 use crate::commands::contract::deploy::utils::alias_validator;
-use crate::soroban_data;
+use crate::resources;
 use std::array::TryFromSliceError;
 use std::ffi::OsString;
 use std::fmt::Debug;
@@ -62,7 +62,7 @@ pub struct Cmd {
     #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
     pub alias: Option<String>,
     #[command(flatten)]
-    pub soroban_data: soroban_data::Args,
+    pub resources: resources::Args,
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long)]
     pub build_only: bool,
@@ -209,7 +209,7 @@ impl NetworkRunnable for Cmd {
                 upload::Cmd {
                     wasm: wasm::Args { wasm: wasm.clone() },
                     config: config.clone(),
-                    soroban_data: self.soroban_data.clone(),
+                    resources: self.resources.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                 }
@@ -315,11 +315,11 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &txn,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
-        let assembled = self.soroban_data.apply_to_assembled_txn(assembled);
+        let assembled = self.resources.apply_to_assembled_txn(assembled);
         let txn = Box::new(assembled.transaction().clone());
 
         print.log_transaction(&txn, &network, true)?;
@@ -328,7 +328,7 @@ impl NetworkRunnable for Cmd {
 
         let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
 
-        self.soroban_data.print_cost_info(&get_txn_resp)?;
+        self.resources.print_cost_info(&get_txn_resp)?;
 
         if global_args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;

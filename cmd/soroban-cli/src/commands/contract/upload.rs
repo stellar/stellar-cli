@@ -36,7 +36,7 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub soroban_data: crate::soroban_data::Args,
+    pub resources: crate::resources::Args,
 
     #[command(flatten)]
     pub wasm: wasm::Args,
@@ -221,17 +221,17 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx_without_preflight,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
-        let assembled = self.soroban_data.apply_to_assembled_txn(assembled);
+        let assembled = self.resources.apply_to_assembled_txn(assembled);
         let txn = Box::new(assembled.transaction().clone());
         let signed_txn = &self.config.sign(*txn, quiet).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
-        self.soroban_data.print_cost_info(&txn_resp)?;
+        self.resources.print_cost_info(&txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
@@ -254,7 +254,7 @@ impl NetworkRunnable for Cmd {
                     durability: super::Durability::Persistent,
                 },
                 config: config.clone(),
-                soroban_data: self.soroban_data.clone(),
+                resources: self.resources.clone(),
                 ledgers_to_extend: None,
                 ttl_ledger_only: true,
                 build_only: self.build_only,

@@ -3,7 +3,7 @@ use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 use crate::{
     log::extract_events,
     print::Print,
-    soroban_data,
+    resources,
     xdr::{
         ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
         ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
@@ -45,7 +45,7 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub soroban_data: soroban_data::Args,
+    pub resources: resources::Args,
 
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long)]
@@ -234,7 +234,7 @@ impl NetworkRunnable for Cmd {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
-                    instructions: self.soroban_data.instructions.unwrap_or_default(),
+                    instructions: self.resources.instructions.unwrap_or_default(),
                     disk_read_bytes: 0,
                     write_bytes: 0,
                 },
@@ -247,8 +247,8 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
 
@@ -256,7 +256,7 @@ impl NetworkRunnable for Cmd {
         let res = client
             .send_transaction_polling(&config.sign(tx, quiet).await?)
             .await?;
-        self.soroban_data.print_cost_info(&res)?;
+        self.resources.print_cost_info(&res)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

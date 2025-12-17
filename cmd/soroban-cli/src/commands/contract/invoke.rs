@@ -63,7 +63,7 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub soroban_data: crate::soroban_data::Args,
+    pub resources: crate::resources::Args,
 
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
@@ -242,8 +242,8 @@ impl Cmd {
         Ok(simulate_and_assemble_transaction(
             rpc_client,
             &tx,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?)
     }
@@ -351,11 +351,11 @@ impl NetworkRunnable for Cmd {
         let txn = simulate_and_assemble_transaction(
             &client,
             &tx,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
-        let assembled = self.soroban_data.apply_to_assembled_txn(txn);
+        let assembled = self.resources.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
 
@@ -374,7 +374,7 @@ impl NetworkRunnable for Cmd {
             .send_transaction_polling(&config.sign(*txn, quiet).await?)
             .await?;
 
-        self.soroban_data.print_cost_info(&res)?;
+        self.resources.print_cost_info(&res)?;
 
         if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;

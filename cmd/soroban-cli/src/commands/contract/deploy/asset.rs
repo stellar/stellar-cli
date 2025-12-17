@@ -82,7 +82,7 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub soroban_data: crate::soroban_data::Args,
+    pub resources: crate::resources::Args,
 
     /// The alias that will be used to save the assets's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
@@ -178,17 +178,17 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx,
-            self.soroban_data.resource_config(),
-            self.soroban_data.resource_fee,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
-        let assembled = self.soroban_data.apply_to_assembled_txn(assembled);
+        let assembled = self.resources.apply_to_assembled_txn(assembled);
         let txn = assembled.transaction().clone();
         let get_txn_resp = client
             .send_transaction_polling(&self.config.sign(txn, args.is_some_and(|g| g.quiet)).await?)
             .await?;
 
-        self.soroban_data.print_cost_info(&get_txn_resp)?;
+        self.resources.print_cost_info(&get_txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
