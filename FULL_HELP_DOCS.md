@@ -53,6 +53,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `snapshot` — Download a snapshot of a ledger from an archive
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
+- `strkey` — Decode and encode strkey
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
@@ -165,7 +166,7 @@ Deploy builtin Soroban Asset Contract
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -448,7 +449,7 @@ If no keys are specified the contract itself is extended.
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -493,7 +494,7 @@ Deploy a wasm contract
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -816,7 +817,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -854,7 +855,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -906,7 +907,7 @@ stellar contract invoke ... -- --help
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -1009,7 +1010,7 @@ If no keys are specificed the contract itself is restored.
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 - `--resource-fee <RESOURCE_FEE>` — Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction_leeway` to increase instructions. Number of instructions to allocate for the transaction
+- `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
 
@@ -3922,6 +3923,65 @@ Print version information
 
 **Usage:** `stellar xdr version`
 
+## `stellar strkey`
+
+Decode and encode strkey
+
+**Usage:** `stellar strkey <COMMAND>`
+
+###### **Subcommands:**
+
+- `decode` — Decode strkey
+- `encode` — Encode strkey
+- `zero` — Generate the zero strkey
+- `version` — Print version information
+
+## `stellar strkey decode`
+
+Decode strkey
+
+**Usage:** `stellar strkey decode <STRKEY>`
+
+###### **Arguments:**
+
+- `<STRKEY>` — Strkey to decode
+
+## `stellar strkey encode`
+
+Encode strkey
+
+**Usage:** `stellar strkey encode <JSON>`
+
+###### **Arguments:**
+
+- `<JSON>` — JSON for Strkey to encode
+
+## `stellar strkey zero`
+
+Generate the zero strkey
+
+**Usage:** `stellar strkey zero [OPTIONS] <STRKEY>`
+
+###### **Arguments:**
+
+- `<STRKEY>` — Strkey type to generate the zero value for
+
+  Possible values: `public_key_ed25519`, `pre_auth_tx`, `hash_x`, `muxed_account_ed25519`, `signed_payload_ed25519`, `contract`, `liquidity_pool`, `claimable_balance_v0`
+
+###### **Options:**
+
+- `--output <OUTPUT>` — Output format
+
+  Default value: `strkey`
+
+  Possible values: `strkey`, `json`
+
+## `stellar strkey version`
+
+Print version information
+
+**Usage:** `stellar strkey version`
+
 ## `stellar completion`
 
 Print shell completion code for the specified shell
@@ -4432,6 +4492,7 @@ Fetch network feestats and configure CLI fee settings
 
 - `stats` — Fetch the feestats from the network
 - `use` — Set the default inclusion fee settings for the CLI
+- `unset` — Remove the default inclusion fee settings for the CLI
 
 ## `stellar fees stats`
 
@@ -4461,7 +4522,7 @@ Fetch the feestats from the network
 
 Set the default inclusion fee settings for the CLI
 
-**Usage:** `stellar fees use [OPTIONS] <--amount <AMOUNT>|--fee-metric <FEE_METRIC>|--clear>`
+**Usage:** `stellar fees use [OPTIONS] <--amount <AMOUNT>|--fee-metric <FEE_METRIC>>`
 
 ###### **Options:**
 
@@ -4469,8 +4530,6 @@ Set the default inclusion fee settings for the CLI
 - `--fee-metric <FEE_METRIC>` — Set the default inclusion fee based on a metric from the network's fee stats
 
   Possible values: `max`, `min`, `mode`, `p10`, `p20`, `p30`, `p40`, `p50`, `p60`, `p70`, `p80`, `p90`, `p95`, `p99`
-
-- `--clear` — Clear the default inclusion fee setting
 
 ###### **Options (Global):**
 
@@ -4483,3 +4542,14 @@ Set the default inclusion fee settings for the CLI
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar fees unset`
+
+Remove the default inclusion fee settings for the CLI
+
+**Usage:** `stellar fees unset [OPTIONS]`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
