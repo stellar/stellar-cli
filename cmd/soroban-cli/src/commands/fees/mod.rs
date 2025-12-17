@@ -3,6 +3,7 @@ use clap::Subcommand;
 
 mod default;
 mod stats;
+mod unset;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
@@ -11,6 +12,9 @@ pub enum Cmd {
     /// Set the default inclusion fee settings for the CLI
     #[command(name = "use")]
     Default(default::Cmd),
+    /// Remove the default inclusion fee settings for the CLI
+    #[command(name = "unset")]
+    Unset(unset::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -19,6 +23,8 @@ pub enum Error {
     Stats(#[from] stats::Error),
     #[error(transparent)]
     Default(#[from] default::Error),
+    #[error(transparent)]
+    Unset(#[from] unset::Error),
 }
 
 impl Cmd {
@@ -26,6 +32,7 @@ impl Cmd {
         match &self {
             Cmd::Stats(cmd) => cmd.run(global_args).await?,
             Cmd::Default(cmd) => cmd.run(global_args).await?,
+            Cmd::Unset(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }

@@ -46,7 +46,7 @@ pub enum FeeMetric {
 #[command(group(
     clap::ArgGroup::new("Fee Source")
     .required(true)
-    .args(& ["amount", "fee_metric", "clear"]),
+    .args(& ["amount", "fee_metric"]),
 ))]
 pub struct Cmd {
     /// Set the default inclusion fee amount, in stroops. 1 stroop = 0.0000001 xlm
@@ -56,10 +56,6 @@ pub struct Cmd {
     /// Set the default inclusion fee based on a metric from the network's fee stats
     #[arg(long, value_enum)]
     pub fee_metric: Option<FeeMetric>,
-
-    /// Clear the default inclusion fee setting
-    #[arg(long)]
-    pub clear: bool,
 
     #[command(flatten)]
     pub network: network::Args,
@@ -76,12 +72,6 @@ impl Cmd {
             && std::env::var("STELLAR_INCLUSION_FEE_SOURCE").is_err()
         {
             printer.warnln("Environment variable STELLAR_INCLUSION_FEE is set, which will override this default inclusion fee.");
-        }
-
-        if self.clear {
-            self.config_locator.write_default_inclusion_fee(None)?;
-            printer.infoln("The default inclusion fee has been cleared");
-            return Ok(());
         }
 
         let mut inclusion_fee: u32 = 0;
