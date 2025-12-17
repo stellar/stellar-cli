@@ -32,7 +32,7 @@ impl Cmd {
         match &self {
             Cmd::Stats(cmd) => cmd.run(global_args).await?,
             Cmd::Default(cmd) => cmd.run(global_args).await?,
-            Cmd::Unset(cmd) => cmd.run(global_args).await?,
+            Cmd::Unset(cmd) => cmd.run(global_args)?,
         }
         Ok(())
     }

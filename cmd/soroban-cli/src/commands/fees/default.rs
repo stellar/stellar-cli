@@ -1,4 +1,4 @@
-use clap::{command, ValueEnum};
+use clap::ValueEnum;
 
 use crate::{
     commands::global,

@@ -1,5 +1,3 @@
-use clap::command;
-
 use crate::{commands::global, config::locator, print::Print};
 
 #[derive(thiserror::Error, Debug)]
@@ -15,7 +13,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let printer = Print::new(global_args.quiet);
         self.config_locator.write_default_inclusion_fee(None)?;
         printer.infoln("The default inclusion fee has been cleared");
