@@ -2,7 +2,6 @@ use super::super::config::locator;
 use crate::commands::cfg::migrate::Error::InvalidFile;
 use crate::config::locator::{KeyType, Location};
 use crate::print::Print;
-use clap::command;
 use sha2::{Digest, Sha256};
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};

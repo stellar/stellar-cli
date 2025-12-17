@@ -13,7 +13,7 @@ use crate::{
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 use crate::commands::tx::fetch;
 use crate::{

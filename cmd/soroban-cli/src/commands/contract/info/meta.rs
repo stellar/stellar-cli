@@ -5,7 +5,7 @@ use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared::{self, fetch, Fetched, MetasInfoOutput};
 use crate::commands::global;
 use crate::print::Print;
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};

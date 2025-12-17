@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Write;
 
-use clap::{command, Parser};
+use clap::Parser;
 
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;

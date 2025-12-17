@@ -1,5 +1,3 @@
-use clap::command;
-
 use crate::{commands::global, print::Print};
 
 use super::locator;

@@ -1,4 +1,3 @@
-use clap::arg;
 use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;

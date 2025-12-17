@@ -1,6 +1,5 @@
 use std::io::stderr;
 
-use clap::arg;
 use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;

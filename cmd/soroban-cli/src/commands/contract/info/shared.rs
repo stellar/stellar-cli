@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use clap::arg;
-
 use crate::{
     commands::contract::info::shared::Error::InvalidWasmHash,
     config::{
