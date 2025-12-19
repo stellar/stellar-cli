@@ -52,36 +52,36 @@ version = "25.0.0"
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 [workspace.dependencies.soroban-spec-rust]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 [workspace.dependencies.soroban-sdk]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 [workspace.dependencies.soroban-env-host]
 version = "25.0.0"
 
 [workspace.dependencies.soroban-token-sdk]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 [workspace.dependencies.stellar-asset-spec]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 # version = "23.3.0"
-git = "https://github.com/fnando/rs-soroban-sdk"
-branch = "stellar-xdr-v25"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v25-preview"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]

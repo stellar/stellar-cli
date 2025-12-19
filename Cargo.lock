@@ -5123,7 +5123,7 @@ version = "23.3.0"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "serde",
  "serde_json",
@@ -5136,7 +5136,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5159,7 +5159,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -5178,7 +5178,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5203,7 +5203,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-rust"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5295,7 +5295,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-sdk"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "soroban-sdk",
 ]
@@ -5303,7 +5303,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5353,7 +5353,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-asset-spec"
 version = "23.3.0"
-source = "git+https://github.com/fnando/rs-soroban-sdk?branch=stellar-xdr-v25#be65eada59222dbbc3c5cb1db422fcd1692f6226"
+source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
