@@ -9,6 +9,7 @@ pub mod ls;
 pub mod public_key;
 pub mod rm;
 pub mod secret;
+pub mod unset;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -40,6 +41,9 @@ pub enum Cmd {
     /// variable, while reusing this value in all commands that require it.
     #[command(name = "use")]
     Default(default::Cmd),
+
+    /// Unset the default key identity defined previously with `keys use <identity>`
+    Unset(unset::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -67,6 +71,9 @@ pub enum Error {
 
     #[error(transparent)]
     Default(#[from] default::Error),
+
+    #[error(transparent)]
+    Unset(#[from] unset::Error),
 }
 
 impl Cmd {
@@ -80,6 +87,7 @@ impl Cmd {
             Cmd::Rm(cmd) => cmd.run(global_args)?,
             Cmd::Secret(cmd) => cmd.run()?,
             Cmd::Default(cmd) => cmd.run(global_args)?,
+            Cmd::Unset(cmd) => cmd.run(global_args)?,
         }
         Ok(())
     }
