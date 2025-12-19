@@ -213,6 +213,12 @@ impl Config {
         self
     }
 
+    #[must_use]
+    pub fn unset_network(mut self) -> Self {
+        self.defaults.network = None;
+        self
+    }
+
     pub fn save(&self) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
         let path = cli_config_file()?;
