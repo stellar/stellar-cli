@@ -1,4 +1,6 @@
-use crate::{commands::global, config::locator, print::Print};
+use crate::{commands::global, print::Print};
+
+use super::locator;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -17,9 +19,9 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let printer = Print::new(global_args.quiet);
 
-        self.config_locator.unset_default_identity()?;
+        self.config_locator.unset_default_network()?;
 
-        printer.infoln("The default source account has been unset".to_string());
+        printer.infoln("The default network has been unset".to_string());
 
         Ok(())
     }

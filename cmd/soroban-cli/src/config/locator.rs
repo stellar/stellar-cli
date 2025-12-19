@@ -215,8 +215,12 @@ impl Args {
         Config::new()?.set_identity(name).save()
     }
 
-    pub fn unset_identity(&self) -> Result<(), Error> {
+    pub fn unset_default_identity(&self) -> Result<(), Error> {
         Config::new()?.unset_identity().save()
+    }
+
+    pub fn unset_default_network(&self) -> Result<(), Error> {
+        Config::new()?.unset_network().save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
