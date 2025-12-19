@@ -56,7 +56,7 @@ impl Args {
                 if let Some(n) = &self.network.network {
                     return Err(Error::NotFound {
                         tx_hash,
-                        network: n.to_string(),
+                        network: n.clone(),
                     });
                 }
             }

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use async_trait::async_trait;
-use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
+use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::{config, print::Print, utils::deprecate_message};
 
@@ -130,15 +130,16 @@ impl Root {
             Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Strkey(strkey) => strkey.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
+            Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-            Cmd::Ledger(env) => env.run(&self.global_args).await?,
             Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
@@ -202,6 +203,9 @@ pub enum Cmd {
     /// Decode and encode XDR
     Xdr(stellar_xdr::cli::Root),
 
+    /// Decode and encode strkey
+    Strkey(stellar_strkey::cli::Root),
+
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
     Completion(completion::Cmd),
@@ -242,6 +246,9 @@ pub enum Error {
 
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
+
+    #[error(transparent)]
+    Strkey(#[from] stellar_strkey::cli::Error),
 
     #[error(transparent)]
     Clap(#[from] clap::error::Error),

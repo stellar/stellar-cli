@@ -1,4 +1,3 @@
-mod arg_parsing;
 mod build;
 mod config;
 #[cfg(feature = "emulator-tests")]
@@ -10,5 +9,6 @@ mod integration;
 mod log;
 mod plugin;
 mod rpc_provider;
+mod strkey;
 mod util;
 mod version;

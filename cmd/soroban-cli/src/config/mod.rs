@@ -1,4 +1,3 @@
-use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
@@ -91,7 +90,7 @@ impl Args {
         Ok(key.key_pair(self.hd_path())?)
     }
 
-    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction, quiet: bool) -> Result<TransactionEnvelope, Error> {
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
             tx,
             signatures: VecM::default(),
@@ -102,7 +101,7 @@ impl Args {
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
-                false,
+                quiet,
                 Some(&self.source_account),
             )
             .await?)
@@ -206,6 +205,12 @@ impl Config {
     #[must_use]
     pub fn set_identity(mut self, s: &str) -> Self {
         self.defaults.identity = Some(s.to_string());
+        self
+    }
+
+    #[must_use]
+    pub fn unset_identity(mut self) -> Self {
+        self.defaults.identity = None;
         self
     }
 

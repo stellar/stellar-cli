@@ -36,10 +36,9 @@ jobs:
         build-and-test,
         build-and-test-macos,
         build-and-test-windows,
-        disallow-git-deps,
         publish-dry-run,
       ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
@@ -65,6 +64,7 @@ jobs:
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: rustup update
       - run: npm install
+      - run: make build-test-wasms
       - run: make check
 
   build-and-test:
@@ -92,7 +92,7 @@ jobs:
       matrix:
         rust: [msrv, latest]
         sys:
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
@@ -121,23 +121,6 @@ jobs:
           target: ${{ matrix.sys.target }}
           rust-version: ${{ matrix.rust }}
 
-  disallow-git-deps:
-    # This job fails if a release is being prepared and there are still crate
-    # dependencies in the Cargo.toml files that reference dependencies via git.
-    # Git dependencies should not be set when releasing because the binary
-    # builds that happen based on the local source, and the published crate,
-    # may not build to be the same. This is because when the crate is published
-    # the git dependencies are stripped out automatically, but when building
-    # locally they'd still be present. The presence of git dependencies at
-    # release time in any case is probably a bug.
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Check that Cargo.tomls do not contain git dependencies for release
-        run: |
-          ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
-
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
     strategy:
@@ -153,7 +136,7 @@ jobs:
           #          target: aarch64-unknown-linux-gnu
           #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default
           #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
               --feature-powerset --skip emulator-tests

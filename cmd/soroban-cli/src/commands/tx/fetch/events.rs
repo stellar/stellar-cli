@@ -1,5 +1,5 @@
 use crate::{commands::global, xdr};
-use clap::{command, Parser};
+use clap::Parser;
 
 use super::args;
 

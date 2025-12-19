@@ -1,4 +1,4 @@
-use clap::{command, Parser};
+use clap::Parser;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::Path;
@@ -73,7 +73,7 @@ impl Cmd {
                 let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
                 for network_passphrase in data.ids.keys() {
-                    let network_passphrase = network_passphrase.to_string();
+                    let network_passphrase = network_passphrase.clone();
                     let contract = data
                         .ids
                         .get(&network_passphrase)

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, Parser};
+use clap::Parser;
 
 use crate::{
     commands::{global, NetworkRunnable},

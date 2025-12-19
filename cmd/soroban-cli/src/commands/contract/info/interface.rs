@@ -4,7 +4,7 @@ use crate::commands::contract::info::interface::Error::NoInterfacePresent;
 use crate::commands::contract::info::shared::{self, fetch, Fetched};
 use crate::commands::global;
 use crate::print::Print;
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;

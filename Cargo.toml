@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "cmd/stellar-cli",
     "cmd/soroban-cli",
+    "cmd/doc-gen",
     "cmd/crates/*",
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
@@ -20,28 +21,28 @@ exclude = [
 ]
 
 [workspace.package]
-version = "23.1.4"
+version = "23.3.0"
 rust-version = "1.89.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
-version = "=23.1.4"
+version = "=23.3.0"
 path = "cmd/soroban-cli"
 
 [workspace.dependencies.soroban-spec-json]
-version = "=23.1.4"
+version = "=23.3.0"
 path = "./cmd/crates/soroban-spec-json"
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "23.1.4"
+version = "23.3.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "23.1.4"
+version = "23.3.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.stellar-ledger]
-version = "=23.1.4"
+version = "=23.3.0"
 path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
@@ -73,11 +74,11 @@ version = "23.0.1"
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "23.2.0"
+version = "23.2.1"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
-stellar-strkey = "0.0.13"
+stellar-strkey = "0.0.15"
 sep5 = "0.0.4"
 base64 = "0.21.2"
 thiserror = "1.0.46"

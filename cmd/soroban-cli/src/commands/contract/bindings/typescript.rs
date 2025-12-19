@@ -1,6 +1,6 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_tools::contract as spec_tools;
 use soroban_spec_typescript::boilerplate::Project;
 

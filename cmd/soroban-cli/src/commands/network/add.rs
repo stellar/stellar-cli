@@ -1,5 +1,4 @@
 use crate::config::{locator, network, secret};
-use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

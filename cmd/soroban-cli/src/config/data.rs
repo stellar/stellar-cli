@@ -22,17 +22,16 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
-
 pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
-    std::env::var(XDG_DATA_HOME)
-        .map_or_else(
-            |_| ProjectDirs::from("org", "stellar", "stellar-cli"),
-            |data_home| {
-                ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
-            },
-        )
-        .ok_or(Error::FailedToFindProjectDirs)
+    let dir = if let Ok(data_home) = std::env::var("STELLAR_DATA_HOME") {
+        ProjectDirs::from_path(std::path::PathBuf::from(data_home))
+    } else if let Ok(data_home) = std::env::var("XDG_DATA_HOME") {
+        ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
+    } else {
+        ProjectDirs::from("org", "stellar", "stellar-cli")
+    };
+
+    dir.ok_or(Error::FailedToFindProjectDirs)
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -130,7 +129,7 @@ impl std::fmt::Display for DatedAction {
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Send { response } => response.status.to_string(),
+            Action::Send { response } => response.status.clone(),
         };
         write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
     }
@@ -203,7 +202,7 @@ mod test {
     #[test]
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
-        std::env::set_var(XDG_DATA_HOME, t.path().to_str().unwrap());
+        std::env::set_var("XDG_DATA_HOME", t.path().to_str().unwrap());
         let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
         let sim = SimulateTransactionResponse::default();
         let original_action: Action = sim.into();

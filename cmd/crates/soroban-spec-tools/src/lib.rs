@@ -131,18 +131,19 @@ impl Spec {
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
             ScType::Udt(ScSpecTypeUdt { name }) => {
                 let spec_type = self.find(&name.to_utf8_string_lossy())?;
-                match spec_type {
+                let spec_type_match = match spec_type {
                     ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
                     | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
                     | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
                     | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
                     | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
                     | ScSpecEntry::EventV0(ScSpecEventV0 { doc, .. }) => doc,
-                }
-                .to_utf8_string_lossy()
+                };
+                spec_type_match.to_utf8_string_lossy()
             }
         };
-        if let Some(mut ex) = self.example(type_) {
+
+        if let Some(mut ex) = self.example(0, type_) {
             if ex.contains(' ') {
                 ex = format!("'{ex}'");
             } else if ex.contains('"') {
@@ -268,6 +269,17 @@ impl Spec {
                 |val| match t {
                     ScType::U128 | ScType::I128 | ScType::U256 | ScType::I256 => {
                         Ok(Value::String(s.to_owned()))
+                    }
+                    ScType::Timepoint | ScType::Duration => {
+                        // timepoint and duration both expect a JSON object with the value
+                        // being the u64 number as a string, and key being the type name
+                        let key = match t {
+                            ScType::Timepoint => "timepoint",
+                            ScType::Duration => "duration",
+                            _ => unreachable!(),
+                        };
+
+                        Ok(json!({ key: s }))
                     }
                     _ => Ok(val),
                 },
@@ -434,9 +446,7 @@ impl Spec {
                 };
                 enum_case == &name.to_utf8_string_lossy()
             })
-            .ok_or_else(|| {
-                Error::EnumCase(enum_case.to_string(), union.name.to_utf8_string_lossy())
-            })?;
+            .ok_or_else(|| Error::EnumCase(enum_case.clone(), union.name.to_utf8_string_lossy()))?;
 
         let mut res = vec![ScVal::Symbol(ScSymbol(
             enum_case.try_into().map_err(Error::Xdr)?,
@@ -1209,15 +1219,36 @@ impl Spec {
                         name,
                         type_,
                         ..
-                    }) => format!(
-                        "{}({})",
-                        name.to_utf8_string_lossy(),
-                        type_
-                            .iter()
-                            .map(|type_| self.arg_value_name(type_, depth + 1))
-                            .collect::<Option<Vec<String>>>()?
-                            .join(",")
-                    ),
+                    }) => {
+                        if depth > 1 {
+                            match &type_[0] {
+                                ScType::Vec(type_vec) => {
+                                    let element_type = type_vec.element_type.clone();
+                                    if let ScType::Udt(udt_type) = *element_type {
+                                        return Some(udt_type.name.to_utf8_string_lossy());
+                                    }
+                                }
+                                _ => {
+                                    return Some(format!(
+                                        "{}(ScSpecTypeDef::{})",
+                                        name.to_utf8_string_lossy(),
+                                        type_[0].name()
+                                    ))
+                                }
+                            }
+                            format!("{}({})", name.to_utf8_string_lossy(), type_[0].name())
+                        } else {
+                            format!(
+                                "{}({})",
+                                name.to_utf8_string_lossy(),
+                                type_
+                                    .iter()
+                                    .map(|type_| self.arg_value_name(type_, depth + 1))
+                                    .collect::<Option<Vec<String>>>()?
+                                    .join(",")
+                            )
+                        }
+                    }
                 })
             })
             .collect::<Option<Vec<_>>>()
@@ -1236,7 +1267,7 @@ fn arg_value_enum(enum_: &ScSpecUdtEnumV0) -> String {
 // Example implementation
 impl Spec {
     #[must_use]
-    pub fn example(&self, type_: &ScType) -> Option<String> {
+    pub fn example(&self, depth: usize, type_: &ScType) -> Option<String> {
         #[allow(clippy::match_same_arms)]
         match type_ {
             ScType::U64 => Some("1".to_string()),
@@ -1260,11 +1291,11 @@ impl Spec {
             ScType::String => Some("\"hello world\"".to_string()),
             ScType::Option(val) => {
                 let ScSpecTypeOption { value_type } = val.as_ref();
-                self.example(value_type.as_ref())
+                self.example(depth, value_type.as_ref())
             }
             ScType::Vec(val) => {
                 let ScSpecTypeVec { element_type } = val.as_ref();
-                let inner = self.example(element_type.as_ref())?;
+                let inner = self.example(depth, element_type.as_ref())?;
                 Some(format!("[ {inner} ]"))
             }
             ScType::Result(val) => {
@@ -1272,15 +1303,15 @@ impl Spec {
                     ok_type,
                     error_type,
                 } = val.as_ref();
-                let ok = self.example(ok_type.as_ref())?;
-                let error = self.example(error_type.as_ref())?;
+                let ok = self.example(depth, ok_type.as_ref())?;
+                let error = self.example(depth, error_type.as_ref())?;
                 Some(format!("Result<{ok}, {error}>"))
             }
             ScType::Tuple(val) => {
                 let ScSpecTypeTuple { value_types } = val.as_ref();
                 let names = value_types
                     .iter()
-                    .map(|t| self.example(t))
+                    .map(|t| self.example(depth, t))
                     .collect::<Option<Vec<_>>>()?
                     .join(", ");
                 Some(format!("[{names}]"))
@@ -1291,8 +1322,8 @@ impl Spec {
                     value_type,
                 } = map.as_ref();
                 let (mut key, val) = (
-                    self.example(key_type.as_ref())?,
-                    self.example(value_type.as_ref())?,
+                    self.example(depth, key_type.as_ref())?,
+                    self.example(depth, value_type.as_ref())?,
                 );
                 if !matches!(key_type.as_ref(), ScType::Symbol) {
                     key = format!("\"{key}\"");
@@ -1305,7 +1336,7 @@ impl Spec {
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                self.example_udts(name.to_utf8_string_lossy().as_ref())
+                self.example_udts(depth, name.to_utf8_string_lossy().as_ref())
             }
             ScType::MuxedAddress => {
                 Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
@@ -1315,11 +1346,17 @@ impl Spec {
         }
     }
 
-    fn example_udts(&self, name: &str) -> Option<String> {
-        match self.find(name).ok() {
+    fn example_udts(&self, depth: usize, name: &str) -> Option<String> {
+        if depth > 2 {
+            return Some(name.to_string());
+        }
+
+        let depth = depth + 1;
+        let built = match self.find(name).ok() {
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
-                // Check if a tuple strukt
-                if !strukt.fields.is_empty() && strukt.fields[0].name.to_utf8_string_lossy() == "0"
+                // Check if a tuple strukt and handle it just as a tuple going forward
+                let build_struct = if !strukt.fields.is_empty()
+                    && strukt.fields[0].name.to_utf8_string_lossy() == "0"
                 {
                     let value_types = strukt
                         .fields
@@ -1328,22 +1365,27 @@ impl Spec {
                         .collect::<Vec<_>>()
                         .try_into()
                         .ok()?;
-                    return self.example(&ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })));
-                }
-                let inner = strukt
-                    .fields
-                    .iter()
-                    .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
-                    .map(|(name, type_)| {
-                        let type_ = self.example(type_)?;
-                        let name = format!(r#""{name}""#);
-                        Some(format!("{name}: {type_}"))
-                    })
-                    .collect::<Option<Vec<_>>>()?
-                    .join(", ");
-                Some(format!(r"{{ {inner} }}"))
+                    self.example(
+                        depth,
+                        &ScType::Tuple(Box::new(ScSpecTypeTuple { value_types })),
+                    )
+                } else {
+                    let inner = strukt
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.to_utf8_string_lossy(), &f.type_))
+                        .map(|(name, type_)| {
+                            let type_ = self.example(depth, type_)?;
+                            let name = format!(r#""{name}""#);
+                            Some(format!("{name}: {type_}"))
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                        .join(", ");
+                    Some(format!(r"{{ {inner} }}"))
+                };
+                build_struct
             }
-            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(union),
+            Some(ScSpecEntry::UdtUnionV0(union)) => self.example_union(depth, union),
             Some(ScSpecEntry::UdtEnumV0(enum_)) => {
                 enum_.cases.iter().next().map(|c| c.value.to_string())
             }
@@ -1353,10 +1395,12 @@ impl Spec {
                 | ScSpecEntry::EventV0(_),
             )
             | None => None,
-        }
+        };
+
+        built
     }
 
-    fn example_union(&self, union: &ScSpecUdtUnionV0) -> Option<String> {
+    fn example_union(&self, depth: usize, union: &ScSpecUdtUnionV0) -> Option<String> {
         let res = union
             .cases
             .iter()
@@ -1368,12 +1412,12 @@ impl Spec {
                     name, type_, ..
                 }) => {
                     if type_.len() == 1 {
-                        let single = self.example(&type_[0])?;
+                        let single = self.example(depth, &type_[0])?;
                         Some(format!("{{\"{}\":{single}}}", name.to_utf8_string_lossy()))
                     } else {
                         let names = type_
                             .iter()
-                            .map(|t| self.example(t))
+                            .map(|t| self.example(depth, t))
                             .collect::<Option<Vec<_>>>()?
                             .join(", ");
                         Some(format!("{{\"{}\":[{names}]}}", name.to_utf8_string_lossy()))
@@ -1388,54 +1432,353 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stellar_xdr::curr::{Duration, ScMap, ScSpecTypeBytesN, TimePoint};
 
-    use stellar_xdr::curr::ScSpecTypeBytesN;
+    const CUSTOM_TYPES_WASM: &[u8] =
+        include_bytes!("../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm");
 
-    #[test]
-    fn from_json_primitives_bytesn() {
-        // TODO: Add test for parsing addresses
-
-        // Check it parses hex-encoded bytes
-        let b = from_json_primitives(
-            &Value::String("beefface".to_string()),
-            &ScType::BytesN(ScSpecTypeBytesN { n: 4 }),
-        )
-        .unwrap();
-        assert_eq!(
-            b,
-            ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
-        );
-
-        // Check it parses hex-encoded bytes when they are all numbers. Normally the json would
-        // interpret the CLI arg as a number, so we need a special case there.
-        let b = from_json_primitives(
-            &Value::Number(4554.into()),
-            &ScType::BytesN(ScSpecTypeBytesN { n: 2 }),
-        )
-        .unwrap();
-        assert_eq!(
-            b,
-            ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
-        );
+    fn get_custom_types_spec() -> Spec {
+        Spec::from_wasm(CUSTOM_TYPES_WASM).unwrap()
     }
 
     #[test]
-    fn from_json_primitives_bytes() {
-        // Check it parses hex-encoded bytes
-        let b =
-            from_json_primitives(&Value::String("beefface".to_string()), &ScType::Bytes).unwrap();
-        assert_eq!(
-            b,
-            ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()))
-        );
+    fn test_bool_conversion() {
+        let as_str = "true";
+        let parsed = from_string_primitive(as_str, &ScType::Bool).unwrap();
+        let expected = ScVal::Bool(true);
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
 
-        // Check it parses hex-encoded bytes when they are all numbers. Normally the json would
-        // interpret the CLI arg as a number, so we need a special case there.
-        let b = from_json_primitives(&Value::Number(4554.into()), &ScType::Bytes).unwrap();
-        assert_eq!(
-            b,
-            ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()))
-        );
+    #[test]
+    fn test_null_conversion() {
+        let as_str = "null";
+        let parsed = from_string_primitive(
+            as_str,
+            &ScType::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScType::Bool),
+            })),
+        )
+        .unwrap();
+        let expected = ScVal::Void;
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_u32_conversion() {
+        let as_str = "42";
+        let parsed = from_string_primitive(as_str, &ScType::U32).unwrap();
+        let expected = ScVal::U32(42);
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_i32_conversion() {
+        let as_str = "-42";
+        let parsed = from_string_primitive(as_str, &ScType::I32).unwrap();
+        let expected = ScVal::I32(-42);
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_u64_conversion() {
+        let as_str = "42000000000";
+        let parsed = from_string_primitive(as_str, &ScType::U64).unwrap();
+        let expected = ScVal::U64(42_000_000_000);
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    fn test_u128_conversion() {
+        let as_str = "340000000000000000000000000000000000000";
+        let parsed = from_string_primitive(as_str, &ScType::U128).unwrap();
+        let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
+        let expected = ScVal::U128(UInt128Parts {
+            hi: (b >> 64) as u64,
+            lo: b as u64,
+        });
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    fn test_u256_conversion() {
+        let as_str = "340000000000000000000000000000000000000";
+        let parsed = from_string_primitive(as_str, &ScType::U256).unwrap();
+        let b = 340_000_000_000_000_000_000_000_000_000_000_000_000u128;
+        let expected = ScVal::U256(UInt256Parts {
+            hi_hi: 0,
+            hi_lo: 0,
+            lo_hi: (b >> 64) as u64,
+            lo_lo: b as u64,
+        });
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
+    fn test_i128_conversion() {
+        let as_str = "-170000000000000000000000000000000000000";
+        let parsed = from_string_primitive(as_str, &ScType::I128).unwrap();
+        let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
+        let expected = ScVal::I128(Int128Parts {
+            hi: (b >> 64) as i64,
+            lo: b as u64,
+        });
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
+    fn test_i256_conversion() {
+        let as_str = "-170000000000000000000000000000000000000";
+        let parsed = from_string_primitive(as_str, &ScType::I256).unwrap();
+        let b = -170_000_000_000_000_000_000_000_000_000_000_000_000i128;
+        let expected = ScVal::I256(Int256Parts {
+            hi_hi: -1,
+            hi_lo: u64::MAX,
+            lo_hi: (b >> 64) as u64,
+            lo_lo: b as u64,
+        });
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytes_conversion() {
+        let as_str = "beefface";
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytes_conversion_when_hex_is_all_numbers() {
+        let as_str = "4554";
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_conversion() {
+        let as_str = "beefface";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_conversion_when_hex_is_all_numbers() {
+        let as_str = "4554";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 2 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_32_conversion() {
+        let as_str = "9af73e7070f88107cf6a03d8410caecf25fd9da24521edc076c25d559e6b4c87";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 32 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(
+            vec![
+                0x9a, 0xf7, 0x3e, 0x70, 0x70, 0xf8, 0x81, 0x07, 0xcf, 0x6a, 0x03, 0xd8, 0x41, 0x0c,
+                0xae, 0xcf, 0x25, 0xfd, 0x9d, 0xa2, 0x45, 0x21, 0xed, 0xc0, 0x76, 0xc2, 0x5d, 0x55,
+                0x9e, 0x6b, 0x4c, 0x87,
+            ]
+            .try_into()
+            .unwrap(),
+        ));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_timepoint_conversion() {
+        let as_str = "1760501234";
+        let parsed = from_string_primitive(as_str, &ScType::Timepoint).unwrap();
+        let expected = ScVal::Timepoint(TimePoint::from(1_760_501_234u64));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_duration_conversion() {
+        let as_str = "1234567";
+        let parsed = from_string_primitive(as_str, &ScType::Duration).unwrap();
+        let expected = ScVal::Duration(Duration::from(1_234_567u64));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_address_conversion() {
+        let as_str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+        let parsed = from_string_primitive(as_str, &ScType::Address).unwrap();
+        let expected = ScVal::Address(ScAddress::Contract(ContractId(Hash([0; 32]))));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_symbol_conversion() {
+        let as_str = "hello";
+        let parsed = from_string_primitive(&format!("\"{as_str}\""), &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("hello".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_symbol_conversion_with_no_quotation_marks() {
+        let as_str = "hello";
+        let parsed = from_string_primitive(as_str, &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("hello".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_optional_symbol_conversion_with_no_quotation_marks() {
+        let as_str = "hello";
+        let parsed = from_string_primitive(
+            as_str,
+            &ScType::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScType::Symbol),
+            })),
+        )
+        .unwrap();
+        let expected = ScVal::Symbol("hello".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_optional_bool_conversion() {
+        let as_str = "true";
+        let parsed = from_string_primitive(
+            as_str,
+            &ScType::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScType::Bool),
+            })),
+        )
+        .unwrap();
+        let expected = ScVal::Bool(true);
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_vec_conversion() {
+        let as_str = "[12345,67890,42000000000]";
+        let parsed = from_string_primitive(
+            as_str,
+            &ScType::Vec(Box::new(ScSpecTypeVec {
+                element_type: Box::new(ScType::U64),
+            })),
+        )
+        .unwrap();
+        let expected = ScVal::Vec(Some(ScVec::from(
+            VecM::try_from(vec![
+                ScVal::U64(12345),
+                ScVal::U64(67890),
+                ScVal::U64(42_000_000_000),
+            ])
+            .unwrap(),
+        )));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_tuple_conversion() {
+        let as_str = r#"["hello",1]"#;
+        let parsed = from_string_primitive(
+            as_str,
+            &ScType::Tuple(Box::new(ScSpecTypeTuple {
+                value_types: VecM::try_from(vec![ScType::Symbol, ScType::U64]).unwrap(),
+            })),
+        )
+        .unwrap();
+        let expected = ScVal::Vec(Some(ScVec::from(
+            VecM::try_from(vec![
+                ScVal::Symbol("hello".try_into().unwrap()),
+                ScVal::U64(1),
+            ])
+            .unwrap(),
+        )));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_udt_struct_conversion() {
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("strukt").unwrap().inputs[0].type_;
+        let as_str = r#"{"a":42,"b":false,"c":"world"}"#;
+        let parsed = spec.from_string(as_str, type_).unwrap();
+        let expected = ScVal::Map(Some(
+            ScMap::sorted_from(vec![
+                ScMapEntry {
+                    key: ScVal::Symbol("a".try_into().unwrap()),
+                    val: ScVal::U32(42),
+                },
+                ScMapEntry {
+                    key: ScVal::Symbol("b".try_into().unwrap()),
+                    val: ScVal::Bool(false),
+                },
+                ScMapEntry {
+                    key: ScVal::Symbol("c".try_into().unwrap()),
+                    val: ScVal::Symbol("world".try_into().unwrap()),
+                },
+            ])
+            .unwrap(),
+        ));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_udt_enum_conversion() {
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("simple").unwrap().inputs[0].type_;
+        let as_str = "Second";
+        let parsed = spec.from_string(as_str, type_).unwrap();
+        let expected = ScVal::Vec(Some(ScVec::from(
+            VecM::try_from(vec![ScVal::Symbol("Second".try_into().unwrap())]).unwrap(),
+        )));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("[\"{as_str}\"]"));
+    }
+
+    #[test]
+    fn parse_udt_const_enum_conversion() {
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("simple").unwrap().inputs[0].type_;
+        let as_str = "Second";
+        let parsed = spec.from_string(as_str, type_).unwrap();
+        let expected = ScVal::Vec(Some(ScVec::from(
+            VecM::try_from(vec![ScVal::Symbol("Second".try_into().unwrap())]).unwrap(),
+        )));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("[\"{as_str}\"]"));
     }
 
     #[test]
@@ -1729,40 +2072,6 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_numeric_conversions() {
-        // Test U32
-        let val = 42u32;
-        let json_val = Value::Number(val.into());
-        let scval = from_json_primitives(&json_val, &ScType::U32).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), json_val);
-
-        // Test I32
-        let val = -42i32;
-        let json_val = Value::Number(val.into());
-        let scval = from_json_primitives(&json_val, &ScType::I32).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), json_val);
-
-        // Test U64
-        let val = 42u64;
-        let json_val = Value::Number(val.into());
-        let scval = from_json_primitives(&json_val, &ScType::U64).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), json_val);
-
-        // Test I64
-        let val = -42i64;
-        let json_val = Value::Number(val.into());
-        let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), json_val);
-
-        // Test boolean
-        let scval = from_json_primitives(&Value::Bool(true), &ScType::Bool).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), Value::Bool(true));
-
-        let scval = from_json_primitives(&Value::Bool(false), &ScType::Bool).unwrap();
-        assert_eq!(to_json(&scval).unwrap(), Value::Bool(false));
-    }
-
-    #[test]
     fn test_numeric_extremes() {
         // Test U32 maximum
         let val = u32::MAX;
@@ -1797,42 +2106,5 @@ mod tests {
         let json_val = Value::Number(val.into());
         let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
         assert_eq!(to_json(&scval).unwrap(), json_val);
-    }
-
-    #[test]
-    fn test_string_primitive_integration() {
-        // Test that from_string_primitive works with various types
-        // U128
-        let val = "42";
-        let scval = from_string_primitive(val, &ScType::U128).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "\"42\"");
-
-        // I128
-        let val = "-42";
-        let scval = from_string_primitive(val, &ScType::I128).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "\"-42\"");
-
-        // U256
-        let val = "12345678901234567890123456789012345678901234567890";
-        let scval = from_string_primitive(val, &ScType::U256).unwrap();
-        assert_eq!(
-            to_string(&scval).unwrap(),
-            "\"12345678901234567890123456789012345678901234567890\""
-        );
-
-        // I256
-        let val = "-12345678901234567890123456789012345678901234567890";
-        let scval = from_string_primitive(val, &ScType::I256).unwrap();
-        assert_eq!(
-            to_string(&scval).unwrap(),
-            "\"-12345678901234567890123456789012345678901234567890\""
-        );
-
-        // Boolean
-        let scval = from_string_primitive("true", &ScType::Bool).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "true");
-
-        let scval = from_string_primitive("false", &ScType::Bool).unwrap();
-        assert_eq!(to_string(&scval).unwrap(), "false");
     }
 }

@@ -1,0 +1,51 @@
+use super::args::Args;
+use crate::xdr::{Hash, LedgerKey, LedgerKeyLiquidityPool, PoolId};
+use clap::Parser;
+use hex::FromHexError;
+use soroban_spec_tools::utils::padded_hex_from_str;
+use std::fmt::Debug;
+
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
+pub struct Cmd {
+    /// Liquidity pool ids
+    #[arg(long)]
+    pub id: Vec<String>,
+
+    #[command(flatten)]
+    pub args: Args,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    FromHexError(#[from] FromHexError),
+    #[error("provided hash value is invalid: {0}")]
+    InvalidHash(String),
+    #[error(transparent)]
+    Run(#[from] super::args::Error),
+}
+
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        let mut ledger_keys = vec![];
+        self.insert_keys(&mut ledger_keys)?;
+        Ok(self.args.run(ledger_keys).await?)
+    }
+
+    fn insert_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        for x in &self.id {
+            let padded_hex = padded_hex_from_str(x, 32)?;
+            let hash_bytes: [u8; 32] = padded_hex
+                .try_into()
+                .map_err(|_| Error::InvalidHash(x.clone()))?;
+            let hash = Hash(hash_bytes);
+            let key = LedgerKey::LiquidityPool(LedgerKeyLiquidityPool {
+                liquidity_pool_id: PoolId(hash),
+            });
+            ledger_keys.push(key);
+        }
+
+        Ok(())
+    }
+}

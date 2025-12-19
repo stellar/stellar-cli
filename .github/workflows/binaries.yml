@@ -53,9 +53,9 @@ jobs:
           - name: stellar-cli
             binary: stellar
         sys:
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
@@ -112,7 +112,7 @@ jobs:
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
       - shell: powershell
-        run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements
+        run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements --force
       - shell: powershell
         run: |
           $innoPath = "C:\Program Files (x86)\Inno Setup 6"

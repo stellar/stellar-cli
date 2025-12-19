@@ -7,7 +7,7 @@ use crate::xdr::{
     LedgerEntryData, Limits, OperationBody, ReadXdr, ScMetaEntry, ScMetaV0, Transaction,
     TransactionResult, TransactionResultResult, VecM, WriteXdr,
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 use super::restore;
 use crate::commands::tx::fetch;
@@ -129,7 +129,8 @@ impl NetworkRunnable for Cmd {
         args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<Hash>, Error> {
-        let print = Print::new(args.is_some_and(|a| a.quiet));
+        let quiet = args.is_some_and(|a| a.quiet);
+        let print = Print::new(quiet);
         let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
@@ -218,7 +219,7 @@ impl NetworkRunnable for Cmd {
         let assembled = self.fee.apply_to_assembled_txn(assembled);
 
         let txn = Box::new(assembled.transaction().clone());
-        let signed_txn = &self.config.sign(*txn).await?;
+        let signed_txn = &self.config.sign(*txn, quiet).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;

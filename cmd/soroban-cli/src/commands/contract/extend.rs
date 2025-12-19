@@ -12,7 +12,7 @@ use crate::{
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 use crate::commands::tx::fetch;
 use crate::{
@@ -124,8 +124,11 @@ pub enum Error {
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(ttl_ledger) => {
@@ -190,7 +193,8 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Self::Error> {
         let config = config.unwrap_or(&self.config);
-        let print = Print::new(args.is_some_and(|a| a.quiet));
+        let quiet = args.is_some_and(|a| a.quiet);
+        let print = Print::new(quiet);
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
@@ -240,7 +244,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = assembled.transaction().clone();
         let res = client
-            .send_transaction_polling(&config.sign(tx).await?)
+            .send_transaction_polling(&config.sign(tx, quiet).await?)
             .await?;
         self.fee.print_cost_info(&res)?;
 

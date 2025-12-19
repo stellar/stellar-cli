@@ -11,7 +11,7 @@ use crate::xdr::{
     Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
     VecM, WriteXdr,
 };
-use clap::{arg, command, Parser};
+use clap::Parser;
 use rand::Rng;
 
 use crate::commands::tx::fetch;
@@ -197,7 +197,8 @@ impl NetworkRunnable for Cmd {
         global_args: Option<&global::Args>,
         config: Option<&config::Args>,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let print = Print::new(global_args.is_some_and(|a| a.quiet));
+        let quiet = global_args.is_some_and(|a| a.quiet);
+        let print = Print::new(quiet);
         let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let is_build = self.fee.build_only;
@@ -220,7 +221,7 @@ impl NetworkRunnable for Cmd {
             self.wasm_hash
                 .as_ref()
                 .ok_or(Error::WasmNotProvided)?
-                .to_string()
+                .clone()
         };
 
         let wasm_hash = Hash(
@@ -316,7 +317,7 @@ impl NetworkRunnable for Cmd {
         let txn = Box::new(assembled.transaction().clone());
 
         print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign(*txn).await?;
+        let signed_txn = &config.sign(*txn, quiet).await?;
         print.globeln("Submitting deploy transaction…");
 
         let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
@@ -327,7 +328,7 @@ impl NetworkRunnable for Cmd {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 
-        if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
+        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
 

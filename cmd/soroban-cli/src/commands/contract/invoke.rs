@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
@@ -253,7 +253,8 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<String>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
+        let quiet = global_args.is_some_and(|g| g.quiet);
+        let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
         tracing::trace!(?network);
@@ -354,11 +355,11 @@ impl NetworkRunnable for Cmd {
 
         // Need to sign all auth entries
         if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-            txn = Box::new(tx);
+            *txn = tx;
         }
 
         let res = client
-            .send_transaction_polling(&config.sign(*txn).await?)
+            .send_transaction_polling(&config.sign(*txn, quiet).await?)
             .await?;
 
         self.fee.print_cost_info(&res)?;

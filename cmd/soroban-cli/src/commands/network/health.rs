@@ -1,7 +1,6 @@
 use crate::commands::global;
 use crate::config::network;
 use crate::{config, print};
-use clap::command;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

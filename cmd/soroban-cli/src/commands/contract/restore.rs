@@ -10,7 +10,7 @@ use crate::{
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 use stellar_strkey::DecodeError;
 
 use crate::commands::tx::fetch;
@@ -121,8 +121,11 @@ pub enum Error {
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .run_against_rpc_server(Some(global_args), None)
+            .await?
+            .to_envelope();
         let expiration_ledger_seq = match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
                 println!("{}", tx.to_xdr_base64(Limits::none())?);
@@ -138,7 +141,7 @@ impl Cmd {
                 fee: self.fee.clone(),
                 ttl_ledger_only: false,
             }
-            .run()
+            .run(global_args)
             .await?;
         } else {
             println!("New ttl ledger: {expiration_ledger_seq}");
@@ -159,7 +162,8 @@ impl NetworkRunnable for Cmd {
         config: Option<&config::Args>,
     ) -> Result<TxnResult<u32>, Error> {
         let config = config.unwrap_or(&self.config);
-        let print = crate::print::Print::new(args.is_some_and(|a| a.quiet));
+        let quiet = args.is_some_and(|a| a.quiet);
+        let print = crate::print::Print::new(quiet);
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
@@ -207,7 +211,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = assembled.transaction().clone();
         let res = client
-            .send_transaction_polling(&config.sign(tx).await?)
+            .send_transaction_polling(&config.sign(tx, quiet).await?)
             .await?;
         self.fee.print_cost_info(&res)?;
         if args.is_none_or(|a| !a.no_cache) {

@@ -1,4 +1,3 @@
-use clap::arg;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -172,7 +171,7 @@ impl Secret {
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
             Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
-                name: entry_name.to_string(),
+                name: entry_name.clone(),
                 hd_path,
             }),
         };

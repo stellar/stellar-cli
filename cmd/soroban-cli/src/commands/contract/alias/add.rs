@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use clap::{command, Parser};
+use clap::Parser;
 
 use crate::commands::{config::network, global};
 use crate::config::locator;
@@ -59,8 +59,8 @@ impl Cmd {
         if let Some(contract) = contract {
             if contract != self.contract_id && !self.overwrite {
                 return Err(Error::AlreadyExist {
-                    alias: alias.to_string(),
-                    network_passphrase: network_passphrase.to_string(),
+                    alias: alias.clone(),
+                    network_passphrase: network_passphrase.clone(),
                     contract,
                 });
             }

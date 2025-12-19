@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN,
-    Env, Map, String, Symbol, Val, Vec, I256, U256,
+    Duration, Env, Map, String, Symbol, Timepoint, Val, Vec, I256, U256,
 };
 
 #[contract]
@@ -42,6 +42,12 @@ pub enum ComplexEnum {
     Tuple(TupleStruct),
     Enum(SimpleEnum),
     Asset(Address, i128),
+    Void,
+}
+
+#[contracttype]
+pub enum RecursiveEnum {
+    List(Vec<RecursiveEnum>),
     Void,
 }
 
@@ -111,6 +117,10 @@ impl Contract {
 
     pub fn complex(_env: Env, complex: ComplexEnum) -> ComplexEnum {
         complex
+    }
+
+    pub fn recursive_enum(_env: Env, recursive: RecursiveEnum) -> RecursiveEnum {
+        recursive
     }
 
     pub fn addresse(_env: Env, addresse: Address) -> Address {
@@ -187,11 +197,11 @@ impl Contract {
         tuple_strukt
     }
 
-    // pub fn timepoint(_env: Env, timepoint: TimePoint) -> TimePoint {
-    //     timepoint
-    // }
+    pub fn timepoint(_env: Env, timepoint: Timepoint) -> Timepoint {
+        timepoint
+    }
 
-    // pub fn duration(_env: Env, duration: Duration) -> Duration {
-    //     duration
-    // }
+    pub fn duration(_env: Env, duration: Duration) -> Duration {
+        duration
+    }
 }

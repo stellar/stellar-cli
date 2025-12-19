@@ -175,23 +175,6 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
     )
 }
 
-const METHOD_OPTIONS: &str = r"{
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }";
-
 pub fn entry_to_name_and_return_type(entry: &Entry) -> Option<(String, String)> {
     if let Entry::Function { name, outputs, .. } = entry {
         Some((name.to_owned(), outputs_to_return_type(outputs)))
@@ -239,7 +222,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             format!(
                 r"
   {doc}
-  {name}: ({input}options?: {METHOD_OPTIONS}) => Promise<AssembledTransaction<{return_type}>>
+  {name}: ({input}options?: MethodOptions) => Promise<AssembledTransaction<{return_type}>>
 "
             )
         }
@@ -277,7 +260,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let name = if name == "Error" {
                 format!("{name}s")
             } else {
-                name.to_string()
+                name.clone()
             };
             format!(
                 r"{doc}export enum {name} {{
@@ -292,7 +275,7 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
             let name = if name == "Error" {
                 format!("{name}s")
             } else {
-                name.to_string()
+                name.clone()
             };
             format!(
                 r"{doc}export const {name} = {{
@@ -340,14 +323,14 @@ pub fn func_input_to_ts(input: &types::FunctionInput) -> String {
 
 pub fn func_input_to_arg_name(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, .. } = input;
-    name.to_string()
+    name.clone()
 }
 
 pub fn parse_arg_to_scval(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, value, .. } = input;
     match value {
         types::Type::Address => format!("{name}: new Address({name})"),
-        _ => name.to_string(),
+        _ => name.clone(),
     }
 }
 

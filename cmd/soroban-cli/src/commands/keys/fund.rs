@@ -1,5 +1,4 @@
 use crate::{commands::global, config::network, print::Print};
-use clap::command;
 
 use super::public_key;
 

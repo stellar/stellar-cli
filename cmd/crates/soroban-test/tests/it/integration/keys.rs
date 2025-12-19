@@ -1,4 +1,4 @@
-use predicates::prelude::predicate;
+use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_test::AssertExt;
 use soroban_test::TestEnv;
 
@@ -142,4 +142,71 @@ async fn overwrite_identity_with_add() {
         "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC",
         pubkey_for_identity(sandbox, "test3").trim()
     );
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn set_default_identity() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test4")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("test4")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `test4`",
+        ))
+        .success();
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn unset_default_identity() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("test5")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("use")
+        .arg("test5")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account is set to `test5`",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_ACCOUNT")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=test5"))
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("unset")
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default source account has been unset",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_ACCOUNT")
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_ACCOUNT=").not())
+        .success();
 }

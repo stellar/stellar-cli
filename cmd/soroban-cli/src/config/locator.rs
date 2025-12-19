@@ -1,4 +1,3 @@
-use clap::arg;
 use directories::UserDirs;
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
@@ -64,6 +63,8 @@ pub enum Error {
     ConfigSerialization,
     // #[error("Config file failed write")]
     // CannotWriteConfigFile,
+    #[error("STELLAR_CONFIG_HOME env variable is not a valid path. Got {0}")]
+    StellarConfigDir(String),
     #[error("XDG_CONFIG_HOME env variable is not a valid path. Got {0}")]
     XdgConfigHome(String),
     #[error(transparent)]
@@ -100,6 +101,8 @@ pub enum Error {
     SecretKeyOnly(String),
     #[error(transparent)]
     Key(#[from] key::Error),
+    #[error("Unable to get project directory")]
+    ProjectDirsError(),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -210,6 +213,10 @@ impl Args {
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
         Config::new()?.set_identity(name).save()
+    }
+
+    pub fn unset_identity(&self) -> Result<(), Error> {
+        Config::new()?.unset_identity().save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -453,6 +460,12 @@ impl Args {
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
+    let global_dir = fs::canonicalize(&global_dir).expect("Couldn't expand global directory.");
+
+    // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
+    if dir == global_dir {
+        return;
+    }
 
     print.warnln(format!("A local config was found at {dir:?}."));
     print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
@@ -554,6 +567,7 @@ impl KeyType {
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
+            .unique_by(|p| location_to_string(p))
             .flat_map(|p| self.list(p, true).unwrap_or_default())
             .collect())
     }
@@ -625,6 +639,10 @@ impl KeyType {
 }
 
 fn global_config_path() -> Result<PathBuf, Error> {
+    if let Ok(config_home) = std::env::var("STELLAR_CONFIG_HOME") {
+        return PathBuf::from_str(&config_home).map_err(|_| Error::StellarConfigDir(config_home));
+    }
+
     let config_dir = if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from_str(&config_home).map_err(|_| Error::XdgConfigHome(config_home))?
     } else {
@@ -652,6 +670,15 @@ fn global_config_path() -> Result<PathBuf, Error> {
     }
 
     Ok(stellar_dir)
+}
+
+fn location_to_string(location: &Location) -> String {
+    match location {
+        Location::Local(p) | Location::Global(p) => fs::canonicalize(AsRef::<Path>::as_ref(p))
+            .unwrap_or(p.clone())
+            .display()
+            .to_string(),
+    }
 }
 
 // Use locator.global_config_path() to save configurations.

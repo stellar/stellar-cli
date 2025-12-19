@@ -1,4 +1,4 @@
-use clap::{arg, command, Parser};
+use clap::Parser;
 use std::io;
 
 use crate::xdr::{self, Limits, ReadXdr};
@@ -43,19 +43,25 @@ pub struct Cmd {
         help_heading = "FILTERS"
     )]
     contract_ids: Vec<config::UnresolvedContract>,
-    /// A set of (up to 4) topic filters to filter event topics on. A single
-    /// topic filter can contain 1-4 different segment filters, separated by
-    /// commas, with an asterisk (`*` character) indicating a wildcard segment.
+    /// A set of (up to 5) topic filters to filter event topics on. A single
+    /// topic filter can contain 1-4 different segments, separated by
+    /// commas. An asterisk (`*` character) indicates a wildcard segment.
+    ///
+    /// In addition to up to 4 possible topic filter segments, the "**" wildcard can also be added, and will allow for a flexible number of topics in the returned events. The "**" wildcard must be the last segment in a query.
+    ///
+    /// If the "**" wildcard is not included, only events with the exact number of topics as the given filter will be returned.
     ///
     /// **Example:** topic filter with two segments: `--topic "AAAABQAAAAdDT1VOVEVSAA==,*"`
     ///
     /// **Example:** two topic filters with one and two segments each: `--topic "AAAABQAAAAdDT1VOVEVSAA==" --topic '*,*'`
     ///
+    /// **Example:** topic filter with four segments and the "**" wildcard: --topic "AAAABQAAAAdDT1VOVEVSAA==,*,*,*,**"
+    ///
     /// Note that all of these topic filters are combined with the contract IDs
     /// into a single filter (i.e. combination of type, IDs, and topics).
     #[arg(
         long = "topic",
-        num_args = 1..=5,
+        num_args = 1.., // allowing 1+ arguments here, and doing additional validation in parse_topics
         help_heading = "FILTERS"
     )]
     topic_filters: Vec<String>,
@@ -81,6 +87,8 @@ pub enum Error {
     InvalidFile { path: String },
     #[error("filepath ({path}) cannot be read: {error}")]
     CannotReadFile { path: String, error: String },
+    #[error("max of 5 topic filters allowed per request, received {filter_count}")]
+    MaxTopicFilters { filter_count: usize },
     #[error("cannot parse topic filter {topic} into 1-4 segments")]
     InvalidTopicFilter { topic: String },
     #[error("invalid segment ({segment}) in topic filter ({topic}): {error}")]
@@ -135,27 +143,6 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&mut self) -> Result<(), Error> {
-        // Validate that topics are made up of segments.
-        for topic in &self.topic_filters {
-            for (i, segment) in topic.split(',').enumerate() {
-                if i > 4 {
-                    return Err(Error::InvalidTopicFilter {
-                        topic: topic.to_string(),
-                    });
-                }
-
-                if segment != "*" {
-                    if let Err(e) = xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
-                        return Err(Error::InvalidSegment {
-                            topic: topic.to_string(),
-                            segment: segment.to_string(),
-                            error: e,
-                        });
-                    }
-                }
-            }
-        }
-
         let response = self.run_against_rpc_server(None, None).await?;
 
         if response.events.is_empty() {
@@ -183,6 +170,45 @@ impl Cmd {
             }
         }
         Ok(())
+    }
+
+    fn parse_topics(&self) -> Result<Vec<rpc::TopicFilter>, Error> {
+        if self.topic_filters.len() > 5 {
+            return Err(Error::MaxTopicFilters {
+                filter_count: self.topic_filters.len(),
+            });
+        }
+        let mut topic_filters: Vec<rpc::TopicFilter> = Vec::new();
+        for topic in &self.topic_filters {
+            let mut topic_filter: rpc::TopicFilter = Vec::new(); // a topic filter is a collection of segments
+            for (i, segment) in topic.split(',').enumerate() {
+                if i > 4 {
+                    return Err(Error::InvalidTopicFilter {
+                        topic: topic.clone(),
+                    });
+                }
+
+                if segment == "*" || segment == "**" {
+                    topic_filter.push(segment.to_owned());
+                } else {
+                    match xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
+                        Ok(_s) => {
+                            topic_filter.push(segment.to_owned());
+                        }
+                        Err(e) => {
+                            return Err(Error::InvalidSegment {
+                                topic: topic.clone(),
+                                segment: segment.to_string(),
+                                error: e,
+                            });
+                        }
+                    }
+                }
+            }
+            topic_filters.push(topic_filter);
+        }
+
+        Ok(topic_filters)
     }
 
     fn start(&self) -> Result<rpc::EventStart, Error> {
@@ -228,12 +254,14 @@ impl NetworkRunnable for Cmd {
             })
             .collect::<Result<Vec<_>, Error>>()?;
 
+        let parsed_topics = self.parse_topics()?;
+
         Ok(client
             .get_events(
                 start,
                 Some(self.event_type),
                 &contract_ids,
-                &self.topic_filters,
+                &parsed_topics,
                 Some(self.count),
             )
             .await
