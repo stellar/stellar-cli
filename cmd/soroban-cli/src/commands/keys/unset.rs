@@ -19,7 +19,7 @@ impl Cmd {
 
         self.config_locator.unset_identity()?;
 
-        printer.infoln(format!("The default source account has been unset",));
+        printer.infoln("The default source account has been unset".to_string());
 
         Ok(())
     }
