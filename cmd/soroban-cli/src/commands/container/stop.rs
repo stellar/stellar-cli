@@ -2,6 +2,7 @@ use crate::{
     commands::{container::shared::Error as BollardConnectionError, global},
     print,
 };
+use bollard::query_parameters::StopContainerOptions;
 
 use super::shared::{Args, Name};
 
@@ -43,7 +44,10 @@ impl Cmd {
         ));
 
         docker
-            .stop_container(&container_name.get_internal_container_name(), None)
+            .stop_container(
+                &container_name.get_internal_container_name(),
+                None::<StopContainerOptions>,
+            )
             .await
             .map_err(|e| {
                 let msg = e.to_string();
