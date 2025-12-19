@@ -476,7 +476,8 @@ mod test {
         let test_hash = b"3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889";
 
         let err = ledger.sign_blob(&path.into(), test_hash).await.unwrap_err();
-        if let Error::APDUExchangeError(msg) = err {
+
+        if let Error::BlindSigningModeNotEnabled(msg) = err {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         } else {
             panic!("Unexpected error: {err:?}");
