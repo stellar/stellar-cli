@@ -215,6 +215,10 @@ impl Args {
         Config::new()?.set_identity(name).save()
     }
 
+    pub fn unset_identity(&self) -> Result<(), Error> {
+        Config::new()?.unset_identity().save()
+    }
+
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
         Ok(KeyType::Identity
             .list_paths(&self.local_and_global()?)?
