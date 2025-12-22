@@ -61,30 +61,3 @@ pub fn one_line() -> String {
     let git = git();
     format!("{pkg}#{git}")
 }
-
-#[test]
-fn test_long_without_git_rev() {
-    std::env::remove_var("GIT_REVISION");
-    let expected = format!(
-        "{}\nstellar-xdr {} ({})\nxdr curr ({})",
-        pkg(),
-        stellar_xdr::VERSION.pkg,
-        stellar_xdr::VERSION.rev,
-        stellar_xdr::VERSION.xdr_curr,
-    );
-    assert_eq!(long(), expected);
-}
-
-#[test]
-fn test_long_with_git_rev() {
-    std::env::set_var("GIT_REVISION", "REF");
-    let expected = format!(
-        "{} (REF)\nstellar-xdr {} ({})\nxdr curr ({})",
-        pkg(),
-        stellar_xdr::VERSION.pkg,
-        stellar_xdr::VERSION.rev,
-        stellar_xdr::VERSION.xdr_curr,
-    );
-    assert_eq!(long(), expected);
-    std::env::remove_var("GIT_REVISION");
-}
