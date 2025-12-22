@@ -10,6 +10,7 @@ mod hello_world;
 mod init;
 mod keys;
 mod ledger;
+mod network;
 mod secure_store;
 mod snapshot;
 mod tx;

@@ -1125,6 +1125,7 @@ Create and manage identities including keys and addresses
 - `rm` — Remove an identity
 - `secret` — Output an identity's secret key
 - `use` — Set the default identity that will be used on all commands. This allows you to skip `--source-account` or setting a environment variable, while reusing this value in all commands that require it
+- `unset` — Unset the default key identity defined previously with `keys use <identity>`
 
 ## `stellar keys add`
 
@@ -1303,6 +1304,17 @@ Set the default identity that will be used on all commands. This allows you to s
 - `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
+## `stellar keys unset`
+
+Unset the default key identity defined previously with `keys use <identity>`
+
+**Usage:** `stellar keys unset [OPTIONS]`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
 ## `stellar network`
 
 Configure connection to networks
@@ -1318,6 +1330,7 @@ Configure connection to networks
 - `health` — Fetch the health of the configured RPC
 - `info` — Checks the health of the configured RPC
 - `settings` — Fetch the network's config settings
+- `unset` — Unset the default network defined previously with `network use <network>`
 
 ## `stellar network add`
 
@@ -1472,6 +1485,17 @@ Fetch the network's config settings
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar network unset`
+
+Unset the default network defined previously with `network use <network>`
+
+**Usage:** `stellar network unset [OPTIONS]`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar container`
 
