@@ -200,7 +200,7 @@ fn use_env() {
     sandbox
         .new_assert_cmd("keys")
         .env(
-            "SOROBAN_SECRET_KEY",
+            "STELLAR_SECRET_KEY",
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
         .arg("add")
@@ -225,7 +225,7 @@ fn set_default_identity() {
     sandbox
         .new_assert_cmd("keys")
         .env(
-            "SOROBAN_SECRET_KEY",
+            "STELLAR_SECRET_KEY",
             "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
         )
         .arg("add")
@@ -245,7 +245,7 @@ fn set_default_identity() {
 
     sandbox
         .new_assert_cmd("env")
-        .env_remove("SOROBAN_ACCOUNT")
+        .env_remove("STELLAR_ACCOUNT")
         .assert()
         .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
         .success();
