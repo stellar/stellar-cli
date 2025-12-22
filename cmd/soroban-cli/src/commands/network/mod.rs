@@ -8,6 +8,7 @@ pub mod info;
 pub mod ls;
 pub mod rm;
 pub mod settings;
+pub mod unset;
 
 #[derive(Debug, Parser)]
 pub enum Cmd {
@@ -34,6 +35,9 @@ pub enum Cmd {
 
     /// Fetch the network's config settings
     Settings(settings::Cmd),
+
+    /// Unset the default network defined previously with `network use <network>`
+    Unset(unset::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -58,6 +62,9 @@ pub enum Error {
 
     #[error(transparent)]
     Settings(#[from] settings::Error),
+
+    #[error(transparent)]
+    Unset(#[from] unset::Error),
 }
 
 impl Cmd {
@@ -70,6 +77,7 @@ impl Cmd {
             Cmd::Health(cmd) => cmd.run(global_args).await?,
             Cmd::Info(cmd) => cmd.run(global_args).await?,
             Cmd::Settings(cmd) => cmd.run(global_args).await?,
+            Cmd::Unset(cmd) => cmd.run(global_args)?,
         }
         Ok(())
     }
