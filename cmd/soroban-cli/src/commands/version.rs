@@ -39,8 +39,14 @@ pub fn git() -> &'static str {
 
 pub fn long() -> String {
     let xdr = stellar_xdr::VERSION;
+    let git_rev = if git().is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", git())
+    };
+
     [
-        format!("{} ({})", pkg(), git()),
+        format!("{}{git_rev}", pkg()),
         format!(
             "stellar-xdr {} ({})
 xdr curr ({})",
