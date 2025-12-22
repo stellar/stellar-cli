@@ -245,6 +245,7 @@ impl Config {
         self
     }
 
+    #[must_use]
     pub fn unset_inclusion_fee(mut self) -> Self {
         self.defaults.inclusion_fee = None;
         self
