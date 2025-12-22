@@ -135,7 +135,7 @@ fn run_command(
     let mut assert = sandbox
         .new_assert_cmd(&cmd)
         // Cookbook tests are responsible for setting a source account.
-        .env_remove("SOROBAN_ACCOUNT")
+        .env_remove("STELLAR_ACCOUNT")
         .args(&modified_args)
         .assert();
     eprintln!("{}", assert.stderr_as_str());

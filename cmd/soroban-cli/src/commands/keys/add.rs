@@ -82,7 +82,7 @@ impl Cmd {
     }
 
     fn read_secret(&self, print: &Print) -> Result<Secret, Error> {
-        if let Ok(secret_key) = std::env::var("SOROBAN_SECRET_KEY") {
+        if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
             Ok(Secret::SecretKey { secret_key })
         } else if self.secrets.secure_store {
             let prompt = "Type a 12/24 word seed phrase:";

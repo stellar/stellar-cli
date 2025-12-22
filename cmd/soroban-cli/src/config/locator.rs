@@ -35,7 +35,7 @@ pub enum Error {
     HomeDirNotFound,
     #[error("Failed read current directory")]
     CurrentDirNotFound,
-    #[error("Failed read current directory and no SOROBAN_CONFIG_HOME is set")]
+    #[error("Failed read current directory and no STELLAR_CONFIG_HOME is set")]
     NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
