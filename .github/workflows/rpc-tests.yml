@@ -34,7 +34,6 @@ jobs:
       - uses: stellar/quickstart@main
         with:
           tag: future
-          enable: core,rpc
       - uses: actions/checkout@v5
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
