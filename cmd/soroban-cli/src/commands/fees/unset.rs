@@ -15,7 +15,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let printer = Print::new(global_args.quiet);
-        self.config_locator.write_default_inclusion_fee(None)?;
+        self.config_locator.unset_default_inclusion_fee()?;
         printer.infoln("The default inclusion fee has been cleared");
         Ok(())
     }

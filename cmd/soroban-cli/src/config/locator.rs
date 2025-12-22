@@ -215,16 +215,20 @@ impl Args {
         Config::new()?.set_identity(name).save()
     }
 
-    pub fn write_default_inclusion_fee(&self, inclusion_fee: Option<u32>) -> Result<(), Error> {
+    pub fn write_default_inclusion_fee(&self, inclusion_fee: u32) -> Result<(), Error> {
         Config::new()?.set_inclusion_fee(inclusion_fee).save()
     }
-    
+
     pub fn unset_default_identity(&self) -> Result<(), Error> {
         Config::new()?.unset_identity().save()
     }
 
     pub fn unset_default_network(&self) -> Result<(), Error> {
         Config::new()?.unset_network().save()
+    }
+
+    pub fn unset_default_inclusion_fee(&self) -> Result<(), Error> {
+        Config::new()?.unset_inclusion_fee().save()
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {

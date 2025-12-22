@@ -108,7 +108,7 @@ impl Cmd {
         }
 
         self.config_locator
-            .write_default_inclusion_fee(Some(inclusion_fee))?;
+            .write_default_inclusion_fee(inclusion_fee)?;
 
         printer.infoln(format!(
             "The default inclusion fee is set to `{inclusion_fee}`"

@@ -228,8 +228,8 @@ impl Config {
     }
 
     #[must_use]
-    pub fn set_inclusion_fee(mut self, uint: Option<u32>) -> Self {
-        self.defaults.inclusion_fee = uint;
+    pub fn set_inclusion_fee(mut self, uint: u32) -> Self {
+        self.defaults.inclusion_fee = Some(uint);
         self
     }
 
@@ -242,6 +242,11 @@ impl Config {
     #[must_use]
     pub fn unset_network(mut self) -> Self {
         self.defaults.network = None;
+        self
+    }
+
+    pub fn unset_inclusion_fee(mut self) -> Self {
+        self.defaults.inclusion_fee = None;
         self
     }
 
