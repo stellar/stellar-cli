@@ -131,13 +131,10 @@ impl TestEnv {
     }
 
     pub fn new() -> TestEnv {
-        if let Ok(rpc_url) = std::env::var("SOROBAN_RPC_URL") {
-            return Self::with_rpc_url(&rpc_url);
-        }
         if let Ok(rpc_url) = std::env::var("STELLAR_RPC_URL") {
             return Self::with_rpc_url(&rpc_url);
         }
-        let host_port = std::env::var("SOROBAN_PORT")
+        let host_port = std::env::var("STELLAR_PORT")
             .as_deref()
             .ok()
             .and_then(|n| n.parse().ok())
@@ -159,9 +156,9 @@ impl TestEnv {
         let mut cmd: Command = self.bin();
 
         cmd.arg(subcommand)
-            .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
-            .env("SOROBAN_RPC_URL", &self.network.rpc_url)
-            .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
+            .env("STELLAR_ACCOUNT", TEST_ACCOUNT)
+            .env("STELLAR_RPC_URL", &self.network.rpc_url)
+            .env("STELLAR_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
             .env("XDG_CONFIG_HOME", self.dir().join("config").as_os_str())
             .env("XDG_DATA_HOME", self.data_dir().as_os_str())
             .current_dir(self.dir());

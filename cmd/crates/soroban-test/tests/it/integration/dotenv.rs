@@ -4,7 +4,7 @@ use super::util::deploy_hello;
 
 fn write_env_file(e: &TestEnv, contents: &str) {
     let env_file = e.dir().join(".env");
-    let contents = format!("SOROBAN_CONTRACT_ID={contents}");
+    let contents = format!("STELLAR_CONTRACT_ID={contents}");
     std::fs::write(&env_file, &contents).unwrap();
     assert_eq!(contents, std::fs::read_to_string(env_file).unwrap());
 }
@@ -33,7 +33,7 @@ async fn current_env_not_overwritten() {
     write_env_file(&e, &deploy_hello(&e).await);
     e.new_assert_cmd("contract")
         .env(
-            "SOROBAN_CONTRACT_ID",
+            "STELLAR_CONTRACT_ID",
             "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
         )
         .arg("invoke")
@@ -54,7 +54,7 @@ async fn cli_args_have_priority() {
     write_env_file(e, &id);
     e.new_assert_cmd("contract")
         .env(
-            "SOROBAN_CONTRACT_ID",
+            "STELLAR_CONTRACT_ID",
             "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
         )
         .arg("invoke")
