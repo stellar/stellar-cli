@@ -62,7 +62,10 @@ pub enum Error {
     #[error("Error occurred while initializing Ledger HID transport: {0}")]
     LedgerHidError(#[from] LedgerHIDError),
 
-    #[error("Error with ADPU exchange with Ledger device: {0}")]
+    #[error("Make sure the ledger device is unlocked: {0}")]
+    DeviceLocked(String),
+
+    #[error("Error exchanging with Ledger device: {0}")]
     APDUExchangeError(String),
 
     #[error("Error occurred while exchanging with Ledger device: {0}")]
@@ -76,6 +79,15 @@ pub enum Error {
 
     #[error(transparent)]
     DecodeError(#[from] DecodeError),
+
+    #[error("Blind signing not enabled for Stellar app on the Ledger device: {0}")]
+    BlindSigningModeNotEnabled(String),
+
+    #[error("Stellar app is not opened on the Ledger device. Open the app and try again. {0}")]
+    StellarAppNotOpen(String),
+
+    #[error("The tx was rejected by the user. {0}")]
+    TxRejectedByUser(String),
 }
 
 pub struct LedgerSigner<T: Exchange> {
@@ -243,13 +255,23 @@ where
                 }
 
                 let retcode = response.retcode();
-                let error_string = format!("Ledger APDU retcode: 0x{retcode:X}");
-                Err(Error::APDUExchangeError(error_string))
+                Err(handle_error(retcode))
             }
             Err(_err) => Err(Error::LedgerConnectionError(
                 "Error connecting to ledger device".to_string(),
             )),
         }
+    }
+}
+
+fn handle_error(retcode: u16) -> Error {
+    let error_string = format!("Ledger APDU retcode: 0x{retcode:X}");
+    match retcode {
+        0x6C66 => Error::BlindSigningModeNotEnabled(error_string),
+        0x6511 => Error::StellarAppNotOpen(error_string),
+        0x6985 => Error::TxRejectedByUser(error_string),
+        0x5515 => Error::DeviceLocked(error_string),
+        _ => Error::APDUExchangeError(error_string),
     }
 }
 
@@ -454,7 +476,8 @@ mod test {
         let test_hash = b"3389e9f0f1a65f19736cacf544c2e825313e8447f569233bb8db39aa607c8889";
 
         let err = ledger.sign_blob(&path.into(), test_hash).await.unwrap_err();
-        if let Error::APDUExchangeError(msg) = err {
+
+        if let Error::BlindSigningModeNotEnabled(msg) = err {
             assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         } else {
             panic!("Unexpected error: {err:?}");
