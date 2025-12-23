@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use clap::{arg, Parser};
+use clap::Parser;
 use ed25519_dalek::Signer as _;
 use sha2::{Digest, Sha256};
 
@@ -85,6 +85,7 @@ struct SignedMessageOutput {
 }
 
 impl Cmd {
+    #[allow(clippy::unused_async)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         // Get the message bytes
         let message_bytes = self.get_message_bytes()?;
@@ -164,21 +165,20 @@ impl Cmd {
     }
 
     fn get_message_bytes(&self) -> Result<Vec<u8>, Error> {
-        let message_str = match &self.message {
-            Some(msg) => msg.clone(),
-            None => {
-                // Read from stdin
-                let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
-                // Remove trailing newline if present
-                if buffer.ends_with('\n') {
+        let message_str = if let Some(msg) = &self.message {
+            msg.clone()
+        } else {
+            // Read from stdin
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer)?;
+            // Remove trailing newline if present
+            if buffer.ends_with('\n') {
+                buffer.pop();
+                if buffer.ends_with('\r') {
                     buffer.pop();
-                    if buffer.ends_with('\r') {
-                        buffer.pop();
-                    }
                 }
-                buffer
             }
+            buffer
         };
 
         if self.base64 {

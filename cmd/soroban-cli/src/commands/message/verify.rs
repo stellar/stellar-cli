@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use clap::{arg, Parser};
+use clap::Parser;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
 
@@ -85,36 +85,32 @@ impl Cmd {
         let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)?;
 
         // Verify the signature
-        match verifying_key.verify(&hash, &signature) {
-            Ok(()) => {
-                let public_key = stellar_strkey::ed25519::PublicKey(public_key_bytes);
-                println!("Signature valid");
-                println!("Signer: {public_key}");
-                Ok(())
-            }
-            Err(_) => {
-                eprintln!("Signature invalid");
-                Err(Error::VerificationFailed)
-            }
+        if verifying_key.verify(&hash, &signature).is_ok() {
+            let public_key = stellar_strkey::ed25519::PublicKey(public_key_bytes);
+            println!("Signature valid");
+            println!("Signer: {public_key}");
+            Ok(())
+        } else {
+            eprintln!("Signature invalid");
+            Err(Error::VerificationFailed)
         }
     }
 
     fn get_message_bytes(&self) -> Result<Vec<u8>, Error> {
-        let message_str = match &self.message {
-            Some(msg) => msg.clone(),
-            None => {
-                // Read from stdin
-                let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
-                // Remove trailing newline if present
-                if buffer.ends_with('\n') {
+        let message_str = if let Some(msg) = &self.message {
+            msg.clone()
+        } else {
+            // Read from stdin
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer)?;
+            // Remove trailing newline if present
+            if buffer.ends_with('\n') {
+                buffer.pop();
+                if buffer.ends_with('\r') {
                     buffer.pop();
-                    if buffer.ends_with('\r') {
-                        buffer.pop();
-                    }
                 }
-                buffer
             }
+            buffer
         };
 
         if self.base64 {
