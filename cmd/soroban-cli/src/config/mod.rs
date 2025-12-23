@@ -7,6 +7,7 @@ use std::{
 use crate::{
     print::Print,
     signer::{self, Signer},
+    utils::deprecate_message,
     xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
     Pwd,
 };
@@ -146,6 +147,13 @@ impl Args {
     /// 2. fee (via clap, arg then env var)
     /// 3. default of 100 stroops
     pub fn get_inclusion_fee(&self) -> Result<u32, Error> {
+        if self.fee.is_some() {
+            deprecate_message(
+                Print::new(false),
+                "--fee [env: STELLAR_FEE]",
+                "Use `--inclusion-fee [env: STELLAR_INCLUSION_FEE]` instead.",
+            );
+        }
         Ok(self.inclusion_fee.or(self.fee).unwrap_or(100))
     }
 
