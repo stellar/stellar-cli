@@ -20,7 +20,7 @@ pub struct Args {
     #[arg(long, help_heading = HEADING_RPC)]
     pub instruction_leeway: Option<u64>,
     /// Output the cost execution to stderr
-    #[arg(long = "cost", help_heading = HEADING_RPC)]
+    #[arg(long, help_heading = HEADING_RPC)]
     pub cost: bool,
 }
 
