@@ -36,7 +36,7 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub resources: crate::resources::Args,
 
     #[command(flatten)]
     pub wasm: wasm::Args,
@@ -44,6 +44,10 @@ pub struct Cmd {
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -168,10 +172,14 @@ impl NetworkRunnable for Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
 
-        let (tx_without_preflight, hash) =
-            build_install_contract_code_tx(&contract, sequence + 1, self.fee.fee, &source_account)?;
+        let (tx_without_preflight, hash) = build_install_contract_code_tx(
+            &contract,
+            sequence + 1,
+            config.get_inclusion_fee()?,
+            &source_account,
+        )?;
 
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
         }
 
@@ -213,17 +221,17 @@ impl NetworkRunnable for Cmd {
         let assembled = simulate_and_assemble_transaction(
             &client,
             &tx_without_preflight,
-            self.fee.resource_config(),
+            self.resources.resource_config(),
+            self.resources.resource_fee,
         )
         .await?;
-        let assembled = self.fee.apply_to_assembled_txn(assembled);
-
+        let assembled = self.resources.apply_to_assembled_txn(assembled);
         let txn = Box::new(assembled.transaction().clone());
         let signed_txn = &self.config.sign(*txn, quiet).await?;
 
         print.globeln("Submitting install transaction…");
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
-        self.fee.print_cost_info(&txn_resp)?;
+        self.resources.print_cost_info(&txn_resp)?;
 
         if args.is_none_or(|a| !a.no_cache) {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
@@ -246,9 +254,10 @@ impl NetworkRunnable for Cmd {
                     durability: super::Durability::Persistent,
                 },
                 config: config.clone(),
-                fee: self.fee.clone(),
+                resources: self.resources.clone(),
                 ledgers_to_extend: None,
                 ttl_ledger_only: true,
+                build_only: self.build_only,
             }
             .run_against_rpc_server(args, None)
             .await?;

@@ -17,6 +17,7 @@ pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
     resource_config: Option<ResourceConfig>,
+    resource_fee: Option<u64>,
 ) -> Result<Assembled, Error> {
     let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
         tx: tx.clone(),
@@ -37,7 +38,7 @@ pub async fn simulate_and_assemble_transaction(
         crate::log::event::all(&sim_res.events()?);
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
-        Ok(Assembled::new(tx, sim_res)?)
+        Ok(Assembled::new(tx, sim_res, resource_fee)?)
     }
 }
 
@@ -54,13 +55,18 @@ impl Assembled {
     /// # Arguments
     ///
     /// * `txn` - The original transaction.
-    /// * `client` - The client used for simulation and submission.
+    /// * `sim_res` - The simulation response.
+    /// * `resource_fee` - Optional resource fee for the transaction. Will override the simulated resource fee if provided.
     ///
     /// # Errors
     ///
     /// Returns an error if simulation fails or if assembling the transaction fails.
-    pub fn new(txn: &Transaction, sim_res: SimulateTransactionResponse) -> Result<Self, Error> {
-        let txn = assemble(txn, &sim_res)?;
+    pub fn new(
+        txn: &Transaction,
+        sim_res: SimulateTransactionResponse,
+        resource_fee: Option<u64>,
+    ) -> Result<Self, Error> {
+        let txn = assemble(txn, &sim_res, resource_fee)?;
         Ok(Self { txn, sim_res })
     }
 
@@ -173,6 +179,7 @@ impl Assembled {
         read_write.is_empty()
     }
 
+    // TODO: Remove once `--instructions` is fully removed
     #[must_use]
     pub fn set_max_instructions(mut self, instructions: u32) -> Self {
         if let TransactionExt::V1(SorobanTransactionData {
@@ -198,6 +205,7 @@ impl Assembled {
 fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
+    resource_fee: Option<u64>,
 ) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
@@ -211,6 +219,15 @@ fn assemble(
         });
     }
 
+    let min_resource_fee = if let Some(rf) = resource_fee {
+        tracing::trace!(
+            "setting resource fee to {rf} from {}",
+            simulation.min_resource_fee
+        );
+        rf
+    } else {
+        simulation.min_resource_fee
+    };
     let transaction_data = simulation.transaction_data()?;
 
     let mut op = tx.operations[0].clone();
@@ -241,12 +258,11 @@ fn assemble(
     }
 
     // Update transaction fees to meet the minimum resource fees.
-    let classic_tx_fee: u64 = DEFAULT_TRANSACTION_FEES.into();
-
     // Choose larger of existing fee or inclusion + resource fee.
+    let min_tx_fee: u64 = DEFAULT_TRANSACTION_FEES.into();
     tx.fee = tx.fee.max(
-        u32::try_from(classic_tx_fee + simulation.min_resource_fee)
-            .map_err(|_| Error::LargeFee(simulation.min_resource_fee + classic_tx_fee))?,
+        u32::try_from(min_tx_fee + min_resource_fee)
+            .map_err(|_| Error::LargeFee(min_tx_fee + min_resource_fee))?,
     );
 
     tx.operations = vec![op].try_into()?;
@@ -391,7 +407,7 @@ mod tests {
     fn test_assemble_transaction_updates_tx_data_from_simulation_response() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim) else {
+        let Ok(result) = assemble(&txn, &sim, None) else {
             panic!("assemble failed");
         };
 
@@ -407,7 +423,7 @@ mod tests {
     fn test_assemble_transaction_adds_the_auth_to_the_host_function() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, &sim) else {
+        let Ok(result) = assemble(&txn, &sim, None) else {
             panic!("assemble failed");
         };
 
@@ -471,6 +487,7 @@ mod tests {
                 latest_ledger: 3,
                 ..Default::default()
             },
+            None,
         );
 
         match result {
@@ -491,6 +508,7 @@ mod tests {
                 latest_ledger: 3,
                 ..Default::default()
             },
+            None,
         );
 
         match result {
@@ -520,7 +538,7 @@ mod tests {
         // 1: wiggle room math overflows but result fits
         response.min_resource_fee = (u32::MAX - 100).into();
 
-        match assemble(&txn, &response) {
+        match assemble(&txn, &response, None) {
             Ok(asstxn) => {
                 let expected = u32::MAX;
                 assert_eq!(asstxn.fee, expected);
@@ -531,7 +549,63 @@ mod tests {
         // 2: combo overflows, should throw
         response.min_resource_fee = (u32::MAX - 99).into();
 
-        match assemble(&txn, &response) {
+        match assemble(&txn, &response, None) {
+            Err(Error::LargeFee(fee)) => {
+                let expected = u64::from(u32::MAX) + 1;
+                assert_eq!(expected, fee, "expected {expected} != {fee} actual");
+            }
+            r => panic!("expected LargeFee error, got: {r:#?}"),
+        }
+    }
+
+    #[test]
+    fn test_assemble_transaction_with_resource_fee() {
+        let sim = simulation_response();
+        let txn = single_contract_fn_transaction();
+        let resource_fee = 12345u64;
+        let Ok(result) = assemble(&txn, &sim, Some(resource_fee)) else {
+            panic!("assemble failed");
+        };
+
+        // validate it auto updated the tx fees from sim response fees
+        // since it was greater than tx.fee
+        assert_eq!(12345 + 100, result.fee);
+
+        // validate it updated sorobantransactiondata block in the tx ext
+        assert_eq!(TransactionExt::V1(transaction_data()), result.ext);
+    }
+
+    #[test]
+    fn test_assemble_transaction_with_resource_fee_overflow_behavior() {
+        //
+        // Test two separate cases:
+        //
+        //  1. Given a near-max (u32::MAX - 100) resource fee make sure the tx
+        //     fee does not overflow after adding the base inclusion fee (100).
+        //  2. Given a large resource fee that WILL exceed u32::MAX with the
+        //     base inclusion fee, ensure the overflow is caught with an error
+        //     rather than silently ignored.
+        let txn = single_contract_fn_transaction();
+        let response = simulation_response();
+
+        // sanity check so these can be adjusted if the above helper changes
+        assert_eq!(txn.fee, 100, "modified txn.fee: update the math below");
+
+        // 1: wiggle room math overflows but result fits
+        let resource_fee: u64 = (u32::MAX - 100).into();
+
+        match assemble(&txn, &response, Some(resource_fee)) {
+            Ok(asstxn) => {
+                let expected = u32::MAX;
+                assert_eq!(asstxn.fee, expected);
+            }
+            r => panic!("expected success, got: {r:#?}"),
+        }
+
+        // 2: combo overflows, should throw
+        let resource_fee: u64 = (u32::MAX - 99).into();
+
+        match assemble(&txn, &response, Some(resource_fee)) {
             Err(Error::LargeFee(fee)) => {
                 let expected = u64::from(u32::MAX) + 1;
                 assert_eq!(expected, fee, "expected {expected} != {fee} actual");

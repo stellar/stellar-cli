@@ -106,13 +106,14 @@ fn set_env_from_config() {
     if let Ok(config) = Config::new() {
         set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
         set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+        set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
     }
 }
 
 // Set an env var from a config file if the env var is not already set.
 // Additionally, a `$NAME_SOURCE` variant will be set, which allows
 // `stellar env` to properly identity the source.
-fn set_env_value_from_config(name: &str, value: Option<String>) {
+fn set_env_value_from_config<T: std::fmt::Display>(name: &str, value: Option<T>) {
     let Some(value) = value else {
         return;
     };
@@ -120,7 +121,7 @@ fn set_env_value_from_config(name: &str, value: Option<String>) {
     std::env::remove_var(format!("{name}_SOURCE"));
 
     if std::env::var(name).is_err() {
-        std::env::set_var(name, value);
+        std::env::set_var(name, value.to_string());
         std::env::set_var(format!("{name}_SOURCE"), "use");
     }
 }

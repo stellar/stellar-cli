@@ -8,6 +8,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "CONTRACT_ID",
         "DATA_HOME",
         "FEE",
+        "INCLUSION_FEE",
         "INVOKE_VIEW",
         "NETWORK",
         "NETWORK_PASSPHRASE",

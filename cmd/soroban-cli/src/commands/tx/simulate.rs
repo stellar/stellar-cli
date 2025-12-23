@@ -66,7 +66,7 @@ impl NetworkRunnable for Cmd {
         let resource_config = self
             .instruction_leeway
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
-        let tx = simulate_and_assemble_transaction(&client, &tx, resource_config).await?;
+        let tx = simulate_and_assemble_transaction(&client, &tx, resource_config, None).await?;
         Ok(tx)
     }
 }
