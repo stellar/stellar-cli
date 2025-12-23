@@ -157,11 +157,7 @@ mod tests {
     const TEST_SIGNATURE_3: &str =
         "VA1+7hefNwv2NKScH6n+Sljj15kLAge+M2wE7fzFOf+L0MMbssA1mwfJZRyyrhBORQRle10X1Dxpx+UOI4EbDQ==";
 
-    fn verify_message(
-        message_bytes: &[u8],
-        signature_base64: &str,
-        public_key_str: &str,
-    ) -> bool {
+    fn verify_message(message_bytes: &[u8], signature_base64: &str, public_key_str: &str) -> bool {
         // Create SEP-53 payload
         let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
         payload.extend_from_slice(SEP53_PREFIX.as_bytes());
@@ -203,7 +199,11 @@ mod tests {
     #[test]
     fn test_verify_binary_message() {
         let message_bytes = BASE64.decode(TEST_MESSAGE_3_BASE64).unwrap();
-        assert!(verify_message(&message_bytes, TEST_SIGNATURE_3, TEST_PUBLIC_KEY));
+        assert!(verify_message(
+            &message_bytes,
+            TEST_SIGNATURE_3,
+            TEST_PUBLIC_KEY
+        ));
     }
 
     #[test]

@@ -66,7 +66,11 @@ pub struct Cmd {
     pub hd_path: Option<usize>,
 
     /// Sign with a Ledger hardware wallet
-    #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LEDGER")]
+    #[arg(
+        long,
+        conflicts_with = "sign_with_key",
+        env = "STELLAR_SIGN_WITH_LEDGER"
+    )]
     pub sign_with_ledger: bool,
 
     #[command(flatten)]
@@ -242,7 +246,10 @@ mod tests {
         let signature = ed25519_dalek::Signature::from_slice(&signature_bytes).unwrap();
 
         // Verify
-        signing_key.verifying_key().verify(&hash, &signature).is_ok()
+        signing_key
+            .verifying_key()
+            .verify(&hash, &signature)
+            .is_ok()
     }
 
     #[test]
@@ -259,7 +266,11 @@ mod tests {
         // Sign and verify
         let message = "Hello, World!";
         let signature = sign_message(message.as_bytes(), &signing_key);
-        assert!(verify_signature(message.as_bytes(), &signature, &signing_key));
+        assert!(verify_signature(
+            message.as_bytes(),
+            &signature,
+            &signing_key
+        ));
     }
 
     #[test]
@@ -269,7 +280,11 @@ mod tests {
         // Sign and verify Japanese text
         let message = "こんにちは、世界！";
         let signature = sign_message(message.as_bytes(), &signing_key);
-        assert!(verify_signature(message.as_bytes(), &signature, &signing_key));
+        assert!(verify_signature(
+            message.as_bytes(),
+            &signature,
+            &signing_key
+        ));
     }
 
     #[test]
@@ -300,6 +315,10 @@ mod tests {
         let signature = sign_message(message1.as_bytes(), &signing_key);
 
         // Verify fails with different message
-        assert!(!verify_signature(message2.as_bytes(), &signature, &signing_key));
+        assert!(!verify_signature(
+            message2.as_bytes(),
+            &signature,
+            &signing_key
+        ));
     }
 }
