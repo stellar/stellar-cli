@@ -1531,7 +1531,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "doc-gen"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "clap-markdown",
  "soroban-cli",
@@ -4912,7 +4912,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5085,7 +5085,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "23.3.0"
+version = "23.4.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
@@ -5158,7 +5158,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-json"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "pretty_assertions",
  "serde",
@@ -5188,7 +5188,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "base64 0.21.7",
  "ethnum",
@@ -5206,7 +5206,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "base64 0.21.7",
  "heck 0.4.1",
@@ -5227,7 +5227,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5336,18 +5336,18 @@ dependencies = [
 
 [[package]]
 name = "stellar-bye"
-version = "23.3.0"
+version = "23.4.0"
 
 [[package]]
 name = "stellar-cli"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "async-trait",
  "bollard",
@@ -5718,49 +5718,49 @@ dependencies = [
 
 [[package]]
 name = "test_constructor"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_account"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_empty_constructor"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5768,7 +5768,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "23.3.0"
+version = "23.4.0"
 dependencies = [
  "soroban-sdk",
 ]
