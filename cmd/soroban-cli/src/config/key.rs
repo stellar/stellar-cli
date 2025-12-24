@@ -28,8 +28,26 @@ pub enum Key {
 }
 
 impl Key {
+    pub async fn muxed_account_async(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
+        let bytes = match self {
+            Key::Secret(secret) => secret.public_key_async(hd_path).await?.0,
+            Key::PublicKey(Public(key)) => key.0,
+            Key::MuxedAccount(MuxedAccount(stellar_strkey::ed25519::MuxedAccount {
+                ed25519,
+                id,
+            })) => {
+                return Ok(xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 {
+                    ed25519: xdr::Uint256(*ed25519),
+                    id: *id,
+                }))
+            }
+        };
+        Ok(xdr::MuxedAccount::Ed25519(xdr::Uint256(bytes)))
+    }
+
     pub fn muxed_account(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
         let bytes = match self {
+            // this is what calls public key
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
             Key::PublicKey(Public(key)) => key.0,
             Key::MuxedAccount(MuxedAccount(stellar_strkey::ed25519::MuxedAccount {

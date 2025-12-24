@@ -63,7 +63,7 @@ fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
 
 // Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
 // transaction. If unable to sign, return an error.
-pub fn sign_soroban_authorizations(
+pub async fn sign_soroban_authorizations(
     raw: &Transaction,
     source_signer: &Signer,
     signers: &[Signer],
@@ -118,12 +118,12 @@ pub fn sign_soroban_authorizations(
 
         let mut signer: Option<&Signer> = None;
         for s in signers {
-            if needle == &s.get_public_key()? {
+            if needle == &s.get_public_key().await? {
                 signer = Some(s);
             }
         }
 
-        if needle == &source_signer.get_public_key()? {
+        if needle == &source_signer.get_public_key().await? {
             signer = Some(source_signer);
         }
 
@@ -131,10 +131,11 @@ pub fn sign_soroban_authorizations(
             Some(signer) => {
                 let signed_entry = sign_soroban_authorization_entry(
                     raw_auth,
-                    signer,
+                    signer, // handle this
                     signature_expiration_ledger,
                     &network_id,
-                )?;
+                )
+                .await?;
                 signed_auths.push(signed_entry);
             }
             None => {
@@ -153,7 +154,7 @@ pub fn sign_soroban_authorizations(
     Ok(Some(tx))
 }
 
-fn sign_soroban_authorization_entry(
+async fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
     signer: &Signer,
     signature_expiration_ledger: u32,
@@ -179,9 +180,8 @@ fn sign_soroban_authorization_entry(
     .to_xdr(Limits::none())?;
 
     let payload = Sha256::digest(preimage);
-    let p: [u8; 32] = payload.as_slice().try_into()?;
-    let signature = signer.sign_payload(p)?;
-    let public_key_vec = signer.get_public_key()?.to_vec();
+    let signature = signer.sign_payload(&payload).await?;
+    let public_key_vec = signer.get_public_key().await?.to_vec();
 
     let map = ScMap::sorted_from(vec![
         (
@@ -262,11 +262,15 @@ impl Signer {
         }
     }
 
-    // when we implement this for ledger we'll need it to be async so we can await for the ledger's public key
-    pub fn get_public_key(&self) -> Result<[u8; 32], Error> {
+    // when we implement this for ledger we'll need it to be awaited
+    #[allow(clippy::unused_async)]
+    pub async fn get_public_key(&self) -> Result<[u8; 32], Error> {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
-            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Ledger(ledger) => {
+                let pk = ledger.public_key().await?;
+                Ok(pk.0)
+            }
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => {
                 let pk = secure_store_entry.get_public_key()?;
@@ -275,13 +279,23 @@ impl Signer {
         }
     }
 
-    // when we implement this for ledger we'll need it to be async so we can await the user approved the tx on the ledger device
-    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+    // when we implement this for ledger we'll need it to be awaited
+    #[allow(clippy::unused_async)]
+    pub async fn sign_payload(&self, payload: &[u8]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
-            SignerKind::Local(local_key) => local_key.sign_payload(payload),
-            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Local(local_key) => {
+                let p = <[u8; 32]>::try_from(payload)?;
+                local_key.sign_payload(p)
+            }
+            SignerKind::Ledger(ledger) => Ok({
+                let p = <[u8; 32]>::try_from(payload)?;
+                ledger.sign_payload(p).await?
+            }),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
-            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
+            SignerKind::SecureStore(secure_store_entry) => {
+                let p = <[u8; 32]>::try_from(payload)?;
+                secure_store_entry.sign_payload(p)
+            }
         }
     }
 }
