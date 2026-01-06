@@ -397,7 +397,7 @@ fn sanitize_doc(doc: &str) -> String {
 /// Sanitize a string to be a valid TypeScript identifier. This only replaces invalid
 /// characters with underscores. Valid characters are letters (a-z, A-Z),
 /// digits (0-9), underscores (_), and dollar signs ($).
-/// 
+///
 /// This does **not** guarantee that the result is a syntactically valid TypeScript identifier.
 fn sanitize_identifier(name: &str) -> String {
     name.chars()
