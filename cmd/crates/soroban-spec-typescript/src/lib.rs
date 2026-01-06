@@ -145,31 +145,34 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
 
 fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String {
     let indent = "  ".repeat(indent_level);
+    let safe_doc = sanitize_doc(doc);
+
     if let Some(method) = method {
-        let doc = if doc.is_empty() {
+        let safe_doc = if safe_doc.is_empty() {
             String::new()
         } else {
             format!(
                 "\n{}   * {}",
                 indent,
-                doc.split('\n').join(&format!("\n{indent}   * "))
+                safe_doc.split('\n').join(&format!("\n{indent}   * "))
             )
         };
+        let safe_method = sanitize_identifier(method);
         return format!(
             r"{indent}/**
-{indent}   * Construct and simulate a {method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{doc}
+{indent}   * Construct and simulate a {safe_method} transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.{safe_doc}
 {indent}   */"
         );
     }
 
-    if doc.is_empty() {
+    if safe_doc.is_empty() {
         return String::new();
     }
 
-    let doc = doc.split('\n').join(&format!("\n{indent} * "));
+    let safe_doc = safe_doc.split('\n').join(&format!("\n{indent} * "));
     format!(
         r"{indent}/**
-{indent} * {doc}
+{indent} * {safe_doc}
 {indent} */
 "
     )
@@ -177,11 +180,12 @@ fn doc_to_ts_doc(doc: &str, method: Option<&str>, indent_level: usize) -> String
 
 pub fn entry_to_name_and_return_type(entry: &Entry) -> Option<(String, String)> {
     if let Entry::Function { name, outputs, .. } = entry {
-        Some((name.to_owned(), outputs_to_return_type(outputs)))
+        Some((sanitize_identifier(name), outputs_to_return_type(outputs)))
     } else {
         None
     }
 }
+
 pub fn outputs_to_return_type(outputs: &[Type]) -> String {
     match outputs {
         [] => "null".to_owned(),
@@ -218,21 +222,23 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
                 String::new()
             };
             let doc = doc_to_ts_doc(doc, Some(name), 0);
+            let safe_name = sanitize_identifier(name);
             let return_type = outputs_to_return_type(outputs);
             format!(
                 r"
   {doc}
-  {name}: ({input}options?: MethodOptions) => Promise<AssembledTransaction<{return_type}>>
+  {safe_name}: ({input}options?: MethodOptions) => Promise<AssembledTransaction<{return_type}>>
 "
             )
         }
 
         Entry::Struct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc, None, 0);
+            let safe_name = sanitize_identifier(name);
             let fields = fields.iter().map(field_to_ts).join("\n  ");
             format!(
                 r"
-{docs}export interface {name} {{
+{docs}export interface {safe_name} {{
   {fields}
 }}
 "
@@ -241,29 +247,31 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 
         Entry::TupleStruct { doc, name, fields } => {
             let docs = doc_to_ts_doc(doc, None, 0);
+            let safe_name = sanitize_identifier(name);
             let fields = fields.iter().map(type_to_ts).join(",  ");
-            format!("{docs}export type {name} = readonly [{fields}];\n")
+            format!("{docs}export type {safe_name} = readonly [{fields}];\n")
         }
-
         Entry::Union { name, doc, cases } => {
             let doc = doc_to_ts_doc(doc, None, 0);
+            let safe_name = sanitize_identifier(name);
             let cases = cases.iter().map(case_to_ts).join(" | ");
 
             format!(
-                r"{doc}export type {name} = {cases};
+                r"{doc}export type {safe_name} = {cases};
 "
             )
         }
         Entry::Enum { doc, name, cases } => {
             let doc = doc_to_ts_doc(doc, None, 0);
+            let safe_name = sanitize_identifier(name);
             let cases = cases.iter().map(enum_case_to_ts).join("\n  ");
-            let name = if name == "Error" {
-                format!("{name}s")
+            let safe_name = if safe_name == "Error" {
+                format!("{safe_name}s")
             } else {
-                name.clone()
+                safe_name.clone()
             };
             format!(
-                r"{doc}export enum {name} {{
+                r"{doc}export enum {safe_name} {{
   {cases}
 }}
 ",
@@ -271,14 +279,15 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
         }
         Entry::ErrorEnum { doc, cases, name } => {
             let doc = doc_to_ts_doc(doc, None, 0);
+            let safe_name = sanitize_identifier(name);
             let cases = cases.iter().map(error_case_to_ts).join(",\n");
-            let name = if name == "Error" {
-                format!("{name}s")
+            let safe_name = if safe_name == "Error" {
+                format!("{safe_name}s")
             } else {
-                name.clone()
+                safe_name.clone()
             };
             format!(
-                r"{doc}export const {name} = {{
+                r"{doc}export const {safe_name} = {{
 {cases}
 }}
 ",
@@ -290,16 +299,19 @@ pub fn entry_to_method_type(entry: &Entry) -> String {
 
 fn error_case_to_ts(ErrorEnumCase { doc, value, name }: &types::ErrorEnumCase) -> String {
     let doc = doc_to_ts_doc(doc, None, 1);
+    let name = sanitize_string(name);
     format!("{doc}  {value}: {{message:\"{name}\"}}")
 }
 
 fn enum_case_to_ts(case: &types::EnumCase) -> String {
     let types::EnumCase { name, value, .. } = case;
+    let name = sanitize_string(name);
     format!("{name} = {value},")
 }
 
 fn case_to_ts(case: &types::UnionCase) -> String {
     let types::UnionCase { name, values, .. } = case;
+    let name = sanitize_string(name);
     format!(
         "{{tag: \"{name}\", values: {}}}",
         type_to_ts(&Type::Tuple {
@@ -310,27 +322,30 @@ fn case_to_ts(case: &types::UnionCase) -> String {
 
 fn field_to_ts(field: &types::StructField) -> String {
     let types::StructField { doc, name, value } = field;
+    let safe_name = sanitize_identifier(name);
     let doc = doc_to_ts_doc(doc, None, 0);
     let type_ = type_to_ts(value);
-    format!("{doc}{name}: {type_};")
+    format!("{doc}{safe_name}: {type_};")
 }
 
 pub fn func_input_to_ts(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, value, .. } = input;
+    let safe_name = sanitize_identifier(name);
     let type_ = type_to_ts(value);
-    format!("{name}: {type_}")
+    format!("{safe_name}: {type_}")
 }
 
 pub fn func_input_to_arg_name(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, .. } = input;
-    name.clone()
+    sanitize_identifier(name)
 }
 
 pub fn parse_arg_to_scval(input: &types::FunctionInput) -> String {
     let types::FunctionInput { name, value, .. } = input;
+    let safe_name = sanitize_identifier(name);
     match value {
-        types::Type::Address => format!("{name}: new Address({name})"),
-        _ => name.clone(),
+        types::Type::Address => format!("{safe_name}: new Address({safe_name})"),
+        _ => safe_name.clone(),
     }
 }
 
@@ -359,7 +374,7 @@ pub fn type_to_ts(value: &types::Type) -> String {
                 format!("readonly [{}]", elements.iter().map(type_to_ts).join(", "))
             }
         }
-        types::Type::Custom { name } => name.clone(),
+        types::Type::Custom { name } => sanitize_identifier(name),
         // TODO: Figure out what js type to map this to. There is already an `Error_` one that
         // ahalabs have added in the bindings, so.. maybe rename that?
         types::Type::Val => "any".to_owned(),
@@ -371,5 +386,242 @@ pub fn type_to_ts(value: &types::Type) -> String {
         types::Type::I256 => "i256".to_string(),
         types::Type::Timepoint => "Timepoint".to_string(),
         types::Type::Duration => "Duration".to_string(),
+    }
+}
+
+/// Sanitize a docstring to be safely included in a TypeScript comment block.
+fn sanitize_doc(doc: &str) -> String {
+    doc.replace("*/", "* /")
+}
+
+/// Sanitize a string to be a valid TypeScript identifier. This only replaces invalid
+/// characters with underscores. Valid characters are letters (a-z, A-Z),
+/// digits (0-9), underscores (_), and dollar signs ($).
+fn sanitize_identifier(name: &str) -> String {
+    name.chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '$' => c,
+            _ => '_',
+        })
+        .collect::<String>()
+}
+
+/// Escape a string for use in a TypeScript string literal
+fn sanitize_string(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{Entry, EnumCase, ErrorEnumCase, FunctionInput, StructField, UnionCase};
+
+    const DOC_TEST: &str = "*/ fn()";
+    const METHOD_TEST: &str = "; fn() //";
+    const STRING_TEST: &str = "\"; fn(); \"";
+
+    #[test]
+    fn test_sanitize_doc() {
+        assert_eq!(sanitize_doc("hello */ world /*"), "hello * / world /*");
+        assert_eq!(sanitize_doc("*/*/"), "* /* /");
+        assert_eq!(sanitize_doc("normal text"), "normal text");
+        assert_eq!(sanitize_doc(""), "");
+    }
+
+    #[test]
+    fn test_sanitize_identifier() {
+        assert_eq!(sanitize_identifier("hello-world"), "hello_world");
+        assert_eq!(sanitize_identifier("test.field"), "test_field");
+        assert_eq!(sanitize_identifier("my/path"), "my_path");
+        assert_eq!(sanitize_identifier("space test"), "space_test");
+        assert_eq!(sanitize_identifier("hello@world"), "hello_world");
+        assert_eq!(sanitize_identifier("hello世界"), "hello__");
+        assert_eq!(sanitize_identifier("🚀rocket"), "_rocket");
+        assert_eq!(sanitize_identifier("$jquery_Name123"), "$jquery_Name123");
+        assert_eq!(sanitize_identifier(""), "");
+    }
+
+    #[test]
+    fn test_sanitize_string() {
+        assert_eq!(sanitize_string("hello\"world"), "hello\\\"world");
+        assert_eq!(sanitize_string("path\\to\\file"), "path\\\\to\\\\file");
+        assert_eq!(sanitize_string("line1\nline2"), "line1\\nline2");
+        assert_eq!(sanitize_string("\"; fn(); \""), "\\\"; fn(); \\\"");
+        assert_eq!(
+            sanitize_string("This is a teapot 123!"),
+            "This is a teapot 123!"
+        );
+        assert_eq!(sanitize_string(""), "");
+    }
+
+    #[test]
+    fn test_doc_to_ts_doc_no_method_sanitizes() {
+        let result = doc_to_ts_doc(DOC_TEST, None, 0);
+
+        assert!(!result.contains(DOC_TEST));
+    }
+
+    #[test]
+    fn test_doc_to_ts_doc_method_sanitizes() {
+        let result = doc_to_ts_doc(DOC_TEST, Some(METHOD_TEST), 0);
+
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_function_sanitizes() {
+        let entry = Entry::Function {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            inputs: vec![],
+            outputs: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_struct_sanitizes() {
+        let entry = Entry::Struct {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            fields: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_union_sanitizes() {
+        let entry = Entry::Union {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            cases: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_enum_sanitizes() {
+        let entry = Entry::Enum {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            cases: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_error_enum_sanitizes() {
+        let entry = Entry::ErrorEnum {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            cases: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_field_to_ts_sanitizes() {
+        let field = StructField {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            value: Type::String,
+        };
+
+        let result = field_to_ts(&field);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_func_input_to_ts_sanitizes() {
+        let input = FunctionInput {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            value: Type::String,
+        };
+
+        let result = func_input_to_ts(&input);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_func_input_to_arg_name_sanitizes() {
+        let input = FunctionInput {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            value: Type::String,
+        };
+        let result = func_input_to_arg_name(&input);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_error_case_to_ts_sanitizes() {
+        let error_case = ErrorEnumCase {
+            doc: String::from(DOC_TEST),
+            value: 1,
+            name: String::from(STRING_TEST),
+        };
+
+        let result = error_case_to_ts(&error_case);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(STRING_TEST));
+    }
+
+    #[test]
+    fn test_enum_case_to_ts_sanitizes() {
+        let enum_case = EnumCase {
+            doc: String::from(DOC_TEST),
+            name: String::from(STRING_TEST),
+            value: 1,
+        };
+
+        let result = enum_case_to_ts(&enum_case);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(STRING_TEST));
+    }
+
+    #[test]
+    fn test_case_to_ts_sanitizes() {
+        let union_case = UnionCase {
+            doc: String::from(DOC_TEST),
+            name: String::from(STRING_TEST),
+            values: vec![Type::String],
+        };
+
+        let result = case_to_ts(&union_case);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(STRING_TEST));
+    }
+
+    #[test]
+    fn test_type_to_ts_custom_sanitizes() {
+        let custom_type = Type::Custom {
+            name: String::from(METHOD_TEST),
+        };
+
+        let result = type_to_ts(&custom_type);
+        assert!(!result.contains(METHOD_TEST));
     }
 }
