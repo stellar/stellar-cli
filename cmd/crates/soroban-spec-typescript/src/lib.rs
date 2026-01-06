@@ -305,7 +305,7 @@ fn error_case_to_ts(ErrorEnumCase { doc, value, name }: &types::ErrorEnumCase) -
 
 fn enum_case_to_ts(case: &types::EnumCase) -> String {
     let types::EnumCase { name, value, .. } = case;
-    let name = sanitize_string(name);
+    let name = sanitize_identifier(name);
     format!("{name} = {value},")
 }
 
@@ -397,6 +397,8 @@ fn sanitize_doc(doc: &str) -> String {
 /// Sanitize a string to be a valid TypeScript identifier. This only replaces invalid
 /// characters with underscores. Valid characters are letters (a-z, A-Z),
 /// digits (0-9), underscores (_), and dollar signs ($).
+/// 
+/// This does **not** guarantee that the result is a syntactically valid TypeScript identifier.
 fn sanitize_identifier(name: &str) -> String {
     name.chars()
         .map(|c| match c {
@@ -489,6 +491,19 @@ mod tests {
     #[test]
     fn test_entry_to_method_type_struct_sanitizes() {
         let entry = Entry::Struct {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            fields: vec![],
+        };
+
+        let result = entry_to_method_type(&entry);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_entry_to_method_type_tuple_struct_sanitizes() {
+        let entry = Entry::TupleStruct {
             doc: String::from(DOC_TEST),
             name: String::from(METHOD_TEST),
             fields: vec![],
@@ -593,13 +608,13 @@ mod tests {
     fn test_enum_case_to_ts_sanitizes() {
         let enum_case = EnumCase {
             doc: String::from(DOC_TEST),
-            name: String::from(STRING_TEST),
+            name: String::from(METHOD_TEST),
             value: 1,
         };
 
         let result = enum_case_to_ts(&enum_case);
         assert!(!result.contains(DOC_TEST));
-        assert!(!result.contains(STRING_TEST));
+        assert!(!result.contains(METHOD_TEST));
     }
 
     #[test]
@@ -622,6 +637,32 @@ mod tests {
         };
 
         let result = type_to_ts(&custom_type);
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_parse_arg_to_scval_address_sanitizes() {
+        let input = FunctionInput {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            value: Type::Address,
+        };
+
+        let result = parse_arg_to_scval(&input);
+        assert!(!result.contains(DOC_TEST));
+        assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_parse_arg_to_scval_string_sanitizes() {
+        let input = FunctionInput {
+            doc: String::from(DOC_TEST),
+            name: String::from(METHOD_TEST),
+            value: Type::String,
+        };
+
+        let result = parse_arg_to_scval(&input);
+        assert!(!result.contains(DOC_TEST));
         assert!(!result.contains(METHOD_TEST));
     }
 }
