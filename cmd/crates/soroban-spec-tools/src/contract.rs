@@ -119,6 +119,87 @@ impl Spec {
             ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?,
         ))
     }
+
+    /// Returns a filtered version of the spec with unused types removed.
+    ///
+    /// This removes any type definitions that are not referenced (directly or
+    /// transitively) by any function in the contract. Functions and events are
+    /// always preserved.
+    #[must_use]
+    pub fn filter_unused_types(&self) -> Vec<ScSpecEntry> {
+        crate::filter::filter_unused_types(self.spec.clone())
+    }
+
+    /// Returns the filtered spec entries serialized as XDR bytes.
+    ///
+    /// This is useful for replacing the contractspecv0 custom section in a WASM
+    /// file with a smaller version that only contains used types.
+    pub fn filtered_spec_xdr(&self) -> Result<Vec<u8>, Error> {
+        let filtered = self.filter_unused_types();
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in filtered {
+            entry.write_xdr(&mut writer)?;
+        }
+        Ok(buffer)
+    }
+}
+
+/// Replaces a custom section in WASM bytes with new content.
+///
+/// This function parses the WASM to find the target custom section, then rebuilds
+/// the WASM by copying all other sections verbatim and appending the new custom
+/// section at the end.
+///
+/// # Arguments
+///
+/// * `wasm_bytes` - The original WASM binary
+/// * `section_name` - The name of the custom section to replace
+/// * `new_content` - The new content for the custom section
+///
+/// # Returns
+///
+/// A new WASM binary with the custom section replaced.
+pub fn replace_custom_section(
+    wasm_bytes: &[u8],
+    section_name: &str,
+    new_content: &[u8],
+) -> Result<Vec<u8>, Error> {
+    use wasm_encoder::{CustomSection, Module, RawSection};
+    use wasmparser::Payload;
+
+    let mut module = Module::new();
+
+    let parser = wasmparser::Parser::new(0);
+    for payload in parser.parse_all(wasm_bytes) {
+        let payload = payload?;
+
+        match &payload {
+            // Skip the target custom section - we'll append the new one at the end
+            Payload::CustomSection(section) if section.name() == section_name => {
+                continue;
+            }
+            // For all other payloads that represent sections, copy them verbatim
+            _ => {
+                if let Some((id, range)) = payload.as_section() {
+                    let raw = RawSection {
+                        id,
+                        data: &wasm_bytes[range],
+                    };
+                    module.section(&raw);
+                }
+            }
+        }
+    }
+
+    // Append the new custom section
+    let custom = CustomSection {
+        name: section_name.into(),
+        data: new_content.into(),
+    };
+    module.section(&custom);
+
+    Ok(module.finish())
 }
 
 impl Display for Spec {
@@ -294,5 +375,171 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
             lib.to_utf8_string_lossy(),
             name.to_utf8_string_lossy()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filter_spec_on_empty_contract() {
+        // This test checks that filtering a contract with events but no UDT references
+        // keeps the events (as per design) but would filter any unused UDTs
+
+        // Skip if the file doesn't exist (it's in a different repo)
+        let wasm_path = "/Users/leighmcculloch/Code/rs-soroban-sdk/tests/empty/out/test_empty.wasm";
+        if !std::path::Path::new(wasm_path).exists() {
+            return;
+        }
+
+        let wasm_bytes = std::fs::read(wasm_path).unwrap();
+        let spec = Spec::new(&wasm_bytes).unwrap();
+
+        println!("Original spec entries: {}", spec.spec.len());
+        for entry in &spec.spec {
+            match entry {
+                ScSpecEntry::FunctionV0(f) => {
+                    println!("  Function: {}", f.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtStructV0(s) => {
+                    println!("  Struct: {}", s.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtUnionV0(u) => {
+                    println!("  Union: {}", u.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtEnumV0(e) => {
+                    println!("  Enum: {}", e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtErrorEnumV0(e) => {
+                    println!("  ErrorEnum: {}", e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::EventV0(e) => {
+                    println!("  Event: {}", e.name.to_utf8_string_lossy());
+                }
+            }
+        }
+
+        let filtered = spec.filter_unused_types();
+        println!("\nFiltered spec entries: {}", filtered.len());
+        for entry in &filtered {
+            match entry {
+                ScSpecEntry::FunctionV0(f) => {
+                    println!("  Function: {}", f.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtStructV0(s) => {
+                    println!("  Struct: {}", s.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtUnionV0(u) => {
+                    println!("  Union: {}", u.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtEnumV0(e) => {
+                    println!("  Enum: {}", e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtErrorEnumV0(e) => {
+                    println!("  ErrorEnum: {}", e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::EventV0(e) => {
+                    println!("  Event: {}", e.name.to_utf8_string_lossy());
+                }
+            }
+        }
+
+        // The function should still be there
+        assert!(filtered
+            .iter()
+            .any(|e| matches!(e, ScSpecEntry::FunctionV0(_))));
+
+        // Events should be preserved
+        let event_count = filtered
+            .iter()
+            .filter(|e| matches!(e, ScSpecEntry::EventV0(_)))
+            .count();
+        assert!(event_count > 0, "Events should be preserved");
+    }
+
+    #[test]
+    fn test_filter_on_custom_types_contract() {
+        // Test filtering on the custom_types contract wasm
+        let wasm_path = "/Users/leighmcculloch/Code/stellar-cli-spec-clean/target/wasm32v1-none/release/test_custom_types.wasm";
+        if !std::path::Path::new(wasm_path).exists() {
+            eprintln!("Skipping test: wasm file not found at {}", wasm_path);
+            return;
+        }
+
+        let wasm_bytes = std::fs::read(wasm_path).unwrap();
+        let spec = Spec::new(&wasm_bytes).unwrap();
+
+        println!("\n=== CUSTOM TYPES CONTRACT ===");
+        println!("Original spec entries: {}", spec.spec.len());
+
+        // Count functions and UDTs
+        let func_count = spec
+            .spec
+            .iter()
+            .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+            .count();
+        let udt_count = spec.spec.len() - func_count;
+
+        println!("Functions: {}", func_count);
+        println!("UDTs: {}", udt_count);
+
+        // List all UDTs before filtering
+        for entry in &spec.spec {
+            match entry {
+                ScSpecEntry::UdtStructV0(s) => {
+                    println!("  Struct: {}", s.name.to_utf8_string_lossy())
+                }
+                ScSpecEntry::UdtUnionV0(u) => {
+                    println!("  Union: {}", u.name.to_utf8_string_lossy())
+                }
+                ScSpecEntry::UdtEnumV0(e) => {
+                    println!("  Enum: {}", e.name.to_utf8_string_lossy())
+                }
+                ScSpecEntry::UdtErrorEnumV0(e) => {
+                    println!("  ErrorEnum: {}", e.name.to_utf8_string_lossy())
+                }
+                ScSpecEntry::EventV0(e) => println!("  Event: {}", e.name.to_utf8_string_lossy()),
+                _ => {}
+            }
+        }
+
+        let filtered = spec.filter_unused_types();
+        println!("\nFiltered spec entries: {}", filtered.len());
+
+        // All types in this contract are used by functions, so nothing should be filtered
+        // Verify key types are preserved:
+        // - Test (used by strukt, strukt_hel, and transitively by ComplexEnum, TupleStruct)
+        // - SimpleEnum (used by simple, and transitively by ComplexEnum, TupleStruct)
+        // - RoyalCard (used by card)
+        // - ComplexEnum (used by complex)
+        // - TupleStruct (used by tuple_strukt)
+        // - RecursiveEnum (used by recursive_enum)
+
+        let has_test = filtered.iter().any(|entry| {
+            matches!(entry, ScSpecEntry::UdtStructV0(s) if s.name.to_utf8_string_lossy() == "Test")
+        });
+        let has_simple_enum = filtered.iter().any(|entry| {
+            matches!(entry, ScSpecEntry::UdtUnionV0(u) if u.name.to_utf8_string_lossy() == "SimpleEnum")
+        });
+        let has_complex_enum = filtered.iter().any(|entry| {
+            matches!(entry, ScSpecEntry::UdtUnionV0(u) if u.name.to_utf8_string_lossy() == "ComplexEnum")
+        });
+
+        assert!(has_test, "Test struct should be preserved");
+        assert!(has_simple_enum, "SimpleEnum should be preserved");
+        assert!(has_complex_enum, "ComplexEnum should be preserved");
+
+        // All functions should be preserved
+        let filtered_func_count = filtered
+            .iter()
+            .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+            .count();
+        assert_eq!(
+            filtered_func_count, func_count,
+            "All functions should be preserved"
+        );
+
+        println!("Filter test passed: all used types and functions preserved");
     }
 }

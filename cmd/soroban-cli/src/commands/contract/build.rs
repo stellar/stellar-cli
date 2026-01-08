@@ -162,6 +162,12 @@ pub enum Error {
 
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
+    #[error(transparent)]
+    SpecTools(#[from] soroban_spec_tools::contract::Error),
+
+    #[error(transparent)]
+    WasmParsing(#[from] wasmparser::BinaryReaderError),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -256,6 +262,7 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
+                Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -361,14 +368,75 @@ impl Cmd {
     }
 
     fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
-        let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let xdr = self.encoded_new_meta()?;
-        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+        use wasm_encoder::{CustomSection, Module, RawSection};
+        use wasmparser::Payload;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        let mut module = Module::new();
+        let mut existing_meta: Vec<u8> = Vec::new();
+
+        let parser = wasmparser::Parser::new(0);
+        for payload in parser.parse_all(&wasm_bytes) {
+            let payload = payload?;
+
+            match &payload {
+                // Collect existing meta to merge with new meta
+                Payload::CustomSection(section) if section.name() == META_CUSTOM_SECTION_NAME => {
+                    existing_meta.extend_from_slice(section.data());
+                }
+                // Copy all other sections verbatim
+                _ => {
+                    if let Some((id, range)) = payload.as_section() {
+                        let raw = RawSection {
+                            id,
+                            data: &wasm_bytes[range],
+                        };
+                        module.section(&raw);
+                    }
+                }
+            }
+        }
+
+        // Append new meta to existing meta
+        let new_meta = self.encoded_new_meta()?;
+        existing_meta.extend(new_meta);
+
+        let meta_section = CustomSection {
+            name: META_CUSTOM_SECTION_NAME.into(),
+            data: existing_meta.into(),
+        };
+        module.section(&meta_section);
+
+        let updated_wasm = module.finish();
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+        fs::write(target_file_path, updated_wasm).map_err(Error::WritingWasmFile)
+    }
+
+    /// Filters unused types from the contract spec.
+    ///
+    /// This removes type definitions that are not referenced by any function,
+    /// reducing the size of the WASM binary.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::{replace_custom_section, Spec};
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        // Parse the spec from the wasm
+        let spec = Spec::new(&wasm_bytes)?;
+
+        // Get the filtered spec as XDR bytes
+        let filtered_xdr = spec.filtered_spec_xdr()?;
+
+        // Replace the contractspecv0 section with the filtered version
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)?;
+
+        // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
