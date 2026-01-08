@@ -175,9 +175,9 @@ pub fn replace_custom_section(
         let payload = payload?;
 
         // Skip the target custom section - we'll append the new one at the end
-        let dominated =
+        let is_target_section =
             matches!(&payload, Payload::CustomSection(section) if section.name() == section_name);
-        if !dominated {
+        if !is_target_section {
             // For all other payloads that represent sections, copy them verbatim
             if let Some((id, range)) = payload.as_section() {
                 let raw = RawSection {
