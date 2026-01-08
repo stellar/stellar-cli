@@ -99,10 +99,8 @@ fn get_entry_type_refs(entry: &ScSpecEntry) -> HashSet<String> {
                 }
             }
         }
-        // Enums and error enums don't reference other types
-        ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
-        // Events are kept unconditionally
-        ScSpecEntry::EventV0(_) => {}
+        // Enums, error enums, and events don't reference other types
+        ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) | ScSpecEntry::EventV0(_) => {}
     }
 
     refs
@@ -179,10 +177,8 @@ pub fn filter_unused_types(entries: Vec<ScSpecEntry>) -> Vec<ScSpecEntry> {
         .into_iter()
         .filter(|entry| {
             match entry {
-                // Always keep functions
-                ScSpecEntry::FunctionV0(_) => true,
-                // Always keep events
-                ScSpecEntry::EventV0(_) => true,
+                // Always keep functions and events
+                ScSpecEntry::FunctionV0(_) | ScSpecEntry::EventV0(_) => true,
                 // Keep UDTs only if they're reachable
                 _ => {
                     if let Some(name) = get_udt_name(entry) {

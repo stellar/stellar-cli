@@ -174,20 +174,17 @@ pub fn replace_custom_section(
     for payload in parser.parse_all(wasm_bytes) {
         let payload = payload?;
 
-        match &payload {
-            // Skip the target custom section - we'll append the new one at the end
-            Payload::CustomSection(section) if section.name() == section_name => {
-                continue;
-            }
+        // Skip the target custom section - we'll append the new one at the end
+        let dominated =
+            matches!(&payload, Payload::CustomSection(section) if section.name() == section_name);
+        if !dominated {
             // For all other payloads that represent sections, copy them verbatim
-            _ => {
-                if let Some((id, range)) = payload.as_section() {
-                    let raw = RawSection {
-                        id,
-                        data: &wasm_bytes[range],
-                    };
-                    module.section(&raw);
-                }
+            if let Some((id, range)) = payload.as_section() {
+                let raw = RawSection {
+                    id,
+                    data: &wasm_bytes[range],
+                };
+                module.section(&raw);
             }
         }
     }
