@@ -2,13 +2,13 @@ use std::io::{self, Read};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
-use ed25519_dalek::Signer as _;
 use sha2::{Digest, Sha256};
 
 use crate::{
     commands::global,
     config::{locator, secret},
-    signer::{self, SecureStoreEntry},
+    print::Print,
+    signer::{self, Signer},
 };
 
 use super::SEP53_PREFIX;
@@ -46,7 +46,8 @@ pub enum Error {
 #[derive(Debug, Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// The message to sign. If not provided, reads from stdin.
+    /// The message to sign. If not provided, reads from stdin. This should **not** include
+    /// the SEP-53 prefix "Stellar Signed Message:\n", as it will be added automatically.
     #[arg()]
     pub message: Option<String>,
 
@@ -54,118 +55,44 @@ pub struct Cmd {
     #[arg(long)]
     pub base64: bool,
 
-    /// Sign with a local key. Can be an identity (--sign-with-key alice),
-    /// a secret key (--sign-with-key SC36...), or a seed phrase
-    /// (--sign-with-key "kite urban...").
+    // @dev: Ledger and Lab don't support signing arbitrary messages yet. Once they do, use `sign_with::Args` here.
+    /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
-    pub sign_with_key: Option<String>,
+    pub sign_with_key: String,
 
-    /// If using a seed phrase to sign, sets which hierarchical deterministic
-    /// path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     #[arg(long)]
+    /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
-
-    /// Sign with a Ledger hardware wallet
-    #[arg(
-        long,
-        conflicts_with = "sign_with_key",
-        env = "STELLAR_SIGN_WITH_LEDGER"
-    )]
-    pub sign_with_ledger: bool,
 
     #[command(flatten)]
     pub locator: locator::Args,
 }
 
-/// Output format for signed messages
-#[derive(serde::Serialize)]
-struct SignedMessageOutput {
-    /// The public key (address) that signed the message
-    signer: String,
-    /// The original message (as provided or base64 if binary)
-    message: String,
-    /// The base64-encoded signature
-    signature: String,
-}
-
 impl Cmd {
-    #[allow(clippy::unused_async)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
+
         // Get the message bytes
         let message_bytes = self.get_message_bytes()?;
 
-        // Create the SEP-53 payload: prefix + message
-        let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
-        payload.extend_from_slice(SEP53_PREFIX.as_bytes());
-        payload.extend_from_slice(&message_bytes);
-
-        // Hash the payload with SHA-256
-        let hash: [u8; 32] = Sha256::digest(&payload).into();
-
-        // Get the signer and sign
-        let (public_key, signature) = self.sign_hash(hash)?;
+        // Get the signer
+        let key_or_name = &self.sign_with_key;
+        let secret = self.locator.get_secret_key(key_or_name)?;
+        let signer = secret.signer(self.hd_path, print.clone()).await?;
+        let public_key = signer.get_public_key()?;
 
         // Encode signature as base64
-        let signature_base64 = BASE64.encode(signature.to_bytes());
+        let signature_base64 = sep_53_sign(&message_bytes, signer)?;
 
-        // Output the result
-        let output = SignedMessageOutput {
-            signer: public_key.to_string(),
-            message: if self.base64 {
-                BASE64.encode(&message_bytes)
-            } else {
-                String::from_utf8_lossy(&message_bytes).to_string()
-            },
-            signature: signature_base64.clone(),
-        };
-
-        if global_args.quiet {
-            // In quiet mode, just output the signature
-            println!("{signature_base64}");
+        print.infoln(format!("Signer: {public_key}"));
+        let message_display = if self.base64 {
+            BASE64.encode(&message_bytes)
         } else {
-            // Output as formatted text
-            println!("Signer: {}", output.signer);
-            println!("Signature: {}", output.signature);
-        }
-
+            String::from_utf8_lossy(&message_bytes).to_string()
+        };
+        print.infoln(format!("Message: {message_display}"));
+        print.println_stdout(signature_base64);
         Ok(())
-    }
-
-    fn sign_hash(
-        &self,
-        hash: [u8; 32],
-    ) -> Result<(stellar_strkey::ed25519::PublicKey, ed25519_dalek::Signature), Error> {
-        if self.sign_with_ledger {
-            // Ledger doesn't support signing arbitrary messages yet
-            return Err(Error::LedgerNotSupported);
-        }
-
-        let key_or_name = self.sign_with_key.as_deref().ok_or(Error::NoSigningKey)?;
-        let secret = self.locator.get_secret_key(key_or_name)?;
-
-        match &secret {
-            secret::Secret::SecretKey { .. } | secret::Secret::SeedPhrase { .. } => {
-                let signing_key = secret.key_pair(self.hd_path)?;
-                let public_key = stellar_strkey::ed25519::PublicKey::from_payload(
-                    signing_key.verifying_key().as_bytes(),
-                )?;
-                let signature = signing_key.sign(&hash);
-                Ok((public_key, signature))
-            }
-            secret::Secret::Ledger => {
-                // Ledger doesn't support signing arbitrary messages yet
-                Err(Error::LedgerNotSupported)
-            }
-            secret::Secret::SecureStore { entry_name } => {
-                let entry = SecureStoreEntry {
-                    name: entry_name.clone(),
-                    hd_path: self.hd_path,
-                };
-                let public_key = entry.get_public_key()?;
-                let signature = entry.sign_payload(hash)?;
-                Ok((public_key, signature))
-            }
-        }
     }
 
     fn get_message_bytes(&self) -> Result<Vec<u8>, Error> {
@@ -195,130 +122,112 @@ impl Cmd {
     }
 }
 
+/// Sign the given message bytes with the provided signer, returning the base64-encoded signature.
+///
+/// Expects the message bytes to be the raw message (without SEP-53 prefix).
+fn sep_53_sign(message_bytes: &[u8], signer: Signer) -> Result<String, Error> {
+    // Create SEP-53 payload
+    let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
+    payload.extend_from_slice(SEP53_PREFIX.as_bytes());
+    payload.extend_from_slice(message_bytes);
+    let hash: [u8; 32] = Sha256::digest(&payload).into();
+
+    let signature = signer.sign_payload(hash)?;
+
+    Ok(BASE64.encode(signature.to_bytes()))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::config::secret::Secret;
     use std::str::FromStr;
 
-    // Use a known valid test key from the codebase
-    const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
-    const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    use super::*;
+    use crate::{config::secret::Secret, utils::into_signing_key};
 
-    fn get_test_signing_key() -> ed25519_dalek::SigningKey {
+    // Public key = GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L
+    const TEST_SECRET_KEY: &str = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+
+    fn setup_locator() -> locator::Args {
+        let temp_dir = tempfile::tempdir().unwrap();
+        locator::Args {
+            global: false,
+            config_dir: Some(temp_dir.path().to_path_buf()),
+        }
+    }
+
+    fn build_signer_for_test_key() -> Signer {
         let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
-        secret.key_pair(None).unwrap()
-    }
-
-    fn sign_message(message_bytes: &[u8], signing_key: &ed25519_dalek::SigningKey) -> String {
-        // Create SEP-53 payload
-        let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
-        payload.extend_from_slice(SEP53_PREFIX.as_bytes());
-        payload.extend_from_slice(message_bytes);
-
-        // Hash with SHA-256
-        let hash: [u8; 32] = Sha256::digest(&payload).into();
-
-        // Sign
-        let signature = signing_key.sign(&hash);
-
-        // Return base64-encoded signature
-        BASE64.encode(signature.to_bytes())
-    }
-
-    fn verify_signature(
-        message_bytes: &[u8],
-        signature_base64: &str,
-        signing_key: &ed25519_dalek::SigningKey,
-    ) -> bool {
-        use ed25519_dalek::Verifier;
-
-        // Create SEP-53 payload
-        let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
-        payload.extend_from_slice(SEP53_PREFIX.as_bytes());
-        payload.extend_from_slice(message_bytes);
-
-        // Hash with SHA-256
-        let hash: [u8; 32] = Sha256::digest(&payload).into();
-
-        // Decode signature
-        let signature_bytes = BASE64.decode(signature_base64).unwrap();
-        let signature = ed25519_dalek::Signature::from_slice(&signature_bytes).unwrap();
-
-        // Verify
-        signing_key
-            .verifying_key()
-            .verify(&hash, &signature)
-            .is_ok()
+        let private_key = secret.private_key(None).unwrap();
+        let signing_key = into_signing_key(&private_key);
+        Signer {
+            kind: signer::SignerKind::Local(signer::LocalKey { key: signing_key }),
+            print: Print::new(true),
+        }
     }
 
     #[test]
-    fn test_sign_and_verify_ascii_message() {
-        let signing_key = get_test_signing_key();
+    fn test_sign_simple() {
+        // SEP-53 - test case 1
+        let message = "Hello, World!".to_string();
+        let expected_signature = "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
 
-        // Verify public key matches expected
-        let public_key = stellar_strkey::ed25519::PublicKey::from_payload(
-            signing_key.verifying_key().as_bytes(),
-        )
-        .unwrap();
-        assert_eq!(public_key.to_string(), TEST_PUBLIC_KEY);
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            sign_with_key: TEST_SECRET_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let signer = build_signer_for_test_key();
 
-        // Sign and verify
-        let message = "Hello, World!";
-        let signature = sign_message(message.as_bytes(), &signing_key);
-        assert!(verify_signature(
-            message.as_bytes(),
-            &signature,
-            &signing_key
-        ));
+        let message_bytes = cmd.get_message_bytes().unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
+
+        assert_eq!(signature_base64, expected_signature);
     }
 
     #[test]
-    fn test_sign_and_verify_utf8_message() {
-        let signing_key = get_test_signing_key();
+    fn test_sign_japanese() {
+        // SEP-53 - test case 2
+        let message = "こんにちは、世界！".to_string();
+        let expected_signature = "CDU265Xs8y3OWbB/56H9jPgUss5G9A0qFuTqH2zs2YDgTm+++dIfmAEceFqB7bhfN3am59lCtDXrCtwH2k1GBA==";
 
-        // Sign and verify Japanese text
-        let message = "こんにちは、世界！";
-        let signature = sign_message(message.as_bytes(), &signing_key);
-        assert!(verify_signature(
-            message.as_bytes(),
-            &signature,
-            &signing_key
-        ));
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            sign_with_key: TEST_SECRET_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let signer = build_signer_for_test_key();
+
+        let message_bytes = cmd.get_message_bytes().unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
+
+        assert_eq!(signature_base64, expected_signature);
     }
 
     #[test]
-    fn test_sign_and_verify_binary_message() {
-        let signing_key = get_test_signing_key();
+    fn test_sign_base64() {
+        // SEP-53 - test case 3
+        let message = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=".to_string();
+        let expected_signature = "VA1+7hefNwv2NKScH6n+Sljj15kLAge+M2wE7fzFOf+L0MMbssA1mwfJZRyyrhBORQRle10X1Dxpx+UOI4EbDQ==";
 
-        // Sign and verify binary data
-        let message_base64 = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=";
-        let message_bytes = BASE64.decode(message_base64).unwrap();
-        let signature = sign_message(&message_bytes, &signing_key);
-        assert!(verify_signature(&message_bytes, &signature, &signing_key));
-    }
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: true,
+            sign_with_key: TEST_SECRET_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let signer = build_signer_for_test_key();
 
-    #[test]
-    fn test_sep53_prefix_is_correct() {
-        // Verify the SEP-53 prefix is as specified
-        assert_eq!(SEP53_PREFIX, "Stellar Signed Message:\n");
-    }
+        let message_bytes = cmd.get_message_bytes().unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
 
-    #[test]
-    fn test_wrong_signature_fails_verification() {
-        let signing_key = get_test_signing_key();
-
-        let message1 = "Hello, World!";
-        let message2 = "Goodbye, World!";
-
-        // Sign message1
-        let signature = sign_message(message1.as_bytes(), &signing_key);
-
-        // Verify fails with different message
-        assert!(!verify_signature(
-            message2.as_bytes(),
-            &signature,
-            &signing_key
-        ));
+        assert_eq!(signature_base64, expected_signature);
     }
 }

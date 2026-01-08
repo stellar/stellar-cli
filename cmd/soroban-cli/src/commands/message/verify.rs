@@ -1,11 +1,14 @@
 use std::io::{self, Read};
 
+use crate::{
+    commands::global,
+    config::{locator, secret},
+    print::Print,
+};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
-
-use crate::config::{locator, secret};
 
 use super::SEP53_PREFIX;
 
@@ -29,6 +32,9 @@ pub enum Error {
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
 
+    #[error(transparent)]
+    Address(#[from] crate::config::address::Error),
+
     #[error("Signature verification failed")]
     VerificationFailed,
 
@@ -39,33 +45,38 @@ pub enum Error {
 #[derive(Debug, Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// The message to verify. If not provided, reads from stdin.
+    /// The message to verify. If not provided, reads from stdin. This should **not** include
+    /// the SEP-53 prefix "Stellar Signed Message:\n", as it will be added automatically.
     #[arg()]
     pub message: Option<String>,
+
+    /// Treat the message as base64-encoded binary data
+    #[arg(long)]
+    pub base64: bool,
 
     /// The base64-encoded signature to verify
     #[arg(long, short = 's')]
     pub signature: String,
 
-    /// The public key to verify against.
-    /// Can be a Stellar public key (G...) or an identity name.
+    /// The public key to verify the signature against. Can be an identity (--public_key alice),
+    /// a public key (--public_key GDKW...).
     #[arg(long, short = 'p')]
     pub public_key: String,
 
-    /// Treat the message as base64-encoded binary data
+    /// If public key identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
-    pub base64: bool,
+    pub hd_path: Option<usize>,
 
     #[command(flatten)]
     pub locator: locator::Args,
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        // Get the message bytes
-        let message_bytes = self.get_message_bytes()?;
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
 
-        // Create the SEP-53 payload: prefix + message
+        // Create the SEP-53 payload: prefix + message as utf-8 byte array
+        let message_bytes = self.get_message_bytes()?;
         let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
         payload.extend_from_slice(SEP53_PREFIX.as_bytes());
         payload.extend_from_slice(&message_bytes);
@@ -80,18 +91,17 @@ impl Cmd {
         }
         let signature = Signature::from_slice(&signature_bytes)?;
 
-        // Get the public key
-        let public_key_bytes = self.get_public_key_bytes()?;
-        let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)?;
+        // Get the verifying key
+        let public_key = self.get_public_key()?;
+        print.infoln(format!("Verifying signature against: {public_key}"));
+        let verifying_key = VerifyingKey::from_bytes(&public_key.0)?;
 
         // Verify the signature
         if verifying_key.verify(&hash, &signature).is_ok() {
-            let public_key = stellar_strkey::ed25519::PublicKey(public_key_bytes);
-            println!("Signature valid");
-            println!("Signer: {public_key}");
+            print.checkln("Signature valid");
             Ok(())
         } else {
-            eprintln!("Signature invalid");
+            print.errorln("Signature invalid");
             Err(Error::VerificationFailed)
         }
     }
@@ -122,16 +132,23 @@ impl Cmd {
         }
     }
 
-    fn get_public_key_bytes(&self) -> Result<[u8; 32], Error> {
-        // First, try to parse as a Stellar public key directly
+    fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        // try to parse as stellar public key first
         if let Ok(pk) = stellar_strkey::ed25519::PublicKey::from_string(&self.public_key) {
-            return Ok(pk.0);
+            return Ok(pk);
         }
 
-        // Otherwise, try to look it up as an identity
-        let secret = self.locator.get_secret_key(&self.public_key)?;
-        let pk = secret.public_key(None)?;
-        Ok(pk.0)
+        // otherwise treat as identity and resolve
+        let account = self
+            .locator
+            .read_key(&self.public_key)?
+            .muxed_account(self.hd_path)
+            .map_err(crate::config::address::Error::from)?;
+        let bytes = match account {
+            soroban_sdk::xdr::MuxedAccount::Ed25519(uint256) => uint256.0,
+            soroban_sdk::xdr::MuxedAccount::MuxedEd25519(muxed_account) => muxed_account.ed25519.0,
+        };
+        Ok(stellar_strkey::ed25519::PublicKey(bytes))
     }
 }
 
@@ -139,91 +156,121 @@ impl Cmd {
 mod tests {
     use super::*;
 
-    // Test vectors from SEP-53
+    // Public key = GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L
     const TEST_PUBLIC_KEY: &str = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
+    const FALSE_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    const FALSE_SIGNATURE: &str =
+        "+F//cUINZgTe4vZNXOEJTchDgEYlvy+iGFH3P65KeVhoyZgAsmGRRYAQLVqgY9J3PAlHPbSSeU5advhswmAfDg==";
 
-    // Test case 1: ASCII message
-    const TEST_MESSAGE_1: &str = "Hello, World!";
-    const TEST_SIGNATURE_1: &str =
-        "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
+    fn setup_locator() -> locator::Args {
+        let temp_dir = tempfile::tempdir().unwrap();
+        locator::Args {
+            global: false,
+            config_dir: Some(temp_dir.path().to_path_buf()),
+        }
+    }
 
-    // Test case 2: Japanese text (UTF-8)
-    const TEST_MESSAGE_2: &str = "こんにちは、世界！";
-    const TEST_SIGNATURE_2: &str =
-        "CDU265Xs8y3OWbB/56H9jPgUss5G9A0qFuTqH2zs2YDgTm+++dIfmAEceFqB7bhfN3am59lCtDXrCtwH2k1GBA==";
-
-    // Test case 3: Binary data (base64 encoded in test vector)
-    const TEST_MESSAGE_3_BASE64: &str = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=";
-    const TEST_SIGNATURE_3: &str =
-        "VA1+7hefNwv2NKScH6n+Sljj15kLAge+M2wE7fzFOf+L0MMbssA1mwfJZRyyrhBORQRle10X1Dxpx+UOI4EbDQ==";
-
-    fn verify_message(message_bytes: &[u8], signature_base64: &str, public_key_str: &str) -> bool {
-        // Create SEP-53 payload
-        let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
-        payload.extend_from_slice(SEP53_PREFIX.as_bytes());
-        payload.extend_from_slice(message_bytes);
-
-        // Hash with SHA-256
-        let hash: [u8; 32] = Sha256::digest(&payload).into();
-
-        // Decode signature
-        let signature_bytes = BASE64.decode(signature_base64).unwrap();
-        let signature = Signature::from_slice(&signature_bytes).unwrap();
-
-        // Decode public key
-        let public_key = stellar_strkey::ed25519::PublicKey::from_string(public_key_str).unwrap();
-        let verifying_key = VerifyingKey::from_bytes(&public_key.0).unwrap();
-
-        // Verify
-        verifying_key.verify(&hash, &signature).is_ok()
+    fn global_args() -> global::Args {
+        global::Args {
+            quiet: true,
+            ..Default::default()
+        }
     }
 
     #[test]
-    fn test_verify_ascii_message() {
-        assert!(verify_message(
-            TEST_MESSAGE_1.as_bytes(),
-            TEST_SIGNATURE_1,
-            TEST_PUBLIC_KEY
-        ));
+    fn test_verify_simple() {
+        // SEP-53 - test case 1
+        let message = "Hello, World!".to_string();
+        let signature = "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
+
+        let global = global_args();
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            signature: signature.to_string(),
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let successful = cmd.run(&global);
+        assert!(successful.is_ok());
     }
 
     #[test]
-    fn test_verify_utf8_message() {
-        assert!(verify_message(
-            TEST_MESSAGE_2.as_bytes(),
-            TEST_SIGNATURE_2,
-            TEST_PUBLIC_KEY
-        ));
+    fn test_verify_japanese() {
+        // SEP-53 - test case 2
+        let message = "こんにちは、世界！".to_string();
+        let signature = "CDU265Xs8y3OWbB/56H9jPgUss5G9A0qFuTqH2zs2YDgTm+++dIfmAEceFqB7bhfN3am59lCtDXrCtwH2k1GBA==";
+
+        let global = global_args();
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            signature: signature.to_string(),
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let successful = cmd.run(&global);
+        assert!(successful.is_ok());
     }
 
     #[test]
-    fn test_verify_binary_message() {
-        let message_bytes = BASE64.decode(TEST_MESSAGE_3_BASE64).unwrap();
-        assert!(verify_message(
-            &message_bytes,
-            TEST_SIGNATURE_3,
-            TEST_PUBLIC_KEY
-        ));
+    fn test_verify_base64() {
+        // SEP-53 - test case 3
+        let message = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=".to_string();
+        let signature = "VA1+7hefNwv2NKScH6n+Sljj15kLAge+M2wE7fzFOf+L0MMbssA1mwfJZRyyrhBORQRle10X1Dxpx+UOI4EbDQ==";
+
+        let global = global_args();
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: true,
+            signature: signature.to_string(),
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let successful = cmd.run(&global);
+        assert!(successful.is_ok());
     }
 
     #[test]
-    fn test_verify_wrong_signature() {
-        // Use signature from message 2 with message 1
-        assert!(!verify_message(
-            TEST_MESSAGE_1.as_bytes(),
-            TEST_SIGNATURE_2,
-            TEST_PUBLIC_KEY
-        ));
+    fn test_verify_bad_signature_errors() {
+        let message = "Hello, World!".to_string();
+
+        let global = global_args();
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            signature: FALSE_SIGNATURE.to_string(),
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let successful = cmd.run(&global);
+        assert!(successful.is_err());
     }
 
     #[test]
-    fn test_verify_wrong_public_key() {
-        // Use a different public key
-        let wrong_key = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
-        assert!(!verify_message(
-            TEST_MESSAGE_1.as_bytes(),
-            TEST_SIGNATURE_1,
-            wrong_key
-        ));
+    fn test_verify_bad_pubkey_errors() {
+        let message = "Hello, World!".to_string();
+        let signature = "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
+
+        let global = global_args();
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: Some(message),
+            base64: false,
+            signature: signature.to_string(),
+            public_key: FALSE_PUBLIC_KEY.to_string(),
+            hd_path: None,
+            locator: locator.clone(),
+        };
+        let successful = cmd.run(&global);
+        assert!(successful.is_err());
     }
 }
