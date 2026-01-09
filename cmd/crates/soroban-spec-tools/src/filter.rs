@@ -12,7 +12,7 @@ use stellar_xdr::curr::{
     WriteXdr,
 };
 
-/// Magic bytes that identify a spec marker: "SpEc"
+/// Magic bytes that identify a spec marker: `SpEc`
 pub const SPEC_MARKER_MAGIC: [u8; 4] = [b'S', b'p', b'E', b'c'];
 
 /// Length of the hash portion (truncated SHA256 - first 8 bytes / 64 bits).
@@ -29,6 +29,11 @@ pub struct SpecMarkerHash(pub [u8; SPEC_MARKER_HASH_LEN]);
 /// Computes the marker hash for a spec entry.
 ///
 /// The hash is a truncated SHA256 (first 8 bytes) of the spec entry's XDR bytes.
+///
+/// # Panics
+///
+/// Panics if the spec entry cannot be encoded to XDR, which should never happen
+/// for valid `ScSpecEntry` values.
 pub fn compute_marker_hash(entry: &ScSpecEntry) -> SpecMarkerHash {
     let xdr_bytes = entry
         .to_xdr(Limits::none())
@@ -48,7 +53,7 @@ pub fn compute_marker_hash(entry: &ScSpecEntry) -> SpecMarkerHash {
 /// only if the corresponding type/event is used.
 ///
 /// Marker format:
-/// - 4 bytes: "SpEc" magic
+/// - 4 bytes: `SpEc` magic
 /// - 8 bytes: truncated SHA256 hash of the spec entry XDR bytes
 pub fn extract_spec_markers(wasm_bytes: &[u8]) -> HashSet<SpecMarkerHash> {
     let mut markers = HashSet::new();
@@ -101,6 +106,7 @@ fn extract_markers_from_data(data: &[u8], markers: &mut HashSet<SpecMarkerHash>)
 /// # Returns
 ///
 /// Filtered entries with only used types/events remaining.
+#[allow(clippy::implicit_hasher)]
 pub fn filter_by_markers(
     entries: Vec<ScSpecEntry>,
     markers: &HashSet<SpecMarkerHash>,
@@ -108,16 +114,13 @@ pub fn filter_by_markers(
     entries
         .into_iter()
         .filter(|entry| {
-            match entry {
-                // Always keep functions - they're the contract's API
-                ScSpecEntry::FunctionV0(_) => true,
-
-                // For all other entries (types, events), check if marker exists
-                _ => {
-                    let hash = compute_marker_hash(entry);
-                    markers.contains(&hash)
-                }
+            // Always keep functions - they're the contract's API
+            if matches!(entry, ScSpecEntry::FunctionV0(_)) {
+                return true;
             }
+            // For all other entries (types, events), check if marker exists
+            let hash = compute_marker_hash(entry);
+            markers.contains(&hash)
         })
         .collect()
 }
@@ -233,8 +236,8 @@ fn get_udt_name(entry: &ScSpecEntry) -> Option<String> {
 ///
 /// This function performs a reachability analysis starting from all functions.
 /// It keeps:
-/// - All functions (FunctionV0)
-/// - All events (EventV0)
+/// - All functions (`FunctionV0`)
+/// - All events (`EventV0`)
 /// - All UDTs that are directly or transitively referenced by functions
 ///
 /// Types that are defined but never used by any function are removed.
