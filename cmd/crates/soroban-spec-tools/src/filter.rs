@@ -6,9 +6,121 @@
 
 use std::collections::HashSet;
 
+use sha2::{Digest, Sha256};
 use stellar_xdr::curr::{
-    ScSpecEntry, ScSpecTypeDef, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0,
+    Limits, ScSpecEntry, ScSpecTypeDef, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0,
+    WriteXdr,
 };
+
+/// Magic bytes that identify a spec marker: "SpEc"
+pub const SPEC_MARKER_MAGIC: [u8; 4] = [b'S', b'p', b'E', b'c'];
+
+/// Length of the hash portion (truncated SHA256 - first 8 bytes / 64 bits).
+pub const SPEC_MARKER_HASH_LEN: usize = 8;
+
+/// Length of the marker: 4-byte prefix + 8-byte truncated SHA256 hash.
+pub const SPEC_MARKER_LEN: usize = 4 + SPEC_MARKER_HASH_LEN;
+
+/// A spec marker hash found in the WASM data section.
+/// This is an 8-byte truncated SHA256 hash of the spec entry XDR bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SpecMarkerHash(pub [u8; SPEC_MARKER_HASH_LEN]);
+
+/// Computes the marker hash for a spec entry.
+///
+/// The hash is a truncated SHA256 (first 8 bytes) of the spec entry's XDR bytes.
+pub fn compute_marker_hash(entry: &ScSpecEntry) -> SpecMarkerHash {
+    let xdr_bytes = entry
+        .to_xdr(Limits::none())
+        .expect("XDR encoding should not fail");
+    let mut hasher = Sha256::new();
+    hasher.update(&xdr_bytes);
+    let hash: [u8; 32] = hasher.finalize().into();
+    let mut truncated = [0u8; SPEC_MARKER_HASH_LEN];
+    truncated.copy_from_slice(&hash[..SPEC_MARKER_HASH_LEN]);
+    SpecMarkerHash(truncated)
+}
+
+/// Extracts spec markers from the WASM data section.
+///
+/// The SDK embeds markers in the data section for each spec entry that is
+/// actually used in the contract. These markers survive dead code elimination
+/// only if the corresponding type/event is used.
+///
+/// Marker format:
+/// - 4 bytes: "SpEc" magic
+/// - 8 bytes: truncated SHA256 hash of the spec entry XDR bytes
+pub fn extract_spec_markers(wasm_bytes: &[u8]) -> HashSet<SpecMarkerHash> {
+    let mut markers = HashSet::new();
+
+    for payload in wasmparser::Parser::new(0).parse_all(wasm_bytes) {
+        let Ok(payload) = payload else { continue };
+
+        if let wasmparser::Payload::DataSection(reader) = payload {
+            for data in reader.into_iter().flatten() {
+                extract_markers_from_data(data.data, &mut markers);
+            }
+        }
+    }
+
+    markers
+}
+
+/// Extracts spec markers from a data segment.
+fn extract_markers_from_data(data: &[u8], markers: &mut HashSet<SpecMarkerHash>) {
+    // Marker size is exactly 12 bytes: 4 (magic) + 8 (hash)
+    if data.len() < SPEC_MARKER_LEN {
+        return;
+    }
+
+    for i in 0..=data.len() - SPEC_MARKER_LEN {
+        // Look for magic bytes
+        if data[i..].starts_with(&SPEC_MARKER_MAGIC) {
+            let hash_start = i + 4;
+            let hash_end = hash_start + SPEC_MARKER_HASH_LEN;
+            let mut hash = [0u8; SPEC_MARKER_HASH_LEN];
+            hash.copy_from_slice(&data[hash_start..hash_end]);
+            markers.insert(SpecMarkerHash(hash));
+        }
+    }
+}
+
+/// Filters spec entries based on markers found in the WASM data section.
+///
+/// This removes any spec entries (types, events) that don't have corresponding
+/// markers in the data section. The SDK embeds markers for types/events that
+/// are actually used, and these markers survive dead code elimination.
+///
+/// Functions are always kept as they define the contract's API.
+///
+/// # Arguments
+///
+/// * `entries` - The spec entries to filter
+/// * `markers` - Marker hashes extracted from the WASM data section
+///
+/// # Returns
+///
+/// Filtered entries with only used types/events remaining.
+pub fn filter_by_markers(
+    entries: Vec<ScSpecEntry>,
+    markers: &HashSet<SpecMarkerHash>,
+) -> Vec<ScSpecEntry> {
+    entries
+        .into_iter()
+        .filter(|entry| {
+            match entry {
+                // Always keep functions - they're the contract's API
+                ScSpecEntry::FunctionV0(_) => true,
+
+                // For all other entries (types, events), check if marker exists
+                _ => {
+                    let hash = compute_marker_hash(entry);
+                    markers.contains(&hash)
+                }
+            }
+        })
+        .collect()
+}
 
 /// Extracts UDT (User Defined Type) names referenced by a type definition.
 ///
@@ -453,5 +565,220 @@ mod tests {
         let names: Vec<_> = filtered.iter().filter_map(get_udt_name).collect();
         assert!(names.contains(&"MyEnum".to_string()));
         assert!(!names.contains(&"UnusedEnum".to_string()));
+    }
+
+    // Helper to encode a marker (matches SDK's spec_marker.rs format)
+    // Format: "SpEc" (4 bytes) + truncated SHA256 hash (8 bytes)
+    fn encode_marker(entry: &ScSpecEntry) -> Vec<u8> {
+        let hash = compute_marker_hash(entry);
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&SPEC_MARKER_MAGIC);
+        buf.extend_from_slice(&hash.0);
+        buf
+    }
+
+    use stellar_xdr::curr::{ScSpecEventDataFormat, ScSpecEventV0};
+
+    fn make_event(name: &str) -> ScSpecEntry {
+        ScSpecEntry::EventV0(ScSpecEventV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: name.try_into().unwrap(),
+            prefix_topics: VecM::default(),
+            params: VecM::default(),
+            data_format: ScSpecEventDataFormat::SingleValue,
+        })
+    }
+
+    #[test]
+    fn test_compute_marker_hash() {
+        let entry = make_struct("MyStruct", vec![("field", ScSpecTypeDef::U32)]);
+        let hash = compute_marker_hash(&entry);
+
+        // Hash should be 8 bytes
+        assert_eq!(hash.0.len(), SPEC_MARKER_HASH_LEN);
+
+        // Same entry produces same hash
+        let hash2 = compute_marker_hash(&entry);
+        assert_eq!(hash.0, hash2.0);
+
+        // Different entry produces different hash
+        let entry2 = make_struct("DifferentStruct", vec![("field", ScSpecTypeDef::U32)]);
+        let hash3 = compute_marker_hash(&entry2);
+        assert_ne!(hash.0, hash3.0);
+    }
+
+    #[test]
+    fn test_encode_marker_format() {
+        let entry = make_event("Transfer");
+        let marker = encode_marker(&entry);
+
+        // Marker should be 12 bytes: 4 (magic) + 8 (hash)
+        assert_eq!(marker.len(), SPEC_MARKER_LEN);
+
+        // First 4 bytes should be magic
+        assert_eq!(&marker[..4], &SPEC_MARKER_MAGIC);
+    }
+
+    #[test]
+    fn test_extract_markers_from_data() {
+        let entry1 = make_event("Transfer");
+        let entry2 = make_struct("MyStruct", vec![("field", ScSpecTypeDef::U32)]);
+
+        let marker1 = encode_marker(&entry1);
+        let marker2 = encode_marker(&entry2);
+
+        // Concatenate markers with some padding
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0u8; 16]); // Some leading bytes
+        data.extend_from_slice(&marker1);
+        data.extend_from_slice(&[0u8; 8]); // Some padding
+        data.extend_from_slice(&marker2);
+        data.extend_from_slice(&[0u8; 16]); // Some trailing bytes
+
+        let mut markers = HashSet::new();
+        extract_markers_from_data(&data, &mut markers);
+
+        // Both markers should be found
+        assert!(markers.contains(&compute_marker_hash(&entry1)));
+        assert!(markers.contains(&compute_marker_hash(&entry2)));
+    }
+
+    #[test]
+    fn test_filter_by_markers_keeps_used_events() {
+        let transfer_event = make_event("Transfer");
+        let mint_event = make_event("Mint");
+
+        let entries = vec![
+            make_function("foo", vec![ScSpecTypeDef::U32]),
+            transfer_event.clone(),
+            mint_event.clone(),
+            make_event("Unused"),
+        ];
+
+        let mut markers = HashSet::new();
+        markers.insert(compute_marker_hash(&transfer_event));
+        markers.insert(compute_marker_hash(&mint_event));
+
+        let filtered = filter_by_markers(entries, &markers);
+
+        // Should have: 1 function + 2 used events
+        assert_eq!(filtered.len(), 3);
+
+        let event_names: Vec<_> = filtered
+            .iter()
+            .filter_map(|e| {
+                if let ScSpecEntry::EventV0(event) = e {
+                    Some(event.name.to_utf8_string_lossy())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert!(event_names.contains(&"Transfer".to_string()));
+        assert!(event_names.contains(&"Mint".to_string()));
+        assert!(!event_names.contains(&"Unused".to_string()));
+    }
+
+    #[test]
+    fn test_filter_by_markers_removes_all_events_if_no_markers() {
+        let entries = vec![
+            make_function("foo", vec![ScSpecTypeDef::U32]),
+            make_event("Transfer"),
+            make_event("Mint"),
+        ];
+
+        let markers = HashSet::new();
+
+        let filtered = filter_by_markers(entries, &markers);
+
+        // Should have: 1 function, 0 events
+        assert_eq!(filtered.len(), 1);
+        assert!(matches!(filtered[0], ScSpecEntry::FunctionV0(_)));
+    }
+
+    #[test]
+    fn test_filter_by_markers_removes_all_if_no_markers() {
+        let entries = vec![
+            make_function("foo", vec![ScSpecTypeDef::U32]),
+            make_struct("MyStruct", vec![("field", ScSpecTypeDef::U32)]),
+            make_enum("MyEnum"),
+            make_event("Unused"),
+        ];
+
+        let markers = HashSet::new(); // No markers
+
+        let filtered = filter_by_markers(entries, &markers);
+
+        // Should have: only functions (always kept), no types or events
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered
+            .iter()
+            .all(|e| matches!(e, ScSpecEntry::FunctionV0(_))));
+    }
+
+    #[test]
+    fn test_filter_by_markers_keeps_types_with_markers() {
+        let used_struct = make_struct("UsedStruct", vec![("field", ScSpecTypeDef::U32)]);
+        let used_enum = make_enum("UsedEnum");
+        let used_event = make_event("UsedEvent");
+
+        let entries = vec![
+            make_function("foo", vec![ScSpecTypeDef::U32]),
+            used_struct.clone(),
+            make_struct("UnusedStruct", vec![("field", ScSpecTypeDef::U32)]),
+            used_enum.clone(),
+            make_enum("UnusedEnum"),
+            used_event.clone(),
+            make_event("UnusedEvent"),
+        ];
+
+        let mut markers = HashSet::new();
+        markers.insert(compute_marker_hash(&used_struct));
+        markers.insert(compute_marker_hash(&used_enum));
+        markers.insert(compute_marker_hash(&used_event));
+
+        let filtered = filter_by_markers(entries, &markers);
+
+        // Should have: 1 function + 1 struct + 1 enum + 1 event
+        assert_eq!(filtered.len(), 4);
+
+        // Check specific entries
+        let struct_names: Vec<_> = filtered
+            .iter()
+            .filter_map(|e| {
+                if let ScSpecEntry::UdtStructV0(s) = e {
+                    Some(s.name.to_utf8_string_lossy())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(struct_names, vec!["UsedStruct"]);
+
+        let enum_names: Vec<_> = filtered
+            .iter()
+            .filter_map(|e| {
+                if let ScSpecEntry::UdtEnumV0(s) = e {
+                    Some(s.name.to_utf8_string_lossy())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(enum_names, vec!["UsedEnum"]);
+
+        let event_names: Vec<_> = filtered
+            .iter()
+            .filter_map(|e| {
+                if let ScSpecEntry::EventV0(s) = e {
+                    Some(s.name.to_utf8_string_lossy())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(event_names, vec!["UsedEvent"]);
     }
 }

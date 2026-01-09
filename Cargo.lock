@@ -5189,6 +5189,7 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
+ "sha2 0.10.9",
  "soroban-spec",
  "stellar-strkey 0.0.15",
  "stellar-xdr",

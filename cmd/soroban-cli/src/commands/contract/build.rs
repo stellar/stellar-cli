@@ -416,10 +416,16 @@ impl Cmd {
         fs::write(target_file_path, updated_wasm).map_err(Error::WritingWasmFile)
     }
 
-    /// Filters unused types from the contract spec.
+    /// Filters unused types and events from the contract spec.
     ///
-    /// This removes type definitions that are not referenced by any function,
-    /// reducing the size of the WASM binary.
+    /// This removes:
+    /// - Type definitions that are not referenced by any function
+    /// - Events that don't have corresponding markers in the WASM data section
+    ///   (events that are defined but never published)
+    ///
+    /// The SDK embeds markers in the data section for types/events that are
+    /// actually used. These markers survive dead code elimination, so we can
+    /// detect which spec entries are truly needed.
     fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
         use soroban_spec_tools::contract::{replace_custom_section, Spec};
 
@@ -428,8 +434,9 @@ impl Cmd {
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
 
-        // Get the filtered spec as XDR bytes
-        let filtered_xdr = spec.filtered_spec_xdr()?;
+        // Get the filtered spec as XDR bytes, filtering both types and events
+        // based on markers in the WASM data section
+        let filtered_xdr = spec.filtered_spec_xdr_with_markers(&wasm_bytes)?;
 
         // Replace the contractspecv0 section with the filtered version
         let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)?;

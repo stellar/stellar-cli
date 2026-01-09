@@ -143,6 +143,39 @@ impl Spec {
         }
         Ok(buffer)
     }
+
+    /// Returns the filtered spec entries serialized as XDR bytes, filtering
+    /// based on markers in the WASM data section.
+    ///
+    /// The SDK embeds markers in the data section for each type/event that is
+    /// actually used in the contract. These markers survive dead code elimination,
+    /// so we can filter out any spec entries that don't have corresponding markers.
+    ///
+    /// Functions are always kept as they define the contract's API.
+    ///
+    /// # Arguments
+    ///
+    /// * `wasm_bytes` - The WASM binary to extract markers from
+    ///
+    /// # Returns
+    ///
+    /// XDR bytes of the filtered spec entries.
+    pub fn filtered_spec_xdr_with_markers(&self, wasm_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+        use crate::filter::{extract_spec_markers, filter_by_markers};
+
+        // Extract markers from the WASM data section
+        let markers = extract_spec_markers(wasm_bytes);
+
+        // Filter all entries (types, events) based on markers
+        let filtered = filter_by_markers(self.spec.clone(), &markers);
+
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in filtered {
+            entry.write_xdr(&mut writer)?;
+        }
+        Ok(buffer)
+    }
 }
 
 /// Replaces a custom section in WASM bytes with new content.
