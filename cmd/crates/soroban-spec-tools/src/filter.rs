@@ -628,23 +628,23 @@ mod tests {
         let entry1 = make_event("Transfer");
         let entry2 = make_struct("MyStruct", vec![("field", ScSpecTypeDef::U32)]);
 
-        let marker1 = encode_marker(&entry1);
-        let marker2 = encode_marker(&entry2);
+        let encoded1 = encode_marker(&entry1);
+        let encoded2 = encode_marker(&entry2);
 
         // Concatenate markers with some padding
         let mut data = Vec::new();
         data.extend_from_slice(&[0u8; 16]); // Some leading bytes
-        data.extend_from_slice(&marker1);
+        data.extend_from_slice(&encoded1);
         data.extend_from_slice(&[0u8; 8]); // Some padding
-        data.extend_from_slice(&marker2);
+        data.extend_from_slice(&encoded2);
         data.extend_from_slice(&[0u8; 16]); // Some trailing bytes
 
-        let mut markers = HashSet::new();
-        extract_markers_from_data(&data, &mut markers);
+        let mut found = HashSet::new();
+        extract_markers_from_data(&data, &mut found);
 
         // Both markers should be found
-        assert!(markers.contains(&compute_marker_hash(&entry1)));
-        assert!(markers.contains(&compute_marker_hash(&entry2)));
+        assert!(found.contains(&compute_marker_hash(&entry1)));
+        assert!(found.contains(&compute_marker_hash(&entry2)));
     }
 
     #[test]
