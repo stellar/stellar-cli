@@ -232,7 +232,12 @@ impl Network {
             .try_into()
             .map_err(|_| Error::InvalidHeader)?;
 
-        Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
+        rpc::Client::new_with_headers(&self.rpc_url, header_map).map_err(|e| match e {
+            rpc::Error::InvalidRpcUrl(..) | rpc::Error::InvalidRpcUrlFromUriParts(..) => {
+                Error::InvalidUrl(self.rpc_url.clone())
+            }
+            other => Error::Rpc(other),
+        })
     }
 }
 
@@ -461,6 +466,22 @@ mod tests {
         assert_eq!(
             result.unwrap_err().to_string(),
             format!("invalid HTTP header: must be in the form 'key:value'")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rpc_client_returns_err_with_bad_rpc_url() {
+        let network = Network {
+            rpc_url: "Bring Your Own: http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: [].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Invalid URL Bring Your Own: http://localhost:8000")
         );
     }
 

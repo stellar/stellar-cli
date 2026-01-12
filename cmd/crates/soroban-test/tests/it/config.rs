@@ -200,7 +200,7 @@ fn use_env() {
     sandbox
         .new_assert_cmd("keys")
         .env(
-            "SOROBAN_SECRET_KEY",
+            "STELLAR_SECRET_KEY",
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
         .arg("add")
@@ -225,7 +225,7 @@ fn set_default_identity() {
     sandbox
         .new_assert_cmd("keys")
         .env(
-            "SOROBAN_SECRET_KEY",
+            "STELLAR_SECRET_KEY",
             "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
         )
         .arg("add")
@@ -245,10 +245,51 @@ fn set_default_identity() {
 
     sandbox
         .new_assert_cmd("env")
-        .env_remove("SOROBAN_ACCOUNT")
+        .env_remove("STELLAR_ACCOUNT")
         .assert()
         .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
         .success();
+}
+
+#[test]
+fn warns_if_default_identity_will_be_ignored() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SC4ZPYELVR7S7EE7KZDZN3ETFTNQHHLTUL34NUAAWZG5OK2RGJ4V2U3Z",
+        )
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "SOROBAN_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .arg("add")
+        .arg("bob")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env("STELLAR_ACCOUNT", "bob")
+        .arg("use")
+        .arg("alice")
+        .assert()
+        .stderr(predicate::str::contains(
+            "Environment variable STELLAR_ACCOUNT is set, which will override this default source account.",
+        ))
+        .success();
+
+    let config_contents = fs::read_to_string(sandbox.config_dir().join("config.toml")).unwrap();
+    assert!(config_contents.contains("identity = \"alice\""));
 }
 
 #[test]
@@ -270,6 +311,78 @@ fn set_default_network() {
         .assert()
         .stdout(predicate::str::contains("STELLAR_NETWORK=testnet"))
         .success();
+}
+
+#[test]
+fn warns_if_default_network_will_be_ignored() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("network")
+        .env("STELLAR_NETWORK", "custom_network")
+        .arg("use")
+        .arg("testnet")
+        .assert()
+        .stderr(predicate::str::contains(
+            "Environment variable STELLAR_NETWORK is set, which will override this default network.",
+        ))
+        .success();
+
+    let config_contents = fs::read_to_string(sandbox.config_dir().join("config.toml")).unwrap();
+    assert!(config_contents.contains("network = \"testnet\""));
+}
+
+#[test]
+fn set_default_inclusion_fee() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("fees")
+        .arg("use")
+        .args(["--amount", "150"])
+        .assert()
+        .stderr(predicate::str::contains(
+            "The default inclusion fee is set to `150`",
+        ))
+        .success();
+
+    let config_contents = fs::read_to_string(sandbox.config_dir().join("config.toml")).unwrap();
+    assert!(config_contents.contains("inclusion_fee = 150"));
+}
+
+#[test]
+fn warns_if_default_inclusion_fee_will_be_ignored() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("fees")
+        .env("STELLAR_INCLUSION_FEE", "200")
+        .arg("use")
+        .args(["--amount", "150"])
+        .assert()
+        .stderr(predicate::str::contains(
+            "Environment variable STELLAR_INCLUSION_FEE is set, which will override this default inclusion fee.",
+        ))
+        .success();
+
+    let config_contents = fs::read_to_string(sandbox.config_dir().join("config.toml")).unwrap();
+    assert!(config_contents.contains("inclusion_fee = 150"));
+}
+
+#[test]
+fn cannot_set_default_inclusion_fee_below_100() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("fees")
+        .arg("use")
+        .args(["--amount", "99"])
+        .assert()
+        .stderr(predicate::str::contains(
+            "Fee amount must be at least 100 stroops, but got 99",
+        ))
+        .failure();
+    assert!(fs::read_to_string(sandbox.config_dir().join("config.toml")).is_err());
 }
 
 #[test]

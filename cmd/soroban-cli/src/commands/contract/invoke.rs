@@ -63,11 +63,15 @@ pub struct Cmd {
     pub config: config::Args,
 
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub resources: crate::resources::Args,
 
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl FromStr for Cmd {
@@ -221,7 +225,8 @@ impl Cmd {
         })
     }
 
-    // uses a default account to check if the tx should be sent after the simulation
+    /// Uses a default account to check if the tx should be sent after the simulation. The transaction
+    /// should be recreated with the real source account later.
     async fn simulate(
         &self,
         host_function_params: &InvokeContractArgs,
@@ -232,13 +237,15 @@ impl Cmd {
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) =
             account_details.account_id.clone();
 
-        let tx = build_invoke_contract_tx(
-            host_function_params.clone(),
-            sequence + 1,
-            self.fee.fee,
-            account_id,
-        )?;
-        Ok(simulate_and_assemble_transaction(rpc_client, &tx, self.fee.resource_config()).await?)
+        let tx =
+            build_invoke_contract_tx(host_function_params.clone(), sequence + 1, 100, account_id)?;
+        Ok(simulate_and_assemble_transaction(
+            rpc_client,
+            &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+        )
+        .await?)
     }
 }
 
@@ -287,9 +294,9 @@ impl NetworkRunnable for Cmd {
 
         let (function, spec, host_function_params, signers) = params;
 
-        // `self.fee.build_only` will be checked again below and the fn will return a TxnResult::Txn
+        // `self.build_only` will be checked again below and the fn will return a TxnResult::Txn
         // if the user passed the --build-only flag
-        let (should_send, cached_simulation) = if self.fee.build_only {
+        let (should_send, cached_simulation) = if self.build_only {
             (ShouldSend::Yes, None)
         } else {
             let assembled = self
@@ -333,17 +340,22 @@ impl NetworkRunnable for Cmd {
         let tx = Box::new(build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
-            self.fee.fee,
+            config.get_inclusion_fee()?,
             account_id,
         )?);
 
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn =
-            simulate_and_assemble_transaction(&client, &tx, self.fee.resource_config()).await?;
-        let assembled = self.fee.apply_to_assembled_txn(txn);
+        let txn = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+        )
+        .await?;
+        let assembled = self.resources.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
 
@@ -362,7 +374,7 @@ impl NetworkRunnable for Cmd {
             .send_transaction_polling(&config.sign(*txn, quiet).await?)
             .await?;
 
-        self.fee.print_cost_info(&res)?;
+        self.resources.print_cost_info(&res)?;
 
         if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
