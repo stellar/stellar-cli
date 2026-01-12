@@ -11,8 +11,6 @@ use soroban_rpc::{
     Error, LogEvents, LogResources, ResourceConfig, RestorePreamble, SimulateTransactionResponse,
 };
 
-pub(crate) const DEFAULT_TRANSACTION_FEES: u32 = 100;
-
 pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
@@ -219,16 +217,26 @@ fn assemble(
         });
     }
 
+    let mut transaction_data = simulation.transaction_data()?;
     let min_resource_fee = if let Some(rf) = resource_fee {
-        tracing::trace!(
-            "setting resource fee to {rf} from {}",
+        if let Ok(rf_i64) = i64::try_from(rf) {
+            tracing::trace!(
+                "setting resource fee to {rf} from {}",
+                simulation.min_resource_fee
+            );
+            transaction_data.resource_fee = rf_i64;
+            rf
+        } else {
+            // Doesn't fit in i64, use simulation value
+            tracing::trace!(
+                "input resource fee {rf} does not fit in i64, using simulation value {}",
+                simulation.min_resource_fee
+            );
             simulation.min_resource_fee
-        );
-        rf
+        }
     } else {
         simulation.min_resource_fee
     };
-    let transaction_data = simulation.transaction_data()?;
 
     let mut op = tx.operations[0].clone();
     if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
@@ -257,13 +265,10 @@ fn assemble(
         }
     }
 
-    // Update transaction fees to meet the minimum resource fees.
-    // Choose larger of existing fee or inclusion + resource fee.
-    let min_tx_fee: u64 = DEFAULT_TRANSACTION_FEES.into();
-    tx.fee = tx.fee.max(
-        u32::try_from(min_tx_fee + min_resource_fee)
-            .map_err(|_| Error::LargeFee(min_tx_fee + min_resource_fee))?,
-    );
+    // Update the transaction fee to be the sum of the inclusion fee and the
+    // minimum resource fee from simulation.
+    let total_fee: u64 = u64::from(raw.fee) + min_resource_fee;
+    tx.fee = u32::try_from(total_fee).map_err(|_| Error::LargeFee(total_fee))?;
 
     tx.operations = vec![op].try_into()?;
     tx.ext = TransactionExt::V1(transaction_data);
@@ -520,6 +525,22 @@ mod tests {
     }
 
     #[test]
+    fn test_assemble_transaction_calcs_fee() {
+        let mut sim = simulation_response();
+        sim.min_resource_fee = 12345;
+        let mut txn = single_contract_fn_transaction();
+        txn.fee = 10000;
+        let Ok(result) = assemble(&txn, &sim, None) else {
+            panic!("assemble failed");
+        };
+
+        assert_eq!(12345 + 10000, result.fee);
+        // validate it updated sorobantransactiondata block in the tx ext
+        let expected_tx_data = transaction_data();
+        assert_eq!(TransactionExt::V1(expected_tx_data), result.ext);
+    }
+
+    #[test]
     fn test_assemble_transaction_overflow_behavior() {
         //
         // Test two separate cases:
@@ -561,7 +582,8 @@ mod tests {
     #[test]
     fn test_assemble_transaction_with_resource_fee() {
         let sim = simulation_response();
-        let txn = single_contract_fn_transaction();
+        let mut txn = single_contract_fn_transaction();
+        txn.fee = 500;
         let resource_fee = 12345u64;
         let Ok(result) = assemble(&txn, &sim, Some(resource_fee)) else {
             panic!("assemble failed");
@@ -569,10 +591,32 @@ mod tests {
 
         // validate it auto updated the tx fees from sim response fees
         // since it was greater than tx.fee
-        assert_eq!(12345 + 100, result.fee);
+        assert_eq!(12345 + 500, result.fee);
 
         // validate it updated sorobantransactiondata block in the tx ext
-        assert_eq!(TransactionExt::V1(transaction_data()), result.ext);
+        let mut expected_tx_data = transaction_data();
+        expected_tx_data.resource_fee = resource_fee.try_into().unwrap();
+        assert_eq!(TransactionExt::V1(expected_tx_data), result.ext);
+    }
+
+    #[test]
+    fn test_assemble_transaction_input_resource_fee_too_large() {
+        let mut sim = simulation_response();
+        sim.min_resource_fee = 12345;
+        let mut txn = single_contract_fn_transaction();
+        txn.fee = 500;
+        let resource_fee = i64::MAX.unsigned_abs() + 1;
+        let Ok(result) = assemble(&txn, &sim, Some(resource_fee)) else {
+            panic!("assemble failed");
+        };
+
+        // validate it auto updated the tx fees from sim response fees
+        // since it was greater than tx.fee
+        assert_eq!(12345 + 500, result.fee);
+
+        // validate it updated sorobantransactiondata block in the tx ext
+        let expected_tx_data = transaction_data();
+        assert_eq!(TransactionExt::V1(expected_tx_data), result.ext);
     }
 
     #[test]
