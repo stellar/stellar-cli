@@ -15,7 +15,7 @@ pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
     resource_config: Option<ResourceConfig>,
-    resource_fee: Option<u64>,
+    resource_fee: Option<i64>,
 ) -> Result<Assembled, Error> {
     let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
         tx: tx.clone(),
@@ -62,7 +62,7 @@ impl Assembled {
     pub fn new(
         txn: &Transaction,
         sim_res: SimulateTransactionResponse,
-        resource_fee: Option<u64>,
+        resource_fee: Option<i64>,
     ) -> Result<Self, Error> {
         let txn = assemble(txn, &sim_res, resource_fee)?;
         Ok(Self { txn, sim_res })
@@ -203,7 +203,7 @@ impl Assembled {
 fn assemble(
     raw: &Transaction,
     simulation: &SimulateTransactionResponse,
-    resource_fee: Option<u64>,
+    resource_fee: Option<i64>,
 ) -> Result<Transaction, Error> {
     let mut tx = raw.clone();
 
@@ -218,24 +218,24 @@ fn assemble(
     }
 
     let mut transaction_data = simulation.transaction_data()?;
-    let min_resource_fee = if let Some(rf) = resource_fee {
-        if let Ok(rf_i64) = i64::try_from(rf) {
+    let min_resource_fee = match resource_fee {
+        Some(rf) => {
             tracing::trace!(
                 "setting resource fee to {rf} from {}",
                 simulation.min_resource_fee
             );
-            transaction_data.resource_fee = rf_i64;
-            rf
-        } else {
-            // Doesn't fit in i64, use simulation value
-            tracing::trace!(
-                "input resource fee {rf} does not fit in i64, using simulation value {}",
-                simulation.min_resource_fee
-            );
-            simulation.min_resource_fee
+            transaction_data.resource_fee = rf;
+            // short circuit the submission error if the resource fee is negative
+            // technically, a negative resource fee is valid XDR so it won't panic earlier
+            // this should not occur as we validate resource fee before calling assemble
+            u64::try_from(rf).map_err(|_| {
+                Error::TransactionSubmissionFailed(String::from(
+                    "TxMalformed - negative resource fee",
+                ))
+            })?
         }
-    } else {
-        simulation.min_resource_fee
+        // transaction_data is already set from simulation response
+        None => simulation.min_resource_fee,
     };
 
     let mut op = tx.operations[0].clone();
@@ -584,7 +584,7 @@ mod tests {
         let sim = simulation_response();
         let mut txn = single_contract_fn_transaction();
         txn.fee = 500;
-        let resource_fee = 12345u64;
+        let resource_fee = 12345i64;
         let Ok(result) = assemble(&txn, &sim, Some(resource_fee)) else {
             panic!("assemble failed");
         };
@@ -595,28 +595,22 @@ mod tests {
 
         // validate it updated sorobantransactiondata block in the tx ext
         let mut expected_tx_data = transaction_data();
-        expected_tx_data.resource_fee = resource_fee.try_into().unwrap();
+        expected_tx_data.resource_fee = resource_fee;
         assert_eq!(TransactionExt::V1(expected_tx_data), result.ext);
     }
 
+    // This should never occur, as resource fee is validated before being passed into
+    // assemble. But test the behavior just in case.
     #[test]
-    fn test_assemble_transaction_input_resource_fee_too_large() {
+    fn test_assemble_transaction_input_resource_fee_negative_errors() {
         let mut sim = simulation_response();
         sim.min_resource_fee = 12345;
         let mut txn = single_contract_fn_transaction();
         txn.fee = 500;
-        let resource_fee = i64::MAX.unsigned_abs() + 1;
-        let Ok(result) = assemble(&txn, &sim, Some(resource_fee)) else {
-            panic!("assemble failed");
-        };
+        let resource_fee = -1;
+        let result = assemble(&txn, &sim, Some(resource_fee));
 
-        // validate it auto updated the tx fees from sim response fees
-        // since it was greater than tx.fee
-        assert_eq!(12345 + 500, result.fee);
-
-        // validate it updated sorobantransactiondata block in the tx ext
-        let expected_tx_data = transaction_data();
-        assert_eq!(TransactionExt::V1(expected_tx_data), result.ext);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -636,7 +630,7 @@ mod tests {
         assert_eq!(txn.fee, 100, "modified txn.fee: update the math below");
 
         // 1: wiggle room math overflows but result fits
-        let resource_fee: u64 = (u32::MAX - 100).into();
+        let resource_fee: i64 = (u32::MAX - 100).into();
 
         match assemble(&txn, &response, Some(resource_fee)) {
             Ok(asstxn) => {
@@ -647,7 +641,7 @@ mod tests {
         }
 
         // 2: combo overflows, should throw
-        let resource_fee: u64 = (u32::MAX - 99).into();
+        let resource_fee: i64 = (u32::MAX - 99).into();
 
         match assemble(&txn, &response, Some(resource_fee)) {
             Err(Error::LargeFee(fee)) => {
