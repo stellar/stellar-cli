@@ -136,8 +136,7 @@ jobs:
 
       - name: Setup Software Trust Manager
         if:
-          github.event_name == 'release' || github.ref == 'refs/heads/main' ||
-          startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+          github.event_name == 'release' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
         id: stm-setup
         uses: digicert/code-signing-software-trust-action@v1.0.1
         with:
