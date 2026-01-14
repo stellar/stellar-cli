@@ -58,8 +58,8 @@ pub struct Cmd {
     #[arg(long, short = 's')]
     pub signature: String,
 
-    /// The public key to verify the signature against. Can be an identity (--public_key alice),
-    /// a public key (--public_key GDKW...).
+    /// The public key to verify the signature against. Can be an identity (--public-key alice),
+    /// a public key (--public-key GDKW...).
     #[arg(long, short = 'p')]
     pub public_key: String,
 

@@ -24,7 +24,7 @@ pub enum Cmd {
     /// corresponding to the given account public key, following the SEP-53 specification. The
     /// provided message will get prefixed with "Stellar Signed Message:\n" before verification.
     ///
-    /// Example: stellar message verify "Hello, World!" --signature <BASE64_SIG> --account GABC...
+    /// Example: stellar message verify "Hello, World!" --signature <BASE64_SIG> --public-key GABC...
     Verify(verify::Cmd),
 }
 
