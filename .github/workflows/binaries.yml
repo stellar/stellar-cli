@@ -104,25 +104,47 @@ jobs:
           echo "STELLAR_CLI_INSTALLER_BASENAME=${installer_basename}" >> $GITHUB_ENV
           echo "STELLAR_CLI_INSTALLER=${installer_basename}.exe" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FILE=D:\\sm_client_cert.p12" >> "$GITHUB_ENV"
 
       - name: Download Artifact
         uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
+
       - name: Uncompress Artifact
         run: tar xvf ${{ env.ARTIFACT_NAME }}
+
       - shell: powershell
         run: winget install --id JRSoftware.InnoSetup --scope machine --silent --accept-package-agreements --accept-source-agreements --force
+
       - shell: powershell
         run: |
           $innoPath = "C:\Program Files (x86)\Inno Setup 6"
           echo $innoPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Build Installer
         shell: powershell
         run: |
           $Env:STELLAR_CLI_VERSION = "${{ env.VERSION }}"
           ISCC.exe installer.iss
           mv Output/stellar-installer.exe ${{ env.STELLAR_CLI_INSTALLER }}
+
+      - name: Setup SM_CLIENT_CERT_FILE
+        run: |
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/sm_client_cert.p12
+        shell: bash
+
+      - name: Setup Software Trust Manager
+        if:
+          github.event_name == 'release' || github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+        id: stm-setup
+        uses: digicert/code-signing-software-trust-action@v1.0.1
+        with:
+          simple-signing-mode: true
+          keypair-alias: key_1412258126
+          input: ${{ env.STELLAR_CLI_INSTALLER }}
+
       - name: Upload Artifact
         uses: ./.github/actions/artifact-upload
         with:
