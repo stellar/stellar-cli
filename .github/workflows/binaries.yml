@@ -35,7 +35,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -59,7 +59,7 @@ jobs:
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -82,7 +82,7 @@ jobs:
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -94,7 +94,7 @@ jobs:
     needs: [build, build-macos, build-windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup vars
         run: |
@@ -106,7 +106,7 @@ jobs:
           echo "ARTIFACT_NAME=stellar-cli-${version}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: ${{ env.ARTIFACT_NAME }}
       - name: Uncompress Artifact
