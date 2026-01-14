@@ -91,7 +91,7 @@ impl Cmd {
             String::from_utf8_lossy(&message_bytes).to_string()
         };
         print.infoln(format!("Message: {message_display}"));
-        print.println_stdout(signature_base64);
+        println!("{signature_base64}");
         Ok(())
     }
 

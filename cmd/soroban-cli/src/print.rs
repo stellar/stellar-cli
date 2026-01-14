@@ -31,13 +31,6 @@ impl Print {
         }
     }
 
-    /// Print message with newline to stdout, regardless of quiet mode.
-    ///
-    /// Use for output data that may be piped or captured by other programs.
-    pub fn println_stdout<T: Display + Sized>(&self, message: T) {
-        println!("{message}");
-    }
-
     pub fn clear_previous_line(&self) {
         if !self.quiet {
             if cfg!(windows) {
