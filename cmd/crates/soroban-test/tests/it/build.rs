@@ -1,6 +1,6 @@
 use assert_fs::TempDir;
 use fs_extra::dir::CopyOptions;
-use predicates::prelude::predicate;
+use predicates::prelude::{predicate, PredicateBooleanExt};
 use shell_escape::escape;
 use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
 use soroban_spec_tools::contract::Spec;
@@ -399,6 +399,251 @@ fn remap_absolute_paths() {
 
     assert!(!remap_has_abs_paths);
     assert!(noremap_has_abs_paths);
+}
+
+#[test]
+fn build_warns_when_overflow_checks_missing() {
+    let sandbox = TestEnv::default();
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+
+    // Create a workspace without overflow-checks in profile
+    std::fs::write(
+        dir_path.join("Cargo.toml"),
+        r#"
+[workspace]
+resolver = "2"
+members = ["contract"]
+
+[profile.release]
+opt-level = "z"
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
+    std::fs::write(
+        dir_path.join("contract/Cargo.toml"),
+        r#"
+[package]
+name = "test-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+"#,
+    )
+    .unwrap();
+    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
+
+    // Build will fail (no panic handler), but warning should appear first
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(dir_path)
+        .arg("build")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "`overflow-checks` is not enabled for profile `release`",
+        ));
+}
+
+#[test]
+fn build_no_warning_when_overflow_checks_enabled() {
+    let sandbox = TestEnv::default();
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+
+    // Create a workspace with overflow-checks = true
+    std::fs::write(
+        dir_path.join("Cargo.toml"),
+        r#"
+[workspace]
+resolver = "2"
+members = ["contract"]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
+    std::fs::write(
+        dir_path.join("contract/Cargo.toml"),
+        r#"
+[package]
+name = "test-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+"#,
+    )
+    .unwrap();
+    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
+
+    // Build will fail (no panic handler), but no overflow warning should appear
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(dir_path)
+        .arg("build")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("overflow-checks").not());
+}
+
+#[test]
+fn build_no_warning_when_profile_inherits_overflow_checks() {
+    let sandbox = TestEnv::default();
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+
+    // Create a workspace where custom profile inherits from release with overflow-checks
+    std::fs::write(
+        dir_path.join("Cargo.toml"),
+        r#"
+[workspace]
+resolver = "2"
+members = ["contract"]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+
+[profile.custom]
+inherits = "release"
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
+    std::fs::write(
+        dir_path.join("contract/Cargo.toml"),
+        r#"
+[package]
+name = "test-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+"#,
+    )
+    .unwrap();
+    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
+
+    // Build with custom profile - no warning should appear
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(dir_path)
+        .arg("build")
+        .arg("--profile=custom")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("overflow-checks").not());
+}
+
+#[test]
+fn build_warns_when_inherited_profile_missing_overflow_checks() {
+    let sandbox = TestEnv::default();
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+
+    // Create a workspace where custom profile inherits from release without overflow-checks
+    std::fs::write(
+        dir_path.join("Cargo.toml"),
+        r#"
+[workspace]
+resolver = "2"
+members = ["contract"]
+
+[profile.release]
+opt-level = "z"
+
+[profile.custom]
+inherits = "release"
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
+    std::fs::write(
+        dir_path.join("contract/Cargo.toml"),
+        r#"
+[package]
+name = "test-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+"#,
+    )
+    .unwrap();
+    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
+
+    // Build with custom profile - warning should appear
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(dir_path)
+        .arg("build")
+        .arg("--profile=custom")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "`overflow-checks` is not enabled for profile `custom`",
+        ));
+}
+
+#[test]
+fn build_no_warning_with_print_commands_only() {
+    let sandbox = TestEnv::default();
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+
+    // Create a workspace without overflow-checks
+    std::fs::write(
+        dir_path.join("Cargo.toml"),
+        r#"
+[workspace]
+resolver = "2"
+members = ["contract"]
+
+[profile.release]
+opt-level = "z"
+"#,
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
+    std::fs::write(
+        dir_path.join("contract/Cargo.toml"),
+        r#"
+[package]
+name = "test-contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+"#,
+    )
+    .unwrap();
+    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
+
+    // With --print-commands-only, no warning should appear
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(dir_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("overflow-checks").not());
 }
 
 #[test]
