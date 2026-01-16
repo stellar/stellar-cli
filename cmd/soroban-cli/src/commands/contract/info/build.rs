@@ -96,11 +96,8 @@ impl Cmd {
                     .decode(&attestation.bundle.dsse_envelope.payload)
                     .ok()?;
                 let payload: gh_payload::Root = serde_json::from_slice(&payload).ok()?;
-                if payload.predicate_type == "https://slsa.dev/provenance/v1" {
-                    Some(payload)
-                } else {
-                    None
-                }
+
+                (payload.predicate_type == "https://slsa.dev/provenance/v1").then_some(payload)
             })
             .ok_or(Error::AttestationNotFound)?;
 
