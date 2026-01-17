@@ -16,6 +16,7 @@ use stellar_xdr::curr::{
 };
 
 pub mod contract;
+pub mod filter;
 pub mod utils;
 
 #[derive(thiserror::Error, Debug)]

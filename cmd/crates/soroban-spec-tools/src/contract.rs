@@ -119,6 +119,117 @@ impl Spec {
             ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?,
         ))
     }
+
+    /// Returns a filtered version of the spec with unused types removed.
+    ///
+    /// This removes any type definitions that are not referenced (directly or
+    /// transitively) by any function in the contract. Functions and events are
+    /// always preserved.
+    #[must_use]
+    pub fn filter_unused_types(&self) -> Vec<ScSpecEntry> {
+        crate::filter::filter_unused_types(self.spec.clone())
+    }
+
+    /// Returns the filtered spec entries serialized as XDR bytes.
+    ///
+    /// This is useful for replacing the contractspecv0 custom section in a WASM
+    /// file with a smaller version that only contains used types.
+    pub fn filtered_spec_xdr(&self) -> Result<Vec<u8>, Error> {
+        let filtered = self.filter_unused_types();
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in filtered {
+            entry.write_xdr(&mut writer)?;
+        }
+        Ok(buffer)
+    }
+
+    /// Returns the filtered spec entries serialized as XDR bytes, filtering
+    /// based on markers in the WASM data section.
+    ///
+    /// The SDK embeds markers in the data section for each type/event that is
+    /// actually used in the contract. These markers survive dead code elimination,
+    /// so we can filter out any spec entries that don't have corresponding markers.
+    ///
+    /// Functions are always kept as they define the contract's API.
+    ///
+    /// # Arguments
+    ///
+    /// * `wasm_bytes` - The WASM binary to extract markers from
+    ///
+    /// # Returns
+    ///
+    /// XDR bytes of the filtered spec entries.
+    pub fn filtered_spec_xdr_with_markers(&self, wasm_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+        use crate::filter::{extract_spec_markers, filter_by_markers};
+
+        // Extract markers from the WASM data section
+        let markers = extract_spec_markers(wasm_bytes);
+
+        // Filter all entries (types, events) based on markers
+        let filtered = filter_by_markers(self.spec.clone(), &markers);
+
+        let mut buffer = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        for entry in filtered {
+            entry.write_xdr(&mut writer)?;
+        }
+        Ok(buffer)
+    }
+}
+
+/// Replaces a custom section in WASM bytes with new content.
+///
+/// This function parses the WASM to find the target custom section, then rebuilds
+/// the WASM by copying all other sections verbatim and appending the new custom
+/// section at the end.
+///
+/// # Arguments
+///
+/// * `wasm_bytes` - The original WASM binary
+/// * `section_name` - The name of the custom section to replace
+/// * `new_content` - The new content for the custom section
+///
+/// # Returns
+///
+/// A new WASM binary with the custom section replaced.
+pub fn replace_custom_section(
+    wasm_bytes: &[u8],
+    section_name: &str,
+    new_content: &[u8],
+) -> Result<Vec<u8>, Error> {
+    use wasm_encoder::{CustomSection, Module, RawSection};
+    use wasmparser::Payload;
+
+    let mut module = Module::new();
+
+    let parser = wasmparser::Parser::new(0);
+    for payload in parser.parse_all(wasm_bytes) {
+        let payload = payload?;
+
+        // Skip the target custom section - we'll append the new one at the end
+        let is_target_section =
+            matches!(&payload, Payload::CustomSection(section) if section.name() == section_name);
+        if !is_target_section {
+            // For all other payloads that represent sections, copy them verbatim
+            if let Some((id, range)) = payload.as_section() {
+                let raw = RawSection {
+                    id,
+                    data: &wasm_bytes[range],
+                };
+                module.section(&raw);
+            }
+        }
+    }
+
+    // Append the new custom section
+    let custom = CustomSection {
+        name: section_name.into(),
+        data: new_content.into(),
+    };
+    module.section(&custom);
+
+    Ok(module.finish())
 }
 
 impl Display for Spec {
