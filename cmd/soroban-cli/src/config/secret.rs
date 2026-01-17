@@ -126,14 +126,34 @@ impl Secret {
         })
     }
 
+
+    pub async fn public_key_async(&self, index: Option<usize>) -> Result<PublicKey, Error> {
+        match &self {
+            Secret::Ledger => {
+                //TODO: handle unwrap
+                let hd_path: u32 = index.unwrap_or(0).try_into().unwrap();
+                let ledger = ledger::new(hd_path).await.unwrap();
+                Ok(ledger.public_key().await.unwrap())
+            },
+            _ => {
+                self.public_key(index)
+            }
+        }
+    }
+
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name } = self {
-            Ok(secure_store::get_public_key(entry_name, index)?)
-        } else {
-            let key = self.key_pair(index)?;
-            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-                key.verifying_key().as_bytes(),
-            )?)
+        match &self {
+            Secret::SecureStore { entry_name } => {
+                Ok(secure_store::get_public_key(entry_name, index)?)
+            },
+            _ => {
+                let key = self.key_pair(index)?;
+                Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                    key.verifying_key().as_bytes(),
+                )?)
+            }
+            // Secret::SecretKey { secret_key } => todo!(),
+            // Secret::SeedPhrase { seed_phrase } => todo!(),
         }
     }
 

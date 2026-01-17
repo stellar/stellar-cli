@@ -129,7 +129,9 @@ impl UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
                 Ok(locator.read_key(alias_or_secret)?.try_into()?)
             }
-            UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerPrivateKeyRevealNotSupported),
+            UnresolvedMuxedAccount::Ledger(_) => {
+                Ok(locator.read_key("ledger")?.try_into()?)
+            }
         }
     }
 }
