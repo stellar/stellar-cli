@@ -55,7 +55,7 @@ pub fn generate_from_file(
 
 pub fn generate_from_wasm(wasm: &[u8]) -> Result<String, FromWasmError> {
     let spec = from_wasm(wasm)?;
-    let json = generate(&spec);
+    let json = generate(spec.as_slice());
     Ok(json)
 }
 
