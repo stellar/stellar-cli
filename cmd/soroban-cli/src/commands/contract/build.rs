@@ -649,7 +649,7 @@ fn check_overflow_checks(print: &Print, doc: &toml_edit::DocumentMut, profile: &
         // Check if overflow-checks is explicitly set
         if let Some(val) = profile_section
             .get("overflow-checks")
-            .and_then(|v| v.as_bool())
+            .and_then(toml_edit::Item::as_bool)
         {
             return Some(val);
         }
