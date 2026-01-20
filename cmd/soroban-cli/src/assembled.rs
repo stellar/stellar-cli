@@ -221,7 +221,7 @@ fn assemble(
     let min_resource_fee = match resource_fee {
         Some(rf) => {
             tracing::trace!(
-                "setting resource fee to {rf} from {}",
+                "overriding resource fee to {rf} (simulation suggested {})",
                 simulation.min_resource_fee
             );
             transaction_data.resource_fee = rf;
