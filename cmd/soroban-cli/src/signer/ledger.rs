@@ -22,6 +22,7 @@ pub enum Error {
 mod ledger_impl {
     use super::Error;
     use crate::xdr::{DecoratedSignature, Hash, Signature, SignatureHint, Transaction};
+    use ed25519_dalek::Signature as Ed25519Signature;
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
@@ -94,6 +95,12 @@ mod ledger_impl {
             let hint = SignatureHint(key.0[28..].try_into()?);
             let signature = Signature(signature.try_into()?);
             Ok(DecoratedSignature { hint, signature })
+        }
+
+        pub async fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+            let signed_bytes = self.signer.sign_blob(&self.index.into(), &payload).await?;
+            let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
+            Ok(sig)
         }
 
         pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {

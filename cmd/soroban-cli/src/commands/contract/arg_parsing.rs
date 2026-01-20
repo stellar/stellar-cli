@@ -218,17 +218,20 @@ async fn parse_single_argument(
             ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
         ) {
             let trimmed_s = s.trim_matches('"');
-            let addr = resolve_address(trimmed_s, config)?;
-            if let Some(signer) = resolve_signer(trimmed_s, config).await {
-                signers.push(signer);
-            }
+            let addr = resolve_address(trimmed_s, config).await?;
+
+            let signer = resolve_signer(&s, config).await;
+                if let Some(signer) = signer {
+                    signers.push(signer);
+                }
+
             parsed_args.push(parse_argument_with_validation(
                 &name,
                 &addr,
                 &input.type_,
                 spec,
                 config,
-            )?);
+            ).await?);
             return Ok(());
         }
 
@@ -238,7 +241,7 @@ async fn parse_single_argument(
             &input.type_,
             spec,
             config,
-        )?);
+        ).await?);
         Ok(())
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
         parsed_args.push(ScVal::Void);
@@ -251,7 +254,7 @@ async fn parse_single_argument(
             expected_type_name,
             spec,
             config,
-        )?);
+        ).await?);
         Ok(())
     } else {
         Err(Error::MissingArgument {
@@ -261,7 +264,7 @@ async fn parse_single_argument(
     }
 }
 
-fn parse_file_argument(
+async fn parse_file_argument(
     name: &str,
     arg_path: &PathBuf,
     type_def: &ScSpecTypeDef,
@@ -293,7 +296,7 @@ fn parse_file_argument(
             type_def,
             file_contents.len()
         );
-        parse_argument_with_validation(name, &file_contents, type_def, spec, config)
+        parse_argument_with_validation(name, &file_contents, type_def, spec, config).await
     }
 }
 
@@ -428,12 +431,12 @@ pub fn output_to_string(
     Ok(TxnResult::Res(res_str))
 }
 
-fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
+async fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
     let sc_address: UnresolvedScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
         addr @ UnresolvedScAddress::Alias(_) => {
-            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr = addr.resolve_async(&config.locator, &config.get_network()?.network_passphrase).await?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
@@ -594,7 +597,7 @@ fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) 
 }
 
 /// Enhanced argument parsing with better error handling
-fn parse_argument_with_validation(
+async fn parse_argument_with_validation(
     arg_name: &str,
     value: &str,
     expected_type: &ScSpecTypeDef,
@@ -614,7 +617,7 @@ fn parse_argument_with_validation(
         ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
     ) {
         let trimmed_value = value.trim_matches('"');
-        let addr = resolve_address(trimmed_value, config)?;
+        let addr = resolve_address(trimmed_value, config).await?;
         return spec
             .from_string(&addr, expected_type)
             .map_err(|error| Error::CannotParseArg {
