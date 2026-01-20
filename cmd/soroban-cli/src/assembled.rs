@@ -589,8 +589,8 @@ mod tests {
             panic!("assemble failed");
         };
 
-        // validate it auto updated the tx fees from sim response fees
-        // since it was greater than tx.fee
+        // validate the assembled tx fee is the sum of the inclusion fee (txn.fee)
+        // and the resource fee
         assert_eq!(12345 + 500, result.fee);
 
         // validate it updated sorobantransactiondata block in the tx ext
