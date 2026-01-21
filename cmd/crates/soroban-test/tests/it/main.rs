@@ -7,6 +7,7 @@ mod init;
 #[cfg(feature = "it")]
 mod integration;
 mod log;
+mod message;
 mod plugin;
 mod rpc_provider;
 mod strkey;

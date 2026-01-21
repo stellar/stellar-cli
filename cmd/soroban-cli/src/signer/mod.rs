@@ -118,12 +118,12 @@ pub fn sign_soroban_authorizations(
 
         let mut signer: Option<&Signer> = None;
         for s in signers {
-            if needle == &s.get_public_key()? {
+            if needle == &s.get_public_key()?.0 {
                 signer = Some(s);
             }
         }
 
-        if needle == &source_signer.get_public_key()? {
+        if needle == &source_signer.get_public_key()?.0 {
             signer = Some(source_signer);
         }
 
@@ -181,7 +181,7 @@ fn sign_soroban_authorization_entry(
     let payload = Sha256::digest(preimage);
     let p: [u8; 32] = payload.as_slice().try_into()?;
     let signature = signer.sign_payload(p)?;
-    let public_key_vec = signer.get_public_key()?.to_vec();
+    let public_key_vec = signer.get_public_key()?.0.to_vec();
 
     let map = ScMap::sorted_from(vec![
         (
@@ -263,15 +263,14 @@ impl Signer {
     }
 
     // when we implement this for ledger we'll need it to be async so we can await for the ledger's public key
-    pub fn get_public_key(&self) -> Result<[u8; 32], Error> {
+    pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         match &self.kind {
-            SignerKind::Local(local_key) => Ok(*local_key.key.verifying_key().as_bytes()),
+            SignerKind::Local(local_key) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                local_key.key.verifying_key().as_bytes(),
+            )?),
             SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
-            SignerKind::SecureStore(secure_store_entry) => {
-                let pk = secure_store_entry.get_public_key()?;
-                Ok(pk.0)
-            }
+            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
         }
     }
 
