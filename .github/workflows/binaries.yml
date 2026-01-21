@@ -35,7 +35,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -59,7 +59,7 @@ jobs:
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -82,7 +82,7 @@ jobs:
             ext: .exe
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-binary
         with:
           target: ${{ matrix.sys.target }}
@@ -94,7 +94,7 @@ jobs:
     needs: [build, build-macos, build-windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup vars
         run: |
@@ -107,7 +107,7 @@ jobs:
           echo "SM_CLIENT_CERT_FILE=D:\\sm_client_cert.p12" >> "$GITHUB_ENV"
 
       - name: Download Artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: ${{ env.ARTIFACT_NAME }}
 

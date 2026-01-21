@@ -59,6 +59,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `version` — Print version information
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
+- `message` — Sign and verify arbitrary messages using SEP-53
 - `fee-stats` — ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
 - `fees` — Fetch network feestats and configure CLI fee settings
 
@@ -4481,6 +4482,68 @@ Get the latest ledger sequence and information from the network
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar message`
+
+Sign and verify arbitrary messages using SEP-53
+
+**Usage:** `stellar message <COMMAND>`
+
+###### **Subcommands:**
+
+- `sign` — Sign an arbitrary message using SEP-53
+- `verify` — Verify a SEP-53 signed message
+
+## `stellar message sign`
+
+Sign an arbitrary message using SEP-53
+
+Signs a message following the SEP-53 specification for arbitrary message signing. The provided message will get prefixed with "Stellar Signed Message:\n", hashed with SHA-256, and signed with the ed25519 private key.
+
+Example: stellar message sign "Hello, World!" --sign-with-key alice
+
+**Usage:** `stellar message sign [OPTIONS] --sign-with-key <SIGN_WITH_KEY> [MESSAGE]`
+
+###### **Arguments:**
+
+- `<MESSAGE>` — The message to sign. If not provided, reads from stdin. This should **not** include the SEP-53 prefix "Stellar Signed Message:\n", as it will be added automatically
+
+###### **Options:**
+
+- `--base64` — Treat the message as base64-encoded binary data
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar message verify`
+
+Verify a SEP-53 signed message
+
+Verifies that a signature was produced by the holder of the private key corresponding to the given account public key, following the SEP-53 specification. The provided message will get prefixed with "Stellar Signed Message:\n" before verification.
+
+Example: stellar message verify "Hello, World!" --signature <BASE64_SIG> --public-key GABC...
+
+**Usage:** `stellar message verify [OPTIONS] --signature <SIGNATURE> --public-key <PUBLIC_KEY> [MESSAGE]`
+
+###### **Arguments:**
+
+- `<MESSAGE>` — The message to verify. If not provided, reads from stdin. This should **not** include the SEP-53 prefix "Stellar Signed Message:\n", as it will be added automatically
+
+###### **Options:**
+
+- `--base64` — Treat the message as base64-encoded binary data
+- `-s`, `--signature <SIGNATURE>` — The base64-encoded signature to verify
+- `-p`, `--public-key <PUBLIC_KEY>` — The public key to verify the signature against. Can be an identity (--public-key alice), a public key (--public-key GDKW...)
+- `--hd-path <HD_PATH>` — If public key identity is a seed phrase use this hd path, default is 0
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar fee-stats`
 
