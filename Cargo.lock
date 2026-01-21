@@ -5000,9 +5000,9 @@ dependencies = [
  "shlex",
  "soroban-ledger-snapshot",
  "soroban-sdk",
- "soroban-spec 23.3.0",
+ "soroban-spec",
  "soroban-spec-json",
- "soroban-spec-rust 23.3.0",
+ "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
  "stellar-asset-spec",
@@ -5172,21 +5172,10 @@ dependencies = [
  "quote",
  "sha2 0.10.9",
  "soroban-env-common",
- "soroban-spec 25.0.0-rc.2",
- "soroban-spec-rust 25.0.0-rc.2",
+ "soroban-spec",
+ "soroban-spec-rust",
  "stellar-xdr",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "soroban-spec"
-version = "23.3.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
-dependencies = [
- "base64 0.22.1",
- "stellar-xdr",
- "thiserror 1.0.69",
- "wasmparser",
 ]
 
 [[package]]
@@ -5210,23 +5199,8 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 23.3.0",
+ "soroban-spec",
  "stellar-xdr",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "soroban-spec-rust"
-version = "23.3.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv25-preview#184c1e398317ddb6d75d014b18235f7cdb59b255"
-dependencies = [
- "prettyplease",
- "proc-macro2",
- "quote",
- "sha2 0.10.9",
- "soroban-spec 23.3.0",
- "stellar-xdr",
- "syn 2.0.106",
  "thiserror 1.0.69",
 ]
 
@@ -5240,7 +5214,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.9",
- "soroban-spec 25.0.0-rc.2",
+ "soroban-spec",
  "stellar-xdr",
  "syn 2.0.106",
  "thiserror 1.0.69",
@@ -5255,7 +5229,7 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "serde_json",
- "soroban-spec 23.3.0",
+ "soroban-spec",
  "stellar-strkey 0.0.15",
  "stellar-xdr",
  "thiserror 1.0.69",
@@ -5278,7 +5252,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.9",
- "soroban-spec 23.3.0",
+ "soroban-spec",
  "stellar-xdr",
  "temp-dir",
  "thiserror 1.0.69",
@@ -5306,7 +5280,7 @@ dependencies = [
  "shell-words",
  "soroban-cli",
  "soroban-ledger-snapshot",
- "soroban-spec 23.3.0",
+ "soroban-spec",
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",

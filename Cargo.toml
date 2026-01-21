@@ -51,14 +51,10 @@ version = "25.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-spec-rust]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-sdk]
 version = "25.0.0-rc.2"
