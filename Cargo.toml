@@ -47,34 +47,34 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "23.0.0"
+version = "25.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-sdk]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-env-host]
-version = "23.0.1"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "23.0.1"
+version = "25.0.0-rc.2"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "23.2.1"
+version = "25.0.0"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]

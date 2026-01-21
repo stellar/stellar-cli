@@ -4525,7 +4525,7 @@ Verify a SEP-53 signed message
 
 Verifies that a signature was produced by the holder of the private key corresponding to the given account public key, following the SEP-53 specification. The provided message will get prefixed with "Stellar Signed Message:\n" before verification.
 
-Example: stellar message verify "Hello, World!" --signature <BASE64_SIG> --public-key GABC...
+Example: stellar message verify "Hello, World!" --signature BASE64_SIG --public-key GABC...
 
 **Usage:** `stellar message verify [OPTIONS] --signature <SIGNATURE> --public-key <PUBLIC_KEY> [MESSAGE]`
 
