@@ -8,7 +8,6 @@ use std::{fmt::Debug, fs, io};
 use clap::Parser;
 
 use crate::{
-    commands::{global, NetworkRunnable},
     config::{
         self, locator,
         network::{self, Network},
@@ -100,24 +99,23 @@ impl Cmd {
     }
 
     pub async fn get_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.run_against_rpc_server(None, None).await
+        self.execute(&config::Args {
+            locator: self.locator.clone(),
+            network: self.network.clone(),
+            source_account: Default::default(),
+            sign_with: Default::default(),
+            fee: None,
+            inclusion_fee: None,
+        })
+        .await
     }
 
     pub fn network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = Vec<u8>;
-    async fn run_against_rpc_server(
-        &self,
-        _args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Vec<u8>, Error> {
-        let network = config.map_or_else(|| self.network(), |c| Ok(c.get_network()?))?;
+    pub async fn execute(&self, config: &config::Args) -> Result<Vec<u8>, Error> {
+        let network = config.get_network()?;
         if let Some(contract_id) = &self.contract_id {
             Ok(wasm::fetch_from_contract(
                 &contract_id.resolve_contract_id(&self.locator, &network.network_passphrase)?,

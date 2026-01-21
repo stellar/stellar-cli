@@ -1,10 +1,9 @@
 use crate::print::Print;
-use async_trait::async_trait;
 use soroban_rpc::GetTransactionResponse;
 use std::ffi::OsString;
 
 use crate::{
-    commands::{global, NetworkRunnable},
+    commands::global,
     config::{self, locator, network},
 };
 
@@ -42,32 +41,34 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let response = self.run_against_rpc_server(Some(global_args), None).await?;
+        let response = self
+            .execute(
+                &config::Args {
+                    locator: self.locator.clone(),
+                    network: self.network.clone(),
+                    source_account: Default::default(),
+                    sign_with: Default::default(),
+                    fee: None,
+                    inclusion_fee: None,
+                },
+                global_args.quiet,
+            )
+            .await?;
         println!("{}", serde_json::to_string_pretty(&response)?);
         Ok(())
     }
-}
 
-#[async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-
-    type Result = GetTransactionResponse;
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        globals: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Self::Error> {
-        let network = if let Some(config) = config {
-            config.get_network()?
-        } else {
-            self.network.get(&self.locator)?
-        };
+        config: &config::Args,
+        quiet: bool,
+    ) -> Result<GetTransactionResponse, Error> {
+        let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
 
         if let Ok(txn) = super::xdr::unwrap_envelope_v1(tx_env.clone()) {
-            let print = Print::new(globals.is_some_and(|g| g.quiet));
+            let print = Print::new(quiet);
             print.log_transaction(&txn, &network, true)?;
         }
 

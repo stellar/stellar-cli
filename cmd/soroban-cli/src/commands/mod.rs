@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use async_trait::async_trait;
 use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::{config, print::Print, utils::deprecate_message};
@@ -294,16 +293,4 @@ pub enum Error {
 
     #[error(transparent)]
     Fees(#[from] fees::Error),
-}
-
-#[async_trait]
-pub trait NetworkRunnable {
-    type Error;
-    type Result;
-
-    async fn run_against_rpc_server(
-        &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Self::Error>;
 }

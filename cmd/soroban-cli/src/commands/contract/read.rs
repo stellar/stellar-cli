@@ -10,7 +10,6 @@ use crate::xdr::{
 use clap::{Parser, ValueEnum};
 
 use crate::{
-    commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
     rpc::{self, FullLedgerEntries, FullLedgerEntry},
@@ -88,8 +87,25 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let entries = self.run_against_rpc_server(None, None).await?;
+        let entries = self
+            .execute(&config::Args {
+                locator: self.config.locator.clone(),
+                network: self.config.network.clone(),
+                source_account: Default::default(),
+                sign_with: Default::default(),
+                fee: None,
+                inclusion_fee: None,
+            })
+            .await?;
         self.output_entries(&entries)
+    }
+
+    pub async fn execute(&self, config: &config::Args) -> Result<FullLedgerEntries, Error> {
+        let network = config.get_network()?;
+        tracing::trace!(?network);
+        let client = network.rpc_client()?;
+        let keys = self.key.parse_keys(&config.locator, &network)?;
+        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 
     fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
@@ -165,25 +181,5 @@ impl Cmd {
         out.flush()
             .map_err(|e| Error::CannotPrintFlush { error: e })?;
         Ok(())
-    }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = FullLedgerEntries;
-
-    async fn run_against_rpc_server(
-        &self,
-        _global_args: Option<&global::Args>,
-        _config: Option<&config::Args>,
-    ) -> Result<FullLedgerEntries, Error> {
-        let locator = self.config.locator.clone();
-        let network = self.config.network.get(&locator)?;
-
-        tracing::trace!(?network);
-        let client = network.rpc_client()?;
-        let keys = self.key.parse_keys(&locator, &network)?;
-        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }
