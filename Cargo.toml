@@ -61,27 +61,19 @@ git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v25-preview"
 
 [workspace.dependencies.soroban-sdk]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-env-host]
-version = "25.0.0"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-token-sdk]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.stellar-asset-spec]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-# version = "23.3.0"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v25-preview"
+version = "25.0.0-rc.2"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
