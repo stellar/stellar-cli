@@ -135,6 +135,10 @@ jobs:
         shell: bash
 
       - name: Setup Software Trust Manager
+        env:
+          SM_HOST: https://clientauth.one.digicert.com
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
         if:
           github.event_name == 'release' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
         id: stm-setup
