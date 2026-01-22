@@ -46,8 +46,8 @@ impl Cmd {
                 &config::Args {
                     locator: self.locator.clone(),
                     network: self.network.clone(),
-                    source_account: Default::default(),
-                    sign_with: Default::default(),
+                    source_account: config::UnresolvedMuxedAccount::default(),
+                    sign_with: config::sign_with::Args::default(),
                     fee: None,
                     inclusion_fee: None,
                 },

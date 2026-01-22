@@ -91,8 +91,8 @@ impl Cmd {
             .execute(&config::Args {
                 locator: self.config.locator.clone(),
                 network: self.config.network.clone(),
-                source_account: Default::default(),
-                sign_with: Default::default(),
+                source_account: config::UnresolvedMuxedAccount::default(),
+                sign_with: config::sign_with::Args::default(),
                 fee: None,
                 inclusion_fee: None,
             })

@@ -145,8 +145,8 @@ impl Cmd {
             .execute(&config::Args {
                 locator: self.locator.clone(),
                 network: self.network.clone(),
-                source_account: Default::default(),
-                sign_with: Default::default(),
+                source_account: config::UnresolvedMuxedAccount::default(),
+                sign_with: config::sign_with::Args::default(),
                 fee: None,
                 inclusion_fee: None,
             })
@@ -199,7 +199,7 @@ impl Cmd {
 
         let parsed_topics = self.parse_topics()?;
 
-        Ok(client
+        client
             .get_events(
                 start,
                 Some(self.event_type),
@@ -208,7 +208,7 @@ impl Cmd {
                 Some(self.count),
             )
             .await
-            .map_err(Error::Rpc)?)
+            .map_err(Error::Rpc)
     }
 
     fn parse_topics(&self) -> Result<Vec<rpc::TopicFilter>, Error> {
