@@ -205,7 +205,7 @@ impl Cmd {
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                 }
-                .execute(config, quiet, !no_cache)
+                .execute(config, quiet, no_cache)
                 .await?
                 .into_result()
                 .expect("the value (hash) is expected because it should always be available since build-only is a shared parameter")

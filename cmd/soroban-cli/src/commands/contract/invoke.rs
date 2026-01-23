@@ -248,6 +248,7 @@ impl Cmd {
         .await?)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn execute(
         &self,
         config: &config::Args,
@@ -272,11 +273,21 @@ impl Cmd {
 
         let client = network.rpc_client()?;
 
+        let global_args = global::Args {
+            locator: config.locator.clone(),
+            filter_logs: Vec::default(),
+            quiet,
+            verbose: false,
+            very_verbose: false,
+            list: false,
+            no_cache,
+        };
+
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
             &config.locator,
             &config.network,
-            None,
+            Some(&global_args),
             Some(config),
         )
         .await
