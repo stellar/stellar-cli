@@ -51,25 +51,25 @@ version = "25.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-sdk]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-env-host]
 version = "25.0.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "25.0.0-rc.2"
+version = "25.0.1"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
