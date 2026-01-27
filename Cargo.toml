@@ -120,6 +120,9 @@ predicates = "3.1.2"
 testcontainers = { version = "0.26.0" }
 httpmock = "0.7.0"
 
+[profile.release]
+overflow-checks = true
+
 [profile.test-wasms]
 inherits = "release"
 opt-level = "z"
