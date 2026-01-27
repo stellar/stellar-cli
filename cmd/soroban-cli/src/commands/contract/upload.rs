@@ -16,7 +16,6 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, network},
     key,
@@ -110,7 +109,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self
-            .run_against_rpc_server(Some(global_args), None)
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
         match res {
@@ -119,23 +118,16 @@ impl Cmd {
         }
         Ok(())
     }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<Hash>;
 
     #[allow(clippy::too_many_lines)]
     #[allow(unused_variables)]
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<Hash>, Error> {
-        let quiet = args.is_some_and(|a| a.quiet);
         let print = Print::new(quiet);
-        let config = config.unwrap_or(&self.config);
         let contract = self.wasm.read()?;
         let network = config.get_network()?;
         let client = network.rpc_client()?;
@@ -233,7 +225,7 @@ impl NetworkRunnable for Cmd {
         let txn_resp = client.send_transaction_polling(signed_txn).await?;
         self.resources.print_cost_info(&txn_resp)?;
 
-        if args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
         }
 
@@ -259,11 +251,11 @@ impl NetworkRunnable for Cmd {
                 ttl_ledger_only: true,
                 build_only: self.build_only,
             }
-            .run_against_rpc_server(args, None)
+            .execute(config, quiet, no_cache)
             .await?;
         }
 
-        if args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
         }
 

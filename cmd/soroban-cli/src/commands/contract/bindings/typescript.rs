@@ -4,11 +4,8 @@ use clap::Parser;
 use soroban_spec_tools::contract as spec_tools;
 use soroban_spec_typescript::boilerplate::Project;
 
+use crate::commands::contract::info::shared as contract_spec;
 use crate::print::Print;
-use crate::{
-    commands::{contract::info::shared as contract_spec, global, NetworkRunnable},
-    config,
-};
 use soroban_spec_tools::contract::Spec;
 
 #[derive(Parser, Debug, Clone)]
@@ -48,17 +45,13 @@ pub enum Error {
     Xdr(#[from] crate::xdr::Error),
 }
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = ();
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        self.execute(false).await
+    }
 
-    async fn run_against_rpc_server(
-        &self,
-        global_args: Option<&global::Args>,
-        _config: Option<&config::Args>,
-    ) -> Result<(), Error> {
-        let print = Print::new(global_args.is_some_and(|a| a.quiet));
+    pub async fn execute(&self, quiet: bool) -> Result<(), Error> {
+        let print = Print::new(quiet);
 
         let contract_spec::Fetched { contract, source } =
             contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
@@ -113,11 +106,5 @@ impl NetworkRunnable for Cmd {
             self.output_dir
         ));
         Ok(())
-    }
-}
-
-impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        self.run_against_rpc_server(None, None).await
     }
 }

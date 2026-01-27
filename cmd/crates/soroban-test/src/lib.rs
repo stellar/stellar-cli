@@ -34,7 +34,7 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{contract::invoke, global, keys, NetworkRunnable},
+    commands::{contract::invoke, keys},
     config::{self, network},
     CommandParser,
 };
@@ -233,13 +233,14 @@ impl TestEnv {
         source: &str,
     ) -> Result<String, invoke::Error> {
         let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str, None);
-        self.run_cmd_with(cmd, source)
+        let config = self.clone_config(source);
+        cmd.execute(&config, false, false)
             .await
             .map(|tx| tx.into_result().unwrap())
     }
 
     /// A convenience method for using the invoke command.
-    pub fn cmd_with_config<I: AsRef<str>, T: CommandParser<T> + NetworkRunnable>(
+    pub fn cmd_with_config<I: AsRef<str>, T: CommandParser<T>>(
         &self,
         command_str: &[I],
         source_account: Option<&str>,
@@ -284,29 +285,6 @@ impl TestEnv {
             fee: None,
             inclusion_fee: None,
         }
-    }
-
-    /// Invoke an already parsed invoke command
-    pub async fn run_cmd_with<T: NetworkRunnable>(
-        &self,
-        cmd: T,
-        account: &str,
-    ) -> Result<T::Result, T::Error> {
-        let config = self.clone_config(account);
-
-        cmd.run_against_rpc_server(
-            Some(&global::Args {
-                locator: config.locator.clone(),
-                filter_logs: Vec::default(),
-                quiet: false,
-                verbose: false,
-                very_verbose: false,
-                list: false,
-                no_cache: false,
-            }),
-            Some(&config),
-        )
-        .await
     }
 
     /// Reference to current directory of the `TestEnv`.

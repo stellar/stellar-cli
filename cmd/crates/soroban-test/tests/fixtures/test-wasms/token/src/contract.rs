@@ -2,7 +2,7 @@
 //! interface.
 use crate::storage_types::{INSTANCE_BUMP_AMOUNT, INSTANCE_LIFETIME_THRESHOLD};
 use crate::{admin, allowance, balance, metadata};
-use soroban_sdk::token::{self, Interface as _};
+use soroban_sdk::token;
 use soroban_sdk::{contract, contractevent, contractimpl, Address, Env, MuxedAddress, String};
 use soroban_token_sdk::events::{Approve, Burn, Mint, Transfer};
 use soroban_token_sdk::metadata::TokenMetadata;

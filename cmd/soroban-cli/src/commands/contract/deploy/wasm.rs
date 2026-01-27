@@ -22,7 +22,6 @@ use crate::{
         contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -152,7 +151,7 @@ pub enum Error {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self
-            .run_against_rpc_server(Some(global_args), None)
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
         match res {
@@ -184,23 +183,16 @@ impl Cmd {
         }
         Ok(())
     }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<stellar_strkey::Contract>;
 
     #[allow(clippy::too_many_lines)]
     #[allow(unused_variables)]
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let quiet = global_args.is_some_and(|a| a.quiet);
         let print = Print::new(quiet);
-        let config = config.unwrap_or(&self.config);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let is_build = self.build_only;
             let hash = if is_build {
@@ -213,7 +205,7 @@ impl NetworkRunnable for Cmd {
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                 }
-                .run_against_rpc_server(global_args, Some(config))
+                .execute(config, quiet, no_cache)
                 .await?
                 .into_result()
                 .expect("the value (hash) is expected because it should always be available since build-only is a shared parameter")
@@ -330,7 +322,7 @@ impl NetworkRunnable for Cmd {
 
         self.resources.print_cost_info(&get_txn_resp)?;
 
-        if global_args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 

@@ -236,20 +236,22 @@ impl Runner {
     }
 
     fn get_protocol_version_arg(&self) -> String {
-        if self.network == Network::Local && self.args.protocol_version.is_some() {
-            let version = self.args.protocol_version.as_ref().unwrap();
-            format!("--protocol-version {version}")
-        } else {
-            String::new()
+        if self.network == Network::Local {
+            if let Some(version) = self.args.protocol_version.as_ref() {
+                return format!("--protocol-version {version}");
+            }
         }
+
+        String::new()
     }
 
     fn get_limits_arg(&self) -> String {
-        if self.network == Network::Local && self.args.limits.is_some() {
-            let limits = self.args.limits.as_ref().unwrap();
-            format!("--limits {limits}")
-        } else {
-            String::new()
+        if self.network == Network::Local {
+            if let Some(limits) = self.args.limits.as_ref() {
+                return format!("--limits {limits}");
+            }
         }
+
+        String::new()
     }
 }

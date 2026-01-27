@@ -17,7 +17,8 @@ async fn invoke_view_with_non_existent_source_account() {
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let cmd = hello_world_cmd(&id, world);
-    let res = sandbox.run_cmd_with(cmd, "").await.unwrap();
+    let config = sandbox.clone_config("");
+    let res = cmd.execute(&config, false, false).await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
 
@@ -172,7 +173,8 @@ fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
 
 async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
     let cmd = hello_world_cmd(id, "world");
-    let res = e.run_cmd_with(cmd, "test").await.unwrap();
+    let config = e.clone_config("test");
+    let res = cmd.execute(&config, false, false).await.unwrap();
     assert_eq!(res, TxnResult::Res(r#"["Hello","world"]"#.to_string()));
 }
 

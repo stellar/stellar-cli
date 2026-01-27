@@ -23,7 +23,6 @@ use crate::{
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
@@ -189,7 +188,8 @@ impl Cmd {
     }
 
     pub async fn invoke(&self, global_args: &global::Args) -> Result<TxnResult<String>, Error> {
-        self.run_against_rpc_server(Some(global_args), None).await
+        self.execute(&self.config, global_args.quiet, global_args.no_cache)
+            .await
     }
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
@@ -247,20 +247,14 @@ impl Cmd {
         )
         .await?)
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<String>;
-
-    async fn run_against_rpc_server(
+    #[allow(clippy::too_many_lines)]
+    pub async fn execute(
         &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
-        let config = config.unwrap_or(&self.config);
-        let quiet = global_args.is_some_and(|g| g.quiet);
         let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
@@ -279,11 +273,21 @@ impl NetworkRunnable for Cmd {
 
         let client = network.rpc_client()?;
 
+        let global_args = global::Args {
+            locator: config.locator.clone(),
+            filter_logs: Vec::default(),
+            quiet,
+            verbose: false,
+            very_verbose: false,
+            list: false,
+            no_cache,
+        };
+
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
             &config.locator,
             &config.network,
-            global_args,
+            Some(&global_args),
             Some(config),
         )
         .await
@@ -359,11 +363,9 @@ impl NetworkRunnable for Cmd {
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
 
-        if global_args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
         }
-
-        let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
 
         // Need to sign all auth entries
         if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
