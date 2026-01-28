@@ -121,9 +121,9 @@ jobs:
 
       - name: Build deb
         run: |
-          mkdir -p ${{ env.DEB_PKG_DIR }}/usr/local/bin
+          mkdir -p ${{ env.DEB_PKG_DIR }}/usr/bin
           mkdir -p ${{ env.DEB_PKG_DIR }}/DEBIAN
-          tar xzvf ${{ env.ARTIFACT_NAME }} -C ${{ env.DEB_PKG_DIR }}/usr/local/bin
+          tar xzvf ${{ env.ARTIFACT_NAME }} -C ${{ env.DEB_PKG_DIR }}/usr/bin
 
           cat > ${{ env.DEB_PKG_DIR }}/DEBIAN/control <<EOF
           Package: stellar-cli
@@ -137,7 +137,7 @@ jobs:
            Command-line interface for interacting with the Stellar network.
           EOF
 
-          dpkg-deb --build ${{ env.DEB_PKG_DIR }}
+          dpkg-deb --root-owner-group --build ${{ env.DEB_PKG_DIR }}
 
       - name: Validate deb
         run: |
