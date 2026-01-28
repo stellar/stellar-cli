@@ -487,7 +487,9 @@ fn build_errors_when_overflow_checks_missing() {
     // Remove overflow-checks line from workspace Cargo.toml
     let cargo_toml_path = dir_path.join("Cargo.toml");
     let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
-    let modified_content = cargo_toml_content.replace("overflow-checks = true\n", "");
+    let modified_content = cargo_toml_content
+        .replace("overflow-checks = true\r\n", "")
+        .replace("overflow-checks = true\n", "");
     std::fs::write(&cargo_toml_path, modified_content).unwrap();
 
     sandbox
@@ -537,7 +539,9 @@ fn build_errors_when_overflow_check_only_applied_to_members() {
     // Remove overflow-checks line from workspace Cargo.toml
     let cargo_toml_path = dir_path.join("Cargo.toml");
     let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
-    let modified_content = cargo_toml_content.replace("overflow-checks = true\n", "");
+    let modified_content = cargo_toml_content
+        .replace("overflow-checks = true\r\n", "")
+        .replace("overflow-checks = true\n", "");
     std::fs::write(&cargo_toml_path, modified_content).unwrap();
 
     // Add overflow-checks = true to "add" member
