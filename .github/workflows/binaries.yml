@@ -90,6 +90,68 @@ jobs:
           binary-name: ${{ matrix.crate.binary }}
           binary-ext: ${{ matrix.sys.ext }}
 
+  deb:
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: amd64
+            os: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+            os: ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup vars
+        run: |
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "stellar-cli") | .version')"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=stellar-cli-${version}-${{ matrix.target }}.tar.gz" >> $GITHUB_ENV
+          echo "DEB_NAME=stellar-cli_${version}_${{ matrix.arch }}.deb" >> $GITHUB_ENV
+          echo "DEB_PKG_DIR=stellar-cli_${version}_${{ matrix.arch }}" >> $GITHUB_ENV
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Build deb
+        run: |
+          mkdir -p ${{ env.DEB_PKG_DIR }}/usr/local/bin
+          mkdir -p ${{ env.DEB_PKG_DIR }}/DEBIAN
+          tar xzvf ${{ env.ARTIFACT_NAME }} -C ${{ env.DEB_PKG_DIR }}/usr/local/bin
+
+          cat > ${{ env.DEB_PKG_DIR }}/DEBIAN/control <<EOF
+          Package: stellar-cli
+          Version: ${{ env.VERSION }}
+          Section: utils
+          Priority: optional
+          Architecture: ${{ matrix.arch }}
+          Maintainer: Stellar Development Foundation <info@stellar.org>
+          Homepage: https://github.com/stellar/stellar-cli
+          Description: Stellar CLI
+           Command-line interface for interacting with the Stellar network.
+          EOF
+
+          dpkg-deb --build ${{ env.DEB_PKG_DIR }}
+
+      - name: Validate deb
+        run: |
+          dpkg-deb --info ${{ env.DEB_NAME }}
+          dpkg-deb --contents ${{ env.DEB_NAME }}
+          sudo dpkg -i ${{ env.DEB_NAME }}
+          stellar --version
+
+      - name: Upload Artifact
+        uses: ./.github/actions/artifact-upload
+        with:
+          name: ${{ env.DEB_NAME }}
+          path: ${{ env.DEB_NAME }}
+
   installer:
     needs: [build, build-macos, build-windows]
     runs-on: windows-latest
