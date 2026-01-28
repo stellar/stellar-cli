@@ -133,7 +133,7 @@ pub enum Error {
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
 
-    #[error("retreiving CARGO_HOME: {0}")]
+    #[error("retrieving CARGO_HOME: {0}")]
     CargoHome(io::Error),
 
     #[error("reading wasm file: {0}")]
@@ -152,6 +152,9 @@ pub enum Error {
 
     #[error("must install with \"additional-libs\" feature.")]
     OptimizeFeatureNotEnabled,
+
+    #[error("invalid Cargo.toml configuration: {0}")]
+    CargoConfiguration(String),
 
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
@@ -179,7 +182,7 @@ impl Cmd {
 
         // Run build configuration checks (only when actually building)
         if !self.print_commands_only {
-            run_checks(&print, metadata.workspace_root.as_std_path(), &self.profile);
+            run_checks(metadata.workspace_root.as_std_path(), &self.profile)?;
         }
 
         if let Some(package) = &self.package {
@@ -605,35 +608,38 @@ fn get_wasm_target() -> Result<String, Error> {
     }
 }
 
-/// Run build configuration checks and emit warnings for potential issues.
-/// Each check is responsible for emitting its own warnings.
-fn run_checks(print: &Print, workspace_root: &Path, profile: &str) {
+/// Run build configuration checks and return an error if configuration is invalid.
+fn run_checks(workspace_root: &Path, profile: &str) -> Result<(), Error> {
     let cargo_toml_path = workspace_root.join("Cargo.toml");
 
     let cargo_toml_str = match fs::read_to_string(&cargo_toml_path) {
         Ok(s) => s,
         Err(e) => {
-            print.warnln(format!("Could not read Cargo.toml to run checks: {e}"));
-            return;
+            return Err(Error::CargoConfiguration(format!(
+                "Could not read Cargo.toml: {e}"
+            )));
         }
     };
 
     let doc: toml_edit::DocumentMut = match cargo_toml_str.parse() {
         Ok(d) => d,
         Err(e) => {
-            print.warnln(format!("Could not parse Cargo.toml to run checks: {e}"));
-            return;
+            return Err(Error::CargoConfiguration(format!(
+                "Could not parse Cargo.toml to run checks: {e}"
+            )));
         }
     };
 
-    check_overflow_checks(print, &doc, profile);
+    check_overflow_checks(&doc, profile)?;
     // Future checks can be added here
+    Ok(())
 }
 
 /// Check if overflow-checks is enabled for the specified profile.
-/// Emits a warning if not enabled.
-fn check_overflow_checks(print: &Print, doc: &toml_edit::DocumentMut, profile: &str) {
+/// Returns an error if not enabled.
+fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<(), Error> {
     // Helper to check a profile and follow inheritance chain
+    // Returns Some(bool) if overflow-checks is found, None if not found
     fn get_overflow_checks(
         doc: &toml_edit::DocumentMut,
         profile: &str,
@@ -663,11 +669,13 @@ fn check_overflow_checks(print: &Print, doc: &toml_edit::DocumentMut, profile: &
     }
 
     let mut visited = Vec::new();
-    if get_overflow_checks(doc, profile, &mut visited) != Some(true) {
-        print.warnln(format!(
+    if get_overflow_checks(doc, profile, &mut visited) == Some(true) {
+        Ok(())
+    } else {
+        Err(Error::CargoConfiguration(format!(
             "`overflow-checks` is not enabled for profile `{profile}`. \
             To prevent silent integer overflow, add `overflow-checks = true` to \
             [profile.{profile}] in your Cargo.toml."
-        ));
+        )))
     }
 }

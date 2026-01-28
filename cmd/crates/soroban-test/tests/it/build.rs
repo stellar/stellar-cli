@@ -134,11 +134,11 @@ fn build_with_metadata_rewrite() {
     let sandbox = TestEnv::default();
     let outdir = sandbox.dir().join("out");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
     fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
-    let dir_path = dir_path.join("add");
+    let dir_path = dir_path.join("workspace").join("contracts").join("add");
 
     sandbox
         .new_assert_cmd("contract")
@@ -190,11 +190,11 @@ fn build_with_metadata_diff_dir() {
     let outdir1 = sandbox.dir().join("out-1");
     let outdir2 = sandbox.dir().join("out-2");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
     fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
-    let dir_path = dir_path.join("add");
+    let dir_path = dir_path.join("workspace").join("contracts").join("add");
 
     sandbox
         .new_assert_cmd("contract")
@@ -402,45 +402,70 @@ fn remap_absolute_paths() {
 }
 
 #[test]
-fn build_warns_when_overflow_checks_missing() {
+fn build_no_error_for_workspace() {
     let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace");
 
-    // Create a workspace without overflow-checks in profile
-    std::fs::write(
-        dir_path.join("Cargo.toml"),
-        r#"
-[workspace]
-resolver = "2"
-members = ["contract"]
+    // By default, workspace TOML has overflow-checks = true
 
-[profile.release]
-opt-level = "z"
-"#,
-    )
-    .unwrap();
-
-    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
-    std::fs::write(
-        dir_path.join("contract/Cargo.toml"),
-        r#"
-[package]
-name = "test-contract"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-"#,
-    )
-    .unwrap();
-    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
-
-    // Build will fail (no panic handler), but warning should appear first
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
+        .arg("build")
+        .assert()
+        .success();
+}
+
+#[test]
+fn build_no_error_for_package() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/add2");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add2");
+
+    // By default, this TOML does not specify overflow-checks, add it
+    let cargo_toml_path = dir_path.join("Cargo.toml");
+    let cargo_toml_path_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+    let modified_cargo_toml_content =
+        format!("{cargo_toml_path_content}\n[profile.release]\noverflow-checks = true\n",);
+    std::fs::write(&cargo_toml_path, modified_cargo_toml_content).unwrap();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .assert()
+        .success();
+}
+
+#[test]
+fn build_errors_when_overflow_checks_false() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace");
+
+    // Replace overflow-checks = true with false in workspace Cargo.toml
+    let cargo_toml_path = dir_path.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+    let modified_content =
+        cargo_toml_content.replace("overflow-checks = true", "overflow-checks = false");
+    std::fs::write(&cargo_toml_path, modified_content).unwrap();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
         .arg("build")
         .assert()
         .failure()
@@ -450,157 +475,102 @@ crate-type = ["cdylib"]
 }
 
 #[test]
-fn build_no_warning_when_overflow_checks_enabled() {
+fn build_errors_when_overflow_checks_missing() {
     let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace");
 
-    // Create a workspace with overflow-checks = true
-    std::fs::write(
-        dir_path.join("Cargo.toml"),
-        r#"
-[workspace]
-resolver = "2"
-members = ["contract"]
+    // Remove overflow-checks line from workspace Cargo.toml
+    let cargo_toml_path = dir_path.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+    let modified_content = cargo_toml_content.replace("overflow-checks = true\n", "");
+    std::fs::write(&cargo_toml_path, modified_content).unwrap();
 
-[profile.release]
-opt-level = "z"
-overflow-checks = true
-"#,
-    )
-    .unwrap();
-
-    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
-    std::fs::write(
-        dir_path.join("contract/Cargo.toml"),
-        r#"
-[package]
-name = "test-contract"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-"#,
-    )
-    .unwrap();
-    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
-
-    // Build will fail (no panic handler), but no overflow warning should appear
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(dir_path)
+        .current_dir(&dir_path)
         .arg("build")
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("overflow-checks").not());
-}
-
-#[test]
-fn build_no_warning_when_profile_inherits_overflow_checks() {
-    let sandbox = TestEnv::default();
-    let temp = TempDir::new().unwrap();
-    let dir_path = temp.path();
-
-    // Create a workspace where custom profile inherits from release with overflow-checks
-    std::fs::write(
-        dir_path.join("Cargo.toml"),
-        r#"
-[workspace]
-resolver = "2"
-members = ["contract"]
-
-[profile.release]
-opt-level = "z"
-overflow-checks = true
-
-[profile.custom]
-inherits = "release"
-"#,
-    )
-    .unwrap();
-
-    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
-    std::fs::write(
-        dir_path.join("contract/Cargo.toml"),
-        r#"
-[package]
-name = "test-contract"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-"#,
-    )
-    .unwrap();
-    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
-
-    // Build with custom profile - no warning should appear
-    sandbox
-        .new_assert_cmd("contract")
-        .current_dir(dir_path)
-        .arg("build")
-        .arg("--profile=custom")
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("overflow-checks").not());
-}
-
-#[test]
-fn build_warns_when_inherited_profile_missing_overflow_checks() {
-    let sandbox = TestEnv::default();
-    let temp = TempDir::new().unwrap();
-    let dir_path = temp.path();
-
-    // Create a workspace where custom profile inherits from release without overflow-checks
-    std::fs::write(
-        dir_path.join("Cargo.toml"),
-        r#"
-[workspace]
-resolver = "2"
-members = ["contract"]
-
-[profile.release]
-opt-level = "z"
-
-[profile.custom]
-inherits = "release"
-"#,
-    )
-    .unwrap();
-
-    std::fs::create_dir_all(dir_path.join("contract/src")).unwrap();
-    std::fs::write(
-        dir_path.join("contract/Cargo.toml"),
-        r#"
-[package]
-name = "test-contract"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
-"#,
-    )
-    .unwrap();
-    std::fs::write(dir_path.join("contract/src/lib.rs"), "").unwrap();
-
-    // Build with custom profile - warning should appear
-    sandbox
-        .new_assert_cmd("contract")
-        .current_dir(dir_path)
-        .arg("build")
-        .arg("--profile=custom")
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "`overflow-checks` is not enabled for profile `custom`",
+            "`overflow-checks` is not enabled for profile `release`",
         ));
 }
 
 #[test]
-fn build_no_warning_with_print_commands_only() {
+fn build_errors_when_package_overflow_checks_missing() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add/add2");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("add2");
+
+    // By default, this TOML does not specify overflow-checks
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "`overflow-checks` is not enabled for profile `release`",
+        ));
+}
+
+#[test]
+fn build_errors_when_overflow_check_only_applied_to_members() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace");
+
+    // Remove overflow-checks line from workspace Cargo.toml
+    let cargo_toml_path = dir_path.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+    let modified_content = cargo_toml_content.replace("overflow-checks = true\n", "");
+    std::fs::write(&cargo_toml_path, modified_content).unwrap();
+
+    // Add overflow-checks = true to "add" member
+    let member_cargo_toml_path = dir_path.join("contracts").join("add").join("Cargo.toml");
+    let member_cargo_toml_content = std::fs::read_to_string(&member_cargo_toml_path).unwrap();
+    let modified_member_content =
+        format!("{member_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n",);
+    std::fs::write(&member_cargo_toml_path, modified_member_content).unwrap();
+
+    // Add overflow-checks = true to "add2" member
+    let member_2_cargo_toml_path = dir_path
+        .join("contracts")
+        .join("add")
+        .join("add2")
+        .join("Cargo.toml");
+    let member_2_cargo_toml_content = std::fs::read_to_string(&member_2_cargo_toml_path).unwrap();
+    let modified_member_2_content =
+        format!("{member_2_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n",);
+    std::fs::write(&member_2_cargo_toml_path, modified_member_2_content).unwrap();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "`overflow-checks` is not enabled for profile `release`",
+        ));
+}
+
+#[test]
+fn build_no_error_with_print_commands_only() {
     let sandbox = TestEnv::default();
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
@@ -651,11 +621,11 @@ fn build_always_injects_cli_version() {
     let sandbox = TestEnv::default();
     let outdir = sandbox.dir().join("out");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
     let temp = TempDir::new().unwrap();
     let dir_path = temp.path();
     fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
-    let dir_path = dir_path.join("add");
+    let dir_path = dir_path.join("workspace").join("contracts").join("add");
 
     // Build contract without any metadata args
     sandbox
