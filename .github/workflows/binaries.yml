@@ -131,7 +131,7 @@ jobs:
           Section: utils
           Priority: optional
           Architecture: ${{ matrix.arch }}
-          Depends: libc6, libdbus-1-3, libudev1
+          Depends: libc6, libdbus-1-3, libudev1, libssl3
           Maintainer: Stellar Development Foundation <info@stellar.org>
           Homepage: https://github.com/stellar/stellar-cli
           Description: Stellar CLI
