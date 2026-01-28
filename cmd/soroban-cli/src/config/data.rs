@@ -202,7 +202,7 @@ mod test {
     #[test]
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
-        std::env::set_var("XDG_DATA_HOME", t.path().to_str().unwrap());
+        std::env::set_var("STELLAR_DATA_HOME", t.path().to_str().unwrap());
         let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
         let sim = SimulateTransactionResponse::default();
         let original_action: Action = sim.into();
