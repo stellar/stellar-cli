@@ -195,11 +195,20 @@ async fn number_arg_return_err(sandbox: &TestEnv, id: &str) {
         .invoke_with_test(&["--id", id, "--", "u32_fail_on_even", "--u32_=2"])
         .await
         .unwrap_err();
-    if let commands::contract::invoke::Error::ContractInvoke(name, doc) = &res {
-        assert_eq!(name, "NumberMustBeOdd");
-        assert_eq!(doc, "Please provide an odd number");
-    };
-    println!("{res:#?}");
+    match &res {
+        commands::contract::invoke::Error::ContractInvoke(enhanced_msg, detail) => {
+            assert!(
+                enhanced_msg.contains("#1"),
+                "expected enhanced msg to contain '#1', got: {enhanced_msg}"
+            );
+            assert!(
+                enhanced_msg.contains("NumberMustBeOdd"),
+                "expected enhanced msg to contain resolved error name, got: {enhanced_msg}"
+            );
+            assert_eq!(detail, "NumberMustBeOdd: Please provide an odd number");
+        }
+        other => panic!("expected ContractInvoke error, got: {other:#?}"),
+    }
 }
 
 fn void(sandbox: &TestEnv, id: &str) {

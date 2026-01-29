@@ -222,6 +222,29 @@ impl Spec {
         Err(Error::MissingErrorCase(value))
     }
 
+    /// Search all error enums in the spec for a case matching the given value.
+    ///
+    /// Unlike `find_error_type`, which only looks at the error enum named
+    /// "Error", this method searches across all error enums in the contract
+    /// spec. This handles contracts that include multiple error enums from
+    /// dependencies.
+    pub fn find_error_type_any(
+        &self,
+        value: u32,
+    ) -> Option<(&ScSpecUdtErrorEnumV0, &ScSpecUdtErrorEnumCaseV0)> {
+        self.0.as_ref()?.iter().find_map(|entry| {
+            if let ScSpecEntry::UdtErrorEnumV0(error_enum) = entry {
+                error_enum
+                    .cases
+                    .iter()
+                    .find(|case| case.value == value)
+                    .map(|case| (error_enum, case))
+            } else {
+                None
+            }
+        })
+    }
+
     /// # Errors
     ///
     /// Might return errors

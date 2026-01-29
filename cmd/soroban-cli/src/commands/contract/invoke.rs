@@ -132,7 +132,7 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
 
-    #[error("Contract Error\n{0}: {1}")]
+    #[error("Contract Error\n{0}")]
     ContractInvoke(String, String),
 
     #[error(transparent)]
@@ -305,7 +305,8 @@ impl Cmd {
         } else {
             let assembled = self
                 .simulate(&host_function_params, &default_account_entry(), &client)
-                .await?;
+                .await
+                .map_err(|e| enhance_error(e, &spec))?;
             let should_send = self.should_send_tx(&assembled.sim_res)?;
             (should_send, Some(assembled))
         };
@@ -358,7 +359,8 @@ impl Cmd {
             self.resources.resource_config(),
             self.resources.resource_fee,
         )
-        .await?;
+        .await
+        .map_err(|e| enhance_error(Error::Rpc(e), &spec))?;
         let assembled = self.resources.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
@@ -374,7 +376,8 @@ impl Cmd {
 
         let res = client
             .send_transaction_polling(&config.sign(*txn, quiet).await?)
-            .await?;
+            .await
+            .map_err(|e| enhance_error(Error::Rpc(e), &spec))?;
 
         self.resources.print_cost_info(&res)?;
 
@@ -452,6 +455,110 @@ enum ShouldSend {
     Yes,
 }
 
+/// Extract a contract error code (u32) from an error string.
+///
+/// Supports two formats:
+/// - `Error(Contract, #N)` from the Soroban host display format (simulation errors)
+/// - `Contract(N)` from Rust Debug format of `ScError::Contract(u32)` (submission errors)
+///
+/// The Display format uses the prefix `Contract, #` to distinguish contract errors
+/// from other Soroban error types (Budget, Auth, etc.) which also use `#N`.
+///
+/// The Debug format is used by `TransactionSubmissionFailed` errors which
+/// pretty-print (`{:#?}`) the `TransactionResult`, where the number may
+/// appear on a separate line with surrounding whitespace.
+fn extract_contract_error_code(msg: &str) -> Option<u32> {
+    // Try `Contract, #N` format (simulation errors).
+    // Must match the full prefix to avoid false positives on non-contract
+    // error types like `Error(Budget, #3)`.
+    if let Some(idx) = msg.find("Contract, #") {
+        let after = &msg[idx + "Contract, #".len()..];
+        let end = after
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(after.len());
+        if end > 0 {
+            if let Ok(code) = after[..end].parse() {
+                return Some(code);
+            }
+        }
+    }
+
+    // Try `Contract(N)` format (transaction submission errors via Debug).
+    // In the Debug-printed XDR, `ScError::Contract(u32)` is the only variant
+    // that uses `Contract(` followed by a number.
+    if let Some(idx) = msg.find("Contract(") {
+        let after = &msg[idx + "Contract(".len()..];
+        let trimmed = after.trim_start();
+        let end = trimmed
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(trimmed.len());
+        if end > 0 {
+            if let Ok(code) = trimmed[..end].parse() {
+                return Some(code);
+            }
+        }
+    }
+
+    None
+}
+
+/// Try to enhance an error with human-readable contract error information from
+/// the contract spec. If the error contains a contract error code — either
+/// `#N` from simulation errors or `Contract(N)` from transaction submission
+/// errors — looks it up across all error enums in the spec and returns a
+/// `ContractInvoke` error with the resolved name and documentation.
+///
+/// The resolved error name is inserted into the error message right after the
+/// error code, so it appears next to `Error(Contract, #N)` rather than being
+/// separated from it by the event log.
+///
+/// Returns the original error unchanged if enhancement is not possible.
+fn enhance_error(err: Error, spec: &soroban_spec_tools::Spec) -> Error {
+    let error_msg = match &err {
+        Error::Rpc(rpc_err) => rpc_err.to_string(),
+        _ => return err,
+    };
+
+    let Some(code) = extract_contract_error_code(&error_msg) else {
+        return err;
+    };
+
+    let Some((_enum_info, case)) = spec.find_error_type_any(code) else {
+        return err;
+    };
+
+    let name = case.name.to_utf8_string_lossy();
+    let doc = case.doc.to_utf8_string_lossy();
+    let detail = format!(
+        "{name}{}",
+        if doc.is_empty() {
+            String::new()
+        } else {
+            format!(": {doc}")
+        }
+    );
+
+    let enhanced_msg = insert_detail_after_error_code(&error_msg, &detail);
+    Error::ContractInvoke(enhanced_msg, detail)
+}
+
+/// Insert a detail string into an error message right after the contract error
+/// code line, before the event log section.
+///
+/// The RPC simulation error typically has the error on the first line, followed
+/// by a blank line (`\n\n`) and then the "Event log (newest first):" section.
+/// This function inserts the detail between the error line and the event log so
+/// the resolved error name appears next to the error code.
+///
+/// If no blank line separator is found, the detail is appended at the end.
+fn insert_detail_after_error_code(msg: &str, detail: &str) -> String {
+    if let Some(pos) = msg.find("\n\n") {
+        format!("{}\n{}{}", &msg[..pos], detail, &msg[pos..])
+    } else {
+        format!("{msg}\n{detail}")
+    }
+}
+
 fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
     Ok(!sim_res
         .transaction_data()?
@@ -475,4 +582,215 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .results()?
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_spec_tools::Spec;
+    use xdr::{ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0};
+
+    fn test_spec(cases: Vec<(u32, &str, &str)>) -> Spec {
+        let entries = vec![ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 {
+            lib: StringM::default(),
+            name: "Error".try_into().unwrap(),
+            doc: StringM::default(),
+            cases: cases
+                .into_iter()
+                .map(|(value, name, doc)| ScSpecUdtErrorEnumCaseV0 {
+                    doc: doc.try_into().unwrap(),
+                    name: name.try_into().unwrap(),
+                    value,
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        })];
+        Spec(Some(entries))
+    }
+
+    // --- extract_contract_error_code tests ---
+
+    #[test]
+    fn extract_code_from_simulation_error() {
+        let msg = "transaction simulation failed: HostError: Error(Contract, #1)";
+        assert_eq!(extract_contract_error_code(msg), Some(1));
+    }
+
+    #[test]
+    fn extract_code_large_number() {
+        let msg = "transaction simulation failed: HostError: Error(Contract, #100)";
+        assert_eq!(extract_contract_error_code(msg), Some(100));
+    }
+
+    #[test]
+    fn extract_code_from_debug_format_compact() {
+        let msg = "transaction submission failed: Contract(1)";
+        assert_eq!(extract_contract_error_code(msg), Some(1));
+    }
+
+    #[test]
+    fn extract_code_from_debug_format_pretty() {
+        let msg = "Err(\n    Contract(\n        1,\n    ),\n)";
+        assert_eq!(extract_contract_error_code(msg), Some(1));
+    }
+
+    #[test]
+    fn extract_code_no_match() {
+        let msg = "transaction simulation failed: some other error";
+        assert_eq!(extract_contract_error_code(msg), None);
+    }
+
+    #[test]
+    fn extract_code_non_contract_error_type() {
+        let msg = "transaction simulation failed: HostError: Error(Budget, #3)";
+        assert_eq!(extract_contract_error_code(msg), None);
+    }
+
+    #[test]
+    fn extract_code_bare_hash() {
+        let msg = "something #123 happened";
+        assert_eq!(extract_contract_error_code(msg), None);
+    }
+
+    // --- insert_detail_after_error_code tests ---
+
+    #[test]
+    fn insert_detail_with_event_log() {
+        let msg = "transaction simulation failed: HostError: Error(Contract, #1)\n\n\
+                   Event log (newest first):\n   0: [Diagnostic Event] ...";
+        let detail = "NotFound: The requested resource was not found.";
+        let result = insert_detail_after_error_code(msg, detail);
+        assert_eq!(
+            result,
+            "transaction simulation failed: HostError: Error(Contract, #1)\n\
+             NotFound: The requested resource was not found.\n\n\
+             Event log (newest first):\n   0: [Diagnostic Event] ..."
+        );
+    }
+
+    #[test]
+    fn insert_detail_without_event_log() {
+        let msg = "transaction simulation failed: HostError: Error(Contract, #1)";
+        let detail = "NotFound: The requested resource was not found.";
+        let result = insert_detail_after_error_code(msg, detail);
+        assert_eq!(
+            result,
+            "transaction simulation failed: HostError: Error(Contract, #1)\n\
+             NotFound: The requested resource was not found."
+        );
+    }
+
+    // --- enhance_error tests ---
+
+    #[test]
+    fn enhance_simulation_error() {
+        let spec = test_spec(vec![(1, "NumberMustBeOdd", "Please provide an odd number")]);
+        let rpc_err = soroban_rpc::Error::TransactionSimulationFailed(
+            "HostError: Error(Contract, #1)".to_string(),
+        );
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        match result {
+            Error::ContractInvoke(enhanced_msg, detail) => {
+                assert!(
+                    enhanced_msg.contains("#1"),
+                    "expected enhanced msg to contain '#1', got: {enhanced_msg}"
+                );
+                assert!(
+                    enhanced_msg.contains("NumberMustBeOdd"),
+                    "expected enhanced msg to contain resolved name, got: {enhanced_msg}"
+                );
+                assert_eq!(detail, "NumberMustBeOdd: Please provide an odd number");
+            }
+            other => panic!("expected ContractInvoke, got: {other:#?}"),
+        }
+    }
+
+    #[test]
+    fn enhance_simulation_error_with_event_log() {
+        let spec = test_spec(vec![(
+            1,
+            "NotFound",
+            "The requested resource was not found.",
+        )]);
+        let error_str = "HostError: Error(Contract, #1)\n\n\
+                         Event log (newest first):\n   0: [Diagnostic Event] ...";
+        let rpc_err = soroban_rpc::Error::TransactionSimulationFailed(error_str.to_string());
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        match result {
+            Error::ContractInvoke(enhanced_msg, detail) => {
+                // The detail should appear BEFORE the event log
+                let code_pos = enhanced_msg.find("#1").unwrap();
+                let detail_pos = enhanced_msg.find("NotFound:").unwrap();
+                let event_pos = enhanced_msg.find("Event log").unwrap();
+                assert!(
+                    detail_pos < event_pos,
+                    "detail ({detail_pos}) should appear before event log ({event_pos})"
+                );
+                assert!(
+                    detail_pos > code_pos,
+                    "detail ({detail_pos}) should appear after error code ({code_pos})"
+                );
+                assert_eq!(detail, "NotFound: The requested resource was not found.");
+            }
+            other => panic!("expected ContractInvoke, got: {other:#?}"),
+        }
+    }
+
+    #[test]
+    fn enhance_submission_error() {
+        let spec = test_spec(vec![(1, "NumberMustBeOdd", "Please provide an odd number")]);
+        let debug_msg = "TransactionResult { result: Err(Contract(1)) }".to_string();
+        let rpc_err = soroban_rpc::Error::TransactionSubmissionFailed(debug_msg);
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        match result {
+            Error::ContractInvoke(enhanced_msg, detail) => {
+                assert!(enhanced_msg.contains("Contract(1)"));
+                assert!(enhanced_msg.contains("NumberMustBeOdd"));
+                assert_eq!(detail, "NumberMustBeOdd: Please provide an odd number");
+            }
+            other => panic!("expected ContractInvoke, got: {other:#?}"),
+        }
+    }
+
+    #[test]
+    fn enhance_error_no_match_returns_original() {
+        let spec = test_spec(vec![(1, "NumberMustBeOdd", "Please provide an odd number")]);
+        let rpc_err =
+            soroban_rpc::Error::TransactionSimulationFailed("some other error".to_string());
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        assert!(matches!(result, Error::Rpc(_)));
+    }
+
+    #[test]
+    fn enhance_error_unknown_code_returns_original() {
+        let spec = test_spec(vec![(1, "NumberMustBeOdd", "Please provide an odd number")]);
+        let rpc_err = soroban_rpc::Error::TransactionSimulationFailed(
+            "HostError: Error(Contract, #99)".to_string(),
+        );
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        assert!(matches!(result, Error::Rpc(_)));
+    }
+
+    #[test]
+    fn enhance_error_empty_doc() {
+        let spec = test_spec(vec![(1, "SomeError", "")]);
+        let rpc_err = soroban_rpc::Error::TransactionSimulationFailed(
+            "HostError: Error(Contract, #1)".to_string(),
+        );
+        let err = Error::Rpc(rpc_err);
+        let result = enhance_error(err, &spec);
+        match result {
+            Error::ContractInvoke(enhanced_msg, detail) => {
+                assert!(enhanced_msg.contains("SomeError"));
+                assert_eq!(detail, "SomeError");
+            }
+            other => panic!("expected ContractInvoke, got: {other:#?}"),
+        }
+    }
 }
