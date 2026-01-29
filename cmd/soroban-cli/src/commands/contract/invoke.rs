@@ -583,3 +583,42 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_code_from_simulation_format() {
+        let msg = "transaction simulation failed: HostError: Error(Contract, #1)";
+        assert_eq!(extract_contract_error_code(msg), Some(1));
+    }
+
+    #[test]
+    fn extract_code_from_debug_format() {
+        // Debug format from TransactionSubmissionFailed errors, which pretty-print
+        // the TransactionResult XDR containing ScError::Contract(u32).
+        assert_eq!(
+            extract_contract_error_code("transaction submission failed: Contract(1)"),
+            Some(1),
+        );
+        // Pretty-printed variant with whitespace around the number.
+        assert_eq!(
+            extract_contract_error_code("Err(\n    Contract(\n        1,\n    ),\n)"),
+            Some(1),
+        );
+    }
+
+    #[test]
+    fn extract_code_ignores_non_contract_errors() {
+        // Budget errors also use `#N` but should not match.
+        assert_eq!(
+            extract_contract_error_code(
+                "transaction simulation failed: HostError: Error(Budget, #3)"
+            ),
+            None,
+        );
+        // Bare `#N` without the `Contract, ` prefix should not match.
+        assert_eq!(extract_contract_error_code("something #123 happened"), None);
+    }
+}
