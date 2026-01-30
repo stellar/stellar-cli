@@ -132,11 +132,11 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let wasm_paths = self.resolve_wasm_paths(global_args)?;
-
         if self.build_only && self.wasm.is_none() {
             return Err(Error::BuildOnlyNotSupported);
         }
+
+        let wasm_paths = self.resolve_wasm_paths(global_args)?;
 
         for wasm_path in &wasm_paths {
             let res = self

@@ -181,6 +181,10 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
+            return Err(Error::BuildOnlyNotSupported);
+        }
+
         let built_contracts = self.resolve_contracts(global_args)?;
 
         // When --wasm-hash is used, no built contracts are returned.
@@ -188,10 +192,6 @@ impl Cmd {
         if built_contracts.is_empty() {
             Self::run_single(self, global_args).await?;
         } else {
-            if self.build_only {
-                return Err(Error::BuildOnlyNotSupported);
-            }
-
             if built_contracts.len() > 1 {
                 if self.alias.is_some() {
                     return Err(Error::AliasNotSupported);
