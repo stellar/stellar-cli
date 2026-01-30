@@ -170,8 +170,8 @@ pub enum Error {
     #[error("constructor arguments are not supported when deploying multiple contracts")]
     ConstructorArgsNotSupported,
 
-    #[error("--build-only is not supported when deploying multiple contracts")]
-    BuildOnlyMultipleContracts,
+    #[error("--build-only is not supported without --wasm or --wasm-hash")]
+    BuildOnlyNotSupported,
 
     #[error(
         "--wasm or --wasm-hash is required when not in a Cargo workspace; no Cargo.toml found"
@@ -188,11 +188,11 @@ impl Cmd {
         if built_contracts.is_empty() {
             Self::run_single(self, global_args).await?;
         } else {
-            if built_contracts.len() > 1 {
-                if self.build_only {
-                    return Err(Error::BuildOnlyMultipleContracts);
-                }
+            if self.build_only {
+                return Err(Error::BuildOnlyNotSupported);
+            }
 
+            if built_contracts.len() > 1 {
                 if self.alias.is_some() {
                     return Err(Error::AliasNotSupported);
                 }
@@ -278,16 +278,15 @@ impl Cmd {
         }
 
         // Neither provided: auto-build
-        if !std::path::Path::new("Cargo.toml").exists() {
-            return Err(Error::NotInCargoProject);
-        }
-
         let build_cmd = build::Cmd {
             package: self.package.clone(),
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
-        let contracts = build_cmd.run(global_args)?;
+        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+            build::Error::Metadata(_) => Error::NotInCargoProject,
+            other => other.into(),
+        })?;
 
         if contracts.is_empty() {
             return Err(Error::NoBuildableContracts);

@@ -123,8 +123,8 @@ pub enum Error {
     #[error("no WASM file specified; use --wasm to provide a contract file")]
     WasmNotProvided,
 
-    #[error("--build-only is not supported when uploading multiple contracts")]
-    BuildOnlyMultipleContracts,
+    #[error("--build-only is not supported without --wasm")]
+    BuildOnlyNotSupported,
 
     #[error("--wasm is required when not in a Cargo workspace; no Cargo.toml found")]
     NotInCargoProject,
@@ -134,8 +134,8 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let wasm_paths = self.resolve_wasm_paths(global_args)?;
 
-        if self.build_only && wasm_paths.len() > 1 {
-            return Err(Error::BuildOnlyMultipleContracts);
+        if self.build_only && self.wasm.is_none() {
+            return Err(Error::BuildOnlyNotSupported);
         }
 
         for wasm_path in &wasm_paths {
@@ -177,16 +177,15 @@ impl Cmd {
         if let Some(wasm) = &self.wasm {
             Ok(vec![wasm.clone()])
         } else {
-            if !Path::new("Cargo.toml").exists() {
-                return Err(Error::NotInCargoProject);
-            }
-
             let build_cmd = build::Cmd {
                 package: self.package.clone(),
                 build_args: self.build_args.clone(),
                 ..build::Cmd::default()
             };
-            let contracts = build_cmd.run(global_args)?;
+            let contracts = build_cmd.run(global_args).map_err(|e| match e {
+                build::Error::Metadata(_) => Error::NotInCargoProject,
+                other => other.into(),
+            })?;
 
             if contracts.is_empty() {
                 return Err(Error::NoBuildableContracts);

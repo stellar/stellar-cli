@@ -140,7 +140,9 @@ async fn deploy_outside_cargo_project_requires_wasm() {
         .arg("test")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("could not find `Cargo.toml`"));
+        .stderr(predicates::str::contains(
+            "--wasm or --wasm-hash is required when not in a Cargo workspace",
+        ));
 }
 
 #[tokio::test]
@@ -155,5 +157,93 @@ async fn upload_outside_cargo_project_requires_wasm() {
         .arg("test")
         .assert()
         .failure()
-        .stderr(predicates::str::contains("could not find `Cargo.toml`"));
+        .stderr(predicates::str::contains(
+            "--wasm is required when not in a Cargo workspace",
+        ));
+}
+
+#[tokio::test]
+async fn deploy_build_only_rejected_without_wasm() {
+    let sandbox = TestEnv::new();
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/test-wasms/hello_world");
+
+    // --build-only should fail when auto-building (no --wasm or --wasm-hash)
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("deploy")
+        .arg("--source-account")
+        .arg("test")
+        .arg("--build-only")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "--build-only is not supported without --wasm or --wasm-hash",
+        ));
+}
+
+#[tokio::test]
+async fn upload_build_only_rejected_without_wasm() {
+    let sandbox = TestEnv::new();
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/test-wasms/hello_world");
+
+    // --build-only should fail when auto-building (no --wasm)
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("upload")
+        .arg("--source-account")
+        .arg("test")
+        .arg("--build-only")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "--build-only is not supported without --wasm",
+        ));
+}
+
+#[tokio::test]
+async fn deploy_auto_build_with_meta() {
+    let sandbox = TestEnv::new();
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/test-wasms/hello_world");
+
+    // Deploy with --meta should pass metadata through to build
+    let contract_id = sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("deploy")
+        .arg("--source-account")
+        .arg("test")
+        .arg("--meta")
+        .arg("key=value")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert!(!contract_id.is_empty(), "Expected contract ID");
+}
+
+#[tokio::test]
+async fn upload_auto_build_with_meta() {
+    let sandbox = TestEnv::new();
+    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/test-wasms/hello_world");
+
+    // Upload with --meta should pass metadata through to build
+    let wasm_hash = sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&fixture_path)
+        .arg("upload")
+        .arg("--source-account")
+        .arg("test")
+        .arg("--meta")
+        .arg("key=value")
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(wasm_hash.len(), 64, "Expected 64-character hex hash");
 }
