@@ -321,14 +321,15 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
+    const CFG_FLAG: &str =
+        "-- --cfg=soroban_sdk_build_system_supports_optimising_specs_using_data_markers";
+
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
     let registry_prefix = registry_prefix.display().to_string();
     #[cfg(windows)]
     let registry_prefix = registry_prefix.replace('\\', "/");
 
-    const CFG_FLAG: &str =
-        "-- --cfg=soroban_sdk_build_system_supports_optimising_specs_using_data_markers";
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
         expected
             .split('\n')
