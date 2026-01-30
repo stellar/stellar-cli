@@ -120,30 +120,6 @@ impl Spec {
         ))
     }
 
-    /// Returns a filtered version of the spec with unused types removed.
-    ///
-    /// This removes any type definitions that are not referenced (directly or
-    /// transitively) by any function in the contract. Functions and events are
-    /// always preserved.
-    #[must_use]
-    pub fn filter_unused_types(&self) -> Vec<ScSpecEntry> {
-        crate::filter::filter_unused_types(self.spec.clone())
-    }
-
-    /// Returns the filtered spec entries serialized as XDR bytes.
-    ///
-    /// This is useful for replacing the contractspecv0 custom section in a WASM
-    /// file with a smaller version that only contains used types.
-    pub fn filtered_spec_xdr(&self) -> Result<Vec<u8>, Error> {
-        let filtered = self.filter_unused_types();
-        let mut buffer = Vec::new();
-        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
-        for entry in filtered {
-            entry.write_xdr(&mut writer)?;
-        }
-        Ok(buffer)
-    }
-
     /// Returns the filtered spec entries serialized as XDR bytes, filtering
     /// based on markers in the WASM data section.
     ///
@@ -161,13 +137,13 @@ impl Spec {
     ///
     /// XDR bytes of the filtered spec entries.
     pub fn filtered_spec_xdr_with_markers(&self, wasm_bytes: &[u8]) -> Result<Vec<u8>, Error> {
-        use crate::filter::{extract_spec_markers, filter_by_markers};
+        use soroban_spec::marker;
 
         // Extract markers from the WASM data section
-        let markers = extract_spec_markers(wasm_bytes);
+        let markers = marker::find_all(wasm_bytes);
 
         // Filter all entries (types, events) based on markers
-        let filtered = filter_by_markers(self.spec.clone(), &markers);
+        let filtered = marker::filter(self.spec.clone(), &markers);
 
         let mut buffer = Vec::new();
         let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());

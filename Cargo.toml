@@ -138,3 +138,5 @@ lto = true
 inherits = "release"
 panic = "unwind"
 
+[patch.crates-io.soroban-spec]
+path = "../rs-soroban-sdk-spec-markers/soroban-spec"
