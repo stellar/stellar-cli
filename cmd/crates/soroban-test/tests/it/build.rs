@@ -327,15 +327,20 @@ fn with_flags(expected: &str) -> String {
     #[cfg(windows)]
     let registry_prefix = registry_prefix.replace('\\', "/");
 
+    const CFG_FLAG: &str =
+        "-- --cfg=soroban_sdk_build_system_supports_optimising_specs_using_data_markers";
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
-        expected.split('\n').map(ToString::to_string).collect()
+        expected
+            .split('\n')
+            .map(|x| format!("{x} {CFG_FLAG}"))
+            .collect()
     } else {
         expected
             .split('\n')
             .map(|x| {
                 let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
                 let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
-                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x} {CFG_FLAG}")
             })
             .collect()
     };
