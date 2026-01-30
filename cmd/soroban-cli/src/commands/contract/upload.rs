@@ -52,7 +52,7 @@ pub struct Cmd {
     pub build_only: bool,
 
     /// Package to build when --wasm is not provided
-    #[arg(long, help_heading = "Build Options")]
+    #[arg(long, help_heading = "Build Options", conflicts_with = "wasm")]
     pub package: Option<String>,
     #[command(flatten)]
     pub build_args: build::BuildArgs,

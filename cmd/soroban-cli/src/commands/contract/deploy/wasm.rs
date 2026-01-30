@@ -72,7 +72,7 @@ pub struct Cmd {
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
     /// Package to build when auto-building without --wasm
-    #[arg(long, help_heading = "Build Options")]
+    #[arg(long, help_heading = "Build Options", conflicts_with = "wasm_src")]
     pub package: Option<String>,
     #[command(flatten)]
     pub build_args: build::BuildArgs,
