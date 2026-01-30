@@ -21,7 +21,6 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
@@ -131,7 +130,7 @@ impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self
-            .run_against_rpc_server(Some(global_args), None)
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
         match res {
@@ -184,21 +183,14 @@ impl Cmd {
 
         Ok(self.ledgers_to_extend)
     }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<u32>;
 
     #[allow(clippy::too_many_lines)]
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<TxnResult<u32>, Self::Error> {
-        let config = config.unwrap_or(&self.config);
-        let quiet = args.is_some_and(|a| a.quiet);
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<u32>, Error> {
         let print = Print::new(quiet);
         let network = config.get_network()?;
         tracing::trace!(?network);
@@ -258,7 +250,7 @@ impl NetworkRunnable for Cmd {
             .await?;
         self.resources.print_cost_info(&res)?;
 
-        if args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
         }
 

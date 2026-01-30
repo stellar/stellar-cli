@@ -317,7 +317,7 @@ mod tests {
     };
 
     fn make_function(name: &str, input_types: Vec<ScSpecTypeDef>) -> ScSpecEntry {
-        let inputs: VecM<ScSpecFunctionInputV0, 10> = input_types
+        let inputs = input_types
             .into_iter()
             .enumerate()
             .map(|(i, type_)| ScSpecFunctionInputV0 {
@@ -338,7 +338,7 @@ mod tests {
     }
 
     fn make_struct(name: &str, field_types: Vec<(&str, ScSpecTypeDef)>) -> ScSpecEntry {
-        let fields: VecM<ScSpecUdtStructFieldV0, 40> = field_types
+        let fields = field_types
             .into_iter()
             .map(|(field_name, type_)| ScSpecUdtStructFieldV0 {
                 doc: StringM::default(),

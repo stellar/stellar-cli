@@ -90,10 +90,8 @@ pub async fn deploy_contract(
     );
     cmd.salt = salt;
 
-    let res = sandbox
-        .run_cmd_with(cmd, deployer.as_deref().unwrap_or("test"))
-        .await
-        .unwrap();
+    let config = sandbox.clone_config(deployer.as_deref().unwrap_or("test"));
+    let res = cmd.execute(&config, false, false).await.unwrap();
 
     match kind {
         DeployKind::Normal => (),

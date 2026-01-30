@@ -1,6 +1,6 @@
 [package]
 name = "test_constructor"
-version = "23.4.1"
+version = "25.1.0"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"

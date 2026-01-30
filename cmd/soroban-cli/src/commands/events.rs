@@ -2,8 +2,6 @@ use clap::Parser;
 use std::io;
 
 use crate::xdr::{self, Limits, ReadXdr};
-
-use super::{global, NetworkRunnable};
 use crate::{
     config::{self, locator, network},
     rpc,
@@ -143,7 +141,16 @@ pub enum OutputFormat {
 
 impl Cmd {
     pub async fn run(&mut self) -> Result<(), Error> {
-        let response = self.run_against_rpc_server(None, None).await?;
+        let response = self
+            .execute(&config::Args {
+                locator: self.locator.clone(),
+                network: self.network.clone(),
+                source_account: config::UnresolvedMuxedAccount::default(),
+                sign_with: config::sign_with::Args::default(),
+                fee: None,
+                inclusion_fee: None,
+            })
+            .await?;
 
         if response.events.is_empty() {
             eprintln!("No events");
@@ -170,6 +177,38 @@ impl Cmd {
             }
         }
         Ok(())
+    }
+
+    pub async fn execute(&self, config: &config::Args) -> Result<rpc::GetEventsResponse, Error> {
+        let start = self.start()?;
+        let network = config.get_network()?;
+        let client = network.rpc_client()?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
+
+        let contract_ids: Vec<String> = self
+            .contract_ids
+            .iter()
+            .map(|id| {
+                Ok(id
+                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
+                    .to_string())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        let parsed_topics = self.parse_topics()?;
+
+        client
+            .get_events(
+                start,
+                Some(self.event_type),
+                &contract_ids,
+                &parsed_topics,
+                Some(self.count),
+            )
+            .await
+            .map_err(Error::Rpc)
     }
 
     fn parse_topics(&self) -> Result<Vec<rpc::TopicFilter>, Error> {
@@ -219,52 +258,5 @@ impl Cmd {
             _ => return Err(Error::MissingStartLedgerAndCursor),
         };
         Ok(start)
-    }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = rpc::GetEventsResponse;
-
-    async fn run_against_rpc_server(
-        &self,
-        _args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<rpc::GetEventsResponse, Error> {
-        let start = self.start()?;
-        let network = if let Some(config) = config {
-            Ok(config.get_network()?)
-        } else {
-            self.network.get(&self.locator)
-        }?;
-
-        let client = network.rpc_client()?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
-
-        let contract_ids: Vec<String> = self
-            .contract_ids
-            .iter()
-            .map(|id| {
-                Ok(id
-                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
-                    .to_string())
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        let parsed_topics = self.parse_topics()?;
-
-        Ok(client
-            .get_events(
-                start,
-                Some(self.event_type),
-                &contract_ids,
-                &parsed_topics,
-                Some(self.count),
-            )
-            .await
-            .map_err(Error::Rpc)?)
     }
 }

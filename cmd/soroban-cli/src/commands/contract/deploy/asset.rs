@@ -16,7 +16,6 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, network},
     rpc::Error as SorobanRpcError,
@@ -98,7 +97,7 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self
-            .run_against_rpc_server(Some(global_args), None)
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
         match res {
@@ -130,19 +129,13 @@ impl Cmd {
         }
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<stellar_strkey::Contract>;
-
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Error> {
-        let config = config.unwrap_or(&self.config);
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         // Parse asset
         let asset = self.asset.resolve(&config.locator)?;
 
@@ -185,12 +178,12 @@ impl NetworkRunnable for Cmd {
         let assembled = self.resources.apply_to_assembled_txn(assembled);
         let txn = assembled.transaction().clone();
         let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign(txn, args.is_some_and(|g| g.quiet)).await?)
+            .send_transaction_polling(&self.config.sign(txn, quiet).await?)
             .await?;
 
         self.resources.print_cost_info(&get_txn_resp)?;
 
-        if args.is_none_or(|a| !a.no_cache) {
+        if !no_cache {
             data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
         }
 

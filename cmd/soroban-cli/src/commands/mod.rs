@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use async_trait::async_trait;
 use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::{config, print::Print, utils::deprecate_message};
@@ -18,6 +17,7 @@ pub mod fees;
 pub mod global;
 pub mod keys;
 pub mod ledger;
+pub mod message;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
@@ -139,6 +139,7 @@ impl Root {
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
+            Cmd::Message(message) => message.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
             Cmd::Fees(env) => env.run(&self.global_args).await?,
@@ -227,6 +228,10 @@ pub enum Cmd {
     #[command(subcommand)]
     Ledger(ledger::Cmd),
 
+    /// Sign and verify arbitrary messages using SEP-53
+    #[command(subcommand)]
+    Message(message::Cmd),
+
     /// ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
     FeeStats(fee_stats::Cmd),
 
@@ -290,20 +295,11 @@ pub enum Error {
     Ledger(#[from] ledger::Error),
 
     #[error(transparent)]
+    Message(#[from] message::Error),
+
+    #[error(transparent)]
     FeeStats(#[from] fee_stats::Error),
 
     #[error(transparent)]
     Fees(#[from] fees::Error),
-}
-
-#[async_trait]
-pub trait NetworkRunnable {
-    type Error;
-    type Result;
-
-    async fn run_against_rpc_server(
-        &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Self::Error>;
 }

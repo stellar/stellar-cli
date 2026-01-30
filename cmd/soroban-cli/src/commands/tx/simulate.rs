@@ -2,10 +2,9 @@ use crate::{
     assembled::{simulate_and_assemble_transaction, Assembled},
     xdr::{self, TransactionEnvelope, WriteXdr},
 };
-use async_trait::async_trait;
 use std::ffi::OsString;
 
-use crate::commands::{config, global, NetworkRunnable};
+use crate::commands::{config, global};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -39,27 +38,14 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), Some(&self.config))
-            .await?;
+    pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+        let res = self.execute(&self.config).await?;
         let tx_env: TransactionEnvelope = res.transaction().clone().into();
         println!("{}", tx_env.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
-}
 
-#[async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-
-    type Result = Assembled;
-    async fn run_against_rpc_server(
-        &self,
-        _: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Self::Error> {
-        let config = config.unwrap_or(&self.config);
+    pub async fn execute(&self, config: &config::Args) -> Result<Assembled, Error> {
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;

@@ -53,8 +53,10 @@ pub async fn invoke_custom(
     let mut i: contract::invoke::Cmd =
         sandbox.cmd_with_config(&["--id", id, "--", func, arg], None);
     i.wasm = Some(wasm.to_path_buf());
-    let s = sandbox.run_cmd_with(i, TEST_ACCOUNT).await;
-    s.map(|tx| tx.into_result().unwrap())
+    let config = sandbox.clone_config(TEST_ACCOUNT);
+    i.execute(&config, false, false)
+        .await
+        .map(|tx| tx.into_result().unwrap())
 }
 
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";

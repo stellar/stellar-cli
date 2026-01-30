@@ -17,12 +17,14 @@ impl Print {
         Print { quiet }
     }
 
+    /// Print message to stderr if not in quiet mode
     pub fn print<T: Display + Sized>(&self, message: T) {
         if !self.quiet {
             eprint!("{message}");
         }
     }
 
+    /// Print message with newline to stderr if not in quiet mode.
     pub fn println<T: Display + Sized>(&self, message: T) {
         if !self.quiet {
             eprintln!("{message}");
