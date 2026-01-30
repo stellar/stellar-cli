@@ -38,7 +38,8 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: crate::resources::Args,
 
-    /// Path to wasm binary. When omitted, builds the project automatically.
+    /// Path to wasm binary. When omitted inside a Cargo workspace, builds the
+    /// project automatically. Required when outside a Cargo workspace.
     #[arg(long)]
     pub wasm: Option<PathBuf>,
 
@@ -119,13 +120,24 @@ pub enum Error {
     #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
     NoBuildableContracts,
 
-    #[error("--wasm flag is required when not in a Cargo project")]
+    #[error("no WASM file specified; use --wasm to provide a contract file")]
     WasmNotProvided,
+
+    #[error("--build-only is not supported when uploading multiple contracts")]
+    BuildOnlyMultipleContracts,
+
+    #[error("--wasm is required when not in a Cargo workspace; no Cargo.toml found")]
+    NotInCargoProject,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let wasm_paths = self.resolve_wasm_paths(global_args)?;
+
+        if self.build_only && wasm_paths.len() > 1 {
+            return Err(Error::BuildOnlyMultipleContracts);
+        }
+
         for wasm_path in &wasm_paths {
             let res = self
                 .upload_wasm(
@@ -136,6 +148,7 @@ impl Cmd {
                 )
                 .await?
                 .to_envelope();
+
             match res {
                 TxnEnvelopeResult::TxnEnvelope(tx) => {
                     println!("{}", tx.to_xdr_base64(Limits::none())?);
@@ -164,15 +177,21 @@ impl Cmd {
         if let Some(wasm) = &self.wasm {
             Ok(vec![wasm.clone()])
         } else {
+            if !Path::new("Cargo.toml").exists() {
+                return Err(Error::NotInCargoProject);
+            }
+
             let build_cmd = build::Cmd {
                 package: self.package.clone(),
                 build_args: self.build_args.clone(),
                 ..build::Cmd::default()
             };
             let contracts = build_cmd.run(global_args)?;
+
             if contracts.is_empty() {
                 return Err(Error::NoBuildableContracts);
             }
+
             Ok(contracts.into_iter().map(|c| c.path).collect())
         }
     }

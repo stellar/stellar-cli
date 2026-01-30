@@ -42,8 +42,9 @@ pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 ))]
 #[group(skip)]
 pub struct Cmd {
-    /// WASM file to deploy. When neither --wasm nor --wasm-hash is provided,
-    /// builds the project automatically.
+    /// WASM file to deploy. When neither --wasm nor --wasm-hash is provided
+    /// inside a Cargo workspace, builds the project automatically. One of
+    /// --wasm or --wasm-hash is required when outside a Cargo workspace.
     #[arg(long, group = "wasm_src")]
     pub wasm: Option<std::path::PathBuf>,
     /// Hash of the already installed/deployed WASM file
@@ -168,6 +169,14 @@ pub enum Error {
 
     #[error("constructor arguments are not supported when deploying multiple contracts")]
     ConstructorArgsNotSupported,
+
+    #[error("--build-only is not supported when deploying multiple contracts")]
+    BuildOnlyMultipleContracts,
+
+    #[error(
+        "--wasm or --wasm-hash is required when not in a Cargo workspace; no Cargo.toml found"
+    )]
+    NotInCargoProject,
 }
 
 impl Cmd {
@@ -180,12 +189,18 @@ impl Cmd {
             Self::run_single(self, global_args).await?;
         } else {
             if built_contracts.len() > 1 {
+                if self.build_only {
+                    return Err(Error::BuildOnlyMultipleContracts);
+                }
+
                 if self.alias.is_some() {
                     return Err(Error::AliasNotSupported);
                 }
+
                 if self.salt.is_some() {
                     return Err(Error::SaltNotSupported);
                 }
+
                 if !self.slop.is_empty() {
                     return Err(Error::ConstructorArgsNotSupported);
                 }
@@ -194,11 +209,13 @@ impl Cmd {
             for contract in &built_contracts {
                 let mut cmd = self.clone();
                 cmd.wasm = Some(contract.path.clone());
+
                 // When auto-building and no explicit --alias, use the
                 // package name as alias.
                 if cmd.alias.is_none() && !contract.name.is_empty() {
                     cmd.alias = Some(contract.name.clone());
                 }
+
                 Self::run_single(&cmd, global_args).await?;
             }
         }
@@ -210,6 +227,7 @@ impl Cmd {
             .execute(&cmd.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
+
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
                 println!("{}", tx.to_xdr_base64(Limits::none())?);
@@ -260,15 +278,21 @@ impl Cmd {
         }
 
         // Neither provided: auto-build
+        if !std::path::Path::new("Cargo.toml").exists() {
+            return Err(Error::NotInCargoProject);
+        }
+
         let build_cmd = build::Cmd {
             package: self.package.clone(),
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
         let contracts = build_cmd.run(global_args)?;
+
         if contracts.is_empty() {
             return Err(Error::NoBuildableContracts);
         }
+
         Ok(contracts)
     }
 

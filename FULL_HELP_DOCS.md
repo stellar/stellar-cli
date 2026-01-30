@@ -474,7 +474,7 @@ Deploy a wasm contract
 
 ###### **Options:**
 
-- `--wasm <WASM>` — WASM file to deploy. When neither --wasm nor --wasm-hash is provided, builds the project automatically
+- `--wasm <WASM>` — WASM file to deploy. When neither --wasm nor --wasm-hash is provided inside a Cargo workspace, builds the project automatically. One of --wasm or --wasm-hash is required when outside a Cargo workspace
 - `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 - `--salt <SALT>` — Custom salt 32-byte salt for the token id
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
@@ -816,7 +816,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-- `--wasm <WASM>` — Path to wasm binary. When omitted, builds the project automatically
+- `--wasm <WASM>` — Path to wasm binary. When omitted inside a Cargo workspace, builds the project automatically. Required when outside a Cargo workspace
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
@@ -863,7 +863,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-- `--wasm <WASM>` — Path to wasm binary. When omitted, builds the project automatically
+- `--wasm <WASM>` — Path to wasm binary. When omitted inside a Cargo workspace, builds the project automatically. Required when outside a Cargo workspace
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
