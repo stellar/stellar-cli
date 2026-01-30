@@ -53,6 +53,8 @@ pub struct Cmd {
     /// Package to build when --wasm is not provided
     #[arg(long, help_heading = "Build Options")]
     pub package: Option<String>,
+    #[command(flatten)]
+    pub build_args: build::BuildArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -164,6 +166,7 @@ impl Cmd {
         } else {
             let build_cmd = build::Cmd {
                 package: self.package.clone(),
+                build_args: self.build_args.clone(),
                 ..build::Cmd::default()
             };
             let contracts = build_cmd.run(global_args)?;

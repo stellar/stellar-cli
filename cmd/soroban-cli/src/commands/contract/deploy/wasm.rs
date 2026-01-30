@@ -73,6 +73,8 @@ pub struct Cmd {
     /// Package to build when auto-building without --wasm
     #[arg(long, help_heading = "Build Options")]
     pub package: Option<String>,
+    #[command(flatten)]
+    pub build_args: build::BuildArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -260,6 +262,7 @@ impl Cmd {
         // Neither provided: auto-build
         let build_cmd = build::Cmd {
             package: self.package.clone(),
+            build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
         let contracts = build_cmd.run(global_args)?;
@@ -290,6 +293,7 @@ impl Cmd {
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
+                    build_args: build::BuildArgs::default(),
                 }
                 .execute(config, quiet, no_cache)
                 .await?

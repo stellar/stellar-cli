@@ -468,6 +468,10 @@ Deploy a wasm contract
 
 - `--package <PACKAGE>` — Package to build when auto-building without --wasm
 
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+
 ###### **Options:**
 
 - `--wasm <WASM>` — WASM file to deploy. When neither --wasm nor --wasm-hash is provided, builds the project automatically
@@ -486,6 +490,7 @@ Deploy a wasm contract
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 
@@ -798,6 +803,10 @@ Install a WASM file to the ledger without creating a contract instance
 
 - `--package <PACKAGE>` — Package to build when --wasm is not provided
 
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+
 ###### **Options:**
 
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
@@ -813,6 +822,7 @@ Install a WASM file to the ledger without creating a contract instance
   Default value: `false`
 
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 
@@ -840,6 +850,10 @@ Install a WASM file to the ledger without creating a contract instance
 
 - `--package <PACKAGE>` — Package to build when --wasm is not provided
 
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+
 ###### **Options:**
 
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
@@ -855,6 +869,7 @@ Install a WASM file to the ledger without creating a contract instance
   Default value: `false`
 
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 

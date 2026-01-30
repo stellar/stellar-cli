@@ -92,6 +92,13 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    #[command(flatten)]
+    pub build_args: BuildArgs,
+}
+
+/// Shared build options for meta and optimization, reused by deploy and upload.
+#[derive(Parser, Debug, Clone, Default)]
+pub struct BuildArgs {
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
@@ -102,7 +109,7 @@ pub struct Cmd {
     pub optimize: bool,
 }
 
-fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
+pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
     let parts = s.splitn(2, '=');
 
     let (key, value) = parts
@@ -191,8 +198,7 @@ impl Default for Cmd {
             no_default_features: false,
             out_dir: None,
             print_commands_only: false,
-            meta: Vec::new(),
-            optimize: false,
+            build_args: BuildArgs::default(),
         }
     }
 }
@@ -307,7 +313,7 @@ impl Cmd {
                 let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
 
                 #[cfg(feature = "additional-libs")]
-                if self.optimize {
+                if self.build_args.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
@@ -318,7 +324,7 @@ impl Cmd {
                 }
 
                 #[cfg(not(feature = "additional-libs"))]
-                if self.optimize {
+                if self.build_args.optimize {
                     return Err(Error::OptimizeFeatureNotEnabled);
                 }
 
@@ -422,7 +428,7 @@ impl Cmd {
         new_meta.push(cli_meta_entry);
 
         // Add args provided meta
-        for (k, v) in self.meta.clone() {
+        for (k, v) in self.build_args.meta.clone() {
             let key: StringM = k
                 .clone()
                 .try_into()
