@@ -1,3 +1,4 @@
+mod auto_build;
 mod bindings;
 mod constructor;
 mod contract;
