@@ -237,6 +237,11 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
+            // Pass cfg flag to rustc to inform the SDK that this CLI supports
+            // spec optimization using markers.
+            cmd.arg("--");
+            cmd.arg("--cfg=soroban_sdk_build_system_supports_optimising_specs_using_data_markers");
+
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
                 format!(
