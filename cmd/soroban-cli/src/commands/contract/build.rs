@@ -25,6 +25,15 @@ use crate::{
     wasm,
 };
 
+/// A built WASM artifact with its package name and file path.
+#[derive(Debug, Clone)]
+pub struct BuiltContract {
+    /// The Cargo package name (e.g. "my-contract").
+    pub name: String,
+    /// The path to the built WASM file.
+    pub path: PathBuf,
+}
+
 /// Build a contract from source
 ///
 /// Builds all crates that are referenced by the cargo manifest (Cargo.toml)
@@ -171,9 +180,27 @@ const WASM_TARGET: &str = "wasm32v1-none";
 const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
+impl Default for Cmd {
+    fn default() -> Self {
+        Self {
+            manifest_path: None,
+            package: None,
+            profile: "release".to_string(),
+            features: None,
+            all_features: false,
+            no_default_features: false,
+            out_dir: None,
+            print_commands_only: false,
+            meta: Vec::new(),
+            optimize: false,
+        }
+    }
+}
+
 impl Cmd {
+    /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
@@ -194,6 +221,7 @@ impl Cmd {
         }
 
         let wasm_target = get_wasm_target()?;
+        let mut built_contracts = Vec::new();
 
         for p in packages {
             let mut cmd = Command::new("cargo");
@@ -295,10 +323,14 @@ impl Cmd {
                 }
 
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
+                built_contracts.push(BuiltContract {
+                    name: p.name.clone(),
+                    path: final_path,
+                });
             }
         }
 
-        Ok(())
+        Ok(built_contracts)
     }
 
     fn features(&self) -> Option<Vec<String>> {
