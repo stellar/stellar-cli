@@ -458,15 +458,23 @@ If no keys are specified the contract itself is extended.
 
 Deploy a wasm contract
 
-**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> <--wasm <WASM>|--wasm-hash <WASM_HASH>> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
+**Usage:** `stellar contract deploy [OPTIONS] --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_CONSTRUCTOR_ARGS>...]`
 
 ###### **Arguments:**
 
 - `<CONTRACT_CONSTRUCTOR_ARGS>` — If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
 
+###### **Build Options:**
+
+- `--package <PACKAGE>` — Package to build when auto-building without --wasm
+
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
+
 ###### **Options:**
 
-- `--wasm <WASM>` — WASM file to deploy
+- `--wasm <WASM>` — WASM file to deploy. When neither --wasm nor --wasm-hash is provided inside a Cargo workspace, builds the project automatically. One of --wasm or --wasm-hash is required when outside a Cargo workspace
 - `--wasm-hash <WASM_HASH>` — Hash of the already installed/deployed WASM file
 - `--salt <SALT>` — Custom salt 32-byte salt for the token id
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
@@ -482,6 +490,7 @@ Deploy a wasm contract
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 
@@ -788,7 +797,15 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract upload [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract upload [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Build Options:**
+
+- `--package <PACKAGE>` — Package to build when --wasm is not provided
+
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
 ###### **Options:**
 
@@ -799,12 +816,13 @@ Install a WASM file to the ledger without creating a contract instance
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-- `--wasm <WASM>` — Path to wasm binary
+- `--wasm <WASM>` — Path to wasm binary. When omitted inside a Cargo workspace, builds the project automatically. Required when outside a Cargo workspace
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
 
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 
@@ -826,7 +844,15 @@ Install a WASM file to the ledger without creating a contract instance
 
 ⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
 
-**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT> --wasm <WASM>`
+**Usage:** `stellar contract install [OPTIONS] --source-account <SOURCE_ACCOUNT>`
+
+###### **Build Options:**
+
+- `--package <PACKAGE>` — Package to build when --wasm is not provided
+
+###### **Metadata:**
+
+- `--meta <META>` — Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
 
 ###### **Options:**
 
@@ -837,12 +863,13 @@ Install a WASM file to the ledger without creating a contract instance
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-- `--wasm <WASM>` — Path to wasm binary
+- `--wasm <WASM>` — Path to wasm binary. When omitted inside a Cargo workspace, builds the project automatically. Required when outside a Cargo workspace
 - `-i`, `--ignore-checks` — Whether to ignore safety checks when deploying contracts
 
   Default value: `false`
 
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--optimize` — Optimize the generated wasm
 
 ###### **Options (Global):**
 
