@@ -595,18 +595,14 @@ fn enhance_error_from_meta(
 /// message.
 ///
 /// The lookup is scoped to the error type declared in the function's return type
-/// (e.g. `Result<T, MyError>` only searches the `MyError` enum). If the
-/// function's return type cannot be resolved, falls back to searching all error
-/// enums in the spec.
+/// (e.g. `Result<T, MyError>` only searches the `MyError` enum).
 fn build_enhanced_error(
     code: u32,
     error_msg: &str,
     spec: &soroban_spec_tools::Spec,
     function: &str,
 ) -> Option<Error> {
-    let case = find_error_for_function(spec, function, code)
-        .or_else(|| spec.find_error_type(code).ok())?;
-
+    let case = find_error_for_function(spec, function, code)?;
     let name = case.name.to_utf8_string_lossy();
     let doc = case.doc.to_utf8_string_lossy();
     let detail = format!(
