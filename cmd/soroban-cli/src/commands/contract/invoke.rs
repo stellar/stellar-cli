@@ -614,9 +614,8 @@ fn enhance_error_from_meta(
     spec: &soroban_spec_tools::Spec,
     function: &str,
 ) -> Option<Error> {
-    let code = match response.return_value() {
-        Ok(ScVal::Error(ScError::Contract(code))) => code,
-        _ => return None,
+    let Ok(ScVal::Error(ScError::Contract(code))) = response.return_value() else {
+        return None;
     };
     build_enhanced_error(code, rpc_error_msg, spec, function)
 }
@@ -753,7 +752,9 @@ mod tests {
                 contract_id: None,
                 type_: ContractEventType::Diagnostic,
                 body: ContractEventBody::V0(ContractEventV0 {
-                    topics: vec![ScVal::Error(ScError::Contract(42))].try_into().unwrap(),
+                    topics: vec![ScVal::Error(ScError::Contract(42))]
+                        .try_into()
+                        .unwrap(),
                     data: ScVal::Void,
                 }),
             },
