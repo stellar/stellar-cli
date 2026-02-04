@@ -132,8 +132,14 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
 
-    #[error("{0}")]
-    ContractInvoke(String, String),
+    #[error("{message}")]
+    ContractInvoke {
+        /// Full error message with the resolved error name inserted after the
+        /// contract error code.
+        message: String,
+        /// The resolved error name and doc string (e.g. `"ErrorName: description"`).
+        detail: String,
+    },
 
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
@@ -539,7 +545,10 @@ fn enhance_error(err: Error, spec: &soroban_spec_tools::Spec) -> Error {
     );
 
     let enhanced_msg = insert_detail_after_error_code(&error_msg, &detail);
-    Error::ContractInvoke(enhanced_msg, detail)
+    Error::ContractInvoke {
+        message: enhanced_msg,
+        detail,
+    }
 }
 
 /// Insert a detail string into an error message right after the contract error

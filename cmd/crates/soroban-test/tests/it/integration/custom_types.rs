@@ -196,7 +196,7 @@ async fn number_arg_return_err(sandbox: &TestEnv, id: &str) {
         .await
         .unwrap_err();
     match &res {
-        commands::contract::invoke::Error::ContractInvoke(enhanced_msg, detail) => {
+        commands::contract::invoke::Error::ContractInvoke { message: enhanced_msg, detail } => {
             assert!(
                 enhanced_msg.contains("#1"),
                 "expected enhanced msg to contain '#1', got: {enhanced_msg}"
