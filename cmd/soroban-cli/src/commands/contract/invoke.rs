@@ -6,18 +6,19 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{Parser, ValueEnum};
-use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
+use soroban_rpc::{
+    Client, GetTransactionResponse, SimulateHostFunctionResult, SimulateTransactionResponse,
+};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
-use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
 use crate::log::extract_events;
 use crate::print::Print;
 use crate::utils::deprecate_message;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
+    assembled::Assembled,
     commands::{
         contract::arg_parsing::{build_host_function_parameters, output_to_string},
         global,
@@ -28,11 +29,11 @@ use crate::{
     get_spec::{self, get_remote_contract_spec},
     print, rpc,
     xdr::{
-        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventType,
-        DiagnosticEvent, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo,
-        MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, ScSpecEntry,
-        SequenceNumber, String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM,
-        WriteXdr,
+        self, AccountEntry, AccountEntryExt, AccountId, ContractEvent, ContractEventBody,
+        ContractEventType, ContractEventV0, DiagnosticEvent, HostFunction, InvokeContractArgs,
+        InvokeHostFunctionOp, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+        PublicKey, ScError, ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScVal, SequenceNumber,
+        String32, StringM, Thresholds, Transaction, TransactionExt, Uint256, VecM, WriteXdr,
     },
     Pwd,
 };
@@ -238,6 +239,8 @@ impl Cmd {
         host_function_params: &InvokeContractArgs,
         account_details: &AccountEntry,
         rpc_client: &Client,
+        spec: &soroban_spec_tools::Spec,
+        function: &str,
     ) -> Result<Assembled, Error> {
         let sequence: i64 = account_details.seq_num.0;
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) =
@@ -245,13 +248,15 @@ impl Cmd {
 
         let tx =
             build_invoke_contract_tx(host_function_params.clone(), sequence + 1, 100, account_id)?;
-        Ok(simulate_and_assemble_transaction(
+        simulate_and_enhance(
             rpc_client,
             &tx,
             self.resources.resource_config(),
             self.resources.resource_fee,
+            spec,
+            function,
         )
-        .await?)
+        .await
     }
 
     #[allow(clippy::too_many_lines)]
@@ -310,9 +315,14 @@ impl Cmd {
             (ShouldSend::Yes, None)
         } else {
             let assembled = self
-                .simulate(&host_function_params, &default_account_entry(), &client)
-                .await
-                .map_err(|e| enhance_error(e, &spec))?;
+                .simulate(
+                    &host_function_params,
+                    &default_account_entry(),
+                    &client,
+                    &spec,
+                    &function,
+                )
+                .await?;
             let should_send = self.should_send_tx(&assembled.sim_res)?;
             (should_send, Some(assembled))
         };
@@ -359,14 +369,15 @@ impl Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_assemble_transaction(
+        let txn = simulate_and_enhance(
             &client,
             &tx,
             self.resources.resource_config(),
             self.resources.resource_fee,
+            &spec,
+            &function,
         )
-        .await
-        .map_err(|e| enhance_error(Error::Rpc(e), &spec))?;
+        .await?;
         let assembled = self.resources.apply_to_assembled_txn(txn);
         let mut txn = Box::new(assembled.transaction().clone());
         let sim_res = assembled.sim_response();
@@ -380,10 +391,25 @@ impl Cmd {
             *txn = tx;
         }
 
-        let res = client
-            .send_transaction_polling(&config.sign(*txn, quiet).await?)
-            .await
-            .map_err(|e| enhance_error(Error::Rpc(e), &spec))?;
+        let signed_tx = config.sign(*txn, quiet).await?;
+        let hash = client.send_transaction(&signed_tx).await?;
+
+        let res = match client.get_transaction_polling(&hash, None).await {
+            Ok(res) => res,
+            Err(e) => {
+                // For submission failures, extract the contract error code
+                if matches!(&e, rpc::Error::TransactionSubmissionFailed(_)) {
+                    if let Ok(response) = client.get_transaction(&hash).await {
+                        if let Some(err) =
+                            enhance_error_from_meta(&response, &e.to_string(), &spec, &function)
+                        {
+                            return Err(err);
+                        }
+                    }
+                }
+                return Err(Error::Rpc(e));
+            }
+        };
 
         self.resources.print_cost_info(&res)?;
 
@@ -461,77 +487,127 @@ enum ShouldSend {
     Yes,
 }
 
-/// Extract a contract error code (u32) from an error string.
+/// Simulate a transaction and assemble the result, enhancing any contract error
+/// with human-readable information from the spec. On simulation failure, the
+/// contract error code is extracted from the structured simulation response
+async fn simulate_and_enhance(
+    client: &Client,
+    tx: &Transaction,
+    resource_config: Option<soroban_rpc::ResourceConfig>,
+    resource_fee: Option<i64>,
+    spec: &soroban_spec_tools::Spec,
+    function: &str,
+) -> Result<Assembled, Error> {
+    let sim_res =
+        crate::assembled::simulate_transaction(client, tx, resource_config).await?;
+
+    if let Some(e) = &sim_res.error {
+        crate::log::event::all(&sim_res.events()?);
+        return Err(enhance_simulation_error(e, &sim_res, spec, function));
+    }
+
+    Ok(Assembled::new(tx, sim_res, resource_fee)?)
+}
+
+/// Try to enhance a simulation error by extracting the contract error code from
+/// the structured simulation response (results and diagnostic events)
+fn enhance_simulation_error(
+    error_msg: &str,
+    sim_res: &SimulateTransactionResponse,
+    spec: &soroban_spec_tools::Spec,
+    function: &str,
+) -> Error {
+    if let Some(code) = extract_contract_error_from_sim(sim_res) {
+        if let Some(err) = build_enhanced_error(code, error_msg, spec, function) {
+            return err;
+        }
+    }
+    Error::Rpc(rpc::Error::TransactionSimulationFailed(
+        error_msg.to_string(),
+    ))
+}
+
+/// Extract a contract error code from a simulation response's structured data.
 ///
-/// Supports two formats:
-/// - `Error(Contract, #N)` from the Soroban host display format (simulation errors)
-/// - `Contract(N)` from Rust Debug format of `ScError::Contract(u32)` (submission errors)
-///
-/// The Display format uses the prefix `Contract, #` to distinguish contract errors
-/// from other Soroban error types (Budget, Auth, etc.) which also use `#N`.
-///
-/// The Debug format is used by `TransactionSubmissionFailed` errors which
-/// pretty-print (`{:#?}`) the `TransactionResult`, where the number may
-/// appear on a separate line with surrounding whitespace.
-fn extract_contract_error_code(msg: &str) -> Option<u32> {
-    // Try `Contract, #N` format (simulation errors).
-    // Must match the full prefix to avoid false positives on non-contract
-    // error types like `Error(Budget, #3)`.
-    if let Some(idx) = msg.find("Contract, #") {
-        let after = &msg[idx + "Contract, #".len()..];
-        let end = after
-            .find(|c: char| !c.is_ascii_digit())
-            .unwrap_or(after.len());
-        if end > 0 {
-            if let Ok(code) = after[..end].parse() {
-                return Some(code);
+/// Checks the simulation results first in case the return value is
+/// `ScVal::Error(ScError::Contract(code))`, then scans diagnostic events
+/// (in reverse order) for the outermost contract error code.
+fn extract_contract_error_from_sim(sim_res: &SimulateTransactionResponse) -> Option<u32> {
+    if let Ok(results) = sim_res.results() {
+        for result in &results {
+            if let ScVal::Error(ScError::Contract(code)) = &result.xdr {
+                return Some(*code);
             }
         }
     }
 
-    // Try `Contract(N)` format (transaction submission errors via Debug).
-    // In the Debug-printed XDR, `ScError::Contract(u32)` is the only variant
-    // that uses `Contract(` followed by a number.
-    if let Some(idx) = msg.find("Contract(") {
-        let after = &msg[idx + "Contract(".len()..];
-        let trimmed = after.trim_start();
-        let end = trimmed
-            .find(|c: char| !c.is_ascii_digit())
-            .unwrap_or(trimmed.len());
-        if end > 0 {
-            if let Ok(code) = trimmed[..end].parse() {
-                return Some(code);
-            }
+    if let Ok(events) = sim_res.events() {
+        if let Some(code) = extract_contract_error_from_events(&events) {
+            return Some(code);
         }
     }
 
     None
 }
 
-/// Try to enhance an error with human-readable contract error information from
-/// the contract spec. If the error contains a contract error code — either
-/// `#N` from simulation errors or `Contract(N)` from transaction submission
-/// errors — looks it up across all error enums in the spec and returns a
-/// `ContractInvoke` error with the resolved name and documentation.
+/// Scan diagnostic events for an `ScError::Contract(code)` value in the event
+/// data or topics.
 ///
-/// The resolved error name is inserted into the error message right after the
-/// error code, so it appears next to `Error(Contract, #N)` rather than being
-/// separated from it by the event log.
+/// Events are scanned in **reverse** order (newest first) so that the
+/// outermost error is returned. In cross-contract call scenarios, earlier
+/// events contain inner-contract error codes while the last error event
+/// carries the final remapped code from the outermost contract.
+fn extract_contract_error_from_events(events: &[DiagnosticEvent]) -> Option<u32> {
+    for event in events.iter().rev() {
+        let ContractEventBody::V0(ContractEventV0 { topics, data, .. }) = &event.event.body;
+
+        if let ScVal::Error(ScError::Contract(code)) = data {
+            return Some(*code);
+        }
+        for topic in topics.iter() {
+            if let ScVal::Error(ScError::Contract(code)) = topic {
+                return Some(*code);
+            }
+        }
+    }
+    None
+}
+
+/// Try to extract a contract error from a failed transaction's structured XDR
+/// metadata by reading the `ScError::Contract(u32)` value directly from the
+/// `SorobanTransactionMeta` return value.
 ///
-/// Returns the original error unchanged if enhancement is not possible.
-fn enhance_error(err: Error, spec: &soroban_spec_tools::Spec) -> Error {
-    let error_msg = match &err {
-        Error::Rpc(rpc_err) => rpc_err.to_string(),
-        _ => return err,
+/// Returns `Some(Error::ContractInvoke { .. })` if a contract error was found
+/// and resolved in the spec, or `None` to let the caller fall back.
+fn enhance_error_from_meta(
+    response: &GetTransactionResponse,
+    rpc_error_msg: &str,
+    spec: &soroban_spec_tools::Spec,
+    function: &str,
+) -> Option<Error> {
+    let code = match response.return_value() {
+        Ok(ScVal::Error(ScError::Contract(code))) => code,
+        _ => return None,
     };
+    build_enhanced_error(code, rpc_error_msg, spec, function)
+}
 
-    let Some(code) = extract_contract_error_code(&error_msg) else {
-        return err;
-    };
-
-    let Some((_enum_info, case)) = spec.find_error_type_any(code) else {
-        return err;
-    };
+/// Build an enhanced `ContractInvoke` error by looking up a contract error code
+/// in the spec and inserting the resolved name and documentation into the error
+/// message.
+///
+/// The lookup is scoped to the error type declared in the function's return type
+/// (e.g. `Result<T, MyError>` only searches the `MyError` enum). If the
+/// function's return type cannot be resolved, falls back to searching all error
+/// enums in the spec.
+fn build_enhanced_error(
+    code: u32,
+    error_msg: &str,
+    spec: &soroban_spec_tools::Spec,
+    function: &str,
+) -> Option<Error> {
+    let case = find_error_for_function(spec, function, code)
+        .or_else(|| spec.find_error_type(code).ok())?;
 
     let name = case.name.to_utf8_string_lossy();
     let doc = case.doc.to_utf8_string_lossy();
@@ -544,11 +620,35 @@ fn enhance_error(err: Error, spec: &soroban_spec_tools::Spec) -> Error {
         }
     );
 
-    let enhanced_msg = insert_detail_after_error_code(&error_msg, &detail);
-    Error::ContractInvoke {
+    let enhanced_msg = insert_detail_after_error_code(error_msg, &detail);
+    Some(Error::ContractInvoke {
         message: enhanced_msg,
         detail,
-    }
+    })
+}
+
+/// Look up a contract error code in the specific error enum declared in the
+/// function's return type. Returns `None` if the function doesn't declare a
+/// `Result` return type with a UDT error enum, or if the code isn't found in
+/// that enum.
+fn find_error_for_function<'a>(
+    spec: &'a soroban_spec_tools::Spec,
+    function: &str,
+    code: u32,
+) -> Option<&'a xdr::ScSpecUdtErrorEnumCaseV0> {
+    let func = spec.find_function(function).ok()?;
+    let output = func.outputs.first()?;
+    let ScSpecTypeDef::Result(result_type) = output else {
+        return None;
+    };
+    let ScSpecTypeDef::Udt(ScSpecTypeUdt { name }) = result_type.error_type.as_ref() else {
+        return None;
+    };
+    let error_enum_name = name.to_utf8_string_lossy();
+    let ScSpecEntry::UdtErrorEnumV0(error_enum) = spec.find(&error_enum_name).ok()? else {
+        return None;
+    };
+    error_enum.cases.iter().find(|c| c.value == code)
 }
 
 /// Insert a detail string into an error message right after the contract error
@@ -596,38 +696,152 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use xdr::ExtensionPoint;
 
     #[test]
-    fn extract_code_from_simulation_format() {
-        let msg = "transaction simulation failed: HostError: Error(Contract, #1)";
-        assert_eq!(extract_contract_error_code(msg), Some(1));
+    fn extract_contract_error_from_event_data() {
+        let events = vec![DiagnosticEvent {
+            in_successful_contract_call: false,
+            event: ContractEvent {
+                ext: ExtensionPoint::V0,
+                contract_id: None,
+                type_: ContractEventType::Diagnostic,
+                body: ContractEventBody::V0(ContractEventV0 {
+                    topics: VecM::default(),
+                    data: ScVal::Error(ScError::Contract(1)),
+                }),
+            },
+        }];
+        assert_eq!(extract_contract_error_from_events(&events), Some(1));
     }
 
     #[test]
-    fn extract_code_from_debug_format() {
-        // Debug format from TransactionSubmissionFailed errors, which pretty-print
-        // the TransactionResult XDR containing ScError::Contract(u32).
+    fn extract_contract_error_from_event_topic() {
+        let events = vec![DiagnosticEvent {
+            in_successful_contract_call: false,
+            event: ContractEvent {
+                ext: ExtensionPoint::V0,
+                contract_id: None,
+                type_: ContractEventType::Diagnostic,
+                body: ContractEventBody::V0(ContractEventV0 {
+                    topics: vec![ScVal::Error(ScError::Contract(42))].try_into().unwrap(),
+                    data: ScVal::Void,
+                }),
+            },
+        }];
+        assert_eq!(extract_contract_error_from_events(&events), Some(42));
+    }
+
+    #[test]
+    fn extract_contract_error_ignores_non_contract_events() {
+        let events = vec![DiagnosticEvent {
+            in_successful_contract_call: true,
+            event: ContractEvent {
+                ext: ExtensionPoint::V0,
+                contract_id: None,
+                type_: ContractEventType::Diagnostic,
+                body: ContractEventBody::V0(ContractEventV0 {
+                    topics: VecM::default(),
+                    data: ScVal::Error(ScError::Budget(xdr::ScErrorCode::ExceededLimit)),
+                }),
+            },
+        }];
+        assert_eq!(extract_contract_error_from_events(&events), None);
+    }
+
+    #[test]
+    fn extract_contract_error_returns_outermost_code() {
+        // Simulates a cross-contract call where events contain both the inner
+        // contract's error (code 1) and the outer contract's remapped error
+        // (code 7). The extraction should return the outermost (last) code.
+        let events = vec![
+            // Inner contract: Error(Contract, #1) in topic
+            DiagnosticEvent {
+                in_successful_contract_call: false,
+                event: ContractEvent {
+                    ext: ExtensionPoint::V0,
+                    contract_id: None,
+                    type_: ContractEventType::Diagnostic,
+                    body: ContractEventBody::V0(ContractEventV0 {
+                        topics: vec![
+                            ScVal::Symbol(xdr::ScSymbol("error".try_into().unwrap())),
+                            ScVal::Error(ScError::Contract(1)),
+                        ]
+                        .try_into()
+                        .unwrap(),
+                        data: ScVal::String(xdr::ScString(
+                            "escalating Ok(ScErrorType::Contract) frame-exit to Err"
+                                .try_into()
+                                .unwrap(),
+                        )),
+                    }),
+                },
+            },
+            // Outer contract: try_call failed, Error(Contract, #1) in topic
+            DiagnosticEvent {
+                in_successful_contract_call: false,
+                event: ContractEvent {
+                    ext: ExtensionPoint::V0,
+                    contract_id: None,
+                    type_: ContractEventType::Diagnostic,
+                    body: ContractEventBody::V0(ContractEventV0 {
+                        topics: vec![
+                            ScVal::Symbol(xdr::ScSymbol("error".try_into().unwrap())),
+                            ScVal::Error(ScError::Contract(1)),
+                        ]
+                        .try_into()
+                        .unwrap(),
+                        data: ScVal::String(xdr::ScString(
+                            "contract try_call failed".try_into().unwrap(),
+                        )),
+                    }),
+                },
+            },
+            // Outer contract: final remapped Error(Contract, #7) in topic
+            DiagnosticEvent {
+                in_successful_contract_call: false,
+                event: ContractEvent {
+                    ext: ExtensionPoint::V0,
+                    contract_id: None,
+                    type_: ContractEventType::Diagnostic,
+                    body: ContractEventBody::V0(ContractEventV0 {
+                        topics: vec![
+                            ScVal::Symbol(xdr::ScSymbol("error".try_into().unwrap())),
+                            ScVal::Error(ScError::Contract(7)),
+                        ]
+                        .try_into()
+                        .unwrap(),
+                        data: ScVal::String(xdr::ScString(
+                            "escalating Ok(ScErrorType::Contract) frame-exit to Err"
+                                .try_into()
+                                .unwrap(),
+                        )),
+                    }),
+                },
+            },
+        ];
+        assert_eq!(extract_contract_error_from_events(&events), Some(7));
+    }
+
+    #[test]
+    fn insert_detail_with_event_log() {
+        // Simulation errors have the event log separated by a blank line.
+        let msg = "HostError: Error(Contract, #1)\n\nEvent log (newest first):";
+        let result = insert_detail_after_error_code(msg, "NumberMustBeOdd: desc");
         assert_eq!(
-            extract_contract_error_code("transaction submission failed: Contract(1)"),
-            Some(1),
-        );
-        // Pretty-printed variant with whitespace around the number.
-        assert_eq!(
-            extract_contract_error_code("Err(\n    Contract(\n        1,\n    ),\n)"),
-            Some(1),
+            result,
+            "HostError: Error(Contract, #1)\nNumberMustBeOdd: desc\n\nEvent log (newest first):"
         );
     }
 
     #[test]
-    fn extract_code_ignores_non_contract_errors() {
-        // Budget errors also use `#N` but should not match.
+    fn insert_detail_without_event_log() {
+        // Messages without an event log section get the detail appended.
+        let msg = "transaction submission failed: InvokeHostFunction(Trapped)";
+        let result = insert_detail_after_error_code(msg, "NumberMustBeOdd: desc");
         assert_eq!(
-            extract_contract_error_code(
-                "transaction simulation failed: HostError: Error(Budget, #3)"
-            ),
-            None,
+            result,
+            "transaction submission failed: InvokeHostFunction(Trapped)\nNumberMustBeOdd: desc"
         );
-        // Bare `#N` without the `Contract, ` prefix should not match.
-        assert_eq!(extract_contract_error_code("something #123 happened"), None);
     }
 }
