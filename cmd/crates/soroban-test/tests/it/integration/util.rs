@@ -10,6 +10,7 @@ pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
+pub const ERROR_CALLER: &Wasm = &Wasm::Custom("test-wasms", "test_error_caller");
 
 pub async fn invoke(sandbox: &TestEnv, id: &str, func: &str, data: &str) -> String {
     sandbox
@@ -53,6 +54,10 @@ pub async fn deploy_custom(sandbox: &TestEnv) -> String {
 
 pub async fn deploy_swap(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, SWAP, DeployOptions::default()).await
+}
+
+pub async fn deploy_error_caller(sandbox: &TestEnv) -> String {
+    deploy_contract(sandbox, ERROR_CALLER, DeployOptions::default()).await
 }
 
 pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
