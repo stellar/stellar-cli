@@ -1,13 +1,23 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, panic_with_error, Address, Env, IntoVal, InvokeError,
-    Symbol,
+    contract, contractclient, contracterror, contractimpl, panic_with_error, Address, Env, IntoVal,
+    InvokeError, Symbol,
 };
 
-mod custom_types {
-    soroban_sdk::contractimport!(
-        file = "../../../../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm"
-    );
+/// Mirror of the inner contract's error enum.
+/// Must match the error codes defined in custom_types contract.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum InnerError {
+    /// Please provide an odd number
+    NumberMustBeOdd = 1,
+}
+
+/// Minimal client interface for the custom_types contract.
+#[contractclient(name = "CustomTypesClient")]
+pub trait CustomTypesInterface {
+    fn u32_fail_on_even(env: Env, u32_: u32) -> Result<u32, InnerError>;
 }
 
 #[contracterror]
@@ -49,9 +59,9 @@ impl ErrorCallerContract {
         }
     }
 
-    /// Try-calls inner via contractimport. Catches error, returns OuterError::RemappedInner.
+    /// Try-calls inner via contractclient. Catches error, returns OuterError::RemappedInner.
     pub fn catch_call_import(env: Env, inner: Address, u32_: u32) -> Result<u32, OuterError> {
-        let client = custom_types::Client::new(&env, &inner);
+        let client = CustomTypesClient::new(&env, &inner);
         match client.try_u32_fail_on_even(&u32_) {
             Ok(Ok(val)) => Ok(val),
             _ => Err(OuterError::RemappedInner),
@@ -67,16 +77,16 @@ impl ErrorCallerContract {
         ))
     }
 
-    /// Non-try call to inner via contractimport. If inner fails, propagates as VM trap.
+    /// Non-try call to inner via contractclient. If inner fails, propagates as VM trap.
     pub fn call_import(env: Env, inner: Address, u32_: u32) -> Result<u32, OuterError> {
-        let client = custom_types::Client::new(&env, &inner);
+        let client = CustomTypesClient::new(&env, &inner);
         Ok(client.u32_fail_on_even(&u32_))
     }
 
     /// Try-calls inner but returns non-Result type. Panics with error if inner fails.
     /// Since this function doesn't return Result, the error shouldn't be resolved.
     pub fn catch_panic_no_result(env: Env, inner: Address, u32_: u32) -> u32 {
-        let client = custom_types::Client::new(&env, &inner);
+        let client = CustomTypesClient::new(&env, &inner);
         match client.try_u32_fail_on_even(&u32_) {
             Ok(Ok(val)) => val,
             _ => panic_with_error!(&env, OuterError::RemappedInner),
