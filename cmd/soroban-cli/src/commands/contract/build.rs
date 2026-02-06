@@ -237,10 +237,12 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            // Pass cfg flag to rustc to inform the SDK that this CLI supports
-            // spec optimization using markers.
-            cmd.arg("--");
-            cmd.arg("--cfg=soroban_sdk_build_system_supports_optimising_specs_using_data_markers");
+            // Set env var to inform the SDK that this CLI supports spec
+            // optimization using markers.
+            cmd.env(
+                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_OPTIMISING_SPECS_USING_DATA_MARKERS",
+                "1",
+            );
 
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
@@ -443,6 +445,14 @@ impl Cmd {
         use soroban_spec_tools::contract::{replace_custom_section, Spec};
 
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        // Check for markers in the WASM data section. If no markers are found,
+        // the SDK feature is likely not enabled, so skip filtering to avoid
+        // stripping all non-function specs.
+        let markers = soroban_spec::marker::find_all(&wasm_bytes);
+        if markers.is_empty() {
+            return Ok(());
+        }
 
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
