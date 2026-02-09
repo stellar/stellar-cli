@@ -57,8 +57,13 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
                                 .collect::<Vec<_>>()
                                 .join(", ");
 
+                            let prefix_str = if decoded.prefix_topics.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" ({})", decoded.prefix_topics.join(", "))
+                            };
                             let output = format!(
-                                "{contract_id} - {status} - Event: {}, {params_str}",
+                                "{contract_id} - {status} - Event: {}{prefix_str}, {params_str}",
                                 decoded.event_name
                             )
                             .trim_end_matches([',', ' '])

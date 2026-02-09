@@ -14,6 +14,8 @@ pub struct DecodedEvent {
     pub contract_id: String,
     /// The event name from the contract spec (e.g., "Transfer", "Approve")
     pub event_name: String,
+    /// The prefix topics that identify this event (e.g., `["transfer"]`)
+    pub prefix_topics: Vec<String>,
     pub params: IndexMap<String, Value>,
 }
 
@@ -40,17 +42,10 @@ impl Spec {
     /// Match event topics to find the corresponding spec
     ///
     /// Returns the matching event spec if the prefix topics match, otherwise None.
-    /// When prefix_topics is non-empty, we match by prefix. When empty, we match by event name.
     pub fn match_event_to_spec<'a>(&'a self, topics: &[ScVal]) -> Option<&'a ScSpecEventV0> {
-        self.find_events().ok()?.find(|event| {
-            if event.prefix_topics.is_empty() {
-                // No prefix, match by event name in topics
-                matches_event_name(&event.name, topics)
-            } else {
-                // Has prefix, match by prefix topics
-                matches_prefix_topics(&event.prefix_topics, topics)
-            }
-        })
+        self.find_events()
+            .ok()?
+            .find(|event| matches_prefix_topics(&event.prefix_topics, topics))
     }
 
     /// Decode event using spec, producing named parameters
@@ -83,29 +78,15 @@ fn matches_prefix_topics(prefix_topics: &[ScSymbol], topics: &[ScVal]) -> bool {
         return false;
     }
 
-    // Check each prefix topic matches the corresponding event topic
+    // Check each prefix topic matches the corresponding event topic.
     prefix_topics
         .iter()
         .zip(topics.iter())
-        .all(|(prefix, topic)| {
-            if let ScVal::Symbol(topic_sym) = topic {
-                prefix.as_vec() == topic_sym.as_vec()
-            } else {
-                false
-            }
+        .all(|(prefix, topic)| match topic {
+            ScVal::Symbol(topic_sym) => prefix.as_vec() == topic_sym.as_vec(),
+            ScVal::String(topic_str) => prefix.as_vec() == topic_str.as_vec(),
+            _ => false,
         })
-}
-
-/// Check if the event name matches the first topic
-/// By Soroban convention, the event name is always the first topic
-fn matches_event_name(event_name: &ScSymbol, topics: &[ScVal]) -> bool {
-    topics.first().is_some_and(|topic| {
-        if let ScVal::Symbol(topic_sym) = topic {
-            event_name.as_vec() == topic_sym.as_vec()
-        } else {
-            false
-        }
-    })
 }
 
 /// Decode an event using the provided spec
@@ -125,14 +106,8 @@ fn decode_event_with_spec(
         .iter()
         .partition(|p| p.location == ScSpecEventParamLocationV0::TopicList);
 
-    // Calculate topic offset to skip past the event identifier in topics.
-    // When prefix_topics is non-empty, it contains the event identifier (e.g., ["transfer"]).
-    // When prefix_topics is empty, the event name is matched against topics[0], so we skip 1.
-    let topic_offset = if event_spec.prefix_topics.is_empty() {
-        1 // skip event name in topics[0]
-    } else {
-        event_spec.prefix_topics.len()
-    };
+    // Skip past prefix topics to get to the parameter topics
+    let topic_offset = event_spec.prefix_topics.len();
 
     // Extract topic parameters
     extract_topic_params(spec, topics, &topic_params, topic_offset, &mut params)?;
@@ -146,9 +121,16 @@ fn decode_event_with_spec(
         &mut params,
     )?;
 
+    let prefix_topics = event_spec
+        .prefix_topics
+        .iter()
+        .map(|t| t.to_utf8_string_lossy())
+        .collect();
+
     Ok(DecodedEvent {
         contract_id: contract_id.to_string(),
         event_name,
+        prefix_topics,
         params,
     })
 }
@@ -270,7 +252,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use stellar_xdr::curr::{
-        Int128Parts, ScMap, ScMapEntry, ScSpecEntry, ScSpecTypeDef, ScVec, StringM, VecM,
+        Int128Parts, ScMap, ScMapEntry, ScSpecEntry, ScSpecTypeDef, ScString, ScVec, StringM, VecM,
     };
 
     fn make_symbol(s: &str) -> ScSymbol {
@@ -374,54 +356,17 @@ mod tests {
     #[test]
     fn test_matches_prefix_topics_non_symbol_topic() {
         let prefix: VecM<ScSymbol, 2> = vec![make_symbol("transfer")].try_into().unwrap();
-        let topics = vec![ScVal::U32(123)]; // Not a symbol
+        let topics = vec![ScVal::U32(123)]; // Not a symbol or string
         assert!(!matches_prefix_topics(&prefix, &topics));
     }
 
     #[test]
-    fn test_matches_event_name_found() {
-        let name = make_symbol("transfer");
-        let topics = vec![make_sc_symbol("transfer"), make_sc_symbol("from")];
-        assert!(matches_event_name(&name, &topics));
-    }
-
-    #[test]
-    fn test_matches_event_name_not_in_first_position() {
-        // Event name must be in the first topic position per Soroban convention
-        let name = make_symbol("transfer");
-        let topics = vec![make_sc_symbol("token"), make_sc_symbol("transfer")];
-        assert!(!matches_event_name(&name, &topics));
-    }
-
-    #[test]
-    fn test_matches_event_name_not_found() {
-        let name = make_symbol("approve");
-        let topics = vec![make_sc_symbol("transfer"), make_sc_symbol("from")];
-        assert!(!matches_event_name(&name, &topics));
-    }
-
-    #[test]
-    fn test_matches_event_name_empty_topics() {
-        let name = make_symbol("transfer");
-        let topics: Vec<ScVal> = vec![];
-        assert!(!matches_event_name(&name, &topics));
-    }
-
-    #[test]
-    fn test_match_event_to_spec_found() {
-        let event = make_event_spec(
-            "transfer",
-            vec![],
-            vec![],
-            ScSpecEventDataFormat::SingleValue,
-        );
-        let spec = make_spec_with_events(vec![event]);
-
-        let topics = vec![make_sc_symbol("transfer")];
-        let matched = spec.match_event_to_spec(&topics);
-
-        assert!(matched.is_some());
-        assert_eq!(matched.unwrap().name.to_utf8_string_lossy(), "transfer");
+    fn test_matches_prefix_topics_string_topic() {
+        // Some early contracts use String instead of Symbol
+        let prefix: VecM<ScSymbol, 2> = vec![make_symbol("transfer")].try_into().unwrap();
+        let s: StringM = "transfer".try_into().unwrap();
+        let topics = vec![ScVal::String(ScString(s))];
+        assert!(matches_prefix_topics(&prefix, &topics));
     }
 
     #[test]
@@ -445,7 +390,7 @@ mod tests {
     fn test_match_event_to_spec_not_found() {
         let event = make_event_spec(
             "transfer",
-            vec![],
+            vec!["transfer"],
             vec![],
             ScSpecEventDataFormat::SingleValue,
         );
@@ -461,13 +406,13 @@ mod tests {
     fn test_match_event_to_spec_multiple_events() {
         let transfer_event = make_event_spec(
             "transfer",
-            vec![],
+            vec!["transfer"],
             vec![],
             ScSpecEventDataFormat::SingleValue,
         );
         let approve_event = make_event_spec(
             "approve",
-            vec![],
+            vec!["approve"],
             vec![],
             ScSpecEventDataFormat::SingleValue,
         );
@@ -484,7 +429,7 @@ mod tests {
     fn test_decode_event_single_value_data() {
         let event = make_event_spec(
             "transfer",
-            vec![],
+            vec!["transfer"],
             vec![make_event_param(
                 "amount",
                 ScSpecTypeDef::I128,
@@ -538,45 +483,10 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_event_with_empty_prefix_and_topic_params() {
-        // Event with empty prefix_topics (event name matched via topics[0]) plus topic params
-        // This tests that topic_offset correctly skips topics[0] when prefix_topics is empty
-        let event = make_event_spec(
-            "transfer",
-            vec![], // empty prefix - event name matched via topics[0]
-            vec![
-                make_event_param(
-                    "from",
-                    ScSpecTypeDef::Symbol,
-                    ScSpecEventParamLocationV0::TopicList,
-                ),
-                make_event_param(
-                    "amount",
-                    ScSpecTypeDef::I128,
-                    ScSpecEventParamLocationV0::Data,
-                ),
-            ],
-            ScSpecEventDataFormat::SingleValue,
-        );
-        let spec = make_spec_with_events(vec![event]);
-
-        // topics[0] = "transfer" (event name), topics[1] = "alice" (from param)
-        let topics = vec![make_sc_symbol("transfer"), make_sc_symbol("alice")];
-        let data = make_i128(500);
-
-        let decoded = spec.decode_event("CONTRACT", &topics, &data).unwrap();
-
-        assert_eq!(decoded.event_name, "transfer");
-        // Verify "from" gets "alice" (topics[1]), NOT "transfer" (topics[0])
-        assert_eq!(decoded.params.get("from"), Some(&json!("alice")));
-        assert_eq!(decoded.params.get("amount"), Some(&json!("500")));
-    }
-
-    #[test]
     fn test_decode_event_vec_data_format() {
         let event = make_event_spec(
             "multi",
-            vec![],
+            vec!["multi"],
             vec![
                 make_event_param("a", ScSpecTypeDef::I128, ScSpecEventParamLocationV0::Data),
                 make_event_param("b", ScSpecTypeDef::I128, ScSpecEventParamLocationV0::Data),
@@ -600,7 +510,7 @@ mod tests {
     fn test_decode_event_map_data_format() {
         let event = make_event_spec(
             "info",
-            vec![],
+            vec!["info"],
             vec![
                 make_event_param(
                     "name",
@@ -643,7 +553,7 @@ mod tests {
     fn test_decode_event_no_matching_spec() {
         let event = make_event_spec(
             "transfer",
-            vec![],
+            vec!["transfer"],
             vec![],
             ScSpecEventDataFormat::SingleValue,
         );
@@ -660,7 +570,7 @@ mod tests {
     fn test_decode_event_invalid_vec_data_format() {
         let event = make_event_spec(
             "test",
-            vec![],
+            vec!["test"],
             vec![make_event_param(
                 "a",
                 ScSpecTypeDef::I128,
@@ -681,7 +591,7 @@ mod tests {
     fn test_decode_event_invalid_map_data_format() {
         let event = make_event_spec(
             "test",
-            vec![],
+            vec!["test"],
             vec![make_event_param(
                 "a",
                 ScSpecTypeDef::I128,
@@ -713,7 +623,7 @@ mod tests {
     fn test_decode_event_preserves_param_order() {
         let event = make_event_spec(
             "ordered",
-            vec![],
+            vec!["ordered"],
             vec![
                 make_event_param(
                     "first",
@@ -784,6 +694,7 @@ mod tests {
         let decoded = DecodedEvent {
             contract_id: "CABC123".to_string(),
             event_name: "transfer".to_string(),
+            prefix_topics: vec!["transfer".to_string()],
             params,
         };
 
@@ -792,6 +703,7 @@ mod tests {
 
         assert_eq!(parsed["contract_id"], "CABC123");
         assert_eq!(parsed["event_name"], "transfer");
+        assert_eq!(parsed["prefix_topics"][0], "transfer");
         assert_eq!(parsed["params"]["from"], "alice");
         assert_eq!(parsed["params"]["to"], "bob");
         assert_eq!(parsed["params"]["amount"], "1000");

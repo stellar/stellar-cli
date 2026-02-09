@@ -180,6 +180,7 @@ struct DecodedEventWithMetadata {
     event_type: String,
     contract_id: String,
     event_name: String,
+    prefix_topics: Vec<String>,
     params: IndexMap<String, serde_json::Value>,
 }
 
@@ -239,6 +240,7 @@ impl Cmd {
                             event_type: event.event_type.clone(),
                             contract_id: decoded.contract_id.clone(),
                             event_name: decoded.event_name.clone(),
+                            prefix_topics: decoded.prefix_topics.clone(),
                             params: decoded.params.clone(),
                         };
                         println!(
@@ -387,13 +389,17 @@ impl Cmd {
         stdout.reset()?;
         writeln!(stdout, "{}", decoded.contract_id)?;
 
-        // Event type
+        // Event name with prefix topics
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)).set_dimmed(true))?;
         write!(stdout, "  Event:    ")?;
         stdout.reset()?;
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true))?;
-        writeln!(stdout, "{}", decoded.event_name)?;
+        write!(stdout, "{}", decoded.event_name)?;
         stdout.reset()?;
+        if !decoded.prefix_topics.is_empty() {
+            write!(stdout, " ({})", decoded.prefix_topics.join(", "))?;
+        }
+        writeln!(stdout)?;
 
         // Params
         if !decoded.params.is_empty() {
