@@ -530,6 +530,11 @@ fn enhance_simulation_error(
             return err;
         }
     }
+    if let Some(code) = extract_contract_error_from_error_msg(error_msg) {
+        if let Some(err) = build_enhanced_error(code, error_msg, spec, function) {
+            return err;
+        }
+    }
 
     Error::Rpc(rpc::Error::TransactionSimulationFailed(
         error_msg.to_string(),
@@ -647,6 +652,14 @@ fn insert_detail_after_error_code(msg: &str, detail: &str) -> String {
     }
 }
 
+fn extract_contract_error_from_error_msg(msg: &str) -> Option<u32> {
+    let first_line = msg.lines().next().unwrap_or(msg);
+    let marker = "Error(Contract, #";
+    let start = first_line.find(marker)? + marker.len();
+    let end = first_line[start..].find(')')?;
+    first_line[start..start + end].parse::<u32>().ok()
+}
+
 fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
     Ok(!sim_res
         .transaction_data()?
@@ -670,4 +683,21 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .results()?
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_contract_error_from_error_msg;
+
+    #[test]
+    fn extracts_contract_error_code_from_first_line() {
+        let msg = "HostError: Error(Contract, #5)\nEvent log (newest first):\n  0: ...";
+        assert_eq!(extract_contract_error_from_error_msg(msg), Some(5));
+    }
+
+    #[test]
+    fn ignores_contract_error_code_if_not_on_first_line() {
+        let msg = "HostError: Error(WasmVm, InvalidAction)\nEvent log: Error(Contract, #5)";
+        assert_eq!(extract_contract_error_from_error_msg(msg), None);
+    }
 }
