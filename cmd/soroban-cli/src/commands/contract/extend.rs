@@ -4,6 +4,7 @@ use crate::{
     log::extract_events,
     print::Print,
     resources,
+    tx::sim_sign_and_send_tx,
     xdr::{
         ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
         ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
@@ -17,7 +18,6 @@ use clap::Parser;
 
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -236,23 +236,17 @@ impl Cmd {
         if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let assembled = simulate_and_assemble_transaction(
+
+        let res = sim_sign_and_send_tx::<Error>(
             &client,
             &tx,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
         )
         .await?;
-
-        let tx = assembled.transaction().clone();
-        let res = client
-            .send_transaction_polling(&config.sign(tx, quiet).await?)
-            .await?;
-        self.resources.print_cost_info(&res)?;
-
-        if !no_cache {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
 
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
         let events = extract_events(&meta);
@@ -292,7 +286,7 @@ impl Cmd {
             return Ok(TxnResult::Res(extension));
         }
 
-        match (&changes[0], &changes[1]) {
+        match (&changes.0[0], &changes.0[1]) {
             (
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {
