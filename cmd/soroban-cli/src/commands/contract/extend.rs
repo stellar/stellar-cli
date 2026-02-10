@@ -286,7 +286,7 @@ impl Cmd {
             return Ok(TxnResult::Res(extension));
         }
 
-        match (&changes.0[0], &changes.0[1]) {
+        match (&changes[0], &changes[1]) {
             (
                 LedgerEntryChange::State(_),
                 LedgerEntryChange::Updated(LedgerEntry {

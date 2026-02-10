@@ -5,8 +5,11 @@ use crate::{
     commands::tx::fetch,
     config::{self, data, network},
     resources,
-    signer::Signer,
-    xdr::{self, Transaction},
+    signer::{self, Signer},
+    xdr::{
+        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Transaction,
+        TransactionEnvelope,
+    },
 };
 use soroban_rpc::GetTransactionResponse;
 use url::Url;
@@ -61,9 +64,30 @@ where
         *txn = tx;
     }
 
-    let res = client
-        .send_transaction_polling(&config.sign(*txn, quiet).await?)
-        .await?;
+    let mut signed_tx = config.sign(*txn, quiet).await?;
+
+    // If the simulation detected the need for a fee bump,
+    // wrap the transaction in a fee bump with the appropriate fee amount
+    if let Some(fee_bump_fee) = assembled.fee_bump_fee() {
+        let fee_bump_inner = match signed_tx {
+            TransactionEnvelope::Tx(tx_env) => FeeBumpTransactionInnerTx::Tx(tx_env),
+            _ => {
+                return Err(config::Error::Signer(
+                    signer::Error::UnsupportedTransactionEnvelopeType,
+                )
+                .into())
+            }
+        };
+        let fee_bump = FeeBumpTransaction {
+            fee_source: tx.source_account.clone(),
+            fee: fee_bump_fee,
+            inner_tx: fee_bump_inner,
+            ext: FeeBumpTransactionExt::V0,
+        };
+        signed_tx = config.sign_fee_bump(fee_bump, quiet).await?;
+    }
+
+    let res = client.send_transaction_polling(&signed_tx).await?;
 
     resources.print_cost_info(&res)?;
 
