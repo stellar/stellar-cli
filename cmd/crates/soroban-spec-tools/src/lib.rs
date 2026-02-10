@@ -221,7 +221,6 @@ impl Spec {
         }
         Err(Error::MissingErrorCase(value))
     }
-
     /// # Errors
     ///
     /// Might return errors

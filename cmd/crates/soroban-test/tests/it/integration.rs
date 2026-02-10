@@ -2,6 +2,7 @@ mod auto_build;
 mod bindings;
 mod constructor;
 mod contract;
+mod contract_errors;
 mod cookbook;
 mod custom_types;
 mod dotenv;

@@ -5798,6 +5798,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_error_caller"
+version = "25.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_hello_world"
 version = "25.1.0"
 dependencies = [
