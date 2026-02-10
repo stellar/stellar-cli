@@ -579,7 +579,7 @@ mod tests {
                 assert_eq!(expected, fee, "expected {expected} != {fee} actual");
             }
             Ok(_) => panic!("expected error, got success"),
-            Err(e) => panic!("expected success, got error: {e:#?}"),
+            Err(e) => panic!("expected LargeFee error, got different error: {e:#?}"),
         }
     }
 
