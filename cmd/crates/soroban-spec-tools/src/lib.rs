@@ -16,6 +16,7 @@ use stellar_xdr::curr::{
 };
 
 pub mod contract;
+pub mod event;
 pub mod utils;
 
 #[derive(thiserror::Error, Debug)]
@@ -220,6 +221,23 @@ impl Spec {
             }
         }
         Err(Error::MissingErrorCase(value))
+    }
+
+    /// Find all event specs in the contract spec
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the spec is missing
+    pub fn find_events(&self) -> Result<impl Iterator<Item = &ScSpecEventV0>, Error> {
+        Ok(self
+            .0
+            .as_deref()
+            .ok_or(Error::MissingSpec)?
+            .iter()
+            .filter_map(|e| match e {
+                ScSpecEntry::EventV0(x) => Some(x),
+                _ => None,
+            }))
     }
 
     /// # Errors
@@ -2106,5 +2124,77 @@ mod tests {
         let json_val = Value::Number(val.into());
         let scval = from_json_primitives(&json_val, &ScType::I64).unwrap();
         assert_eq!(to_json(&scval).unwrap(), json_val);
+    }
+
+    fn make_test_event_spec(name: &str) -> ScSpecEventV0 {
+        ScSpecEventV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: ScSymbol(name.try_into().unwrap()),
+            prefix_topics: VecM::default(),
+            params: VecM::default(),
+            data_format: stellar_xdr::curr::ScSpecEventDataFormat::SingleValue,
+        }
+    }
+
+    fn make_spec_with_events_and_functions(
+        events: Vec<ScSpecEventV0>,
+        functions: Vec<ScSpecFunctionV0>,
+    ) -> Spec {
+        let mut entries: Vec<ScSpecEntry> = events.into_iter().map(ScSpecEntry::EventV0).collect();
+        entries.extend(functions.into_iter().map(ScSpecEntry::FunctionV0));
+        Spec::new(&entries)
+    }
+
+    fn make_test_function_spec(name: &str) -> ScSpecFunctionV0 {
+        ScSpecFunctionV0 {
+            doc: StringM::default(),
+            name: ScSymbol(name.try_into().unwrap()),
+            inputs: VecM::default(),
+            outputs: VecM::default(),
+        }
+    }
+
+    #[test]
+    fn test_find_events_returns_all_events() {
+        let events = vec![
+            make_test_event_spec("transfer"),
+            make_test_event_spec("approve"),
+            make_test_event_spec("mint"),
+        ];
+        let spec = make_spec_with_events_and_functions(events, vec![]);
+
+        let found_events: Vec<_> = spec.find_events().unwrap().collect();
+
+        assert_eq!(found_events.len(), 3);
+        assert_eq!(found_events[0].name.to_utf8_string_lossy(), "transfer");
+        assert_eq!(found_events[1].name.to_utf8_string_lossy(), "approve");
+        assert_eq!(found_events[2].name.to_utf8_string_lossy(), "mint");
+    }
+
+    #[test]
+    fn test_find_events_excludes_non_events() {
+        let events = vec![make_test_event_spec("transfer")];
+        let functions = vec![make_test_function_spec("do_transfer")];
+        let spec = make_spec_with_events_and_functions(events, functions);
+
+        let found_events: Vec<_> = spec.find_events().unwrap().collect();
+
+        assert_eq!(found_events.len(), 1);
+        assert_eq!(found_events[0].name.to_utf8_string_lossy(), "transfer");
+    }
+
+    #[test]
+    fn test_find_events_empty_spec() {
+        let spec = make_spec_with_events_and_functions(vec![], vec![]);
+        let found_events: Vec<_> = spec.find_events().unwrap().collect();
+        assert!(found_events.is_empty());
+    }
+
+    #[test]
+    fn test_find_events_missing_spec() {
+        let spec = Spec::default();
+        let result = spec.find_events();
+        assert!(result.is_err());
     }
 }

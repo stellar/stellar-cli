@@ -1094,9 +1094,10 @@ Watch the network for contract events
   Default value: `pretty`
 
   Possible values:
-  - `pretty`: Colorful, human-oriented console output
-  - `plain`: Human-oriented console output without colors
-  - `json`: JSON formatted console output
+  - `pretty`: Human-readable output with decoded event names and parameters
+  - `plain`: Human-readable output without colors
+  - `json`: JSON output with decoded event names and parameters
+  - `raw`: Raw event output without self-describing decoding
 
 - `-c`, `--count <COUNT>` — The maximum number of events to display (defer to the server-defined limit)
 

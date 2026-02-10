@@ -87,6 +87,7 @@ wasm-opt = { version = "0.116.1", optional = true }
 chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
 toml = { workspace = true }
+indexmap = { version = "2.7", features = ["serde"] }
 itertools = "0.10.5"
 shlex = "1.1.0"
 sep5 = { workspace = true }
