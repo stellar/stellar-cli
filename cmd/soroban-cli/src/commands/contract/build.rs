@@ -88,6 +88,10 @@ pub struct Cmd {
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
 
+    /// Assert that `Cargo.lock` will remain unchanged
+    #[arg(long)]
+    pub locked: bool,
+
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
@@ -197,6 +201,7 @@ impl Default for Cmd {
             all_features: false,
             no_default_features: false,
             out_dir: None,
+            locked: false,
             print_commands_only: false,
             build_args: BuildArgs::default(),
         }
@@ -233,7 +238,9 @@ impl Cmd {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
             cmd.arg("rustc");
-            cmd.arg("--locked");
+            if self.locked {
+                cmd.arg("--locked");
+            }
             let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
                 .unwrap_or(p.manifest_path.clone().into());
             cmd.arg(format!(
