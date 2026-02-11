@@ -6,7 +6,7 @@ use crate::{
     print::Print,
     xdr::{
         self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits,
-        ScMap, ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
+        ScMap, ScMapEntry, ScVal, Transaction, TransactionEnvelope, TransactionSignaturePayload,
         TransactionSignaturePayloadTaggedTransaction, WriteXdr,
     },
 };
@@ -20,6 +20,25 @@ use crate::config::network::Network;
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, xdr::Error> {
     Ok(Hash(Sha256::digest(contract).into()))
+}
+
+/// Compute the transaction hash for a given transaction envelope.
+///
+/// # Errors
+///
+/// If the transaction envelope contains unsupported types (e.g., TxV0), this function will return an error.
+/// If an XDR error is encountered during processing, it will be propagated.
+pub fn transaction_env_hash(
+    tx_env: &TransactionEnvelope,
+    network_passphrase: &str,
+) -> Result<[u8; 32], xdr::Error> {
+    match tx_env {
+        TransactionEnvelope::Tx(ref v1_env) => transaction_hash(&v1_env.tx, network_passphrase),
+        TransactionEnvelope::TxFeeBump(ref fee_bump_env) => {
+            fee_bump_transaction_hash(&fee_bump_env.tx, network_passphrase)
+        }
+        TransactionEnvelope::TxV0(_) => Err(xdr::Error::Unsupported),
+    }
 }
 
 /// # Errors

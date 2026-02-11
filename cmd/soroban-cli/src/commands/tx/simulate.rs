@@ -60,7 +60,7 @@ impl Cmd {
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
         let tx = simulate_and_assemble_transaction(&client, &tx, resource_config, None).await?;
         if let Some(fee_bump_fee) = tx.fee_bump_fee() {
-            print.warnln(format!("The transaction fee of {fee_bump_fee} is too large and needs to be wrapped in a fee bump transaction."));
+            print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
         }
         Ok(tx)
     }

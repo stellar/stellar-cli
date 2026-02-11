@@ -57,6 +57,12 @@ impl Print {
         emoji.to_string()
     }
 
+    pub fn log_explorer_url(&self, network: &Network, tx_hash: &str) {
+        if let Some(url) = explorer_url_for_transaction(network, tx_hash) {
+            self.linkln(url);
+        }
+    }
+
     /// # Errors
     ///
     /// Might return an error
@@ -72,9 +78,7 @@ impl Print {
         self.infoln(format!("Transaction hash is {hash}").as_str());
 
         if show_link {
-            if let Some(url) = explorer_url_for_transaction(network, &hash) {
-                self.linkln(url);
-            }
+            self.log_explorer_url(network, &hash);
         }
 
         Ok(())
@@ -99,6 +103,23 @@ macro_rules! create_print_functions {
             }
         }
     };
+}
+
+/// Format a number with the appropriate number of decimals, trimming trailing zeros.
+///
+/// If `n` cannot be represented as an i128 value, returns "Err(number out of bounds)".
+pub fn format_number<T: TryInto<i128>>(n: T, decimals: u32) -> String {
+    let n: i128 = match n.try_into() {
+        Ok(value) => value,
+        Err(_) => return "Err(number out of bounds)".to_string(),
+    };
+    let divisor = 10i128.pow(decimals);
+    let integer_part = n / divisor;
+    let fractional_part = (n % divisor).abs();
+    // Pad with leading zeros to match decimals width, then trim trailing zeros
+    let frac_str = format!("{:0width$}", fractional_part, width = decimals as usize);
+    let frac_trimmed = frac_str.trim_end_matches('0');
+    format!("{integer_part}.{frac_trimmed}")
 }
 
 fn should_add_additional_space() -> bool {

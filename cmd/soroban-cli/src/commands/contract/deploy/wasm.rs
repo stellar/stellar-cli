@@ -309,6 +309,7 @@ impl Cmd {
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
+                print.infoln("Uploading contract WASM…");
                 upload::Cmd {
                     wasm: Some(wasm.clone()),
                     config: config.clone(),
@@ -340,7 +341,7 @@ impl Cmd {
                 .0,
         );
 
-        print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
+        print.infoln(format!("Deploying contract using wasm hash {wasm_hash}").as_str());
 
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
@@ -417,12 +418,6 @@ impl Cmd {
 
         sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
             .await?;
-
-        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
-            print.linkln(url);
-        }
-
-        print.checkln("Deployed!");
 
         Ok(TxnResult::Res(contract_id))
     }

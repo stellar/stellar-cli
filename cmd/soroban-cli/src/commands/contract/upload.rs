@@ -291,8 +291,6 @@ impl Cmd {
             }
         }
 
-        print.infoln("Simulating install transaction…");
-
         let txn_resp = sim_sign_and_send_tx::<Error>(
             &client,
             &tx_without_preflight,
