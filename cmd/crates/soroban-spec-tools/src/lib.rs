@@ -285,9 +285,12 @@ impl Spec {
                     _ => Err(Error::Serde(e)),
                 },
                 |val| match t {
-                    ScType::U128 | ScType::I128 | ScType::U256 | ScType::I256 => {
-                        Ok(Value::String(s.to_owned()))
-                    }
+                    ScType::U128
+                    | ScType::I128
+                    | ScType::U256
+                    | ScType::I256
+                    | ScType::Bytes
+                    | ScType::BytesN(_) => Ok(Value::String(s.to_owned())),
                     ScType::Timepoint | ScType::Duration => {
                         // timepoint and duration both expect a JSON object with the value
                         // being the u64 number as a string, and key being the type name
@@ -1606,6 +1609,24 @@ mod tests {
         let parsed =
             from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 2 })).unwrap();
         let expected = ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_32_conversion_all_digit_hex() {
+        let as_str = "4142434400000000000000000000000000000000000000000000000000000000";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 32 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(
+            vec![
+                0x41, 0x42, 0x43, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00,
+            ]
+            .try_into()
+            .unwrap(),
+        ));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
     }
