@@ -1,9 +1,8 @@
 use crate::xdr::{
     self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature,
+    SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanCredentials,
+    Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
@@ -46,39 +45,24 @@ pub enum Error {
     Decode(#[from] stellar_strkey::DecodeError),
 }
 
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
-    let [op @ Operation {
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-        ..
-    }] = txn.operations.as_slice()
-    else {
-        return None;
-    };
-    matches!(
-        auth.first().map(|x| &x.root_invocation.function),
-        Some(&SorobanAuthorizedFunction::ContractFn(_))
-    )
-    .then(move || op.clone())
-}
-
-// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
-// transaction. If unable to sign, return an error.
+/// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
+/// transaction.
+///
+/// If no SorobanAuthorizationEntry's need signing (including if none exist), return Ok(None).
+///
+/// If a SorobanAuthorizationEntry needs signing, but a signature cannot be produced for it,
+/// return an Error
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_signer: &Signer,
     signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
-    let mut tx = raw.clone();
-    let Some(mut op) = requires_auth(&tx) else {
-        return Ok(None);
-    };
-
-    let Operation {
-        body: OperationBody::InvokeHostFunction(ref mut body),
+    // Check if we have exactly one operation and it's InvokeHostFunction
+    let [op @ Operation {
+        body: OperationBody::InvokeHostFunction(body),
         ..
-    } = op
+    }] = raw.operations.as_slice()
     else {
         return Ok(None);
     };
@@ -123,10 +107,6 @@ pub fn sign_soroban_authorizations(
             }
         }
 
-        if needle == &source_signer.get_public_key()?.0 {
-            signer = Some(source_signer);
-        }
-
         match signer {
             Some(signer) => {
                 let signed_entry = sign_soroban_authorization_entry(
@@ -148,9 +128,21 @@ pub fn sign_soroban_authorizations(
         }
     }
 
-    body.auth = signed_auths.try_into()?;
-    tx.operations = vec![op].try_into()?;
-    Ok(Some(tx))
+    // No signatures were made, return None to indicate no change to the transaction
+    if signed_auths.is_empty() {
+        return Ok(None);
+    }
+
+    // Build updated transaction with signed auth entries
+    let mut updated_op = op.clone();
+    if let OperationBody::InvokeHostFunction(ref mut updated_body) = updated_op.body {
+        let mut tx = raw.clone();
+        updated_body.auth = signed_auths.try_into()?;
+        tx.operations = vec![updated_op].try_into()?;
+        Ok(Some(tx))
+    } else {
+        Ok(None)
+    }
 }
 
 fn sign_soroban_authorization_entry(
