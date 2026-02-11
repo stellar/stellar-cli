@@ -285,12 +285,12 @@ impl Spec {
                     _ => Err(Error::Serde(e)),
                 },
                 |val| match t {
-                    ScType::U128
-                    | ScType::I128
-                    | ScType::U256
-                    | ScType::I256
-                    | ScType::Bytes
-                    | ScType::BytesN(_) => Ok(Value::String(s.to_owned())),
+                    ScType::U128 | ScType::I128 | ScType::U256 | ScType::I256 => {
+                        Ok(Value::String(s.to_owned()))
+                    }
+                    ScType::Bytes | ScType::BytesN(_) if matches!(val, Value::Number(_)) => {
+                        Ok(Value::String(s.to_owned()))
+                    }
                     ScType::Timepoint | ScType::Duration => {
                         // timepoint and duration both expect a JSON object with the value
                         // being the u64 number as a string, and key being the type name
@@ -1629,6 +1629,99 @@ mod tests {
         ));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytes_conversion_json_quoted_hex() {
+        // JSON-quoted string input: serde_json parses as Value::String, should still work
+        let as_str = r#""beefface""#;
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_bytes_conversion_json_quoted_all_digit_hex() {
+        // JSON-quoted all-digit hex: serde_json parses as Value::String (not Number), should work
+        let as_str = r#""4554""#;
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_bytesn_conversion_json_quoted_all_digit_hex() {
+        // JSON-quoted all-digit hex for BytesN
+        let as_str = r#""4554""#;
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 2 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x45, 0x54].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_bytes_conversion_all_digit_hex_trailing_zeros() {
+        // All-digit hex ending in zeros — valid JSON number (no leading zero issue)
+        let as_str = "1234567890";
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(
+            vec![0x12, 0x34, 0x56, 0x78, 0x90].try_into().unwrap(),
+        ));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_conversion_all_digit_hex_trailing_zeros() {
+        // All-digit hex ending in zeros for BytesN
+        let as_str = "1234567890";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 5 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(
+            vec![0x12, 0x34, 0x56, 0x78, 0x90].try_into().unwrap(),
+        ));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytes_conversion_single_byte_all_digits() {
+        // "10" is a valid JSON number, but should be parsed as hex [0x10]
+        let as_str = "10";
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x10].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_conversion_single_byte_all_digits() {
+        // "10" is a valid JSON number, but should be parsed as hex [0x10] for BytesN<1>
+        let as_str = "10";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 1 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0x10].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytes_conversion_array_input() {
+        // Array of byte values should also work
+        let as_str = "[190,239,250,206]";
+        let parsed = from_string_primitive(as_str, &ScType::Bytes).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()));
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_bytesn_conversion_array_input() {
+        // Array of byte values should also work for BytesN
+        let as_str = "[190,239,250,206]";
+        let parsed =
+            from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 })).unwrap();
+        let expected = ScVal::Bytes(ScBytes(vec![0xbe, 0xef, 0xfa, 0xce].try_into().unwrap()));
+        assert_eq!(parsed, expected);
     }
 
     #[test]
