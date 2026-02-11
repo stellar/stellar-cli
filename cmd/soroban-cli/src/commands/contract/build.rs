@@ -233,6 +233,7 @@ impl Cmd {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
             cmd.arg("rustc");
+            cmd.arg("--frozen");
             let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
                 .unwrap_or(p.manifest_path.clone().into());
             cmd.arg(format!(
