@@ -882,9 +882,6 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         (ScType::Address | ScType::MuxedAddress, Value::String(s)) => sc_address_from_json(s)?,
 
         // Bytes parsing
-        (ScType::BytesN(_), Value::Number(_)) => {
-            return Err(Error::InvalidValue(Some(t.clone())));
-        }
         (ScType::BytesN(bytes), Value::String(s)) => ScVal::Bytes(ScBytes({
             if bytes.n == 32 {
                 // Bytes might be a strkey, try parsing it as one. Contract devs should use the new
@@ -900,7 +897,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         })),
-        (ScType::Bytes, Value::Number(_)) => {
+        (ScType::BytesN(_) | ScType::Bytes, Value::Number(_)) => {
             return Err(Error::InvalidValue(Some(t.clone())));
         }
         (ScType::Bytes, Value::String(s)) => ScVal::Bytes(
