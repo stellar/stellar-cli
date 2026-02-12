@@ -113,13 +113,23 @@ pub fn format_number<T: TryInto<i128>>(n: T, decimals: u32) -> String {
         Ok(value) => value,
         Err(_) => return "Err(number out of bounds)".to_string(),
     };
+    if decimals == 0 {
+        return n.to_string();
+    }
     let divisor = 10i128.pow(decimals);
     let integer_part = n / divisor;
     let fractional_part = (n % divisor).abs();
     // Pad with leading zeros to match decimals width, then trim trailing zeros
     let frac_str = format!("{:0width$}", fractional_part, width = decimals as usize);
     let frac_trimmed = frac_str.trim_end_matches('0');
-    format!("{integer_part}.{frac_trimmed}")
+
+    if frac_trimmed.is_empty() {
+        format!("{integer_part}")
+    } else {
+        // If integer_part is 0, we still want to show the sign for negative numbers (e.g. -0.5)
+        let sign = if n < 0 && integer_part == 0 { "-" } else { "" };
+        format!("{sign}{integer_part}.{frac_trimmed}")
+    }
 }
 
 fn should_add_additional_space() -> bool {
@@ -150,3 +160,41 @@ create_print_functions!(event, eventln, "📅");
 create_print_functions!(blank, blankln, "  ");
 create_print_functions!(gear, gearln, "⚙️");
 create_print_functions!(dir, dirln, "📁");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(clippy::unreadable_literal)]
+    fn test_format_number() {
+        assert_eq!(format_number(0i128, 7), "0");
+        assert_eq!(format_number(1234567i128, 7), "0.1234567");
+        assert_eq!(format_number(12345000i128, 7), "1.2345");
+        assert_eq!(format_number(10000000i128, 7), "1");
+        assert_eq!(format_number(123456789012345i128, 7), "12345678.9012345");
+        assert_eq!(format_number(-1234567i128, 7), "-0.1234567");
+        assert_eq!(format_number(-12345000i128, 7), "-1.2345");
+        assert_eq!(format_number(12345i128, 0), "12345");
+        assert_eq!(format_number(12345i128, 1), "1234.5");
+        assert_eq!(format_number(1i128, 7), "0.0000001");
+
+        assert_eq!(format_number(1u32, 7), "0.0000001");
+        assert_eq!(format_number(1i32, 7), "0.0000001");
+        assert_eq!(format_number(1u64, 7), "0.0000001");
+        assert_eq!(format_number(1i64, 7), "0.0000001");
+        assert_eq!(format_number(1u128, 7), "0.0000001");
+
+        let err: u128 = u128::try_from(i128::MAX).unwrap() + 1;
+        let result = format_number(err, 0);
+        assert_eq!(result, "Err(number out of bounds)");
+
+        let min: i128 = i128::MIN;
+        let result = format_number(min, 18);
+        assert_eq!(result, "-170141183460469231731.687303715884105728");
+
+        let max: i128 = i128::MAX;
+        let result = format_number(max, 18);
+        assert_eq!(result, "170141183460469231731.687303715884105727");
+    }
+}

@@ -419,6 +419,11 @@ impl Cmd {
         sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
             .await?;
 
+        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
+            print.linkln(url);
+        }
+        print.checkln("Deployed!");
+
         Ok(TxnResult::Res(contract_id))
     }
 }
