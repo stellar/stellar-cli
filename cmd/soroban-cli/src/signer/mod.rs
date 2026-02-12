@@ -45,8 +45,8 @@ pub enum Error {
     Decode(#[from] stellar_strkey::DecodeError),
 }
 
-/// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
-/// transaction.
+/// Sign all SorobanAuthorizationEntry's in the transaction with the given signers. Returns a new
+/// transaction with the signatures added to each SorobanAuthorizationEntry.
 ///
 /// If no SorobanAuthorizationEntry's need signing (including if none exist), return Ok(None).
 ///
