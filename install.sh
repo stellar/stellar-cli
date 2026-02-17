@@ -8,6 +8,277 @@ set -e
 REPO="stellar/stellar-cli"
 BINARY_NAME="stellar"
 
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+detect_linux_distro() {
+  if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    if [ -n "$ID" ]; then
+      echo "$ID"
+      return
+    fi
+  fi
+  echo "unknown"
+}
+
+detect_linux_libc() {
+  if command_exists getconf; then
+    if getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
+      echo "glibc"
+      return
+    fi
+  fi
+
+  if command_exists ldd; then
+    if ldd --version 2>&1 | grep -qi musl; then
+      echo "musl"
+      return
+    fi
+    if ldd --version 2>&1 | grep -qi "gnu libc"; then
+      echo "glibc"
+      return
+    fi
+  fi
+
+  if [ -e /lib/ld-musl-x86_64.so.1 ] || [ -e /lib/ld-musl-aarch64.so.1 ]; then
+    echo "musl"
+    return
+  fi
+
+  echo "unknown"
+}
+
+suggest_dependency_install() {
+  missing="$1"
+  if [ "$OS" = "macos" ]; then
+    cat <<EOF
+Install missing dependencies using Homebrew:
+  brew install $missing
+EOF
+    return
+  fi
+
+  DISTRO="$(detect_linux_distro)"
+  if command_exists apt-get; then
+    cat <<EOF
+Install missing dependencies on Debian/Ubuntu:
+  sudo apt-get update
+  sudo apt-get install -y $missing
+EOF
+  elif command_exists dnf; then
+    cat <<EOF
+Install missing dependencies on Fedora/RHEL:
+  sudo dnf install -y $missing
+EOF
+  elif command_exists yum; then
+    cat <<EOF
+Install missing dependencies on CentOS/RHEL:
+  sudo yum install -y $missing
+EOF
+  elif command_exists apk; then
+    cat <<EOF
+Install missing dependencies on Alpine:
+  sudo apk add $missing
+EOF
+  elif command_exists pacman; then
+    cat <<EOF
+Install missing dependencies on Arch:
+  sudo pacman -S --needed $missing
+EOF
+  elif command_exists zypper; then
+    cat <<EOF
+Install missing dependencies on openSUSE:
+  sudo zypper install -y $missing
+EOF
+  else
+    cat <<EOF
+Detected Linux distro: $DISTRO
+Install these packages with your distro package manager: $missing
+EOF
+  fi
+}
+
+check_dependencies() {
+  missing=""
+  for cmd in curl grep sed tar mktemp; do
+    if ! command_exists "$cmd"; then
+      missing="$missing $cmd"
+    fi
+  done
+
+  if [ -n "$missing" ]; then
+    missing="${missing# }"
+    echo "Error: Missing required command(s): $missing"
+    echo ""
+    suggest_dependency_install "$missing"
+    echo ""
+    echo "After installing dependencies, re-run this installer."
+    exit 1
+  fi
+}
+
+suggest_runtime_library_install() {
+  missing_lib="$1"
+
+  if [ "$OS" != "linux" ]; then
+    echo "Unable to auto-suggest runtime library installation on this OS."
+    return
+  fi
+
+  package=""
+  if command_exists apt-get; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="libdbus-1-3" ;;
+      libudev.so.1) package="libudev1" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on Debian/Ubuntu:
+  sudo apt-get update
+  sudo apt-get install -y $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on Debian/Ubuntu.
+You can search with:
+  apt-file search $missing_lib
+EOF
+    fi
+  elif command_exists dnf; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="dbus-libs" ;;
+      libudev.so.1) package="systemd-libs" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on Fedora/RHEL:
+  sudo dnf install -y $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on Fedora/RHEL.
+You can search with:
+  dnf provides \"*/$missing_lib\"
+EOF
+    fi
+  elif command_exists yum; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="dbus-libs" ;;
+      libudev.so.1) package="systemd-libs" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on CentOS/RHEL:
+  sudo yum install -y $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on CentOS/RHEL.
+You can search with:
+  yum provides \"*/$missing_lib\"
+EOF
+    fi
+  elif command_exists apk; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="dbus-libs" ;;
+      libudev.so.1) package="eudev-libs" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on Alpine:
+  sudo apk add $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on Alpine.
+EOF
+    fi
+  elif command_exists pacman; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="dbus" ;;
+      libudev.so.1) package="systemd-libs" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on Arch:
+  sudo pacman -S --needed $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on Arch.
+EOF
+    fi
+  elif command_exists zypper; then
+    case "$missing_lib" in
+      libdbus-1.so.3) package="libdbus-1-3" ;;
+      libudev.so.1) package="libudev1" ;;
+      *) package="" ;;
+    esac
+    if [ -n "$package" ]; then
+      cat <<EOF
+Install the missing runtime library on openSUSE:
+  sudo zypper install -y $package
+EOF
+    else
+      cat <<EOF
+Install the package that provides '$missing_lib' on openSUSE.
+EOF
+    fi
+  else
+    cat <<EOF
+Install the package that provides '$missing_lib' using your distro package manager.
+EOF
+  fi
+}
+
+post_install_check() {
+  installed_binary="$1"
+  version_output=""
+  if version_output="$("$installed_binary" --version 2>&1)"; then
+    return 0
+  fi
+
+  missing_lib="$(printf '%s\n' "$version_output" | sed -n 's/.*error while loading shared libraries: \([^:]*\):.*/\1/p')"
+
+  if [ -n "$missing_lib" ]; then
+    echo ""
+    echo "Warning: $BINARY_NAME was installed, but a runtime shared library is missing:"
+    echo "  $missing_lib"
+    echo ""
+    suggest_runtime_library_install "$missing_lib"
+    echo ""
+    echo "After installing the runtime dependency, run:"
+    echo "  $installed_binary --version"
+    return 0
+  fi
+
+  echo ""
+  echo "Warning: post-install check failed:"
+  echo "$version_output"
+
+  if [ "$OS" = "linux" ] && [ "${LIBC:-unknown}" = "musl" ]; then
+    if [ -f "$installed_binary" ] && printf '%s\n' "$version_output" | grep -qi "not found"; then
+      cat <<EOF
+
+This usually means the downloaded binary targets glibc but this system uses musl (e.g. Alpine).
+Next steps:
+  1) Use a glibc-based image (Debian/Ubuntu/Fedora) for the prebuilt binary.
+  2) If you must stay on Alpine, build stellar-cli from source on Alpine.
+EOF
+    fi
+  fi
+
+  return 0
+}
+
 # Check if user has sudo privileges
 has_sudo() {
   if command -v sudo >/dev/null 2>&1; then
@@ -96,12 +367,30 @@ esac
 
 # Construct target triple
 if [ "$OS" = "linux" ]; then
+  LIBC="$(detect_linux_libc)"
+  if [ "$LIBC" = "musl" ]; then
+    DISTRO="$(detect_linux_distro)"
+    echo "Error: Detected Linux distro '$DISTRO' using musl libc."
+    echo "The prebuilt Stellar CLI release in this script targets glibc (GNU/Linux) and is not supported on musl systems (e.g. Alpine)."
+    if [ -f "${INSTALL_DIR}/${BINARY_NAME}" ]; then
+      echo ""
+      echo "Note: Found an existing install at ${INSTALL_DIR}/${BINARY_NAME}."
+      echo "It may be from a previous run and will continue to fail on musl."
+    fi
+    echo ""
+    echo "Recommended next steps:"
+    echo "  1) Use a glibc-based image (Debian/Ubuntu/Fedora)."
+    echo "     Example: docker run --platform=linux/arm64 -it --rm debian:bookworm-slim"
+    echo "  2) If you must stay on Alpine, build stellar-cli from source on Alpine."
+    exit 1
+  fi
   TARGET="${ARCH}-unknown-linux-gnu"
 elif [ "$OS" = "macos" ]; then
   TARGET="${ARCH}-apple-darwin"
 fi
 
 echo "Detected platform: $OS ($TARGET)"
+check_dependencies
 
 # Get latest release version
 echo "Fetching latest release..."
@@ -150,6 +439,8 @@ else
   sudo mv "$BINARY_NAME" "$INSTALL_DIR/"
   sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 fi
+
+post_install_check "$INSTALL_DIR/$BINARY_NAME"
 
 echo ""
 echo "✓ Stellar CLI installed successfully!"
