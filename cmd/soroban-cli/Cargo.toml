@@ -37,7 +37,6 @@ emulator-tests = ["stellar-ledger/emulator-tests"]
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
 soroban-spec = { workspace = true }
-soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-spec-typescript = { workspace = true }
