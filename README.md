@@ -37,6 +37,15 @@ For installation options, run the script with `--help`:
 curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --help
 ```
 
+Install with dependency setup (`--install-deps`) to attempt installing:
+
+- Linux development dependencies (`libdbus`/`libudev` development packages)
+- Rust toolchain and `wasm32v1-none` target (for contract build workflows)
+
+```sh
+curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s -- --install-deps
+```
+
 Install with Homebrew (macOS, Linux):
 
 ```sh

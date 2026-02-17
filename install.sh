@@ -12,6 +12,18 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+run_as_root() {
+  if [ "$(id -u)" = "0" ]; then
+    "$@"
+    return
+  fi
+  if command_exists sudo; then
+    sudo "$@"
+    return
+  fi
+  return 1
+}
+
 detect_linux_distro() {
   if [ -r /etc/os-release ]; then
     # shellcheck disable=SC1091
@@ -56,47 +68,41 @@ suggest_dependency_install() {
   if [ "$OS" = "macos" ]; then
     cat <<EOF
 Install missing dependencies using Homebrew:
-  brew install $missing
+  brew install curl grep gnu-sed gnu-tar coreutils
+If Homebrew package names differ on your system, install packages providing: $missing
 EOF
     return
   fi
 
-  DISTRO="$(detect_linux_distro)"
   if command_exists apt-get; then
     cat <<EOF
 Install missing dependencies on Debian/Ubuntu:
-  sudo apt-get update
-  sudo apt-get install -y $missing
+  sudo apt-get update && sudo apt-get install -y curl grep sed tar coreutils
 EOF
   elif command_exists dnf; then
     cat <<EOF
 Install missing dependencies on Fedora/RHEL:
-  sudo dnf install -y $missing
+  sudo dnf install -y curl grep sed tar coreutils
 EOF
   elif command_exists yum; then
     cat <<EOF
 Install missing dependencies on CentOS/RHEL:
-  sudo yum install -y $missing
-EOF
-  elif command_exists apk; then
-    cat <<EOF
-Install missing dependencies on Alpine:
-  sudo apk add $missing
+  sudo yum install -y curl grep sed tar coreutils
 EOF
   elif command_exists pacman; then
     cat <<EOF
 Install missing dependencies on Arch:
-  sudo pacman -S --needed $missing
+  sudo pacman -S --needed curl grep sed tar coreutils
 EOF
   elif command_exists zypper; then
     cat <<EOF
 Install missing dependencies on openSUSE:
-  sudo zypper install -y $missing
+  sudo zypper install -y curl grep sed tar coreutils
 EOF
   else
     cat <<EOF
-Detected Linux distro: $DISTRO
-Install these packages with your distro package manager: $missing
+Detected Linux distro: $(detect_linux_distro)
+Install packages providing these commands with your distro package manager: $missing
 EOF
   fi
 }
@@ -184,22 +190,6 @@ You can search with:
   yum provides \"*/$missing_lib\"
 EOF
     fi
-  elif command_exists apk; then
-    case "$missing_lib" in
-      libdbus-1.so.3) package="dbus-libs" ;;
-      libudev.so.1) package="eudev-libs" ;;
-      *) package="" ;;
-    esac
-    if [ -n "$package" ]; then
-      cat <<EOF
-Install the missing runtime library on Alpine:
-  sudo apk add $package
-EOF
-    else
-      cat <<EOF
-Install the package that provides '$missing_lib' on Alpine.
-EOF
-    fi
   elif command_exists pacman; then
     case "$missing_lib" in
       libdbus-1.so.3) package="dbus" ;;
@@ -239,6 +229,315 @@ EOF
   fi
 }
 
+has_dev_dependency() {
+  dep="$1"
+  case "$dep" in
+    dbus)
+      if command_exists pkg-config && pkg-config --exists dbus-1 2>/dev/null; then
+        return 0
+      fi
+      if [ -f /usr/include/dbus-1.0/dbus/dbus.h ]; then
+        return 0
+      fi
+      ;;
+    udev)
+      if command_exists pkg-config && pkg-config --exists libudev 2>/dev/null; then
+        return 0
+      fi
+      if [ -f /usr/include/libudev.h ]; then
+        return 0
+      fi
+      ;;
+  esac
+  return 1
+}
+
+attempt_runtime_deps_setup() {
+  if [ "$OS" != "linux" ]; then
+    return
+  fi
+
+  pkg_dbus_dev=""
+  pkg_udev_dev=""
+  manager=""
+  missing_pkgs=""
+
+  if command_exists apt-get; then
+    manager="apt-get"
+    pkg_dbus_dev="libdbus-1-dev"
+    pkg_udev_dev="libudev-dev"
+  elif command_exists dnf; then
+    manager="dnf"
+    pkg_dbus_dev="dbus-devel"
+    pkg_udev_dev="systemd-devel"
+  elif command_exists yum; then
+    manager="yum"
+    pkg_dbus_dev="dbus-devel"
+    pkg_udev_dev="systemd-devel"
+  elif command_exists pacman; then
+    manager="pacman"
+    pkg_dbus_dev="dbus"
+    pkg_udev_dev="systemd"
+  elif command_exists zypper; then
+    manager="zypper"
+    pkg_dbus_dev="dbus-1-devel"
+    pkg_udev_dev="systemd-devel"
+  else
+    echo "Warning: Could not detect a supported package manager to install development dependencies."
+    return
+  fi
+
+  if [ -n "$pkg_dbus_dev" ] && ! has_dev_dependency dbus; then
+    missing_pkgs="$missing_pkgs $pkg_dbus_dev"
+  fi
+  if [ -n "$pkg_udev_dev" ] && ! has_dev_dependency udev; then
+    missing_pkgs="$missing_pkgs $pkg_udev_dev"
+  fi
+
+  missing_pkgs="${missing_pkgs# }"
+  if [ -z "$missing_pkgs" ]; then
+    return
+  fi
+
+  echo ""
+  echo "Attempting development dependency setup (--install-deps): $missing_pkgs"
+
+  case "$manager" in
+    apt-get)
+      if ! run_as_root apt-get update; then
+        echo "Warning: apt-get update failed."
+      fi
+      # shellcheck disable=SC2086
+      if ! run_as_root apt-get install -y $missing_pkgs; then
+        echo "Warning: Failed to install development dependencies via apt-get."
+      fi
+      ;;
+    dnf)
+      # shellcheck disable=SC2086
+      if ! run_as_root dnf install -y $missing_pkgs; then
+        echo "Warning: Failed to install development dependencies via dnf."
+      fi
+      ;;
+    yum)
+      # shellcheck disable=SC2086
+      if ! run_as_root yum install -y $missing_pkgs; then
+        echo "Warning: Failed to install development dependencies via yum."
+      fi
+      ;;
+    pacman)
+      # shellcheck disable=SC2086
+      if ! run_as_root pacman -S --needed --noconfirm $missing_pkgs; then
+        echo "Warning: Failed to install development dependencies via pacman."
+      fi
+      ;;
+    zypper)
+      # shellcheck disable=SC2086
+      if ! run_as_root zypper install -y $missing_pkgs; then
+        echo "Warning: Failed to install development dependencies via zypper."
+      fi
+      ;;
+  esac
+}
+
+suggest_rust_install() {
+  if [ "$OS" = "macos" ]; then
+    cat <<EOF
+Suggested Rust setup on macOS:
+  brew install rustup-init
+  rustup-init -y
+  . "\$HOME/.cargo/env"
+EOF
+    return
+  fi
+
+  if command_exists apt-get; then
+    cat <<EOF
+Suggested Rust setup on Debian/Ubuntu:
+  sudo apt-get update
+  sudo apt-get install -y curl build-essential pkg-config libssl-dev
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  . "\$HOME/.cargo/env"
+EOF
+  elif command_exists dnf; then
+    cat <<EOF
+Suggested Rust setup on Fedora/RHEL:
+  sudo dnf install -y curl gcc make pkgconfig openssl-devel
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  . "\$HOME/.cargo/env"
+EOF
+  elif command_exists yum; then
+    cat <<EOF
+Suggested Rust setup on CentOS/RHEL:
+  sudo yum install -y curl gcc make pkgconfig openssl-devel
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  . "\$HOME/.cargo/env"
+EOF
+  elif command_exists pacman; then
+    cat <<EOF
+Suggested Rust setup on Arch:
+  sudo pacman -S --needed rustup
+  rustup default stable
+EOF
+  elif command_exists zypper; then
+    cat <<EOF
+Suggested Rust setup on openSUSE:
+  sudo zypper install -y curl gcc make pkg-config libopenssl-devel
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  . "\$HOME/.cargo/env"
+EOF
+  else
+    cat <<EOF
+Rust is required for smart contract development.
+Install rustup from https://rustup.rs, then run:
+  rustup default stable
+EOF
+  fi
+}
+
+attempt_rust_setup() {
+  echo ""
+  echo "Attempting Rust setup (--install-deps)..."
+
+  if [ "$OS" = "macos" ]; then
+    if ! command_exists rustup && ! command_exists rustup-init; then
+      if command_exists brew; then
+        if ! brew install rustup-init; then
+          echo "Warning: Failed to install rustup-init with Homebrew."
+        fi
+      else
+        echo "Warning: Homebrew not found. Install Homebrew or rustup manually."
+      fi
+    fi
+    if ! command_exists rustup && command_exists rustup-init; then
+      if ! rustup-init -y; then
+        echo "Warning: rustup-init failed."
+      fi
+    fi
+  else
+    if ! command_exists rustup; then
+      if command_exists apt-get; then
+        if ! run_as_root apt-get update; then
+          echo "Warning: apt-get update failed."
+        fi
+        if ! run_as_root apt-get install -y curl build-essential pkg-config libssl-dev; then
+          echo "Warning: Failed to install Rust prerequisites via apt-get."
+        fi
+      elif command_exists dnf; then
+        if ! run_as_root dnf install -y curl gcc make pkgconfig openssl-devel; then
+          echo "Warning: Failed to install Rust prerequisites via dnf."
+        fi
+      elif command_exists yum; then
+        if ! run_as_root yum install -y curl gcc make pkgconfig openssl-devel; then
+          echo "Warning: Failed to install Rust prerequisites via yum."
+        fi
+      elif command_exists pacman; then
+        if ! run_as_root pacman -S --needed --noconfirm rustup; then
+          echo "Warning: Failed to install rustup via pacman."
+        fi
+      elif command_exists zypper; then
+        if ! run_as_root zypper install -y curl gcc make pkg-config libopenssl-devel; then
+          echo "Warning: Failed to install Rust prerequisites via zypper."
+        fi
+      fi
+    fi
+
+    if ! command_exists rustup; then
+      if command_exists curl; then
+        if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
+          echo "Warning: rustup installer failed."
+        fi
+      else
+        echo "Warning: curl is required to run rustup installer."
+      fi
+    fi
+  fi
+
+  if [ -f "$HOME/.cargo/env" ]; then
+    # shellcheck disable=SC1090,SC1091
+    . "$HOME/.cargo/env" || true
+  fi
+
+  if command_exists rustup; then
+    if ! rustup default stable; then
+      echo "Warning: Failed to set default Rust toolchain to stable."
+    fi
+    if ! rustup target add wasm32v1-none; then
+      echo "Warning: Failed to install wasm32v1-none target."
+    fi
+  fi
+}
+
+print_contract_tooling_summary() {
+  if [ "$INSTALL_DEPS" = true ]; then
+    if ! command_exists rustup || ! command_exists cargo || ! command_exists rustc; then
+      attempt_rust_setup
+    elif command_exists rustup; then
+      if ! rustup target list --installed 2>/dev/null | grep -q '^wasm32v1-none$'; then
+        attempt_rust_setup
+      fi
+    fi
+  fi
+
+  echo ""
+  echo "Smart contract Rust environment summary:"
+
+  has_rustup="false"
+  has_cargo="false"
+  has_rustc="false"
+  has_wasm_target="false"
+
+  if command_exists rustup; then
+    has_rustup="true"
+    echo "  [OK] rustup"
+  else
+    echo "  [MISSING] rustup"
+  fi
+
+  if command_exists cargo; then
+    has_cargo="true"
+    echo "  [OK] cargo"
+  else
+    echo "  [MISSING] cargo"
+  fi
+
+  if command_exists rustc; then
+    has_rustc="true"
+    echo "  [OK] rustc"
+  else
+    echo "  [MISSING] rustc"
+  fi
+
+  if [ "$has_rustup" = "true" ]; then
+    if rustup target list --installed 2>/dev/null | grep -q '^wasm32v1-none$'; then
+      has_wasm_target="true"
+      echo "  [OK] wasm32v1-none target"
+    else
+      echo "  [MISSING] wasm32v1-none target"
+    fi
+  else
+    echo "  [MISSING] wasm32v1-none target (requires rustup)"
+  fi
+
+  if [ "$has_rustup" = "false" ] || [ "$has_cargo" = "false" ] || [ "$has_rustc" = "false" ]; then
+    echo ""
+    suggest_rust_install
+    echo ""
+    echo "Then run:"
+    echo "  rustup default stable"
+    echo "  rustup target add wasm32v1-none"
+    return
+  fi
+
+  if [ "$has_wasm_target" = "false" ]; then
+    echo ""
+    echo "Install missing target with:"
+    echo "  rustup target add wasm32v1-none"
+    return
+  fi
+
+  echo "  Ready for smart contract builds."
+}
+
 post_install_check() {
   installed_binary="$1"
   version_output=""
@@ -257,7 +556,7 @@ post_install_check() {
     echo ""
     echo "After installing the runtime dependency, run:"
     echo "  $installed_binary --version"
-    return 0
+    return 1
   fi
 
   echo ""
@@ -276,19 +575,14 @@ EOF
     fi
   fi
 
-  return 0
+  return 1
 }
 
 # Check if user has sudo privileges
 has_sudo() {
   if command -v sudo >/dev/null 2>&1; then
-    # Try sudo -n true to check if we can run sudo without password prompt
-    # or if user is in sudoers
+    # Non-interactive check only; avoid prompting during auto-detection.
     if sudo -n true 2>/dev/null; then
-      return 0
-    fi
-    # If sudo requires password, prompt for it once to check
-    if sudo -v 2>/dev/null; then
       return 0
     fi
   fi
@@ -298,17 +592,19 @@ has_sudo() {
 # Parse arguments and set defaults
 INSTALL_DIR=""
 USER_INSTALL=false
+INSTALL_DEPS=false
 
 for arg in "$@"; do
   case $arg in
     --user)
       USER_INSTALL=true
       INSTALL_DIR="${HOME}/.local/bin"
-      shift
       ;;
     --dir=*)
       INSTALL_DIR="${arg#*=}"
-      shift
+      ;;
+    --install-deps)
+      INSTALL_DEPS=true
       ;;
     --help)
       echo "Stellar CLI installer"
@@ -318,15 +614,21 @@ for arg in "$@"; do
       echo "Options:"
       echo "  --user        Install to ~/.local/bin (no sudo required)"
       echo "  --dir=PATH    Install to custom directory"
+      echo "  --install-deps  Attempt to install missing libdbus/libudev dev dependencies and Rust toolchain"
       echo "  --help        Show this help message"
       exit 0
+      ;;
+    *)
+      echo "Error: Unknown option: $arg"
+      echo "Run with --help to see available options."
+      exit 1
       ;;
   esac
 done
 
 # Set default install directory if not specified
 if [ -z "$INSTALL_DIR" ]; then
-  if has_sudo; then
+  if [ "$(id -u)" = "0" ] || has_sudo; then
     INSTALL_DIR="/usr/local/bin"
   else
     INSTALL_DIR="${HOME}/.local/bin"
@@ -350,6 +652,9 @@ case "$OS" in
     ;;
 esac
 
+# Validate basic installer dependencies before other checks use them
+check_dependencies
+
 # Detect architecture
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -369,8 +674,7 @@ esac
 if [ "$OS" = "linux" ]; then
   LIBC="$(detect_linux_libc)"
   if [ "$LIBC" = "musl" ]; then
-    DISTRO="$(detect_linux_distro)"
-    echo "Error: Detected Linux distro '$DISTRO' using musl libc."
+    echo "Error: Detected Linux distro '$(detect_linux_distro)' using musl libc."
     echo "The prebuilt Stellar CLI release in this script targets glibc (GNU/Linux) and is not supported on musl systems (e.g. Alpine)."
     if [ -f "${INSTALL_DIR}/${BINARY_NAME}" ]; then
       echo ""
@@ -380,7 +684,7 @@ if [ "$OS" = "linux" ]; then
     echo ""
     echo "Recommended next steps:"
     echo "  1) Use a glibc-based image (Debian/Ubuntu/Fedora)."
-    echo "     Example: docker run --platform=linux/arm64 -it --rm debian:bookworm-slim"
+    echo "     Example: docker run -it --rm debian:bookworm-slim"
     echo "  2) If you must stay on Alpine, build stellar-cli from source on Alpine."
     exit 1
   fi
@@ -390,11 +694,29 @@ elif [ "$OS" = "macos" ]; then
 fi
 
 echo "Detected platform: $OS ($TARGET)"
-check_dependencies
 
 # Get latest release version
 echo "Fetching latest release..."
-LATEST_RELEASE=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+RELEASE_RESPONSE_FILE="$(mktemp)"
+if ! RELEASE_HTTP_STATUS="$(curl -sSL -o "$RELEASE_RESPONSE_FILE" -w "%{http_code}" "https://api.github.com/repos/${REPO}/releases/latest")"; then
+  echo "Error: Could not reach GitHub API to fetch latest release"
+  rm -f "$RELEASE_RESPONSE_FILE"
+  exit 1
+fi
+
+if [ "$RELEASE_HTTP_STATUS" != "200" ]; then
+  if [ "$RELEASE_HTTP_STATUS" = "403" ] && grep -qi "rate limit" "$RELEASE_RESPONSE_FILE"; then
+    echo "Error: GitHub API rate limit exceeded while fetching latest release."
+    echo "Try again later or set GITHUB_TOKEN for authenticated requests."
+  else
+    echo "Error: Could not fetch latest release (GitHub API HTTP $RELEASE_HTTP_STATUS)"
+  fi
+  rm -f "$RELEASE_RESPONSE_FILE"
+  exit 1
+fi
+
+LATEST_RELEASE="$(grep '"tag_name":' "$RELEASE_RESPONSE_FILE" | sed -E 's/.*"([^"]+)".*/\1/')"
+rm -f "$RELEASE_RESPONSE_FILE"
 
 if [ -z "$LATEST_RELEASE" ]; then
   echo "Error: Could not fetch latest release"
@@ -440,10 +762,21 @@ else
   sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 fi
 
-post_install_check "$INSTALL_DIR/$BINARY_NAME"
+if [ "$INSTALL_DEPS" = true ]; then
+  attempt_runtime_deps_setup
+fi
+
+POST_INSTALL_OK=true
+if ! post_install_check "$INSTALL_DIR/$BINARY_NAME"; then
+  POST_INSTALL_OK=false
+fi
 
 echo ""
-echo "✓ Stellar CLI installed successfully!"
+if [ "$POST_INSTALL_OK" = true ]; then
+  echo "[OK] Stellar CLI installed successfully!"
+else
+  echo "Warning: Stellar CLI binary was installed, but failed post-install verification."
+fi
 echo ""
 echo "Location: $INSTALL_DIR/$BINARY_NAME"
 echo "Version: $VERSION"
@@ -462,3 +795,9 @@ case ":$PATH:" in
     echo ""
     ;;
 esac
+
+print_contract_tooling_summary
+
+if [ "$POST_INSTALL_OK" != true ]; then
+  exit 1
+fi
