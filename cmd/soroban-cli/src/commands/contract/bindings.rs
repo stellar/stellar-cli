@@ -1,6 +1,5 @@
 pub mod flutter;
 pub mod java;
-pub mod json;
 pub mod php;
 pub mod python;
 pub mod rust;
