@@ -21,6 +21,7 @@ run_as_root() {
     sudo "$@"
     return
   fi
+  echo "Warning: '$*' requires root privileges, but neither root access nor sudo is available." >&2
   return 1
 }
 
@@ -64,12 +65,23 @@ detect_linux_libc() {
 }
 
 suggest_dependency_install() {
-  missing="$1"
+  missing_cmds="$1"
+  # Map missing command names to their actual package names
+  pkgs=""
+  for cmd in $missing_cmds; do
+    case "$cmd" in
+      sed)    [ "$OS" = "macos" ] && pkgs="$pkgs gnu-sed" || pkgs="$pkgs sed" ;;
+      tar)    [ "$OS" = "macos" ] && pkgs="$pkgs gnu-tar" || pkgs="$pkgs tar" ;;
+      mktemp) pkgs="$pkgs coreutils" ;;
+      *)      pkgs="$pkgs $cmd" ;;
+    esac
+  done
+  pkgs="${pkgs# }"
+
   if [ "$OS" = "macos" ]; then
     cat <<EOF
 Install missing dependencies using Homebrew:
-  brew install curl grep gnu-sed gnu-tar coreutils
-If Homebrew package names differ on your system, install packages providing: $missing
+  brew install $pkgs
 EOF
     return
   fi
@@ -77,32 +89,32 @@ EOF
   if command_exists apt-get; then
     cat <<EOF
 Install missing dependencies on Debian/Ubuntu:
-  sudo apt-get update && sudo apt-get install -y curl grep sed tar coreutils
+  sudo apt-get update && sudo apt-get install -y $pkgs
 EOF
   elif command_exists dnf; then
     cat <<EOF
 Install missing dependencies on Fedora/RHEL:
-  sudo dnf install -y curl grep sed tar coreutils
+  sudo dnf install -y $pkgs
 EOF
   elif command_exists yum; then
     cat <<EOF
 Install missing dependencies on CentOS/RHEL:
-  sudo yum install -y curl grep sed tar coreutils
+  sudo yum install -y $pkgs
 EOF
   elif command_exists pacman; then
     cat <<EOF
 Install missing dependencies on Arch:
-  sudo pacman -S --needed curl grep sed tar coreutils
+  sudo pacman -S --needed $pkgs
 EOF
   elif command_exists zypper; then
     cat <<EOF
 Install missing dependencies on openSUSE:
-  sudo zypper install -y curl grep sed tar coreutils
+  sudo zypper install -y $pkgs
 EOF
   else
     cat <<EOF
 Detected Linux distro: $(detect_linux_distro)
-Install packages providing these commands with your distro package manager: $missing
+Install packages providing these commands with your distro package manager: $missing_cmds
 EOF
   fi
 }
@@ -520,8 +532,10 @@ print_contract_tooling_summary() {
 
   if [ "$has_rustup" = "false" ] || [ "$has_cargo" = "false" ] || [ "$has_rustc" = "false" ]; then
     echo ""
-    suggest_rust_install
-    echo ""
+    if [ "$INSTALL_DEPS" != true ]; then
+      suggest_rust_install
+      echo ""
+    fi
     echo "Then run:"
     echo "  rustup default stable"
     echo "  rustup target add wasm32v1-none"
@@ -550,18 +564,18 @@ post_install_check() {
   if [ -n "$missing_lib" ]; then
     echo ""
     echo "Warning: $BINARY_NAME was installed, but a runtime shared library is missing:"
-    echo "  $missing_lib"
+    printf '  %s\n' "$missing_lib"
     echo ""
     suggest_runtime_library_install "$missing_lib"
     echo ""
     echo "After installing the runtime dependency, run:"
-    echo "  $installed_binary --version"
+    printf '  %s --version\n' "$installed_binary"
     return 1
   fi
 
   echo ""
   echo "Warning: post-install check failed:"
-  echo "$version_output"
+  printf '%s\n' "$version_output"
 
   if [ "$OS" = "linux" ] && [ "${LIBC:-unknown}" = "musl" ]; then
     if [ -f "$installed_binary" ] && printf '%s\n' "$version_output" | grep -qi "not found"; then
@@ -675,11 +689,11 @@ if [ "$OS" = "linux" ]; then
   LIBC="$(detect_linux_libc)"
   if [ "$LIBC" = "musl" ]; then
     echo "Error: Detected Linux distro '$(detect_linux_distro)' using musl libc."
-    echo "The prebuilt Stellar CLI release in this script targets glibc (GNU/Linux) and is not supported on musl systems (e.g. Alpine)."
+    echo "This installer downloads a prebuilt Stellar CLI release that targets glibc (GNU/Linux) and is not supported on musl systems (e.g. Alpine)."
     if [ -f "${INSTALL_DIR}/${BINARY_NAME}" ]; then
       echo ""
-      echo "Note: Found an existing install at ${INSTALL_DIR}/${BINARY_NAME}."
-      echo "It may be from a previous run and will continue to fail on musl."
+      echo "Note: Found an existing '$BINARY_NAME' binary at ${INSTALL_DIR}/${BINARY_NAME}."
+      echo "This binary is built for glibc and will not run correctly on musl-based systems."
     fi
     echo ""
     echo "Recommended next steps:"
@@ -695,28 +709,29 @@ fi
 
 echo "Detected platform: $OS ($TARGET)"
 
+# Create temporary directory (used for both release response and binary extraction)
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT INT TERM HUP
+
 # Get latest release version
 echo "Fetching latest release..."
-RELEASE_RESPONSE_FILE="$(mktemp)"
+RELEASE_RESPONSE_FILE="$TMP_DIR/release.json"
 if ! RELEASE_HTTP_STATUS="$(curl -sSL -o "$RELEASE_RESPONSE_FILE" -w "%{http_code}" "https://api.github.com/repos/${REPO}/releases/latest")"; then
   echo "Error: Could not reach GitHub API to fetch latest release"
-  rm -f "$RELEASE_RESPONSE_FILE"
   exit 1
 fi
 
 if [ "$RELEASE_HTTP_STATUS" != "200" ]; then
   if [ "$RELEASE_HTTP_STATUS" = "403" ] && grep -qi "rate limit" "$RELEASE_RESPONSE_FILE"; then
     echo "Error: GitHub API rate limit exceeded while fetching latest release."
-    echo "Try again later or set GITHUB_TOKEN for authenticated requests."
+    echo "Try again later."
   else
     echo "Error: Could not fetch latest release (GitHub API HTTP $RELEASE_HTTP_STATUS)"
   fi
-  rm -f "$RELEASE_RESPONSE_FILE"
   exit 1
 fi
 
 LATEST_RELEASE="$(grep '"tag_name":' "$RELEASE_RESPONSE_FILE" | sed -E 's/.*"([^"]+)".*/\1/')"
-rm -f "$RELEASE_RESPONSE_FILE"
 
 if [ -z "$LATEST_RELEASE" ]; then
   echo "Error: Could not fetch latest release"
@@ -731,10 +746,6 @@ ARCHIVE_NAME="${REPO##*/}-${VERSION}-${TARGET}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_RELEASE}/${ARCHIVE_NAME}"
 
 echo "Downloading from: $DOWNLOAD_URL"
-
-# Create temporary directory
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Download and extract
 cd "$TMP_DIR"

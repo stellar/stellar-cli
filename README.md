@@ -39,7 +39,7 @@ curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh -s --
 
 Install with dependency setup (`--install-deps`) to attempt installing:
 
-- Linux development dependencies (`libdbus`/`libudev` development packages)
+- Linux development dependencies (`libdbus`/`libudev` development packages; Linux only, not required on macOS)
 - Rust toolchain and `wasm32v1-none` target (for contract build workflows)
 
 ```sh
