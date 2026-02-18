@@ -281,6 +281,8 @@ impl TestEnv {
                 hd_path: None,
                 sign_with_lab: false,
                 sign_with_ledger: false,
+                plugin_arg: vec![],
+                sign_with_plugin: vec![],
             },
             fee: None,
             inclusion_fee: None,

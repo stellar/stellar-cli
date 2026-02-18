@@ -68,7 +68,7 @@ mod ledger_impl {
         pub async fn sign_transaction_hash(
             &self,
             tx_hash: &[u8; 32],
-        ) -> Result<DecoratedSignature, Error> {
+        ) -> Result<Vec<DecoratedSignature>, Error> {
             let key = self.public_key().await?;
             let hint = SignatureHint(key.0[28..].try_into()?);
             let signature = Signature(
@@ -77,14 +77,14 @@ mod ledger_impl {
                     .await?
                     .try_into()?,
             );
-            Ok(DecoratedSignature { hint, signature })
+            Ok(vec![DecoratedSignature { hint, signature }])
         }
 
         pub async fn sign_transaction(
             &self,
             tx: Transaction,
             network_passphrase: &str,
-        ) -> Result<DecoratedSignature, Error> {
+        ) -> Result<Vec<DecoratedSignature>, Error> {
             let network_id = Hash(Sha256::digest(network_passphrase).into());
             let signature = self
                 .signer
@@ -93,7 +93,7 @@ mod ledger_impl {
             let key = self.public_key().await?;
             let hint = SignatureHint(key.0[28..].try_into()?);
             let signature = Signature(signature.try_into()?);
-            Ok(DecoratedSignature { hint, signature })
+            Ok(vec![DecoratedSignature { hint, signature }])
         }
 
         pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
@@ -125,7 +125,7 @@ mod ledger_impl {
         pub async fn sign_transaction_hash(
             &self,
             _tx_hash: &[u8; 32],
-        ) -> Result<DecoratedSignature, Error> {
+        ) -> Result<Vec<DecoratedSignature>, Error> {
             Err(Error::FeatureNotEnabled)
         }
 
@@ -134,7 +134,7 @@ mod ledger_impl {
             &self,
             _tx: Transaction,
             _network_passphrase: &str,
-        ) -> Result<DecoratedSignature, Error> {
+        ) -> Result<Vec<DecoratedSignature>, Error> {
             Err(Error::FeatureNotEnabled)
         }
 

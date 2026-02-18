@@ -146,14 +146,17 @@ impl Args {
         signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_signer = self.source_signer().await?;
+        let locator = &self.locator;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
+        let plugin_signers = self
+            .sign_with
+            .build_plugin_signers(locator, &network.network_passphrase)?;
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_signer,
             signers,
+            &plugin_signers,
             seq_num,
             &network.network_passphrase,
         )?)

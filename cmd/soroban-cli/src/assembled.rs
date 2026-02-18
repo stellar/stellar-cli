@@ -1,10 +1,9 @@
 use sha2::{Digest, Sha256};
 use stellar_xdr::curr::{
-    self as xdr, Hash, InvokeHostFunctionOp, LedgerFootprint, Limits, Operation, OperationBody,
-    ReadXdr, SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanResources,
-    SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
-    TransactionV1Envelope, VecM, WriteXdr,
+    self as xdr, Hash, LedgerFootprint, Limits, OperationBody, ReadXdr, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
+    TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
 use soroban_rpc::{Error, LogEvents, LogResources, ResourceConfig, SimulateTransactionResponse};
@@ -149,16 +148,6 @@ impl Assembled {
     }
 
     #[must_use]
-    pub fn requires_auth(&self) -> bool {
-        requires_auth(&self.txn).is_some()
-    }
-
-    #[must_use]
-    pub fn requires_fee_bump(&self) -> bool {
-        self.fee_bump_fee.is_some()
-    }
-
-    #[must_use]
     pub fn is_view(&self) -> bool {
         let TransactionExt::V1(SorobanTransactionData {
             resources:
@@ -285,21 +274,6 @@ fn assemble(
         sim_res: simulation,
         fee_bump_fee,
     })
-}
-
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
-    let [op @ Operation {
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-        ..
-    }] = txn.operations.as_slice()
-    else {
-        return None;
-    };
-    matches!(
-        auth.first().map(|x| &x.root_invocation.function),
-        Some(&SorobanAuthorizedFunction::ContractFn(_))
-    )
-    .then(move || op.clone())
 }
 
 #[cfg(test)]

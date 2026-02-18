@@ -150,10 +150,9 @@ impl Secret {
                     .expect("uszie bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
-                name: entry_name.clone(),
-                hd_path,
-            }),
+            Secret::SecureStore { entry_name } => {
+                SignerKind::SecureStore(SecureStoreEntry::new(entry_name.clone(), hd_path)?)
+            }
         };
         Ok(Signer { kind, print })
     }

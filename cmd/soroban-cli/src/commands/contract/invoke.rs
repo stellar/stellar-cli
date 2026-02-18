@@ -13,6 +13,7 @@ use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
+use crate::config::{address, secret, UnresolvedMuxedAccount};
 use crate::log::extract_events;
 use crate::print::Print;
 use crate::tx::sim_sign_and_send_tx;
@@ -72,6 +73,13 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long)]
     pub build_only: bool,
+
+    /// Additional signers for authorization entries. Supplements auto-discovered signers
+    /// from address-type function arguments. Can be an identity name or a secret key.
+    /// Useful when an auth entry's address is not a visible function argument
+    /// (e.g., a sub-invocation authorizer).
+    #[arg(long)]
+    pub auth_signer: Vec<UnresolvedMuxedAccount>,
 }
 
 impl FromStr for Cmd {
@@ -162,6 +170,12 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    Address(#[from] address::Error),
+
+    #[error(transparent)]
+    Secret(#[from] secret::Error),
 }
 
 impl From<Infallible> for Error {
@@ -297,7 +311,13 @@ impl Cmd {
         let params =
             build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
 
-        let (function, spec, host_function_params, signers) = params;
+        let (function, spec, host_function_params, mut signers) = params;
+
+        // Add explicit --auth-signer entries to the auto-discovered signers
+        for auth_signer_name in &self.auth_signer {
+            let auth_secret = auth_signer_name.resolve_secret(&config.locator)?;
+            signers.push(auth_secret.signer(None, print.clone()).await?);
+        }
 
         // `self.build_only` will be checked again below and the fn will return a TxnResult::Txn
         // if the user passed the --build-only flag
