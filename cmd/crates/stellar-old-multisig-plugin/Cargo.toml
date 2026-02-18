@@ -1,0 +1,16 @@
+[package]
+name = "stellar-sign-auth-multisig"
+version.workspace = true
+rust-version.workspace = true
+edition = "2021"
+publish = false
+
+[dependencies]
+stellar-xdr = { workspace = true, features = ["curr", "std", "serde", "base64"] }
+stellar-strkey = { workspace = true }
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }
