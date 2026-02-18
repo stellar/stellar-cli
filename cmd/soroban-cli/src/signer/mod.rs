@@ -494,7 +494,7 @@ impl SecureStoreEntry {
 /// - Output: `Base64 XDR string` of the ScVal representing the signature credential for the auth entry
 ///
 /// **Transaction signing** (`sign_tx` mode):
-/// - Input: `{ "mode": "sign_tx", "network_passphrase", "tx_xdr", "tx_hash", "args": {...} }`
+/// - Input: `{ "mode": "sign_tx", "network_passphrase", "tx_env_xdr" (base64 XDR TransactionEnvelope), "tx_hash", "args": {...} }`
 /// - Output: `JSON array of base64 XDR strings` representing DecoratedSignatures to add to the transaction envelope
 ///
 /// The plugin's stderr is inherited so it can print prompts, progress, or open browsers.
@@ -570,14 +570,10 @@ impl PluginSigner {
         tx_hash: [u8; 32],
         network_passphrase: &str,
     ) -> Result<Vec<DecoratedSignature>, Error> {
-        let tx_xdr = match tx_env {
-            TransactionEnvelope::Tx(tx_env) => tx_env.tx.to_xdr_base64(Limits::none())?,
-            TransactionEnvelope::TxFeeBump(tx_env) => tx_env.tx.to_xdr_base64(Limits::none())?,
-            TransactionEnvelope::TxV0(_) => return Err(Error::UnsupportedTransactionEnvelopeType),
-        };
+        let tx_env_xdr = tx_env.to_xdr_base64(Limits::none())?;
         let input = serde_json::json!({
             "mode": "sign_tx",
-            "tx_xdr": tx_xdr,
+            "tx_env_xdr": tx_env_xdr,
             "tx_hash": hex::encode(tx_hash),
             "network_passphrase": network_passphrase,
             "args": self.args,
