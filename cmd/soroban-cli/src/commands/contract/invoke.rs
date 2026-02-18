@@ -354,7 +354,10 @@ impl Cmd {
             let events = sim_res.events()?;
 
             crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
+            // Note: Only events from the invoked contract will be decoded with named parameters.
+            // Events emitted by other contracts (e.g., token transfers during a swap) will
+            // fall back to raw format since we only have the spec for the invoked contract.
+            crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
@@ -388,7 +391,10 @@ impl Cmd {
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
         crate::log::event::all(&events);
-        crate::log::event::contract(&events, &print);
+        // Note: Only events from the invoked contract will be decoded with named parameters.
+        // Events emitted by other contracts (e.g., token transfers during a swap) will
+        // fall back to raw format since we only have the spec for the invoked contract.
+        crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
