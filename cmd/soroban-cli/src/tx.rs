@@ -39,14 +39,16 @@ where
         + From<network::Error>
         + From<xdr::Error>,
 {
-    let txn = simulate_and_assemble_transaction(
+    // cache user set inclusion fee
+    let inclusion_fee = tx.fee;
+    let assembled_resp = simulate_and_assemble_transaction(
         client,
         tx,
         resources.resource_config(),
         resources.resource_fee,
     )
     .await?;
-    let assembled = resources.apply_to_assembled_txn(txn);
+    let assembled = resources.apply_to_assembled_txn(assembled_resp);
     let mut txn = Box::new(assembled.transaction().clone());
     let sim_res = assembled.sim_response();
 
@@ -57,11 +59,22 @@ where
     }
 
     // Need to sign all auth entries
-    if let Some(tx) = config
+    if let Some(mut tx) = config
         .sign_soroban_authorizations(&txn, auth_signers)
         .await?
     {
-        *txn = tx;
+        // if we added signatures to auth entries, we need to re-simulate to correctly account
+        // for resource usage when validating the auth entry signatures.
+        tx.fee = inclusion_fee; // reset inclusion fee to ensure assembled fee is correct
+        let new_assembled_resp = simulate_and_assemble_transaction(
+            client,
+            &tx,
+            resources.resource_config(),
+            resources.resource_fee,
+        )
+        .await?;
+        let new_assembled = resources.apply_to_assembled_txn(new_assembled_resp);
+        *txn = new_assembled.transaction().clone();
     }
 
     let mut signed_tx = config.sign(*txn, quiet).await?;

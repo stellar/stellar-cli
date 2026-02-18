@@ -112,6 +112,7 @@ pub fn sign_soroban_authorizations(
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
+    let mut has_non_source_auth = false;
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice() {
         let auth = raw_auth.clone();
@@ -124,6 +125,7 @@ pub fn sign_soroban_authorizations(
             signed_auths.push(auth);
             continue;
         };
+        has_non_source_auth = true;
         let SorobanAddressCredentials { ref address, .. } = credentials;
 
         let needle: &[u8; 32] = match address {
@@ -179,7 +181,7 @@ pub fn sign_soroban_authorizations(
     }
 
     // No signatures were made, return None to indicate no change to the transaction
-    if signed_auths.is_empty() {
+    if signed_auths.is_empty() || !has_non_source_auth {
         return Ok(None);
     }
 

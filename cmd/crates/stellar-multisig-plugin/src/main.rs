@@ -9,8 +9,8 @@ use stellar_strkey::Strkey;
 use stellar_xdr::curr::{
     DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits,
     ReadXdr as _, ScMap, ScSymbol, ScVal, Signature, SignatureHint, SorobanAuthorizedInvocation,
-    TransactionEnvelope, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, WriteXdr as _,
+    TransactionEnvelope, TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+    WriteXdr as _,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -165,9 +165,14 @@ fn handle_sign_auth(input: &PluginInput, signing_keys: &[SigningKey]) -> Result<
 
     let payload: [u8; 32] = computed_hash.into();
 
+    // Sort signing keys by public key bytes (ascending) — Stellar contracts
+    // require the signature entries to be ordered by public key.
+    let mut sorted_keys: Vec<&SigningKey> = signing_keys.iter().collect();
+    sorted_keys.sort_by_key(|k| k.verifying_key().to_bytes());
+
     // Sign with each key and build the ScVal::Vec of Map({public_key, signature})
-    let mut sig_maps: Vec<ScVal> = Vec::with_capacity(signing_keys.len());
-    for key in signing_keys {
+    let mut sig_maps: Vec<ScVal> = Vec::with_capacity(sorted_keys.len());
+    for key in sorted_keys {
         let sig = key.sign(&payload);
         let verifying_key = key.verifying_key();
 
