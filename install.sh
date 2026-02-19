@@ -149,9 +149,9 @@ suggest_runtime_library_install() {
   package=""
   if command_exists apt-get; then
     case "$missing_lib" in
-      libdbus-1.so.3) package="libdbus-1-3" ;;
-      libudev.so.1) package="libudev1" ;;
-      *) package="" ;;
+      libdbus-1*) package="libdbus-1-3" ;;
+      libudev*)   package="libudev1" ;;
+      *)          package="" ;;
     esac
     if [ -n "$package" ]; then
       cat <<EOF
@@ -168,9 +168,9 @@ EOF
     fi
   elif command_exists dnf; then
     case "$missing_lib" in
-      libdbus-1.so.3) package="dbus-libs" ;;
-      libudev.so.1) package="systemd-libs" ;;
-      *) package="" ;;
+      libdbus-1*) package="dbus-libs" ;;
+      libudev*)   package="systemd-libs" ;;
+      *)          package="" ;;
     esac
     if [ -n "$package" ]; then
       cat <<EOF
@@ -186,9 +186,9 @@ EOF
     fi
   elif command_exists yum; then
     case "$missing_lib" in
-      libdbus-1.so.3) package="dbus-libs" ;;
-      libudev.so.1) package="systemd-libs" ;;
-      *) package="" ;;
+      libdbus-1*) package="dbus-libs" ;;
+      libudev*)   package="systemd-libs" ;;
+      *)          package="" ;;
     esac
     if [ -n "$package" ]; then
       cat <<EOF
@@ -204,9 +204,9 @@ EOF
     fi
   elif command_exists pacman; then
     case "$missing_lib" in
-      libdbus-1.so.3) package="dbus" ;;
-      libudev.so.1) package="systemd-libs" ;;
-      *) package="" ;;
+      libdbus-1*) package="dbus" ;;
+      libudev*)   package="systemd-libs" ;;
+      *)          package="" ;;
     esac
     if [ -n "$package" ]; then
       cat <<EOF
@@ -220,9 +220,9 @@ EOF
     fi
   elif command_exists zypper; then
     case "$missing_lib" in
-      libdbus-1.so.3) package="libdbus-1-3" ;;
-      libudev.so.1) package="libudev1" ;;
-      *) package="" ;;
+      libdbus-1*) package="libdbus-1-3" ;;
+      libudev*)   package="libudev1" ;;
+      *)          package="" ;;
     esac
     if [ -n "$package" ]; then
       cat <<EOF
@@ -552,42 +552,58 @@ print_contract_tooling_summary() {
   echo "  Ready for smart contract builds."
 }
 
-post_install_check() {
+check_runtime_libraries() {
   installed_binary="$1"
-  version_output=""
-  if version_output="$("$installed_binary" --version 2>&1)"; then
+
+  if [ "$OS" != "linux" ]; then
     return 0
   fi
 
-  missing_lib="$(printf '%s\n' "$version_output" | sed -n 's/.*error while loading shared libraries: \([^:]*\):.*/\1/p')"
+  if ! command_exists ldconfig; then
+    return 0
+  fi
 
-  if [ -n "$missing_lib" ]; then
+  ldconfig_output="$(ldconfig -p 2>/dev/null)"
+  missing_libs=""
+
+  for lib in libdbus-1 libudev; do
+    if ! printf '%s\n' "$ldconfig_output" | grep -q "$lib"; then
+      missing_libs="$missing_libs $lib"
+    fi
+  done
+
+  missing_libs="${missing_libs# }"
+  if [ -z "$missing_libs" ]; then
+    return 0
+  fi
+
+  echo ""
+  echo "Warning: $BINARY_NAME was installed, but runtime shared libraries are missing:"
+  for lib in $missing_libs; do
+    printf '  %s\n' "$lib"
     echo ""
-    echo "Warning: $BINARY_NAME was installed, but a runtime shared library is missing:"
-    printf '  %s\n' "$missing_lib"
-    echo ""
-    suggest_runtime_library_install "$missing_lib"
-    echo ""
-    echo "After installing the runtime dependency, run:"
-    printf '  %s --version\n' "$installed_binary"
-    return 1
+    suggest_runtime_library_install "$lib"
+  done
+  echo ""
+  echo "After installing the runtime dependencies, run:"
+  printf '  %s --version\n' "$installed_binary"
+  return 1
+}
+
+post_install_check() {
+  installed_binary="$1"
+
+  check_runtime_libraries "$installed_binary"
+  runtime_ok=$?
+
+  version_output=""
+  if version_output="$("$installed_binary" --version 2>&1)"; then
+    return "$runtime_ok"
   fi
 
   echo ""
   echo "Warning: post-install check failed:"
   printf '%s\n' "$version_output"
-
-  if [ "$OS" = "linux" ] && [ "${LIBC:-unknown}" = "musl" ]; then
-    if [ -f "$installed_binary" ] && printf '%s\n' "$version_output" | grep -qi "not found"; then
-      cat <<EOF
-
-This usually means the downloaded binary targets glibc but this system uses musl (e.g. Alpine).
-Next steps:
-  1) Use a glibc-based image (Debian/Ubuntu/Fedora) for the prebuilt binary.
-  2) If you must stay on Alpine, build stellar-cli from source on Alpine.
-EOF
-    fi
-  fi
 
   return 1
 }
