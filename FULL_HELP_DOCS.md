@@ -274,7 +274,6 @@ Generate code client bindings for a contract
 
 ###### **Subcommands:**
 
-- `json` — Generate Json Bindings
 - `rust` — Generate Rust bindings
 - `typescript` — Generate a TypeScript / JavaScript package
 - `python` — Generate Python bindings
@@ -282,16 +281,6 @@ Generate code client bindings for a contract
 - `flutter` — Generate Flutter bindings
 - `swift` — Generate Swift bindings
 - `php` — Generate PHP bindings
-
-## `stellar contract bindings json`
-
-Generate Json Bindings
-
-**Usage:** `stellar contract bindings json --wasm <WASM>`
-
-###### **Options:**
-
-- `--wasm <WASM>` — Path to wasm binary
 
 ## `stellar contract bindings rust`
 
