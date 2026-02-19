@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 
 use sep5::SeedPhrase;
 
@@ -117,7 +117,21 @@ impl Cmd {
 }
 
 fn read_password(print: &Print, prompt: &str) -> Result<String, Error> {
-    print.arrowln(prompt);
-    std::io::stdout().flush().map_err(|_| Error::PasswordRead)?;
-    rpassword::read_password().map_err(|_| Error::PasswordRead)
+    if std::io::stdin().is_terminal() {
+        // Interactive: prompt and read from TTY
+        print.arrowln(prompt);
+        std::io::stdout().flush().map_err(|_| Error::PasswordRead)?;
+        rpassword::read_password().map_err(|_| Error::PasswordRead)
+    } else {
+        // Non-interactive: read from stdin
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .map_err(|_| Error::PasswordRead)?;
+        let input = input.trim().to_string();
+        if input.is_empty() {
+            return Err(Error::PasswordRead);
+        }
+        Ok(input)
+    }
 }

@@ -219,6 +219,29 @@ fn use_env() {
 }
 
 #[test]
+fn add_key_from_stdin() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env_remove("STELLAR_SECRET_KEY")
+        .write_stdin(format!("{secret_key}\n"))
+        .arg("add")
+        .arg("stdin-test")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("stdin-test")
+        .assert()
+        .success()
+        .stdout(format!("{secret_key}\n"));
+}
+
+#[test]
 fn set_default_identity() {
     let sandbox = TestEnv::default();
 
