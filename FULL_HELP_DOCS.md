@@ -274,7 +274,6 @@ Generate code client bindings for a contract
 
 ###### **Subcommands:**
 
-- `json` — Generate Json Bindings
 - `rust` — Generate Rust bindings
 - `typescript` — Generate a TypeScript / JavaScript package
 - `python` — Generate Python bindings
@@ -282,16 +281,6 @@ Generate code client bindings for a contract
 - `flutter` — Generate Flutter bindings
 - `swift` — Generate Swift bindings
 - `php` — Generate PHP bindings
-
-## `stellar contract bindings json`
-
-Generate Json Bindings
-
-**Usage:** `stellar contract bindings json --wasm <WASM>`
-
-###### **Options:**
-
-- `--wasm <WASM>` — Path to wasm binary
 
 ## `stellar contract bindings rust`
 
@@ -1360,6 +1349,7 @@ Configure connection to networks
 - `info` — Checks the health of the configured RPC
 - `settings` — Fetch the network's config settings
 - `unset` — Unset the default network defined previously with `network use <network>`
+- `root-account` — Compute the root account keypair for a network
 
 ## `stellar network add`
 
@@ -1520,6 +1510,24 @@ Fetch the network's config settings
 Unset the default network defined previously with `network use <network>`
 
 **Usage:** `stellar network unset [OPTIONS]`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar network root-account`
+
+Compute the root account keypair for a network
+
+**Usage:** `stellar network root-account [OPTIONS]`
+
+###### **Options:**
+
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to decode the root account for
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+- `--public-key` — Output the public key (G... address)
+- `--secret` — Output the secret key (S... key). This is the default behavior if neither `--public-key` nor `--secret` is provided
 
 ###### **Options (Global):**
 
