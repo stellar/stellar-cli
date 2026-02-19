@@ -89,27 +89,27 @@ EOF
   if command_exists apt-get; then
     cat <<EOF
 Install missing dependencies on Debian/Ubuntu:
-  sudo apt-get update && sudo apt-get install -y $pkgs
+  ${SUDO}apt-get update && ${SUDO}apt-get install -y $pkgs
 EOF
   elif command_exists dnf; then
     cat <<EOF
 Install missing dependencies on Fedora/RHEL:
-  sudo dnf install -y $pkgs
+  ${SUDO}dnf install -y $pkgs
 EOF
   elif command_exists yum; then
     cat <<EOF
 Install missing dependencies on CentOS/RHEL:
-  sudo yum install -y $pkgs
+  ${SUDO}yum install -y $pkgs
 EOF
   elif command_exists pacman; then
     cat <<EOF
 Install missing dependencies on Arch:
-  sudo pacman -S --needed $pkgs
+  ${SUDO}pacman -S --needed $pkgs
 EOF
   elif command_exists zypper; then
     cat <<EOF
 Install missing dependencies on openSUSE:
-  sudo zypper install -y $pkgs
+  ${SUDO}zypper install -y $pkgs
 EOF
   else
     cat <<EOF
@@ -156,8 +156,8 @@ suggest_runtime_library_install() {
     if [ -n "$package" ]; then
       cat <<EOF
 Install the missing runtime library on Debian/Ubuntu:
-  sudo apt-get update
-  sudo apt-get install -y $package
+  ${SUDO}apt-get update
+  ${SUDO}apt-get install -y $package
 EOF
     else
       cat <<EOF
@@ -175,7 +175,7 @@ EOF
     if [ -n "$package" ]; then
       cat <<EOF
 Install the missing runtime library on Fedora/RHEL:
-  sudo dnf install -y $package
+  ${SUDO}dnf install -y $package
 EOF
     else
       cat <<EOF
@@ -193,7 +193,7 @@ EOF
     if [ -n "$package" ]; then
       cat <<EOF
 Install the missing runtime library on CentOS/RHEL:
-  sudo yum install -y $package
+  ${SUDO}yum install -y $package
 EOF
     else
       cat <<EOF
@@ -211,7 +211,7 @@ EOF
     if [ -n "$package" ]; then
       cat <<EOF
 Install the missing runtime library on Arch:
-  sudo pacman -S --needed $package
+  ${SUDO}pacman -S --needed $package
 EOF
     else
       cat <<EOF
@@ -227,7 +227,7 @@ EOF
     if [ -n "$package" ]; then
       cat <<EOF
 Install the missing runtime library on openSUSE:
-  sudo zypper install -y $package
+  ${SUDO}zypper install -y $package
 EOF
     else
       cat <<EOF
@@ -365,35 +365,35 @@ EOF
   if command_exists apt-get; then
     cat <<EOF
 Suggested Rust setup on Debian/Ubuntu:
-  sudo apt-get update
-  sudo apt-get install -y curl build-essential pkg-config libssl-dev
+  ${SUDO}apt-get update
+  ${SUDO}apt-get install -y curl build-essential pkg-config libssl-dev
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   . "\$HOME/.cargo/env"
 EOF
   elif command_exists dnf; then
     cat <<EOF
 Suggested Rust setup on Fedora/RHEL:
-  sudo dnf install -y curl gcc make pkgconfig openssl-devel
+  ${SUDO}dnf install -y curl gcc make pkgconfig openssl-devel
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   . "\$HOME/.cargo/env"
 EOF
   elif command_exists yum; then
     cat <<EOF
 Suggested Rust setup on CentOS/RHEL:
-  sudo yum install -y curl gcc make pkgconfig openssl-devel
+  ${SUDO}yum install -y curl gcc make pkgconfig openssl-devel
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   . "\$HOME/.cargo/env"
 EOF
   elif command_exists pacman; then
     cat <<EOF
 Suggested Rust setup on Arch:
-  sudo pacman -S --needed rustup
+  ${SUDO}pacman -S --needed rustup
   rustup default stable
 EOF
   elif command_exists zypper; then
     cat <<EOF
 Suggested Rust setup on openSUSE:
-  sudo zypper install -y curl gcc make pkg-config libopenssl-devel
+  ${SUDO}zypper install -y curl gcc make pkg-config libopenssl-devel
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
   . "\$HOME/.cargo/env"
 EOF
@@ -639,6 +639,13 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# Determine sudo prefix for suggested commands (empty if already root or sudo unavailable)
+if [ "$(id -u)" = "0" ] || ! command_exists sudo; then
+  SUDO=""
+else
+  SUDO="sudo "
+fi
 
 # Set default install directory if not specified
 if [ -z "$INSTALL_DIR" ]; then
