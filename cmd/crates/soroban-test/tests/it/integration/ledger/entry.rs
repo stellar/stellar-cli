@@ -442,6 +442,58 @@ async fn ledger_entry_liquidity_pool() {
     ));
 }
 
+#[tokio::test]
+async fn ledger_entry_trustline_native_asset_xlm_returns_error() {
+    let sandbox = &TestEnv::new();
+    let account_alias = "new_account";
+    new_account(sandbox, account_alias);
+
+    for asset in ["xlm", "XLM", "Xlm"] {
+        sandbox
+            .new_assert_cmd("ledger")
+            .arg("entry")
+            .arg("fetch")
+            .arg("trustline")
+            .arg("--account")
+            .arg(account_alias)
+            .arg("--network")
+            .arg("testnet")
+            .arg("--asset")
+            .arg(asset)
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(
+                "native asset (XLM) does not have a trustline",
+            ));
+    }
+}
+
+#[tokio::test]
+async fn ledger_entry_trustline_native_asset_native_returns_error() {
+    let sandbox = &TestEnv::new();
+    let account_alias = "new_account";
+    new_account(sandbox, account_alias);
+
+    for asset in ["native", "NATIVE", "Native"] {
+        sandbox
+            .new_assert_cmd("ledger")
+            .arg("entry")
+            .arg("fetch")
+            .arg("trustline")
+            .arg("--account")
+            .arg(account_alias)
+            .arg("--network")
+            .arg("testnet")
+            .arg("--asset")
+            .arg(asset)
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(
+                "native asset (XLM) does not have a trustline",
+            ));
+    }
+}
+
 // Helper Fns
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
