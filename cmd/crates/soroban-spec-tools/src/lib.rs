@@ -291,6 +291,9 @@ impl Spec {
                     ScType::Bytes | ScType::BytesN(_) if matches!(val, Value::Number(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
+                    ScType::String if !matches!(val, Value::String(_)) => {
+                        Ok(Value::String(s.to_owned()))
+                    }
                     ScType::Timepoint | ScType::Duration => {
                         // timepoint and duration both expect a JSON object with the value
                         // being the u64 number as a string, and key being the type name
@@ -2364,5 +2367,39 @@ mod tests {
         let spec = Spec::default();
         let result = spec.find_events();
         assert!(result.is_err());
+    }
+
+    fn sc_string(s: &str) -> ScVal {
+        ScVal::String(ScString(s.try_into().unwrap()))
+    }
+
+    #[test]
+    fn test_string_from_number() {
+        let parsed = from_string_primitive("5", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("5"));
+    }
+
+    #[test]
+    fn test_string_from_bool() {
+        let parsed = from_string_primitive("true", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("true"));
+    }
+
+    #[test]
+    fn test_string_from_bare_word() {
+        let parsed = from_string_primitive("hello", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("hello"));
+    }
+
+    #[test]
+    fn test_string_from_json_quoted_string() {
+        let parsed = from_string_primitive(r#""hello""#, &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("hello"));
+    }
+
+    #[test]
+    fn test_string_from_json_quoted_number_string() {
+        let parsed = from_string_primitive(r#""5""#, &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("5"));
     }
 }
