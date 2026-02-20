@@ -43,8 +43,6 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     TryFromSliceError(#[from] TryFromSliceError),
-    #[error("native asset (XLM) does not have a trustline, use `stellar ledger entry fetch account` instead")]
-    NativeAsset,
     #[error(transparent)]
     Run(#[from] super::args::Error),
 }
@@ -59,10 +57,7 @@ impl Cmd {
     fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         let acc = self.muxed_account(&self.account)?;
         for asset in &self.asset {
-            let asset = if asset.eq_ignore_ascii_case("XLM") || asset.eq_ignore_ascii_case("native")
-            {
-                return Err(Error::NativeAsset);
-            } else if asset.contains(':') {
+            let asset = if asset.contains(':') {
                 let mut parts = asset.split(':');
                 let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
                 let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
