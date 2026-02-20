@@ -1456,10 +1456,10 @@ Output the network ID (SHA-256 hash of the network passphrase)
 
 - `--output <OUTPUT>` — Format of the output
 
-  Default value: `plain`
+  Default value: `text`
 
   Possible values:
-  - `plain`: Plain text output of the network ID
+  - `text`: Text output of the network ID
   - `json`: JSON output including the network passphrase
   - `json-formatted`: Formatted (multiline) JSON output including the network passphrase
 

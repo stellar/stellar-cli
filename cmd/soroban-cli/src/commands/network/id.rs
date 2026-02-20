@@ -1,4 +1,3 @@
-use hex::ToHex;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -19,9 +18,9 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// Plain text output of the network ID
+    /// Text output of the network ID
     #[default]
-    Plain,
+    Text,
     /// JSON output including the network passphrase
     Json,
     /// Formatted (multiline) JSON output including the network passphrase
@@ -34,7 +33,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub config: config::ArgsLocatorAndNetwork,
     /// Format of the output
-    #[arg(long, default_value = "plain")]
+    #[arg(long, default_value = "text")]
     pub output: OutputFormat,
 }
 
@@ -47,10 +46,10 @@ struct JsonOutput {
 impl Cmd {
     pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
         let network = self.config.get_network()?;
-        let hash: String = Sha256::digest(network.network_passphrase.as_bytes()).encode_hex();
+        let hash = hex::encode(Sha256::digest(network.network_passphrase.as_bytes()));
 
         match self.output {
-            OutputFormat::Plain => println!("{hash}"),
+            OutputFormat::Text => println!("{hash}"),
             OutputFormat::Json => println!(
                 "{}",
                 serde_json::to_string(&JsonOutput {
