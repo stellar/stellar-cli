@@ -24,6 +24,7 @@ pub async fn main() {
 
     // Manually add SECRET_KEY so it doesn't leak on `stellar env`.
     vars.push("SECRET_KEY");
+    vars.push("SIGN_WITH_KEY");
 
     for var in vars {
         let soroban_key = format!("SOROBAN_{var}");
