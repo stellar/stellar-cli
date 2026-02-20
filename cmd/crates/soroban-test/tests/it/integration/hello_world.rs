@@ -133,8 +133,8 @@ async fn invoke_contract() {
     invoke_auth(sandbox, id, &addr);
     invoke_auth_with_identity(sandbox, id, "test", &addr);
     invoke_auth_with_identity(sandbox, id, "testone", &addr_1);
+    invoke_auth_with_non_source_identity(sandbox, id, "test", "testone", &addr_1);
     invoke_auth_with_different_test_account_fail(sandbox, id, &addr_1).await;
-    // invoke_auth_with_different_test_account(sandbox, id);
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
@@ -213,6 +213,30 @@ fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str, key: &str, addr: &str)
         .arg("invoke")
         .arg("--source")
         .arg(key)
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("auth")
+        .arg("--addr")
+        .arg(key)
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{addr}\"\n"))
+        .success();
+}
+
+fn invoke_auth_with_non_source_identity(
+    sandbox: &TestEnv,
+    id: &str,
+    source: &str,
+    key: &str,
+    addr: &str,
+) {
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source")
+        .arg(source)
         .arg("--id")
         .arg(id)
         .arg("--")

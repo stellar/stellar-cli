@@ -1,9 +1,9 @@
 use sha2::{Digest, Sha256};
 use stellar_xdr::curr::{
-    self as xdr, ExtensionPoint, Hash, InvokeHostFunctionOp, LedgerFootprint, Limits, Memo,
-    Operation, OperationBody, Preconditions, ReadXdr, RestoreFootprintOp,
-    SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData,
-    Transaction, TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
+    self as xdr, ExtensionPoint, Hash, LedgerFootprint, Limits, Memo, Operation, OperationBody,
+    Preconditions, ReadXdr, RestoreFootprintOp, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData, Transaction,
+    TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
@@ -157,11 +157,6 @@ impl Assembled {
     }
 
     #[must_use]
-    pub fn requires_auth(&self) -> bool {
-        requires_auth(&self.txn).is_some()
-    }
-
-    #[must_use]
     pub fn is_view(&self) -> bool {
         let TransactionExt::V1(SorobanTransactionData {
             resources:
@@ -273,21 +268,6 @@ fn assemble(
     tx.operations = vec![op].try_into()?;
     tx.ext = TransactionExt::V1(transaction_data);
     Ok(tx)
-}
-
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
-    let [op @ Operation {
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-        ..
-    }] = txn.operations.as_slice()
-    else {
-        return None;
-    };
-    matches!(
-        auth.first().map(|x| &x.root_invocation.function),
-        Some(&SorobanAuthorizedFunction::ContractFn(_))
-    )
-    .then(move || op.clone())
 }
 
 fn restore(parent: &Transaction, restore: &RestorePreamble) -> Result<Transaction, Error> {
