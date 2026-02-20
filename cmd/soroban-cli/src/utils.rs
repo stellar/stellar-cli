@@ -36,6 +36,22 @@ pub fn transaction_hash(
     Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
 }
 
+/// # Errors
+///
+/// Might return an error
+pub fn fee_bump_transaction_hash(
+    fee_bump_tx: &xdr::FeeBumpTransaction,
+    network_passphrase: &str,
+) -> Result<[u8; 32], xdr::Error> {
+    let signature_payload = TransactionSignaturePayload {
+        network_id: Hash(Sha256::digest(network_passphrase).into()),
+        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::TxFeeBump(
+            fee_bump_tx.clone(),
+        ),
+    };
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+}
+
 static EXPLORERS: phf::Map<&'static str, &'static str> = phf_map! {
     "Test SDF Network ; September 2015" => "https://stellar.expert/explorer/testnet",
     "Public Global Stellar Network ; September 2015" => "https://stellar.expert/explorer/public",

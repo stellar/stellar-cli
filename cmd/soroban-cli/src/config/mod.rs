@@ -8,7 +8,10 @@ use crate::{
     print::Print,
     signer::{self, Signer},
     utils::deprecate_message,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    xdr::{
+        self, FeeBumpTransaction, FeeBumpTransactionEnvelope, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionV1Envelope, VecM,
+    },
     Pwd,
 };
 use network::Network;
@@ -116,20 +119,44 @@ impl Args {
             .await?)
     }
 
+    pub async fn sign_fee_bump(
+        &self,
+        tx: FeeBumpTransaction,
+        quiet: bool,
+    ) -> Result<TransactionEnvelope, Error> {
+        let tx_env = TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self
+            .sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                quiet,
+                Some(&self.source_account),
+            )
+            .await?)
+    }
+
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
         signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_signer = self.source_signer().await?;
+        let locator = &self.locator;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
+        let plugin_signers = self
+            .sign_with
+            .build_plugin_signers(locator, &network.network_passphrase)?;
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_signer,
             signers,
+            &plugin_signers,
             seq_num,
             &network.network_passphrase,
         )?)

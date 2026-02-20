@@ -9,6 +9,7 @@ use soroban_spec_tools::contract as contract_spec;
 
 use crate::commands::contract::deploy::utils::alias_validator;
 use crate::resources;
+use crate::tx::sim_sign_and_send_tx;
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -19,7 +20,6 @@ use crate::xdr::{
 
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
         global,
@@ -415,29 +415,8 @@ impl Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.infoln("Simulating deploy transaction…");
-
-        let assembled = simulate_and_assemble_transaction(
-            &client,
-            &txn,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
-        )
-        .await?;
-        let assembled = self.resources.apply_to_assembled_txn(assembled);
-        let txn = Box::new(assembled.transaction().clone());
-
-        print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign(*txn, quiet).await?;
-        print.globeln("Submitting deploy transaction…");
-
-        let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
-
-        self.resources.print_cost_info(&get_txn_resp)?;
-
-        if !no_cache {
-            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
-        }
+        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
+            .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);

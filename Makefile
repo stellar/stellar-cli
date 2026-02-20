@@ -85,5 +85,11 @@ typescript-bindings-fixtures: build-test-wasms
 					--overwrite
 
 
+use-signing-plugin:
+	cargo install --force --locked --path ./cmd/crates/stellar-multisig-plugin --debug
+
+use-old-signing-plugin:
+	cargo install --force --locked --path ./cmd/crates/stellar-old-multisig-plugin --debug
+
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check rpc-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures
+.PHONY: publish clean fmt watch check rpc-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures use-signing-plugin use-old-signing-plugin
