@@ -41,6 +41,7 @@ pub enum Cmd {
     Unset(unset::Cmd),
 
     /// Compute the root account keypair for a network.
+    #[command(subcommand)]
     RootAccount(root_account::Cmd),
 }
 

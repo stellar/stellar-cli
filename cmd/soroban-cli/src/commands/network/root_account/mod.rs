@@ -1,9 +1,12 @@
+use clap::Parser;
 use sha2::{Digest, Sha256};
-use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::commands::global;
 use crate::config::network::passphrase;
 use crate::config::{locator, network};
+
+pub mod public_key;
+pub mod secret;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -15,9 +18,10 @@ pub enum Error {
     Strkey(#[from] stellar_strkey::DecodeError),
 }
 
+/// Shared arguments for resolving the network passphrase and deriving the root account seed.
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
-pub struct Cmd {
+pub struct Args {
     // @dev: `network` and `network-passphrase` args are provided explicitly as the `rpc-url` is not needed
     /// Network passphrase to decode the root account for
     #[arg(long = "network-passphrase", env = "STELLAR_NETWORK_PASSPHRASE")]
@@ -29,18 +33,11 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub locator: locator::Args,
-
-    /// Output the public key (G... address)
-    #[arg(long, conflicts_with = "secret")]
-    pub public_key: bool,
-
-    /// Output the secret key (S... key). This is the default behavior if neither `--public-key` nor `--secret` is provided.
-    #[arg(long, conflicts_with = "public_key")]
-    pub secret: bool,
 }
 
-impl Cmd {
-    pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+impl Args {
+    /// Resolve the network passphrase and derive the 32-byte key.
+    pub fn root_key(&self) -> Result<[u8; 32], Error> {
         // If a user explicitly provides a network passphrase, use that.
         // Otherwise, look up the network with the typical resolution process and use its passphrase.
         let network_passphrase = match (self.network.as_deref(), self.network_passphrase.clone()) {
@@ -49,17 +46,26 @@ impl Cmd {
             (Some(network), None) => self.locator.read_network(network)?.network_passphrase,
             (_, Some(network_passphrase)) => network_passphrase,
         };
-        let seed: [u8; 32] = Sha256::digest(network_passphrase.as_bytes()).into();
+        Ok(Sha256::digest(network_passphrase.as_bytes()).into())
+    }
+}
 
-        if self.public_key {
-            let signing_key = ed25519_dalek::SigningKey::from_bytes(&seed);
-            let public_key = PublicKey::from_payload(signing_key.verifying_key().as_bytes())?;
-            println!("{public_key}");
-        } else {
-            let private_key = PrivateKey::from_payload(&seed)?;
-            println!("{private_key}");
+#[derive(Debug, Parser)]
+pub enum Cmd {
+    /// Output a network's root account address (public key)
+    #[command(visible_alias = "address")]
+    PublicKey(public_key::Cmd),
+
+    /// Output a network's root account secret key
+    Secret(secret::Cmd),
+}
+
+impl Cmd {
+    pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+        match self {
+            Cmd::PublicKey(cmd) => cmd.run()?,
+            Cmd::Secret(cmd) => cmd.run()?,
         }
-
         Ok(())
     }
 }

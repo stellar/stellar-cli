@@ -1520,14 +1520,41 @@ Unset the default network defined previously with `network use <network>`
 
 Compute the root account keypair for a network
 
-**Usage:** `stellar network root-account [OPTIONS]`
+**Usage:** `stellar network root-account <COMMAND>`
+
+###### **Subcommands:**
+
+- `public-key` — Output a network's root account address (public key)
+- `secret` — Output a network's root account secret key
+
+## `stellar network root-account public-key`
+
+Output a network's root account address (public key)
+
+**Usage:** `stellar network root-account public-key [OPTIONS]`
+
+**Command Alias:** `address`
 
 ###### **Options:**
 
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to decode the root account for
 - `-n`, `--network <NETWORK>` — Name of network to use from config
-- `--public-key` — Output the public key (G... address)
-- `--secret` — Output the secret key (S... key). This is the default behavior if neither `--public-key` nor `--secret` is provided
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar network root-account secret`
+
+Output a network's root account secret key
+
+**Usage:** `stellar network root-account secret [OPTIONS]`
+
+###### **Options:**
+
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to decode the root account for
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ###### **Options (Global):**
 

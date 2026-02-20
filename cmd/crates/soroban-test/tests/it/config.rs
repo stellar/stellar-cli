@@ -479,60 +479,61 @@ fn cannot_create_contract_with_test_name() {
 }
 
 #[test]
-fn root_account_default_outputs_secret_key() {
+fn root_account_default_network() {
     // test env default network is standalone
     let sandbox = TestEnv::default();
     sandbox
         .new_assert_cmd("network")
         .arg("root-account")
+        .arg("secret")
         .assert()
         .success()
         .stdout("SC5O7VZUXDJ6JBDSZ74DSERXL7W3Y5LTOAMRF7RQRL3TAGAPS7LUVG3L\n");
 }
 
 #[test]
-fn root_account_public_key_flag() {
+fn root_account_public_key() {
     let sandbox = TestEnv::default();
     sandbox
         .bin()
         .arg("network")
         .arg("root-account")
+        .arg("public-key")
         .arg("--network")
         .arg("testnet")
-        .arg("--public-key")
         .assert()
         .success()
         .stdout("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H\n");
 }
 
 #[test]
-fn root_account_secret_key_flag() {
+fn root_account_address_alias() {
     let sandbox = TestEnv::default();
     sandbox
         .bin()
         .arg("network")
         .arg("root-account")
+        .arg("address")
         .arg("--network")
         .arg("testnet")
-        .arg("--secret")
         .assert()
         .success()
-        .stdout("SDHOAMBNLGCE2MV5ZKIVZAQD3VCLGP53P3OBSBI6UN5L5XZI5TKHFQL4\n");
+        .stdout("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H\n");
 }
 
 #[test]
-fn root_account_mutually_exclusive_flags() {
+fn root_account_secret_key() {
     let sandbox = TestEnv::default();
     sandbox
         .bin()
         .arg("network")
         .arg("root-account")
+        .arg("secret")
         .arg("--network")
         .arg("testnet")
-        .arg("--public-key")
-        .arg("--secret")
         .assert()
-        .failure();
+        .success()
+        .stdout("SDHOAMBNLGCE2MV5ZKIVZAQD3VCLGP53P3OBSBI6UN5L5XZI5TKHFQL4\n");
 }
 
 #[test]
@@ -542,6 +543,7 @@ fn root_account_with_explicit_passphrase() {
         .bin()
         .arg("network")
         .arg("root-account")
+        .arg("secret")
         .arg("--network-passphrase")
         .arg(FUTURENET)
         .assert()
@@ -556,11 +558,11 @@ fn root_account_with_explicit_passphrase_overrides_network() {
         .bin()
         .arg("network")
         .arg("root-account")
+        .arg("public-key")
         .arg("--network")
         .arg("testnet")
         .arg("--network-passphrase")
         .arg(MAINNET)
-        .arg("--public-key")
         .assert()
         .success()
         .stdout("GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7\n");
