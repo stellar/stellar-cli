@@ -291,7 +291,7 @@ impl Spec {
                     ScType::Bytes | ScType::BytesN(_) if matches!(val, Value::Number(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
-                    ScType::String if matches!(val, Value::Number(_) | Value::Bool(_)) => {
+                    ScType::String if !matches!(val, Value::String(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
                     ScType::Timepoint | ScType::Duration => {
