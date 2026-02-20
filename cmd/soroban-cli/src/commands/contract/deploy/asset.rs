@@ -1,5 +1,7 @@
 use crate::config::locator;
 use crate::print::Print;
+use crate::tx::sim_sign_and_send_tx;
+use crate::utils;
 use crate::xdr::{
     Asset, ContractDataDurability, ContractExecutable, ContractIdPreimage, CreateContractArgs,
     Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp, LedgerKey::ContractData,
@@ -12,7 +14,6 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -137,6 +138,7 @@ impl Cmd {
         no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         // Parse asset
+        let print = Print::new(quiet);
         let asset = self.asset.resolve(&config.locator)?;
 
         let network = config.get_network()?;
@@ -168,24 +170,13 @@ impl Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        let assembled = simulate_and_assemble_transaction(
-            &client,
-            &tx,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
-        )
-        .await?;
-        let assembled = self.resources.apply_to_assembled_txn(assembled);
-        let txn = assembled.transaction().clone();
-        let get_txn_resp = client
-            .send_transaction_polling(&self.config.sign(txn, quiet).await?)
+        sim_sign_and_send_tx::<Error>(&client, &tx, config, &self.resources, &[], quiet, no_cache)
             .await?;
 
-        self.resources.print_cost_info(&get_txn_resp)?;
-
-        if !no_cache {
-            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
+        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
+            print.linkln(url);
         }
+        print.checkln("Deployed!");
 
         Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))
     }
