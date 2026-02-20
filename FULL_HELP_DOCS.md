@@ -1537,7 +1537,7 @@ Output a network's root account address (public key)
 
 ###### **Options:**
 
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to decode the root account for
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to derive the root account from
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ###### **Options (Global):**
@@ -1553,7 +1553,7 @@ Output a network's root account secret key
 
 ###### **Options:**
 
-- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to decode the root account for
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to derive the root account from
 - `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ###### **Options (Global):**

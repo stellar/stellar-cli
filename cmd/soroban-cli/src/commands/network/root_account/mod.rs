@@ -23,7 +23,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     // @dev: `network` and `network-passphrase` args are provided explicitly as the `rpc-url` is not needed
-    /// Network passphrase to decode the root account for
+    /// Network passphrase to derive the root account from
     #[arg(long = "network-passphrase", env = "STELLAR_NETWORK_PASSPHRASE")]
     pub network_passphrase: Option<String>,
 
