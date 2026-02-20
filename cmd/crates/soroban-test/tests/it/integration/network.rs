@@ -2,6 +2,22 @@ use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_test::TestEnv;
 
 #[tokio::test]
+async fn network_id() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .arg("id")
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .stdout(predicate::str::starts_with(
+            "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+        ))
+        .success();
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn set_default_network() {
     let sandbox = &TestEnv::new();

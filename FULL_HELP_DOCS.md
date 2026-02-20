@@ -1346,6 +1346,7 @@ Configure connection to networks
 - `ls` — List networks
 - `use` — Set the default network that will be used on all commands. This allows you to skip `--network` or setting a environment variable, while reusing this value in all commands that require it
 - `health` — Fetch the health of the configured RPC
+- `id` — Output the network ID (SHA-256 hash of the network passphrase)
 - `info` — Checks the health of the configured RPC
 - `settings` — Fetch the network's config settings
 - `unset` — Unset the default network defined previously with `network use <network>`
@@ -1432,6 +1433,35 @@ Fetch the health of the configured RPC
   - `text`: Text output of network health status
   - `json`: JSON result of the RPC request
   - `json-formatted`: Formatted (multiline) JSON output of the RPC request
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar network id`
+
+Output the network ID (SHA-256 hash of the network passphrase)
+
+**Usage:** `stellar network id [OPTIONS]`
+
+###### **Options:**
+
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `plain`
+
+  Possible values:
+  - `plain`: Plain text output of the network ID
+  - `json`: JSON output including the network passphrase
+  - `json-formatted`: Formatted (multiline) JSON output including the network passphrase
 
 ###### **Options (Global):**
 

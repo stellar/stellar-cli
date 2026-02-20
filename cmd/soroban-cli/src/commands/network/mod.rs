@@ -4,6 +4,7 @@ use clap::Parser;
 pub mod add;
 pub mod default;
 pub mod health;
+pub mod id;
 pub mod info;
 pub mod ls;
 pub mod rm;
@@ -29,6 +30,9 @@ pub enum Cmd {
 
     /// Fetch the health of the configured RPC
     Health(health::Cmd),
+
+    /// Output the network ID (SHA-256 hash of the network passphrase)
+    Id(id::Cmd),
 
     /// Checks the health of the configured RPC
     Info(info::Cmd),
@@ -58,6 +62,9 @@ pub enum Error {
     Health(#[from] health::Error),
 
     #[error(transparent)]
+    Id(#[from] id::Error),
+
+    #[error(transparent)]
     Info(#[from] info::Error),
 
     #[error(transparent)]
@@ -75,6 +82,7 @@ impl Cmd {
             Cmd::Rm(new) => new.run()?,
             Cmd::Ls(cmd) => cmd.run()?,
             Cmd::Health(cmd) => cmd.run(global_args).await?,
+            Cmd::Id(cmd) => cmd.run(global_args)?,
             Cmd::Info(cmd) => cmd.run(global_args).await?,
             Cmd::Settings(cmd) => cmd.run(global_args).await?,
             Cmd::Unset(cmd) => cmd.run(global_args)?,
