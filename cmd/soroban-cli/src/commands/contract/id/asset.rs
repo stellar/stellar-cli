@@ -31,10 +31,10 @@ impl Cmd {
     }
 
     pub fn contract_address(&self) -> Result<stellar_strkey::Contract, Error> {
-        let network = self.config.get_network()?;
+        let network_passphrase = self.config.get_passphrase()?;
         let contract_id = contract_id_hash_from_asset(
             &self.asset.resolve(&self.config.locator)?,
-            &network.network_passphrase,
+            &network_passphrase,
         );
         Ok(stellar_strkey::Contract(contract_id.0))
     }

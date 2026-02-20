@@ -221,6 +221,10 @@ impl ArgsLocatorAndNetwork {
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
     }
+
+    pub fn get_passphrase(&self) -> Result<String, Error> {
+        Ok(self.network.get_passphrase(&self.locator)?)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

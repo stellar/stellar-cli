@@ -117,6 +117,19 @@ impl Args {
             }),
         }
     }
+
+    pub fn get_passphrase(&self, locator: &locator::Args) -> Result<String, Error> {
+        match (
+            self.network.as_deref(),
+            self.rpc_url.clone(),
+            self.network_passphrase.clone(),
+        ) {
+            (None, None, None) => Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().1.to_string()),
+            (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
+            (_, _, Some(network_passphrase)) => Ok(network_passphrase),
+            (Some(network), None, None) => Ok(locator.read_network(network)?.network_passphrase),
+        }
+    }
 }
 
 #[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]

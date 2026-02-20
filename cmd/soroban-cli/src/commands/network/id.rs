@@ -45,8 +45,8 @@ struct JsonOutput {
 
 impl Cmd {
     pub fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
-        let network = self.config.get_network()?;
-        let hash = hex::encode(Sha256::digest(network.network_passphrase.as_bytes()));
+        let network_passphrase = self.config.get_passphrase()?;
+        let hash = hex::encode(Sha256::digest(network_passphrase.as_bytes()));
 
         match self.output {
             OutputFormat::Text => println!("{hash}"),
@@ -54,14 +54,14 @@ impl Cmd {
                 "{}",
                 serde_json::to_string(&JsonOutput {
                     id: hash,
-                    network_passphrase: network.network_passphrase,
+                    network_passphrase,
                 })?
             ),
             OutputFormat::JsonFormatted => println!(
                 "{}",
                 serde_json::to_string_pretty(&JsonOutput {
                     id: hash,
-                    network_passphrase: network.network_passphrase,
+                    network_passphrase,
                 })?
             ),
         }
