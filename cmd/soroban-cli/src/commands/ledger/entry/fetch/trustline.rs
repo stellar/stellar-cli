@@ -1,12 +1,11 @@
-use std::array::TryFromSliceError;
 use std::fmt::Debug;
 
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, LedgerKey, LedgerKeyTrustLine,
-        MuxedAccount, PublicKey, TrustLineAsset, Uint256,
+        AccountId, AlphaNum12, AlphaNum4, AssetCode, LedgerKey, LedgerKeyTrustLine, MuxedAccount,
+        PublicKey, TrustLineAsset, Uint256,
     },
 };
 use clap::Parser;
@@ -42,8 +41,6 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    TryFromSliceError(#[from] TryFromSliceError),
-    #[error(transparent)]
     Run(#[from] super::args::Error),
 }
 
@@ -69,16 +66,16 @@ impl Cmd {
                 let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
                 let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
 
-                match code.len() {
-                    4 => TrustLineAsset::CreditAlphanum4(AlphaNum4 {
-                        asset_code: AssetCode4(code.as_bytes().try_into()?),
-                        issuer,
-                    }),
-                    12 => TrustLineAsset::CreditAlphanum12(AlphaNum12 {
-                        asset_code: AssetCode12(code.as_bytes().try_into()?),
-                        issuer,
-                    }),
-                    _ => Err(Error::InvalidAsset(asset.clone()))?,
+                let asset_code: AssetCode = code
+                    .parse()
+                    .map_err(|_| Error::InvalidAsset(asset.clone()))?;
+                match asset_code {
+                    AssetCode::CreditAlphanum4(asset_code) => {
+                        TrustLineAsset::CreditAlphanum4(AlphaNum4 { asset_code, issuer })
+                    }
+                    AssetCode::CreditAlphanum12(asset_code) => {
+                        TrustLineAsset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
+                    }
                 }
             } else {
                 Err(Error::InvalidAsset(asset.clone()))?
