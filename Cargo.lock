@@ -5021,7 +5021,6 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk",
  "soroban-spec",
- "soroban-spec-json",
  "soroban-spec-rust",
  "soroban-spec-tools",
  "soroban-spec-typescript",
@@ -5208,20 +5207,6 @@ dependencies = [
  "stellar-xdr",
  "thiserror 1.0.69",
  "wasmparser",
-]
-
-[[package]]
-name = "soroban-spec-json"
-version = "25.1.0"
-dependencies = [
- "pretty_assertions",
- "serde",
- "serde_derive",
- "serde_json",
- "sha2 0.9.9",
- "soroban-spec",
- "stellar-xdr",
- "thiserror 1.0.69",
 ]
 
 [[package]]
