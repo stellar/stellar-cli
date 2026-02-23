@@ -1,5 +1,5 @@
 use crate::util::{add_key, add_test_id, SecretKind, GENERATED_SEED_PHRASE};
-use predicates::prelude::predicate;
+use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_cli::commands::network;
 use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
 use soroban_test::{AssertExt, TestEnv};
@@ -496,4 +496,32 @@ fn cannot_create_key_with_alias() {
             "cannot overlap with contract alias",
         ))
         .failure();
+}
+
+#[test]
+fn env_does_not_display_secret_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains("SECRET_KEY").not())
+        .success();
+}
+
+#[test]
+fn env_does_not_display_sign_with_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .env(
+            "STELLAR_SIGN_WITH_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains("SIGN_WITH_KEY").not())
+        .success();
 }
