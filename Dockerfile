@@ -18,5 +18,5 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 WORKDIR /source
 
-ENTRYPOINT ["entrypoint.sh", "stellar"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "stellar"]
 CMD []
