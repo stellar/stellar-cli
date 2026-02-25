@@ -495,6 +495,11 @@ impl Pwd for Args {
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700)).ok();
+    }
     Ok(dir)
 }
 
@@ -563,6 +568,16 @@ impl KeyType {
             filepath: filepath.clone(),
             error,
         })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
+                |error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                },
+            )?;
+        }
         Ok(filepath)
     }
 
@@ -697,4 +712,50 @@ fn location_to_string(location: &Location) -> String {
 // This is only to be used to fetch global Stellar config (e.g. to use for defaults)
 pub fn cli_config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    #[cfg(unix)]
+    fn test_write_sets_file_permissions_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let value: HashMap<String, String> = HashMap::new();
+        let path = KeyType::Identity
+            .write("test-key", &value, dir.path())
+            .unwrap();
+
+        let perms = std::fs::metadata(&path).unwrap().permissions();
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o600,
+            "identity file should be owner-only readable (0600), got {:o}",
+            perms.mode() & 0o777
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_ensure_directory_sets_dir_permissions_to_0700() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("sub").join("file.toml");
+        ensure_directory(target).unwrap();
+
+        let perms = std::fs::metadata(dir.path().join("sub"))
+            .unwrap()
+            .permissions();
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o700,
+            "identity directory should be owner-only (0700), got {:o}",
+            perms.mode() & 0o777
+        );
+    }
 }
