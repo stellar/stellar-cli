@@ -205,7 +205,7 @@ jobs:
         if:
           github.event_name == 'release' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
         id: stm-setup
-        uses: digicert/code-signing-software-trust-action@v1.0.1
+        uses: digicert/code-signing-software-trust-action@v1.1.0
         with:
           simple-signing-mode: true
           keypair-alias: key_1412258126

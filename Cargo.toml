@@ -28,6 +28,7 @@ rust-version = "1.89.0"
 [workspace.dependencies.soroban-cli]
 version = "=25.1.0"
 path = "cmd/soroban-cli"
+default-features = false
 
 [workspace.dependencies.soroban-spec-typescript]
 version = "25.1.0"
