@@ -1,0 +1,15 @@
+---
+name: Docker
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Building and pushing Docker image..."
