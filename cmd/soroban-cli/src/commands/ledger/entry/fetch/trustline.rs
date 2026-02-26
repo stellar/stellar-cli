@@ -54,9 +54,7 @@ impl Cmd {
     fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         let acc = self.muxed_account(&self.account)?;
         for asset in &self.asset {
-            let asset = if asset.eq_ignore_ascii_case("XLM") {
-                TrustLineAsset::Native
-            } else if asset.contains(':') {
+            let asset = if asset.contains(':') {
                 let mut parts = asset.split(':');
                 let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
                 let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;

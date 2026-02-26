@@ -442,6 +442,30 @@ async fn ledger_entry_liquidity_pool() {
     ));
 }
 
+#[tokio::test]
+async fn ledger_entry_trustline_asset_without_issuer_returns_error() {
+    let sandbox = &TestEnv::new();
+    let account_alias = "new_account";
+    new_account(sandbox, account_alias);
+
+    for asset in ["xlm", "XLM", "native", "NATIVE"] {
+        sandbox
+            .new_assert_cmd("ledger")
+            .arg("entry")
+            .arg("fetch")
+            .arg("trustline")
+            .arg("--account")
+            .arg(account_alias)
+            .arg("--network")
+            .arg("testnet")
+            .arg("--asset")
+            .arg(asset)
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains("provided asset is invalid"));
+    }
+}
+
 // Helper Fns
 fn new_account(sandbox: &TestEnv, name: &str) -> String {
     sandbox.generate_account(name, None).assert().success();
