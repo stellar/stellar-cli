@@ -1,7 +1,9 @@
 use crate::util::{add_key, add_test_id, SecretKind, GENERATED_SEED_PHRASE};
 use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_cli::commands::network;
-use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
+use soroban_cli::config::network::passphrase::{
+    FUTURENET, LOCAL as LOCAL_NETWORK_PASSPHRASE, MAINNET,
+};
 use soroban_test::{AssertExt, TestEnv};
 use std::fs;
 
@@ -474,6 +476,96 @@ fn cannot_create_contract_with_test_name() {
         .assert()
         .stderr(predicate::str::contains("cannot overlap with key"))
         .failure();
+}
+
+#[test]
+fn root_account_default_network() {
+    // test env default network is standalone
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("network")
+        .arg("root-account")
+        .arg("secret")
+        .assert()
+        .success()
+        .stdout("SC5O7VZUXDJ6JBDSZ74DSERXL7W3Y5LTOAMRF7RQRL3TAGAPS7LUVG3L\n");
+}
+
+#[test]
+fn root_account_public_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .bin()
+        .arg("network")
+        .arg("root-account")
+        .arg("public-key")
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H\n");
+}
+
+#[test]
+fn root_account_address_alias() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .bin()
+        .arg("network")
+        .arg("root-account")
+        .arg("address")
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H\n");
+}
+
+#[test]
+fn root_account_secret_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .bin()
+        .arg("network")
+        .arg("root-account")
+        .arg("secret")
+        .arg("--network")
+        .arg("testnet")
+        .assert()
+        .success()
+        .stdout("SDHOAMBNLGCE2MV5ZKIVZAQD3VCLGP53P3OBSBI6UN5L5XZI5TKHFQL4\n");
+}
+
+#[test]
+fn root_account_with_explicit_passphrase() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .bin()
+        .arg("network")
+        .arg("root-account")
+        .arg("secret")
+        .arg("--network-passphrase")
+        .arg(FUTURENET)
+        .assert()
+        .success()
+        .stdout("SCR2DRVHQKDHCPRJXYHJPBLHB6UDRUJZC7GY5LVUUNLZ74O6XR75KK5K\n");
+}
+
+#[test]
+fn root_account_with_explicit_passphrase_overrides_network() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .bin()
+        .arg("network")
+        .arg("root-account")
+        .arg("public-key")
+        .arg("--network")
+        .arg("testnet")
+        .arg("--network-passphrase")
+        .arg(MAINNET)
+        .assert()
+        .success()
+        .stdout("GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7\n");
 }
 
 #[test]

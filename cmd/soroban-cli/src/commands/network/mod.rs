@@ -7,6 +7,7 @@ pub mod health;
 pub mod info;
 pub mod ls;
 pub mod rm;
+pub mod root_account;
 pub mod settings;
 pub mod unset;
 
@@ -38,6 +39,10 @@ pub enum Cmd {
 
     /// Unset the default network defined previously with `network use <network>`
     Unset(unset::Cmd),
+
+    /// Compute the root account keypair for a network.
+    #[command(subcommand)]
+    RootAccount(root_account::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -65,6 +70,9 @@ pub enum Error {
 
     #[error(transparent)]
     Unset(#[from] unset::Error),
+
+    #[error(transparent)]
+    RootAccount(#[from] root_account::Error),
 }
 
 impl Cmd {
@@ -78,6 +86,7 @@ impl Cmd {
             Cmd::Info(cmd) => cmd.run(global_args).await?,
             Cmd::Settings(cmd) => cmd.run(global_args).await?,
             Cmd::Unset(cmd) => cmd.run(global_args)?,
+            Cmd::RootAccount(cmd) => cmd.run(global_args)?,
         }
         Ok(())
     }

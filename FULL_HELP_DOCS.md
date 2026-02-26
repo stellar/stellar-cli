@@ -1349,6 +1349,7 @@ Configure connection to networks
 - `info` — Checks the health of the configured RPC
 - `settings` — Fetch the network's config settings
 - `unset` — Unset the default network defined previously with `network use <network>`
+- `root-account` — Compute the root account keypair for a network
 
 ## `stellar network add`
 
@@ -1509,6 +1510,51 @@ Fetch the network's config settings
 Unset the default network defined previously with `network use <network>`
 
 **Usage:** `stellar network unset [OPTIONS]`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar network root-account`
+
+Compute the root account keypair for a network
+
+**Usage:** `stellar network root-account <COMMAND>`
+
+###### **Subcommands:**
+
+- `public-key` — Output a network's root account address (public key)
+- `secret` — Output a network's root account secret key
+
+## `stellar network root-account public-key`
+
+Output a network's root account address (public key)
+
+**Usage:** `stellar network root-account public-key [OPTIONS]`
+
+**Command Alias:** `address`
+
+###### **Options:**
+
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to derive the root account from
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar network root-account secret`
+
+Output a network's root account secret key
+
+**Usage:** `stellar network root-account secret [OPTIONS]`
+
+###### **Options:**
+
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to derive the root account from
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ###### **Options (Global):**
 
