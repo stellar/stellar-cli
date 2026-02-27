@@ -181,6 +181,12 @@ pub enum Error {
 
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
+    #[error(transparent)]
+    SpecTools(#[from] soroban_spec_tools::contract::Error),
+
+    #[error(transparent)]
+    WasmParsing(#[from] wasmparser::BinaryReaderError),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -265,6 +271,13 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
+            // Set env var to inform the SDK that this CLI supports spec
+            // optimization using markers.
+            cmd.env(
+                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_OPTIMISING_SPECS_USING_DATA_MARKERS",
+                "1",
+            );
+
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
                 format!(
@@ -298,6 +311,7 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
+                Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -407,14 +421,90 @@ impl Cmd {
     }
 
     fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
-        let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let xdr = self.encoded_new_meta()?;
-        wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
+        use wasm_encoder::{CustomSection, Module, RawSection};
+        use wasmparser::Payload;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        let mut module = Module::new();
+        let mut existing_meta: Vec<u8> = Vec::new();
+
+        let parser = wasmparser::Parser::new(0);
+        for payload in parser.parse_all(&wasm_bytes) {
+            let payload = payload?;
+
+            match &payload {
+                // Collect existing meta to merge with new meta
+                Payload::CustomSection(section) if section.name() == META_CUSTOM_SECTION_NAME => {
+                    existing_meta.extend_from_slice(section.data());
+                }
+                // Copy all other sections verbatim
+                _ => {
+                    if let Some((id, range)) = payload.as_section() {
+                        let raw = RawSection {
+                            id,
+                            data: &wasm_bytes[range],
+                        };
+                        module.section(&raw);
+                    }
+                }
+            }
+        }
+
+        // Append new meta to existing meta
+        let new_meta = self.encoded_new_meta()?;
+        existing_meta.extend(new_meta);
+
+        let meta_section = CustomSection {
+            name: META_CUSTOM_SECTION_NAME.into(),
+            data: existing_meta.into(),
+        };
+        module.section(&meta_section);
+
+        let updated_wasm = module.finish();
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+        fs::write(target_file_path, updated_wasm).map_err(Error::WritingWasmFile)
+    }
+
+    /// Filters unused types and events from the contract spec.
+    ///
+    /// This removes:
+    /// - Type definitions that are not referenced by any function
+    /// - Events that don't have corresponding markers in the WASM data section
+    ///   (events that are defined but never published)
+    ///
+    /// The SDK embeds markers in the data section for types/events that are
+    /// actually used. These markers survive dead code elimination, so we can
+    /// detect which spec entries are truly needed.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::{replace_custom_section, Spec};
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        // Check for markers in the WASM data section. If no markers are found,
+        // the SDK feature is likely not enabled, so skip filtering to avoid
+        // stripping all non-function specs.
+        let markers = soroban_spec::marker::find_all(&wasm_bytes);
+        if markers.is_empty() {
+            return Ok(());
+        }
+
+        // Parse the spec from the wasm
+        let spec = Spec::new(&wasm_bytes)?;
+
+        // Get the filtered spec as XDR bytes, filtering both types and events
+        // based on markers in the WASM data section
+        let filtered_xdr = spec.filtered_spec_xdr_with_markers(&wasm_bytes)?;
+
+        // Replace the contractspecv0 section with the filtered version
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)?;
+
+        // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {

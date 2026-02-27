@@ -321,6 +321,8 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
+    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_OPTIMISING_SPECS_USING_DATA_MARKERS=1";
+
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
     let registry_prefix = registry_prefix.display().to_string();
@@ -328,14 +330,17 @@ fn with_flags(expected: &str) -> String {
     let registry_prefix = registry_prefix.replace('\\', "/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
-        expected.split('\n').map(ToString::to_string).collect()
+        expected
+            .split('\n')
+            .map(|x| format!("{ENV_VAR} {x}"))
+            .collect()
     } else {
         expected
             .split('\n')
             .map(|x| {
                 let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
                 let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
-                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {ENV_VAR} {x}")
             })
             .collect()
     };

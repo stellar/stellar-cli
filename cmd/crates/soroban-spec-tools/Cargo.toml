@@ -28,6 +28,7 @@ hex = { workspace = true }
 wasmparser = { workspace = true }
 base64 = { workspace = true }
 thiserror = "1.0.31"
+wasm-encoder = "0.235.0"
 indexmap = { version = "2.7", features = ["serde"] }
 
 
