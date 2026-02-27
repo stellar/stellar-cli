@@ -151,7 +151,9 @@ impl Cmd {
         match &self {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
-            Cmd::Build(build) => build.run(global_args)?,
+            Cmd::Build(build) => {
+                build.run(global_args)?;
+            }
             Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,

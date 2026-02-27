@@ -1,11 +1,11 @@
+mod auto_build;
 mod bindings;
 mod constructor;
 mod contract;
 mod cookbook;
 mod custom_types;
 mod dotenv;
-mod fee_args;
-mod fee_stats;
+mod fees;
 mod hello_world;
 mod init;
 mod keys;

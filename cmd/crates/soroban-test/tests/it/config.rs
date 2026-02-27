@@ -1,5 +1,5 @@
-use crate::util::{add_key, add_test_id, SecretKind, DEFAULT_SEED_PHRASE};
-use predicates::prelude::predicate;
+use crate::util::{add_key, add_test_id, SecretKind, GENERATED_SEED_PHRASE};
+use predicates::prelude::{predicate, PredicateBooleanExt};
 use soroban_cli::commands::network;
 use soroban_cli::config::network::passphrase::LOCAL as LOCAL_NETWORK_PASSPHRASE;
 use soroban_test::{AssertExt, TestEnv};
@@ -136,7 +136,7 @@ fn generate_key() {
         fs::read_to_string(sandbox.config_dir().join("identity/test_2.toml")).unwrap();
     assert_eq!(
         file_contents,
-        format!("seed_phrase = \"{DEFAULT_SEED_PHRASE}\"\n")
+        format!("seed_phrase = \"{GENERATED_SEED_PHRASE}\"\n")
     );
 }
 
@@ -216,6 +216,77 @@ fn use_env() {
         .assert()
         .success()
         .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n");
+}
+
+#[test]
+fn add_key_from_stdin() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env_remove("STELLAR_SECRET_KEY")
+        .write_stdin(format!("{secret_key}\n"))
+        .arg("add")
+        .arg("stdin-test")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("stdin-test")
+        .assert()
+        .success()
+        .stdout(format!("{secret_key}\n"));
+}
+
+#[test]
+fn add_12_word_seed_phrase_from_stdin() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SC36BWNUOCZAO7DMEJNNKFV6BOTPJP7IG5PSHLUOLT6DZFRU3D3XGIXW";
+    let seed_phrase = GENERATED_SEED_PHRASE;
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env_remove("STELLAR_SECRET_KEY")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .arg("add")
+        .arg("stdin-test")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("stdin-test")
+        .assert()
+        .success()
+        .stdout(format!("{secret_key}\n"));
+}
+
+#[test]
+fn add_24_word_seed_phrase_from_stdin() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY";
+    let seed_phrase = "aisle reflect depart add safe fury dress artist bronze abuse warrior clap inquiry ask mandate deputy view trade debate flip priority boy depart recipe";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env_remove("STELLAR_SECRET_KEY")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .arg("add")
+        .arg("stdin-test")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("stdin-test")
+        .assert()
+        .success()
+        .stdout(format!("{secret_key}\n"));
 }
 
 #[test]
@@ -425,4 +496,32 @@ fn cannot_create_key_with_alias() {
             "cannot overlap with contract alias",
         ))
         .failure();
+}
+
+#[test]
+fn env_does_not_display_secret_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains("SECRET_KEY").not())
+        .success();
+}
+
+#[test]
+fn env_does_not_display_sign_with_key() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .env(
+            "STELLAR_SIGN_WITH_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains("SIGN_WITH_KEY").not())
+        .success();
 }

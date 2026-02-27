@@ -1,9 +1,13 @@
-use crate::xdr::{
-    self, AccountId, DecoratedSignature, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization,
-    InvokeHostFunctionOp, Limits, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol,
-    ScVal, Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanCredentials, Transaction, TransactionEnvelope,
-    TransactionV1Envelope, Uint256, VecM, WriteXdr,
+use crate::{
+    utils::fee_bump_transaction_hash,
+    xdr::{
+        self, AccountId, DecoratedSignature, FeeBumpTransactionEnvelope, Hash, HashIdPreimage,
+        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
+        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
+        WriteXdr,
+    },
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
@@ -30,7 +34,7 @@ pub enum Error {
     UserCancelledSigning,
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
-    #[error("Only Transaction envelope V1 type is supported")]
+    #[error("Transaction envelope type not supported")]
     UnsupportedTransactionEnvelopeType,
     #[error(transparent)]
     Url(#[from] url::ParseError),
@@ -245,12 +249,7 @@ impl Signer {
                 let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
                 self.print
                     .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
-                let decorated_signature = match &self.kind {
-                    SignerKind::Local(key) => key.sign_tx_hash(tx_hash)?,
-                    SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print)?,
-                    SignerKind::Ledger(ledger) => ledger.sign_transaction_hash(&tx_hash).await?,
-                    SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash)?,
-                };
+                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -258,7 +257,21 @@ impl Signer {
                     signatures: sigs.try_into()?,
                 }))
             }
-            _ => Err(Error::UnsupportedTransactionEnvelopeType),
+            TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, signatures }) => {
+                let tx_hash = fee_bump_transaction_hash(tx, &network.network_passphrase)?;
+                self.print.infoln(format!(
+                    "Signing fee bump transaction: {}",
+                    hex::encode(tx_hash),
+                ));
+                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
+                let mut sigs = signatures.clone().into_vec();
+                sigs.push(decorated_signature);
+                Ok(TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
+                    tx: tx.clone(),
+                    signatures: sigs.try_into()?,
+                }))
+            }
+            TransactionEnvelope::TxV0(_) => Err(Error::UnsupportedTransactionEnvelopeType),
         }
     }
 
@@ -281,6 +294,23 @@ impl Signer {
             SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
+        }
+    }
+
+    async fn sign_tx_hash(
+        &self,
+        tx_hash: [u8; 32],
+        tx_env: &TransactionEnvelope,
+        network: &Network,
+    ) -> Result<DecoratedSignature, Error> {
+        match &self.kind {
+            SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
+            SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
+            SignerKind::Ledger(ledger) => ledger
+                .sign_transaction_hash(&tx_hash)
+                .await
+                .map_err(Error::from),
+            SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash),
         }
     }
 }

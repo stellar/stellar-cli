@@ -28,10 +28,7 @@ rust-version = "1.89.0"
 [workspace.dependencies.soroban-cli]
 version = "=25.1.0"
 path = "cmd/soroban-cli"
-
-[workspace.dependencies.soroban-spec-json]
-version = "=25.1.0"
-path = "./cmd/crates/soroban-spec-json"
+default-features = false
 
 [workspace.dependencies.soroban-spec-typescript]
 version = "25.1.0"
@@ -115,6 +112,9 @@ walkdir = "2.5.0"
 toml_edit = "0.22.20"
 toml = "0.8.19"
 reqwest = "0.12.7"
+# Dependabot security fixes (transitive dependencies)
+time = ">=0.3.47"
+bytes = ">=1.11.1"
 # testing
 predicates = "3.1.2"
 testcontainers = { version = "0.26.0" }

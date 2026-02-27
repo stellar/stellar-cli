@@ -1,6 +1,7 @@
 use std::array::TryFromSliceError;
 use std::fmt::Debug;
 use std::num::ParseIntError;
+use std::path::{Path, PathBuf};
 
 use crate::xdr::{
     self, ContractCodeEntryExt, Error as XdrError, Hash, HostFunction, InvokeHostFunctionOp,
@@ -9,10 +10,9 @@ use crate::xdr::{
 };
 use clap::Parser;
 
-use super::restore;
+use super::{build, restore};
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -21,7 +21,10 @@ use crate::{
     key,
     print::Print,
     rpc,
-    tx::builder::{self, TxExt},
+    tx::{
+        builder::{self, TxExt},
+        sim_sign_and_send_tx,
+    },
     utils, wasm,
 };
 
@@ -37,8 +40,10 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: crate::resources::Args,
 
-    #[command(flatten)]
-    pub wasm: wasm::Args,
+    /// Path to wasm binary. When omitted inside a Cargo workspace, builds the
+    /// project automatically. Required when outside a Cargo workspace.
+    #[arg(long)]
+    pub wasm: Option<PathBuf>,
 
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
@@ -47,6 +52,12 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long)]
     pub build_only: bool,
+
+    /// Package to build when --wasm is not provided
+    #[arg(long, help_heading = "Build Options", conflicts_with = "wasm")]
+    pub package: Option<String>,
+    #[command(flatten)]
+    pub build_args: build::BuildArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -104,21 +115,54 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    Build(#[from] build::Error),
+
+    #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
+    NoBuildableContracts,
+
+    #[error("no WASM file specified; use --wasm to provide a contract file")]
+    WasmNotProvided,
+
+    #[error("--build-only is not supported without --wasm")]
+    BuildOnlyNotSupported,
+
+    #[error("--wasm is required when not in a Cargo workspace; no Cargo.toml found")]
+    NotInCargoProject,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .execute(&self.config, global_args.quiet, global_args.no_cache)
-            .await?
-            .to_envelope();
-        match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
+        if self.build_only && self.wasm.is_none() {
+            return Err(Error::BuildOnlyNotSupported);
+        }
+
+        let wasm_paths = self.resolve_wasm_paths(global_args)?;
+
+        for wasm_path in &wasm_paths {
+            let res = self
+                .upload_wasm(
+                    wasm_path,
+                    &self.config,
+                    global_args.quiet,
+                    global_args.no_cache,
+                )
+                .await?
+                .to_envelope();
+
+            match res {
+                TxnEnvelopeResult::TxnEnvelope(tx) => {
+                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                }
+                TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
+            }
         }
         Ok(())
     }
 
+    /// Programmatic API for uploading a single WASM file.
+    /// Expects `self.wasm` to be set. Used by deploy command internally.
     #[allow(clippy::too_many_lines)]
     #[allow(unused_variables)]
     pub async fn execute(
@@ -127,15 +171,54 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<Hash>, Error> {
+        let wasm_path = self.wasm.clone().ok_or(Error::WasmNotProvided)?;
+        self.upload_wasm(&wasm_path, config, quiet, no_cache).await
+    }
+
+    fn resolve_wasm_paths(&self, global_args: &global::Args) -> Result<Vec<PathBuf>, Error> {
+        if let Some(wasm) = &self.wasm {
+            Ok(vec![wasm.clone()])
+        } else {
+            let build_cmd = build::Cmd {
+                package: self.package.clone(),
+                build_args: self.build_args.clone(),
+                ..build::Cmd::default()
+            };
+            let contracts = build_cmd.run(global_args).map_err(|e| match e {
+                build::Error::Metadata(_) => Error::NotInCargoProject,
+                other => other.into(),
+            })?;
+
+            if contracts.is_empty() {
+                return Err(Error::NoBuildableContracts);
+            }
+
+            Ok(contracts.into_iter().map(|c| c.path).collect())
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    #[allow(unused_variables)]
+    async fn upload_wasm(
+        &self,
+        wasm_path: &Path,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<Hash>, Error> {
         let print = Print::new(quiet);
-        let contract = self.wasm.read()?;
+        let wasm_path = wasm_path.to_path_buf();
+        let wasm_args = wasm::Args {
+            wasm: wasm_path.clone(),
+        };
+        let contract = wasm_args.read()?;
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let wasm_spec = &self.wasm.parse().map_err(|e| Error::CannotParseWasm {
-            wasm: self.wasm.wasm.clone(),
+        let wasm_spec = &wasm_args.parse().map_err(|e| Error::CannotParseWasm {
+            wasm: wasm_path.clone(),
             error: e,
         })?;
 
@@ -146,13 +229,13 @@ impl Cmd {
                 && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
             {
                 return Err(Error::ContractCompiledWithReleaseCandidateSdk {
-                    wasm: self.wasm.wasm.clone(),
+                    wasm: wasm_path.clone(),
                     version: rs_sdk_ver,
                 });
             } else if rs_sdk_ver.contains("rc")
                 && network.network_passphrase == PUBLIC_NETWORK_PASSPHRASE
             {
-                tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = self.wasm.wasm.display());
+                tracing::warn!("the deployed smart contract {path} was built with Soroban Rust SDK v{rs_sdk_ver}, a release candidate version not intended for use with the Stellar Public Network", path = wasm_path.display());
             }
         }
 
@@ -208,26 +291,16 @@ impl Cmd {
             }
         }
 
-        print.infoln("Simulating install transaction…");
-
-        let assembled = simulate_and_assemble_transaction(
+        let txn_resp = sim_sign_and_send_tx::<Error>(
             &client,
             &tx_without_preflight,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
         )
         .await?;
-        let assembled = self.resources.apply_to_assembled_txn(assembled);
-        let txn = Box::new(assembled.transaction().clone());
-        let signed_txn = &self.config.sign(*txn, quiet).await?;
-
-        print.globeln("Submitting install transaction…");
-        let txn_resp = client.send_transaction_polling(signed_txn).await?;
-        self.resources.print_cost_info(&txn_resp)?;
-
-        if !no_cache {
-            data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
-        }
 
         // Currently internal errors are not returned if the contract code is expired
         if let Some(TransactionResult {
@@ -241,7 +314,7 @@ impl Cmd {
                     contract_id: None,
                     key: None,
                     key_xdr: None,
-                    wasm: Some(self.wasm.wasm.clone()),
+                    wasm: Some(wasm_path.clone()),
                     wasm_hash: None,
                     durability: super::Durability::Persistent,
                 },

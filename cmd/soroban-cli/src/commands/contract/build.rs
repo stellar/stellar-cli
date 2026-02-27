@@ -25,6 +25,15 @@ use crate::{
     wasm,
 };
 
+/// A built WASM artifact with its package name and file path.
+#[derive(Debug, Clone)]
+pub struct BuiltContract {
+    /// The Cargo package name (e.g. "my-contract").
+    pub name: String,
+    /// The path to the built WASM file.
+    pub path: PathBuf,
+}
+
 /// Build a contract from source
 ///
 /// Builds all crates that are referenced by the cargo manifest (Cargo.toml)
@@ -83,6 +92,13 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    #[command(flatten)]
+    pub build_args: BuildArgs,
+}
+
+/// Shared build options for meta and optimization, reused by deploy and upload.
+#[derive(Parser, Debug, Clone, Default)]
+pub struct BuildArgs {
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
@@ -93,7 +109,7 @@ pub struct Cmd {
     pub optimize: bool,
 }
 
-fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
+pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
     let parts = s.splitn(2, '=');
 
     let (key, value) = parts
@@ -177,9 +193,26 @@ const WASM_TARGET: &str = "wasm32v1-none";
 const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
+impl Default for Cmd {
+    fn default() -> Self {
+        Self {
+            manifest_path: None,
+            package: None,
+            profile: "release".to_string(),
+            features: None,
+            all_features: false,
+            no_default_features: false,
+            out_dir: None,
+            print_commands_only: false,
+            build_args: BuildArgs::default(),
+        }
+    }
+}
+
 impl Cmd {
+    /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
@@ -200,6 +233,7 @@ impl Cmd {
         }
 
         let wasm_target = get_wasm_target()?;
+        let mut built_contracts = Vec::new();
 
         for p in packages {
             let mut cmd = Command::new("cargo");
@@ -293,7 +327,7 @@ impl Cmd {
                 let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
 
                 #[cfg(feature = "additional-libs")]
-                if self.optimize {
+                if self.build_args.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
@@ -304,15 +338,19 @@ impl Cmd {
                 }
 
                 #[cfg(not(feature = "additional-libs"))]
-                if self.optimize {
+                if self.build_args.optimize {
                     return Err(Error::OptimizeFeatureNotEnabled);
                 }
 
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
+                built_contracts.push(BuiltContract {
+                    name: p.name.clone(),
+                    path: final_path,
+                });
             }
         }
 
-        Ok(())
+        Ok(built_contracts)
     }
 
     fn features(&self) -> Option<Vec<String>> {
@@ -480,7 +518,7 @@ impl Cmd {
         new_meta.push(cli_meta_entry);
 
         // Add args provided meta
-        for (k, v) in self.meta.clone() {
+        for (k, v) in self.build_args.meta.clone() {
             let key: StringM = k
                 .clone()
                 .try_into()

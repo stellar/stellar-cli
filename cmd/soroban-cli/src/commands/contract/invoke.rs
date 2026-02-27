@@ -15,6 +15,7 @@ use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
 use crate::log::extract_events;
 use crate::print::Print;
+use crate::tx::sim_sign_and_send_tx;
 use crate::utils::deprecate_message;
 use crate::{
     assembled::simulate_and_assemble_transaction,
@@ -333,7 +334,10 @@ impl Cmd {
             let events = sim_res.events()?;
 
             crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
+            // Note: Only events from the invoked contract will be decoded with named parameters.
+            // Events emitted by other contracts (e.g., token transfers during a swap) will
+            // fall back to raw format since we only have the spec for the invoked contract.
+            crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
@@ -352,41 +356,25 @@ impl Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_assemble_transaction(
+        let res = sim_sign_and_send_tx::<Error>(
             &client,
             &tx,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
+            config,
+            &self.resources,
+            &signers,
+            quiet,
+            no_cache,
         )
         .await?;
-        let assembled = self.resources.apply_to_assembled_txn(txn);
-        let mut txn = Box::new(assembled.transaction().clone());
-        let sim_res = assembled.sim_response();
-
-        if !no_cache {
-            data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
-        }
-
-        // Need to sign all auth entries
-        if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-            *txn = tx;
-        }
-
-        let res = client
-            .send_transaction_polling(&config.sign(*txn, quiet).await?)
-            .await?;
-
-        self.resources.print_cost_info(&res)?;
-
-        if !no_cache {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
 
         let return_value = res.return_value()?;
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
         crate::log::event::all(&events);
-        crate::log::event::contract(&events, &print);
+        // Note: Only events from the invoked contract will be decoded with named parameters.
+        // Events emitted by other contracts (e.g., token transfers during a swap) will
+        // fall back to raw format since we only have the spec for the invoked contract.
+        crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
