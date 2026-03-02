@@ -18,6 +18,7 @@ use stellar_xdr::curr::{
 pub mod contract;
 pub mod event;
 pub mod utils;
+pub mod wasm;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

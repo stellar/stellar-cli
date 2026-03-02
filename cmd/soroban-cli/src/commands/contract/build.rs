@@ -477,7 +477,8 @@ impl Cmd {
     /// actually used. These markers survive dead code elimination, so we can
     /// detect which spec entries are truly needed.
     fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
-        use soroban_spec_tools::contract::{replace_custom_section, Spec};
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
 
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
 
@@ -496,9 +497,18 @@ impl Cmd {
             return Ok(());
         }
 
-        // Get the filtered spec as XDR bytes, filtering both types and events
-        // based on markers in the WASM data section
-        let filtered_xdr = spec.filtered_spec_xdr_with_markers(&wasm_bytes)?;
+        // Extract markers from the WASM data section
+        let markers = soroban_spec::shaking::find_all(&wasm_bytes);
+
+        // Filter spec entries (types, events) based on markers
+        let filtered = soroban_spec::shaking::filter(spec.spec.clone(), &markers);
+
+        // Serialize filtered entries to XDR
+        let mut filtered_xdr = Vec::new();
+        let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+        for entry in filtered {
+            entry.write_xdr(&mut writer)?;
+        }
 
         // Replace the contractspecv0 section with the filtered version
         let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)?;
