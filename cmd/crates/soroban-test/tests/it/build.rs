@@ -321,7 +321,7 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
-    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_OPTIMISING_SPECS_USING_DATA_MARKERS=1";
+    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1";
 
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");

@@ -274,7 +274,7 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
             cmd.env(
-                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_OPTIMISING_SPECS_USING_DATA_MARKERS",
+                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2",
                 "1",
             );
 
