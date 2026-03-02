@@ -273,7 +273,10 @@ impl Cmd {
 
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
-            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+            cmd.env(
+                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_EXPERIMENTAL_SPEC_SHAKING_V2",
+                "1",
+            );
 
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
