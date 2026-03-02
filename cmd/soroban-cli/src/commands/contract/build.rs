@@ -273,10 +273,7 @@ impl Cmd {
 
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
-            cmd.env(
-                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2",
-                "1",
-            );
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
@@ -484,16 +481,20 @@ impl Cmd {
 
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
 
-        // Check for markers in the WASM data section. If no markers are found,
-        // the SDK feature is likely not enabled, so skip filtering to avoid
-        // stripping all non-function specs.
-        let markers = soroban_spec::marker::find_all(&wasm_bytes);
-        if markers.is_empty() {
-            return Ok(());
-        }
-
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
+
+        // Check if the contract meta indicates spec shaking v2 is enabled.
+        // The SDK embeds a contractmeta entry with key "rssdkfeat" and value
+        // "experimental_spec_shaking_v2" when the feature is active.
+        let has_spec_shaking = spec.meta.iter().any(|entry| {
+            let ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) = entry;
+            key.to_utf8_string_lossy() == "rssdkfeat"
+                && val.to_utf8_string_lossy() == "experimental_spec_shaking_v2"
+        });
+        if !has_spec_shaking {
+            return Ok(());
+        }
 
         // Get the filtered spec as XDR bytes, filtering both types and events
         // based on markers in the WASM data section

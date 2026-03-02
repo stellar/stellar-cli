@@ -137,13 +137,13 @@ impl Spec {
     ///
     /// XDR bytes of the filtered spec entries.
     pub fn filtered_spec_xdr_with_markers(&self, wasm_bytes: &[u8]) -> Result<Vec<u8>, Error> {
-        use soroban_spec::marker;
+        use soroban_spec::shaking;
 
         // Extract markers from the WASM data section
-        let markers = marker::find_all(wasm_bytes);
+        let markers = shaking::find_all(wasm_bytes);
 
         // Filter all entries (types, events) based on markers
-        let filtered = marker::filter(self.spec.clone(), &markers);
+        let filtered = shaking::filter(self.spec.clone(), &markers);
 
         let mut buffer = Vec::new();
         let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
