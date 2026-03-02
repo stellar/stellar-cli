@@ -8,7 +8,10 @@ use crate::{
     print::Print,
     signer::{self, Signer},
     utils::deprecate_message,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    xdr::{
+        self, FeeBumpTransaction, FeeBumpTransactionEnvelope, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionV1Envelope, VecM,
+    },
     Pwd,
 };
 use network::Network;
@@ -101,6 +104,27 @@ impl Args {
 
     pub async fn sign(&self, tx: Transaction, quiet: bool) -> Result<TransactionEnvelope, Error> {
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self
+            .sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                quiet,
+                Some(&self.source_account),
+            )
+            .await?)
+    }
+
+    pub async fn sign_fee_bump(
+        &self,
+        tx: FeeBumpTransaction,
+        quiet: bool,
+    ) -> Result<TransactionEnvelope, Error> {
+        let tx_env = TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
             tx,
             signatures: VecM::default(),
         });

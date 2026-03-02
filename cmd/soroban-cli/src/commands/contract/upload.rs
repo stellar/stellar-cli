@@ -13,7 +13,6 @@ use clap::Parser;
 use super::{build, restore};
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -22,7 +21,10 @@ use crate::{
     key,
     print::Print,
     rpc,
-    tx::builder::{self, TxExt},
+    tx::{
+        builder::{self, TxExt},
+        sim_sign_and_send_tx,
+    },
     utils, wasm,
 };
 
@@ -289,26 +291,16 @@ impl Cmd {
             }
         }
 
-        print.infoln("Simulating install transaction…");
-
-        let assembled = simulate_and_assemble_transaction(
+        let txn_resp = sim_sign_and_send_tx::<Error>(
             &client,
             &tx_without_preflight,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
         )
         .await?;
-        let assembled = self.resources.apply_to_assembled_txn(assembled);
-        let txn = Box::new(assembled.transaction().clone());
-        let signed_txn = &self.config.sign(*txn, quiet).await?;
-
-        print.globeln("Submitting install transaction…");
-        let txn_resp = client.send_transaction_polling(signed_txn).await?;
-        self.resources.print_cost_info(&txn_resp)?;
-
-        if !no_cache {
-            data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;
-        }
 
         // Currently internal errors are not returned if the contract code is expired
         if let Some(TransactionResult {

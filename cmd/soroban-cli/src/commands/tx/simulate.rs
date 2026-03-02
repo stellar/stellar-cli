@@ -1,5 +1,6 @@
 use crate::{
     assembled::{simulate_and_assemble_transaction, Assembled},
+    print,
     xdr::{self, TransactionEnvelope, WriteXdr},
 };
 use std::ffi::OsString;
@@ -38,14 +39,19 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
-        let res = self.execute(&self.config).await?;
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self.execute(global_args, &self.config).await?;
         let tx_env: TransactionEnvelope = res.transaction().clone().into();
         println!("{}", tx_env.to_xdr_base64(xdr::Limits::none())?);
         Ok(())
     }
 
-    pub async fn execute(&self, config: &config::Args) -> Result<Assembled, Error> {
+    pub async fn execute(
+        &self,
+        global_args: &global::Args,
+        config: &config::Args,
+    ) -> Result<Assembled, Error> {
+        let print = print::Print::new(global_args.quiet);
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
@@ -53,6 +59,9 @@ impl Cmd {
             .instruction_leeway
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
         let tx = simulate_and_assemble_transaction(&client, &tx, resource_config, None).await?;
+        if let Some(fee_bump_fee) = tx.fee_bump_fee() {
+            print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
+        }
         Ok(tx)
     }
 }

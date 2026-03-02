@@ -40,7 +40,7 @@ pub fn add_test_id(dir: &Path) -> String {
     name.to_owned()
 }
 
-pub const DEFAULT_SEED_PHRASE: &str =
+pub const GENERATED_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
 pub async fn invoke_custom(

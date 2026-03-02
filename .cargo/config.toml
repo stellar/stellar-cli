@@ -2,7 +2,6 @@
 
 [alias] # command aliases
 f = "fmt"
-md-gen = "run --package doc-gen"
 s = "run --quiet --"
 # b = "build"
 # c = "check"

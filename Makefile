@@ -44,7 +44,7 @@ build-test-wasms:
 build-test: build-test-wasms install
 
 docs:
-	cargo run --package doc-gen
+	cargo run --package doc-gen --features additional-libs
 	./node_modules/.bin/prettier --write --log-level warn FULL_HELP_DOCS.md
 
 test: build-test
