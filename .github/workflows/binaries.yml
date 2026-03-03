@@ -115,7 +115,7 @@ jobs:
           echo "DEB_PKG_DIR=stellar-cli_${version}_${{ matrix.arch }}" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -170,7 +170,7 @@ jobs:
           echo "SM_CLIENT_CERT_FILE=D:\\sm_client_cert.p12" >> "$GITHUB_ENV"
 
       - name: Download Artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
