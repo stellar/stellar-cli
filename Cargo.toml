@@ -140,4 +140,4 @@ panic = "unwind"
 
 [patch.crates-io.soroban-spec]
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "e745b20213bb1190c08ae1c158283e529185aeaf"
+rev = "88bf5c3d92531ad6aafa9b7b1bd90e170c48826d"
