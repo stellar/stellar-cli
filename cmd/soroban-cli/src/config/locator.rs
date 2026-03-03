@@ -494,12 +494,17 @@ impl Pwd for Args {
 
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
-    std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700)).ok();
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(parent)
+            .map_err(|_| dir_creation_failed(parent))?;
     }
+    #[cfg(not(unix))]
+    std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
     Ok(dir)
 }
 
@@ -564,20 +569,31 @@ impl KeyType {
     ) -> Result<PathBuf, Error> {
         let filepath = ensure_directory(self.path(pwd, key))?;
         let data = toml::to_string(value).map_err(|_| Error::ConfigSerialization)?;
+        #[cfg(unix)]
+        {
+            use std::io::Write as _;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&filepath)
+                .map_err(|error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                })?;
+            file.write_all(data.as_bytes())
+                .map_err(|error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                })?;
+        }
+        #[cfg(not(unix))]
         std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
             filepath: filepath.clone(),
             error,
         })?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
-                |error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                },
-            )?;
-        }
         Ok(filepath)
     }
 
