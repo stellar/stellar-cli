@@ -387,6 +387,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
   If ommitted, wasm files are written only to the cargo target directory.
 
+- `--locked` — Assert that `Cargo.lock` will remain unchanged
 - `--optimize` — Optimize the generated wasm
 
 ###### **Other:**

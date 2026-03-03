@@ -492,8 +492,62 @@ impl Pwd for Args {
     }
 }
 
+#[cfg(unix)]
+fn fix_config_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let Ok(root) = global_config_path() else {
+        return;
+    };
+
+    let mut bad_dirs = Vec::new();
+    let mut bad_files = Vec::new();
+    let mut stack = vec![root];
+
+    while let Some(dir) = stack.pop() {
+        if let Ok(meta) = std::fs::metadata(&dir) {
+            if meta.permissions().mode() & 0o777 != 0o700 {
+                bad_dirs.push(dir.clone());
+            }
+        }
+
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+
+                if path.is_dir() {
+                    stack.push(path);
+                } else if let Ok(meta) = std::fs::metadata(&path) {
+                    if meta.permissions().mode() & 0o777 != 0o600 {
+                        bad_files.push(path);
+                    }
+                }
+            }
+        }
+    }
+
+    let print = Print::new(false);
+
+    if !bad_dirs.is_empty() {
+        print.warnln("Updated config directories permissions to 0700.");
+
+        for dir in bad_dirs {
+            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+
+    if !bad_files.is_empty() {
+        print.warnln("Updated config files permissions to 0600.");
+
+        for file in bad_files {
+            let _ = std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600));
+        }
+    }
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
@@ -502,9 +556,12 @@ pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
             .mode(0o700)
             .create(parent)
             .map_err(|_| dir_creation_failed(parent))?;
+        fix_config_permissions();
     }
+
     #[cfg(not(unix))]
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
+
     Ok(dir)
 }
 
@@ -539,6 +596,10 @@ impl KeyType {
         let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
+
+        #[cfg(unix)]
+        fix_config_permissions();
+
         Ok(toml::from_str(&data)?)
     }
 
@@ -589,11 +650,16 @@ impl KeyType {
                     error,
                 })?;
         }
+
         #[cfg(not(unix))]
         std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
             filepath: filepath.clone(),
             error,
         })?;
+
+        #[cfg(unix)]
+        fix_config_permissions();
+
         Ok(filepath)
     }
 
@@ -747,6 +813,7 @@ mod tests {
             .unwrap();
 
         let perms = std::fs::metadata(&path).unwrap().permissions();
+
         assert_eq!(
             perms.mode() & 0o777,
             0o600,
@@ -767,6 +834,7 @@ mod tests {
         let perms = std::fs::metadata(dir.path().join("sub"))
             .unwrap()
             .permissions();
+
         assert_eq!(
             perms.mode() & 0o777,
             0o700,
