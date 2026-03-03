@@ -1,5 +1,5 @@
 use predicates::prelude::{predicate, PredicateBooleanExt};
-use soroban_test::TestEnv;
+use soroban_test::{AssertExt, TestEnv};
 
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
@@ -51,4 +51,35 @@ async fn unset_default_network() {
         .assert()
         .stdout(predicate::str::contains("STELLAR_NETWORK=").not())
         .success();
+}
+
+#[tokio::test]
+async fn network_info_includes_id_in_text_output() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("network")
+        .arg("info")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "Network Id: baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a",
+        ));
+}
+
+#[tokio::test]
+async fn network_info_includes_id_in_json_output() {
+    let sandbox = &TestEnv::new();
+    let output = sandbox
+        .new_assert_cmd("network")
+        .arg("info")
+        .arg("--output")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout_as_str();
+    let info: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(
+        info["id"],
+        "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
+    );
 }

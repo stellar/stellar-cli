@@ -17,7 +17,6 @@ use soroban_spec::read::{from_wasm, FromWasmError};
 
 pub mod boilerplate;
 mod types;
-pub mod wrapper;
 
 #[derive(thiserror::Error, Debug)]
 pub enum GenerateFromFileError {

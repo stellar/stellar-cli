@@ -18,7 +18,6 @@ pub fn unprefixed() -> Vec<&'static str> {
         "RPC_HEADERS",
         "RPC_URL",
         "SEND",
-        "SIGN_WITH_KEY",
         "SIGN_WITH_LAB",
         "SIGN_WITH_LEDGER",
     ]

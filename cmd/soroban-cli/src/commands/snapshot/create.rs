@@ -350,7 +350,7 @@ impl Cmd {
                         continue;
                     };
 
-                    match &val.data {
+                    let include = match &val.data {
                         LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(
                             state_archival,
                         )) => {
@@ -409,10 +409,12 @@ impl Cmd {
                         }
                         _ => false,
                     };
-                    snapshot
-                        .ledger_entries
-                        .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                    count_saved += 1;
+                    if include {
+                        snapshot
+                            .ledger_entries
+                            .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                        count_saved += 1;
+                    }
                 }
                 if count_saved > 0 {
                     print.infoln(format!("Found {count_saved} entries"));
