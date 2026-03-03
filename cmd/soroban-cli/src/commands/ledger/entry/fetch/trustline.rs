@@ -38,6 +38,8 @@ pub enum Error {
     InvalidAsset(String),
     #[error("provided data name is invalid: {0}")]
     InvalidDataName(String),
+    #[error("native assets do not have trustlines")]
+    NativeAsset,
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -61,7 +63,9 @@ impl Cmd {
                 if parts.next().is_some() {
                     Err(Error::InvalidAsset(asset.clone()))?;
                 }
-                let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
+                let source_bytes = Ed25519PublicKey::from_string(issuer)
+                    .map_err(|_| Error::InvalidAsset(asset.clone()))?
+                    .0;
                 let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
 
                 let asset_code: AssetCode = code
@@ -75,6 +79,8 @@ impl Cmd {
                         TrustLineAsset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
                     }
                 }
+            } else if matches!(asset.as_str(), "XLM" | "xlm" | "native") {
+                Err(Error::NativeAsset)?
             } else {
                 Err(Error::InvalidAsset(asset.clone()))?
             };
