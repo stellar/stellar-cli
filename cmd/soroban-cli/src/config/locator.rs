@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs::{self, create_dir_all, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
@@ -388,23 +388,52 @@ impl Args {
         let path = self.alias_path(alias)?;
         let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
 
-        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(dir)
+                .map_err(|_| Error::CannotAccessConfigDir)?;
+        }
+
+        #[cfg(not(unix))]
+        std::fs::create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
 
         let content = fs::read_to_string(&path).unwrap_or_default();
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(path)?;
 
         data.ids
             .insert(network_passphrase.into(), contract_id.to_string());
 
         let content = serde_json::to_string(&data)?;
 
-        Ok(to_file.write_all(content.as_bytes())?)
+        #[cfg(unix)]
+        {
+            use std::io::Write as _;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut to_file = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .mode(0o600)
+                .open(&path)?;
+            to_file.write_all(content.as_bytes())?;
+            fix_config_permissions();
+        }
+
+        #[cfg(not(unix))]
+        {
+            let mut to_file = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(path)?;
+            to_file.write_all(content.as_bytes())?;
+        }
+
+        Ok(())
     }
 
     pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
