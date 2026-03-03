@@ -302,21 +302,21 @@ fn build_spec_shaking_fixture() -> (Vec<ScSpecEntry>, Vec<ScMetaEntry>) {
     (spec.spec, spec.meta)
 }
 
-fn spec_entry_name(entry: &ScSpecEntry) -> Option<String> {
+fn spec_entry_name(entry: &ScSpecEntry) -> String {
     match entry {
-        ScSpecEntry::FunctionV0(f) => Some(f.name.to_utf8_string_lossy()),
-        ScSpecEntry::UdtStructV0(s) => Some(s.name.to_utf8_string_lossy()),
-        ScSpecEntry::UdtUnionV0(u) => Some(u.name.to_utf8_string_lossy()),
-        ScSpecEntry::UdtEnumV0(e) => Some(e.name.to_utf8_string_lossy()),
-        ScSpecEntry::UdtErrorEnumV0(e) => Some(e.name.to_utf8_string_lossy()),
-        ScSpecEntry::EventV0(e) => Some(e.name.to_utf8_string_lossy()),
+        ScSpecEntry::FunctionV0(f) => f.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtStructV0(s) => s.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtUnionV0(u) => u.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtEnumV0(e) => e.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtErrorEnumV0(e) => e.name.to_utf8_string_lossy(),
+        ScSpecEntry::EventV0(e) => e.name.to_utf8_string_lossy(),
     }
 }
 
 #[test]
 fn build_with_spec_shaking_filters_unused_types() {
     let (spec, _meta) = build_spec_shaking_fixture();
-    let names: Vec<String> = spec.iter().filter_map(spec_entry_name).collect();
+    let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
 
     // All functions should be present
     assert!(
@@ -360,7 +360,7 @@ fn build_with_spec_shaking_filters_unused_types() {
 #[test]
 fn build_with_spec_shaking_filters_unused_events() {
     let (spec, _meta) = build_spec_shaking_fixture();
-    let names: Vec<String> = spec.iter().filter_map(spec_entry_name).collect();
+    let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
 
     // Used event should be present
     assert!(
@@ -381,7 +381,7 @@ fn build_with_spec_shaking_preserves_all_functions() {
     let function_names: Vec<String> = spec
         .iter()
         .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
-        .filter_map(spec_entry_name)
+        .map(spec_entry_name)
         .collect();
 
     assert!(function_names.contains(&"use_struct".to_string()));
@@ -440,7 +440,7 @@ fn build_without_spec_shaking_preserves_all_entries() {
         .spec
         .iter()
         .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
-        .filter_map(spec_entry_name)
+        .map(spec_entry_name)
         .collect();
     assert!(
         !function_names.is_empty(),
