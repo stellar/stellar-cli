@@ -70,6 +70,24 @@ fn build_package_by_current_dir() {
 }
 
 #[test]
+fn build_with_locked() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .arg("--locked")
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            with_flags("cargo rustc --locked --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32v1-none --release"),
+        ));
+}
+
+#[test]
 fn build_no_package_found() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
