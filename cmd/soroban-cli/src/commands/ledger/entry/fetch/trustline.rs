@@ -41,8 +41,6 @@ pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
-    TryFromSliceError(#[from] TryFromSliceError),
-    #[error(transparent)]
     Run(#[from] super::args::Error),
 }
 
