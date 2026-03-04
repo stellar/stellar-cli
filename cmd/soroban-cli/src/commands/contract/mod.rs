@@ -94,6 +94,10 @@ pub enum Cmd {
     Restore(restore::Cmd),
 
     /// Verify that a contract spec references only defined types
+    // Hidden because it's unclear if this makes sense as a general subcommand
+    // to offer, but during the development of features relating to specs it has
+    // been helpful to have it as its own command. Verification is automatically
+    // run as part of `contract build` so for a general user this is not needed.
     #[command(name = "spec-verify", hide = true)]
     SpecVerify(spec_verify::Cmd),
 }
