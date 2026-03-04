@@ -89,6 +89,22 @@ jobs:
             echo "ERROR: interface is empty"
             exit 1
           fi
+      - name: Verify env-meta
+        run: |
+          output=$(stellar contract info env-meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          if [ "$(echo "$output" | jq 'length')" -lt 1 ]; then
+            echo "ERROR: env-meta is empty"
+            exit 1
+          fi
+      - name: Verify meta
+        run: |
+          output=$(stellar contract info meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          if [ "$(echo "$output" | jq 'length')" -lt 1 ]; then
+            echo "ERROR: meta is empty"
+            exit 1
+          fi
 
   complete:
     if: always()
