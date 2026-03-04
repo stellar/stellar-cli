@@ -1,0 +1,130 @@
+name: Test with soroban-examples
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
+    github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-cli:
+    runs-on: ubuntu-latest-8-cores
+    steps:
+      - uses: actions/checkout@v6
+      - uses: stellar/actions/rust-cache@main
+      - run: rustup update
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+      - run: cargo build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stellar-cli
+          path: target/debug/stellar
+
+  collect-examples:
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.dirs.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: stellar/soroban-examples
+          ref: main
+      - id: dirs
+        run: |
+          dirs=$(
+            for dir in $(find . -type f -name 'Makefile' -mindepth 2 | xargs dirname | sed 's|^\./||'); do
+              if (cargo metadata --manifest-path "$dir/Cargo.toml" --no-deps --format-version 1 \
+                | jq -r \
+                  '.packages[0] | (any(.dependencies[]; .name == "soroban-sdk") and any(.targets[]; any(.crate_types[]; . == "cdylib")))' \
+                | grep -q '^true$'); then
+                echo "$dir"
+              fi
+            done | jq -Rnc '[inputs | "\(.)"]'
+          )
+          echo "dirs=$dirs" | tee -a $GITHUB_OUTPUT
+
+  build-example:
+    needs: [build-cli, collect-examples]
+    if: ${{ needs.collect-examples.outputs.dirs != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: stellar/soroban-examples
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: stellar-cli
+          path: stellar-cli
+      - run: chmod +x stellar-cli/stellar
+      - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
+      - run: rustup update
+      - run: rustup target add wasm32v1-none
+      - name: Build ${{ matrix.dir }}
+        run: stellar contract build --manifest-path ${{ matrix.dir }}/Cargo.toml
+      - name: Find wasm
+        id: find-wasm
+        run: |
+          wasm=$(find target -name '*.wasm' -path '*/wasm32v1-none/*' | head -1)
+          echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
+      - name: Verify interface
+        run: |
+          output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          count=$(echo "$output" | jq 'length')
+          if [ "$count" -lt 1 ]; then
+            echo "ERROR: interface is empty"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-${{ matrix.dir }}
+          path: ${{ steps.find-wasm.outputs.wasm }}
+
+  upload-example:
+    needs: [collect-examples, build-example]
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
+    runs-on: ubuntu-latest-8-cores
+    steps:
+      - uses: stellar/quickstart@main
+        with:
+          tag: testing
+      - uses: actions/download-artifact@v4
+        with:
+          name: stellar-cli
+          path: stellar-cli
+      - run: chmod +x stellar-cli/stellar
+      - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasm-${{ matrix.dir }}
+          path: wasm
+      - name: Upload ${{ matrix.dir }}
+        run: |
+          wasm=$(find wasm -name '*.wasm' | head -1)
+          stellar contract upload --wasm "$wasm" --network local
+
+  complete:
+    if: always()
+    needs: [build-cli, collect-examples, build-example, upload-example]
+    runs-on: ubuntu-slim
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
