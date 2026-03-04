@@ -1,5 +1,3 @@
-use std::io::stderr;
-
 use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;
@@ -46,7 +44,7 @@ impl Args {
 
         let fee_table = FeeTable::new_from_transaction_response(res)?;
 
-        fee_table.table().print(&mut stderr())?;
+        eprint!("{}", fee_table.table());
 
         Ok(())
     }
