@@ -1,5 +1,4 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
-use std::collections::HashSet;
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -19,6 +18,9 @@ use stellar_xdr::curr::{
 pub mod contract;
 pub mod event;
 pub mod utils;
+mod verify;
+
+pub use verify::SpecWarning;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -94,180 +96,6 @@ impl Spec {
     pub fn parse_base64(base64: &str) -> Result<Spec, Error> {
         let spec = soroban_spec::read::parse_base64(base64.as_bytes())?;
         Ok(Spec::new(spec.as_slice()))
-    }
-}
-
-// Types defined in the Rust soroban-sdk that are referenced in contract specs
-// but are never exported as UDT definitions, at least in current versions of
-// the soroban-sdk.
-const BUILTIN_UDT_NAMES: &[&str] = &[
-    "Context",
-    "ContractContext",
-    "CreateContractHostFnContext",
-    "CreateContractWithCtorHostFnContext",
-    "SubContractInvocation",
-];
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpecWarning {
-    pub context: String,
-    pub type_name: String,
-}
-
-impl std::fmt::Display for SpecWarning {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "type '{}' referenced by {} is not defined in the spec",
-            self.type_name, self.context
-        )
-    }
-}
-
-impl Spec {
-    pub fn verify(&self) -> Vec<SpecWarning> {
-        let Some(entries) = &self.0 else {
-            return vec![];
-        };
-
-        let mut defined: HashSet<String> = HashSet::new();
-        for entry in entries {
-            match entry {
-                ScSpecEntry::UdtStructV0(s) => {
-                    defined.insert(s.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtUnionV0(u) => {
-                    defined.insert(u.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtEnumV0(e) => {
-                    defined.insert(e.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtErrorEnumV0(e) => {
-                    defined.insert(e.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::FunctionV0(_) | ScSpecEntry::EventV0(_) => {}
-            }
-        }
-        for name in BUILTIN_UDT_NAMES {
-            defined.insert((*name).to_string());
-        }
-
-        let mut warnings = Vec::new();
-        for entry in entries {
-            collect_entry_warnings(entry, &defined, &mut warnings);
-        }
-        warnings
-    }
-}
-
-fn collect_entry_warnings(
-    entry: &ScSpecEntry,
-    defined: &HashSet<String>,
-    warnings: &mut Vec<SpecWarning>,
-) {
-    match entry {
-        ScSpecEntry::FunctionV0(f) => {
-            let fn_name = f.name.to_utf8_string_lossy();
-            for input in f.inputs.iter() {
-                let input_name = input.name.to_utf8_string_lossy();
-                check_type(
-                    &format!("function '{fn_name}' input '{input_name}'"),
-                    &input.type_,
-                    defined,
-                    warnings,
-                );
-            }
-            for output in f.outputs.iter() {
-                check_type(
-                    &format!("function '{fn_name}' output"),
-                    output,
-                    defined,
-                    warnings,
-                );
-            }
-        }
-        ScSpecEntry::EventV0(e) => {
-            let event_name = e.name.to_utf8_string_lossy();
-            for param in e.params.iter() {
-                let param_name = param.name.to_utf8_string_lossy();
-                check_type(
-                    &format!("event '{event_name}' param '{param_name}'"),
-                    &param.type_,
-                    defined,
-                    warnings,
-                );
-            }
-        }
-        ScSpecEntry::UdtStructV0(s) => {
-            let struct_name = s.name.to_utf8_string_lossy();
-            for field in s.fields.iter() {
-                let field_name = field.name.to_utf8_string_lossy();
-                check_type(
-                    &format!("struct '{struct_name}' field '{field_name}'"),
-                    &field.type_,
-                    defined,
-                    warnings,
-                );
-            }
-        }
-        ScSpecEntry::UdtUnionV0(u) => {
-            let union_name = u.name.to_utf8_string_lossy();
-            for case in u.cases.iter() {
-                if let ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
-                    name,
-                    type_,
-                    ..
-                }) = case
-                {
-                    let case_name = name.to_utf8_string_lossy();
-                    for t in type_.iter() {
-                        check_type(
-                            &format!("union '{union_name}' case '{case_name}'"),
-                            t,
-                            defined,
-                            warnings,
-                        );
-                    }
-                }
-            }
-        }
-        ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
-    }
-}
-
-fn check_type(
-    context: &str,
-    type_def: &ScType,
-    defined: &HashSet<String>,
-    warnings: &mut Vec<SpecWarning>,
-) {
-    for name in collect_udt_names(type_def) {
-        if !defined.contains(&name) {
-            warnings.push(SpecWarning {
-                context: context.to_string(),
-                type_name: name,
-            });
-        }
-    }
-}
-
-fn collect_udt_names(type_def: &ScType) -> Vec<String> {
-    match type_def {
-        ScType::Udt(ScSpecTypeUdt { name }) => vec![name.to_utf8_string_lossy()],
-        ScType::Vec(v) => collect_udt_names(&v.element_type),
-        ScType::Option(o) => collect_udt_names(&o.value_type),
-        ScType::Map(m) => {
-            let mut names = collect_udt_names(&m.key_type);
-            names.extend(collect_udt_names(&m.value_type));
-            names
-        }
-        ScType::Result(r) => {
-            let mut names = collect_udt_names(&r.ok_type);
-            names.extend(collect_udt_names(&r.error_type));
-            names
-        }
-        ScType::Tuple(t) => t.value_types.iter().flat_map(collect_udt_names).collect(),
-        _ => vec![],
     }
 }
 
