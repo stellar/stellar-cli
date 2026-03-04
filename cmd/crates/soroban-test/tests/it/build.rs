@@ -395,18 +395,11 @@ fn build_with_spec_shaking_preserves_all_functions() {
 fn build_with_spec_shaking_has_feature_meta() {
     let (_spec, meta) = build_spec_shaking_fixture();
 
-    let has_feature_meta = meta.iter().any(|entry| {
-        matches!(
-            entry,
-            ScMetaEntry::ScMetaV0(ScMetaV0 { key, val })
-                if key.to_string() == "rssdkfeat"
-                    && val.to_string() == "experimental_spec_shaking_v2"
-        )
-    });
+    let version = soroban_spec::shaking::spec_shaking_version_for_meta(&meta);
 
-    assert!(
-        has_feature_meta,
-        "contractmeta should contain rssdkfeat=experimental_spec_shaking_v2"
+    assert_eq!(
+        version, 2,
+        "contractmeta should indicate spec shaking version 2"
     );
 }
 

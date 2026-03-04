@@ -5,7 +5,7 @@ members = [
 ]
 
 [workspace.dependencies]
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "88bf5c3d92531ad6aafa9b7b1bd90e170c48826d", features = ["experimental_spec_shaking_v2"] }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8055e797c4b3f1630de9f8a3bb0a99b3c3158ea5", features = ["experimental_spec_shaking_v2"] }
 
 [profile.release]
 opt-level = "z"

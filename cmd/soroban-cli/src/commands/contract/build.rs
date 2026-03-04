@@ -494,14 +494,7 @@ impl Cmd {
         let spec = Spec::new(&wasm_bytes)?;
 
         // Check if the contract meta indicates spec shaking v2 is enabled.
-        // The SDK embeds a contractmeta entry with key "rssdkfeat" and value
-        // "experimental_spec_shaking_v2" when the feature is active.
-        let has_spec_shaking = spec.meta.iter().any(|entry| {
-            let ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) = entry;
-            key.to_utf8_string_lossy() == "rssdkfeat"
-                && val.to_utf8_string_lossy() == "experimental_spec_shaking_v2"
-        });
-        if !has_spec_shaking {
+        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
             return Ok(());
         }
 
