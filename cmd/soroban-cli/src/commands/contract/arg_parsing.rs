@@ -603,8 +603,17 @@ fn parse_argument_with_validation(
 ) -> Result<ScVal, Error> {
     let expected_type_name = get_type_name(expected_type);
 
-    // Pre-validate JSON for non-primitive types
-    if !is_primitive_type(expected_type) {
+    // Pre-validate JSON for non-primitive types, but skip for union (enum) UDTs since
+    // both bare strings (e.g. `Unit`) and JSON strings (e.g. `"Unit"`) are valid for
+    // unit variants — from_string in soroban-spec-tools handles both forms correctly.
+    let is_union_udt = if let ScSpecTypeDef::Udt(udt) = expected_type {
+        spec.find(&udt.name.to_utf8_string_lossy())
+            .map(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_)))
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if !is_primitive_type(expected_type) && !is_union_udt {
         validate_json_arg(arg_name, value)?;
     }
 
@@ -795,6 +804,100 @@ mod tests {
 
         let address_suggestion = get_context_suggestions(&ScSpecTypeDef::Address, "invalid");
         println!("Invalid address: {address_suggestion}");
+    }
+
+    #[test]
+    fn test_union_udt_bare_string_accepted() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseV0,
+            ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
+        };
+
+        // Build a minimal Spec with a union type: enum MyEnum { Unit }
+        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let case_name: StringM<60> = "Unit".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                doc: StringM::default(),
+                name: case_name,
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Bare string (no JSON quoting) should be accepted
+        let result =
+            parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config);
+        assert!(result.is_ok(), "bare 'Unit' should be accepted: {result:?}");
+
+        // JSON-quoted string should also be accepted
+        let result =
+            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config);
+        assert!(
+            result.is_ok(),
+            "JSON-quoted '\"Unit\"' should be accepted: {result:?}"
+        );
+
+        // Both forms should produce the same ScVal
+        let bare = parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config)
+            .unwrap();
+        let quoted =
+            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config)
+                .unwrap();
+        assert_eq!(
+            bare, quoted,
+            "bare and quoted forms should produce identical ScVal"
+        );
+    }
+
+    #[test]
+    fn test_union_udt_tuple_variant_still_requires_json() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
+            ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![
+                ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                    doc: StringM::default(),
+                    name: "Unit".try_into().unwrap(),
+                }),
+                ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                    doc: StringM::default(),
+                    name: "WithValue".try_into().unwrap(),
+                    type_: vec![ScSpecTypeDef::U32].try_into().unwrap(),
+                }),
+            ]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Tuple variant with a value must still use JSON object syntax
+        let result = parse_argument_with_validation(
+            "value",
+            r#"{"WithValue":42}"#,
+            &expected_type,
+            &spec,
+            &config,
+        );
+        assert!(
+            result.is_ok(),
+            "JSON object for tuple variant should be accepted: {result:?}"
+        );
     }
 
     #[test]

@@ -294,6 +294,9 @@ impl Spec {
                     ScType::Bytes | ScType::BytesN(_) if matches!(val, Value::Number(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
+                    ScType::String if !matches!(val, Value::String(_)) => {
+                        Ok(Value::String(s.to_owned()))
+                    }
                     ScType::Timepoint | ScType::Duration => {
                         // timepoint and duration both expect a JSON object with the value
                         // being the u64 number as a string, and key being the type name
@@ -613,7 +616,12 @@ impl Spec {
         let v = sc_map
             .iter()
             .map(|ScMapEntry { key, val }| {
-                let key_s = self.xdr_to_json(key, &type_.key_type)?.to_string();
+                // Extract the raw string value rather than JSON-serializing it, otherwise
+                // string/symbol keys get double-encoded (e.g. `"\"bar\""` instead of `"bar"`).
+                let key_s = match self.xdr_to_json(key, &type_.key_type)? {
+                    Value::String(s) => s,
+                    other => other.to_string(),
+                };
                 let val_value = self.xdr_to_json(val, &type_.value_type)?;
                 Ok((key_s, val_value))
             })
@@ -2367,5 +2375,77 @@ mod tests {
         let spec = Spec::default();
         let result = spec.find_events();
         assert!(result.is_err());
+    }
+
+    fn sc_string(s: &str) -> ScVal {
+        ScVal::String(ScString(s.try_into().unwrap()))
+    }
+
+    #[test]
+    fn test_string_from_number() {
+        let parsed = from_string_primitive("5", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("5"));
+    }
+
+    #[test]
+    fn test_string_from_bool() {
+        let parsed = from_string_primitive("true", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("true"));
+    }
+
+    #[test]
+    fn test_string_from_bare_word() {
+        let parsed = from_string_primitive("hello", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("hello"));
+    }
+
+    #[test]
+    fn test_string_from_json_quoted_string() {
+        let parsed = from_string_primitive(r#""hello""#, &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("hello"));
+    }
+
+    #[test]
+    fn test_string_from_json_quoted_number_string() {
+        let parsed = from_string_primitive(r#""5""#, &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("5"));
+    }
+
+    #[test]
+    fn test_sc_map_to_json_symbol_keys_not_double_encoded() {
+        // Map<Symbol, u32>: Symbol keys should appear as plain strings in JSON output,
+        // not double-encoded as "\"bar\"" (regression for
+        // https://github.com/stellar/stellar-cli/issues/2421).
+        let spec = Spec(None);
+        let map_type = ScSpecTypeMap {
+            key_type: Box::new(ScType::Symbol),
+            value_type: Box::new(ScType::U32),
+        };
+        let sc_map = ScMap::sorted_from(vec![ScMapEntry {
+            key: ScVal::Symbol(ScSymbol("bar".try_into().unwrap())),
+            val: ScVal::U32(1),
+        }])
+        .unwrap();
+
+        let json = spec.sc_map_to_json(&sc_map, &map_type).unwrap();
+        assert_eq!(json.to_string(), r#"{"bar":1}"#);
+    }
+
+    #[test]
+    fn test_sc_map_to_json_string_keys_not_double_encoded() {
+        // Map<String, u32>: String keys should also appear as plain strings in JSON output.
+        let spec = Spec(None);
+        let map_type = ScSpecTypeMap {
+            key_type: Box::new(ScType::String),
+            value_type: Box::new(ScType::U32),
+        };
+        let sc_map = ScMap::sorted_from(vec![ScMapEntry {
+            key: ScVal::String(ScString("foo".try_into().unwrap())),
+            val: ScVal::U32(2),
+        }])
+        .unwrap();
+
+        let json = spec.sc_map_to_json(&sc_map, &map_type).unwrap();
+        assert_eq!(json.to_string(), r#"{"foo":2}"#);
     }
 }
