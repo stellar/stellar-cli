@@ -141,11 +141,101 @@ fn collect_udt_names(type_def: &ScType) -> Vec<String> {
     }
 }
 
+fn check_type(
+    context: &str,
+    type_def: &ScType,
+    defined: &HashSet<String>,
+    warnings: &mut Vec<SpecWarning>,
+) {
+    for name in collect_udt_names(type_def) {
+        if !defined.contains(&name) {
+            warnings.push(SpecWarning {
+                context: context.to_string(),
+                type_name: name,
+            });
+        }
+    }
+}
+
+fn collect_entry_warnings(
+    entry: &ScSpecEntry,
+    defined: &HashSet<String>,
+    warnings: &mut Vec<SpecWarning>,
+) {
+    match entry {
+        ScSpecEntry::FunctionV0(f) => {
+            let fn_name = f.name.to_utf8_string_lossy();
+            for input in f.inputs.iter() {
+                let input_name = input.name.to_utf8_string_lossy();
+                check_type(
+                    &format!("function '{fn_name}' input '{input_name}'"),
+                    &input.type_,
+                    defined,
+                    warnings,
+                );
+            }
+            for output in f.outputs.iter() {
+                check_type(
+                    &format!("function '{fn_name}' output"),
+                    output,
+                    defined,
+                    warnings,
+                );
+            }
+        }
+        ScSpecEntry::EventV0(e) => {
+            let event_name = e.name.to_utf8_string_lossy();
+            for param in e.params.iter() {
+                let param_name = param.name.to_utf8_string_lossy();
+                check_type(
+                    &format!("event '{event_name}' param '{param_name}'"),
+                    &param.type_,
+                    defined,
+                    warnings,
+                );
+            }
+        }
+        ScSpecEntry::UdtStructV0(s) => {
+            let struct_name = s.name.to_utf8_string_lossy();
+            for field in s.fields.iter() {
+                let field_name = field.name.to_utf8_string_lossy();
+                check_type(
+                    &format!("struct '{struct_name}' field '{field_name}'"),
+                    &field.type_,
+                    defined,
+                    warnings,
+                );
+            }
+        }
+        ScSpecEntry::UdtUnionV0(u) => {
+            let union_name = u.name.to_utf8_string_lossy();
+            for case in u.cases.iter() {
+                if let ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                    name,
+                    type_,
+                    ..
+                }) = case
+                {
+                    let case_name = name.to_utf8_string_lossy();
+                    for t in type_.iter() {
+                        check_type(
+                            &format!("union '{union_name}' case '{case_name}'"),
+                            t,
+                            defined,
+                            warnings,
+                        );
+                    }
+                }
+            }
+        }
+        ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
+    }
+}
+
 impl Spec {
     pub fn verify(&self) -> Vec<SpecWarning> {
-        let entries = match &self.0 {
-            Some(entries) => entries,
-            None => return vec![],
+        let Some(entries) = &self.0 else {
+            return vec![];
         };
 
         let mut defined: HashSet<String> = HashSet::new();
@@ -171,88 +261,9 @@ impl Spec {
         }
 
         let mut warnings = Vec::new();
-
-        let mut check = |context: &str, type_def: &ScType| {
-            for name in collect_udt_names(type_def) {
-                if !defined.contains(&name) {
-                    warnings.push(SpecWarning {
-                        context: context.to_string(),
-                        type_name: name,
-                    });
-                }
-            }
-        };
-
         for entry in entries {
-            match entry {
-                ScSpecEntry::FunctionV0(f) => {
-                    let fn_name = f.name.to_utf8_string_lossy();
-                    for input in f.inputs.iter() {
-                        check(
-                            &format!(
-                                "function '{}' input '{}'",
-                                fn_name,
-                                input.name.to_utf8_string_lossy()
-                            ),
-                            &input.type_,
-                        );
-                    }
-                    for output in f.outputs.iter() {
-                        check(&format!("function '{}' output", fn_name), output);
-                    }
-                }
-                ScSpecEntry::EventV0(e) => {
-                    let event_name = e.name.to_utf8_string_lossy();
-                    for param in e.params.iter() {
-                        check(
-                            &format!(
-                                "event '{}' param '{}'",
-                                event_name,
-                                param.name.to_utf8_string_lossy()
-                            ),
-                            &param.type_,
-                        );
-                    }
-                }
-                ScSpecEntry::UdtStructV0(s) => {
-                    let struct_name = s.name.to_utf8_string_lossy();
-                    for field in s.fields.iter() {
-                        check(
-                            &format!(
-                                "struct '{}' field '{}'",
-                                struct_name,
-                                field.name.to_utf8_string_lossy()
-                            ),
-                            &field.type_,
-                        );
-                    }
-                }
-                ScSpecEntry::UdtUnionV0(u) => {
-                    let union_name = u.name.to_utf8_string_lossy();
-                    for case in u.cases.iter() {
-                        if let ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
-                            name,
-                            type_,
-                            ..
-                        }) = case
-                        {
-                            for t in type_.iter() {
-                                check(
-                                    &format!(
-                                        "union '{}' case '{}'",
-                                        union_name,
-                                        name.to_utf8_string_lossy()
-                                    ),
-                                    t,
-                                );
-                            }
-                        }
-                    }
-                }
-                ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
-            }
+            collect_entry_warnings(entry, &defined, &mut warnings);
         }
-
         warnings
     }
 }
