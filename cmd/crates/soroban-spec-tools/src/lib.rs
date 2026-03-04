@@ -113,6 +113,9 @@ impl std::fmt::Display for SpecWarning {
     }
 }
 
+// Types defined in the Rust soroban-sdk that are referenced in contract specs
+// but are never exported as UDT definitions, at least in current versions of
+// the soroban-sdk.
 const BUILTIN_UDT_NAMES: &[&str] = &[
     "Context",
     "ContractContext",
