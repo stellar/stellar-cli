@@ -89,40 +89,10 @@ jobs:
             echo "ERROR: interface is empty"
             exit 1
           fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wasm-${{ matrix.dir }}
-          path: ${{ steps.find-wasm.outputs.wasm }}
-
-  upload-example:
-    needs: [collect-examples, build-example]
-    strategy:
-      fail-fast: false
-      matrix:
-        dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
-    runs-on: ubuntu-latest-8-cores
-    steps:
-      - uses: stellar/quickstart@main
-        with:
-          tag: testing
-      - uses: actions/download-artifact@v4
-        with:
-          name: stellar-cli
-          path: stellar-cli
-      - run: chmod +x stellar-cli/stellar
-      - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
-      - uses: actions/download-artifact@v4
-        with:
-          name: wasm-${{ matrix.dir }}
-          path: wasm
-      - name: Upload ${{ matrix.dir }}
-        run: |
-          wasm=$(find wasm -name '*.wasm' | head -1)
-          stellar contract upload --wasm "$wasm" --network local
 
   complete:
     if: always()
-    needs: [build-cli, collect-examples, build-example, upload-example]
+    needs: [build-cli, collect-examples, build-example]
     runs-on: ubuntu-slim
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
