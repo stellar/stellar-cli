@@ -187,7 +187,7 @@ mod tests {
 
     use stellar_xdr::curr::{
         ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
-        ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScSymbol, StringM, VecM,
+        ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScSymbol, StringM,
     };
 
     use crate::Spec;
