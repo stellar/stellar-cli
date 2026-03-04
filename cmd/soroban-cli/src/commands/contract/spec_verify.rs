@@ -35,7 +35,7 @@ impl Cmd {
             print.checkln("contract spec verification passed: all types are defined");
         } else {
             for w in &warnings {
-                print.warnln(w);
+                print.errorln(w);
             }
             return Err(Error::VerifyFailed);
         }
