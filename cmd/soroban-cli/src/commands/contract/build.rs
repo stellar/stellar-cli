@@ -339,18 +339,12 @@ impl Cmd {
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
 
                 // Verify spec references after build
-                match fs::read(&final_path) {
-                    Ok(final_wasm_bytes) => {
-                        match soroban_spec_tools::Spec::from_wasm(&final_wasm_bytes) {
-                            Ok(spec) => {
-                                for w in spec.verify() {
-                                    print.warnln(format!("{}: {}", p.name, w));
-                                }
-                            }
-                            Err(_) => {}
+                if let Ok(final_wasm_bytes) = fs::read(&final_path) {
+                    if let Ok(spec) = soroban_spec_tools::Spec::from_wasm(&final_wasm_bytes) {
+                        for w in spec.verify() {
+                            print.warnln(format!("{}: {w}", p.name));
                         }
                     }
-                    Err(_) => {}
                 }
 
                 built_contracts.push(BuiltContract {
