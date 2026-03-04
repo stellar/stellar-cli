@@ -188,9 +188,6 @@ pub enum Error {
 
     #[error(transparent)]
     SpecTools(#[from] soroban_spec_tools::contract::Error),
-
-    #[error(transparent)]
-    WasmParsing(#[from] wasmparser::BinaryReaderError),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
