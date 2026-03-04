@@ -337,6 +337,22 @@ impl Cmd {
                 }
 
                 Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
+
+                // Verify spec references after build
+                match fs::read(&final_path) {
+                    Ok(final_wasm_bytes) => {
+                        match soroban_spec_tools::Spec::from_wasm(&final_wasm_bytes) {
+                            Ok(spec) => {
+                                for w in spec.verify() {
+                                    print.warnln(format!("{}: {}", p.name, w));
+                                }
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                    Err(_) => {}
+                }
+
                 built_contracts.push(BuiltContract {
                     name: p.name.clone(),
                     path: final_path,

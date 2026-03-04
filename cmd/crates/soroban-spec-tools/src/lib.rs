@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -93,6 +94,166 @@ impl Spec {
     pub fn parse_base64(base64: &str) -> Result<Spec, Error> {
         let spec = soroban_spec::read::parse_base64(base64.as_bytes())?;
         Ok(Spec::new(spec.as_slice()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecWarning {
+    pub context: String,
+    pub type_name: String,
+}
+
+impl std::fmt::Display for SpecWarning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "type '{}' referenced by {} is not defined in the spec",
+            self.type_name, self.context
+        )
+    }
+}
+
+const BUILTIN_UDT_NAMES: &[&str] = &[
+    "Context",
+    "ContractContext",
+    "CreateContractHostFnContext",
+    "CreateContractWithCtorHostFnContext",
+    "SubContractInvocation",
+];
+
+fn collect_udt_names(type_def: &ScType) -> Vec<String> {
+    match type_def {
+        ScType::Udt(ScSpecTypeUdt { name }) => vec![name.to_utf8_string_lossy()],
+        ScType::Vec(v) => collect_udt_names(&v.element_type),
+        ScType::Option(o) => collect_udt_names(&o.value_type),
+        ScType::Map(m) => {
+            let mut names = collect_udt_names(&m.key_type);
+            names.extend(collect_udt_names(&m.value_type));
+            names
+        }
+        ScType::Result(r) => {
+            let mut names = collect_udt_names(&r.ok_type);
+            names.extend(collect_udt_names(&r.error_type));
+            names
+        }
+        ScType::Tuple(t) => t.value_types.iter().flat_map(collect_udt_names).collect(),
+        _ => vec![],
+    }
+}
+
+impl Spec {
+    pub fn verify(&self) -> Vec<SpecWarning> {
+        let entries = match &self.0 {
+            Some(entries) => entries,
+            None => return vec![],
+        };
+
+        let mut defined: HashSet<String> = HashSet::new();
+        for entry in entries {
+            match entry {
+                ScSpecEntry::UdtStructV0(s) => {
+                    defined.insert(s.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtUnionV0(u) => {
+                    defined.insert(u.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtEnumV0(e) => {
+                    defined.insert(e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::UdtErrorEnumV0(e) => {
+                    defined.insert(e.name.to_utf8_string_lossy());
+                }
+                ScSpecEntry::FunctionV0(_) | ScSpecEntry::EventV0(_) => {}
+            }
+        }
+        for name in BUILTIN_UDT_NAMES {
+            defined.insert((*name).to_string());
+        }
+
+        let mut warnings = Vec::new();
+
+        let mut check = |context: &str, type_def: &ScType| {
+            for name in collect_udt_names(type_def) {
+                if !defined.contains(&name) {
+                    warnings.push(SpecWarning {
+                        context: context.to_string(),
+                        type_name: name,
+                    });
+                }
+            }
+        };
+
+        for entry in entries {
+            match entry {
+                ScSpecEntry::FunctionV0(f) => {
+                    let fn_name = f.name.to_utf8_string_lossy();
+                    for input in f.inputs.iter() {
+                        check(
+                            &format!(
+                                "function '{}' input '{}'",
+                                fn_name,
+                                input.name.to_utf8_string_lossy()
+                            ),
+                            &input.type_,
+                        );
+                    }
+                    for output in f.outputs.iter() {
+                        check(&format!("function '{}' output", fn_name), output);
+                    }
+                }
+                ScSpecEntry::EventV0(e) => {
+                    let event_name = e.name.to_utf8_string_lossy();
+                    for param in e.params.iter() {
+                        check(
+                            &format!(
+                                "event '{}' param '{}'",
+                                event_name,
+                                param.name.to_utf8_string_lossy()
+                            ),
+                            &param.type_,
+                        );
+                    }
+                }
+                ScSpecEntry::UdtStructV0(s) => {
+                    let struct_name = s.name.to_utf8_string_lossy();
+                    for field in s.fields.iter() {
+                        check(
+                            &format!(
+                                "struct '{}' field '{}'",
+                                struct_name,
+                                field.name.to_utf8_string_lossy()
+                            ),
+                            &field.type_,
+                        );
+                    }
+                }
+                ScSpecEntry::UdtUnionV0(u) => {
+                    let union_name = u.name.to_utf8_string_lossy();
+                    for case in u.cases.iter() {
+                        if let ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                            name,
+                            type_,
+                            ..
+                        }) = case
+                        {
+                            for t in type_.iter() {
+                                check(
+                                    &format!(
+                                        "union '{}' case '{}'",
+                                        union_name,
+                                        name.to_utf8_string_lossy()
+                                    ),
+                                    t,
+                                );
+                            }
+                        }
+                    }
+                }
+                ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
+            }
+        }
+
+        warnings
     }
 }
 
@@ -2364,5 +2525,152 @@ mod tests {
         let spec = Spec::default();
         let result = spec.find_events();
         assert!(result.is_err());
+    }
+
+    // --- verify tests ---
+
+    fn make_udt_type(name: &str) -> ScType {
+        ScType::Udt(ScSpecTypeUdt {
+            name: StringM::from_str(name).unwrap(),
+        })
+    }
+
+    fn make_struct_entry(name: &str, field_types: Vec<(&str, ScType)>) -> ScSpecEntry {
+        ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: StringM::from_str(name).unwrap(),
+            fields: field_types
+                .into_iter()
+                .map(|(fname, ftype)| stellar_xdr::curr::ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str(fname).unwrap(),
+                    type_: ftype,
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        })
+    }
+
+    fn make_fn_entry(name: &str, inputs: Vec<(&str, ScType)>, outputs: Vec<ScType>) -> ScSpecEntry {
+        ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: StringM::default(),
+            name: ScSymbol(name.try_into().unwrap()),
+            inputs: inputs
+                .into_iter()
+                .map(|(n, t)| stellar_xdr::curr::ScSpecFunctionInputV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str(n).unwrap(),
+                    type_: t,
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            outputs: outputs.try_into().unwrap(),
+        })
+    }
+
+    #[test]
+    fn test_verify_complete_spec_no_warnings() {
+        let entries = vec![
+            make_struct_entry("MyStruct", vec![("val", ScType::U32)]),
+            make_fn_entry("do_thing", vec![("s", make_udt_type("MyStruct"))], vec![]),
+        ];
+        let spec = Spec::new(&entries);
+        assert!(spec.verify().is_empty());
+    }
+
+    #[test]
+    fn test_verify_missing_type_in_function() {
+        let entries = vec![make_fn_entry(
+            "do_thing",
+            vec![("s", make_udt_type("Missing"))],
+            vec![],
+        )];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].type_name, "Missing");
+        assert!(warnings[0].context.contains("do_thing"));
+    }
+
+    #[test]
+    fn test_verify_builtin_type_ignored() {
+        let entries = vec![make_fn_entry(
+            "do_thing",
+            vec![("ctx", make_udt_type("Context"))],
+            vec![],
+        )];
+        let spec = Spec::new(&entries);
+        assert!(spec.verify().is_empty());
+    }
+
+    #[test]
+    fn test_verify_nested_type_in_vec() {
+        let entries = vec![make_fn_entry(
+            "list",
+            vec![(
+                "items",
+                ScType::Vec(Box::new(ScSpecTypeVec {
+                    element_type: Box::new(make_udt_type("Missing")),
+                })),
+            )],
+            vec![],
+        )];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].type_name, "Missing");
+    }
+
+    #[test]
+    fn test_verify_nested_type_in_map() {
+        let entries = vec![make_fn_entry(
+            "lookup",
+            vec![(
+                "m",
+                ScType::Map(Box::new(ScSpecTypeMap {
+                    key_type: Box::new(ScType::Symbol),
+                    value_type: Box::new(make_udt_type("Missing")),
+                })),
+            )],
+            vec![],
+        )];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].type_name, "Missing");
+    }
+
+    #[test]
+    fn test_verify_nested_type_in_option() {
+        let entries = vec![make_fn_entry(
+            "maybe",
+            vec![(
+                "o",
+                ScType::Option(Box::new(ScSpecTypeOption {
+                    value_type: Box::new(make_udt_type("Missing")),
+                })),
+            )],
+            vec![],
+        )];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].type_name, "Missing");
+    }
+
+    #[test]
+    fn test_verify_struct_field_referencing_undefined_type() {
+        let entries = vec![make_struct_entry(
+            "Outer",
+            vec![("inner", make_udt_type("Inner"))],
+        )];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].type_name, "Inner");
+        assert!(warnings[0].context.contains("Outer"));
     }
 }
