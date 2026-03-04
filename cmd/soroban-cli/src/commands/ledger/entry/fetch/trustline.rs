@@ -38,6 +38,8 @@ pub enum Error {
     InvalidAsset(String),
     #[error("provided data name is invalid: {0}")]
     InvalidDataName(String),
+    #[error("native assets do not have trustlines")]
+    NativeAsset,
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
@@ -54,16 +56,16 @@ impl Cmd {
     fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
         let acc = self.muxed_account(&self.account)?;
         for asset in &self.asset {
-            let asset = if asset.eq_ignore_ascii_case("XLM") {
-                TrustLineAsset::Native
-            } else if asset.contains(':') {
+            let asset = if asset.contains(':') {
                 let mut parts = asset.split(':');
                 let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
                 let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
                 if parts.next().is_some() {
                     Err(Error::InvalidAsset(asset.clone()))?;
                 }
-                let source_bytes = Ed25519PublicKey::from_string(issuer).unwrap().0;
+                let source_bytes = Ed25519PublicKey::from_string(issuer)
+                    .map_err(|_| Error::InvalidAsset(asset.clone()))?
+                    .0;
                 let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
 
                 let asset_code: AssetCode = code
@@ -77,6 +79,8 @@ impl Cmd {
                         TrustLineAsset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
                     }
                 }
+            } else if matches!(asset.as_str(), "XLM" | "xlm" | "native") {
+                Err(Error::NativeAsset)?
             } else {
                 Err(Error::InvalidAsset(asset.clone()))?
             };
