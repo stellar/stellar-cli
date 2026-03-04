@@ -188,6 +188,9 @@ pub enum Error {
 
     #[error(transparent)]
     SpecTools(#[from] soroban_spec_tools::contract::Error),
+
+    #[error("wasm parsing error: {0}")]
+    WasmParsing(String),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -471,7 +474,8 @@ impl Cmd {
         }
 
         // Replace the contractspecv0 section with the filtered version
-        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)?;
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
+            .map_err(|e| Error::WasmParsing(e.to_string()))?;
 
         // Write the modified wasm back
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
