@@ -31,11 +31,11 @@ jobs:
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
-      - run: cargo build
+      - run: make install
       - uses: actions/upload-artifact@v4
         with:
           name: stellar-cli
-          path: target/debug/stellar
+          path: ~/.cargo/bin/stellar
 
   collect-examples:
     runs-on: ubuntu-latest
