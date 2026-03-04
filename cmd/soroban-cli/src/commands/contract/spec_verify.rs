@@ -21,6 +21,8 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error(transparent)]
     Spec(#[from] soroban_spec_tools::Error),
+    #[error("contract spec has undefined types")]
+    VerifyFailed,
 }
 
 impl Cmd {
@@ -35,6 +37,7 @@ impl Cmd {
             for w in &warnings {
                 print.warnln(w);
             }
+            return Err(Error::VerifyFailed);
         }
         Ok(())
     }
