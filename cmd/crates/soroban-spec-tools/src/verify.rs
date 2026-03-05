@@ -80,17 +80,33 @@ impl Spec {
         }
 
         for entry in entries {
-            collect_entry_warnings(entry, &defined, &mut warnings);
+            find_undefined_types(entry, &defined, &mut warnings);
         }
         warnings
     }
 }
 
-fn collect_entry_warnings(
+fn find_undefined_types(
     entry: &ScSpecEntry,
     defined: &HashSet<String>,
     warnings: &mut Vec<SpecWarning>,
 ) {
+    fn check_type(
+        context: &str,
+        type_def: &ScType,
+        defined: &HashSet<String>,
+        warnings: &mut Vec<SpecWarning>,
+    ) {
+        for name in collect_udt_names(type_def) {
+            if !defined.contains(&name) {
+                warnings.push(SpecWarning::UndefinedType {
+                    context: context.to_string(),
+                    type_name: name,
+                });
+            }
+        }
+    }
+
     match entry {
         ScSpecEntry::FunctionV0(f) => {
             let fn_name = f.name.to_utf8_string_lossy();
@@ -158,22 +174,6 @@ fn collect_entry_warnings(
             }
         }
         ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
-    }
-}
-
-fn check_type(
-    context: &str,
-    type_def: &ScType,
-    defined: &HashSet<String>,
-    warnings: &mut Vec<SpecWarning>,
-) {
-    for name in collect_udt_names(type_def) {
-        if !defined.contains(&name) {
-            warnings.push(SpecWarning::UndefinedType {
-                context: context.to_string(),
-                type_name: name,
-            });
-        }
     }
 }
 
