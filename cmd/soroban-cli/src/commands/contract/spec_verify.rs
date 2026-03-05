@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::fmt::Debug;
 
 use crate::{commands::global, print::Print, wasm};
 
