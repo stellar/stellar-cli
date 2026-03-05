@@ -796,6 +796,7 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
 /// Functions are always kept. Other entries (types, events) are kept only if a
 /// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
 /// to a single occurrence.
+#[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
     entries: Vec<stellar_xdr::curr::ScSpecEntry>,
     markers: &HashSet<soroban_spec::shaking::Marker>,
