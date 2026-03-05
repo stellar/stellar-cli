@@ -68,9 +68,6 @@ jobs:
       matrix:
         dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: soroban-examples/${{ matrix.working-directory }}
     steps:
       - uses: actions/checkout@v6
         with:
