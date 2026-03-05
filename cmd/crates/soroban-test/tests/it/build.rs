@@ -392,6 +392,78 @@ fn build_with_spec_shaking_preserves_all_functions() {
 }
 
 #[test]
+fn filter_and_dedup_spec_removes_duplicates() {
+    use soroban_cli::commands::contract::build::filter_and_dedup_spec;
+    use soroban_cli::xdr::{
+        ReadXdr, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
+        ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
+    };
+
+    let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+        doc: StringM::default(),
+        name: "hello".try_into().unwrap(),
+        inputs: vec![ScSpecFunctionInputV0 {
+            doc: StringM::default(),
+            name: "arg0".try_into().unwrap(),
+            type_: ScSpecTypeDef::U32,
+        }]
+        .try_into()
+        .unwrap(),
+        outputs: VecM::default(),
+    });
+
+    let used_struct = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+        doc: StringM::default(),
+        lib: StringM::default(),
+        name: "MyStruct".try_into().unwrap(),
+        fields: vec![ScSpecUdtStructFieldV0 {
+            doc: StringM::default(),
+            name: "field".try_into().unwrap(),
+            type_: ScSpecTypeDef::U32,
+        }]
+        .try_into()
+        .unwrap(),
+    });
+
+    // Build markers for the struct so it passes the filter
+    let mut markers = std::collections::HashSet::new();
+    markers.insert(soroban_spec::shaking::generate_marker_for_entry(
+        &used_struct,
+    ));
+
+    // Input: function appears twice, struct appears three times
+    let entries = vec![
+        func.clone(),
+        func.clone(),
+        used_struct.clone(),
+        used_struct.clone(),
+        used_struct.clone(),
+    ];
+
+    let result_xdr = filter_and_dedup_spec(entries, &markers).unwrap();
+
+    // Parse back the entries from the XDR
+    let result_entries: Vec<ScSpecEntry> =
+        ScSpecEntry::read_xdr_iter(&mut Limited::new(Cursor::new(result_xdr), Limits::none()))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+    // Should have exactly 1 function + 1 struct, no duplicates
+    assert_eq!(
+        result_entries.len(),
+        2,
+        "expected 2 entries (1 function + 1 struct), got {}: {:?}",
+        result_entries.len(),
+        result_entries
+            .iter()
+            .map(spec_entry_name)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(spec_entry_name(&result_entries[0]), "hello");
+    assert_eq!(spec_entry_name(&result_entries[1]), "MyStruct");
+}
+
+#[test]
 fn build_with_spec_shaking_has_feature_meta() {
     let (_spec, meta) = build_spec_shaking_fixture();
 

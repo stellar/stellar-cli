@@ -463,15 +463,9 @@ impl Cmd {
         // Extract markers from the WASM data section
         let markers = soroban_spec::shaking::find_all(&wasm_bytes);
 
-        // Filter spec entries (types, events) based on markers
-        let filtered = soroban_spec::shaking::filter(spec.spec.clone(), &markers);
-
-        // Serialize filtered entries to XDR
-        let mut filtered_xdr = Vec::new();
-        let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
-        for entry in filtered {
-            entry.write_xdr(&mut writer)?;
-        }
+        // Filter spec entries (types, events) based on markers, and
+        // deduplicate any exact duplicate entries.
+        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
 
         // Replace the contractspecv0 section with the filtered version
         let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
@@ -781,4 +775,25 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
             [profile.{profile}] in your Cargo.toml."
         )))
     }
+}
+
+/// Filters spec entries based on markers and deduplicates exact duplicates.
+///
+/// Functions are always kept. Other entries (types, events) are kept only if a
+/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
+/// to a single occurrence.
+pub(crate) fn filter_and_dedup_spec(
+    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
+    markers: &HashSet<soroban_spec::shaking::Marker>,
+) -> Result<Vec<u8>, Error> {
+    let mut seen = HashSet::new();
+    let mut filtered_xdr = Vec::new();
+    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+    for entry in soroban_spec::shaking::filter(entries, markers) {
+        let entry_xdr = entry.to_xdr(Limits::none())?;
+        if seen.insert(entry_xdr) {
+            entry.write_xdr(&mut writer)?;
+        }
+    }
+    Ok(filtered_xdr)
 }
