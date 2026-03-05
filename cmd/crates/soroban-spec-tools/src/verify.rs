@@ -19,18 +19,33 @@ const BUILTIN_UDT_NAMES: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpecWarning {
-    pub context: String,
-    pub type_name: String,
+pub enum SpecWarning {
+    UndefinedType { context: String, type_name: String },
+    DuplicateEntry(String),
 }
 
 impl std::fmt::Display for SpecWarning {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "type '{}' referenced by {} is not defined in the spec",
-            self.type_name, self.context
-        )
+        match self {
+            SpecWarning::UndefinedType { type_name, context } => write!(
+                f,
+                "type '{type_name}' referenced by {context} is not defined in the spec"
+            ),
+            SpecWarning::DuplicateEntry(name) => {
+                write!(f, "spec entry '{name}' is defined more than once")
+            }
+        }
+    }
+}
+
+fn entry_name(entry: &ScSpecEntry) -> String {
+    match entry {
+        ScSpecEntry::FunctionV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtStructV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtUnionV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::EventV0(x) => x.name.to_utf8_string_lossy(),
     }
 }
 
@@ -40,20 +55,22 @@ impl Spec {
             return vec![];
         };
 
+        let mut warnings = Vec::new();
+
+        let mut seen: HashSet<String> = HashSet::new();
         let mut defined: HashSet<String> = HashSet::new();
         for entry in entries {
+            let name = entry_name(entry);
+            if !seen.insert(name.clone()) {
+                warnings.push(SpecWarning::DuplicateEntry(name));
+                continue;
+            }
             match entry {
-                ScSpecEntry::UdtStructV0(s) => {
-                    defined.insert(s.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtUnionV0(u) => {
-                    defined.insert(u.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtEnumV0(e) => {
-                    defined.insert(e.name.to_utf8_string_lossy());
-                }
-                ScSpecEntry::UdtErrorEnumV0(e) => {
-                    defined.insert(e.name.to_utf8_string_lossy());
+                ScSpecEntry::UdtStructV0(_)
+                | ScSpecEntry::UdtUnionV0(_)
+                | ScSpecEntry::UdtEnumV0(_)
+                | ScSpecEntry::UdtErrorEnumV0(_) => {
+                    defined.insert(name);
                 }
                 ScSpecEntry::FunctionV0(_) | ScSpecEntry::EventV0(_) => {}
             }
@@ -62,7 +79,6 @@ impl Spec {
             defined.insert((*name).to_string());
         }
 
-        let mut warnings = Vec::new();
         for entry in entries {
             collect_entry_warnings(entry, &defined, &mut warnings);
         }
@@ -153,7 +169,7 @@ fn check_type(
 ) {
     for name in collect_udt_names(type_def) {
         if !defined.contains(&name) {
-            warnings.push(SpecWarning {
+            warnings.push(SpecWarning::UndefinedType {
                 context: context.to_string(),
                 type_name: name,
             });
@@ -189,6 +205,8 @@ mod tests {
         ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
         ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScSymbol, StringM,
     };
+
+    use super::SpecWarning;
 
     use crate::Spec;
 
@@ -254,8 +272,11 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].type_name, "Missing");
-        assert!(warnings[0].context.contains("do_thing"));
+        assert!(matches!(
+            &warnings[0],
+            SpecWarning::UndefinedType { type_name, context }
+                if type_name == "Missing" && context.contains("do_thing")
+        ));
     }
 
     #[test]
@@ -284,7 +305,10 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].type_name, "Missing");
+        assert!(matches!(
+            &warnings[0],
+            SpecWarning::UndefinedType { type_name, .. } if type_name == "Missing"
+        ));
     }
 
     #[test]
@@ -303,7 +327,10 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].type_name, "Missing");
+        assert!(matches!(
+            &warnings[0],
+            SpecWarning::UndefinedType { type_name, .. } if type_name == "Missing"
+        ));
     }
 
     #[test]
@@ -321,7 +348,10 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].type_name, "Missing");
+        assert!(matches!(
+            &warnings[0],
+            SpecWarning::UndefinedType { type_name, .. } if type_name == "Missing"
+        ));
     }
 
     #[test]
@@ -333,7 +363,37 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].type_name, "Inner");
-        assert!(warnings[0].context.contains("Outer"));
+        assert!(matches!(
+            &warnings[0],
+            SpecWarning::UndefinedType { type_name, context }
+                if type_name == "Inner" && context.contains("Outer")
+        ));
+    }
+
+    #[test]
+    fn test_verify_duplicate_entry() {
+        let entries = vec![
+            make_struct_entry("MyStruct", vec![("val", ScType::U32)]),
+            make_struct_entry("MyStruct", vec![("other", ScType::Bool)]),
+        ];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(
+            warnings[0],
+            SpecWarning::DuplicateEntry("MyStruct".to_string())
+        );
+    }
+
+    #[test]
+    fn test_verify_duplicate_across_types() {
+        let entries = vec![
+            make_struct_entry("Foo", vec![("val", ScType::U32)]),
+            make_fn_entry("Foo", vec![], vec![]),
+        ];
+        let spec = Spec::new(&entries);
+        let warnings = spec.verify();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0], SpecWarning::DuplicateEntry("Foo".to_string()));
     }
 }
