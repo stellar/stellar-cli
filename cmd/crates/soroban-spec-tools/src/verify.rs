@@ -21,7 +21,7 @@ const BUILTIN_UDT_NAMES: &[&str] = &[
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SpecWarning {
     UndefinedType { context: String, type_name: String },
-    DuplicateEntry(String),
+    DuplicateEntry { name: String },
 }
 
 impl std::fmt::Display for SpecWarning {
@@ -31,7 +31,7 @@ impl std::fmt::Display for SpecWarning {
                 f,
                 "type '{type_name}' referenced by {context} is not defined in the spec"
             ),
-            SpecWarning::DuplicateEntry(name) => {
+            SpecWarning::DuplicateEntry { name } => {
                 write!(f, "spec entry '{name}' is defined more than once")
             }
         }
@@ -62,7 +62,7 @@ impl Spec {
         for entry in entries {
             let name = entry_name(entry);
             if !seen.insert(name.clone()) {
-                warnings.push(SpecWarning::DuplicateEntry(name));
+                warnings.push(SpecWarning::DuplicateEntry { name });
                 continue;
             }
             match entry {
@@ -381,7 +381,9 @@ mod tests {
         assert_eq!(warnings.len(), 1);
         assert_eq!(
             warnings[0],
-            SpecWarning::DuplicateEntry("MyStruct".to_string())
+            SpecWarning::DuplicateEntry {
+                name: "MyStruct".to_string()
+            }
         );
     }
 
@@ -394,6 +396,11 @@ mod tests {
         let spec = Spec::new(&entries);
         let warnings = spec.verify();
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0], SpecWarning::DuplicateEntry("Foo".to_string()));
+        assert_eq!(
+            warnings[0],
+            SpecWarning::DuplicateEntry {
+                name: "Foo".to_string()
+            }
+        );
     }
 }
