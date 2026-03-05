@@ -113,3 +113,5 @@ jobs:
             echo "ERROR: meta is empty"
             exit 1
           fi
+      - name: Verify spec
+        run: stellar contract spec-verify --wasm ${{ steps.find-wasm.outputs.wasm }}
