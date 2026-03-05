@@ -336,16 +336,13 @@ impl Cmd {
                     return Err(Error::OptimizeFeatureNotEnabled);
                 }
 
-                Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
-
-                // Verify spec references after build
-                if let Ok(final_wasm_bytes) = fs::read(&final_path) {
-                    if let Ok(spec) = soroban_spec_tools::Spec::from_wasm(&final_wasm_bytes) {
-                        for w in spec.verify() {
-                            print.warnln(format!("{}: {w}", p.name));
-                        }
-                    }
-                }
+                Self::print_build_summary(
+                    &print,
+                    &p.name,
+                    &final_path,
+                    wasm_bytes,
+                    optimized_wasm_bytes,
+                );
 
                 built_contracts.push(BuiltContract {
                     name: p.name.clone(),
@@ -470,6 +467,7 @@ impl Cmd {
 
     fn print_build_summary(
         print: &Print,
+        name: &str,
         path: &Path,
         wasm_bytes: Vec<u8>,
         optimized_wasm_bytes: Vec<u8>,
@@ -527,6 +525,12 @@ impl Cmd {
             print.blankln(format!("Exported Functions: {} found", export_names.len()));
             for name in export_names {
                 print.blankln(format!("  • {name}"));
+            }
+        }
+
+        if let Ok(spec) = soroban_spec_tools::Spec::from_wasm(bytes) {
+            for w in spec.verify() {
+                print.warnln(format!("{name}: {w}"));
             }
         }
 
