@@ -11,5 +11,6 @@ defaults:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - run: echo "Building and pushing Docker image..."
