@@ -512,17 +512,17 @@ fn build_without_spec_shaking_preserves_all_entries() {
         "functions should be preserved without spec shaking"
     );
 
-    // Verify no rssdkfeat meta entry exists (no spec shaking support)
+    // Verify no rssdk_spec_shaking meta entry exists (no spec shaking support)
     let has_feature_meta = spec.meta.iter().any(|entry| {
         matches!(
             entry,
             ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. })
-                if key.to_string() == "rssdkfeat"
+                if key.to_string() == "rssdk_spec_shaking"
         )
     });
     assert!(
         !has_feature_meta,
-        "workspace fixture should not have rssdkfeat meta"
+        "workspace fixture should not have rssdk_spec_shaking meta"
     );
 }
 
