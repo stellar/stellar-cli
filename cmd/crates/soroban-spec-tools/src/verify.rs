@@ -50,6 +50,12 @@ fn entry_name(entry: &ScSpecEntry) -> String {
 }
 
 impl Spec {
+    /// Verify the spec is well-formed, returning warnings for any issues found.
+    ///
+    /// Checks performed:
+    /// - Duplicate entries: entries that share a name with another entry.
+    /// - Undefined types: UDT names referenced in function signatures, event
+    ///   params, struct fields, or union cases that are not defined in the spec.
     pub fn verify(&self) -> Vec<SpecWarning> {
         let Some(entries) = &self.0 else {
             return vec![];
@@ -57,6 +63,7 @@ impl Spec {
 
         let mut warnings = Vec::new();
 
+        // Collect all defined type names and detect duplicates.
         let mut seen: HashSet<String> = HashSet::new();
         let mut defined: HashSet<String> = HashSet::new();
         for entry in entries {
@@ -79,6 +86,7 @@ impl Spec {
             defined.insert((*name).to_string());
         }
 
+        // Walk every entry and flag any UDT references not in the defined set.
         for entry in entries {
             find_undefined_types(entry, &defined, &mut warnings);
         }
