@@ -68,6 +68,9 @@ jobs:
       matrix:
         dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: soroban-examples/${{ matrix.working-directory }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -82,7 +85,7 @@ jobs:
       - run: rustup update
       - run: rustup target add wasm32v1-none
       - name: Build ${{ matrix.dir }}
-        run: stellar contract build --manifest-path ${{ matrix.dir }}/Cargo.toml
+        run: make -C ${{ matrix.dir }} build
       - name: Find wasm
         id: find-wasm
         run: |
