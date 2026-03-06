@@ -48,13 +48,13 @@ version = "25.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-sdk]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-env-host]
 version = "25.0.2"
@@ -137,7 +137,3 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = "release"
 panic = "unwind"
-
-[patch.crates-io.soroban-spec]
-git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "8055e797c4b3f1630de9f8a3bb0a99b3c3158ea5"
