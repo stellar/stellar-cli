@@ -287,8 +287,9 @@ fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> s
 }
 
 pub fn sanitize(s: &str) -> String {
-    s.chars()
-        .filter(|c| !c.is_control() || *c == '\n')
+    escape_bytes::escape(s.as_bytes())
+        .into_iter()
+        .map(char::from)
         .collect()
 }
 
