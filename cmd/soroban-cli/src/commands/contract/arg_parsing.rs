@@ -373,7 +373,10 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
-            .long_help(spec.doc(name, type_)?);
+            .long_help(
+                spec.doc(name, type_)?
+                    .map(|d| -> &'static str { Box::leak(sanitize(d).into_boxed_str()) }),
+            );
 
         file_arg = file_arg
             .long(&file_arg_name)
