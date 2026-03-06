@@ -83,6 +83,7 @@ jobs:
             # Add features field to entries without features
             sed -i '/soroban-sdk = {/{/features/!s| }|, features = ["experimental_spec_shaking_v2"] }|}' "$file"
           done
+          cargo update -p soroban-sdk
       - name: Diff
         run: git diff
       - name: Build ${{ matrix.dir }}
