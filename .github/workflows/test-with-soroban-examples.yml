@@ -59,6 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
+        experimental_spec_shaking_v2: [true, false]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -73,6 +74,15 @@ jobs:
       - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
       - run: rustup update
       - run: rustup target add wasm32v1-none
+      - name: Enable experimental_spec_shaking_v2 feature
+        if: matrix.experimental_spec_shaking_v2
+        run: |
+          find . -name Cargo.toml | while read -r file; do
+            # Add feature to entries with existing features
+            sed -i '/soroban-sdk = {/s|features = \[|features = ["experimental_spec_shaking_v2", |' "$file"
+            # Add features field to entries without features
+            sed -i '/soroban-sdk = {/{/features/!s| }|, features = ["experimental_spec_shaking_v2"] }|}' "$file"
+          done
       - name: Build ${{ matrix.dir }}
         run: make -C ${{ matrix.dir }} build
       - name: Find wasm
