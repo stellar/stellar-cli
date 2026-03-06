@@ -209,7 +209,7 @@ async fn parse_single_argument(
     signers: &mut Vec<Signer>,
     parsed_args: &mut Vec<ScVal>,
 ) -> Result<(), Error> {
-    let name = input.name.to_utf8_string()?;
+    let name = sanitize(&input.name.to_utf8_string_lossy());
     let expected_type_name = get_type_name(&input.type_); //-0--
 
     if let Some(mut val) = matches_.get_raw(&name) {
@@ -349,7 +349,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     let inputs_map = &func
         .inputs
         .iter()
-        .map(|i| (i.name.to_utf8_string().unwrap(), i.type_.clone()))
+        .map(|i| (sanitize(&i.name.to_utf8_string_lossy()), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
     let name: &'static str = Box::leak(sanitize(name).into_boxed_str());
     let mut cmd = clap::Command::new(name)
