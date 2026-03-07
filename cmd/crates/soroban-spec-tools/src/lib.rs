@@ -19,6 +19,7 @@ pub mod contract;
 pub mod event;
 pub mod utils;
 mod verify;
+pub mod wasm;
 
 pub use contract::sanitize;
 pub use verify::SpecWarning;
