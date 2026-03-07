@@ -10,7 +10,7 @@ use crate::xdr::{
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
 use heck::ToKebabCase;
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{sanitize, Spec};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
@@ -166,12 +166,23 @@ fn parse_command_matches(
 }
 
 fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Error> {
-    spec.find_function(function)
-        .map_err(|_| Error::FunctionNotFoundInContractSpec {
-            function_name: function.to_string(),
-            available_functions: get_available_functions(spec),
-        })
-        .cloned()
+    // Exact match (normal path).
+    if let Ok(f) = spec.find_function(function) {
+        return Ok(f.clone());
+    }
+    // Fallback: match against sanitized names for functions whose names contain
+    // control characters (clap registers the sanitized form as the command name).
+    if let Ok(functions) = spec.find_functions() {
+        for f in functions {
+            if sanitize(&f.name.to_utf8_string_lossy()) == function {
+                return Ok(f.clone());
+            }
+        }
+    }
+    Err(Error::FunctionNotFoundInContractSpec {
+        function_name: function.to_string(),
+        available_functions: get_available_functions(spec),
+    })
 }
 
 async fn parse_function_arguments(
@@ -198,7 +209,7 @@ async fn parse_single_argument(
     signers: &mut Vec<Signer>,
     parsed_args: &mut Vec<ScVal>,
 ) -> Result<(), Error> {
-    let name = input.name.to_utf8_string()?;
+    let name = sanitize(&input.name.to_utf8_string_lossy());
     let expected_type_name = get_type_name(&input.type_); //-0--
 
     if let Some(mut val) = matches_.get_raw(&name) {
@@ -338,9 +349,9 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     let inputs_map = &func
         .inputs
         .iter()
-        .map(|i| (i.name.to_utf8_string().unwrap(), i.type_.clone()))
+        .map(|i| (sanitize(&i.name.to_utf8_string_lossy()), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
-    let name: &'static str = Box::leak(name.to_string().into_boxed_str());
+    let name: &'static str = Box::leak(sanitize(name).into_boxed_str());
     let mut cmd = clap::Command::new(name)
         .no_binary_name(true)
         .term_width(300)
@@ -349,7 +360,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     if kebab_name != name {
         cmd = cmd.alias(kebab_name);
     }
-    let doc: &'static str = Box::leak(func.doc.to_utf8_string_lossy().into_boxed_str());
+    let doc: &'static str = Box::leak(sanitize(&func.doc.to_utf8_string_lossy()).into_boxed_str());
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
     cmd = cmd.about(Some(doc)).long_about(long_doc);
@@ -362,7 +373,10 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
-            .long_help(spec.doc(name, type_)?);
+            .long_help(
+                spec.doc(name, type_)?
+                    .map(|d| -> &'static str { Box::leak(sanitize(d).into_boxed_str()) }),
+            );
 
         file_arg = file_arg
             .long(&file_arg_name)
@@ -508,7 +522,10 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
         }
         ScSpecTypeDef::Result(_) => "result".to_string(),
         ScSpecTypeDef::Udt(udt) => {
-            format!("user-defined type '{}'", udt.name.to_utf8_string_lossy())
+            format!(
+                "user-defined type '{}'",
+                sanitize(&udt.name.to_utf8_string_lossy())
+            )
         }
     }
 }
@@ -517,7 +534,7 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
 fn get_available_functions(spec: &Spec) -> String {
     match spec.find_functions() {
         Ok(functions) => functions
-            .map(|f| f.name.to_utf8_string_lossy())
+            .map(|f| sanitize(&f.name.to_utf8_string_lossy()))
             .collect::<Vec<_>>()
             .join(", "),
         Err(_) => "unknown".to_string(),
@@ -924,5 +941,27 @@ mod tests {
         assert!(error_message.contains("Expected type u64 (unsigned 64-bit integer)"));
         assert!(error_message.contains("received: '\"100\"'"));
         assert!(error_message.contains("Suggestion: For numbers, ensure no quotes"));
+    }
+
+    /// Mirrors `stellar contract invoke`: Spec::from_wasm -> build_clap_command -> render_long_help.
+    #[test]
+    fn invoke_help_strips_control_characters() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../crates/soroban-spec-tools/tests/fixtures/control_characters.wasm"
+        );
+        let bytes = std::fs::read(path).expect("fixture wasm should be readable");
+        let spec = Spec::from_wasm(&bytes).expect("wasm should parse without error");
+        let mut cmd = build_clap_command(&spec, true).expect("command should build without error");
+        let help = cmd.render_long_help().to_string();
+
+        let bad_chars: Vec<char> = help
+            .chars()
+            .filter(|c| c.is_control() && *c != '\n' && *c != '\t')
+            .collect();
+        assert!(
+            bad_chars.is_empty(),
+            "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
+        );
     }
 }
