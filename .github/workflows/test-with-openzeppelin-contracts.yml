@@ -70,7 +70,7 @@ jobs:
       - name: Find wasm
         id: find-wasm
         run: |
-          wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/*' | head -1)
+          wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
       - name: Verify interface
         run: |
