@@ -5198,6 +5198,7 @@ name = "soroban-spec-tools"
 version = "25.1.0"
 dependencies = [
  "base64 0.21.7",
+ "escape-bytes",
  "ethnum",
  "hex",
  "indexmap 2.11.0",
