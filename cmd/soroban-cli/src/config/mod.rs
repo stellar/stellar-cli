@@ -94,7 +94,7 @@ impl Args {
     pub async fn source_signer(&self) -> Result<Signer, Error> {
         let print = Print::new(true);
         let secret = &self.source_account.resolve_secret(&self.locator)?;
-        Ok(secret.signer(None, print).await?)
+        Ok(secret.signer(self.hd_path(), print).await?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {

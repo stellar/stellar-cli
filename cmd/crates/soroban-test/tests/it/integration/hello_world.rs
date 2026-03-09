@@ -398,3 +398,47 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
             r#"Log: {"vec":[{"string":"hello {}"},{"symbol":"world"}]}"#,
         ));
 }
+
+#[tokio::test]
+async fn invoke_auth_uses_hd_path_for_addr_alias() {
+    let sandbox = &TestEnv::new();
+
+    // Fund path 1 of the "test" seed (path 0 is funded by default)
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg("test")
+        .arg("--hd-path=1")
+        .assert()
+        .success();
+
+    let addr_1 = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .arg("--hd-path=1")
+        .assert()
+        .stdout_as_str();
+
+    let id = &deploy_hello(sandbox).await;
+    extend_contract(sandbox, id).await;
+
+    // --hd-path=1 must propagate to --addr alias resolution AND the auth signer.
+    // The contract's auth function returns the Address it was called with, so
+    // the output must be addr_1 (path 1), not path 0.
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source")
+        .arg("test")
+        .arg("--hd-path=1")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("auth")
+        .arg("--addr=test")
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{addr_1}\"\n"))
+        .success();
+}

@@ -447,7 +447,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
         addr @ UnresolvedScAddress::Alias(_) => {
-            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr = addr.resolve(
+                &config.locator,
+                &config.get_network()?.network_passphrase,
+                config.hd_path(),
+            )?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
@@ -467,7 +471,7 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
     let print = Print::new(false);
-    let signer = secret.signer(None, print).await.ok()?;
+    let signer = secret.signer(config.hd_path(), print).await.ok()?;
     Some(signer)
 }
 
