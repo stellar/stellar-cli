@@ -825,13 +825,12 @@ pub fn cli_config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::collections::HashMap;
 
     #[test]
-    #[cfg(unix)]
     fn test_write_sets_file_permissions_to_0600() {
         use std::os::unix::fs::PermissionsExt;
 
@@ -852,7 +851,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(unix)]
     fn test_ensure_directory_sets_dir_permissions_to_0700() {
         use std::os::unix::fs::PermissionsExt;
 
