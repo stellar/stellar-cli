@@ -81,7 +81,6 @@ jobs:
       - name: Build ${{ matrix.dir }}
         run: stellar contract build --manifest-path ${{ matrix.dir }}/Cargo.toml
       - name: Find wasm
-        if: ${{ startsWith(matrix.dir, 'examples/') }}
         id: find-wasm
         run: |
           wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
