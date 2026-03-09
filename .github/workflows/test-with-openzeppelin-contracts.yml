@@ -85,6 +85,15 @@ jobs:
         run: |
           wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/*' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
+      - name: Set artifact name
+        id: artifact-name
+        run: echo "name=wasm-$(echo ${{ matrix.dir }} | sed 's/\//-/g')${{ matrix.experimental_spec_shaking_v2 && '-spec-shaking-v2' || '' }}" | tee -a $GITHUB_OUTPUT
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: ${{ steps.find-wasm.outputs.wasm }}
+          retention-days: 3
       - name: Verify interface
         run: |
           output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
