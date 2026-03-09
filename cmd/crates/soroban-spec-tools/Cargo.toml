@@ -23,6 +23,7 @@ stellar-xdr = { workspace = true, features = ["curr", "std", "serde", "base64"] 
 serde = { workspace = true }
 serde_json = { workspace = true }
 itertools = { workspace = true }
+escape-bytes = { workspace = true }
 ethnum = { workspace = true }
 hex = { workspace = true }
 wasmparser = { workspace = true }
