@@ -24,7 +24,7 @@ jobs:
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: make install
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: stellar-cli
           path: ~/.cargo/bin/stellar
@@ -65,7 +65,7 @@ jobs:
         with:
           repository: stellar/soroban-examples
           ref: main
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: stellar-cli
           path: stellar-cli
@@ -78,7 +78,7 @@ jobs:
       - name: Find wasm
         id: find-wasm
         run: |
-          wasm=$(find ${{ matrix.dir }}/target -name '*.wasm' -path '*/wasm32v1-none/*' | head -1)
+          wasm=$(find ${{ matrix.dir }}/target -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
       - name: Verify interface
         run: |
