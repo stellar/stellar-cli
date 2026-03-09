@@ -24,7 +24,7 @@ jobs:
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: make install
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: stellar-cli
           path: ~/.cargo/bin/stellar
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: OpenZeppelin/stellar-contracts
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: stellar-cli
           path: stellar-cli
@@ -81,6 +81,7 @@ jobs:
       - name: Build ${{ matrix.dir }}
         run: stellar contract build --manifest-path ${{ matrix.dir }}/Cargo.toml
       - name: Find wasm
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         id: find-wasm
         run: |
           wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
@@ -95,6 +96,7 @@ jobs:
           path: ${{ steps.find-wasm.outputs.wasm }}
           retention-days: 3
       - name: Verify interface
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -104,6 +106,7 @@ jobs:
             exit 1
           fi
       - name: Verify env-meta
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info env-meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -112,6 +115,7 @@ jobs:
             exit 1
           fi
       - name: Verify meta
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -120,6 +124,7 @@ jobs:
             exit 1
           fi
       - name: Verify spec
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: stellar contract spec-verify --wasm ${{ steps.find-wasm.outputs.wasm }}
       - name: Diff
         run: git add -N . && git diff HEAD
