@@ -68,11 +68,13 @@ jobs:
       - name: Build ${{ matrix.dir }}
         run: stellar contract build --manifest-path ${{ matrix.dir }}/Cargo.toml
       - name: Find wasm
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         id: find-wasm
         run: |
           wasm=$(find . -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
       - name: Verify interface
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -82,6 +84,7 @@ jobs:
             exit 1
           fi
       - name: Verify env-meta
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info env-meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -90,6 +93,7 @@ jobs:
             exit 1
           fi
       - name: Verify meta
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: |
           output=$(stellar contract info meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
           echo "$output"
@@ -98,4 +102,5 @@ jobs:
             exit 1
           fi
       - name: Verify spec
+        if: ${{ startsWith(matrix.dir, 'examples/') }}
         run: stellar contract spec-verify --wasm ${{ steps.find-wasm.outputs.wasm }}
