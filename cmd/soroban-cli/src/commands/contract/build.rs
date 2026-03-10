@@ -185,6 +185,12 @@ pub enum Error {
 
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
+    #[error(transparent)]
+    SpecTools(#[from] soroban_spec_tools::contract::Error),
+
+    #[error("wasm parsing error: {0}")]
+    WasmParsing(String),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -273,6 +279,10 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
+            // Set env var to inform the SDK that this CLI supports spec
+            // optimization using markers.
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
             let mut cmd_str_parts = Vec::<String>::new();
             cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
                 format!(
@@ -306,6 +316,7 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
+                Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -430,6 +441,46 @@ impl Cmd {
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+    }
+
+    /// Filters unused types and events from the contract spec.
+    ///
+    /// This removes:
+    /// - Type definitions that are not referenced by any function
+    /// - Events that don't have corresponding markers in the WASM data section
+    ///   (events that are defined but never published)
+    ///
+    /// The SDK embeds markers in the data section for types/events that are
+    /// actually used. These markers survive dead code elimination, so we can
+    /// detect which spec entries are truly needed.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        // Parse the spec from the wasm
+        let spec = Spec::new(&wasm_bytes)?;
+
+        // Check if the contract meta indicates spec shaking v2 is enabled.
+        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
+            return Ok(());
+        }
+
+        // Extract markers from the WASM data section
+        let markers = soroban_spec::shaking::find_all(&wasm_bytes);
+
+        // Filter spec entries (types, events) based on markers, and
+        // deduplicate any exact duplicate entries.
+        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
+
+        // Replace the contractspecv0 section with the filtered version
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
+            .map_err(|e| Error::WasmParsing(e.to_string()))?;
+
+        // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
@@ -738,4 +789,26 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
             [profile.{profile}] in your Cargo.toml."
         )))
     }
+}
+
+/// Filters spec entries based on markers and deduplicates exact duplicates.
+///
+/// Functions are always kept. Other entries (types, events) are kept only if a
+/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
+/// to a single occurrence.
+#[allow(clippy::implicit_hasher)]
+pub fn filter_and_dedup_spec(
+    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
+    markers: &HashSet<soroban_spec::shaking::Marker>,
+) -> Result<Vec<u8>, Error> {
+    let mut seen = HashSet::new();
+    let mut filtered_xdr = Vec::new();
+    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+    for entry in soroban_spec::shaking::filter(entries, markers) {
+        let entry_xdr = entry.to_xdr(Limits::none())?;
+        if seen.insert(entry_xdr) {
+            entry.write_xdr(&mut writer)?;
+        }
+    }
+    Ok(filtered_xdr)
 }
