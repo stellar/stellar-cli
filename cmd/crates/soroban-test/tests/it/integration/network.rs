@@ -78,8 +78,9 @@ async fn network_ls_long_conceals_rpc_headers() {
         .new_assert_cmd("network")
         .args(["ls", "--long"])
         .assert()
-        .stdout(predicate::str::contains("Authorization: <concealed>"))
-        .stdout(predicate::str::contains("X-Api-Key: <concealed>"))
+        .stdout(predicate::str::contains(
+            "Name: test-concealed\nRPC url: http://localhost:8000/rpc\nRPC headers:\n  Authorization: <concealed>\n  X-Api-Key: <concealed>",
+        ))
         .stdout(predicate::str::contains("Bearer secret123").not())
         .stdout(predicate::str::contains("mykey").not())
         .success();
@@ -106,7 +107,9 @@ async fn network_ls_long_shows_not_set_when_no_rpc_headers() {
         .new_assert_cmd("network")
         .args(["ls", "--long"])
         .assert()
-        .stdout(predicate::str::contains("RPC headers: not set"))
+        .stdout(predicate::str::contains(
+            "Name: test-no-headers\nRPC url: http://localhost:8000/rpc\nRPC headers: not set",
+        ))
         .success();
 }
 
