@@ -213,7 +213,9 @@ impl Cmd {
                 // When auto-building and no explicit --alias, use the
                 // package name as alias.
                 if cmd.alias.is_none() && !contract.name.is_empty() {
-                    cmd.alias = Some(AliasName(contract.name.clone()));
+                    if let Ok(alias) = contract.name.parse::<AliasName>() {
+                        cmd.alias = Some(alias);
+                    }
                 }
 
                 Self::run_single(&cmd, global_args).await?;

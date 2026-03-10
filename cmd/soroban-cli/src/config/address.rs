@@ -175,11 +175,11 @@ fn allowed_char(c: char) -> bool {
 }
 
 pub fn validate_name(s: &str) -> Result<(), Error> {
+    if s.is_empty() || s.len() > 250 {
+        return Err(Error::InvalidNameLength(s.to_string()));
+    }
     if !s.chars().all(allowed_char) {
         return Err(Error::InvalidNameCharacters(s.to_string()));
-    }
-    if s.len() > 250 {
-        return Err(Error::InvalidNameLength(s.to_string()));
     }
     Ok(())
 }
@@ -275,5 +275,15 @@ mod tests {
     fn alias_name_rejects_too_long() {
         assert!("a".repeat(251).parse::<AliasName>().is_err());
         assert!("a".repeat(250).parse::<AliasName>().is_ok());
+    }
+
+    #[test]
+    fn network_name_rejects_empty() {
+        assert!("".parse::<NetworkName>().is_err());
+    }
+
+    #[test]
+    fn alias_name_rejects_empty() {
+        assert!("".parse::<AliasName>().is_err());
     }
 }
