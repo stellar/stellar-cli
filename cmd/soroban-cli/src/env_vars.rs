@@ -55,7 +55,7 @@ pub fn is_visible(key: &str) -> bool {
         .strip_prefix("STELLAR_")
         .or_else(|| key.strip_prefix("SOROBAN_"))
         .unwrap_or(key);
-    VISIBLE.iter().any(|allowed| *allowed == name)
+    VISIBLE.contains(&name)
 }
 
 pub fn prefixed(key: &str) -> Vec<String> {
