@@ -621,6 +621,21 @@ fn env_does_not_display_secret_key() {
 }
 
 #[test]
+fn env_single_concealed_key_returns_empty() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .args(["STELLAR_SECRET_KEY"])
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout("")
+        .success();
+}
+
+#[test]
 fn env_does_not_display_sign_with_key() {
     let sandbox = TestEnv::default();
     sandbox
