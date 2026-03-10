@@ -48,13 +48,13 @@ version = "25.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-sdk]
-version = "25.0.2"
+version = "25.2.0"
 
 [workspace.dependencies.soroban-env-host]
 version = "25.0.2"
@@ -138,4 +138,3 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = "release"
 panic = "unwind"
-

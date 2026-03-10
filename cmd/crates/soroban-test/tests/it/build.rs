@@ -2,7 +2,7 @@ use assert_fs::TempDir;
 use fs_extra::dir::CopyOptions;
 use predicates::prelude::{predicate, PredicateBooleanExt};
 use shell_escape::escape;
-use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0};
+use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0, ScSpecEntry};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
 use std::env;
@@ -277,6 +277,311 @@ fn build_with_metadata_diff_dir() {
     assert_eq!(filtered_entries_dir2, expected_entries_dir2);
 }
 
+fn build_spec_shaking_fixture() -> (Vec<ScSpecEntry>, Vec<ScMetaEntry>) {
+    let sandbox = TestEnv::default();
+    let outdir = sandbox.dir().join("out");
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-spec-shaking");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace-with-spec-shaking");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--out-dir")
+        .arg(&outdir)
+        .assert()
+        .success();
+
+    let wasm_path = dir_path.join(&outdir).join("shaking.wasm");
+    let wasm = std::fs::read(wasm_path).unwrap();
+    let spec = Spec::new(&wasm).unwrap();
+    (spec.spec, spec.meta)
+}
+
+fn spec_entry_name(entry: &ScSpecEntry) -> String {
+    match entry {
+        ScSpecEntry::FunctionV0(f) => f.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtStructV0(s) => s.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtUnionV0(u) => u.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtEnumV0(e) => e.name.to_utf8_string_lossy(),
+        ScSpecEntry::UdtErrorEnumV0(e) => e.name.to_utf8_string_lossy(),
+        ScSpecEntry::EventV0(e) => e.name.to_utf8_string_lossy(),
+    }
+}
+
+#[test]
+fn build_with_spec_shaking_filters_unused_types() {
+    let (spec, _meta) = build_spec_shaking_fixture();
+    let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
+
+    // All functions should be present
+    assert!(
+        names.contains(&"use_struct".to_string()),
+        "use_struct function should be present"
+    );
+    assert!(
+        names.contains(&"use_enum".to_string()),
+        "use_enum function should be present"
+    );
+    assert!(
+        names.contains(&"emit_event".to_string()),
+        "emit_event function should be present"
+    );
+    assert!(
+        names.contains(&"hello".to_string()),
+        "hello function should be present"
+    );
+
+    // Used types should be present
+    assert!(
+        names.contains(&"UsedStruct".to_string()),
+        "UsedStruct should be present"
+    );
+    assert!(
+        names.contains(&"UsedEnum".to_string()),
+        "UsedEnum should be present"
+    );
+
+    // Unused types should be removed
+    assert!(
+        !names.contains(&"UnusedStruct".to_string()),
+        "UnusedStruct should be removed"
+    );
+    assert!(
+        !names.contains(&"UnusedEnum".to_string()),
+        "UnusedEnum should be removed"
+    );
+}
+
+#[test]
+fn build_with_spec_shaking_filters_unused_events() {
+    let (spec, _meta) = build_spec_shaking_fixture();
+    let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
+
+    // Used event should be present
+    assert!(
+        names.contains(&"UsedEvent".to_string()),
+        "UsedEvent should be present"
+    );
+
+    // Unused event should be removed
+    assert!(
+        !names.contains(&"UnusedEvent".to_string()),
+        "UnusedEvent should be removed"
+    );
+}
+
+#[test]
+fn build_with_spec_shaking_preserves_all_functions() {
+    let (spec, _meta) = build_spec_shaking_fixture();
+    let function_names: Vec<String> = spec
+        .iter()
+        .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+        .map(spec_entry_name)
+        .collect();
+
+    assert!(function_names.contains(&"use_struct".to_string()));
+    assert!(function_names.contains(&"use_enum".to_string()));
+    assert!(function_names.contains(&"emit_event".to_string()));
+    assert!(function_names.contains(&"hello".to_string()));
+    assert_eq!(function_names.len(), 4, "expected exactly 4 functions");
+}
+
+#[test]
+fn filter_and_dedup_spec_removes_duplicates() {
+    use soroban_cli::commands::contract::build::filter_and_dedup_spec;
+    use soroban_cli::xdr::{
+        ReadXdr, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
+        ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
+    };
+
+    let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+        doc: StringM::default(),
+        name: "hello".try_into().unwrap(),
+        inputs: vec![ScSpecFunctionInputV0 {
+            doc: StringM::default(),
+            name: "arg0".try_into().unwrap(),
+            type_: ScSpecTypeDef::U32,
+        }]
+        .try_into()
+        .unwrap(),
+        outputs: VecM::default(),
+    });
+
+    let used_struct = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+        doc: StringM::default(),
+        lib: StringM::default(),
+        name: "MyStruct".try_into().unwrap(),
+        fields: vec![ScSpecUdtStructFieldV0 {
+            doc: StringM::default(),
+            name: "field".try_into().unwrap(),
+            type_: ScSpecTypeDef::U32,
+        }]
+        .try_into()
+        .unwrap(),
+    });
+
+    // Build markers for the struct so it passes the filter
+    let mut markers = std::collections::HashSet::new();
+    markers.insert(soroban_spec::shaking::generate_marker_for_entry(
+        &used_struct,
+    ));
+
+    // Input: function appears twice, struct appears three times
+    let entries = vec![
+        func.clone(),
+        func.clone(),
+        used_struct.clone(),
+        used_struct.clone(),
+        used_struct.clone(),
+    ];
+
+    let result_xdr = filter_and_dedup_spec(entries, &markers).unwrap();
+
+    // Parse back the entries from the XDR
+    let result_entries: Vec<ScSpecEntry> =
+        ScSpecEntry::read_xdr_iter(&mut Limited::new(Cursor::new(result_xdr), Limits::none()))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+    // Should have exactly 1 function + 1 struct, no duplicates
+    assert_eq!(
+        result_entries.len(),
+        2,
+        "expected 2 entries (1 function + 1 struct), got {}: {:?}",
+        result_entries.len(),
+        result_entries
+            .iter()
+            .map(spec_entry_name)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(spec_entry_name(&result_entries[0]), "hello");
+    assert_eq!(spec_entry_name(&result_entries[1]), "MyStruct");
+}
+
+#[test]
+fn build_with_spec_shaking_has_feature_meta() {
+    let (_spec, meta) = build_spec_shaking_fixture();
+
+    let version = soroban_spec::shaking::spec_shaking_version_for_meta(&meta);
+
+    assert_eq!(
+        version, 2,
+        "contractmeta should indicate spec shaking version 2"
+    );
+}
+
+#[test]
+fn build_without_spec_shaking_preserves_all_entries() {
+    let sandbox = TestEnv::default();
+    let outdir = sandbox.dir().join("out");
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace").join("contracts").join("add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--out-dir")
+        .arg(&outdir)
+        .assert()
+        .success();
+
+    let wasm_path = dir_path.join(&outdir).join("add.wasm");
+    let wasm = std::fs::read(wasm_path).unwrap();
+    let spec = Spec::new(&wasm).unwrap();
+
+    // Without spec shaking, all spec entries should be preserved.
+    // The "add" contract should have at least its function(s).
+    let function_names: Vec<String> = spec
+        .spec
+        .iter()
+        .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+        .map(spec_entry_name)
+        .collect();
+    assert!(
+        !function_names.is_empty(),
+        "functions should be preserved without spec shaking"
+    );
+
+    // Verify no rssdk_spec_shaking meta entry exists (no spec shaking support)
+    let has_feature_meta = spec.meta.iter().any(|entry| {
+        matches!(
+            entry,
+            ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. })
+                if key.to_string() == "rssdk_spec_shaking"
+        )
+    });
+    assert!(
+        !has_feature_meta,
+        "workspace fixture should not have rssdk_spec_shaking meta"
+    );
+}
+
+#[test]
+fn replace_custom_section_replaces_and_consolidates() {
+    use soroban_spec_tools::wasm::replace_custom_section;
+    use wasm_encoder::{CustomSection, Module};
+
+    // Build a minimal WASM with two custom sections with the same name
+    let mut module = Module::new();
+    module.section(&CustomSection {
+        name: "test_section".into(),
+        data: b"original_content_1".as_slice().into(),
+    });
+    module.section(&CustomSection {
+        name: "test_section".into(),
+        data: b"original_content_2".as_slice().into(),
+    });
+    module.section(&CustomSection {
+        name: "other_section".into(),
+        data: b"other_data".as_slice().into(),
+    });
+    let wasm = module.finish();
+
+    // Replace the custom section
+    let new_content = b"replaced_content";
+    let result = replace_custom_section(&wasm, "test_section", new_content).unwrap();
+
+    // Parse the result and verify
+    let parser = wasmparser::Parser::new(0);
+    let mut test_sections = Vec::new();
+    let mut other_sections = Vec::new();
+    for payload in parser.parse_all(&result) {
+        let payload = payload.unwrap();
+        if let wasmparser::Payload::CustomSection(section) = payload {
+            if section.name() == "test_section" {
+                test_sections.push(section.data().to_vec());
+            } else if section.name() == "other_section" {
+                other_sections.push(section.data().to_vec());
+            }
+        }
+    }
+
+    // Multiple sections consolidated into one
+    assert_eq!(
+        test_sections.len(),
+        1,
+        "should have exactly one test_section after replacement"
+    );
+    assert_eq!(test_sections[0], new_content, "content should be replaced");
+
+    // Other section should be preserved
+    assert_eq!(other_sections.len(), 1, "other_section should be preserved");
+    assert_eq!(
+        other_sections[0], b"other_data",
+        "other_section content should be unchanged"
+    );
+}
+
 fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
     // verify that the metadata added in the contract code via contractmetadata! macro is present
     // as well as the meta that is included on build
@@ -339,6 +644,8 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
+    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1";
+
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
     let registry_prefix = registry_prefix.display().to_string();
@@ -346,14 +653,17 @@ fn with_flags(expected: &str) -> String {
     let registry_prefix = registry_prefix.replace('\\', "/");
 
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
-        expected.split('\n').map(ToString::to_string).collect()
+        expected
+            .split('\n')
+            .map(|x| format!("{ENV_VAR} {x}"))
+            .collect()
     } else {
         expected
             .split('\n')
             .map(|x| {
                 let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
                 let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
-                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {x}")
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {ENV_VAR} {x}")
             })
             .collect()
     };

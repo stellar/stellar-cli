@@ -59,6 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
+        experimental_spec_shaking_v2: [true, false]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -73,6 +74,18 @@ jobs:
       - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
       - run: rustup update
       - run: rustup target add wasm32v1-none
+      - name: Enable experimental_spec_shaking_v2 feature
+        if: matrix.experimental_spec_shaking_v2
+        run: |
+          find . -name Cargo.toml | while read -r file; do
+            # Add feature to entries with existing features
+            sed -i '/soroban-sdk = {/s|features = \[|features = ["experimental_spec_shaking_v2", |' "$file"
+            # Add features field to entries without features
+            sed -i '/soroban-sdk = {/{/features/!s| }|, features = ["experimental_spec_shaking_v2"] }|}' "$file"
+            (cd "$(dirname "$file")" && cargo update -p soroban-sdk 2>/dev/null || true)
+          done
+      - name: Diff
+        run: git diff
       - name: Build ${{ matrix.dir }}
         run: make -C ${{ matrix.dir }} build
       - name: Find wasm
@@ -80,6 +93,15 @@ jobs:
         run: |
           wasm=$(find ${{ matrix.dir }}/target -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
+      - name: Set artifact name
+        id: artifact-name
+        run: echo "name=wasm-$(echo ${{ matrix.dir }} | sed 's/\//-/g')${{ matrix.experimental_spec_shaking_v2 && '-spec-shaking-v2' || '' }}" | tee -a $GITHUB_OUTPUT
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: ${{ steps.find-wasm.outputs.wasm }}
+          retention-days: 3
       - name: Verify interface
         run: |
           output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
@@ -107,3 +129,5 @@ jobs:
           fi
       - name: Verify spec
         run: stellar contract spec-verify --wasm ${{ steps.find-wasm.outputs.wasm }}
+      - name: Diff
+        run: git add -N . && git diff HEAD
