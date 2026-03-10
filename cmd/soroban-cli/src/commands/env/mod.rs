@@ -39,7 +39,7 @@ impl Cmd {
 
         // If a specific name is given, just print that one value
         if let Some(name) = &self.name {
-            if env_vars::is_visible(name) {
+            if env_vars::is_concealed(name) {
                 if let Some(v) = vars.iter().find(|v| &v.key == name) {
                     println!("{}", v.value);
                 }
@@ -91,7 +91,7 @@ impl EnvVar {
     }
 
     fn str(&self) -> String {
-        if env_vars::is_visible(&self.key) {
+        if env_vars::is_concealed(&self.key) {
             format!("{}={}", self.key, self.value)
         } else {
             format!("# {}=<concealed>", self.key)
