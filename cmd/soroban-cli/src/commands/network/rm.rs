@@ -1,3 +1,5 @@
+use crate::config::address::NetworkName;
+
 use super::locator;
 
 #[derive(thiserror::Error, Debug)]
@@ -10,7 +12,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Network to remove
-    pub name: String,
+    pub name: NetworkName,
 
     #[command(flatten)]
     pub config: locator::Args,

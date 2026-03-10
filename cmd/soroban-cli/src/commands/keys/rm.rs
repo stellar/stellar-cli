@@ -1,4 +1,5 @@
 use crate::commands::global;
+use crate::config::address::KeyName;
 
 use super::super::config::locator;
 
@@ -12,7 +13,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Identity to remove
-    pub name: String,
+    pub name: KeyName,
 
     #[command(flatten)]
     pub config: locator::Args,

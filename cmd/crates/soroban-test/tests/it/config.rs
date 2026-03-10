@@ -656,3 +656,49 @@ fn env_does_not_display_sign_with_key() {
         )
         .success();
 }
+
+#[test]
+fn network_add_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("network")
+            .arg("add")
+            .args([
+                "--rpc-url=https://127.0.0.1",
+                "--network-passphrase",
+                LOCAL_NETWORK_PASSPHRASE,
+                "../evil",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn network_rm_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("network")
+            .arg("rm")
+            .arg("../../etc/passwd")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn contract_alias_add_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("alias")
+            .arg("add")
+            .arg("../evil")
+            .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
