@@ -8,7 +8,7 @@ use crate::{
     xdr,
 };
 
-use super::{key, locator, secret};
+use super::{key, locator, secret, utils};
 
 /// Address can be either a public key or eventually an alias of a address.
 #[derive(Clone, Debug)]
@@ -62,10 +62,8 @@ pub enum Error {
     LedgerNotSupported,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
-    #[error("Invalid name: {0}\n only alphanumeric characters, underscores (_), and hyphens (-) are allowed.")]
-    InvalidNameCharacters(String),
-    #[error("Invalid name: {0}\n names cannot exceed 250 characters")]
-    InvalidNameLength(String),
+    #[error(transparent)]
+    Name(#[from] utils::Error),
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -151,7 +149,7 @@ impl std::ops::Deref for KeyName {
 impl std::str::FromStr for KeyName {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.chars().all(allowed_char) {
+        if !s.chars().all(utils::allowed_char) {
             return Err(Error::InvalidKeyNameCharacters(s.to_string()));
         }
         if s == "ledger" {
@@ -170,18 +168,8 @@ impl Display for KeyName {
     }
 }
 
-fn allowed_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_' || c == '-'
-}
-
 pub fn validate_name(s: &str) -> Result<(), Error> {
-    if s.is_empty() || s.len() > 250 {
-        return Err(Error::InvalidNameLength(s.to_string()));
-    }
-    if !s.chars().all(allowed_char) {
-        return Err(Error::InvalidNameCharacters(s.to_string()));
-    }
-    Ok(())
+    Ok(utils::validate_name(s)?)
 }
 
 #[derive(Clone, Debug)]

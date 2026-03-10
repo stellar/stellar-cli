@@ -26,6 +26,7 @@ pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
+pub mod utils;
 
 use crate::config::locator::cli_config_file;
 pub use address::UnresolvedMuxedAccount;

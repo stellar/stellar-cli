@@ -24,7 +24,7 @@ use super::{
     key::{self, Key},
     network::{self, Network},
     secret::Secret,
-    Config,
+    utils, Config,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -103,6 +103,8 @@ pub enum Error {
     Key(#[from] key::Error),
     #[error("Unable to get project directory")]
     ProjectDirsError(),
+    #[error(transparent)]
+    InvalidName(#[from] utils::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -282,6 +284,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
+        utils::validate_name(name)?;
         KeyType::Identity.read_with_global(name, self)
     }
 
@@ -307,6 +310,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
+        utils::validate_name(name)?;
         let res = KeyType::Network.read_with_global(name, self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
@@ -334,6 +338,7 @@ impl Args {
     }
 
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        utils::validate_name(alias)?;
         let file_name = format!("{alias}.json");
         let config_dirs = self.local_and_global()?;
         let local = &config_dirs[0];
@@ -371,6 +376,7 @@ impl Args {
     }
 
     fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
+        utils::validate_name(alias)?;
         let file_name = format!("{alias}.json");
         let config_dir = self.config_dir()?;
         Ok(config_dir.join("contract-ids").join(file_name))
