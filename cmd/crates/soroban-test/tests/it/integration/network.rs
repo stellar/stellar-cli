@@ -54,6 +54,66 @@ async fn unset_default_network() {
 }
 
 #[tokio::test]
+async fn network_ls_long_conceals_rpc_headers() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args([
+            "add",
+            "--rpc-url",
+            "http://localhost:8000/rpc",
+            "--network-passphrase",
+            "Test Network",
+            "--rpc-header",
+            "Authorization: Bearer secret123",
+            "--rpc-header",
+            "X-Api-Key: mykey",
+            "test-concealed",
+        ])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args(["ls", "--long"])
+        .assert()
+        .stdout(predicate::str::contains(
+            "Name: test-concealed\nRPC url: http://localhost:8000/rpc\nRPC headers:\n  Authorization: <concealed>\n  X-Api-Key: <concealed>",
+        ))
+        .stdout(predicate::str::contains("Bearer secret123").not())
+        .stdout(predicate::str::contains("mykey").not())
+        .success();
+}
+
+#[tokio::test]
+async fn network_ls_long_shows_not_set_when_no_rpc_headers() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args([
+            "add",
+            "--rpc-url",
+            "http://localhost:8000/rpc",
+            "--network-passphrase",
+            "Test Network",
+            "test-no-headers",
+        ])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args(["ls", "--long"])
+        .assert()
+        .stdout(predicate::str::contains(
+            "Name: test-no-headers\nRPC url: http://localhost:8000/rpc\nRPC headers: not set",
+        ))
+        .success();
+}
+
+#[tokio::test]
 async fn network_info_includes_id_in_text_output() {
     let sandbox = &TestEnv::new();
     sandbox
