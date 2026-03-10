@@ -149,14 +149,12 @@ impl std::ops::Deref for KeyName {
 impl std::str::FromStr for KeyName {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.chars().all(utils::allowed_char) {
-            return Err(Error::InvalidKeyNameCharacters(s.to_string()));
-        }
+        utils::validate_name(s).map_err(|e| match e {
+            utils::Error::InvalidNameLength(s) => Error::InvalidKeyNameLength(s),
+            utils::Error::InvalidNameCharacters(s) => Error::InvalidKeyNameCharacters(s),
+        })?;
         if s == "ledger" {
             return Err(Error::InvalidKeyName(s.to_string()));
-        }
-        if s.len() > 250 {
-            return Err(Error::InvalidKeyNameLength(s.to_string()));
         }
         Ok(KeyName(s.to_string()))
     }
@@ -173,7 +171,7 @@ pub fn validate_name(s: &str) -> Result<(), Error> {
 }
 
 #[derive(Clone, Debug)]
-pub struct NetworkName(pub String);
+pub struct NetworkName(String);
 
 impl std::ops::Deref for NetworkName {
     type Target = str;
@@ -197,7 +195,7 @@ impl Display for NetworkName {
 }
 
 #[derive(Clone, Debug)]
-pub struct AliasName(pub String);
+pub struct AliasName(String);
 
 impl std::ops::Deref for AliasName {
     type Target = str;
