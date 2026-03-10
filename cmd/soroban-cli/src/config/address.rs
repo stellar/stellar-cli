@@ -62,6 +62,10 @@ pub enum Error {
     LedgerNotSupported,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
+    #[error("Invalid name: {0}\n only alphanumeric characters, underscores (_), and hyphens (-) are allowed.")]
+    InvalidNameCharacters(String),
+    #[error("Invalid name: {0}\n names cannot exceed 250 characters")]
+    InvalidNameLength(String),
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -168,4 +172,108 @@ impl Display for KeyName {
 
 fn allowed_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_' || c == '-'
+}
+
+pub fn validate_name(s: &str) -> Result<(), Error> {
+    if !s.chars().all(allowed_char) {
+        return Err(Error::InvalidNameCharacters(s.to_string()));
+    }
+    if s.len() > 250 {
+        return Err(Error::InvalidNameLength(s.to_string()));
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+pub struct NetworkName(pub String);
+
+impl std::ops::Deref for NetworkName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for NetworkName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(NetworkName(s.to_string()))
+    }
+}
+
+impl Display for NetworkName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AliasName(pub String);
+
+impl std::ops::Deref for AliasName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for AliasName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(AliasName(s.to_string()))
+    }
+}
+
+impl Display for AliasName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_name_valid() {
+        assert!("my-network".parse::<NetworkName>().is_ok());
+        assert!("my_network_123".parse::<NetworkName>().is_ok());
+        assert!("ledger".parse::<NetworkName>().is_ok());
+    }
+
+    #[test]
+    fn network_name_rejects_path_traversal() {
+        assert!("../evil".parse::<NetworkName>().is_err());
+        assert!("../../etc/passwd".parse::<NetworkName>().is_err());
+        assert!("foo/bar".parse::<NetworkName>().is_err());
+        assert!("foo\\bar".parse::<NetworkName>().is_err());
+    }
+
+    #[test]
+    fn network_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<NetworkName>().is_err());
+        assert!("a".repeat(250).parse::<NetworkName>().is_ok());
+    }
+
+    #[test]
+    fn alias_name_valid() {
+        assert!("my_alias_123".parse::<AliasName>().is_ok());
+        assert!("ledger".parse::<AliasName>().is_ok());
+    }
+
+    #[test]
+    fn alias_name_rejects_path_traversal() {
+        assert!("../evil".parse::<AliasName>().is_err());
+        assert!("../../etc/passwd".parse::<AliasName>().is_err());
+        assert!("foo/bar".parse::<AliasName>().is_err());
+        assert!("foo\\bar".parse::<AliasName>().is_err());
+    }
+
+    #[test]
+    fn alias_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<AliasName>().is_err());
+        assert!("a".repeat(250).parse::<AliasName>().is_ok());
+    }
 }

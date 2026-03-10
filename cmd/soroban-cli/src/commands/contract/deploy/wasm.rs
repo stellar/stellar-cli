@@ -7,7 +7,7 @@ use clap::Parser;
 use rand::Rng;
 use soroban_spec_tools::contract as contract_spec;
 
-use crate::commands::contract::deploy::utils::alias_validator;
+use crate::config::address::AliasName;
 use crate::resources;
 use crate::tx::sim_sign_and_send_tx;
 use crate::xdr::{
@@ -61,8 +61,8 @@ pub struct Cmd {
     /// The alias that will be used to save the contract's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
     /// configuration without asking for confirmation.
-    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
-    pub alias: Option<String>,
+    #[arg(long)]
+    pub alias: Option<AliasName>,
     #[command(flatten)]
     pub resources: resources::Args,
     /// Build the transaction and only write the base64 xdr to stdout
@@ -213,7 +213,7 @@ impl Cmd {
                 // When auto-building and no explicit --alias, use the
                 // package name as alias.
                 if cmd.alias.is_none() && !contract.name.is_empty() {
-                    cmd.alias = Some(contract.name.clone());
+                    cmd.alias = Some(AliasName(contract.name.clone()));
                 }
 
                 Self::run_single(&cmd, global_args).await?;
