@@ -24,7 +24,7 @@ use crate::{
     utils::contract_id_hash_from_asset,
 };
 
-use crate::commands::contract::deploy::utils::alias_validator;
+use crate::config::address::AliasName;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -87,8 +87,8 @@ pub struct Cmd {
     /// The alias that will be used to save the assets's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
     /// configuration without asking for confirmation.
-    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
-    pub alias: Option<String>,
+    #[arg(long)]
+    pub alias: Option<AliasName>,
 
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long)]

@@ -1,7 +1,6 @@
 use crate::commands::global;
 
 pub mod asset;
-pub mod utils;
 pub mod wasm;
 
 #[derive(Debug, clap::Subcommand)]
