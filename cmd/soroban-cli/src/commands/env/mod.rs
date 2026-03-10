@@ -91,12 +91,10 @@ impl EnvVar {
     }
 
     fn str(&self) -> String {
-        let value = if env_vars::is_visible(&self.key) {
-            &self.value
+        if env_vars::is_visible(&self.key) {
+            format!("{}={}", self.key, self.value)
         } else {
-            "<concealed>"
-        };
-
-        format!("{}={}", self.key, value)
+            format!("# {}=<concealed>", self.key)
+        }
     }
 }

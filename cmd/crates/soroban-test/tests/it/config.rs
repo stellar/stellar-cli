@@ -597,7 +597,9 @@ fn env_does_not_display_rpc_headers() {
         .new_assert_cmd("env")
         .env("STELLAR_RPC_HEADERS", "a:1")
         .assert()
-        .stdout(predicate::str::contains("STELLAR_RPC_HEADERS=<concealed>"))
+        .stdout(predicate::str::contains(
+            "# STELLAR_RPC_HEADERS=<concealed>",
+        ))
         .stdout(predicate::str::contains("a:1").not())
         .success();
 }
@@ -612,7 +614,7 @@ fn env_does_not_display_secret_key() {
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
         .assert()
-        .stdout(predicate::str::contains("STELLAR_SECRET_KEY=<concealed>"))
+        .stdout(predicate::str::contains("# STELLAR_SECRET_KEY=<concealed>"))
         .stdout(
             predicate::str::contains("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD")
                 .not(),
@@ -646,7 +648,7 @@ fn env_does_not_display_sign_with_key() {
         )
         .assert()
         .stdout(predicate::str::contains(
-            "STELLAR_SIGN_WITH_KEY=<concealed>",
+            "# STELLAR_SIGN_WITH_KEY=<concealed>",
         ))
         .stdout(
             predicate::str::contains("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD")
