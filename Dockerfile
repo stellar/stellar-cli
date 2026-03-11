@@ -8,7 +8,6 @@ RUN apt-get update && \
 
 RUN git clone https://github.com/stellar/stellar-cli.git /tmp/stellar-cli && \
     cd /tmp/stellar-cli && \
-    git fetch origin && \
     git checkout "${STELLAR_CLI_REF}" && \
     cargo install --locked --path cmd/stellar-cli && \
     rm -rf /tmp/stellar-cli
