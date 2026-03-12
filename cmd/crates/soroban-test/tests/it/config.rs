@@ -689,6 +689,20 @@ fn network_rm_rejects_path_traversal() {
 }
 
 #[test]
+fn contract_init_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("init")
+            .arg("my-project")
+            .args(["--name", "../evil"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
 fn contract_alias_add_rejects_path_traversal() {
     TestEnv::with_default(|sandbox| {
         sandbox

@@ -9,7 +9,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, print};
+use crate::{commands::global, config::address::ContractName, print};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,7 +21,7 @@ pub struct Cmd {
         default_value = "hello-world",
         long_help = "An optional flag to specify a new contract's name."
     )]
-    pub name: String,
+    pub name: ContractName,
 
     #[arg(long, long_help = "Overwrite all existing files.")]
     pub overwrite: bool,
@@ -191,7 +191,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "hello_world".to_string(),
+                name: "hello_world".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -209,7 +209,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "contract2".to_string(),
+                name: "contract2".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),

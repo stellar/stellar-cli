@@ -218,6 +218,36 @@ impl Display for AliasName {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ContractName(String);
+
+impl std::ops::Deref for ContractName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for ContractName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(ContractName(s.to_string()))
+    }
+}
+
+impl Display for ContractName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<std::path::Path> for ContractName {
+    fn as_ref(&self) -> &std::path::Path {
+        std::path::Path::new(&self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +301,30 @@ mod tests {
     #[test]
     fn alias_name_rejects_empty() {
         assert!("".parse::<AliasName>().is_err());
+    }
+
+    #[test]
+    fn contract_name_valid() {
+        assert!("hello-world".parse::<ContractName>().is_ok());
+        assert!("my_contract_123".parse::<ContractName>().is_ok());
+    }
+
+    #[test]
+    fn contract_name_rejects_path_traversal() {
+        assert!("../evil".parse::<ContractName>().is_err());
+        assert!("../../etc/passwd".parse::<ContractName>().is_err());
+        assert!("foo/bar".parse::<ContractName>().is_err());
+        assert!("foo\\bar".parse::<ContractName>().is_err());
+    }
+
+    #[test]
+    fn contract_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<ContractName>().is_err());
+        assert!("a".repeat(250).parse::<ContractName>().is_ok());
+    }
+
+    #[test]
+    fn contract_name_rejects_empty() {
+        assert!("".parse::<ContractName>().is_err());
     }
 }
