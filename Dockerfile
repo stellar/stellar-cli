@@ -6,7 +6,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends dbus gnome-keyring libdbus-1-3 libudev1 libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY stellar /usr/local/bin/stellar
+ARG TARGETARCH
+COPY stellar-${TARGETARCH} /usr/local/bin/stellar
 
 ENV STELLAR_CONFIG_HOME=/config
 ENV STELLAR_DATA_HOME=/data
