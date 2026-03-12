@@ -316,4 +316,15 @@ mod tests {
         assert!("foo/bar".parse::<ContractName>().is_err());
         assert!("foo\\bar".parse::<ContractName>().is_err());
     }
+
+    #[test]
+    fn contract_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<ContractName>().is_err());
+        assert!("a".repeat(250).parse::<ContractName>().is_ok());
+    }
+
+    #[test]
+    fn contract_name_rejects_empty() {
+        assert!("".parse::<ContractName>().is_err());
+    }
 }
