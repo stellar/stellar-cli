@@ -97,7 +97,7 @@ impl Project {
         let root: &Path = self.as_ref();
 
         // Handle package.json with proper JSON serialization
-        self.replace_package_json(root, contract_name)?;
+        replace_package_json(root, contract_name)?;
 
         // Handle non-JSON files with string replacement
         ["README.md", "src/index.ts"]
@@ -110,33 +110,6 @@ impl Project {
                 }
                 fs::write(file, contents)
             })
-    }
-
-    fn replace_package_json(&self, root: &Path, contract_name: &str) -> std::io::Result<()> {
-        let file = root.join("package.json");
-        let contents = fs::read_to_string(&file)?;
-        let mut json: serde_json::Value = serde_json::from_str(&contents).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("failed to parse package.json template: {e}"),
-            )
-        })?;
-
-        if let Some(obj) = json.as_object_mut() {
-            obj.insert(
-                "name".to_string(),
-                serde_json::Value::String(contract_name.to_string()),
-            );
-        }
-
-        let serialized = serde_json::to_string_pretty(&json).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("failed to serialize package.json: {e}"),
-            )
-        })?;
-        // Append trailing newline to match standard formatting
-        fs::write(&file, format!("{serialized}\n"))
     }
 
     fn append_index_ts(
@@ -177,6 +150,38 @@ impl Project {
 }} as const"#
         )
     }
+}
+
+fn replace_package_json(root: &Path, contract_name: &str) -> std::io::Result<()> {
+    let file = root.join("package.json");
+    let contents = fs::read_to_string(&file)?;
+    let mut json: serde_json::Value = serde_json::from_str(&contents).map_err(|e| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("failed to parse package.json template: {e}"),
+        )
+    })?;
+
+    if let Some(obj) = json.as_object_mut() {
+        obj.insert(
+            "name".to_string(),
+            serde_json::Value::String(contract_name.to_string()),
+        );
+    } else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "package.json template must be a JSON object",
+        ));
+    }
+
+    let serialized = serde_json::to_string_pretty(&json).map_err(|e| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("failed to serialize package.json: {e}"),
+        )
+    })?;
+    // Append trailing newline to match standard formatting
+    fs::write(&file, format!("{serialized}\n"))
 }
 
 #[cfg(test)]
@@ -248,10 +253,10 @@ mod test {
             "dependencies",
             "devDependencies",
         ];
-        for key in obj.keys() {
+        for key in expected_keys {
             assert!(
-                expected_keys.contains(&key.as_str()),
-                "unexpected key in package.json: {key}"
+                obj.contains_key(key),
+                "missing expected key in package.json: {key}"
             );
         }
     }

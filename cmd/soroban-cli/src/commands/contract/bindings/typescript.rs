@@ -39,8 +39,8 @@ pub enum Error {
     Spec(#[from] spec_tools::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
-    #[error("--output-dir basename is not a valid npm package name: {0}. Use only lowercase alphanumeric characters, hyphens, dots, and underscores")]
-    InvalidContractName(String),
+    #[error("--output-dir basename '{0}' is not a valid npm package name: {1}. Use only lowercase alphanumeric characters, hyphens, dots, and underscores")]
+    InvalidContractName(String, String),
     #[error(transparent)]
     WasmOrContract(#[from] contract_spec::Error),
     #[error(transparent)]
@@ -85,7 +85,7 @@ impl Cmd {
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
         soroban_spec_typescript::validate_npm_package_name(contract_name)
-            .map_err(Error::InvalidContractName)?;
+            .map_err(|reason| Error::InvalidContractName(contract_name.to_string(), reason))?;
         let (resolved_address, network) = match source {
             contract_spec::Source::Contract {
                 resolved_address,
