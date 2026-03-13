@@ -8,7 +8,7 @@ use crate::{
     xdr,
 };
 
-use super::{key, locator, secret};
+use super::{key, locator, secret, utils};
 
 /// Address can be either a public key or eventually an alias of a address.
 #[derive(Clone, Debug)]
@@ -62,6 +62,8 @@ pub enum Error {
     LedgerNotSupported,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
+    #[error(transparent)]
+    Name(#[from] utils::Error),
 }
 
 impl FromStr for UnresolvedMuxedAccount {
@@ -147,14 +149,12 @@ impl std::ops::Deref for KeyName {
 impl std::str::FromStr for KeyName {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.chars().all(allowed_char) {
-            return Err(Error::InvalidKeyNameCharacters(s.to_string()));
-        }
+        utils::validate_name(s).map_err(|e| match e {
+            utils::Error::InvalidNameLength(s) => Error::InvalidKeyNameLength(s),
+            utils::Error::InvalidNameCharacters(s) => Error::InvalidKeyNameCharacters(s),
+        })?;
         if s == "ledger" {
             return Err(Error::InvalidKeyName(s.to_string()));
-        }
-        if s.len() > 250 {
-            return Err(Error::InvalidKeyNameLength(s.to_string()));
         }
         Ok(KeyName(s.to_string()))
     }
@@ -166,6 +166,165 @@ impl Display for KeyName {
     }
 }
 
-fn allowed_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_' || c == '-'
+pub fn validate_name(s: &str) -> Result<(), Error> {
+    Ok(utils::validate_name(s)?)
+}
+
+#[derive(Clone, Debug)]
+pub struct NetworkName(String);
+
+impl std::ops::Deref for NetworkName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for NetworkName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(NetworkName(s.to_string()))
+    }
+}
+
+impl Display for NetworkName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AliasName(String);
+
+impl std::ops::Deref for AliasName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for AliasName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(AliasName(s.to_string()))
+    }
+}
+
+impl Display for AliasName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ContractName(String);
+
+impl std::ops::Deref for ContractName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for ContractName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        validate_name(s)?;
+        Ok(ContractName(s.to_string()))
+    }
+}
+
+impl Display for ContractName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<std::path::Path> for ContractName {
+    fn as_ref(&self) -> &std::path::Path {
+        std::path::Path::new(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_name_valid() {
+        assert!("my-network".parse::<NetworkName>().is_ok());
+        assert!("my_network_123".parse::<NetworkName>().is_ok());
+        assert!("ledger".parse::<NetworkName>().is_ok());
+    }
+
+    #[test]
+    fn network_name_rejects_path_traversal() {
+        assert!("../evil".parse::<NetworkName>().is_err());
+        assert!("../../etc/passwd".parse::<NetworkName>().is_err());
+        assert!("foo/bar".parse::<NetworkName>().is_err());
+        assert!("foo\\bar".parse::<NetworkName>().is_err());
+    }
+
+    #[test]
+    fn network_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<NetworkName>().is_err());
+        assert!("a".repeat(250).parse::<NetworkName>().is_ok());
+    }
+
+    #[test]
+    fn alias_name_valid() {
+        assert!("my_alias_123".parse::<AliasName>().is_ok());
+        assert!("ledger".parse::<AliasName>().is_ok());
+    }
+
+    #[test]
+    fn alias_name_rejects_path_traversal() {
+        assert!("../evil".parse::<AliasName>().is_err());
+        assert!("../../etc/passwd".parse::<AliasName>().is_err());
+        assert!("foo/bar".parse::<AliasName>().is_err());
+        assert!("foo\\bar".parse::<AliasName>().is_err());
+    }
+
+    #[test]
+    fn alias_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<AliasName>().is_err());
+        assert!("a".repeat(250).parse::<AliasName>().is_ok());
+    }
+
+    #[test]
+    fn network_name_rejects_empty() {
+        assert!("".parse::<NetworkName>().is_err());
+    }
+
+    #[test]
+    fn alias_name_rejects_empty() {
+        assert!("".parse::<AliasName>().is_err());
+    }
+
+    #[test]
+    fn contract_name_valid() {
+        assert!("hello-world".parse::<ContractName>().is_ok());
+        assert!("my_contract_123".parse::<ContractName>().is_ok());
+    }
+
+    #[test]
+    fn contract_name_rejects_path_traversal() {
+        assert!("../evil".parse::<ContractName>().is_err());
+        assert!("../../etc/passwd".parse::<ContractName>().is_err());
+        assert!("foo/bar".parse::<ContractName>().is_err());
+        assert!("foo\\bar".parse::<ContractName>().is_err());
+    }
+
+    #[test]
+    fn contract_name_rejects_too_long() {
+        assert!("a".repeat(251).parse::<ContractName>().is_err());
+        assert!("a".repeat(250).parse::<ContractName>().is_ok());
+    }
+
+    #[test]
+    fn contract_name_rejects_empty() {
+        assert!("".parse::<ContractName>().is_err());
+    }
 }

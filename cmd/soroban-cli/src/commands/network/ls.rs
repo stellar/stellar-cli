@@ -18,7 +18,8 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let res = if self.long { self.ls_l() } else { self.ls() }?.join("\n");
+        let sep = if self.long { "\n\n" } else { "\n" };
+        let res = if self.long { self.ls_l() } else { self.ls() }?.join(sep);
         println!("{res}");
         Ok(())
     }
@@ -33,8 +34,24 @@ impl Cmd {
             .list_networks_long()?
             .iter()
             .filter_map(|(name, network, location)| {
-                (!self.config_locator.global || location == "Global")
-                    .then(|| Some(format!("{location}\nName: {name}\n{network:#?}\n")))?
+                let headers = if network.rpc_headers.is_empty() {
+                    " not set".to_string()
+                } else {
+                    let lines: Vec<String> = network
+                        .rpc_headers
+                        .iter()
+                        .map(|(k, _)| format!("  {k}: <concealed>"))
+                        .collect();
+                    format!("\n{}", lines.join("\n"))
+                };
+
+                (!self.config_locator.global || location == "Global").then(|| {
+                    Some(format!(
+                        "Name: {name}\nRPC url: {rpc_url}\nRPC headers:{headers}\nNetwork passphrase: {passphrase}",
+                        rpc_url = network.rpc_url,
+                        passphrase = network.network_passphrase,
+                    ))
+                })?
             })
             .collect())
     }

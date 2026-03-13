@@ -119,7 +119,7 @@ impl Args {
     }
 }
 
-#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
+#[derive(clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint
@@ -147,6 +147,21 @@ pub struct Network {
             help_heading = HEADING_RPC,
         )]
     pub network_passphrase: String,
+}
+
+impl std::fmt::Debug for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let concealed: Vec<(&str, &str)> = self
+            .rpc_headers
+            .iter()
+            .map(|(k, _)| (k.as_str(), "<concealed>"))
+            .collect();
+        f.debug_struct("Network")
+            .field("rpc_url", &self.rpc_url)
+            .field("rpc_headers", &concealed)
+            .field("network_passphrase", &self.network_passphrase)
+            .finish()
+    }
 }
 
 fn parse_http_header(header: &str) -> Result<(String, String), Error> {
@@ -535,5 +550,21 @@ mod tests {
         } else {
             env::remove_var("STELLAR_CONFIG_HOME");
         }
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_header_values() {
+        let network = Network {
+            rpc_url: "http://localhost:8000/rpc".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: vec![
+                ("Authorization".to_string(), "Bearer secret123".to_string()),
+                ("X-Api-Key".to_string(), "mykey".to_string()),
+            ],
+        };
+        assert_eq!(
+            format!("{network:?}"),
+            r#"Network { rpc_url: "http://localhost:8000/rpc", rpc_headers: [("Authorization", "<concealed>"), ("X-Api-Key", "<concealed>")], network_passphrase: "Test Network" }"#
+        );
     }
 }

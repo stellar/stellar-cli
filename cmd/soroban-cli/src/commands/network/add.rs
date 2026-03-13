@@ -1,4 +1,4 @@
-use crate::config::{locator, network, secret};
+use crate::config::{address::NetworkName, locator, network, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -13,7 +13,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Name of network
-    pub name: String,
+    pub name: NetworkName,
 
     #[command(flatten)]
     pub network: network::Network,

@@ -1548,7 +1548,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "doc-gen"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "clap-markdown",
  "soroban-cli",
@@ -2959,9 +2959,9 @@ dependencies = [
 
 [[package]]
 name = "keccak"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
+checksum = "cb26cec98cce3a3d96cbb7bced3c4b16e3d13f27ec56dbd62cbc8f39cfb9d653"
 dependencies = [
  "cpufeatures",
 ]
@@ -3033,6 +3033,12 @@ name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
+name = "leb128fmt"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "ledger-apdu"
@@ -4933,7 +4939,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5017,7 +5023,7 @@ dependencies = [
  "walkdir",
  "wasm-gen",
  "wasm-opt",
- "wasmparser",
+ "wasmparser 0.116.1",
  "which",
  "whoami",
  "zeroize",
@@ -5039,7 +5045,7 @@ dependencies = [
  "soroban-wasmi",
  "static_assertions",
  "stellar-xdr",
- "wasmparser",
+ "wasmparser 0.116.1",
 ]
 
 [[package]]
@@ -5086,7 +5092,7 @@ dependencies = [
  "soroban-wasmi",
  "static_assertions",
  "stellar-strkey 0.0.13",
- "wasmparser",
+ "wasmparser 0.116.1",
 ]
 
 [[package]]
@@ -5106,13 +5112,13 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "25.1.0"
+version = "25.2.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "25.0.2"
+version = "25.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab9d1bfa6f7d57307bf8241789b13d3703438e7afa0527aa098a357ef757d3a2"
+checksum = "8b1886a9cd584381b57ba586b2ca31ce6de51c5e2579e4609f0705d6c5b5613d"
 dependencies = [
  "serde",
  "serde_json",
@@ -5124,9 +5130,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "25.0.2"
+version = "25.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9953e782d6da30974eea520c2b5f624c28bbc518c3bb926ec581242dd3f9d2a2"
+checksum = "7f3293c7598be20a13bbea89a0494e29d1682a615b44dbcaf936175a33307873"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5148,9 +5154,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "25.0.2"
+version = "25.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a8cecb6acc735670dad3303c6a9d2b47e51adfb11224ad5a8ced55fd7b0a600"
+checksum = "4c59452dac3d01b30c4dd96a35c532da8e3794b5fc9b6754249922b4dd04b199"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -5168,21 +5174,22 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "25.0.2"
+version = "25.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c79501d0636f86fe2c9b1dd7e88b9397415b3493a59b34f466abd7758c84b92b"
+checksum = "8753d54c9de13994e8f460345c9909963395e275d241f24fb95a5a06587cf188"
 dependencies = [
  "base64 0.22.1",
+ "sha2 0.10.9",
  "stellar-xdr",
  "thiserror 1.0.69",
- "wasmparser",
+ "wasmparser 0.116.1",
 ]
 
 [[package]]
 name = "soroban-spec-rust"
-version = "25.0.2"
+version = "25.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b520b5fb013fde70796d9a6057591f53817aa0c38f8bad460126f97f59394af9"
+checksum = "905af12f7dd710b94d6c1c434387a34d5e2bc764c7fa08e469c2f27ed6139e00"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5196,9 +5203,10 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "base64 0.21.7",
+ "escape-bytes",
  "ethnum",
  "hex",
  "indexmap 2.11.0",
@@ -5210,13 +5218,14 @@ dependencies = [
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
- "wasmparser",
+ "wasm-encoder",
+ "wasmparser 0.116.1",
  "which",
 ]
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "base64 0.21.7",
  "heck 0.4.1",
@@ -5237,7 +5246,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5270,6 +5279,8 @@ dependencies = [
  "tracing-subscriber",
  "ulid",
  "walkdir",
+ "wasm-encoder",
+ "wasmparser 0.116.1",
  "which",
 ]
 
@@ -5346,18 +5357,18 @@ dependencies = [
 
 [[package]]
 name = "stellar-bye"
-version = "25.1.0"
+version = "25.2.0"
 
 [[package]]
 name = "stellar-cli"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "async-trait",
  "bollard",
@@ -5728,49 +5739,49 @@ dependencies = [
 
 [[package]]
 name = "test_constructor"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_account"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_empty_constructor"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5778,7 +5789,7 @@ dependencies = [
 
 [[package]]
 name = "test_udt"
-version = "25.1.0"
+version = "25.2.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -6545,6 +6556,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-encoder"
+version = "0.235.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3bc393c395cb621367ff02d854179882b9a351b4e0c93d1397e6090b53a5c2a"
+dependencies = [
+ "leb128fmt",
+ "wasmparser 0.235.0",
+]
+
+[[package]]
 name = "wasm-gen"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6631,6 +6652,17 @@ version = "0.116.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a58e28b80dd8340cb07b8242ae654756161f6fc8d0038123d679b7b99964fa50"
 dependencies = [
+ "indexmap 2.11.0",
+ "semver",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.235.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "161296c618fa2d63f6ed5fffd1112937e803cb9ec71b32b01a76321555660917"
+dependencies = [
+ "bitflags",
  "indexmap 2.11.0",
  "semver",
 ]

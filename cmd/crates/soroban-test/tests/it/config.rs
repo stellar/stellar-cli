@@ -591,6 +591,20 @@ fn cannot_create_key_with_alias() {
 }
 
 #[test]
+fn env_does_not_display_rpc_headers() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .env("STELLAR_RPC_HEADERS", "a:1")
+        .assert()
+        .stdout(predicate::str::contains(
+            "# STELLAR_RPC_HEADERS=<concealed>",
+        ))
+        .stdout(predicate::str::contains("a:1").not())
+        .success();
+}
+
+#[test]
 fn env_does_not_display_secret_key() {
     let sandbox = TestEnv::default();
     sandbox
@@ -600,7 +614,26 @@ fn env_does_not_display_secret_key() {
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
         .assert()
-        .stdout(predicate::str::contains("SECRET_KEY").not())
+        .stdout(predicate::str::contains("# STELLAR_SECRET_KEY=<concealed>"))
+        .stdout(
+            predicate::str::contains("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD")
+                .not(),
+        )
+        .success();
+}
+
+#[test]
+fn env_single_concealed_key_returns_empty() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .args(["STELLAR_SECRET_KEY"])
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout("")
         .success();
 }
 
@@ -614,6 +647,72 @@ fn env_does_not_display_sign_with_key() {
             "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
         )
         .assert()
-        .stdout(predicate::str::contains("SIGN_WITH_KEY").not())
+        .stdout(predicate::str::contains(
+            "# STELLAR_SIGN_WITH_KEY=<concealed>",
+        ))
+        .stdout(
+            predicate::str::contains("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD")
+                .not(),
+        )
         .success();
+}
+
+#[test]
+fn network_add_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("network")
+            .arg("add")
+            .args([
+                "--rpc-url=https://127.0.0.1",
+                "--network-passphrase",
+                LOCAL_NETWORK_PASSPHRASE,
+                "../evil",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn network_rm_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("network")
+            .arg("rm")
+            .arg("../../etc/passwd")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn contract_init_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("init")
+            .arg("my-project")
+            .args(["--name", "../evil"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn contract_alias_add_rejects_path_traversal() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("alias")
+            .arg("add")
+            .arg("../evil")
+            .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid name"));
+    });
 }
