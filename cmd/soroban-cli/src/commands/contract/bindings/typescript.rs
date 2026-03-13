@@ -85,7 +85,7 @@ impl Cmd {
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
         soroban_spec_typescript::validate_npm_package_name(contract_name)
-            .map_err(|reason| Error::InvalidContractName(contract_name.to_string(), reason))?;
+            .map_err(|reason| Error::InvalidContractName((*contract_name).to_string(), reason))?;
         let (resolved_address, network) = match source {
             contract_spec::Source::Contract {
                 resolved_address,
