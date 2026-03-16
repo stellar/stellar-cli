@@ -10,7 +10,7 @@ use crate::xdr::{
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
 use heck::ToKebabCase;
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{sanitize, Spec};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
@@ -166,12 +166,23 @@ fn parse_command_matches(
 }
 
 fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Error> {
-    spec.find_function(function)
-        .map_err(|_| Error::FunctionNotFoundInContractSpec {
-            function_name: function.to_string(),
-            available_functions: get_available_functions(spec),
-        })
-        .cloned()
+    // Exact match (normal path).
+    if let Ok(f) = spec.find_function(function) {
+        return Ok(f.clone());
+    }
+    // Fallback: match against sanitized names for functions whose names contain
+    // control characters (clap registers the sanitized form as the command name).
+    if let Ok(functions) = spec.find_functions() {
+        for f in functions {
+            if sanitize(&f.name.to_utf8_string_lossy()) == function {
+                return Ok(f.clone());
+            }
+        }
+    }
+    Err(Error::FunctionNotFoundInContractSpec {
+        function_name: function.to_string(),
+        available_functions: get_available_functions(spec),
+    })
 }
 
 async fn parse_function_arguments(
@@ -198,7 +209,7 @@ async fn parse_single_argument(
     signers: &mut Vec<Signer>,
     parsed_args: &mut Vec<ScVal>,
 ) -> Result<(), Error> {
-    let name = input.name.to_utf8_string()?;
+    let name = sanitize(&input.name.to_utf8_string_lossy());
     let expected_type_name = get_type_name(&input.type_); //-0--
 
     if let Some(mut val) = matches_.get_raw(&name) {
@@ -338,9 +349,9 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     let inputs_map = &func
         .inputs
         .iter()
-        .map(|i| (i.name.to_utf8_string().unwrap(), i.type_.clone()))
+        .map(|i| (sanitize(&i.name.to_utf8_string_lossy()), i.type_.clone()))
         .collect::<HashMap<String, ScSpecTypeDef>>();
-    let name: &'static str = Box::leak(name.to_string().into_boxed_str());
+    let name: &'static str = Box::leak(sanitize(name).into_boxed_str());
     let mut cmd = clap::Command::new(name)
         .no_binary_name(true)
         .term_width(300)
@@ -349,7 +360,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     if kebab_name != name {
         cmd = cmd.alias(kebab_name);
     }
-    let doc: &'static str = Box::leak(func.doc.to_utf8_string_lossy().into_boxed_str());
+    let doc: &'static str = Box::leak(sanitize(&func.doc.to_utf8_string_lossy()).into_boxed_str());
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
     cmd = cmd.about(Some(doc)).long_about(long_doc);
@@ -362,7 +373,10 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
-            .long_help(spec.doc(name, type_)?);
+            .long_help(
+                spec.doc(name, type_)?
+                    .map(|d| -> &'static str { Box::leak(sanitize(d).into_boxed_str()) }),
+            );
 
         file_arg = file_arg
             .long(&file_arg_name)
@@ -433,7 +447,11 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
         addr @ UnresolvedScAddress::Alias(_) => {
-            let addr = addr.resolve(&config.locator, &config.get_network()?.network_passphrase)?;
+            let addr = addr.resolve(
+                &config.locator,
+                &config.get_network()?.network_passphrase,
+                config.hd_path(),
+            )?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
@@ -453,7 +471,7 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
     let print = Print::new(false);
-    let signer = secret.signer(None, print).await.ok()?;
+    let signer = secret.signer(config.hd_path(), print).await.ok()?;
     Some(signer)
 }
 
@@ -508,7 +526,10 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
         }
         ScSpecTypeDef::Result(_) => "result".to_string(),
         ScSpecTypeDef::Udt(udt) => {
-            format!("user-defined type '{}'", udt.name.to_utf8_string_lossy())
+            format!(
+                "user-defined type '{}'",
+                sanitize(&udt.name.to_utf8_string_lossy())
+            )
         }
     }
 }
@@ -517,7 +538,7 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
 fn get_available_functions(spec: &Spec) -> String {
     match spec.find_functions() {
         Ok(functions) => functions
-            .map(|f| f.name.to_utf8_string_lossy())
+            .map(|f| sanitize(&f.name.to_utf8_string_lossy()))
             .collect::<Vec<_>>()
             .join(", "),
         Err(_) => "unknown".to_string(),
@@ -603,8 +624,17 @@ fn parse_argument_with_validation(
 ) -> Result<ScVal, Error> {
     let expected_type_name = get_type_name(expected_type);
 
-    // Pre-validate JSON for non-primitive types
-    if !is_primitive_type(expected_type) {
+    // Pre-validate JSON for non-primitive types, but skip for union (enum) UDTs since
+    // both bare strings (e.g. `Unit`) and JSON strings (e.g. `"Unit"`) are valid for
+    // unit variants — from_string in soroban-spec-tools handles both forms correctly.
+    let is_union_udt = if let ScSpecTypeDef::Udt(udt) = expected_type {
+        spec.find(&udt.name.to_utf8_string_lossy())
+            .map(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_)))
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    if !is_primitive_type(expected_type) && !is_union_udt {
         validate_json_arg(arg_name, value)?;
     }
 
@@ -798,6 +828,100 @@ mod tests {
     }
 
     #[test]
+    fn test_union_udt_bare_string_accepted() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseV0,
+            ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
+        };
+
+        // Build a minimal Spec with a union type: enum MyEnum { Unit }
+        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let case_name: StringM<60> = "Unit".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                doc: StringM::default(),
+                name: case_name,
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Bare string (no JSON quoting) should be accepted
+        let result =
+            parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config);
+        assert!(result.is_ok(), "bare 'Unit' should be accepted: {result:?}");
+
+        // JSON-quoted string should also be accepted
+        let result =
+            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config);
+        assert!(
+            result.is_ok(),
+            "JSON-quoted '\"Unit\"' should be accepted: {result:?}"
+        );
+
+        // Both forms should produce the same ScVal
+        let bare = parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config)
+            .unwrap();
+        let quoted =
+            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config)
+                .unwrap();
+        assert_eq!(
+            bare, quoted,
+            "bare and quoted forms should produce identical ScVal"
+        );
+    }
+
+    #[test]
+    fn test_union_udt_tuple_variant_still_requires_json() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
+            ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![
+                ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
+                    doc: StringM::default(),
+                    name: "Unit".try_into().unwrap(),
+                }),
+                ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                    doc: StringM::default(),
+                    name: "WithValue".try_into().unwrap(),
+                    type_: vec![ScSpecTypeDef::U32].try_into().unwrap(),
+                }),
+            ]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Tuple variant with a value must still use JSON object syntax
+        let result = parse_argument_with_validation(
+            "value",
+            r#"{"WithValue":42}"#,
+            &expected_type,
+            &spec,
+            &config,
+        );
+        assert!(
+            result.is_ok(),
+            "JSON object for tuple variant should be accepted: {result:?}"
+        );
+    }
+
+    #[test]
     fn test_error_message_format() {
         use stellar_xdr::curr::ScSpecTypeDef;
 
@@ -821,5 +945,27 @@ mod tests {
         assert!(error_message.contains("Expected type u64 (unsigned 64-bit integer)"));
         assert!(error_message.contains("received: '\"100\"'"));
         assert!(error_message.contains("Suggestion: For numbers, ensure no quotes"));
+    }
+
+    /// Mirrors `stellar contract invoke`: Spec::from_wasm -> build_clap_command -> render_long_help.
+    #[test]
+    fn invoke_help_strips_control_characters() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../crates/soroban-spec-tools/tests/fixtures/control_characters.wasm"
+        );
+        let bytes = std::fs::read(path).expect("fixture wasm should be readable");
+        let spec = Spec::from_wasm(&bytes).expect("wasm should parse without error");
+        let mut cmd = build_clap_command(&spec, true).expect("command should build without error");
+        let help = cmd.render_long_help().to_string();
+
+        let bad_chars: Vec<char> = help
+            .chars()
+            .filter(|c| c.is_control() && *c != '\n' && *c != '\t')
+            .collect();
+        assert!(
+            bad_chars.is_empty(),
+            "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
+        );
     }
 }

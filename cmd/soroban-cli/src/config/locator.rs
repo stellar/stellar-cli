@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs::{self, create_dir_all, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
@@ -24,7 +24,7 @@ use super::{
     key::{self, Key},
     network::{self, Network},
     secret::Secret,
-    Config,
+    utils, Config,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -103,6 +103,8 @@ pub enum Error {
     Key(#[from] key::Error),
     #[error("Unable to get project directory")]
     ProjectDirsError(),
+    #[error(transparent)]
+    InvalidName(#[from] utils::Error),
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -282,6 +284,7 @@ impl Args {
     }
 
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
+        utils::validate_name(name)?;
         KeyType::Identity.read_with_global(name, self)
     }
 
@@ -307,6 +310,7 @@ impl Args {
     }
 
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
+        utils::validate_name(name)?;
         let res = KeyType::Network.read_with_global(name, self);
         if let Err(Error::ConfigMissing(_, _)) = &res {
             let Some(network) = network::DEFAULTS.get(name) else {
@@ -334,6 +338,7 @@ impl Args {
     }
 
     fn load_contract_from_alias(&self, alias: &str) -> Result<Option<alias::Data>, Error> {
+        utils::validate_name(alias)?;
         let file_name = format!("{alias}.json");
         let config_dirs = self.local_and_global()?;
         let local = &config_dirs[0];
@@ -371,6 +376,7 @@ impl Args {
     }
 
     fn alias_path(&self, alias: &str) -> Result<PathBuf, Error> {
+        utils::validate_name(alias)?;
         let file_name = format!("{alias}.json");
         let config_dir = self.config_dir()?;
         Ok(config_dir.join("contract-ids").join(file_name))
@@ -388,23 +394,52 @@ impl Args {
         let path = self.alias_path(alias)?;
         let dir = path.parent().ok_or(Error::CannotAccessConfigDir)?;
 
-        create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(dir)
+                .map_err(|_| Error::CannotAccessConfigDir)?;
+        }
+
+        #[cfg(not(unix))]
+        std::fs::create_dir_all(dir).map_err(|_| Error::CannotAccessConfigDir)?;
 
         let content = fs::read_to_string(&path).unwrap_or_default();
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(path)?;
 
         data.ids
             .insert(network_passphrase.into(), contract_id.to_string());
 
         let content = serde_json::to_string(&data)?;
 
-        Ok(to_file.write_all(content.as_bytes())?)
+        #[cfg(unix)]
+        {
+            use std::io::Write as _;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut to_file = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .mode(0o600)
+                .open(&path)?;
+            to_file.write_all(content.as_bytes())?;
+            fix_config_permissions();
+        }
+
+        #[cfg(not(unix))]
+        {
+            let mut to_file = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(path)?;
+            to_file.write_all(content.as_bytes())?;
+        }
+
+        Ok(())
     }
 
     pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
@@ -492,9 +527,76 @@ impl Pwd for Args {
     }
 }
 
+#[cfg(unix)]
+fn fix_config_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let Ok(root) = global_config_path() else {
+        return;
+    };
+
+    let mut bad_dirs = Vec::new();
+    let mut bad_files = Vec::new();
+    let mut stack = vec![root];
+
+    while let Some(dir) = stack.pop() {
+        if let Ok(meta) = std::fs::metadata(&dir) {
+            if meta.permissions().mode() & 0o777 != 0o700 {
+                bad_dirs.push(dir.clone());
+            }
+        }
+
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+
+                if path.is_dir() {
+                    stack.push(path);
+                } else if let Ok(meta) = std::fs::metadata(&path) {
+                    if meta.permissions().mode() & 0o777 != 0o600 {
+                        bad_files.push(path);
+                    }
+                }
+            }
+        }
+    }
+
+    let print = Print::new(false);
+
+    if !bad_dirs.is_empty() {
+        print.warnln("Updated config directories permissions to 0700.");
+
+        for dir in bad_dirs {
+            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+
+    if !bad_files.is_empty() {
+        print.warnln("Updated config files permissions to 0600.");
+
+        for file in bad_files {
+            let _ = std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600));
+        }
+    }
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(parent)
+            .map_err(|_| dir_creation_failed(parent))?;
+        fix_config_permissions();
+    }
+
+    #[cfg(not(unix))]
     std::fs::create_dir_all(parent).map_err(|_| dir_creation_failed(parent))?;
+
     Ok(dir)
 }
 
@@ -529,6 +631,10 @@ impl KeyType {
         let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
+
+        #[cfg(unix)]
+        fix_config_permissions();
+
         Ok(toml::from_str(&data)?)
     }
 
@@ -559,10 +665,36 @@ impl KeyType {
     ) -> Result<PathBuf, Error> {
         let filepath = ensure_directory(self.path(pwd, key))?;
         let data = toml::to_string(value).map_err(|_| Error::ConfigSerialization)?;
+        #[cfg(unix)]
+        {
+            use std::io::Write as _;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&filepath)
+                .map_err(|error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                })?;
+            file.write_all(data.as_bytes())
+                .map_err(|error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                })?;
+        }
+
+        #[cfg(not(unix))]
         std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
             filepath: filepath.clone(),
             error,
         })?;
+
+        #[cfg(unix)]
+        fix_config_permissions();
+
         Ok(filepath)
     }
 
@@ -697,4 +829,50 @@ fn location_to_string(location: &Location) -> String {
 // This is only to be used to fetch global Stellar config (e.g. to use for defaults)
 pub fn cli_config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_write_sets_file_permissions_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let value: HashMap<String, String> = HashMap::new();
+        let path = KeyType::Identity
+            .write("test-key", &value, dir.path())
+            .unwrap();
+
+        let perms = std::fs::metadata(&path).unwrap().permissions();
+
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o600,
+            "identity file should be owner-only readable (0600), got {:o}",
+            perms.mode() & 0o777
+        );
+    }
+
+    #[test]
+    fn test_ensure_directory_sets_dir_permissions_to_0700() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("sub").join("file.toml");
+        ensure_directory(target).unwrap();
+
+        let perms = std::fs::metadata(dir.path().join("sub"))
+            .unwrap()
+            .permissions();
+
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o700,
+            "identity directory should be owner-only (0700), got {:o}",
+            perms.mode() & 0o777
+        );
+    }
 }

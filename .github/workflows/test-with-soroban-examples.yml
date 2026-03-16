@@ -1,0 +1,133 @@
+name: Test with soroban-examples
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-cli:
+    runs-on: ubuntu-latest-8-cores
+    steps:
+      - uses: actions/checkout@v6
+      - uses: stellar/actions/rust-cache@main
+      - run: rustup update
+      - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
+      - run: make install
+      - uses: actions/upload-artifact@v7
+        with:
+          name: stellar-cli
+          path: ~/.cargo/bin/stellar
+
+  collect-examples:
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.dirs.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: stellar/soroban-examples
+          ref: main
+      - id: dirs
+        run: |
+          dirs=$(
+            for dir in $(find . -type f -name 'Makefile' -mindepth 2 | xargs dirname | sed 's|^\./||'); do
+              if (cargo metadata --manifest-path "$dir/Cargo.toml" --no-deps --format-version 1 \
+                | jq -r \
+                  '.packages[0] | (any(.dependencies[]; .name == "soroban-sdk") and any(.targets[]; any(.crate_types[]; . == "cdylib")))' \
+                | grep -q '^true$'); then
+                echo "$dir"
+              fi
+            done | jq -Rnc '[inputs | "\(.)"]'
+          )
+          echo "dirs=$dirs" | tee -a $GITHUB_OUTPUT
+
+  build-example:
+    needs: [build-cli, collect-examples]
+    if: ${{ needs.collect-examples.outputs.dirs != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.collect-examples.outputs.dirs) }}
+        experimental_spec_shaking_v2: [true, false]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: stellar/soroban-examples
+          ref: main
+      - uses: actions/download-artifact@v8
+        with:
+          name: stellar-cli
+          path: stellar-cli
+      - run: chmod +x stellar-cli/stellar
+      - run: echo "${{ github.workspace }}/stellar-cli" >> $GITHUB_PATH
+      - run: rustup update
+      - run: rustup target add wasm32v1-none
+      - name: Enable experimental_spec_shaking_v2 feature
+        if: matrix.experimental_spec_shaking_v2
+        run: |
+          find . -name Cargo.toml | while read -r file; do
+            # Add feature to entries with existing features
+            sed -i '/soroban-sdk = {/s|features = \[|features = ["experimental_spec_shaking_v2", |' "$file"
+            # Add features field to entries without features
+            sed -i '/soroban-sdk = {/{/features/!s| }|, features = ["experimental_spec_shaking_v2"] }|}' "$file"
+            (cd "$(dirname "$file")" && cargo update -p soroban-sdk 2>/dev/null || true)
+          done
+      - name: Diff
+        run: git diff
+      - name: Build ${{ matrix.dir }}
+        run: make -C ${{ matrix.dir }} build
+      - name: Find wasm
+        id: find-wasm
+        run: |
+          wasm=$(find ${{ matrix.dir }}/target -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
+          echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
+      - name: Set artifact name
+        id: artifact-name
+        run: echo "name=wasm-$(echo ${{ matrix.dir }} | sed 's/\//-/g')${{ matrix.experimental_spec_shaking_v2 && '-spec-shaking-v2' || '' }}" | tee -a $GITHUB_OUTPUT
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: ${{ steps.find-wasm.outputs.wasm }}
+          retention-days: 3
+      - name: Verify interface
+        run: |
+          output=$(stellar contract info interface --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          count=$(echo "$output" | jq 'length')
+          if [ "$count" -lt 1 ]; then
+            echo "ERROR: interface is empty"
+            exit 1
+          fi
+      - name: Verify env-meta
+        run: |
+          output=$(stellar contract info env-meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          if [ "$(echo "$output" | jq 'length')" -lt 1 ]; then
+            echo "ERROR: env-meta is empty"
+            exit 1
+          fi
+      - name: Verify meta
+        run: |
+          output=$(stellar contract info meta --wasm ${{ steps.find-wasm.outputs.wasm }} --output json)
+          echo "$output"
+          if [ "$(echo "$output" | jq 'length')" -lt 1 ]; then
+            echo "ERROR: meta is empty"
+            exit 1
+          fi
+      - name: Verify spec
+        run: stellar contract spec-verify --wasm ${{ steps.find-wasm.outputs.wasm }}
+      - name: Diff
+        run: git add -N . && git diff HEAD

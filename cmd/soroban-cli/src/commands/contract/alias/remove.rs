@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use clap::Parser;
 
 use crate::commands::{config::network, global};
-use crate::config::locator;
+use crate::config::{address::AliasName, locator};
 use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct Cmd {
     network: network::Args,
 
     /// The contract alias that will be removed.
-    pub alias: String,
+    pub alias: AliasName,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -46,7 +46,7 @@ impl Cmd {
             .get_contract_id(&self.alias, network_passphrase)?
         else {
             return Err(Error::NoContract {
-                alias: alias.into(),
+                alias: alias.to_string(),
                 network_passphrase: network_passphrase.into(),
             });
         };

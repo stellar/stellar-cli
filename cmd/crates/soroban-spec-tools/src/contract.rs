@@ -150,7 +150,12 @@ impl Display for Spec {
             for meta_entry in &self.meta {
                 match meta_entry {
                     ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
-                        writeln!(f, " • {key}: {val}")?;
+                        writeln!(
+                            f,
+                            " • {}: {}",
+                            sanitize(&key.to_utf8_string_lossy()),
+                            sanitize(&val.to_utf8_string_lossy())
+                        )?;
                     }
                 }
             }
@@ -179,12 +184,16 @@ impl Display for Spec {
 }
 
 fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::fmt::Result {
-    writeln!(f, " • Function: {}", func.name.to_utf8_string_lossy())?;
+    writeln!(
+        f,
+        " • Function: {}",
+        sanitize(&func.name.to_utf8_string_lossy())
+    )?;
     if !func.doc.is_empty() {
         writeln!(
             f,
             "     Docs: {}",
-            &indent(&func.doc.to_utf8_string_lossy(), 11).trim()
+            &indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
         )?;
     }
     writeln!(
@@ -207,7 +216,7 @@ fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
+            indent(&sanitize(&udt.doc.to_utf8_string_lossy()), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -224,7 +233,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
+            indent(&sanitize(&udt.doc.to_utf8_string_lossy()), 10).trim()
         )?;
     }
     writeln!(f, "     Fields:")?;
@@ -232,7 +241,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
         writeln!(
             f,
             "      • {}: {}",
-            field.name.to_utf8_string_lossy(),
+            sanitize(&field.name.to_utf8_string_lossy()),
             indent(&format!("{:#?}", field.type_), 8).trim()
         )?;
         if !field.doc.is_empty() {
@@ -249,7 +258,7 @@ fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fm
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
+            indent(&sanitize(&udt.doc.to_utf8_string_lossy()), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -266,7 +275,7 @@ fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> s
         writeln!(
             f,
             "     Docs: {}",
-            indent(&udt.doc.to_utf8_string_lossy(), 10).trim()
+            indent(&sanitize(&udt.doc.to_utf8_string_lossy()), 10).trim()
         )?;
     }
     writeln!(f, "     Cases:")?;
@@ -275,6 +284,13 @@ fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> s
     }
     writeln!(f)?;
     Ok(())
+}
+
+pub fn sanitize(s: &str) -> String {
+    escape_bytes::escape(s.as_bytes())
+        .into_iter()
+        .map(char::from)
+        .collect()
 }
 
 fn indent(s: &str, n: usize) -> String {
@@ -287,12 +303,12 @@ fn indent(s: &str, n: usize) -> String {
 
 fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
     if lib.is_empty() {
-        name.to_utf8_string_lossy()
+        sanitize(&name.to_utf8_string_lossy())
     } else {
         format!(
             "{}::{}",
-            lib.to_utf8_string_lossy(),
-            name.to_utf8_string_lossy()
+            sanitize(&lib.to_utf8_string_lossy()),
+            sanitize(&name.to_utf8_string_lossy())
         )
     }
 }

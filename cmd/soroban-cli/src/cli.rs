@@ -20,11 +20,7 @@ pub async fn main() {
     // Map SOROBAN_ env vars to STELLAR_ env vars for backwards compatibility
     // with the soroban-cli prior to when the stellar-cli was released.
     //
-    let mut vars = env_vars::unprefixed();
-
-    // Manually add SECRET_KEY so it doesn't leak on `stellar env`.
-    vars.push("SECRET_KEY");
-    vars.push("SIGN_WITH_KEY");
+    let vars = env_vars::unprefixed();
 
     for var in vars {
         let soroban_key = format!("SOROBAN_{var}");
