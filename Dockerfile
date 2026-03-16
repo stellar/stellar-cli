@@ -7,7 +7,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
-COPY stellar-${TARGETARCH} /usr/local/bin/stellar
+COPY stellar-${TARGETARCH}/stellar /usr/local/bin/stellar
 
 ENV STELLAR_CONFIG_HOME=/config
 ENV STELLAR_DATA_HOME=/data

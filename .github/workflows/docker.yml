@@ -63,12 +63,6 @@ jobs:
           pattern: stellar-*
           merge-multiple: false
 
-      - name: Stage binaries for Docker context
-        run: |
-          mv stellar-amd64/stellar stellar-amd64
-          mv stellar-arm64/stellar stellar-arm64
-          chmod +x stellar-amd64 stellar-arm64
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
 
