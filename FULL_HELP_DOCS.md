@@ -62,6 +62,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `message` — Sign and verify arbitrary messages using SEP-53
 - `fee-stats` — ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
 - `fees` — Fetch network feestats and configure CLI fee settings
+- `watch` — Live TUI dashboard for Soroban RPC events and transactions
 
 ###### **Options:**
 
@@ -4704,3 +4705,34 @@ Remove the default inclusion fee settings for the CLI
 
 - `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar watch`
+
+Live TUI dashboard for Soroban RPC events and transactions
+
+**Usage:** `stellar watch [OPTIONS]`
+
+###### **Options:**
+
+- `-a`, `--address <ADDRESSES>` — Filter by public key (repeatable)
+- `-t`, `--token <TOKENS>` — Filter by asset code or contract ID (repeatable)
+- `-e`, `--event-type <EVENT_TYPES>` — Filter by event/operation type (repeatable)
+- `--poll-interval <POLL_INTERVAL>` — RPC poll interval in seconds
+
+  Default value: `5`
+
+- `--max-events <MAX_EVENTS>` — Max events to keep in memory
+
+  Default value: `1000`
+
+###### **Options (Global):**
+
+- `--global` — ⚠️ Deprecated: global config is always on
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options (RPC):**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config

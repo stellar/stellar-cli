@@ -112,7 +112,7 @@ jsonrpsee-core = "0.20.1"
 walkdir = "2.5.0"
 toml_edit = "0.22.20"
 toml = "0.8.19"
-reqwest = "0.12.7"
+reqwest = "0.13.2"
 # Dependabot security fixes (transitive dependencies)
 time = ">=0.3.47"
 bytes = ">=1.11.1"

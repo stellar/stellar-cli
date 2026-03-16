@@ -72,9 +72,8 @@ sha2 = { workspace = true }
 csv = "1.1.6"
 # zeroize feature ensures that all sensitive data is zeroed out when dropped
 ed25519-dalek = { workspace = true, features = ["zeroize"] }
-reqwest = { version = "0.12.7", default-features = false, features = [
-    "rustls-tls",
-    "http2",
+reqwest = { version = "0.13.2", default-features = false, features = [
+    "native-tls",
     "json",
     "blocking",
     "stream",
@@ -128,6 +127,9 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
+ratatui = "0.30"
+crossterm = "0.29"
+eventsource-stream = "0.2"
 
 [build-dependencies]
 crate-git-revision = "0.0.6"

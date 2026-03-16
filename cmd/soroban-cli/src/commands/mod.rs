@@ -23,6 +23,7 @@ pub mod plugin;
 pub mod snapshot;
 pub mod tx;
 pub mod version;
+pub mod watch;
 
 pub mod txn_result;
 
@@ -144,6 +145,7 @@ impl Root {
             Cmd::Env(env) => env.run(&self.global_args)?,
             Cmd::Fees(env) => env.run(&self.global_args).await?,
             Cmd::FeeStats(env) => env.run(&self.global_args).await?,
+            Cmd::Watch(cmd) => cmd.run()?,
         }
         Ok(())
     }
@@ -238,6 +240,9 @@ pub enum Cmd {
     /// Fetch network feestats and configure CLI fee settings
     #[command(subcommand)]
     Fees(fees::Cmd),
+
+    /// Live TUI dashboard for Soroban RPC events and transactions
+    Watch(watch::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -302,4 +307,7 @@ pub enum Error {
 
     #[error(transparent)]
     Fees(#[from] fees::Error),
+
+    #[error(transparent)]
+    Watch(#[from] watch::Error),
 }
