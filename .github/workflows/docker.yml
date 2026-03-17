@@ -84,13 +84,13 @@ jobs:
 
           if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             version="${ref#v}"
-            echo "DOCKER_TAGS=stellar/cli:${version},stellar/cli:latest" >> $GITHUB_ENV
+            echo "DOCKER_TAGS=stellar/stellar-cli:${version},stellar/stellar-cli:latest" >> $GITHUB_ENV
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             echo "::error::Release tag '${ref}' is not a valid version tag (expected vX.Y.Z)."
             exit 1
           else
             commit="$(git rev-parse HEAD)"
-            echo "DOCKER_TAGS=stellar/cli:${commit}" >> $GITHUB_ENV
+            echo "DOCKER_TAGS=stellar/stellar-cli:${commit}" >> $GITHUB_ENV
           fi
 
       - name: Build and push
