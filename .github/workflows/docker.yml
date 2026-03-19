@@ -100,3 +100,16 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.DOCKER_TAGS }}
+
+      - name: Update Docker Hub description
+        run: |
+          TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login/" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"${{ secrets.DOCKERHUB_USERNAME }}","password":"${{ secrets.DOCKERHUB_TOKEN }}"}' \
+            | jq -r .token)
+
+          jq -n --arg desc "$(cat ./docker/README.md)" '{"full_description": $desc}' | \
+            curl -s -X PATCH "https://hub.docker.com/v2/repositories/stellar/stellar-cli/" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -d @-
