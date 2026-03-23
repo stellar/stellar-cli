@@ -1,4 +1,4 @@
-use crate::commands::contract::arg_parsing::Error::HelpMessage;
+use crate::commands::contract::arg_parsing::Error::{CannotParseXDR, HelpMessage};
 use crate::commands::contract::deploy::wasm::CONSTRUCTOR_FUNCTION_NAME;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
@@ -16,8 +16,10 @@ use std::convert::TryInto;
 use std::env;
 use std::ffi::OsString;
 use std::fmt::Debug;
-use std::path::PathBuf;
-use stellar_xdr::curr::ContractId;
+use std::fs::File;
+use std::io::{Cursor, Read};
+use std::path::{Path, PathBuf};
+use stellar_xdr::curr::{ContractId, Limited, Limits, ReadXdr, SkipWhitespace};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -77,6 +79,10 @@ pub enum Error {
     HelpMessage(String),
     #[error(transparent)]
     Signer(#[from] signer::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("cannot parse XDR: {error}")]
+    CannotParseXDR { error: xdr::Error },
 }
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<Signer>);
@@ -124,6 +130,50 @@ async fn build_host_function_parameters_with_filter(
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
 
     Ok((function, spec, invoke_args, signers))
+}
+
+pub async fn build_host_function_parameters_from_string_xdr(
+    string_xdr: &OsString,
+    spec_entries: &[ScSpecEntry],
+    config: &config::Args,
+) -> Result<HostFunctionParameters, Error> {
+    let spec = Spec(Some(spec_entries.to_vec()));
+    let invoke_args = invoke_contract_args_from_input(string_xdr)?;
+    let mut signers = Vec::<Signer>::new();
+    let args = invoke_args.args.to_vec();
+    for x in args {
+        let signer = match x {
+            ScVal::Address(addr) => {
+                let resolved = resolve_address(addr.to_string().as_str(), config)?;
+                resolve_signer(resolved.as_str(), config).await
+            }
+            _ => None,
+        };
+        if let Some(signer) = signer {
+            signers.push(signer);
+        }
+    }
+
+    Ok((
+        invoke_args.function_name.to_string(),
+        spec,
+        invoke_args,
+        signers,
+    ))
+}
+
+fn invoke_contract_args_from_input(input: &OsString) -> Result<InvokeContractArgs, Error> {
+    let read: &mut dyn Read = {
+        let exist = Path::new(input).try_exists();
+        if let Ok(true) = exist {
+            &mut File::open(input)?
+        } else {
+            &mut Cursor::new(input.clone().into_encoded_bytes())
+        }
+    };
+
+    let mut lim = Limited::new(SkipWhitespace::new(read), Limits::none());
+    InvokeContractArgs::read_xdr_base64_to_end(&mut lim).map_err(|e| CannotParseXDR { error: e })
 }
 
 fn build_clap_command(spec: &Spec, filter_constructor: bool) -> Result<clap::Command, Error> {

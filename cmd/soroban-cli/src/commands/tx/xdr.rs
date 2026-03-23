@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{stdin, Read};
 use std::io::{Cursor, IsTerminal};
 use std::path::Path;
-use stellar_xdr::curr::Limited;
+use stellar_xdr::curr::{Limited, SkipWhitespace};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,34 +40,6 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
     let mut lim = Limited::new(SkipWhitespace::new(read), Limits::none());
     Ok(TransactionEnvelope::read_xdr_base64_to_end(&mut lim)?)
 }
-
-// TODO: use SkipWhitespace from rs-stellar-xdr once it's updated to 23.0
-pub struct SkipWhitespace<R: Read> {
-    pub inner: R,
-}
-
-impl<R: Read> SkipWhitespace<R> {
-    pub fn new(inner: R) -> Self {
-        SkipWhitespace { inner }
-    }
-}
-
-impl<R: Read> Read for SkipWhitespace<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let n = self.inner.read(buf)?;
-
-        let mut written = 0;
-        for read in 0..n {
-            if !buf[read].is_ascii_whitespace() {
-                buf[written] = buf[read];
-                written += 1;
-            }
-        }
-
-        Ok(written)
-    }
-}
-//
 
 pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
     let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {

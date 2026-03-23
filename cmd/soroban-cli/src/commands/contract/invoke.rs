@@ -12,6 +12,7 @@ use soroban_spec::read::FromWasmError;
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
+use crate::commands::contract::arg_parsing::build_host_function_parameters_from_string_xdr;
 use crate::commands::tx::fetch;
 use crate::log::extract_events;
 use crate::print::Print;
@@ -55,9 +56,18 @@ pub struct Cmd {
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
 
+    /// (Optional) Base-64 InvokeContractArgs envelope XDR or file containing XDR to decode. If used,
+    /// function name and arguments must be omitted, as this value will be used instead.
+    #[arg(long, conflicts_with = "CONTRACT_FN_AND_ARGS")]
+    pub invoke_contract_args: Option<OsString>,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
-    #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
-    pub slop: Vec<OsString>,
+    #[arg(
+        last = true,
+        id = "CONTRACT_FN_AND_ARGS",
+        conflicts_with = "invoke_contract_args"
+    )]
+    pub slop: Option<Vec<OsString>>,
 
     #[command(flatten)]
     pub config: config::Args,
@@ -268,8 +278,13 @@ impl Cmd {
         let spec_entries = self.spec_entries()?;
 
         if let Some(spec_entries) = &spec_entries {
-            // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
+            if let Some(slop) = &self.slop {
+                // For testing wasm arg parsing
+                build_host_function_parameters(&contract_id, slop, spec_entries, config).await?;
+            } else if self.invoke_contract_args.is_none() {
+                // For giving a nice error message if --invoke-contract-args was not provided and slop not used
+                build_host_function_parameters(&contract_id, &[], spec_entries, config).await?;
+            }
         }
 
         let client = network.rpc_client()?;
@@ -294,8 +309,19 @@ impl Cmd {
         .await
         .map_err(Error::from)?;
 
-        let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
+        let params = if let Some(slop) = &self.slop {
+            build_host_function_parameters(&contract_id, slop, &spec_entries, config).await?
+        } else if let Some(invoke_contract_args) = &self.invoke_contract_args {
+            build_host_function_parameters_from_string_xdr(
+                invoke_contract_args,
+                &spec_entries,
+                config,
+            )
+            .await?
+        } else {
+            // For giving a nice error message if --invoke-contract-args was not provided and slop not used
+            build_host_function_parameters(&contract_id, &[], &spec_entries, config).await?
+        };
 
         let (function, spec, host_function_params, signers) = params;
 
