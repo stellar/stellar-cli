@@ -56,6 +56,8 @@ pub struct Cmd {
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
 
+    /// (Optional) Base-64 InvokeContractArgs envelope XDR or file containing XDR to decode. If used,
+    /// function name and arguments must be omitted, as this value will be used instead.
     #[arg(long, conflicts_with = "CONTRACT_FN_AND_ARGS")]
     pub invoke_contract_args: Option<OsString>,
 
