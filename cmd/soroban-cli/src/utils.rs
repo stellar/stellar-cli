@@ -284,7 +284,6 @@ pub mod args {
 
 pub mod rpc {
     use crate::xdr;
-    use sha2::{Digest, Sha256};
     use soroban_rpc::{Client, Error};
     use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 
@@ -299,30 +298,31 @@ pub mod rpc {
             ));
         }
         let contract_data_entry = &entries[0];
-        let code = match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())? {
+        let code = match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())?
+        {
             LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Vec::from(code),
             scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
         };
-        verify_wasm_hash(&code, hash)?;
+        super::verify_wasm_hash(&code, hash)?;
         Ok(code)
     }
+}
 
-    // Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch
-    // variant. The message makes the actual failure reason clear.
-    pub(crate) fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), Error> {
-        let computed_hash = Hash(Sha256::digest(code).into());
-        if computed_hash != *expected_hash {
-            return Err(Error::NotFound(
-                "WASM hash mismatch".to_string(),
-                format!(
-                    "expected {}, got {}",
-                    hex::encode(expected_hash.0),
-                    hex::encode(computed_hash.0),
-                ),
-            ));
-        }
-        Ok(())
+// Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch
+// variant. The message makes the actual failure reason clear.
+fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), soroban_rpc::Error> {
+    let computed_hash = Hash(Sha256::digest(code).into());
+    if computed_hash != *expected_hash {
+        return Err(soroban_rpc::Error::NotFound(
+            "WASM hash mismatch".to_string(),
+            format!(
+                "expected {}, got {}",
+                hex::encode(expected_hash.0),
+                hex::encode(computed_hash.0),
+            ),
+        ));
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -352,7 +352,7 @@ mod tests {
 
         let wasm_bytes = b"\0asm fake wasm content";
         let correct_hash = Hash(Sha256::digest(wasm_bytes).into());
-        assert!(rpc::verify_wasm_hash(wasm_bytes, &correct_hash).is_ok());
+        assert!(verify_wasm_hash(wasm_bytes, &correct_hash).is_ok());
     }
 
     #[test]
@@ -361,7 +361,7 @@ mod tests {
 
         let wasm_bytes = b"\0asm fake wasm content";
         let wrong_hash = Hash([0xAB; 32]);
-        let err = rpc::verify_wasm_hash(wasm_bytes, &wrong_hash).unwrap_err();
+        let err = verify_wasm_hash(wasm_bytes, &wrong_hash).unwrap_err();
         let err_msg = err.to_string();
         assert!(
             err_msg.contains("WASM hash mismatch"),
