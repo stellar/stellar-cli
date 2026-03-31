@@ -307,15 +307,17 @@ pub mod rpc {
         Ok(code)
     }
 
-    pub fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), Error> {
+    // Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch
+    // variant. The message makes the actual failure reason clear.
+    pub(crate) fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), Error> {
         let computed_hash = Hash(Sha256::digest(code).into());
         if computed_hash != *expected_hash {
             return Err(Error::NotFound(
-                "Contract Code with matching hash".to_string(),
+                "WASM hash mismatch".to_string(),
                 format!(
-                    "requested {}, got {}",
-                    hex::encode(expected_hash),
-                    hex::encode(computed_hash)
+                    "expected {}, got {}",
+                    hex::encode(expected_hash.0),
+                    hex::encode(computed_hash.0),
                 ),
             ));
         }
@@ -360,9 +362,18 @@ mod tests {
         let wasm_bytes = b"\0asm fake wasm content";
         let wrong_hash = Hash([0xAB; 32]);
         let err = rpc::verify_wasm_hash(wasm_bytes, &wrong_hash).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Contract Code with matching hash not found: requested abababababababababababababababababababababababababababababababab, got 501dc4e05f47c4713c4a27e89a5b07ed769bb2cc858bcf46de9bed13ae65af29"
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("WASM hash mismatch"),
+            "expected 'WASM hash mismatch' in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("abababababababababababababababababababababababababababababababab"),
+            "expected expected-hash in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("501dc4e05f47c4713c4a27e89a5b07ed769bb2cc858bcf46de9bed13ae65af29"),
+            "expected computed-hash in error: {err_msg}"
         );
     }
 }
