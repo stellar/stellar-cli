@@ -19,7 +19,9 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
-use stellar_xdr::curr::{ContractId, Limited, Limits, ReadXdr, SkipWhitespace};
+use stellar_xdr::curr::{
+    ContractId, InvokeHostFunctionOp, Limited, Limits, ReadXdr, SkipWhitespace,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -132,37 +134,7 @@ async fn build_host_function_parameters_with_filter(
     Ok((function, spec, invoke_args, signers))
 }
 
-pub async fn build_host_function_parameters_from_string_xdr(
-    string_xdr: &OsString,
-    spec_entries: &[ScSpecEntry],
-    config: &config::Args,
-) -> Result<HostFunctionParameters, Error> {
-    let spec = Spec(Some(spec_entries.to_vec()));
-    let invoke_args = invoke_contract_args_from_input(string_xdr)?;
-    let mut signers = Vec::<Signer>::new();
-    let args = invoke_args.args.to_vec();
-    for x in args {
-        let signer = match x {
-            ScVal::Address(addr) => {
-                let resolved = resolve_address(addr.to_string().as_str(), config)?;
-                resolve_signer(resolved.as_str(), config).await
-            }
-            _ => None,
-        };
-        if let Some(signer) = signer {
-            signers.push(signer);
-        }
-    }
-
-    Ok((
-        invoke_args.function_name.to_string(),
-        spec,
-        invoke_args,
-        signers,
-    ))
-}
-
-fn invoke_contract_args_from_input(input: &OsString) -> Result<InvokeContractArgs, Error> {
+pub fn invoke_host_function_op_from_input(input: &OsString) -> Result<InvokeHostFunctionOp, Error> {
     let read: &mut dyn Read = {
         let exist = Path::new(input).try_exists();
         if let Ok(true) = exist {
@@ -173,7 +145,7 @@ fn invoke_contract_args_from_input(input: &OsString) -> Result<InvokeContractArg
     };
 
     let mut lim = Limited::new(SkipWhitespace::new(read), Limits::none());
-    InvokeContractArgs::read_xdr_base64_to_end(&mut lim).map_err(|e| CannotParseXDR { error: e })
+    InvokeHostFunctionOp::read_xdr_base64_to_end(&mut lim).map_err(|e| CannotParseXDR { error: e })
 }
 
 fn build_clap_command(spec: &Spec, filter_constructor: bool) -> Result<clap::Command, Error> {
