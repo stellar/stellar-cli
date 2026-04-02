@@ -14,6 +14,7 @@ pub mod create_account;
 pub mod create_claimable_balance;
 pub mod create_passive_sell_offer;
 pub mod end_sponsoring_future_reserves;
+pub mod invoke;
 pub mod liquidity_pool_deposit;
 pub mod liquidity_pool_withdraw;
 pub mod manage_buy_offer;
@@ -73,6 +74,8 @@ pub enum Cmd {
     SetOptions(set_options::Cmd),
     #[command(about = super::help::SET_TRUSTLINE_FLAGS)]
     SetTrustlineFlags(set_trustline_flags::Cmd),
+    #[command(about = super::help::INVOKE)]
+    Invoke(invoke::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -107,6 +110,7 @@ impl TryFrom<&Cmd> for OperationBody {
             Cmd::RevokeSponsorship(cmd) => cmd.try_into()?,
             Cmd::SetOptions(cmd) => cmd.try_into()?,
             Cmd::SetTrustlineFlags(cmd) => cmd.try_into()?,
+            Cmd::Invoke(cmd) => cmd.try_into()?,
         })
     }
 }
@@ -139,6 +143,7 @@ impl Cmd {
             Cmd::RevokeSponsorship(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetOptions(cmd) => cmd.tx.handle_and_print(op, global_args).await,
             Cmd::SetTrustlineFlags(cmd) => cmd.tx.handle_and_print(op, global_args).await,
+            Cmd::Invoke(cmd) => cmd.tx.handle_and_print(op, global_args).await,
         }?;
         Ok(())
     }

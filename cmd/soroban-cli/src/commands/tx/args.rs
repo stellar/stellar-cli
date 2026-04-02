@@ -1,3 +1,4 @@
+use crate::commands::contract::arg_parsing;
 use crate::{
     commands::{global, txn_result::TxnEnvelopeResult},
     config::{
@@ -50,6 +51,8 @@ pub enum Error {
     InvalidPoolId(String),
     #[error("invalid hex for {name}: {hex}")]
     InvalidHex { name: String, hex: String },
+    #[error(transparent)]
+    ArgParsing(#[from] arg_parsing::Error),
 }
 
 impl Args {
