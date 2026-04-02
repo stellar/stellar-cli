@@ -24,4 +24,4 @@ pub const BEGIN_SPONSORING_FUTURE_RESERVES: &str =
     "Begin sponsoring future reserves for another account";
 pub const END_SPONSORING_FUTURE_RESERVES: &str = "End sponsoring future reserves";
 pub const REVOKE_SPONSORSHIP: &str = "Revoke sponsorship of a ledger entry or signer";
-pub const INVOKE: &str = "Invoke a smart contract";
+pub const INVOKE: &str = "Invoke a smart contract using a given InvokeHostFunctionOp XDR";

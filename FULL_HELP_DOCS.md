@@ -1877,7 +1877,7 @@ Create a new transaction
 - `revoke-sponsorship` — Revoke sponsorship of a ledger entry or signer
 - `set-options` — Set account options like flags, signers, and home domain
 - `set-trustline-flags` — Configure authorization and trustline flags for an asset
-- `invoke` — Invoke a smart contract
+- `invoke` — Invoke a smart contract using a given InvokeHostFunctionOp XDR
 
 ## `stellar tx new account-merge`
 
@@ -2627,7 +2627,7 @@ Configure authorization and trustline flags for an asset
 
 ## `stellar tx new invoke`
 
-Invoke a smart contract
+Invoke a smart contract using a given InvokeHostFunctionOp XDR
 
 **Usage:** `stellar tx new invoke [OPTIONS] --source-account <SOURCE_ACCOUNT> --xdr <XDR>`
 
