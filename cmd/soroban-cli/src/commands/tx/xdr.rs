@@ -54,20 +54,26 @@ impl<R: Read> SkipWhitespace<R> {
 
 impl<R: Read> Read for SkipWhitespace<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let n = self.inner.read(buf)?;
+        loop {
+            let n = self.inner.read(buf)?;
+            if n == 0 {
+                return Ok(0);
+            }
 
-        let mut written = 0;
-        for read in 0..n {
-            if !buf[read].is_ascii_whitespace() {
-                buf[written] = buf[read];
-                written += 1;
+            let mut written = 0;
+            for read in 0..n {
+                if !buf[read].is_ascii_whitespace() {
+                    buf[written] = buf[read];
+                    written += 1;
+                }
+            }
+
+            if written > 0 {
+                return Ok(written);
             }
         }
-
-        Ok(written)
     }
 }
-//
 
 pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
     let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
@@ -82,4 +88,55 @@ pub fn add_op(tx_env: TransactionEnvelope, op: Operation) -> Result<TransactionE
     ops.push(op);
     tx.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
     Ok(tx.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn skip_whitespace_preserves_content() {
+        let input = Cursor::new(b"helloworld");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn skip_whitespace_strips_all_whitespace_types() {
+        let input = Cursor::new(b"hello \t\n\r world");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_only_whitespace() {
+        let input = Cursor::new(b"\n \t \r\n");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_empty_input() {
+        let input = Cursor::new(b"");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_leading_trailing_whitespace() {
+        let input = Cursor::new(b"\n\nhello\n\n");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "hello");
+    }
 }
