@@ -196,6 +196,9 @@ impl Cmd {
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
         let source_account = config.source_account().await?;
         let extend_to = self.ledgers_to_extend(&client).await?;
 
