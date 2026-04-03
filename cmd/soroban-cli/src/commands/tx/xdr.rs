@@ -75,6 +75,21 @@ impl<R: Read> Read for SkipWhitespace<R> {
     }
 }
 
+pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
+    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
+        return Err(Error::OnlyTransactionV1Supported);
+    };
+    Ok(tx)
+}
+
+pub fn add_op(tx_env: TransactionEnvelope, op: Operation) -> Result<TransactionEnvelope, Error> {
+    let mut tx = unwrap_envelope_v1(tx_env)?;
+    let mut ops = tx.operations.to_vec();
+    ops.push(op);
+    tx.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
+    Ok(tx.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,19 +139,4 @@ mod tests {
         reader.read_to_string(&mut result).unwrap();
         assert_eq!(result, "hello");
     }
-}
-
-pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
-    let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
-        return Err(Error::OnlyTransactionV1Supported);
-    };
-    Ok(tx)
-}
-
-pub fn add_op(tx_env: TransactionEnvelope, op: Operation) -> Result<TransactionEnvelope, Error> {
-    let mut tx = unwrap_envelope_v1(tx_env)?;
-    let mut ops = tx.operations.to_vec();
-    ops.push(op);
-    tx.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
-    Ok(tx.into())
 }
