@@ -1283,6 +1283,10 @@ Remove an identity
 
 - `<NAME>` — Identity to remove
 
+###### **Options:**
+
+- `--force` — Skip confirmation prompt
+
 ###### **Options (Global):**
 
 - `--global` — ⚠️ Deprecated: global config is always on
