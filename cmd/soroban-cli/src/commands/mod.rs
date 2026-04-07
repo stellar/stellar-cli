@@ -86,21 +86,12 @@ pub struct Root {
 
 impl Root {
     pub fn new() -> Result<Self, Error> {
-        Self::try_parse().map_err(|e| {
-            if std::env::args().any(|s| s == "--list") {
-                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
-                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
-                let _ = plugin::ls::Cmd.run();
-                std::process::exit(0);
-            }
-
-            match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::default::run() {
-                    Ok(()) => Error::Clap(e),
-                    Err(e) => Error::PluginDefault(e),
-                },
-                _ => Error::Clap(e),
-            }
+        Self::try_parse().map_err(|e| match e.kind() {
+            ErrorKind::InvalidSubcommand => match plugin::default::run() {
+                Ok(()) => Error::Clap(e),
+                Err(e) => Error::PluginDefault(e),
+            },
+            _ => Error::Clap(e),
         })
     }
 

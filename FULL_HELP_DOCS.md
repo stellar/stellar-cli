@@ -63,10 +63,6 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `fee-stats` — ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
 - `fees` — Fetch network feestats and configure CLI fee settings
 
-###### **Options:**
-
-- `--list` — ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
-
 ###### **Options (Global):**
 
 - `--global` — ⚠️ Deprecated: global config is always on
