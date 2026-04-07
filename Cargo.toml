@@ -48,37 +48,37 @@ version = "26.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-# version = "25.2.0"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-spec-rust]
-# version = "25.2.0"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-sdk]
-# version = "25.2.0"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-env-host]
-# version = "25.0.2"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-token-sdk]
-# version = "25.0.2"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.stellar-asset-spec]
-# version = "25.0.2"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-# version = "25.0.2"
+version = "25.3.1"
 git = "https://github.com/stellar/rs-soroban-sdk"
 branch = "release/v26-preview"
 
