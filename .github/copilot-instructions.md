@@ -9,7 +9,7 @@ Stellar CLI is a Rust-based command-line tool for interacting with the Stellar n
 ### Bootstrap and Build
 
 - Install system dependencies: `sudo apt-get update && sudo apt-get install -y libudev-dev libdbus-1-dev build-essential`
-- Install Rust toolchain: `rustup update` (Rust 1.89.0+ required)
+- Install Rust toolchain: `rustup update` (Rust 1.91.0+ required)
 - Add WebAssembly target: `rustup target add wasm32v1-none`
 - Build main CLI: `cargo build --bin stellar` -- takes 45 seconds. NEVER CANCEL.
 - Install CLI: `make install` -- takes 3 minutes with potential network timeouts. NEVER CANCEL. Set timeout to 10+ minutes.
