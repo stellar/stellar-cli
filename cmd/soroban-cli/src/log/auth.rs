@@ -13,8 +13,8 @@ pub fn auth(auth: &[VecM<SorobanAuthorizationEntry>]) {
 }
 
 /// Format a single auth entry for display.
-pub fn format_auth_entry(entry: &SorobanAuthorizationEntry, index: usize) -> String {
-    let mut result = format!("  Auth Entry #{index}:\n");
+pub fn format_auth_entry(entry: &SorobanAuthorizationEntry) -> String {
+    let mut result = format!("  Auth Entry:\n");
 
     match &entry.credentials {
         SorobanCredentials::Address(creds) => {

@@ -39,7 +39,7 @@ pub fn check_auth(tx: &Transaction, quiet: bool) -> Result<(), signer::Error> {
     };
 
     let mut non_strict_entries: Vec<&SorobanAuthorizationEntry> = Vec::new();
-    for (i, entry) in invoke_host_op.auths().enumerate() {
+    for entry in invoke_host_op.auths() {
         let SorobanCredentials::Address(ref creds) = entry.credentials else {
             // SourceAccount credential entries are not signed explicitly
             // so there is no risk of them being used outside the context of the transaction.
@@ -50,7 +50,7 @@ pub fn check_auth(tx: &Transaction, quiet: bool) -> Result<(), signer::Error> {
         if let Some(auth_addr) = auth_address_bytes(&creds.address) {
             if source_bytes == auth_addr {
                 print.warnln("Source account detected with Address credentials. This requires an extra signature and is not expected.");
-                print.warnln(auth::format_auth_entry(entry, i));
+                print.warnln(format_auth_entry(entry));
                 return Err(signer::Error::InvalidAuthEntry);
             }
         }
@@ -59,7 +59,7 @@ pub fn check_auth(tx: &Transaction, quiet: bool) -> Result<(), signer::Error> {
         // context of the transaction's host function. This check is overly strict as it doesn't
         // allow for the usage of `require_auth_for_args`.
         let is_strict = match &invoke_host_op.host_function {
-            // For `InvokeContract`, validate the root invocation contract and function name match.
+            // For `InvokeContract`, validate the root invocation matches the host function arguments.
             HostFunction::InvokeContract(op) => match &entry.root_invocation.function {
                 SorobanAuthorizedFunction::ContractFn(auth_args) => auth_args == op,
                 _ => false,
@@ -80,7 +80,7 @@ pub fn check_auth(tx: &Transaction, quiet: bool) -> Result<(), signer::Error> {
                     "Auth entry not expected for the host function {}",
                     invoke_host_op.host_function.name()
                 ));
-                print.warnln(auth::format_auth_entry(entry, i));
+                print.warnln(auth::format_auth_entry(entry));
                 return Err(signer::Error::InvalidAuthEntry);
             }
         };
@@ -96,8 +96,8 @@ pub fn check_auth(tx: &Transaction, quiet: bool) -> Result<(), signer::Error> {
         print.warnln(
             "Authorization entries detected that could be submitted outside the context of this transaction:",
         );
-        for (i, entry) in non_strict_entries.iter().enumerate() {
-            print.println(format_auth_entry(entry, i));
+        for entry in non_strict_entries {
+            print.println(format_auth_entry(entry));
         }
         Err(signer::Error::OutOfContextAuthEntry)
     }
