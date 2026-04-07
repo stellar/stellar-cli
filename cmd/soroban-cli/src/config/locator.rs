@@ -110,10 +110,6 @@ pub enum Error {
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// ⚠️ Deprecated: global config is always on
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub global: bool,
-
     /// Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise.
     /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
@@ -159,11 +155,6 @@ impl Location {
 
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        if self.global {
-            let print = Print::new(false);
-            print.warnln("Flag --global is deprecated: global config is always used");
-        }
-
         self.global_config_path()
     }
 

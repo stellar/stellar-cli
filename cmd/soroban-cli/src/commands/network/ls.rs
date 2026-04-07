@@ -45,7 +45,7 @@ impl Cmd {
                     format!("\n{}", lines.join("\n"))
                 };
 
-                (!self.config_locator.global || location == "Global").then(|| {
+                (location == "Global").then(|| {
                     Some(format!(
                         "Name: {name}\nRPC url: {rpc_url}\nRPC headers:{headers}\nNetwork passphrase: {passphrase}",
                         rpc_url = network.rpc_url,
