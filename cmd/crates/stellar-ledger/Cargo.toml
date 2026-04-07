@@ -20,7 +20,7 @@ ed25519-dalek = { workspace = true }
 stellar-strkey = { workspace = true }
 ledger-transport-hid = "0.10.0"
 ledger-transport = "0.10.0"
-slip10 = { package = "slipped10", version = "0.4.6" }
+slip10 = { package = "slipped10", version = "0.4.7" }
 tracing = { workspace = true }
 hex.workspace = true
 byteorder = "1.5.0"
