@@ -3801,6 +3801,7 @@ Decode and encode XDR
 - `encode` — Encode XDR
 - `compare` — Compare two XDR values with each other
 - `generate` — Generate XDR values
+- `xfile` — Preprocess XDR .x files
 - `version` — Print version information
 
 ###### **Arguments:**
@@ -3841,7 +3842,7 @@ View information about types
 
 ###### **Options:**
 
-- `--type <TYPE>` — XDR type to decode
+- `--type <TYPE>` — XDR type to generate schema for
 - `--output <OUTPUT>`
 
   Default value: `json-schema-draft201909`
@@ -4005,6 +4006,31 @@ Generate arbitrary XDR values
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
+
+## `stellar xdr xfile`
+
+Preprocess XDR .x files
+
+**Usage:** `stellar xdr xfile <COMMAND>`
+
+###### **Subcommands:**
+
+- `preprocess` — Preprocess XDR .x files by evaluating #ifdef/#ifndef/#elif/#else/#endif directives
+
+## `stellar xdr xfile preprocess`
+
+Preprocess XDR .x files by evaluating #ifdef/#ifndef/#elif/#else/#endif directives
+
+**Usage:** `stellar xdr xfile preprocess [OPTIONS] [INPUT]`
+
+###### **Arguments:**
+
+- `<INPUT>` — XDR .x file to preprocess, or stdin if omitted
+
+###### **Options:**
+
+- `--features <FEATURES>` — Features/symbols to define
+- `--all-features` — Enable all features/symbols found in the input
 
 ## `stellar xdr version`
 

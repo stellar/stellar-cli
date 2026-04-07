@@ -44,34 +44,48 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "25.0.0"
+version = "26.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "25.2.0"
+# version = "25.2.0"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "25.2.0"
+# version = "25.2.0"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-sdk]
-version = "25.2.0"
+# version = "25.2.0"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-env-host]
-version = "25.0.2"
+# version = "25.0.2"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "25.0.2"
+# version = "25.0.2"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "25.0.2"
+# version = "25.0.2"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "25.0.2"
+# version = "25.0.2"
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "release/v26-preview"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "25.0.0"
+version = "26.0.0-rc.1"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
