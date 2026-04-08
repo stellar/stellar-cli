@@ -585,6 +585,9 @@ impl Spec {
             (val, ScType::Result(inner)) => self.xdr_to_json(val, &inner.ok_type)?,
 
             (val, ScType::Option(inner)) => self.xdr_to_json(val, &inner.value_type)?,
+
+            (val, ScType::Val) => to_json(val)?,
+
             (ScVal::Map(Some(_)) | ScVal::Vec(Some(_)) | ScVal::U32(_), type_) => {
                 self.sc_object_to_json(val, type_)?
             }
@@ -2449,5 +2452,36 @@ mod tests {
 
         let json = spec.sc_map_to_json(&sc_map, &map_type).unwrap();
         assert_eq!(json.to_string(), r#"{"foo":2}"#);
+    }
+
+    #[test]
+    fn test_xdr_to_json_sc_type_val_delegates_to_to_json() {
+        // Regression for #2469: when a contract spec declares the return type
+        // as Val (the generic catch-all), xdr_to_json used to panic via
+        // todo!() for any non-Void ScVal. It must now delegate to to_json()
+        // and produce the same output regardless of the underlying variant.
+        let spec = Spec(None);
+
+        let cases = vec![
+            ScVal::Void,
+            ScVal::Bool(true),
+            ScVal::U32(7),
+            ScVal::U64(42),
+            ScVal::I64(-42),
+            ScVal::Symbol(ScSymbol("hello".try_into().unwrap())),
+            ScVal::String(ScString("world".try_into().unwrap())),
+            ScVal::Bytes(ScBytes(vec![0xbe, 0xef].try_into().unwrap())),
+        ];
+
+        for val in cases {
+            let direct = to_json(&val).unwrap();
+            let via_xdr = spec
+                .xdr_to_json(&val, &ScType::Val)
+                .unwrap_or_else(|e| panic!("xdr_to_json panicked for {val:?}: {e:?}"));
+            assert_eq!(
+                direct, via_xdr,
+                "ScType::Val should delegate to to_json for {val:?}"
+            );
+        }
     }
 }
