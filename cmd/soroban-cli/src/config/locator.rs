@@ -120,6 +120,7 @@ pub struct Args {
     pub config_dir: Option<PathBuf>,
 }
 
+#[derive(Clone)]
 pub enum Location {
     Local(PathBuf),
     Global(PathBuf),
@@ -286,6 +287,12 @@ impl Args {
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
         utils::validate_name(name)?;
         KeyType::Identity.read_with_global(name, self)
+    }
+
+    // TODO: Remove once local storage is no longer supported
+    pub fn read_identity_with_location(&self, name: &str) -> Result<(Key, Location), Error> {
+        utils::validate_name(name)?;
+        KeyType::Identity.read_with_global_with_location(name, self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -643,15 +650,23 @@ impl KeyType {
         key: &str,
         locator: &Args,
     ) -> Result<T, Error> {
+        Ok(self.read_with_global_with_location(key, locator)?.0)
+    }
+
+    pub fn read_with_global_with_location<T: DeserializeOwned>(
+        &self,
+        key: &str,
+        locator: &Args,
+    ) -> Result<(T, Location), Error> {
         for location in locator.local_and_global()? {
             let path = self.path(location.as_ref(), key);
 
             if let Ok(t) = Self::read_from_path(&path) {
-                if let Location::Local(config_dir) = location {
+                if let Location::Local(config_dir) = location.clone() {
                     print_deprecation_warning(&config_dir);
                 }
 
-                return Ok(t);
+                return Ok((t, location));
             }
         }
         Err(Error::ConfigMissing(self.to_string(), key.to_string()))
@@ -702,9 +717,12 @@ impl KeyType {
         pwd.join(self.to_string())
     }
 
-    fn path(&self, pwd: &Path, key: &str) -> PathBuf {
+    pub fn path(&self, pwd: &Path, key: &str) -> PathBuf {
         let mut path = self.root(pwd).join(key);
-        path.set_extension("toml");
+        match self {
+            KeyType::Identity | KeyType::Network => path.set_extension("toml"),
+            KeyType::ContractIds => path.set_extension("json"),
+        };
         path
     }
 
