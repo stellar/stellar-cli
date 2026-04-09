@@ -298,11 +298,31 @@ pub mod rpc {
             ));
         }
         let contract_data_entry = &entries[0];
-        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())? {
-            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
-            scval => Err(Error::UnexpectedContractCodeDataType(scval)),
-        }
+        let code = match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())?
+        {
+            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Vec::from(code),
+            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+        };
+        super::verify_wasm_hash(&code, hash)?;
+        Ok(code)
     }
+}
+
+// Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch
+// variant. The message makes the actual failure reason clear.
+fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), soroban_rpc::Error> {
+    let computed_hash = Hash(Sha256::digest(code).into());
+    if computed_hash != *expected_hash {
+        return Err(soroban_rpc::Error::NotFound(
+            "WASM hash mismatch".to_string(),
+            format!(
+                "expected {}, got {}",
+                hex::encode(expected_hash.0),
+                hex::encode(computed_hash.0),
+            ),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -323,5 +343,37 @@ mod tests {
             ),
             Err(err) => panic!("Failed to parse contract id: {err}"),
         }
+    }
+
+    #[test]
+    fn test_verify_wasm_hash_matching() {
+        use sha2::{Digest, Sha256};
+        use stellar_xdr::curr::Hash;
+
+        let wasm_bytes = b"\0asm fake wasm content";
+        let correct_hash = Hash(Sha256::digest(wasm_bytes).into());
+        assert!(verify_wasm_hash(wasm_bytes, &correct_hash).is_ok());
+    }
+
+    #[test]
+    fn test_verify_wasm_hash_mismatch() {
+        use stellar_xdr::curr::Hash;
+
+        let wasm_bytes = b"\0asm fake wasm content";
+        let wrong_hash = Hash([0xAB; 32]);
+        let err = verify_wasm_hash(wasm_bytes, &wrong_hash).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("WASM hash mismatch"),
+            "expected 'WASM hash mismatch' in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("abababababababababababababababababababababababababababababababab"),
+            "expected expected-hash in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("501dc4e05f47c4713c4a27e89a5b07ed769bb2cc858bcf46de9bed13ae65af29"),
+            "expected computed-hash in error: {err_msg}"
+        );
     }
 }
