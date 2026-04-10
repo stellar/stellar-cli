@@ -589,6 +589,8 @@ impl Spec {
                 self.sc_object_to_json(val, type_)?
             }
 
+            (val, ScType::Val) => to_json(val)?,
+
             (ScVal::Error(_), ScType::Error) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
         })
