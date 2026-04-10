@@ -1248,6 +1248,10 @@ Remove an identity
 
 - `<NAME>` — Identity to remove
 
+###### **Options:**
+
+- `--force` — Skip confirmation prompt
+
 ###### **Options (Global):**
 
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
