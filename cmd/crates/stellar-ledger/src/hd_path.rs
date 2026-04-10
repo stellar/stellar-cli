@@ -1,7 +1,6 @@
-use crate::Error;
+use crate::{Error, HD_PATH_ELEMENTS_COUNT};
 
 const HARDENED_OFFSET: u32 = 1 << 31;
-const STELLAR_PATH_DEPTH: u8 = 3;
 const PURPOSE: u32 = 44;
 const COIN_TYPE: u32 = 148;
 
@@ -11,7 +10,7 @@ pub struct HdPath(pub u32);
 impl HdPath {
     #[must_use]
     pub fn depth(&self) -> u8 {
-        STELLAR_PATH_DEPTH
+        HD_PATH_ELEMENTS_COUNT
     }
 }
 
@@ -62,7 +61,7 @@ mod test {
 
     #[test]
     fn test_depth() {
-        assert_eq!(HdPath(7).depth(), STELLAR_PATH_DEPTH);
+        assert_eq!(HdPath(7).depth(), HD_PATH_ELEMENTS_COUNT);
     }
 
     #[test]
