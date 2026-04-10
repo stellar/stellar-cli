@@ -33,7 +33,7 @@ impl Cmd {
             .config_locator
             .list_networks_long()?
             .iter()
-            .filter_map(|(name, network, _)| {
+            .map(|(name, network, _)| {
                 let headers = if network.rpc_headers.is_empty() {
                     " not set".to_string()
                 } else {
@@ -45,11 +45,11 @@ impl Cmd {
                     format!("\n{}", lines.join("\n"))
                 };
 
-                Some(format!(
+                format!(
                     "Name: {name}\nRPC url: {rpc_url}\nRPC headers:{headers}\nNetwork passphrase: {passphrase}",
                     rpc_url = network.rpc_url,
                     passphrase = network.network_passphrase,
-                ))
+                )
             })
             .collect())
     }
