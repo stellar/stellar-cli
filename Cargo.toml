@@ -48,39 +48,25 @@ version = "26.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-sdk]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-env-host]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "25.3.1"
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "release/v26-preview"
+version = "26.0.0-rc.1"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
@@ -90,7 +76,7 @@ version = "26.0.0-rc.1"
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
 stellar-strkey = "0.0.15"
-sep5 = "0.0.4"
+sep5 = "0.1.0"
 base64 = "0.21.2"
 thiserror = "1.0.46"
 sha2 = "0.10.7"

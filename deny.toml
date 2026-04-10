@@ -66,6 +66,7 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "ISC",
     "BSD-2-Clause",
+    "CC0-1.0",
     "Unicode-3.0",
 ]
 # The confidence threshold for detecting a license from license text.
@@ -188,14 +189,6 @@ deny = [
 
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-
-    # Requires updating slipped10 to newest sha2 others are dependents that will be updated
-    { crate = "sha2", reason = "temporary duplicate until upstream updates" },
-    { crate = "digest", reason = "temporary duplicate until upstream updates" },
-    { crate = "block-buffer", reason = "temporary duplicate until upstream updates" },
-    # slipped again 0.12.1
-    { crate = "hmac", reason = "temp" },
-
     # syn is too large of a surface to check
     { crate = "syn", reason = "Too many crates haven't updated to v2" },
 
@@ -238,8 +231,7 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
 allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
-  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
-  "https://github.com/stellar/rs-soroban-sdk?branch=release%2Fv26-preview"
+  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66"
 ]
 
 [sources.allow-org]
