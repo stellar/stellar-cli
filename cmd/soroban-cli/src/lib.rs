@@ -12,6 +12,7 @@ mod cli;
 pub use cli::main;
 
 pub mod assembled;
+pub mod auth;
 pub mod color;
 pub mod commands;
 pub mod config;

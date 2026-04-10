@@ -30,8 +30,10 @@ pub enum Error {
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     TryFromSlice(#[from] std::array::TryFromSliceError),
-    #[error("User cancelled signing, perhaps need to add -y")]
-    UserCancelledSigning,
+    #[error("Signing authorization entries that could be submitted outside the context of the transaction is not supported in the CLI")]
+    OutOfContextAuthEntry,
+    #[error("Invalid Soroban authorization entry")]
+    InvalidAuthEntry,
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("Transaction envelope type not supported")]

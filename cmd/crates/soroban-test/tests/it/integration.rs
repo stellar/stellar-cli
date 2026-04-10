@@ -1,3 +1,4 @@
+mod auth;
 mod auto_build;
 mod bindings;
 mod constructor;
