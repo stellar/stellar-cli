@@ -589,6 +589,10 @@ impl Spec {
                 self.sc_object_to_json(val, type_)?
             }
 
+            // ScType::Val is the generic Soroban value type that can hold any ScVal.
+            // Delegate to to_json which handles all ScVal variants without type info.
+            (val, ScType::Val) => to_json(val)?,
+
             (ScVal::Error(_), ScType::Error) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
         })
@@ -2449,5 +2453,30 @@ mod tests {
 
         let json = spec.sc_map_to_json(&sc_map, &map_type).unwrap();
         assert_eq!(json.to_string(), r#"{"foo":2}"#);
+    }
+
+    #[test]
+    fn test_xdr_to_json_bytes_with_val_type() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2469
+        // When a contract function returns ScType::Val and the runtime value is
+        // ScVal::Bytes (e.g. BytesN<32>), xdr_to_json should succeed instead of
+        // panicking with "doesn't have a matching Val".
+        let spec = Spec(None);
+        let bytes_val = ScVal::Bytes(ScBytes(
+            vec![
+                0x05, 0x5e, 0xf8, 0x16, 0x22, 0x3e, 0xe5, 0x21, 0x6b, 0x18, 0xc2, 0xdf, 0x00, 0xd6,
+                0x15, 0xee, 0x08, 0x9a, 0x8e, 0xf1, 0x1b, 0x92, 0x7a, 0x76, 0x4e, 0x4f, 0x5d, 0x6c,
+                0x0c, 0xb4, 0xf4, 0xc7,
+            ]
+            .try_into()
+            .unwrap(),
+        ));
+        let result = spec.xdr_to_json(&bytes_val, &ScType::Val);
+        assert_eq!(
+            result.unwrap(),
+            Value::String(
+                "055ef816223ee5216b18c2df00d615ee089a8ef11b927a764e4f5d6c0cb4f4c7".to_string()
+            )
+        );
     }
 }
