@@ -150,7 +150,6 @@ mod tests {
     fn setup_locator() -> locator::Args {
         let temp_dir = tempfile::tempdir().unwrap();
         locator::Args {
-            global: false,
             config_dir: Some(temp_dir.path().to_path_buf()),
         }
     }

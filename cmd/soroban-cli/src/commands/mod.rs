@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
-use crate::{config, print::Print, utils::deprecate_message};
+use crate::config;
 
 pub mod cache;
 pub mod cfg;
@@ -86,21 +86,12 @@ pub struct Root {
 
 impl Root {
     pub fn new() -> Result<Self, Error> {
-        Self::try_parse().map_err(|e| {
-            if std::env::args().any(|s| s == "--list") {
-                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
-                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
-                let _ = plugin::ls::Cmd.run();
-                std::process::exit(0);
-            }
-
-            match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::default::run() {
-                    Ok(()) => Error::Clap(e),
-                    Err(e) => Error::PluginDefault(e),
-                },
-                _ => Error::Clap(e),
-            }
+        Self::try_parse().map_err(|e| match e.kind() {
+            ErrorKind::InvalidSubcommand => match plugin::default::run() {
+                Ok(()) => Error::Clap(e),
+                Err(e) => Error::PluginDefault(e),
+            },
+            _ => Error::Clap(e),
         })
     }
 
@@ -113,16 +104,6 @@ impl Root {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
-        let print = Print::new(self.global_args.quiet);
-
-        if self.global_args.locator.global {
-            deprecate_message(
-                print,
-                "--global",
-                "Global configuration is now the default behavior.",
-            );
-        }
-
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,

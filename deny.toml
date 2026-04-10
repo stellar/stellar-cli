@@ -32,7 +32,6 @@ yanked = "warn"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-    "RUSTSEC-2024-0388", # derivative is no longer maintained, but that has no known material impact on the this repo
     "RUSTSEC-2024-0436", # paste is no longer maintained
     "RUSTSEC-2025-0052", # async-std has been discontinued - used only in test dependencies
     "RUSTSEC-2025-0134", # rustls-pemfile has been discontinued - need to update stellar-rpc-client with compatible jsonrpsee (possible other deps too)
@@ -67,6 +66,7 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "ISC",
     "BSD-2-Clause",
+    "CC0-1.0",
     "Unicode-3.0",
 ]
 # The confidence threshold for detecting a license from license text.
@@ -189,17 +189,6 @@ deny = [
 
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-
-    # Requires updating slipped10 to newest sha2 others are dependents that will be updated
-    { crate = "sha2", reason = "temporary duplicate until upstream updates" },
-    { crate = "digest", reason = "temporary duplicate until upstream updates" },
-    { crate = "block-buffer", reason = "temporary duplicate until upstream updates" },
-    # slipped again 0.12.1
-    { crate = "hmac", reason = "temp" },
-
-    # update rpassword, hidapi (then ledger-transport-hid), and dirs-sys (then directories) to 0.52
-    # { crate = "window-sys", reason = "temp" },
-
     # syn is too large of a surface to check
     { crate = "syn", reason = "Too many crates haven't updated to v2" },
 
@@ -211,15 +200,10 @@ skip = [
     { crate = "strum", reason = "wasm-opt needs to update", version = "0.26.3" },
     { crate = "strum_macros", reason = "wasm-opt needs to update", version = "0.26.4" },
 
-
-    # soroban-env-host  must upgrade ark-* to 0.14.5
-    { crate = "hashbrown", reason = "temp", version = "13.2"},
-
     { crate = "windows-sys", reason = "temp", version = "0.59.0"},
     { crate = "windows-targets", reason = "temp", version = "0.52.6"},
     { crate = "windows_x86_64_gnu", reason = "temp", version = "0.52.6"},
     { crate = "windows_x86_64_msvc", reason = "temp", version = "0.52.6"},
-    # { crate = "dir-sys", reason = "temp", version }
 
     # wasm-gen update
     { crate = "byteorder", reason = "temp", version = "1.5.0" },
@@ -247,7 +231,7 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
 allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
-  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
+  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66"
 ]
 
 [sources.allow-org]
