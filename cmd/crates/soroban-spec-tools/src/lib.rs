@@ -585,13 +585,14 @@ impl Spec {
             (val, ScType::Result(inner)) => self.xdr_to_json(val, &inner.ok_type)?,
 
             (val, ScType::Option(inner)) => self.xdr_to_json(val, &inner.value_type)?,
-            (ScVal::Map(Some(_)) | ScVal::Vec(Some(_)) | ScVal::U32(_), type_) => {
-                self.sc_object_to_json(val, type_)?
-            }
 
             // ScType::Val is the generic Soroban value type that can hold any ScVal.
             // Delegate to to_json which handles all ScVal variants without type info.
             (val, ScType::Val) => to_json(val)?,
+
+            (ScVal::Map(Some(_)) | ScVal::Vec(Some(_)) | ScVal::U32(_), type_) => {
+                self.sc_object_to_json(val, type_)?
+            }
 
             (ScVal::Error(_), ScType::Error) => todo!(),
             (v, typed) => todo!("{v:#?} doesn't have a matching {typed:#?}"),
@@ -2478,5 +2479,39 @@ mod tests {
                 "055ef816223ee5216b18c2df00d615ee089a8ef11b927a764e4f5d6c0cb4f4c7".to_string()
             )
         );
+    }
+
+    #[test]
+    fn test_xdr_to_json_map_with_val_type() {
+        // ScVal::Map with ScType::Val should delegate to to_json, not sc_object_to_json.
+        let spec = Spec(None);
+        let map_val = ScVal::Map(Some(
+            ScMap::sorted_from(vec![ScMapEntry {
+                key: ScVal::Symbol(ScSymbol("key".try_into().unwrap())),
+                val: ScVal::U32(42),
+            }])
+            .unwrap(),
+        ));
+        let result = spec.xdr_to_json(&map_val, &ScType::Val);
+        assert!(result.is_ok(), "Map with ScType::Val should not error");
+    }
+
+    #[test]
+    fn test_xdr_to_json_vec_with_val_type() {
+        // ScVal::Vec with ScType::Val should delegate to to_json, not sc_object_to_json.
+        let spec = Spec(None);
+        let vec_val = ScVal::Vec(Some(
+            ScVec::try_from(vec![ScVal::U32(1), ScVal::U32(2)]).unwrap(),
+        ));
+        let result = spec.xdr_to_json(&vec_val, &ScType::Val);
+        assert!(result.is_ok(), "Vec with ScType::Val should not error");
+    }
+
+    #[test]
+    fn test_xdr_to_json_u32_with_val_type() {
+        // ScVal::U32 with ScType::Val should delegate to to_json, not sc_object_to_json.
+        let spec = Spec(None);
+        let result = spec.xdr_to_json(&ScVal::U32(100), &ScType::Val);
+        assert_eq!(result.unwrap(), Value::Number(100.into()));
     }
 }
