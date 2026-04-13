@@ -69,9 +69,11 @@ impl UpgradeCheck {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
 
     #[test]
+    #[serial]
     fn test_upgrade_check_load_save() {
         // Use `STELLAR_DATA_HOME` (cross-platform, highest priority) so that
         // any `STELLAR_DATA_HOME` or `XDG_DATA_HOME` leaked by parallel tests

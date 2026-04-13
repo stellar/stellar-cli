@@ -202,8 +202,10 @@ fn to_xdr(data: &impl WriteXdr) -> Result<String, xdr::Error> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
         std::env::set_var("STELLAR_DATA_HOME", t.path().to_str().unwrap());
