@@ -137,7 +137,6 @@ mod tests {
     fn set_up_test() -> (super::locator::Args, super::Cmd) {
         let temp_dir = tempfile::tempdir().unwrap();
         let locator = super::locator::Args {
-            global: false,
             config_dir: Some(temp_dir.path().to_path_buf()),
         };
 
