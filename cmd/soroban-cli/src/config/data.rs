@@ -180,6 +180,10 @@ impl TryFrom<GetTransactionResponse> for Action {
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
+                created_at: res.created_at,
+                fee_bump: res.fee_bump,
+                tx_hash: res.tx_hash,
+                application_order: res.application_order,
                 status: res.status,
                 ledger: res.ledger,
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
