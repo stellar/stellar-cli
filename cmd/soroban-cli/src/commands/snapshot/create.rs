@@ -20,7 +20,7 @@ use stellar_xdr::curr::{
     ScAddress, ScContractInstance, ScVal,
 };
 use tokio::fs::OpenOptions;
-use tokio::io::{AsyncReadExt, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
 use tokio_util::io::StreamReader;
 use url::Url;
 
@@ -510,6 +510,35 @@ impl Cmd {
     }
 }
 
+/// Copy decompressed data from `reader` to `writer`, enforcing a maximum
+/// decompressed size. Returns an error if the decompressed output exceeds
+/// `max_bytes`.
+async fn copy_with_limit<R: AsyncRead + Unpin, W: tokio::io::AsyncWrite + Unpin>(
+    reader: R,
+    writer: &mut W,
+    max_bytes: u64,
+) -> Result<(), Error> {
+    let mut limited = reader.take(max_bytes);
+    tokio::io::copy(&mut limited, writer)
+        .await
+        .map_err(Error::StreamingBucket)?;
+
+    // If the underlying reader still has data, the limit was exceeded.
+    let mut decoder = limited.into_inner();
+    let mut overflow = [0u8; 1];
+    if decoder
+        .read(&mut overflow)
+        .await
+        .map_err(Error::StreamingBucket)?
+        > 0
+    {
+        return Err(Error::DecompressedSizeLimitExceeded {
+            max: ByteSize(max_bytes),
+        });
+    }
+    Ok(())
+}
+
 fn ledger_to_path_components(ledger: u32) -> (String, String, String, String) {
     let ledger_hex = format!("{ledger:08x}");
     let ledger_hex_0 = ledger_hex[0..=1].to_string();
@@ -607,7 +636,6 @@ async fn get_ledger_metadata_from_archive(
     let stream_reader = StreamReader::new(stream);
     let buf_reader = BufReader::new(stream_reader);
     let decoder = GzipDecoder::new(buf_reader);
-    let mut limited_decoder = decoder.take(MAX_LEDGER_HEADER_DECOMPRESSED_SIZE);
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -617,23 +645,9 @@ async fn get_ledger_metadata_from_archive(
         .await
         .map_err(Error::WriteOpeningCachedBucket)?;
 
-    tokio::io::copy(&mut limited_decoder, &mut file)
-        .await
-        .map_err(Error::StreamingBucket)?;
-
-    // Check if the decompressed stream had more data beyond the limit.
-    let mut overflow = [0u8; 1];
-    if limited_decoder
-        .into_inner()
-        .read(&mut overflow)
-        .await
-        .map_err(Error::StreamingBucket)?
-        > 0
-    {
+    if let Err(e) = copy_with_limit(decoder, &mut file, MAX_LEDGER_HEADER_DECOMPRESSED_SIZE).await {
         let _ = fs::remove_file(&dl_path);
-        return Err(Error::DecompressedSizeLimitExceeded {
-            max: ByteSize(MAX_LEDGER_HEADER_DECOMPRESSED_SIZE),
-        });
+        return Err(e);
     }
 
     fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
@@ -735,7 +749,6 @@ async fn cache_bucket(
         let stream_reader = StreamReader::new(stream);
         let buf_reader = BufReader::new(stream_reader);
         let decoder = GzipDecoder::new(buf_reader);
-        let mut limited_decoder = decoder.take(MAX_BUCKET_DECOMPRESSED_SIZE);
         let dl_path = cache_path.with_extension("dl");
         let mut file = OpenOptions::new()
             .create(true)
@@ -744,23 +757,10 @@ async fn cache_bucket(
             .open(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut limited_decoder, &mut file)
-            .await
-            .map_err(Error::StreamingBucket)?;
 
-        // Check if the decompressed stream had more data beyond the limit.
-        let mut overflow = [0u8; 1];
-        if limited_decoder
-            .into_inner()
-            .read(&mut overflow)
-            .await
-            .map_err(Error::StreamingBucket)?
-            > 0
-        {
+        if let Err(e) = copy_with_limit(decoder, &mut file, MAX_BUCKET_DECOMPRESSED_SIZE).await {
             let _ = fs::remove_file(&dl_path);
-            return Err(Error::DecompressedSizeLimitExceeded {
-                max: ByteSize(MAX_BUCKET_DECOMPRESSED_SIZE),
-            });
+            return Err(e);
         }
 
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
@@ -781,4 +781,36 @@ struct History {
 struct HistoryBucket {
     curr: String,
     snap: String,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_copy_with_limit_under_limit() {
+        let input: &[u8] = b"hello";
+        let mut output = Vec::new();
+        copy_with_limit(input, &mut output, 10).await.unwrap();
+        assert_eq!(output, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_copy_with_limit_exact_limit() {
+        let input: &[u8] = b"hello";
+        let mut output = Vec::new();
+        copy_with_limit(input, &mut output, 5).await.unwrap();
+        assert_eq!(output, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_copy_with_limit_over_limit() {
+        let input: &[u8] = b"hello world, this exceeds the limit";
+        let mut output = Vec::new();
+        let err = copy_with_limit(input, &mut output, 10).await.unwrap_err();
+        assert!(
+            matches!(err, Error::DecompressedSizeLimitExceeded { .. }),
+            "expected DecompressedSizeLimitExceeded, got: {err}"
+        );
+    }
 }
