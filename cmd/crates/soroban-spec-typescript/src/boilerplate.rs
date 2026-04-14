@@ -8,7 +8,7 @@ use std::{
 };
 use stellar_xdr::curr::ScSpecEntry;
 
-use super::{generate, validate_npm_package_name};
+use super::{generate, sanitize_string, validate_npm_package_name};
 
 static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src/project_template");
 
@@ -141,6 +141,8 @@ impl Project {
             NETWORK_PASSPHRASE_STANDALONE => "standalone",
             _ => "unknown",
         };
+        let network_passphrase = sanitize_string(network_passphrase);
+        let contract_id = sanitize_string(contract_id);
         format!(
             r#"export const networks = {{
   {network}: {{
@@ -277,6 +279,27 @@ mod test {
         let err = result.unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("not a valid npm package name"));
+    }
+
+    #[test]
+    fn test_format_networks_object_sanitizes_inputs() {
+        let malicious_passphrase =
+            r#"Test SDF Network", }}; console.log("pwned"); const x = {{ a: ""#;
+        let malicious_contract_id = r#"CABC"; import("evil"); //"#;
+        let result = Project::format_networks_object(
+            Some(malicious_contract_id),
+            Some(malicious_passphrase),
+        );
+        assert!(
+            !result.contains(r#"console.log("pwned")"#),
+            "network_passphrase was not sanitized: {result}"
+        );
+        assert!(
+            !result.contains(r#"import("evil")"#),
+            "contract_id was not sanitized: {result}"
+        );
+        assert!(result.contains(r#"console.log(\"pwned\")"#));
+        assert!(result.contains(r#"import(\"evil\")"#));
     }
 
     fn assert_dirs_equal<P: AsRef<Path>>(dir1: P, dir2: P) {

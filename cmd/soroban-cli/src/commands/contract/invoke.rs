@@ -280,7 +280,6 @@ impl Cmd {
             quiet,
             verbose: false,
             very_verbose: false,
-            list: false,
             no_cache,
         };
 

@@ -272,10 +272,7 @@ impl TestEnv {
                 network: None,
             },
             source_account: account.parse().unwrap(),
-            locator: config::locator::Args {
-                global: false,
-                config_dir,
-            },
+            locator: config::locator::Args { config_dir },
             sign_with: config::sign_with::Args {
                 sign_with_key: None,
                 hd_path: None,

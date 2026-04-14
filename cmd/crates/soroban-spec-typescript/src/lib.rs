@@ -408,7 +408,7 @@ fn sanitize_identifier(name: &str) -> String {
 }
 
 /// Escape a string for use in a TypeScript string literal
-fn sanitize_string(s: &str) -> String {
+pub(crate) fn sanitize_string(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")

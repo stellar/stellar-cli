@@ -63,13 +63,8 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `fee-stats` — ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
 - `fees` — Fetch network feestats and configure CLI fee settings
 
-###### **Options:**
-
-- `--list` — ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
-
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 - `-f`, `--filter-logs <FILTER_LOGS>` — Filter logs output. To turn on `stellar_cli::log::footprint=debug` or off `=off`. Can also use env var `RUST_LOG`
 - `-q`, `--quiet` — Do not write logs to stderr including `INFO`
@@ -126,7 +121,6 @@ Get Id of builtin Soroban Asset Contract. Deprecated, use `stellar contract id a
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -157,7 +151,6 @@ Deploy builtin Soroban Asset Contract
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -196,7 +189,6 @@ Remove contract alias
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -223,7 +215,6 @@ Add contract alias
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -245,7 +236,6 @@ Show the contract id associated with a given alias
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -263,7 +253,6 @@ List all aliases
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar contract bindings`
@@ -308,7 +297,6 @@ Generate a TypeScript / JavaScript package
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -430,7 +418,6 @@ If no keys are specified the contract itself is extended.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -484,7 +471,6 @@ Deploy a wasm contract
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -512,7 +498,6 @@ Fetch a contract's Wasm binary
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -545,7 +530,6 @@ Deploy builtin Soroban Asset Contract
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -574,7 +558,6 @@ Deploy normal Wasm Contract
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -626,7 +609,6 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -665,7 +647,6 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -704,7 +685,6 @@ Outputs no data when no data is present in the contract.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -730,7 +710,6 @@ If the contract has a meta entry like `source_repo=github:user/repo`, this comma
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -780,7 +759,6 @@ This command will create a Cargo workspace project and add a sample Stellar cont
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar contract upload`
@@ -816,7 +794,6 @@ Install a WASM file to the ledger without creating a contract instance
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -863,7 +840,6 @@ Install a WASM file to the ledger without creating a contract instance
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -915,7 +891,6 @@ stellar contract invoke ... -- --help
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -972,7 +947,6 @@ Print the current value of a contract-data ledger entry
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1018,7 +992,6 @@ If no keys are specificed the contract itself is restored.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1040,7 +1013,6 @@ Diagnose and troubleshoot CLI and network issues
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar events`
@@ -1095,7 +1067,6 @@ Watch the network for contract events
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1125,7 +1096,6 @@ If there are no environment variables in use, prints the defaults.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys`
@@ -1171,7 +1141,6 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys public-key`
@@ -1192,7 +1161,6 @@ Given an identity return its address (public key)
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys fund`
@@ -1211,7 +1179,6 @@ Fund an identity on a test network
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1248,7 +1215,6 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1270,7 +1236,6 @@ List identities
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys rm`
@@ -1283,9 +1248,12 @@ Remove an identity
 
 - `<NAME>` — Identity to remove
 
+###### **Options:**
+
+- `--force` — Skip confirmation prompt
+
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys secret`
@@ -1305,7 +1273,6 @@ Output an identity's secret key
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys use`
@@ -1320,7 +1287,6 @@ Set the default identity that will be used on all commands. This allows you to s
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar keys unset`
@@ -1331,7 +1297,6 @@ Unset the default key identity defined previously with `keys use <identity>`
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network`
@@ -1364,7 +1329,6 @@ Add a new network
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1385,7 +1349,6 @@ Remove a network
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network ls`
@@ -1400,7 +1363,6 @@ List networks
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network use`
@@ -1415,7 +1377,6 @@ Set the default network that will be used on all commands. This allows you to sk
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network health`
@@ -1437,7 +1398,6 @@ Fetch the health of the configured RPC
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1466,7 +1426,6 @@ Checks the health of the configured RPC
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1496,7 +1455,6 @@ Fetch the network's config settings
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1514,7 +1472,6 @@ Unset the default network defined previously with `network use <network>`
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network root-account`
@@ -1543,7 +1500,6 @@ Output a network's root account address (public key)
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar network root-account secret`
@@ -1559,7 +1515,6 @@ Output a network's root account secret key
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar container`
@@ -1655,7 +1610,6 @@ Migrate the local configuration to the global directory
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar config dir`
@@ -1670,7 +1624,6 @@ The location will depend on how your system is configured.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar snapshot`
@@ -1724,7 +1677,6 @@ Any invalid contract id passed as `--address` will be ignored.
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1806,7 +1758,6 @@ Fetch the source account's seq-num and increment for the given tx
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1899,7 +1850,6 @@ Transfer XLM balance to another account and remove source account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1929,7 +1879,6 @@ Begin sponsoring future reserves for another account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1959,7 +1908,6 @@ Bump sequence number to invalidate older transactions
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -1992,7 +1940,6 @@ Create, update, or delete a trustline
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2022,7 +1969,6 @@ Claim a claimable balance by its balance ID
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2054,7 +2000,6 @@ Clawback an asset from an account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2084,7 +2029,6 @@ Clawback a claimable balance by its balance ID
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2117,7 +2061,6 @@ Create and fund a new account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2155,7 +2098,6 @@ Create a claimable balance that can be claimed by specified accounts
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2188,7 +2130,6 @@ Create a passive sell offer on the Stellar DEX
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2217,7 +2158,6 @@ End sponsoring future reserves
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2256,7 +2196,6 @@ Deposit assets into a liquidity pool
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2289,7 +2228,6 @@ Withdraw assets from a liquidity pool
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2325,7 +2263,6 @@ Create, update, or delete a buy offer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2356,7 +2293,6 @@ Set, modify, or delete account data entries
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2392,7 +2328,6 @@ Create, update, or delete a sell offer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2427,7 +2362,6 @@ Send a payment with a different asset using path finding, specifying the send am
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2462,7 +2396,6 @@ Send a payment with a different asset using path finding, specifying the receive
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2497,7 +2430,6 @@ Send asset to destination account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2533,7 +2465,6 @@ Revoke sponsorship of a ledger entry or signer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2578,7 +2509,6 @@ Set account options like flags, signers, and home domain
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2615,7 +2545,6 @@ Configure authorization and trustline flags for an asset
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2723,7 +2652,6 @@ Transfer XLM balance to another account and remove source account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2758,7 +2686,6 @@ Begin sponsoring future reserves for another account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2793,7 +2720,6 @@ Bump sequence number to invalidate older transactions
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2831,7 +2757,6 @@ Create, update, or delete a trustline
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2866,7 +2791,6 @@ Claim a claimable balance by its balance ID
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2903,7 +2827,6 @@ Clawback an asset from an account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2938,7 +2861,6 @@ Clawback a claimable balance by its balance ID
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -2976,7 +2898,6 @@ Create and fund a new account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3019,7 +2940,6 @@ Create a claimable balance that can be claimed by specified accounts
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3057,7 +2977,6 @@ Create a passive sell offer on the Stellar DEX
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3091,7 +3010,6 @@ End sponsoring future reserves
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3135,7 +3053,6 @@ Deposit assets into a liquidity pool
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3173,7 +3090,6 @@ Withdraw assets from a liquidity pool
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3214,7 +3130,6 @@ Create, update, or delete a buy offer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3250,7 +3165,6 @@ Set, modify, or delete account data entries
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3291,7 +3205,6 @@ Create, update, or delete a sell offer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3331,7 +3244,6 @@ Send a payment with a different asset using path finding, specifying the receive
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3371,7 +3283,6 @@ Send a payment with a different asset using path finding, specifying the send am
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3411,7 +3322,6 @@ Send asset to destination account
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3452,7 +3362,6 @@ Revoke sponsorship of a ledger entry or signer
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3502,7 +3411,6 @@ Set account options like flags, signers, and home domain
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3544,7 +3452,6 @@ Configure authorization and trustline flags for an asset
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3566,7 +3473,6 @@ Send a transaction envelope to the network
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3595,7 +3501,6 @@ Sign a transaction envelope appending the signature to the envelope
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3628,7 +3533,6 @@ Simulate a transaction envelope from stdin
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -3832,6 +3736,7 @@ Decode and encode XDR
 - `encode` — Encode XDR
 - `compare` — Compare two XDR values with each other
 - `generate` — Generate XDR values
+- `xfile` — Preprocess XDR .x files
 - `version` — Print version information
 
 ###### **Arguments:**
@@ -3872,7 +3777,7 @@ View information about types
 
 ###### **Options:**
 
-- `--type <TYPE>` — XDR type to decode
+- `--type <TYPE>` — XDR type to generate schema for
 - `--output <OUTPUT>`
 
   Default value: `json-schema-draft201909`
@@ -4037,6 +3942,31 @@ Generate arbitrary XDR values
 
   Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
 
+## `stellar xdr xfile`
+
+Preprocess XDR .x files
+
+**Usage:** `stellar xdr xfile <COMMAND>`
+
+###### **Subcommands:**
+
+- `preprocess` — Preprocess XDR .x files by evaluating #ifdef/#ifndef/#elif/#else/#endif directives
+
+## `stellar xdr xfile preprocess`
+
+Preprocess XDR .x files by evaluating #ifdef/#ifndef/#elif/#else/#endif directives
+
+**Usage:** `stellar xdr xfile preprocess [OPTIONS] [INPUT]`
+
+###### **Arguments:**
+
+- `<INPUT>` — XDR .x file to preprocess, or stdin if omitted
+
+###### **Options:**
+
+- `--features <FEATURES>` — Features/symbols to define
+- `--all-features` — Enable all features/symbols found in the input
+
 ## `stellar xdr version`
 
 Print version information
@@ -4167,7 +4097,6 @@ List cached actions (transactions, simulations)
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar cache actionlog read`
@@ -4275,7 +4204,6 @@ Fetch account entry by public key or alias
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4317,7 +4245,6 @@ Fetch contract ledger entry by address or alias and storage key
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4347,7 +4274,6 @@ Fetch a claimable balance ledger entry by id
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4377,7 +4303,6 @@ Fetch a liquidity pool ledger entry by id
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4407,7 +4332,6 @@ Fetch a Contract's WASM bytecode by WASM hash
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4440,7 +4364,6 @@ Fetch a trustline by account and asset
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4473,7 +4396,6 @@ Fetch key-value data entries attached to an account (see manageDataOp)
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4506,7 +4428,6 @@ Fetch an offer by account and offer id
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4611,7 +4532,6 @@ Example: stellar message sign "Hello, World!" --sign-with-key alice
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar message verify`
@@ -4637,7 +4557,6 @@ Example: stellar message verify "Hello, World!" --signature BASE64_SIG --public-
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar fee-stats`
@@ -4715,7 +4634,6 @@ Set the default inclusion fee settings for the CLI
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ###### **Options (RPC):**
@@ -4733,5 +4651,4 @@ Remove the default inclusion fee settings for the CLI
 
 ###### **Options (Global):**
 
-- `--global` — ⚠️ Deprecated: global config is always on
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
