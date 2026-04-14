@@ -211,10 +211,14 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
 }
 
 pub mod http {
+    use std::time::Duration;
+
     use crate::commands::version;
     fn user_agent() -> String {
         format!("{}/{}", env!("CARGO_PKG_NAME"), version::pkg())
     }
+
+    const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
     /// Creates and returns a configured `reqwest::Client`.
     ///
@@ -228,6 +232,7 @@ pub mod http {
         // 3. This simplifies error handling for callers, as they can assume a valid client.
         reqwest::Client::builder()
             .user_agent(user_agent())
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .expect("Failed to build reqwest client")
     }
@@ -240,6 +245,7 @@ pub mod http {
     pub fn blocking_client() -> reqwest::blocking::Client {
         reqwest::blocking::Client::builder()
             .user_agent(user_agent())
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .expect("Failed to build reqwest blocking client")
     }
