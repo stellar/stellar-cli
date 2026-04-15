@@ -210,3 +210,115 @@ async fn unset_default_identity() {
         .stdout(predicate::str::contains("STELLAR_ACCOUNT=").not())
         .success();
 }
+
+#[tokio::test]
+async fn rm_requires_confirmation() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("rmtest1")
+        .assert()
+        .success();
+
+    // Piping "n" should cancel removal
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("rmtest1")
+        .write_stdin("n\n")
+        .assert()
+        .stderr(predicate::str::contains("removal cancelled by user"))
+        .failure();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("rmtest1")
+        .assert()
+        .success();
+
+    // Piping empty input (just Enter) should default to cancel
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("rmtest1")
+        .write_stdin("\n")
+        .assert()
+        .stderr(predicate::str::contains("removal cancelled by user"))
+        .failure();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("rmtest1")
+        .assert()
+        .success();
+
+    // Piping "y" should confirm removal
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("rmtest1")
+        .write_stdin("y\n")
+        .assert()
+        .stderr(predicate::str::contains(
+            "Removing the key's cli config file",
+        ))
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("rmtest1")
+        .assert()
+        .failure();
+}
+
+#[tokio::test]
+async fn rm_with_force_skips_confirmation() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("rmtest2")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("rmtest2")
+        .arg("--force")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("rmtest2")
+        .assert()
+        .failure();
+}
+
+#[tokio::test]
+async fn rm_nonexistent_key() {
+    let sandbox = &TestEnv::new();
+
+    // Without --force: should fail before prompting
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("doesnotexist")
+        .assert()
+        .failure();
+
+    // With --force: should still fail
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("doesnotexist")
+        .arg("--force")
+        .assert()
+        .failure();
+}

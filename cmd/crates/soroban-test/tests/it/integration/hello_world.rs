@@ -100,7 +100,6 @@ async fn invoke_contract() {
     invoke_hello_world_with_lib(sandbox, id).await;
 
     let config_locator = locator::Args {
-        global: false,
         config_dir: Some(dir.to_path_buf()),
     };
 
