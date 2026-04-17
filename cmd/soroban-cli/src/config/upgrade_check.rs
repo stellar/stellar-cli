@@ -1,8 +1,8 @@
 use crate::config::locator;
 use chrono::{DateTime, Utc};
-use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 use std::fs;
 
