@@ -505,7 +505,7 @@ impl Args {
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
     let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
-    let global_dir = fs::canonicalize(&global_dir).expect("Couldn't expand global directory.");
+    let global_dir = fs::canonicalize(&global_dir).unwrap_or(global_dir);
 
     // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
     if dir == global_dir {
@@ -883,5 +883,28 @@ mod tests {
             "identity directory should be owner-only (0700), got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    #[test]
+    fn test_print_deprecation_warning_no_panic_when_global_dir_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::remove_var("STELLAR_CONFIG_HOME");
+        std::env::remove_var("XDG_CONFIG_HOME");
+        let fake_home = tmp.path().join("home");
+        std::fs::create_dir_all(&fake_home).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", &fake_home);
+
+        let local_dir = tmp.path().join("workdir/.stellar");
+        std::fs::create_dir_all(&local_dir).unwrap();
+
+        // Must not panic even though ~/.config/stellar does not exist
+        print_deprecation_warning(&local_dir);
+
+        match old_home {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
     }
 }
