@@ -98,7 +98,7 @@ async fn print_network(
         "Network"
     };
 
-    print.globeln(format!("{prefix} {name:?} ({})", network.rpc_url,));
+    print.globeln(format!("{prefix} {name:?} ({})", network.rpc_url));
     print.blankln(format!("protocol {}", version_info.protocol_version));
     print.blankln(format!("rpc {}", version_info.version));
 

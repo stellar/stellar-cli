@@ -101,17 +101,15 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
                     },
                 in_successful_contract_call,
                 ..
-            } => {
-                if topics[0] == xdr::ScVal::Symbol(str_to_sc_symbol("log")) {
-                    let status = if in_successful_contract_call {
-                        "Success"
-                    } else {
-                        "Failure"
-                    };
+            } if topics[0] == xdr::ScVal::Symbol(str_to_sc_symbol("log")) => {
+                let status = if in_successful_contract_call {
+                    "Success"
+                } else {
+                    "Failure"
+                };
 
-                    let data = serde_json::to_string(&data).unwrap();
-                    print.logln(format!("{contract_id} - {status} - Log: {data}"));
-                }
+                let data = serde_json::to_string(&data).unwrap();
+                print.logln(format!("{contract_id} - {status} - Log: {data}"));
             }
 
             _ => {}

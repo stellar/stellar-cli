@@ -629,8 +629,7 @@ fn parse_argument_with_validation(
     // unit variants — from_string in soroban-spec-tools handles both forms correctly.
     let is_union_udt = if let ScSpecTypeDef::Udt(udt) = expected_type {
         spec.find(&udt.name.to_utf8_string_lossy())
-            .map(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_)))
-            .unwrap_or(false)
+            .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_)))
     } else {
         false
     };
