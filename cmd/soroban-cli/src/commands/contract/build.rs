@@ -5,7 +5,6 @@ use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
 use std::{
-    borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
@@ -283,21 +282,7 @@ impl Cmd {
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
-            let mut cmd_str_parts = Vec::<String>::new();
-            cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
-                format!(
-                    "{}={}",
-                    key.to_string_lossy(),
-                    shell_escape::escape(val.unwrap_or_default().to_string_lossy())
-                )
-            }));
-            cmd_str_parts.push("cargo".to_string());
-            cmd_str_parts.extend(
-                cmd.get_args()
-                    .map(OsStr::to_string_lossy)
-                    .map(Cow::into_owned),
-            );
-            let cmd_str = cmd_str_parts.join(" ");
+            let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
                 println!("{cmd_str}");
@@ -636,6 +621,24 @@ impl Cmd {
 /// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
 /// existing rustflags being ignored, which is also the behavior of
 /// Cargo itself.
+fn serialize_command(cmd: &Command) -> String {
+    let mut parts = Vec::<String>::new();
+    parts.extend(cmd.get_envs().map(|(key, val)| {
+        format!(
+            "{}={}",
+            key.to_string_lossy(),
+            shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+        )
+    }));
+    parts.push("cargo".to_string());
+    parts.extend(
+        cmd.get_args()
+            .map(OsStr::to_string_lossy)
+            .map(|a| shell_escape::escape(a).into_owned()),
+    );
+    parts.join(" ")
+}
+
 fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
 
@@ -811,4 +814,29 @@ pub fn filter_and_dedup_spec(
         }
     }
     Ok(filtered_xdr)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_command_shell_escapes_args_with_metacharacters() {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("rustc");
+        cmd.arg("--manifest-path=/path/to/contract;touch PWNED;#/Cargo.toml");
+
+        let output = serialize_command(&cmd);
+
+        // shell_escape wraps args containing metacharacters in single quotes.
+        // The semicolons must be inside the quotes, not bare between tokens.
+        assert!(
+            output.contains("'--manifest-path="),
+            "manifest path arg should be single-quoted in output: {output}"
+        );
+        assert!(
+            !output.contains("; touch"),
+            "unquoted shell injection present in output: {output}"
+        );
+    }
 }
