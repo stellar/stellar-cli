@@ -115,7 +115,8 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            let secret =
+                secure_store::save_secret(print, &self.name, &seed_phrase, self.overwrite)?;
             Ok(secret.parse()?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
