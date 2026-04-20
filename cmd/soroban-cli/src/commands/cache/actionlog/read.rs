@@ -36,10 +36,14 @@ impl Cmd {
             .join(id.to_string())
             .with_extension("json");
         tracing::debug!("reading file {}", file.display());
-        let contents =
-            std::fs::read_to_string(&file).map_err(|_| Error::NotFound(self.id.clone()))?;
-        let mut stdout = io::stdout();
-        io::Write::write_all(&mut stdout, contents.as_bytes())?;
+        let mut f = std::fs::File::open(&file).map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                Error::NotFound(self.id.clone())
+            } else {
+                Error::Io(e)
+            }
+        })?;
+        io::copy(&mut f, &mut io::stdout())?;
         Ok(())
     }
 }
