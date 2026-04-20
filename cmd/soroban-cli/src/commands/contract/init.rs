@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::{
-    fs::{create_dir_all, metadata, write, Metadata},
+    fs::{create_dir_all, metadata, write},
     io,
     path::{Path, PathBuf},
     str,
@@ -158,10 +158,7 @@ impl Runner {
     }
 
     fn file_exists(file_path: &Path) -> bool {
-        metadata(file_path)
-            .as_ref()
-            .map(Metadata::is_file)
-            .unwrap_or(false)
+        metadata(file_path).is_ok_and(|m| m.is_file())
     }
 
     fn create_dir_all(path: &Path) -> Result<(), Error> {
