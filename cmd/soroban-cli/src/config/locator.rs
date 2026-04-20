@@ -167,10 +167,9 @@ impl Args {
     }
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
-        // When --config-dir is explicitly set, do not walk ancestors of that
-        // path — doing so would let callers read identities from outside the
-        // selected profile (security finding 004).  Use the real process cwd
-        // for local-config discovery regardless.
+        // Always use the real process cwd for local-config discovery, regardless
+        // of whether --config-dir is set.  This prevents ancestor-walking outside
+        // the selected profile.
         let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
         Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
@@ -512,7 +511,9 @@ pub fn print_deprecation_warning(dir: &Path) {
         return;
     }
 
-    print.warnln(format!("A local config was found at {dir:?}."));
+    print.warnln(format!(
+        "A local config was found at {dir:?} but is no longer read."
+    ));
     print.blankln(format!(
         " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
     ));
@@ -724,7 +725,6 @@ impl KeyType {
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
-            .unique_by(|p| location_to_string(p))
             .filter(|p| {
                 if let Location::Local(dir) = p {
                     if dir.exists() {
@@ -734,6 +734,7 @@ impl KeyType {
                 }
                 true
             })
+            .unique_by(|p| location_to_string(p))
             .flat_map(|p| self.list(p, false).unwrap_or_default())
             .collect())
     }
