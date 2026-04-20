@@ -513,7 +513,6 @@ pub fn print_deprecation_warning(dir: &Path) {
     }
 
     print.warnln(format!("A local config was found at {dir:?}."));
-    print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
     print.blankln(format!(
         " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
     ));
