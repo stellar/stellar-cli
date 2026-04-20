@@ -167,7 +167,11 @@ impl Args {
     }
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
-        let pwd = self.current_dir()?;
+        // When --config-dir is explicitly set, do not walk ancestors of that
+        // path — doing so would let callers read identities from outside the
+        // selected profile (security finding 004).  Use the real process cwd
+        // for local-config discovery regardless.
+        let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
         Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
@@ -889,6 +893,50 @@ mod tests {
     }
 
     use crate::test_utils::EnvGuard;
+
+    #[test]
+    #[serial]
+    fn config_dir_does_not_search_ancestors_for_identity() {
+        // Regression test for: --config-dir ancestor search discloses secrets
+        // outside the selected profile (security finding 004).
+        //
+        // Place alice.toml in an ancestor of the explicit --config-dir.
+        // The command should fail to find alice, not read the ancestor file.
+        use crate::config::key::Key;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _guard = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+
+        // Ancestor .stellar with alice.toml
+        let ancestor_identity_dir = tmp.path().join(".stellar/identity");
+        std::fs::create_dir_all(&ancestor_identity_dir).unwrap();
+        std::fs::write(
+            ancestor_identity_dir.join("alice.toml"),
+            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+        )
+        .unwrap();
+
+        // Explicit --config-dir is a descendant of the ancestor, and is empty.
+        let isolated = tmp.path().join("sub/deep");
+        std::fs::create_dir_all(&isolated).unwrap();
+
+        // Global config is also separate and empty.
+        let global_cfg = tmp.path().join("global-cfg");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        let locator = Args {
+            config_dir: Some(isolated),
+        };
+
+        let result = locator.read_identity("alice");
+        assert!(
+            result.is_err(),
+            "expected error when alice is absent from --config-dir and global, \
+             but got: {:?}",
+            result.map(|k: Key| format!("{k:?}"))
+        );
+    }
 
     #[test]
     #[serial]
