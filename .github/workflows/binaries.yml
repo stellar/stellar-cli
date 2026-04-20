@@ -115,7 +115,7 @@ jobs:
           echo "DEB_PKG_DIR=stellar-cli_${version}_${{ matrix.arch }}" >> $GITHUB_ENV
 
       - name: Download Artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -170,7 +170,7 @@ jobs:
           echo "SM_CLIENT_CERT_FILE=D:\\sm_client_cert.p12" >> "$GITHUB_ENV"
 
       - name: Download Artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -205,7 +205,7 @@ jobs:
         if:
           github.event_name == 'release' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
         id: stm-setup
-        uses: digicert/code-signing-software-trust-action@v1.1.0
+        uses: digicert/code-signing-software-trust-action@v1.2.1
         with:
           simple-signing-mode: true
           keypair-alias: key_1412258126

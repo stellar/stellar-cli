@@ -110,16 +110,13 @@ pub enum Error {
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// ⚠️ Deprecated: global config is always on
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub global: bool,
-
     /// Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise.
     /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
 
+#[derive(Clone)]
 pub enum Location {
     Local(PathBuf),
     Global(PathBuf),
@@ -159,11 +156,6 @@ impl Location {
 
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        if self.global {
-            let print = Print::new(false);
-            print.warnln("Flag --global is deprecated: global config is always used");
-        }
-
         self.global_config_path()
     }
 
@@ -286,6 +278,12 @@ impl Args {
     pub fn read_identity(&self, name: &str) -> Result<Key, Error> {
         utils::validate_name(name)?;
         KeyType::Identity.read_with_global(name, self)
+    }
+
+    // TODO: Remove once local storage is no longer supported
+    pub fn read_identity_with_location(&self, name: &str) -> Result<(Key, Location), Error> {
+        utils::validate_name(name)?;
+        KeyType::Identity.read_with_global_with_location(name, self)
     }
 
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
@@ -506,8 +504,10 @@ impl Args {
 
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
-    let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
-    let global_dir = fs::canonicalize(&global_dir).expect("Couldn't expand global directory.");
+    let Ok(global_dir) = global_config_path() else {
+        return;
+    };
+    let global_dir = fs::canonicalize(&global_dir).unwrap_or(global_dir);
 
     // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
     if dir == global_dir {
@@ -643,15 +643,23 @@ impl KeyType {
         key: &str,
         locator: &Args,
     ) -> Result<T, Error> {
+        Ok(self.read_with_global_with_location(key, locator)?.0)
+    }
+
+    pub fn read_with_global_with_location<T: DeserializeOwned>(
+        &self,
+        key: &str,
+        locator: &Args,
+    ) -> Result<(T, Location), Error> {
         for location in locator.local_and_global()? {
             let path = self.path(location.as_ref(), key);
 
             if let Ok(t) = Self::read_from_path(&path) {
-                if let Location::Local(config_dir) = location {
+                if let Location::Local(config_dir) = location.clone() {
                     print_deprecation_warning(&config_dir);
                 }
 
-                return Ok(t);
+                return Ok((t, location));
             }
         }
         Err(Error::ConfigMissing(self.to_string(), key.to_string()))
@@ -702,9 +710,12 @@ impl KeyType {
         pwd.join(self.to_string())
     }
 
-    fn path(&self, pwd: &Path, key: &str) -> PathBuf {
+    pub fn path(&self, pwd: &Path, key: &str) -> PathBuf {
         let mut path = self.root(pwd).join(key);
-        path.set_extension("toml");
+        match self {
+            KeyType::Identity | KeyType::Network => path.set_extension("toml"),
+            KeyType::ContractIds => path.set_extension("json"),
+        };
         path
     }
 
@@ -834,6 +845,7 @@ pub fn cli_config_file() -> Result<PathBuf, Error> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::collections::HashMap;
 
     #[test]
@@ -874,5 +886,48 @@ mod tests {
             "identity directory should be owner-only (0700), got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    struct EnvGuard(Vec<(String, Option<String>)>);
+
+    impl EnvGuard {
+        fn new(vars: &[&str]) -> Self {
+            let saved = vars
+                .iter()
+                .map(|k| (k.to_string(), std::env::var(k).ok()))
+                .collect();
+            Self(saved)
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            for (k, v) in &self.0 {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_print_deprecation_warning_no_panic_when_global_dir_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _guard = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME", "HOME"]);
+
+        std::env::remove_var("STELLAR_CONFIG_HOME");
+        std::env::remove_var("XDG_CONFIG_HOME");
+
+        let fake_home = tmp.path().join("home");
+        std::fs::create_dir_all(&fake_home).unwrap();
+        std::env::set_var("HOME", &fake_home);
+
+        let local_dir = tmp.path().join("workdir/.stellar");
+        std::fs::create_dir_all(&local_dir).unwrap();
+
+        // Must not panic even though ~/.config/stellar does not exist
+        print_deprecation_warning(&local_dir);
     }
 }

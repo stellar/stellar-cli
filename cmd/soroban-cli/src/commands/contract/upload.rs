@@ -71,9 +71,6 @@ pub enum Error {
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
 
-    #[error("jsonrpc error: {0}")]
-    JsonRpc(#[from] jsonrpsee_core::Error),
-
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 

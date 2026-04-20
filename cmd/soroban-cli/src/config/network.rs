@@ -1,6 +1,6 @@
 use itertools::Itertools;
-use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
+use reqwest::header::HeaderMap;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
