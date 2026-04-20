@@ -125,10 +125,10 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     // Filter out function entries with names that start with "__" and partition the results
     for entry in &collected {
         match entry {
-            Entry::Function { name, inputs, .. } if name == "__constructor" => {
-                if !inputs.is_empty() {
-                    constructor_args = Some(inputs.clone());
-                }
+            Entry::Function { name, inputs, .. }
+                if name == "__constructor" && !inputs.is_empty() =>
+            {
+                constructor_args = Some(inputs.clone());
             }
             _ => {}
         }
