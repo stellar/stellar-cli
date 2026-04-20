@@ -822,21 +822,27 @@ mod tests {
 
     #[test]
     fn serialize_command_shell_escapes_args_with_metacharacters() {
+        let raw_arg = "--manifest-path=/path/to/contract;touch PWNED;#/Cargo.toml";
+        let escaped_arg = shell_escape::escape(raw_arg.into()).into_owned();
+
         let mut cmd = Command::new("cargo");
         cmd.arg("rustc");
-        cmd.arg("--manifest-path=/path/to/contract;touch PWNED;#/Cargo.toml");
+        cmd.arg(raw_arg);
 
         let output = serialize_command(&cmd);
 
-        // shell_escape wraps args containing metacharacters in single quotes.
-        // The semicolons must be inside the quotes, not bare between tokens.
+        // The full escaped form of the argument must appear verbatim.
         assert!(
-            output.contains("'--manifest-path="),
-            "manifest path arg should be single-quoted in output: {output}"
+            output.contains(&escaped_arg),
+            "expected escaped arg {escaped_arg:?} in output: {output}"
         );
+
+        // Round-trip through shlex: the metacharacter-laden arg must parse back
+        // as a single token equal to the original.
+        let tokens = shlex::split(&output).expect("serialize_command output must be valid shell");
         assert!(
-            !output.contains("; touch"),
-            "unquoted shell injection present in output: {output}"
+            tokens.iter().any(|t| t == raw_arg),
+            "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
     }
 }
