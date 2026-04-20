@@ -416,14 +416,13 @@ impl Args {
         #[cfg(unix)]
         {
             use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
             let mut to_file = OpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
                 .mode(0o600)
                 .open(&path)?;
-            use std::os::unix::fs::PermissionsExt;
             to_file.write_all(content.as_bytes())?;
             let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
             if let Ok(root) = self.config_dir() {
