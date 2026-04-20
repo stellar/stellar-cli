@@ -95,6 +95,33 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
+    struct ChunkedReader {
+        chunks: Vec<Vec<u8>>,
+        pos: usize,
+    }
+
+    impl ChunkedReader {
+        fn new(chunks: Vec<&[u8]>) -> Self {
+            Self {
+                chunks: chunks.iter().map(|c| c.to_vec()).collect(),
+                pos: 0,
+            }
+        }
+    }
+
+    impl Read for ChunkedReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if self.pos >= self.chunks.len() {
+                return Ok(0);
+            }
+            let chunk = &self.chunks[self.pos];
+            let n = chunk.len().min(buf.len());
+            buf[..n].copy_from_slice(&chunk[..n]);
+            self.pos += 1;
+            Ok(n)
+        }
+    }
+
     #[test]
     fn skip_whitespace_preserves_content() {
         let input = Cursor::new(b"helloworld");
@@ -129,6 +156,18 @@ mod tests {
         let mut result = String::new();
         reader.read_to_string(&mut result).unwrap();
         assert_eq!(result, "");
+    }
+
+    #[test]
+    fn skip_whitespace_loops_past_whitespace_only_chunks() {
+        // Exercises the loop iterating more than once: first chunk is all
+        // whitespace, second chunk has content. A Cursor would satisfy both
+        // reads in one shot and would never trigger the loop.
+        let reader = ChunkedReader::new(vec![b"\n\n", b"hello", b""]);
+        let mut skipper = SkipWhitespace::new(reader);
+        let mut result = String::new();
+        skipper.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "hello");
     }
 
     #[test]
