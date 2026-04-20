@@ -348,14 +348,8 @@ impl Args {
 
         match local {
             Location::Local(config_dir) => {
-                let path = config_dir.join("contract-ids").join(&file_name);
-                if path.exists() {
+                if config_dir.exists() {
                     print_deprecation_warning(config_dir);
-
-                    let content = fs::read_to_string(path)?;
-                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-                    return Ok(Some(data));
                 }
             }
             Location::Global(_) => unreachable!(),
@@ -656,13 +650,18 @@ impl KeyType {
         locator: &Args,
     ) -> Result<(T, Location), Error> {
         for location in locator.local_and_global()? {
-            let path = self.path(location.as_ref(), key);
-
-            if let Ok(t) = Self::read_from_path(&path) {
-                if let Location::Local(config_dir) = location.clone() {
-                    print_deprecation_warning(&config_dir);
+            match &location {
+                Location::Local(config_dir) => {
+                    if config_dir.exists() {
+                        print_deprecation_warning(config_dir);
+                    }
+                    continue;
                 }
+                Location::Global(_) => {}
+            }
 
+            let path = self.path(location.as_ref(), key);
+            if let Ok(t) = Self::read_from_path(&path) {
                 return Ok((t, location));
             }
         }
@@ -727,7 +726,16 @@ impl KeyType {
         Ok(paths
             .iter()
             .unique_by(|p| location_to_string(p))
-            .flat_map(|p| self.list(p, true).unwrap_or_default())
+            .filter(|p| {
+                if let Location::Local(dir) = p {
+                    if dir.exists() {
+                        print_deprecation_warning(dir);
+                    }
+                    return false;
+                }
+                true
+            })
+            .flat_map(|p| self.list(p, false).unwrap_or_default())
             .collect())
     }
 
@@ -893,6 +901,110 @@ mod tests {
     }
 
     use crate::test_utils::EnvGuard;
+
+    struct CwdGuard(std::path::PathBuf);
+
+    impl CwdGuard {
+        fn new() -> Self {
+            Self(std::env::current_dir().unwrap())
+        }
+    }
+
+    impl Drop for CwdGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_identity_is_not_read() {
+        use crate::config::key::Key;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_identity_dir = tmp.path().join(".stellar/identity");
+        std::fs::create_dir_all(&local_identity_dir).unwrap();
+        std::fs::write(
+            local_identity_dir.join("alice.toml"),
+            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let result = locator.read_identity("alice");
+        assert!(
+            result.is_err(),
+            "local config identity should not be read, but got: {:?}",
+            result.map(|k: Key| format!("{k:?}"))
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_contract_alias_is_not_read() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+        std::fs::create_dir_all(&local_alias_dir).unwrap();
+        std::fs::write(
+            local_alias_dir.join("mycontract.json"),
+            r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let result = locator.load_contract_from_alias("mycontract").unwrap();
+        assert!(
+            result.is_none(),
+            "local config contract alias should not be read"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_identity_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_identity_dir = tmp.path().join(".stellar/identity");
+        std::fs::create_dir_all(&local_identity_dir).unwrap();
+        std::fs::write(
+            local_identity_dir.join("alice.toml"),
+            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let identities = locator.list_identities().unwrap();
+        assert!(
+            !identities.contains(&"alice".to_string()),
+            "local config identities should not appear in list, got: {identities:?}"
+        );
+    }
 
     #[test]
     #[serial]
