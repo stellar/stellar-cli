@@ -504,7 +504,9 @@ impl Args {
 
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
-    let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
+    let Ok(global_dir) = global_config_path() else {
+        return;
+    };
     let global_dir = fs::canonicalize(&global_dir).unwrap_or(global_dir);
 
     // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
@@ -843,6 +845,7 @@ pub fn cli_config_file() -> Result<PathBuf, Error> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::collections::HashMap;
 
     #[test]
@@ -885,15 +888,40 @@ mod tests {
         );
     }
 
+    struct EnvGuard(Vec<(String, Option<String>)>);
+
+    impl EnvGuard {
+        fn new(vars: &[&str]) -> Self {
+            let saved = vars
+                .iter()
+                .map(|k| (k.to_string(), std::env::var(k).ok()))
+                .collect();
+            Self(saved)
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            for (k, v) in &self.0 {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
     #[test]
+    #[serial]
     fn test_print_deprecation_warning_no_panic_when_global_dir_missing() {
         let tmp = tempfile::tempdir().unwrap();
+        let _guard = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME", "HOME"]);
+
         std::env::remove_var("STELLAR_CONFIG_HOME");
         std::env::remove_var("XDG_CONFIG_HOME");
+
         let fake_home = tmp.path().join("home");
         std::fs::create_dir_all(&fake_home).unwrap();
-
-        let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", &fake_home);
 
         let local_dir = tmp.path().join("workdir/.stellar");
@@ -901,10 +929,5 @@ mod tests {
 
         // Must not panic even though ~/.config/stellar does not exist
         print_deprecation_warning(&local_dir);
-
-        match old_home {
-            Some(h) => std::env::set_var("HOME", h),
-            None => std::env::remove_var("HOME"),
-        }
     }
 }
