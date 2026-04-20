@@ -211,7 +211,10 @@ fn secure_store_rejects_env_secret_key() {
         .arg("alice")
         .arg("--secure-store")
         .assert()
-        .failure();
+        .failure()
+        .stderr(predicate::str::contains(
+            "--secure-store only supports seed phrases",
+        ));
 
     // The identity file must not exist — no plaintext fallback.
     assert!(
