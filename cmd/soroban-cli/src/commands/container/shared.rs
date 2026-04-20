@@ -66,7 +66,7 @@ impl Args {
             // if windows and host starts with "npipe://", use connect_with_named_pipe
             // else default to connect_with_unix
             h if h.starts_with("tcp://") || h.starts_with("http://") => {
-                Docker::connect_with_http_defaults()
+                Docker::connect_with_http(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
             }
             #[cfg(unix)]
             h if h.starts_with("unix://") => {
