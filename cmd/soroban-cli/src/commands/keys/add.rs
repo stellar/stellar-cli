@@ -51,7 +51,8 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
     pub public_key: Option<String>,
 
-    /// Overwrite existing identity if it already exists.
+    /// Overwrite existing identity if it already exists. When combined with
+    /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
 }

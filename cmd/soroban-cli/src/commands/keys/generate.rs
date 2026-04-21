@@ -61,7 +61,8 @@ pub struct Cmd {
     #[arg(long, default_value = "false")]
     pub fund: bool,
 
-    /// Overwrite existing identity if it already exists.
+    /// Overwrite existing identity if it already exists. When combined with
+    /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
 }

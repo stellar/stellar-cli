@@ -40,7 +40,12 @@ impl StellarEntry {
         print: &Print,
         overwrite: bool,
     ) -> Result<(), Error> {
-        if self.get_public_key(None).is_ok() {
+        let exists = match self.keyring.get_password() {
+            Ok(_) => true,
+            Err(keyring::Error::NoEntry) => false,
+            Err(e) => return Err(Error::Keyring(e)),
+        };
+        if exists {
             if !overwrite {
                 return Err(Error::EntryAlreadyExists(self.name.clone()));
             }
@@ -237,10 +242,13 @@ mod test {
 
         entry.write(seed_phrase_1, &print, false).unwrap();
 
-        // overwrite=false must fail when an entry already exists
+        // overwrite=false must fail with EntryAlreadyExists when an entry already exists
+        let err = entry
+            .write(seed_phrase_2, &print, false)
+            .expect_err("write without overwrite should fail on existing entry");
         assert!(
-            entry.write(seed_phrase_2, &print, false).is_err(),
-            "write without overwrite should fail on existing entry"
+            matches!(err, Error::EntryAlreadyExists(_)),
+            "expected EntryAlreadyExists, got {err:?}"
         );
     }
 
