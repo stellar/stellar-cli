@@ -195,6 +195,34 @@ fn seed_phrase() {
 }
 
 #[test]
+fn secure_store_rejects_env_secret_key() {
+    let sandbox = TestEnv::default();
+
+    // --secure-store with STELLAR_SECRET_KEY set should be rejected rather than
+    // silently writing the raw secret to a plaintext identity file.
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .arg("add")
+        .arg("alice")
+        .arg("--secure-store")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "--secure-store only supports seed phrases",
+        ));
+
+    // The identity file must not exist — no plaintext fallback.
+    assert!(
+        !sandbox.config_dir().join("identity/alice.toml").exists(),
+        "identity file should not be created when --secure-store is rejected"
+    );
+}
+
+#[test]
 fn use_env() {
     let sandbox = TestEnv::default();
 
