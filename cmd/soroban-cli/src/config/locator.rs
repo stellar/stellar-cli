@@ -205,27 +205,35 @@ impl Args {
     }
 
     pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_network(name).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.set_network(name).save_to(&path)
     }
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_identity(name).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.set_identity(name).save_to(&path)
     }
 
     pub fn write_default_inclusion_fee(&self, inclusion_fee: u32) -> Result<(), Error> {
-        Config::new()?.set_inclusion_fee(inclusion_fee).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?
+            .set_inclusion_fee(inclusion_fee)
+            .save_to(&path)
     }
 
     pub fn unset_default_identity(&self) -> Result<(), Error> {
-        Config::new()?.unset_identity().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_identity().save_to(&path)
     }
 
     pub fn unset_default_network(&self) -> Result<(), Error> {
-        Config::new()?.unset_network().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_network().save_to(&path)
     }
 
     pub fn unset_default_inclusion_fee(&self) -> Result<(), Error> {
-        Config::new()?.unset_inclusion_fee().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_inclusion_fee().save_to(&path)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
