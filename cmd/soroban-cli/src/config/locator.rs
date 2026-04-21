@@ -413,7 +413,7 @@ impl Args {
         #[cfg(unix)]
         {
             use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
             let mut to_file = OpenOptions::new()
                 .create(true)
                 .truncate(true)
@@ -421,7 +421,10 @@ impl Args {
                 .mode(0o600)
                 .open(&path)?;
             to_file.write_all(content.as_bytes())?;
-            fix_config_permissions();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+            if let Ok(root) = self.config_dir() {
+                fix_config_permissions(root);
+            }
         }
 
         #[cfg(not(unix))]
@@ -526,12 +529,8 @@ impl Pwd for Args {
 }
 
 #[cfg(unix)]
-fn fix_config_permissions() {
+fn fix_config_permissions(root: std::path::PathBuf) {
     use std::os::unix::fs::PermissionsExt;
-
-    let Ok(root) = global_config_path() else {
-        return;
-    };
 
     let mut bad_dirs = Vec::new();
     let mut bad_files = Vec::new();
@@ -589,7 +588,7 @@ pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
             .mode(0o700)
             .create(parent)
             .map_err(|_| dir_creation_failed(parent))?;
-        fix_config_permissions();
+        fix_config_permissions(parent.to_path_buf());
     }
 
     #[cfg(not(unix))]
@@ -629,9 +628,6 @@ impl KeyType {
         let data = fs::read_to_string(path).map_err(|_| Error::NetworkFileRead {
             path: path.to_path_buf(),
         })?;
-
-        #[cfg(unix)]
-        fix_config_permissions();
 
         Ok(toml::from_str(&data)?)
     }
@@ -704,7 +700,16 @@ impl KeyType {
         })?;
 
         #[cfg(unix)]
-        fix_config_permissions();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
+                |error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                },
+            )?;
+            fix_config_permissions(pwd.to_path_buf());
+        }
 
         Ok(filepath)
     }
@@ -859,6 +864,39 @@ mod tests {
     use super::*;
     use serial_test::serial;
     use std::collections::HashMap;
+
+    #[test]
+    fn overwrite_resets_file_permissions_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let identity_dir = dir.path().join("identity");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+
+        // Pre-create alice.toml at 0644 to simulate an inherited insecure mode.
+        let alice = identity_dir.join("alice.toml");
+        std::fs::write(&alice, "seed_phrase = \"old\"\n").unwrap();
+        std::fs::set_permissions(&alice, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        assert_eq!(
+            std::fs::metadata(&alice).unwrap().permissions().mode() & 0o777,
+            0o644,
+            "setup: alice.toml should start at 0644"
+        );
+
+        let value: HashMap<String, String> = HashMap::new();
+        KeyType::Identity
+            .write("alice", &value, dir.path())
+            .unwrap();
+
+        let perms = std::fs::metadata(&alice).unwrap().permissions();
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o600,
+            "overwritten identity file should be 0600, got {:o}",
+            perms.mode() & 0o777
+        );
+    }
 
     #[test]
     fn test_write_sets_file_permissions_to_0600() {
