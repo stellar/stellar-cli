@@ -10,7 +10,7 @@ defaults:
 
 jobs:
   publish:
-    uses: stellar/actions/.github/workflows/rust-publish.yml@main
+    uses: stellar/actions/.github/workflows/rust-publish-v2.yml@main
     with:
       additional-deb-packages: libudev-dev libdbus-1-dev
     secrets:
