@@ -1,5 +1,6 @@
 use clap::CommandFactory;
 use dotenvy::dotenv;
+use std::path::PathBuf;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::commands::contract::arg_parsing::Error::HelpMessage;
@@ -7,7 +8,7 @@ use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::commands::contract::Error::{Deploy, Invoke};
 use crate::commands::Error::Contract;
-use crate::config::Config;
+use crate::config::{locator::cli_config_file, Config};
 use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
 use crate::{commands, env_vars, Root};
@@ -98,13 +99,34 @@ pub async fn main() {
     }
 }
 
-// Load ~/.config/stellar/config.toml defaults as env vars.
+// Load config.toml defaults as env vars, honoring --config-dir if present in raw args.
 fn set_env_from_config() {
-    if let Ok(config) = Config::new() {
-        set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
-        set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
-        set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
+    let config_file = config_dir_from_raw_args()
+        .map(|dir| dir.join("config.toml"))
+        .or_else(|| cli_config_file().ok());
+
+    let config = config_file
+        .as_deref()
+        .and_then(|p| Config::load(p).ok())
+        .unwrap_or_default();
+
+    set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
+    set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+    set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
+}
+
+fn config_dir_from_raw_args() -> Option<PathBuf> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut iter = args.iter().peekable();
+    while let Some(arg) = iter.next() {
+        if arg == "--config-dir" {
+            return iter.next().map(PathBuf::from);
+        }
+        if let Some(val) = arg.strip_prefix("--config-dir=") {
+            return Some(PathBuf::from(val));
+        }
     }
+    None
 }
 
 // Set an env var from a config file if the env var is not already set.
