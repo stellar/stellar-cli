@@ -105,9 +105,9 @@ fn multiple_networks() {
 #[test]
 fn read_key() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir().as_ref();
-    add_test_id(dir);
-    let ident_dir = dir.join(".soroban/identity");
+    let config_dir = sandbox.config_dir();
+    add_test_id(&config_dir);
+    let ident_dir = config_dir.join("identity");
     assert!(ident_dir.exists());
     sandbox
         .new_assert_cmd("keys")
@@ -179,9 +179,9 @@ fn generate_key_on_testnet() {
 #[test]
 fn seed_phrase() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir();
+    let config_dir = sandbox.config_dir();
     add_key(
-        dir,
+        &config_dir,
         "test_seed",
         SecretKind::Seed,
         "one two three four five six seven eight nine ten eleven twelve",
@@ -189,10 +189,37 @@ fn seed_phrase() {
 
     sandbox
         .new_assert_cmd("keys")
-        .current_dir(dir)
         .arg("ls")
         .assert()
         .stdout(predicates::str::contains("test_seed\n"));
+}
+
+#[test]
+fn secure_store_rejects_env_secret_key() {
+    let sandbox = TestEnv::default();
+
+    // --secure-store with STELLAR_SECRET_KEY set should be rejected rather than
+    // silently writing the raw secret to a plaintext identity file.
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .arg("add")
+        .arg("alice")
+        .arg("--secure-store")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "--secure-store only supports seed phrases",
+        ));
+
+    // The identity file must not exist — no plaintext fallback.
+    assert!(
+        !sandbox.config_dir().join("identity/alice.toml").exists(),
+        "identity file should not be created when --secure-store is rejected"
+    );
 }
 
 #[test]

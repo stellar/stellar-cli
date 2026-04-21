@@ -33,6 +33,12 @@ pub enum Error {
 
     #[error("An identity with the name '{0}' already exists")]
     IdentityAlreadyExists(String),
+
+    #[error(
+        "--secure-store only supports seed phrases; \
+         unset STELLAR_SECRET_KEY or provide a seed phrase instead"
+    )]
+    SecureStoreRequiresSeedPhrase,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -83,9 +89,15 @@ impl Cmd {
     }
 
     fn read_secret(&self, print: &Print) -> Result<Secret, Error> {
-        if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
-            Ok(Secret::SecretKey { secret_key })
-        } else if self.secrets.secure_store {
+        if self.secrets.secure_store {
+            if std::env::var("STELLAR_SECRET_KEY").is_ok() {
+                return Err(Error::SecureStoreRequiresSeedPhrase);
+            }
+        } else if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
+            return Ok(Secret::SecretKey { secret_key });
+        }
+
+        if self.secrets.secure_store {
             let prompt = "Type a 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
             if secret_key.split_whitespace().count() < 24 {

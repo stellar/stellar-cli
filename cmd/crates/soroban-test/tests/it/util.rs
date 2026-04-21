@@ -24,9 +24,7 @@ pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
         },
     };
 
-    KeyType::Identity
-        .write(name, &secret, &dir.join(".soroban"))
-        .unwrap();
+    KeyType::Identity.write(name, &secret, dir).unwrap();
 }
 
 pub fn add_test_id(dir: &Path) -> String {
