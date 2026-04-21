@@ -4,6 +4,8 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
 use sha2::{Digest, Sha256};
 
+use soroban_spec_tools::contract::sanitize;
+
 use crate::{
     commands::global,
     config::{locator, secret},
@@ -90,7 +92,7 @@ impl Cmd {
         } else {
             String::from_utf8_lossy(&message_bytes).to_string()
         };
-        print.infoln(format!("Message: {message_display}"));
+        print.infoln(format!("Message: {}", sanitize(&message_display)));
         println!("{signature_base64}");
         Ok(())
     }
