@@ -574,6 +574,24 @@ impl Cmd {
     }
 }
 
+fn serialize_command(cmd: &Command) -> String {
+    let mut parts = Vec::<String>::new();
+    parts.extend(cmd.get_envs().map(|(key, val)| {
+        format!(
+            "{}={}",
+            key.to_string_lossy(),
+            shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+        )
+    }));
+    parts.push(cmd.get_program().to_string_lossy().into_owned());
+    parts.extend(
+        cmd.get_args()
+            .map(OsStr::to_string_lossy)
+            .map(|a| shell_escape::escape(a).into_owned()),
+    );
+    parts.join(" ")
+}
+
 /// Configure cargo/rustc to replace absolute paths in panic messages / debuginfo
 /// with relative paths.
 ///
@@ -621,24 +639,6 @@ impl Cmd {
 /// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
 /// existing rustflags being ignored, which is also the behavior of
 /// Cargo itself.
-fn serialize_command(cmd: &Command) -> String {
-    let mut parts = Vec::<String>::new();
-    parts.extend(cmd.get_envs().map(|(key, val)| {
-        format!(
-            "{}={}",
-            key.to_string_lossy(),
-            shell_escape::escape(val.unwrap_or_default().to_string_lossy())
-        )
-    }));
-    parts.push("cargo".to_string());
-    parts.extend(
-        cmd.get_args()
-            .map(OsStr::to_string_lossy)
-            .map(|a| shell_escape::escape(a).into_owned()),
-    );
-    parts.join(" ")
-}
-
 fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
 
