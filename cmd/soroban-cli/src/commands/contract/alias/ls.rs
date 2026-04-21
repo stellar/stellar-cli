@@ -45,15 +45,19 @@ impl Cmd {
 
         for cfg in config_dirs {
             match cfg {
-                Location::Local(config_dir) => Self::read_from_config_dir(&config_dir, true)?,
-                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir, false)?,
+                Location::Local(config_dir) => {
+                    if config_dir.exists() {
+                        print_deprecation_warning(&config_dir);
+                    }
+                }
+                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir)?,
             }
         }
 
         Ok(())
     }
 
-    fn read_from_config_dir(config_dir: &Path, deprecation_mode: bool) -> Result<(), Error> {
+    fn read_from_config_dir(config_dir: &Path) -> Result<(), Error> {
         let pattern = config_dir
             .join("contract-ids")
             .join("*.json")
@@ -98,9 +102,6 @@ impl Cmd {
                 list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
                 for entry in list {
-                    if !found && deprecation_mode {
-                        print_deprecation_warning(config_dir);
-                    }
                     found = true;
                     println!("{}: {}", entry.alias, entry.contract);
                 }
@@ -109,7 +110,7 @@ impl Cmd {
             }
         }
 
-        if !found && !deprecation_mode {
+        if !found {
             eprintln!("⚠️ No aliases defined for network");
 
             process::exit(1);

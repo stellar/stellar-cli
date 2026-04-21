@@ -5,7 +5,6 @@ use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
 use std::{
-    borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
@@ -283,21 +282,7 @@ impl Cmd {
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
-            let mut cmd_str_parts = Vec::<String>::new();
-            cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
-                format!(
-                    "{}={}",
-                    key.to_string_lossy(),
-                    shell_escape::escape(val.unwrap_or_default().to_string_lossy())
-                )
-            }));
-            cmd_str_parts.push("cargo".to_string());
-            cmd_str_parts.extend(
-                cmd.get_args()
-                    .map(OsStr::to_string_lossy)
-                    .map(Cow::into_owned),
-            );
-            let cmd_str = cmd_str_parts.join(" ");
+            let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
                 println!("{cmd_str}");
@@ -589,6 +574,24 @@ impl Cmd {
     }
 }
 
+fn serialize_command(cmd: &Command) -> String {
+    let mut parts = Vec::<String>::new();
+    parts.extend(cmd.get_envs().map(|(key, val)| {
+        format!(
+            "{}={}",
+            key.to_string_lossy(),
+            shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+        )
+    }));
+    parts.push(cmd.get_program().to_string_lossy().into_owned());
+    parts.extend(
+        cmd.get_args()
+            .map(OsStr::to_string_lossy)
+            .map(|a| shell_escape::escape(a).into_owned()),
+    );
+    parts.join(" ")
+}
+
 /// Configure cargo/rustc to replace absolute paths in panic messages / debuginfo
 /// with relative paths.
 ///
@@ -811,4 +814,35 @@ pub fn filter_and_dedup_spec(
         }
     }
     Ok(filtered_xdr)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_command_shell_escapes_args_with_metacharacters() {
+        let raw_arg = "--manifest-path=/path/to/contract;touch PWNED;#/Cargo.toml";
+        let escaped_arg = shell_escape::escape(raw_arg.into()).into_owned();
+
+        let mut cmd = Command::new("cargo");
+        cmd.arg("rustc");
+        cmd.arg(raw_arg);
+
+        let output = serialize_command(&cmd);
+
+        // The full escaped form of the argument must appear verbatim.
+        assert!(
+            output.contains(&escaped_arg),
+            "expected escaped arg {escaped_arg:?} in output: {output}"
+        );
+
+        // Round-trip through shlex: the metacharacter-laden arg must parse back
+        // as a single token equal to the original.
+        let tokens = shlex::split(&output).expect("serialize_command output must be valid shell");
+        assert!(
+            tokens.iter().any(|t| t == raw_arg),
+            "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
+        );
+    }
 }
