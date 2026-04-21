@@ -283,12 +283,6 @@ impl Args {
         KeyType::Identity.read_with_global(name, self)
     }
 
-    // TODO: Remove once local storage is no longer supported
-    pub fn read_identity_with_location(&self, name: &str) -> Result<(Key, Location), Error> {
-        utils::validate_name(name)?;
-        KeyType::Identity.read_with_global_with_location(name, self)
-    }
-
     pub fn read_key(&self, key_or_name: &str) -> Result<Key, Error> {
         key_or_name
             .parse()
