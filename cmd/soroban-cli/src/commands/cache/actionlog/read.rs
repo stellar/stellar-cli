@@ -10,8 +10,6 @@ pub enum Error {
     Data(#[from] data::Error),
     #[error("failed to find cache entry {0}")]
     NotFound(String),
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
     #[error("invalid cache entry ID \"{0}\": expected a ULID")]
     InvalidId(String),
     #[error(transparent)]
@@ -51,13 +49,14 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::EnvGuard;
     use serial_test::serial;
 
     #[test]
     #[serial]
     fn path_traversal_via_dotdot_is_rejected() {
         let tmp = tempfile::tempdir().unwrap();
-        std::env::set_var("STELLAR_DATA_HOME", tmp.path());
+        let _guard = EnvGuard::set("STELLAR_DATA_HOME", tmp.path());
 
         let outside = tmp.path().join("outside.json");
         std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
@@ -66,9 +65,10 @@ mod tests {
             id: "../outside".to_string(),
         };
 
+        let err = cmd.run().expect_err("expected error for path-traversal ID");
         assert!(
-            cmd.run().is_err(),
-            "expected an error for a path-traversal ID, but run() succeeded"
+            matches!(err, Error::InvalidId(_)),
+            "expected InvalidId, got {err:?}"
         );
     }
 
@@ -76,7 +76,7 @@ mod tests {
     #[serial]
     fn absolute_path_id_is_rejected() {
         let tmp = tempfile::tempdir().unwrap();
-        std::env::set_var("STELLAR_DATA_HOME", tmp.path());
+        let _guard = EnvGuard::set("STELLAR_DATA_HOME", tmp.path());
 
         let outside = tmp.path().join("outside.json");
         std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
@@ -88,9 +88,10 @@ mod tests {
             .to_string();
         let cmd = Cmd { id: abs_id };
 
+        let err = cmd.run().expect_err("expected error for absolute-path ID");
         assert!(
-            cmd.run().is_err(),
-            "expected an error for an absolute-path ID, but run() succeeded"
+            matches!(err, Error::InvalidId(_)),
+            "expected InvalidId, got {err:?}"
         );
     }
 }
