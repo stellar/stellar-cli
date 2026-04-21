@@ -57,7 +57,8 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
     pub public_key: Option<String>,
 
-    /// Overwrite existing identity if it already exists.
+    /// Overwrite existing identity if it already exists. When combined with
+    /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
 }
@@ -108,7 +109,8 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            let secret =
+                secure_store::save_secret(print, &self.name, &seed_phrase, self.overwrite)?;
             Ok(secret.parse()?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
