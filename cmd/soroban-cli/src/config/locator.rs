@@ -888,28 +888,7 @@ mod tests {
         );
     }
 
-    struct EnvGuard(Vec<(String, Option<String>)>);
-
-    impl EnvGuard {
-        fn new(vars: &[&str]) -> Self {
-            let saved = vars
-                .iter()
-                .map(|k| (k.to_string(), std::env::var(k).ok()))
-                .collect();
-            Self(saved)
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            for (k, v) in &self.0 {
-                match v {
-                    Some(val) => std::env::set_var(k, val),
-                    None => std::env::remove_var(k),
-                }
-            }
-        }
-    }
+    use crate::test_utils::EnvGuard;
 
     #[test]
     #[serial]

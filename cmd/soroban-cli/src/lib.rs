@@ -27,6 +27,9 @@ pub mod upgrade_check;
 pub mod utils;
 pub mod wasm;
 
+#[cfg(test)]
+pub mod test_utils;
+
 pub use commands::Root;
 
 pub fn parse_cmd<T>(s: &str) -> Result<T, clap::Error>
