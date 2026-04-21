@@ -424,7 +424,7 @@ impl Args {
                 .mode(0o600)
                 .open(&path)?;
             to_file.write_all(content.as_bytes())?;
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
             if let Ok(root) = self.config_dir() {
                 fix_config_permissions(root);
             }
@@ -631,11 +631,6 @@ impl KeyType {
             path: path.to_path_buf(),
         })?;
 
-        #[cfg(unix)]
-        if let Ok(root) = global_config_path() {
-            fix_config_permissions(root);
-        }
-
         Ok(toml::from_str(&data)?)
     }
 
@@ -704,7 +699,12 @@ impl KeyType {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600));
+            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
+                |error| Error::IdCreationFailed {
+                    filepath: filepath.clone(),
+                    error,
+                },
+            )?;
             fix_config_permissions(pwd.to_path_buf());
         }
 
