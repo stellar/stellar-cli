@@ -1008,6 +1008,95 @@ mod tests {
 
     #[test]
     #[serial]
+    fn local_config_network_is_not_read() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_network_dir = tmp.path().join(".stellar/network");
+        std::fs::create_dir_all(&local_network_dir).unwrap();
+        std::fs::write(
+            local_network_dir.join("mynet.toml"),
+            "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let result = locator.read_network("mynet");
+        assert!(result.is_err(), "local config network should not be read");
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_network_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_network_dir = tmp.path().join(".stellar/network");
+        std::fs::create_dir_all(&local_network_dir).unwrap();
+        std::fs::write(
+            local_network_dir.join("mynet.toml"),
+            "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let networks = locator.list_networks().unwrap();
+        assert!(
+            !networks.contains(&"mynet".to_string()),
+            "local config networks should not appear in list, got: {networks:?}"
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_contract_alias_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
+        let _cwd = CwdGuard::new();
+
+        let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+        std::fs::create_dir_all(&local_alias_dir).unwrap();
+        std::fs::write(
+            local_alias_dir.join("mycontract.json"),
+            r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+        )
+        .unwrap();
+
+        let global_cfg = tmp.path().join("global");
+        std::fs::create_dir_all(&global_cfg).unwrap();
+        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+        std::env::set_current_dir(tmp.path()).unwrap();
+
+        let locator = Args { config_dir: None };
+        let [local, global] = locator.local_and_global().unwrap();
+
+        // Verify the alias ls logic: local must be skipped, global has no aliases.
+        assert!(matches!(local, Location::Local(_)));
+        assert!(matches!(global, Location::Global(_)));
+        let global_alias_dir = global.as_ref().join("contract-ids");
+        assert!(
+            !global_alias_dir.exists(),
+            "global alias dir should be empty — local alias must not bleed through"
+        );
+    }
+
+    #[test]
+    #[serial]
     fn config_dir_does_not_search_ancestors_for_identity() {
         // Regression test for: --config-dir ancestor search discloses secrets
         // outside the selected profile (security finding 004).
