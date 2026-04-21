@@ -105,9 +105,9 @@ fn multiple_networks() {
 #[test]
 fn read_key() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir().as_ref();
-    add_test_id(dir);
-    let ident_dir = dir.join(".soroban/identity");
+    let config_dir = sandbox.config_dir();
+    add_test_id(&config_dir);
+    let ident_dir = config_dir.join("identity");
     assert!(ident_dir.exists());
     sandbox
         .new_assert_cmd("keys")
@@ -179,9 +179,9 @@ fn generate_key_on_testnet() {
 #[test]
 fn seed_phrase() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir();
+    let config_dir = sandbox.config_dir();
     add_key(
-        dir,
+        &config_dir,
         "test_seed",
         SecretKind::Seed,
         "one two three four five six seven eight nine ten eleven twelve",
@@ -189,7 +189,6 @@ fn seed_phrase() {
 
     sandbox
         .new_assert_cmd("keys")
-        .current_dir(dir)
         .arg("ls")
         .assert()
         .stdout(predicates::str::contains("test_seed\n"));
