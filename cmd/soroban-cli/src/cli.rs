@@ -116,13 +116,16 @@ fn set_env_from_config() {
 }
 
 fn config_dir_from_raw_args() -> Option<PathBuf> {
-    let args: Vec<String> = std::env::args().collect();
-    let mut iter = args.iter().peekable();
+    use std::ffi::OsStr;
+    let mut iter = std::env::args_os().peekable();
     while let Some(arg) = iter.next() {
-        if arg == "--config-dir" {
+        if arg == OsStr::new("--") {
+            break;
+        }
+        if arg == OsStr::new("--config-dir") {
             return iter.next().map(PathBuf::from);
         }
-        if let Some(val) = arg.strip_prefix("--config-dir=") {
+        if let Some(val) = arg.to_str().and_then(|s| s.strip_prefix("--config-dir=")) {
             return Some(PathBuf::from(val));
         }
     }
