@@ -74,4 +74,28 @@ async fn secure_store_key_management() {
 
     let new_account = client.get_account(&new_address).await.unwrap();
     assert_eq!(new_account.balance, starting_balance);
+
+    // generating the same key again without --overwrite must fail
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", secure_key_name, "--secure-store"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already exists"));
+
+    // generating the same key again with --overwrite must succeed and replace the entry
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", secure_key_name, "--secure-store", "--overwrite"])
+        .assert()
+        .success();
+
+    // the address should still be a valid public key (new key was written)
+    let new_secure_store_address = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", secure_key_name])
+        .assert()
+        .success()
+        .stdout_as_str();
+    assert!(new_secure_store_address.starts_with('G'));
 }
