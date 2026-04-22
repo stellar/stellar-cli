@@ -2,7 +2,7 @@ use std::io::{self, BufRead, IsTerminal};
 
 use crate::commands::global;
 use crate::config::address::KeyName;
-use crate::config::locator::{self, KeyType, Location};
+use crate::config::locator::{self, KeyType};
 use crate::print::Print;
 
 #[derive(thiserror::Error, Debug)]
@@ -13,10 +13,6 @@ pub enum Error {
     Cancelled,
     #[error(transparent)]
     Io(#[from] io::Error),
-    #[error(
-        "please migrate from local storage using `stellar config migrate` before removing keys"
-    )]
-    LocalStorage(),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -40,15 +36,11 @@ impl Cmd {
             let stdin = io::stdin();
 
             // Check that the key exists before asking for confirmation
-            let (_, location) = self.config.read_identity_with_location(&self.name)?;
-            // TODO: Remove check for local storage once it's no longer supported
-            if let Location::Local(_) = location {
-                return Err(Error::LocalStorage());
-            }
+            self.config.read_identity(&self.name)?;
 
             // Show the prompt only when the user can see it
             if stdin.is_terminal() {
-                let config_path = KeyType::Identity.path(location.as_ref(), &self.name);
+                let config_path = KeyType::Identity.path(&self.config.config_dir()?, &self.name);
                 print.warnln(format!(
                     "Are you sure you want to remove the key '{}' at '{}'? This action cannot be undone. (y/N)",
                     self.name,
