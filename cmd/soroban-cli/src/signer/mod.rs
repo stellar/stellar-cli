@@ -73,6 +73,7 @@ pub fn sign_soroban_authorizations(
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
+    let mut auths_modified = false;
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice() {
         let mut auth = raw_auth.clone();
@@ -120,6 +121,7 @@ pub fn sign_soroban_authorizations(
                     &network_id,
                 )?;
                 signed_auths.push(signed_entry);
+                auths_modified = true;
             }
             None => {
                 return Err(Error::MissingSignerForAddress {
@@ -132,21 +134,21 @@ pub fn sign_soroban_authorizations(
         }
     }
 
-    // No signatures were made, return None to indicate no change to the transaction
-    if signed_auths.is_empty() {
+    // If we didn't modify any entries, return Ok(None) to indicate no changes needed to the transaction
+    if !auths_modified {
         return Ok(None);
     }
 
     // Build updated transaction with signed auth entries
-    let mut updated_op = op.clone();
-    if let OperationBody::InvokeHostFunction(ref mut updated_body) = updated_op.body {
-        let mut tx = raw.clone();
-        updated_body.auth = signed_auths.try_into()?;
-        tx.operations = vec![updated_op].try_into()?;
-        Ok(Some(tx))
-    } else {
-        Ok(None)
-    }
+    let mut tx = raw.clone();
+    let mut new_body = body.clone();
+    new_body.auth = signed_auths.try_into()?;
+    tx.operations = vec![Operation {
+        source_account: op.source_account.clone(),
+        body: OperationBody::InvokeHostFunction(new_body),
+    }]
+    .try_into()?;
+    Ok(Some(tx))
 }
 
 fn sign_soroban_authorization_entry(
