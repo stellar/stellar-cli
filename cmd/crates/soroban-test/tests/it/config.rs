@@ -451,6 +451,68 @@ fn set_default_inclusion_fee() {
 }
 
 #[test]
+fn startup_defaults_respect_config_dir() {
+    let global = TestEnv::default();
+
+    // Set a default network in the "global" config (the test env's XDG_CONFIG_HOME)
+    global
+        .new_assert_cmd("network")
+        .arg("use")
+        .arg("testnet")
+        .assert()
+        .success();
+
+    // Confirm the global config now has network = "testnet"
+    let global_config = fs::read_to_string(global.config_dir().join("config.toml")).unwrap();
+    assert!(global_config.contains("network = \"testnet\""));
+
+    // An empty sandbox — no config.toml present
+    let sandbox_dir = global.temp_dir.join("sandbox");
+    std::fs::create_dir_all(&sandbox_dir).unwrap();
+
+    // Running stellar env with --config-dir pointing at the empty sandbox should
+    // not inherit the "testnet" default from the global config.
+    global
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_NETWORK")
+        .arg("--config-dir")
+        .arg(&sandbox_dir)
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_NETWORK=testnet").not())
+        .success();
+}
+
+#[test]
+fn default_writes_respect_config_dir() {
+    let global = TestEnv::default();
+    let sandbox_dir = global.temp_dir.join("sandbox");
+    std::fs::create_dir_all(&sandbox_dir).unwrap();
+
+    // fees use with --config-dir should write to sandbox, not global
+    global
+        .new_assert_cmd("fees")
+        .arg("use")
+        .args(["--amount", "1234", "--config-dir"])
+        .arg(&sandbox_dir)
+        .assert()
+        .success();
+
+    assert!(
+        sandbox_dir.join("config.toml").exists(),
+        "config.toml should be written under --config-dir"
+    );
+    let sandbox_contents = fs::read_to_string(sandbox_dir.join("config.toml")).unwrap();
+    assert!(
+        sandbox_contents.contains("inclusion_fee = 1234"),
+        "sandbox config.toml should contain the fee"
+    );
+    assert!(
+        !global.config_dir().join("config.toml").exists(),
+        "global config.toml should not be created"
+    );
+}
+
+#[test]
 fn warns_if_default_inclusion_fee_will_be_ignored() {
     let sandbox = TestEnv::default();
 
