@@ -4,13 +4,12 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
 use sha2::{Digest, Sha256};
 
-use soroban_spec_tools::contract::sanitize;
-
 use crate::{
     commands::global,
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
+    utils::strip_control_escapes,
 };
 
 use super::SEP53_PREFIX;
@@ -92,7 +91,10 @@ impl Cmd {
         } else {
             String::from_utf8_lossy(&message_bytes).to_string()
         };
-        print.infoln(format!("Message: {}", sanitize(&message_display)));
+        print.infoln(format!(
+            "Message: {}",
+            strip_control_escapes(&message_display)
+        ));
         println!("{signature_base64}");
         Ok(())
     }
