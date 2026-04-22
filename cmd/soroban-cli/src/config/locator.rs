@@ -415,7 +415,7 @@ impl Args {
         #[cfg(unix)]
         {
             use std::io::Write as _;
-            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            use std::os::unix::fs::OpenOptionsExt;
             let mut to_file = OpenOptions::new()
                 .create(true)
                 .truncate(true)
@@ -423,7 +423,7 @@ impl Args {
                 .mode(0o600)
                 .open(&path)?;
             to_file.write_all(content.as_bytes())?;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+            set_hardened_permissions(&path)?;
             if let Ok(root) = self.config_dir() {
                 fix_config_permissions(root);
             }
@@ -566,7 +566,7 @@ fn fix_config_permissions(root: std::path::PathBuf) {
         print.warnln("Updated config directories permissions to 0700.");
 
         for dir in bad_dirs {
-            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+            let _ = set_hardened_permissions(&dir);
         }
     }
 
@@ -574,9 +574,19 @@ fn fix_config_permissions(root: std::path::PathBuf) {
         print.warnln("Updated config files permissions to 0600.");
 
         for file in bad_files {
-            let _ = std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600));
+            let _ = set_hardened_permissions(&file);
         }
     }
+}
+
+pub fn set_hardened_permissions(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = if path.is_dir() { 0o700 } else { 0o600 };
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+    }
+    Ok(())
 }
 
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
@@ -703,13 +713,10 @@ impl KeyType {
 
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
-                |error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                },
-            )?;
+            set_hardened_permissions(&filepath).map_err(|error| Error::IdCreationFailed {
+                filepath: filepath.clone(),
+                error,
+            })?;
             fix_config_permissions(pwd.to_path_buf());
         }
 
