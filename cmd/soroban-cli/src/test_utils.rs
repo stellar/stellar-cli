@@ -1,3 +1,26 @@
+/// Saves and restores the current working directory on drop.
+///
+/// Useful in tests that call `set_current_dir` — guarantees cleanup even on panic.
+pub struct CwdGuard(std::path::PathBuf);
+
+impl Default for CwdGuard {
+    fn default() -> Self {
+        Self(std::env::current_dir().unwrap())
+    }
+}
+
+impl CwdGuard {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Drop for CwdGuard {
+    fn drop(&mut self) {
+        let _ = std::env::set_current_dir(&self.0);
+    }
+}
+
 /// Saves and restores environment variables on drop.
 ///
 /// Useful in tests that mutate env vars — guarantees cleanup even on panic.

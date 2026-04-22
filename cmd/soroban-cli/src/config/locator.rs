@@ -579,7 +579,7 @@ fn fix_config_permissions(root: std::path::PathBuf) {
     }
 }
 
-pub fn set_hardened_permissions(path: &Path) -> io::Result<()> {
+pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -947,21 +947,7 @@ mod tests {
         );
     }
 
-    use crate::test_utils::EnvGuard;
-
-    struct CwdGuard(std::path::PathBuf);
-
-    impl CwdGuard {
-        fn new() -> Self {
-            Self(std::env::current_dir().unwrap())
-        }
-    }
-
-    impl Drop for CwdGuard {
-        fn drop(&mut self) {
-            let _ = std::env::set_current_dir(&self.0);
-        }
-    }
+    use crate::test_utils::{CwdGuard, EnvGuard};
 
     #[test]
     #[serial]

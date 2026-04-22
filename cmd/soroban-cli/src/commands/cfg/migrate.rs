@@ -127,22 +127,9 @@ impl Cmd {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use crate::test_utils::CwdGuard;
     use serial_test::serial;
     use std::os::unix::fs::PermissionsExt;
-
-    struct CwdGuard(std::path::PathBuf);
-
-    impl CwdGuard {
-        fn new() -> Self {
-            Self(std::env::current_dir().unwrap())
-        }
-    }
-
-    impl Drop for CwdGuard {
-        fn drop(&mut self) {
-            let _ = std::env::set_current_dir(&self.0);
-        }
-    }
 
     #[test]
     #[serial]
