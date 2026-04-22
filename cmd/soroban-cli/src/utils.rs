@@ -171,6 +171,10 @@ pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }
 
+pub fn strip_control_escapes(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control()).collect()
+}
+
 pub fn contract_id_hash_from_asset(
     asset: &Asset,
     network_passphrase: &str,

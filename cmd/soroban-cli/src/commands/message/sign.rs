@@ -9,6 +9,7 @@ use crate::{
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
+    utils::strip_control_escapes,
 };
 
 use super::SEP53_PREFIX;
@@ -90,7 +91,10 @@ impl Cmd {
         } else {
             String::from_utf8_lossy(&message_bytes).to_string()
         };
-        print.infoln(format!("Message: {message_display}"));
+        print.infoln(format!(
+            "Message: {}",
+            strip_control_escapes(&message_display)
+        ));
         println!("{signature_base64}");
         Ok(())
     }
