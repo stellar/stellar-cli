@@ -240,7 +240,7 @@ impl Signer {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
                 let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
                 self.print
-                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
+                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash)));
                 let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);

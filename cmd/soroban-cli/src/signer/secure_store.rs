@@ -45,12 +45,13 @@ mod secure_store_impl {
         print: &Print,
         entry_name: &str,
         seed_phrase: &SeedPhrase,
+        overwrite: bool,
     ) -> Result<String, Error> {
         // secure_store:org.stellar.cli:<key name>
         let entry_name_with_prefix = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{entry_name}");
 
         let entry = StellarEntry::new(&entry_name_with_prefix)?;
-        entry.write(seed_phrase.clone(), print)?;
+        entry.write(seed_phrase.clone(), print, overwrite)?;
 
         Ok(entry_name_with_prefix)
     }
@@ -81,6 +82,7 @@ mod secure_store_impl {
         _print: &Print,
         _entry_name: &str,
         _seed_phrase: &SeedPhrase,
+        _overwrite: bool,
     ) -> Result<String, Error> {
         Err(Error::FeatureNotEnabled)
     }

@@ -105,9 +105,9 @@ fn multiple_networks() {
 #[test]
 fn read_key() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir().as_ref();
-    add_test_id(dir);
-    let ident_dir = dir.join(".soroban/identity");
+    let config_dir = sandbox.config_dir();
+    add_test_id(&config_dir);
+    let ident_dir = config_dir.join("identity");
     assert!(ident_dir.exists());
     sandbox
         .new_assert_cmd("keys")
@@ -179,9 +179,9 @@ fn generate_key_on_testnet() {
 #[test]
 fn seed_phrase() {
     let sandbox = TestEnv::default();
-    let dir = sandbox.dir();
+    let config_dir = sandbox.config_dir();
     add_key(
-        dir,
+        &config_dir,
         "test_seed",
         SecretKind::Seed,
         "one two three four five six seven eight nine ten eleven twelve",
@@ -189,10 +189,37 @@ fn seed_phrase() {
 
     sandbox
         .new_assert_cmd("keys")
-        .current_dir(dir)
         .arg("ls")
         .assert()
         .stdout(predicates::str::contains("test_seed\n"));
+}
+
+#[test]
+fn secure_store_rejects_env_secret_key() {
+    let sandbox = TestEnv::default();
+
+    // --secure-store with STELLAR_SECRET_KEY set should be rejected rather than
+    // silently writing the raw secret to a plaintext identity file.
+    sandbox
+        .new_assert_cmd("keys")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .arg("add")
+        .arg("alice")
+        .arg("--secure-store")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "--secure-store only supports seed phrases",
+        ));
+
+    // The identity file must not exist — no plaintext fallback.
+    assert!(
+        !sandbox.config_dir().join("identity/alice.toml").exists(),
+        "identity file should not be created when --secure-store is rejected"
+    );
 }
 
 #[test]
@@ -421,6 +448,68 @@ fn set_default_inclusion_fee() {
 
     let config_contents = fs::read_to_string(sandbox.config_dir().join("config.toml")).unwrap();
     assert!(config_contents.contains("inclusion_fee = 150"));
+}
+
+#[test]
+fn startup_defaults_respect_config_dir() {
+    let global = TestEnv::default();
+
+    // Set a default network in the "global" config (the test env's XDG_CONFIG_HOME)
+    global
+        .new_assert_cmd("network")
+        .arg("use")
+        .arg("testnet")
+        .assert()
+        .success();
+
+    // Confirm the global config now has network = "testnet"
+    let global_config = fs::read_to_string(global.config_dir().join("config.toml")).unwrap();
+    assert!(global_config.contains("network = \"testnet\""));
+
+    // An empty sandbox — no config.toml present
+    let sandbox_dir = global.temp_dir.join("sandbox");
+    std::fs::create_dir_all(&sandbox_dir).unwrap();
+
+    // Running stellar env with --config-dir pointing at the empty sandbox should
+    // not inherit the "testnet" default from the global config.
+    global
+        .new_assert_cmd("env")
+        .env_remove("STELLAR_NETWORK")
+        .arg("--config-dir")
+        .arg(&sandbox_dir)
+        .assert()
+        .stdout(predicate::str::contains("STELLAR_NETWORK=testnet").not())
+        .success();
+}
+
+#[test]
+fn default_writes_respect_config_dir() {
+    let global = TestEnv::default();
+    let sandbox_dir = global.temp_dir.join("sandbox");
+    std::fs::create_dir_all(&sandbox_dir).unwrap();
+
+    // fees use with --config-dir should write to sandbox, not global
+    global
+        .new_assert_cmd("fees")
+        .arg("use")
+        .args(["--amount", "1234", "--config-dir"])
+        .arg(&sandbox_dir)
+        .assert()
+        .success();
+
+    assert!(
+        sandbox_dir.join("config.toml").exists(),
+        "config.toml should be written under --config-dir"
+    );
+    let sandbox_contents = fs::read_to_string(sandbox_dir.join("config.toml")).unwrap();
+    assert!(
+        sandbox_contents.contains("inclusion_fee = 1234"),
+        "sandbox config.toml should contain the fee"
+    );
+    assert!(
+        !global.config_dir().join("config.toml").exists(),
+        "global config.toml should not be created"
+    );
 }
 
 #[test]

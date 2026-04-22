@@ -236,10 +236,14 @@ pub struct Defaults {
 
 impl Config {
     pub fn new() -> Result<Config, locator::Error> {
-        let path = cli_config_file()?;
+        Self::load(&cli_config_file()?)
+    }
 
+    pub fn load(path: &std::path::Path) -> Result<Config, locator::Error> {
         if path.exists() {
-            let data = fs::read_to_string(&path).map_err(|_| locator::Error::FileRead { path })?;
+            let data = fs::read_to_string(path).map_err(|_| locator::Error::FileRead {
+                path: path.to_path_buf(),
+            })?;
             Ok(toml::from_str(&data)?)
         } else {
             Ok(Config::default())
@@ -283,12 +287,14 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<(), locator::Error> {
-        let toml_string = toml::to_string(&self)?;
-        let path = cli_config_file()?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path)?)?;
-        file.write_all(toml_string.as_bytes())?;
+        self.save_to(&cli_config_file()?)
+    }
 
+    pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
+        let toml_string = toml::to_string(&self)?;
+        // Depending on the platform, this function may fail if the full directory path does not exist
+        let mut file = File::create(locator::ensure_directory(path.to_path_buf())?)?;
+        file.write_all(toml_string.as_bytes())?;
         Ok(())
     }
 }
