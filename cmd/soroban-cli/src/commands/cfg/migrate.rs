@@ -127,7 +127,7 @@ impl Cmd {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use crate::test_utils::CwdGuard;
+    use crate::test_utils::with_cwd_guard;
     use serial_test::serial;
     use std::os::unix::fs::PermissionsExt;
 
@@ -135,56 +135,57 @@ mod tests {
     #[serial]
     fn migrate_hardens_permissions() {
         let tmp = tempfile::tempdir().unwrap();
-        let _cwd = CwdGuard::new();
 
-        // Set up legacy local identity: .stellar/identity/alice.toml at 0644 in 0755 dir
-        let local_identity_dir = tmp.path().join(".stellar/identity");
-        std::fs::create_dir_all(&local_identity_dir).unwrap();
-        std::fs::set_permissions(&local_identity_dir, std::fs::Permissions::from_mode(0o755))
+        with_cwd_guard(|| {
+            // Set up legacy local identity: .stellar/identity/alice.toml at 0644 in 0755 dir
+            let local_identity_dir = tmp.path().join(".stellar/identity");
+            std::fs::create_dir_all(&local_identity_dir).unwrap();
+            std::fs::set_permissions(&local_identity_dir, std::fs::Permissions::from_mode(0o755))
+                .unwrap();
+            let legacy_file = local_identity_dir.join("alice.toml");
+            std::fs::write(
+                &legacy_file,
+                "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+            )
             .unwrap();
-        let legacy_file = local_identity_dir.join("alice.toml");
-        std::fs::write(
-            &legacy_file,
-            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&legacy_file, std::fs::Permissions::from_mode(0o644)).unwrap();
+            std::fs::set_permissions(&legacy_file, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-        let global_dir = tmp.path().join("global");
-        std::fs::create_dir_all(&global_dir).unwrap();
+            let global_dir = tmp.path().join("global");
+            std::fs::create_dir_all(&global_dir).unwrap();
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+            std::env::set_current_dir(tmp.path()).unwrap();
 
-        let cmd = Cmd {
-            locator: locator::Args {
-                config_dir: Some(global_dir.clone()),
-            },
-        };
-        cmd.run().unwrap();
+            let cmd = Cmd {
+                locator: locator::Args {
+                    config_dir: Some(global_dir.clone()),
+                },
+            };
+            cmd.run().unwrap();
 
-        let migrated_dir = global_dir.join("identity");
-        let migrated_file = migrated_dir.join("alice.toml");
+            let migrated_dir = global_dir.join("identity");
+            let migrated_file = migrated_dir.join("alice.toml");
 
-        assert!(migrated_file.exists(), "migrated file should exist");
+            assert!(migrated_file.exists(), "migrated file should exist");
 
-        let dir_mode = std::fs::metadata(&migrated_dir)
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(
-            dir_mode, 0o700,
-            "migrated identity directory should be 0700, got {dir_mode:o}",
-        );
+            let dir_mode = std::fs::metadata(&migrated_dir)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(
+                dir_mode, 0o700,
+                "migrated identity directory should be 0700, got {dir_mode:o}",
+            );
 
-        let file_mode = std::fs::metadata(&migrated_file)
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(
-            file_mode, 0o600,
-            "migrated identity file should be 0600, got {file_mode:o}",
-        );
+            let file_mode = std::fs::metadata(&migrated_file)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(
+                file_mode, 0o600,
+                "migrated identity file should be 0600, got {file_mode:o}",
+            );
+        });
     }
 }

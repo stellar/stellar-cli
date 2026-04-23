@@ -10,8 +10,19 @@ impl Default for CwdGuard {
 }
 
 impl CwdGuard {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+/// Runs `f` with the current working directory automatically restored on return or panic.
+pub fn with_cwd_guard<F: FnOnce()>(f: F) {
+    let saved = std::env::current_dir().unwrap();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    let _ = std::env::set_current_dir(saved);
+    if let Err(payload) = result {
+        std::panic::resume_unwind(payload);
     }
 }
 
