@@ -105,6 +105,8 @@ pub enum Error {
     ProjectDirsError(),
     #[error(transparent)]
     InvalidName(#[from] utils::Error),
+    #[error("invalid signing key or identity name")]
+    InvalidSigningKey,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -298,9 +300,13 @@ impl Args {
     }
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        match self.read_key(key_or_name)? {
+        let key = self.read_key(key_or_name).map_err(|e| match e {
+            Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
+            other => other,
+        })?;
+        match key {
             Key::Secret(s) => Ok(s),
-            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
+            _ => Err(Error::InvalidSigningKey),
         }
     }
 
@@ -415,7 +421,7 @@ impl Args {
         #[cfg(unix)]
         {
             use std::io::Write as _;
-            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            use std::os::unix::fs::OpenOptionsExt;
             let mut to_file = OpenOptions::new()
                 .create(true)
                 .truncate(true)
@@ -423,7 +429,7 @@ impl Args {
                 .mode(0o600)
                 .open(&path)?;
             to_file.write_all(content.as_bytes())?;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+            set_hardened_permissions(&path)?;
             if let Ok(root) = self.config_dir() {
                 fix_config_permissions(root);
             }
@@ -566,7 +572,7 @@ fn fix_config_permissions(root: std::path::PathBuf) {
         print.warnln("Updated config directories permissions to 0700.");
 
         for dir in bad_dirs {
-            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+            let _ = set_hardened_permissions(&dir);
         }
     }
 
@@ -574,9 +580,19 @@ fn fix_config_permissions(root: std::path::PathBuf) {
         print.warnln("Updated config files permissions to 0600.");
 
         for file in bad_files {
-            let _ = std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600));
+            let _ = set_hardened_permissions(&file);
         }
     }
+}
+
+pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = if path.is_dir() { 0o700 } else { 0o600 };
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+    }
+    Ok(())
 }
 
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
@@ -703,13 +719,10 @@ impl KeyType {
 
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&filepath, std::fs::Permissions::from_mode(0o600)).map_err(
-                |error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                },
-            )?;
+            set_hardened_permissions(&filepath).map_err(|error| Error::IdCreationFailed {
+                filepath: filepath.clone(),
+                error,
+            })?;
             fix_config_permissions(pwd.to_path_buf());
         }
 
@@ -940,21 +953,7 @@ mod tests {
         );
     }
 
-    use crate::test_utils::EnvGuard;
-
-    struct CwdGuard(std::path::PathBuf);
-
-    impl CwdGuard {
-        fn new() -> Self {
-            Self(std::env::current_dir().unwrap())
-        }
-    }
-
-    impl Drop for CwdGuard {
-        fn drop(&mut self) {
-            let _ = std::env::set_current_dir(&self.0);
-        }
-    }
+    use crate::test_utils::{CwdGuard, EnvGuard};
 
     #[test]
     #[serial]

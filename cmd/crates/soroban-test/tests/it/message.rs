@@ -177,6 +177,25 @@ async fn sep_53_sign_message_and_verify_with_alias() {
 }
 
 #[test]
+fn message_sign_does_not_leak_secret_in_error_output() {
+    let sandbox = TestEnv::default();
+    let malformed =
+        "kite urban olympic result lunch box duck abandon abandon abandon abandon about";
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", "hello", "--sign-with-key", malformed])
+        .assert()
+        .failure();
+
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(malformed),
+        "stderr must not contain the raw signing key, got: {stderr:?}"
+    );
+}
+
+#[test]
 fn message_sign_escapes_control_characters_in_preview() {
     let sandbox = TestEnv::default();
     let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
@@ -192,5 +211,9 @@ fn message_sign_escapes_control_characters_in_preview() {
     assert!(
         !stderr.contains('\x1b'),
         "stderr should not contain raw ESC bytes, got: {stderr:?}"
+    );
+    assert!(
+        stderr.contains("\\x1b"),
+        "stderr should contain escaped ESC as \\x1b, got: {stderr:?}"
     );
 }

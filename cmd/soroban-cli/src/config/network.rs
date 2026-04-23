@@ -77,6 +77,7 @@ pub struct Args {
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
         value_parser = parse_http_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
@@ -138,6 +139,7 @@ pub struct Network {
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
         value_parser = parse_http_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server

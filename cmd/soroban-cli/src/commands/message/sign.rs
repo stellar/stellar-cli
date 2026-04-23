@@ -9,7 +9,7 @@ use crate::{
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
-    utils::strip_control_escapes,
+    utils::escape_control_characters,
 };
 
 use super::SEP53_PREFIX;
@@ -58,7 +58,7 @@ pub struct Cmd {
 
     // @dev: Ledger and Lab don't support signing arbitrary messages yet. Once they do, use `sign_with::Args` here.
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
-    #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
+    #[arg(long, env = "STELLAR_SIGN_WITH_KEY", hide_env_values = true)]
     pub sign_with_key: String,
 
     #[arg(long)]
@@ -93,7 +93,7 @@ impl Cmd {
         };
         print.infoln(format!(
             "Message: {}",
-            strip_control_escapes(&message_display)
+            escape_control_characters(&message_display)
         ));
         println!("{signature_base64}");
         Ok(())
@@ -156,6 +156,18 @@ mod tests {
         locator::Args {
             config_dir: Some(temp_dir.path().to_path_buf()),
         }
+    }
+
+    #[test]
+    fn test_malformed_sign_with_key_does_not_leak_value() {
+        let malformed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
+        let locator = setup_locator();
+        let err = locator.get_secret_key(malformed).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            !err_msg.contains(malformed),
+            "error message must not contain the secret-bearing input; got: {err_msg}"
+        );
     }
 
     fn build_signer_for_test_key() -> Signer {
@@ -232,5 +244,19 @@ mod tests {
         let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
 
         assert_eq!(signature_base64, expected_signature);
+    }
+
+    #[test]
+    fn test_help_does_not_expose_sign_with_key() {
+        use clap::CommandFactory;
+        let secret = "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD";
+        std::env::set_var("STELLAR_SIGN_WITH_KEY", secret);
+        let mut cmd = Cmd::command();
+        let help_text = cmd.render_long_help().to_string();
+        std::env::remove_var("STELLAR_SIGN_WITH_KEY");
+        assert!(
+            !help_text.contains(secret),
+            "help text must not expose STELLAR_SIGN_WITH_KEY value"
+        );
     }
 }
