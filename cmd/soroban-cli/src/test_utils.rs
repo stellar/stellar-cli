@@ -38,6 +38,7 @@ impl Drop for CwdGuard {
 pub struct EnvGuard(Vec<(String, Option<String>)>);
 
 impl EnvGuard {
+    #[must_use]
     pub fn new(vars: &[&str]) -> Self {
         let saved = vars
             .iter()
@@ -49,10 +50,31 @@ impl EnvGuard {
         Self(saved)
     }
 
+    #[must_use]
     pub fn set(key: &'static str, val: &std::path::Path) -> Self {
         let prev = std::env::var(key).ok();
         std::env::set_var(key, val);
         Self(vec![(key.to_string(), prev)])
+    }
+}
+
+/// Runs `f` with the given env vars cleared, then restores them on return or panic.
+pub fn with_env_guard<F: FnOnce()>(vars: &[&str], f: F) {
+    let guard = EnvGuard::new(vars);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    drop(guard);
+    if let Err(payload) = result {
+        std::panic::resume_unwind(payload);
+    }
+}
+
+/// Runs `f` with `key` set to `val`, then restores the original value on return or panic.
+pub fn with_env_set<F: FnOnce()>(key: &'static str, val: &std::path::Path, f: F) {
+    let guard = EnvGuard::set(key, val);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    drop(guard);
+    if let Err(payload) = result {
+        std::panic::resume_unwind(payload);
     }
 }
 
