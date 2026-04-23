@@ -158,6 +158,18 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_malformed_sign_with_key_does_not_leak_value() {
+        let malformed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
+        let locator = setup_locator();
+        let err = locator.get_secret_key(malformed).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            !err_msg.contains(malformed),
+            "error message must not contain the secret-bearing input; got: {err_msg}"
+        );
+    }
+
     fn build_signer_for_test_key() -> Signer {
         let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
         let private_key = secret.private_key(None).unwrap();
