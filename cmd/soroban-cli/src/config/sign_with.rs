@@ -37,7 +37,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
-    #[arg(long, env = "STELLAR_SIGN_WITH_KEY")]
+    #[arg(long, env = "STELLAR_SIGN_WITH_KEY", hide_env_values = true)]
     pub sign_with_key: Option<String>,
 
     #[arg(long, conflicts_with = "sign_with_lab")]
