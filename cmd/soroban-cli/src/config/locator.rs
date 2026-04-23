@@ -301,12 +301,12 @@ impl Args {
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         let key = self.read_key(key_or_name).map_err(|e| match e {
-            Error::InvalidName(_) => Error::InvalidSigningKey,
+            Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
             other => other,
         })?;
         match key {
             Key::Secret(s) => Ok(s),
-            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
+            _ => Err(Error::InvalidSigningKey),
         }
     }
 
