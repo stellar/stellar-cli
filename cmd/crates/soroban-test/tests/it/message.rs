@@ -212,4 +212,8 @@ fn message_sign_escapes_control_characters_in_preview() {
         !stderr.contains('\x1b'),
         "stderr should not contain raw ESC bytes, got: {stderr:?}"
     );
+    assert!(
+        stderr.contains("\\x1b"),
+        "stderr should contain escaped ESC as \\x1b, got: {stderr:?}"
+    );
 }
