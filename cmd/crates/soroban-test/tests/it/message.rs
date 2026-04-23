@@ -196,6 +196,36 @@ fn message_sign_does_not_leak_secret_in_error_output() {
 }
 
 #[test]
+fn message_sign_does_not_echo_message_to_stderr() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+    let secret_message = "TOP_SECRET_TOKEN_abc123_DO_NOT_LEAK";
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", secret_message, "--sign-with-key", secret_key])
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(secret_message),
+        "stderr must not echo the message (arg input), got: {stderr:?}"
+    );
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .write_stdin(secret_message)
+        .args(["sign", "--sign-with-key", secret_key])
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(secret_message),
+        "stderr must not echo the message (stdin input), got: {stderr:?}"
+    );
+}
+
+#[test]
 fn message_sign_escapes_control_characters_in_preview() {
     let sandbox = TestEnv::default();
     let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
@@ -211,9 +241,5 @@ fn message_sign_escapes_control_characters_in_preview() {
     assert!(
         !stderr.contains('\x1b'),
         "stderr should not contain raw ESC bytes, got: {stderr:?}"
-    );
-    assert!(
-        stderr.contains("\\x1b"),
-        "stderr should contain escaped ESC as \\x1b, got: {stderr:?}"
     );
 }
