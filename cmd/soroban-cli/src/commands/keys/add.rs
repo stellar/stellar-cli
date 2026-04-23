@@ -94,7 +94,7 @@ impl Cmd {
                 return Err(Error::SecureStoreRequiresSeedPhrase);
             }
         } else if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
-            return Ok(Secret::SecretKey { secret_key });
+            return Ok(secret_key.parse()?);
         }
 
         if self.secrets.secure_store {

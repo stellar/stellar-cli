@@ -248,6 +248,47 @@ fn use_env() {
 }
 
 #[test]
+fn env_secret_key_arbitrary_string_is_rejected() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env("STELLAR_SECRET_KEY", "hunter2-not-a-stellar-key")
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .failure();
+
+    assert!(
+        !sandbox.config_dir().join("identity/alice.toml").exists(),
+        "identity file should not be created for invalid secret key"
+    );
+}
+
+#[test]
+fn env_secret_key_mnemonic_stored_as_seed_phrase() {
+    let sandbox = TestEnv::default();
+    let mnemonic = GENERATED_SEED_PHRASE;
+    let expected_secret_key = "SC36BWNUOCZAO7DMEJNNKFV6BOTPJP7IG5PSHLUOLT6DZFRU3D3XGIXW";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .env("STELLAR_SECRET_KEY", mnemonic)
+        .arg("add")
+        .arg("alice")
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("alice")
+        .assert()
+        .success()
+        .stdout(format!("{expected_secret_key}\n"));
+}
+
+#[test]
 fn add_key_from_stdin() {
     let sandbox = TestEnv::default();
     let secret_key = "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD";
