@@ -585,6 +585,7 @@ fn fix_config_permissions(root: std::path::PathBuf) {
     }
 }
 
+#[allow(unused_variables, clippy::unnecessary_wraps)]
 pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     #[cfg(unix)]
     {
