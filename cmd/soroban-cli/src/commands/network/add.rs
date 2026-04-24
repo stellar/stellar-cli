@@ -7,6 +7,9 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] locator::Error),
+
+    #[error(transparent)]
+    Network(#[from] network::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -24,6 +27,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        self.network.validate_headers()?;
         self.config_locator
             .write_network(&self.name, &self.network)?;
         Ok(())

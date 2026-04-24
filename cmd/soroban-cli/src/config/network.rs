@@ -76,10 +76,9 @@ pub struct Args {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
         hide_env_values = true,
     )]
-    pub rpc_headers: Vec<(String, String)>,
+    pub rpc_headers: Vec<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -111,11 +110,18 @@ impl Args {
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
-            (_, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
-                rpc_url,
-                rpc_headers: self.rpc_headers.clone(),
-                network_passphrase,
-            }),
+            (_, Some(rpc_url), Some(network_passphrase)) => {
+                let rpc_headers = self
+                    .rpc_headers
+                    .iter()
+                    .map(|h| parse_http_header(h))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Network {
+                    rpc_url,
+                    rpc_headers,
+                    network_passphrase,
+                })
+            }
         }
     }
 }
@@ -138,7 +144,7 @@ pub struct Network {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
+        value_parser = accept_raw_rpc_header,
         hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
@@ -174,14 +180,33 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
         .next_tuple()
         .ok_or_else(|| Error::InvalidHeader)?;
 
-    // Check that the headers are properly formatted
     HeaderName::from_str(key)?;
     HeaderValue::from_str(value)?;
 
     Ok((key.to_string(), value.to_string()))
 }
 
+/// Clap value_parser for `Network::rpc_headers` that always succeeds, deferring
+/// validation to application code so clap never echoes the raw value in error messages.
+#[allow(clippy::unnecessary_wraps)]
+fn accept_raw_rpc_header(header: &str) -> Result<(String, String), std::convert::Infallible> {
+    let (key, value) = header.split_once(':').unwrap_or((header, ""));
+    Ok((key.trim().to_string(), value.trim().to_string()))
+}
+
+fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
+    for (key, value) in headers {
+        HeaderName::from_str(key)?;
+        HeaderValue::from_str(value)?;
+    }
+    Ok(())
+}
+
 impl Network {
+    pub fn validate_headers(&self) -> Result<(), Error> {
+        validate_rpc_headers(&self.rpc_headers)
+    }
+
     pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
         let rpc_url =
@@ -552,6 +577,52 @@ mod tests {
         } else {
             env::remove_var("STELLAR_CONFIG_HOME");
         }
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_clap_error_does_not_expose_value() {
+        use clap::Parser;
+        use std::env;
+
+        #[derive(clap::Parser)]
+        struct TestCmd {
+            #[command(flatten)]
+            args: Args,
+        }
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        env::set_var("STELLAR_RPC_HEADERS", secret);
+        let result = TestCmd::try_parse_from(["stellar"]);
+        env::remove_var("STELLAR_RPC_HEADERS");
+
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                !error_msg.contains("secret_poc_token_12345"),
+                "Clap error must not expose secret header value, got: {error_msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_app_error_does_not_expose_value() {
+        use super::super::locator;
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        let args = Args {
+            rpc_url: Some("https://example.com".to_string()),
+            rpc_headers: vec![secret.to_string()],
+            network_passphrase: Some("Test SDF Network ; September 2015".to_string()),
+            network: None,
+        };
+
+        let result = args.get(&locator::Args::default());
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            !error_msg.contains("secret_poc_token_12345"),
+            "Application error must not expose secret header value, got: {error_msg}"
+        );
     }
 
     #[test]
