@@ -73,7 +73,7 @@ impl Exchange for Emulator {
         let resp: Response = HttpClient::new()
             .post(&self.url)
             .headers(headers)
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_mins(1))
             .json(&request)
             .send()
             .await

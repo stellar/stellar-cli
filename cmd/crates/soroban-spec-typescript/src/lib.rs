@@ -125,10 +125,10 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     // Filter out function entries with names that start with "__" and partition the results
     for entry in &collected {
         match entry {
-            Entry::Function { name, inputs, .. } if name == "__constructor" => {
-                if !inputs.is_empty() {
-                    constructor_args = Some(inputs.clone());
-                }
+            Entry::Function { name, inputs, .. }
+                if name == "__constructor" && !inputs.is_empty() =>
+            {
+                constructor_args = Some(inputs.clone());
             }
             _ => {}
         }
@@ -408,7 +408,7 @@ fn sanitize_identifier(name: &str) -> String {
 }
 
 /// Escape a string for use in a TypeScript string literal
-fn sanitize_string(s: &str) -> String {
+pub(crate) fn sanitize_string(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")

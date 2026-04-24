@@ -23,11 +23,13 @@ pub mod log;
 pub mod print;
 pub mod resources;
 pub mod signer;
-pub mod toid;
 pub mod tx;
 pub mod upgrade_check;
 pub mod utils;
 pub mod wasm;
+
+#[cfg(test)]
+pub mod test_utils;
 
 pub use commands::Root;
 

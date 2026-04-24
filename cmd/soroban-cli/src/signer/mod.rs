@@ -2,11 +2,10 @@ use crate::{
     utils::fee_bump_transaction_hash,
     xdr::{
         self, AccountId, DecoratedSignature, FeeBumpTransactionEnvelope, Hash, HashIdPreimage,
-        HashIdPreimageSorobanAuthorization, InvokeHostFunctionOp, Limits, Operation, OperationBody,
-        PublicKey, ScAddress, ScMap, ScSymbol, ScVal, Signature, SignatureHint,
-        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
-        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        HashIdPreimageSorobanAuthorization, Limits, Operation, OperationBody, PublicKey, ScAddress,
+        ScMap, ScSymbol, ScVal, Signature, SignatureHint, SorobanAddressCredentials,
+        SorobanAuthorizationEntry, SorobanCredentials, Transaction, TransactionEnvelope,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
@@ -52,45 +51,31 @@ pub enum Error {
     Decode(#[from] stellar_strkey::DecodeError),
 }
 
-fn requires_auth(txn: &Transaction) -> Option<xdr::Operation> {
-    let [op @ Operation {
-        body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp { auth, .. }),
-        ..
-    }] = txn.operations.as_slice()
-    else {
-        return None;
-    };
-    matches!(
-        auth.first().map(|x| &x.root_invocation.function),
-        Some(&SorobanAuthorizedFunction::ContractFn(_))
-    )
-    .then(move || op.clone())
-}
-
-// Use the given source_key and signers, to sign all SorobanAuthorizationEntry's in the given
-// transaction. If unable to sign, return an error.
+/// Sign all SorobanAuthorizationEntry's in the transaction with the given signers. Returns a new
+/// transaction with the signatures added to each SorobanAuthorizationEntry.
+///
+/// If no SorobanAuthorizationEntry's need signing (including if none exist), return Ok(None).
+///
+/// If a SorobanAuthorizationEntry needs signing, but a signature cannot be produced for it,
+/// return an Error
 pub fn sign_soroban_authorizations(
     raw: &Transaction,
-    source_signer: &Signer,
     signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
 ) -> Result<Option<Transaction>, Error> {
-    let mut tx = raw.clone();
-    let Some(mut op) = requires_auth(&tx) else {
-        return Ok(None);
-    };
-
-    let Operation {
-        body: OperationBody::InvokeHostFunction(ref mut body),
+    // Check if we have exactly one operation and it's InvokeHostFunction
+    let [op @ Operation {
+        body: OperationBody::InvokeHostFunction(body),
         ..
-    } = op
+    }] = raw.operations.as_slice()
     else {
         return Ok(None);
     };
 
     let network_id = Hash(Sha256::digest(network_passphrase.as_bytes()).into());
 
+    let mut auths_modified = false;
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice() {
         let mut auth = raw_auth.clone();
@@ -129,10 +114,6 @@ pub fn sign_soroban_authorizations(
             }
         }
 
-        if needle == &source_signer.get_public_key()?.0 {
-            signer = Some(source_signer);
-        }
-
         match signer {
             Some(signer) => {
                 let signed_entry = sign_soroban_authorization_entry(
@@ -142,6 +123,7 @@ pub fn sign_soroban_authorizations(
                     &network_id,
                 )?;
                 signed_auths.push(signed_entry);
+                auths_modified = true;
             }
             None => {
                 return Err(Error::MissingSignerForAddress {
@@ -154,8 +136,20 @@ pub fn sign_soroban_authorizations(
         }
     }
 
-    body.auth = signed_auths.try_into()?;
-    tx.operations = vec![op].try_into()?;
+    // If we didn't modify any entries, return Ok(None) to indicate no changes needed to the transaction
+    if !auths_modified {
+        return Ok(None);
+    }
+
+    // Build updated transaction with signed auth entries
+    let mut tx = raw.clone();
+    let mut new_body = body.clone();
+    new_body.auth = signed_auths.try_into()?;
+    tx.operations = vec![Operation {
+        source_account: op.source_account.clone(),
+        body: OperationBody::InvokeHostFunction(new_body),
+    }]
+    .try_into()?;
     Ok(Some(tx))
 }
 
@@ -250,7 +244,7 @@ impl Signer {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
                 let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
                 self.print
-                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash),));
+                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash)));
                 let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);

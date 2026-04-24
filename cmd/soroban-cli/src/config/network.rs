@@ -1,6 +1,6 @@
 use itertools::Itertools;
-use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
+use reqwest::header::HeaderMap;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -77,6 +77,7 @@ pub struct Args {
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
         value_parser = parse_http_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
@@ -138,6 +139,7 @@ pub struct Network {
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
         value_parser = parse_http_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server

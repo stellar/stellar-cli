@@ -1,8 +1,8 @@
 use crate::config::locator;
 use chrono::{DateTime, Utc};
-use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 use std::fs;
 
@@ -69,13 +69,18 @@ impl UpgradeCheck {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
 
     #[test]
+    #[serial]
     fn test_upgrade_check_load_save() {
-        // Set the `XDG_DATA_HOME` environment variable to a temporary directory
+        // Use `STELLAR_DATA_HOME` (cross-platform, highest priority) so that
+        // any `STELLAR_DATA_HOME` or `XDG_DATA_HOME` leaked by parallel tests
+        // cannot shadow our temp dir.
         let temp_dir = tempfile::tempdir().unwrap();
-        env::set_var("XDG_DATA_HOME", temp_dir.path());
+        env::remove_var("XDG_DATA_HOME");
+        env::set_var("STELLAR_DATA_HOME", temp_dir.path());
         // Test default loading
         let default_check = UpgradeCheck::load().unwrap();
         assert_eq!(default_check, UpgradeCheck::default());

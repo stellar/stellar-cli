@@ -92,12 +92,6 @@ impl Args {
             .await?)
     }
 
-    pub async fn source_signer(&self) -> Result<Signer, Error> {
-        let print = Print::new(true);
-        let secret = &self.source_account.resolve_secret(&self.locator)?;
-        Ok(secret.signer(self.hd_path(), print).await?)
-    }
-
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
         let key = &self.source_account.resolve_secret(&self.locator)?;
         Ok(key.key_pair(self.hd_path())?)
@@ -147,13 +141,11 @@ impl Args {
         signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_signer = self.source_signer().await?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_signer,
             signers,
             seq_num,
             &network.network_passphrase,
@@ -238,10 +230,14 @@ pub struct Defaults {
 
 impl Config {
     pub fn new() -> Result<Config, locator::Error> {
-        let path = cli_config_file()?;
+        Self::load(&cli_config_file()?)
+    }
 
+    pub fn load(path: &std::path::Path) -> Result<Config, locator::Error> {
         if path.exists() {
-            let data = fs::read_to_string(&path).map_err(|_| locator::Error::FileRead { path })?;
+            let data = fs::read_to_string(path).map_err(|_| locator::Error::FileRead {
+                path: path.to_path_buf(),
+            })?;
             Ok(toml::from_str(&data)?)
         } else {
             Ok(Config::default())
@@ -285,12 +281,14 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<(), locator::Error> {
-        let toml_string = toml::to_string(&self)?;
-        let path = cli_config_file()?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path)?)?;
-        file.write_all(toml_string.as_bytes())?;
+        self.save_to(&cli_config_file()?)
+    }
 
+    pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
+        let toml_string = toml::to_string(&self)?;
+        // Depending on the platform, this function may fail if the full directory path does not exist
+        let mut file = File::create(locator::ensure_directory(path.to_path_buf())?)?;
+        file.write_all(toml_string.as_bytes())?;
         Ok(())
     }
 }

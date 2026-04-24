@@ -105,21 +105,20 @@ pub enum Error {
     ProjectDirsError(),
     #[error(transparent)]
     InvalidName(#[from] utils::Error),
+    #[error("invalid signing key or identity name")]
+    InvalidSigningKey,
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// ⚠️ Deprecated: global config is always on
-    #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
-    pub global: bool,
-
     /// Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise.
     /// Contains configuration files, aliases, and other persistent settings.
     #[arg(long, global = true, help_heading = HEADING_GLOBAL)]
     pub config_dir: Option<PathBuf>,
 }
 
+#[derive(Clone)]
 pub enum Location {
     Local(PathBuf),
     Global(PathBuf),
@@ -159,11 +158,6 @@ impl Location {
 
 impl Args {
     pub fn config_dir(&self) -> Result<PathBuf, Error> {
-        if self.global {
-            let print = Print::new(false);
-            print.warnln("Flag --global is deprecated: global config is always used");
-        }
-
         self.global_config_path()
     }
 
@@ -175,7 +169,10 @@ impl Args {
     }
 
     pub fn local_config(&self) -> Result<PathBuf, Error> {
-        let pwd = self.current_dir()?;
+        // Always use the real process cwd for local-config discovery, regardless
+        // of whether --config-dir is set.  This prevents ancestor-walking outside
+        // the selected profile.
+        let pwd = std::env::current_dir().map_err(|_| Error::CurrentDirNotFound)?;
         Ok(find_config_dir(pwd.clone()).unwrap_or_else(|_| pwd.join(".stellar")))
     }
 
@@ -210,27 +207,35 @@ impl Args {
     }
 
     pub fn write_default_network(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_network(name).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.set_network(name).save_to(&path)
     }
 
     pub fn write_default_identity(&self, name: &str) -> Result<(), Error> {
-        Config::new()?.set_identity(name).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.set_identity(name).save_to(&path)
     }
 
     pub fn write_default_inclusion_fee(&self, inclusion_fee: u32) -> Result<(), Error> {
-        Config::new()?.set_inclusion_fee(inclusion_fee).save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?
+            .set_inclusion_fee(inclusion_fee)
+            .save_to(&path)
     }
 
     pub fn unset_default_identity(&self) -> Result<(), Error> {
-        Config::new()?.unset_identity().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_identity().save_to(&path)
     }
 
     pub fn unset_default_network(&self) -> Result<(), Error> {
-        Config::new()?.unset_network().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_network().save_to(&path)
     }
 
     pub fn unset_default_inclusion_fee(&self) -> Result<(), Error> {
-        Config::new()?.unset_inclusion_fee().save()
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_inclusion_fee().save_to(&path)
     }
 
     pub fn list_identities(&self) -> Result<Vec<String>, Error> {
@@ -295,9 +300,13 @@ impl Args {
     }
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        match self.read_key(key_or_name)? {
+        let key = self.read_key(key_or_name).map_err(|e| match e {
+            Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
+            other => other,
+        })?;
+        match key {
             Key::Secret(s) => Ok(s),
-            _ => Err(Error::SecretKeyOnly(key_or_name.to_string())),
+            _ => Err(Error::InvalidSigningKey),
         }
     }
 
@@ -346,14 +355,8 @@ impl Args {
 
         match local {
             Location::Local(config_dir) => {
-                let path = config_dir.join("contract-ids").join(&file_name);
-                if path.exists() {
+                if config_dir.exists() {
                     print_deprecation_warning(config_dir);
-
-                    let content = fs::read_to_string(path)?;
-                    let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
-
-                    return Ok(Some(data));
                 }
             }
             Location::Global(_) => unreachable!(),
@@ -426,7 +429,10 @@ impl Args {
                 .mode(0o600)
                 .open(&path)?;
             to_file.write_all(content.as_bytes())?;
-            fix_config_permissions();
+            set_hardened_permissions(&path)?;
+            if let Ok(root) = self.config_dir() {
+                fix_config_permissions(root);
+            }
         }
 
         #[cfg(not(unix))]
@@ -506,16 +512,19 @@ impl Args {
 
 pub fn print_deprecation_warning(dir: &Path) {
     let print = Print::new(false);
-    let global_dir = global_config_path().expect("Couldn't retrieve global directory.");
-    let global_dir = fs::canonicalize(&global_dir).expect("Couldn't expand global directory.");
+    let Ok(global_dir) = global_config_path() else {
+        return;
+    };
+    let global_dir = fs::canonicalize(&global_dir).unwrap_or(global_dir);
 
     // No warning if local and global dirs are the same (e.g., both set to STELLAR_CONFIG_HOME)
     if dir == global_dir {
         return;
     }
 
-    print.warnln(format!("A local config was found at {dir:?}."));
-    print.blankln(" Local config is deprecated and will be removed in the future.".to_string());
+    print.warnln(format!(
+        "A local config was found at {dir:?} but is no longer read."
+    ));
     print.blankln(format!(
         " Run `stellar config migrate` to move the local config into the global config ({global_dir:?})."
     ));
@@ -528,12 +537,8 @@ impl Pwd for Args {
 }
 
 #[cfg(unix)]
-fn fix_config_permissions() {
+fn fix_config_permissions(root: std::path::PathBuf) {
     use std::os::unix::fs::PermissionsExt;
-
-    let Ok(root) = global_config_path() else {
-        return;
-    };
 
     let mut bad_dirs = Vec::new();
     let mut bad_files = Vec::new();
@@ -567,7 +572,7 @@ fn fix_config_permissions() {
         print.warnln("Updated config directories permissions to 0700.");
 
         for dir in bad_dirs {
-            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+            let _ = set_hardened_permissions(&dir);
         }
     }
 
@@ -575,9 +580,20 @@ fn fix_config_permissions() {
         print.warnln("Updated config files permissions to 0600.");
 
         for file in bad_files {
-            let _ = std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600));
+            let _ = set_hardened_permissions(&file);
         }
     }
+}
+
+#[allow(unused_variables, clippy::unnecessary_wraps)]
+pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = if path.is_dir() { 0o700 } else { 0o600 };
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+    }
+    Ok(())
 }
 
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
@@ -591,7 +607,7 @@ pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
             .mode(0o700)
             .create(parent)
             .map_err(|_| dir_creation_failed(parent))?;
-        fix_config_permissions();
+        fix_config_permissions(parent.to_path_buf());
     }
 
     #[cfg(not(unix))]
@@ -632,9 +648,6 @@ impl KeyType {
             path: path.to_path_buf(),
         })?;
 
-        #[cfg(unix)]
-        fix_config_permissions();
-
         Ok(toml::from_str(&data)?)
     }
 
@@ -643,15 +656,28 @@ impl KeyType {
         key: &str,
         locator: &Args,
     ) -> Result<T, Error> {
+        Ok(self.read_with_global_with_location(key, locator)?.0)
+    }
+
+    pub fn read_with_global_with_location<T: DeserializeOwned>(
+        &self,
+        key: &str,
+        locator: &Args,
+    ) -> Result<(T, Location), Error> {
         for location in locator.local_and_global()? {
-            let path = self.path(location.as_ref(), key);
-
-            if let Ok(t) = Self::read_from_path(&path) {
-                if let Location::Local(config_dir) = location {
-                    print_deprecation_warning(&config_dir);
+            match &location {
+                Location::Local(config_dir) => {
+                    if config_dir.exists() {
+                        print_deprecation_warning(config_dir);
+                    }
+                    continue;
                 }
+                Location::Global(_) => {}
+            }
 
-                return Ok(t);
+            let path = self.path(location.as_ref(), key);
+            if let Ok(t) = Self::read_from_path(&path) {
+                return Ok((t, location));
             }
         }
         Err(Error::ConfigMissing(self.to_string(), key.to_string()))
@@ -693,7 +719,13 @@ impl KeyType {
         })?;
 
         #[cfg(unix)]
-        fix_config_permissions();
+        {
+            set_hardened_permissions(&filepath).map_err(|error| Error::IdCreationFailed {
+                filepath: filepath.clone(),
+                error,
+            })?;
+            fix_config_permissions(pwd.to_path_buf());
+        }
 
         Ok(filepath)
     }
@@ -702,17 +734,29 @@ impl KeyType {
         pwd.join(self.to_string())
     }
 
-    fn path(&self, pwd: &Path, key: &str) -> PathBuf {
+    pub fn path(&self, pwd: &Path, key: &str) -> PathBuf {
         let mut path = self.root(pwd).join(key);
-        path.set_extension("toml");
+        match self {
+            KeyType::Identity | KeyType::Network => path.set_extension("toml"),
+            KeyType::ContractIds => path.set_extension("json"),
+        };
         path
     }
 
     pub fn list_paths(&self, paths: &[Location]) -> Result<Vec<(String, Location)>, Error> {
         Ok(paths
             .iter()
+            .filter(|p| {
+                if let Location::Local(dir) = p {
+                    if dir.exists() {
+                        print_deprecation_warning(dir);
+                    }
+                    return false;
+                }
+                true
+            })
             .unique_by(|p| location_to_string(p))
-            .flat_map(|p| self.list(p, true).unwrap_or_default())
+            .flat_map(|p| self.list(p, false).unwrap_or_default())
             .collect())
     }
 
@@ -834,7 +878,41 @@ pub fn cli_config_file() -> Result<PathBuf, Error> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::collections::HashMap;
+
+    #[test]
+    fn overwrite_resets_file_permissions_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let identity_dir = dir.path().join("identity");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+
+        // Pre-create alice.toml at 0644 to simulate an inherited insecure mode.
+        let alice = identity_dir.join("alice.toml");
+        std::fs::write(&alice, "seed_phrase = \"old\"\n").unwrap();
+        std::fs::set_permissions(&alice, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        assert_eq!(
+            std::fs::metadata(&alice).unwrap().permissions().mode() & 0o777,
+            0o644,
+            "setup: alice.toml should start at 0644"
+        );
+
+        let value: HashMap<String, String> = HashMap::new();
+        KeyType::Identity
+            .write("alice", &value, dir.path())
+            .unwrap();
+
+        let perms = std::fs::metadata(&alice).unwrap().permissions();
+        assert_eq!(
+            perms.mode() & 0o777,
+            0o600,
+            "overwritten identity file should be 0600, got {:o}",
+            perms.mode() & 0o777
+        );
+    }
 
     #[test]
     fn test_write_sets_file_permissions_to_0600() {
@@ -874,5 +952,261 @@ mod tests {
             "identity directory should be owner-only (0700), got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    use crate::test_utils::{with_cwd_guard, with_env_guard};
+
+    #[test]
+    #[serial]
+    fn local_config_identity_is_not_read() {
+        use crate::config::key::Key;
+
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_identity_dir = tmp.path().join(".stellar/identity");
+                std::fs::create_dir_all(&local_identity_dir).unwrap();
+                std::fs::write(
+                    local_identity_dir.join("alice.toml"),
+                    "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let result = locator.read_identity("alice");
+                assert!(
+                    result.is_err(),
+                    "local config identity should not be read, but got: {:?}",
+                    result.map(|k: Key| format!("{k:?}"))
+                );
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_contract_alias_is_not_read() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+                std::fs::create_dir_all(&local_alias_dir).unwrap();
+                std::fs::write(
+                    local_alias_dir.join("mycontract.json"),
+                    r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let result = locator.load_contract_from_alias("mycontract").unwrap();
+                assert!(
+                    result.is_none(),
+                    "local config contract alias should not be read"
+                );
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_identity_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_identity_dir = tmp.path().join(".stellar/identity");
+                std::fs::create_dir_all(&local_identity_dir).unwrap();
+                std::fs::write(
+                    local_identity_dir.join("alice.toml"),
+                    "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let identities = locator.list_identities().unwrap();
+                assert!(
+                    !identities.contains(&"alice".to_string()),
+                    "local config identities should not appear in list, got: {identities:?}"
+                );
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_network_is_not_read() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_network_dir = tmp.path().join(".stellar/network");
+                std::fs::create_dir_all(&local_network_dir).unwrap();
+                std::fs::write(
+                    local_network_dir.join("mynet.toml"),
+                    "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let result = locator.read_network("mynet");
+                assert!(result.is_err(), "local config network should not be read");
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_network_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_network_dir = tmp.path().join(".stellar/network");
+                std::fs::create_dir_all(&local_network_dir).unwrap();
+                std::fs::write(
+                    local_network_dir.join("mynet.toml"),
+                    "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let networks = locator.list_networks().unwrap();
+                assert!(
+                    !networks.contains(&"mynet".to_string()),
+                    "local config networks should not appear in list, got: {networks:?}"
+                );
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn local_config_contract_alias_not_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+                std::fs::create_dir_all(&local_alias_dir).unwrap();
+                std::fs::write(
+                    local_alias_dir.join("mycontract.json"),
+                    r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+                )
+                .unwrap();
+
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+                std::env::set_current_dir(tmp.path()).unwrap();
+
+                let locator = Args { config_dir: None };
+                let [local, global] = locator.local_and_global().unwrap();
+
+                // Verify the alias ls logic: local must be skipped, global has no aliases.
+                assert!(matches!(local, Location::Local(_)));
+                assert!(matches!(global, Location::Global(_)));
+                let global_alias_dir = global.as_ref().join("contract-ids");
+                assert!(
+                    !global_alias_dir.exists(),
+                    "global alias dir should be empty — local alias must not bleed through"
+                );
+            });
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn config_dir_does_not_search_ancestors_for_identity() {
+        // Regression test for: --config-dir ancestor search discloses secrets
+        // outside the selected profile (security finding 004).
+        //
+        // Place alice.toml in an ancestor of the explicit --config-dir.
+        // The command should fail to find alice, not read the ancestor file.
+        use crate::config::key::Key;
+
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            // Ancestor .stellar with alice.toml
+            let ancestor_identity_dir = tmp.path().join(".stellar/identity");
+            std::fs::create_dir_all(&ancestor_identity_dir).unwrap();
+            std::fs::write(
+                ancestor_identity_dir.join("alice.toml"),
+                "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+            )
+            .unwrap();
+
+            // Explicit --config-dir is a descendant of the ancestor, and is empty.
+            let isolated = tmp.path().join("sub/deep");
+            std::fs::create_dir_all(&isolated).unwrap();
+
+            // Global config is also separate and empty.
+            let global_cfg = tmp.path().join("global-cfg");
+            std::fs::create_dir_all(&global_cfg).unwrap();
+            std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+
+            let locator = Args {
+                config_dir: Some(isolated),
+            };
+
+            let result = locator.read_identity("alice");
+            assert!(
+                result.is_err(),
+                "expected error when alice is absent from --config-dir and global, \
+                 but got: {:?}",
+                result.map(|k: Key| format!("{k:?}"))
+            );
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_print_deprecation_warning_no_panic_when_global_dir_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME", "HOME"], || {
+            let fake_home = tmp.path().join("home");
+            std::fs::create_dir_all(&fake_home).unwrap();
+            std::env::set_var("HOME", &fake_home);
+
+            let local_dir = tmp.path().join("workdir/.stellar");
+            std::fs::create_dir_all(&local_dir).unwrap();
+
+            // Must not panic even though ~/.config/stellar does not exist
+            print_deprecation_warning(&local_dir);
+        });
     }
 }

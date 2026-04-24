@@ -1,4 +1,8 @@
-use crate::Error;
+use crate::{Error, HD_PATH_ELEMENTS_COUNT};
+
+const HARDENED_OFFSET: u32 = 1 << 31;
+const PURPOSE: u32 = 44;
+const COIN_TYPE: u32 = 148;
 
 #[derive(Clone, Copy)]
 pub struct HdPath(pub u32);
@@ -6,8 +10,7 @@ pub struct HdPath(pub u32);
 impl HdPath {
     #[must_use]
     pub fn depth(&self) -> u8 {
-        let path: slip10::BIP32Path = self.into();
-        path.depth()
+        HD_PATH_ELEMENTS_COUNT
     }
 }
 
@@ -28,27 +31,57 @@ impl HdPath {
     ///
     /// Could fail to convert the path to bytes
     pub fn to_vec(&self) -> Result<Vec<u8>, Error> {
-        hd_path_to_bytes(&self.into())
+        hd_path_to_bytes(*self)
     }
 }
 
-impl From<&HdPath> for slip10::BIP32Path {
-    fn from(value: &HdPath) -> Self {
-        let index = value.0;
-        format!("m/44'/148'/{index}'").parse().unwrap()
-    }
+fn hd_path_to_bytes(hd_path: HdPath) -> Result<Vec<u8>, Error> {
+    let index = hardened(hd_path.0, hd_path)?;
+    let result = [
+        hardened(PURPOSE, hd_path)?,
+        hardened(COIN_TYPE, hd_path)?,
+        index,
+    ];
+    Ok(result.into_iter().flat_map(u32::to_be_bytes).collect())
 }
 
-fn hd_path_to_bytes(hd_path: &slip10::BIP32Path) -> Result<Vec<u8>, Error> {
-    let hd_path_indices = 0..hd_path.depth();
-    let result = hd_path_indices
-        .into_iter()
-        .map(|index| {
-            Ok(hd_path
-                .index(index)
-                .ok_or_else(|| Error::Bip32PathError(format!("{hd_path}")))?
-                .to_be_bytes())
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-    Ok(result.into_iter().flatten().collect())
+fn hardened(value: u32, hd_path: HdPath) -> Result<u32, Error> {
+    value
+        .checked_add(HARDENED_OFFSET)
+        .ok_or_else(|| Error::Bip32PathError(path_string(hd_path)))
+}
+
+fn path_string(hd_path: HdPath) -> String {
+    format!("m/{PURPOSE}'/{COIN_TYPE}'/{}'", hd_path.0)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_depth() {
+        assert_eq!(HdPath(7).depth(), HD_PATH_ELEMENTS_COUNT);
+    }
+
+    #[test]
+    fn test_to_vec() {
+        assert_eq!(
+            HdPath(7).to_vec().unwrap(),
+            vec![0x80, 0x00, 0x00, 0x2c, 0x80, 0x00, 0x00, 0x94, 0x80, 0x00, 0x00, 0x07,]
+        );
+    }
+
+    #[test]
+    fn test_to_vec_rejects_out_of_range_index() {
+        let err = HdPath(HARDENED_OFFSET).to_vec().unwrap_err();
+        assert!(matches!(err, Error::Bip32PathError(_)));
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "Error occurred while parsing BIP32 path: {}",
+                path_string(HdPath(HARDENED_OFFSET))
+            )
+        );
+    }
 }

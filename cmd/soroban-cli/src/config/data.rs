@@ -131,7 +131,7 @@ impl std::fmt::Display for DatedAction {
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
             Action::Send { response } => response.status.clone(),
         };
-        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
+        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str())
     }
 }
 
@@ -180,6 +180,10 @@ impl TryFrom<GetTransactionResponse> for Action {
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
+                created_at: res.created_at,
+                fee_bump: res.fee_bump,
+                tx_hash: res.tx_hash,
+                application_order: res.application_order,
                 status: res.status,
                 ledger: res.ledger,
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
@@ -198,8 +202,10 @@ fn to_xdr(data: &impl WriteXdr) -> Result<String, xdr::Error> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
         std::env::set_var("STELLAR_DATA_HOME", t.path().to_str().unwrap());
