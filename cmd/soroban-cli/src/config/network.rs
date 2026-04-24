@@ -190,8 +190,10 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
 /// validation to application code so clap never echoes the raw value in error messages.
 #[allow(clippy::unnecessary_wraps)]
 fn accept_raw_rpc_header(header: &str) -> Result<(String, String), std::convert::Infallible> {
-    let (key, value) = header.split_once(':').unwrap_or((header, ""));
-    Ok((key.trim().to_string(), value.trim().to_string()))
+    match header.split_once(':') {
+        Some((key, value)) => Ok((key.trim().to_string(), value.trim().to_string())),
+        None => Ok((String::new(), header.to_string())),
+    }
 }
 
 fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
@@ -580,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn test_malformed_rpc_header_clap_error_does_not_expose_value() {
+    fn test_malformed_rpc_header_accepted_by_clap_without_error() {
         use crate::test_utils::with_env_guard;
         use clap::Parser;
 
@@ -594,14 +596,36 @@ mod tests {
         with_env_guard(&["STELLAR_RPC_HEADERS"], || {
             std::env::set_var("STELLAR_RPC_HEADERS", secret);
             let result = TestCmd::try_parse_from(["stellar"]);
-            if let Err(e) = result {
-                let error_msg = e.to_string();
-                assert!(
-                    !error_msg.contains("secret_poc_token_12345"),
-                    "Clap error must not expose secret header value, got: {error_msg}"
-                );
-            }
+            assert!(
+                result.is_ok(),
+                "Clap must accept malformed RPC headers without error — validation is deferred to application code to prevent secrets from being echoed in clap error messages"
+            );
         });
+    }
+
+    #[test]
+    fn test_validate_headers_rejects_missing_colon_without_exposing_value() {
+        // Simulates what accept_raw_rpc_header stores when no ':' is present.
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: "Test".to_string(),
+            rpc_headers: vec![(
+                String::new(),
+                "Authorization Bearer secret_token_xyz".to_string(),
+            )],
+        };
+
+        let result = network.validate_headers();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert_eq!(
+            error_msg,
+            "invalid HTTP header: must be in the form 'key:value'"
+        );
+        assert!(
+            !error_msg.contains("secret_token_xyz"),
+            "Error must not expose the raw header value, got: {error_msg}"
+        );
     }
 
     #[test]
