@@ -581,8 +581,8 @@ mod tests {
 
     #[test]
     fn test_malformed_rpc_header_clap_error_does_not_expose_value() {
+        use crate::test_utils::with_env_guard;
         use clap::Parser;
-        use std::env;
 
         #[derive(clap::Parser)]
         struct TestCmd {
@@ -591,17 +591,17 @@ mod tests {
         }
 
         let secret = "Authorization Bearer secret_poc_token_12345";
-        env::set_var("STELLAR_RPC_HEADERS", secret);
-        let result = TestCmd::try_parse_from(["stellar"]);
-        env::remove_var("STELLAR_RPC_HEADERS");
-
-        if let Err(e) = result {
-            let error_msg = e.to_string();
-            assert!(
-                !error_msg.contains("secret_poc_token_12345"),
-                "Clap error must not expose secret header value, got: {error_msg}"
-            );
-        }
+        with_env_guard(&["STELLAR_RPC_HEADERS"], || {
+            std::env::set_var("STELLAR_RPC_HEADERS", secret);
+            let result = TestCmd::try_parse_from(["stellar"]);
+            if let Err(e) = result {
+                let error_msg = e.to_string();
+                assert!(
+                    !error_msg.contains("secret_poc_token_12345"),
+                    "Clap error must not expose secret header value, got: {error_msg}"
+                );
+            }
+        });
     }
 
     #[test]
