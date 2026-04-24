@@ -196,8 +196,8 @@ fn accept_raw_rpc_header(header: &str) -> Result<(String, String), std::convert:
 
 fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
     for (key, value) in headers {
-        HeaderName::from_str(key)?;
-        HeaderValue::from_str(value)?;
+        HeaderName::from_str(key).map_err(|_| Error::InvalidHeader)?;
+        HeaderValue::from_str(value).map_err(|_| Error::InvalidHeader)?;
     }
     Ok(())
 }
