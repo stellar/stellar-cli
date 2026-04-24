@@ -9,7 +9,6 @@ use crate::{
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
-    utils::escape_control_characters,
 };
 
 use super::SEP53_PREFIX;
@@ -86,15 +85,6 @@ impl Cmd {
         let signature_base64 = sep_53_sign(&message_bytes, signer)?;
 
         print.infoln(format!("Signer: {public_key}"));
-        let message_display = if self.base64 {
-            BASE64.encode(&message_bytes)
-        } else {
-            String::from_utf8_lossy(&message_bytes).to_string()
-        };
-        print.infoln(format!(
-            "Message: {}",
-            escape_control_characters(&message_display)
-        ));
         println!("{signature_base64}");
         Ok(())
     }

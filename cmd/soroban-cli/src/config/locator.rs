@@ -585,6 +585,7 @@ fn fix_config_permissions(root: std::path::PathBuf) {
     }
 }
 
+#[allow(unused_variables, clippy::unnecessary_wraps)]
 pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     #[cfg(unix)]
     {
@@ -953,7 +954,7 @@ mod tests {
         );
     }
 
-    use crate::test_utils::{CwdGuard, EnvGuard};
+    use crate::test_utils::{with_cwd_guard, with_env_guard};
 
     #[test]
     #[serial]
@@ -961,177 +962,189 @@ mod tests {
         use crate::config::key::Key;
 
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_identity_dir = tmp.path().join(".stellar/identity");
-        std::fs::create_dir_all(&local_identity_dir).unwrap();
-        std::fs::write(
-            local_identity_dir.join("alice.toml"),
-            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_identity_dir = tmp.path().join(".stellar/identity");
+                std::fs::create_dir_all(&local_identity_dir).unwrap();
+                std::fs::write(
+                    local_identity_dir.join("alice.toml"),
+                    "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let result = locator.read_identity("alice");
-        assert!(
-            result.is_err(),
-            "local config identity should not be read, but got: {:?}",
-            result.map(|k: Key| format!("{k:?}"))
-        );
+                let locator = Args { config_dir: None };
+                let result = locator.read_identity("alice");
+                assert!(
+                    result.is_err(),
+                    "local config identity should not be read, but got: {:?}",
+                    result.map(|k: Key| format!("{k:?}"))
+                );
+            });
+        });
     }
 
     #[test]
     #[serial]
     fn local_config_contract_alias_is_not_read() {
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_alias_dir = tmp.path().join(".stellar/contract-ids");
-        std::fs::create_dir_all(&local_alias_dir).unwrap();
-        std::fs::write(
-            local_alias_dir.join("mycontract.json"),
-            r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+                std::fs::create_dir_all(&local_alias_dir).unwrap();
+                std::fs::write(
+                    local_alias_dir.join("mycontract.json"),
+                    r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let result = locator.load_contract_from_alias("mycontract").unwrap();
-        assert!(
-            result.is_none(),
-            "local config contract alias should not be read"
-        );
+                let locator = Args { config_dir: None };
+                let result = locator.load_contract_from_alias("mycontract").unwrap();
+                assert!(
+                    result.is_none(),
+                    "local config contract alias should not be read"
+                );
+            });
+        });
     }
 
     #[test]
     #[serial]
     fn local_config_identity_not_listed() {
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_identity_dir = tmp.path().join(".stellar/identity");
-        std::fs::create_dir_all(&local_identity_dir).unwrap();
-        std::fs::write(
-            local_identity_dir.join("alice.toml"),
-            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_identity_dir = tmp.path().join(".stellar/identity");
+                std::fs::create_dir_all(&local_identity_dir).unwrap();
+                std::fs::write(
+                    local_identity_dir.join("alice.toml"),
+                    "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let identities = locator.list_identities().unwrap();
-        assert!(
-            !identities.contains(&"alice".to_string()),
-            "local config identities should not appear in list, got: {identities:?}"
-        );
+                let locator = Args { config_dir: None };
+                let identities = locator.list_identities().unwrap();
+                assert!(
+                    !identities.contains(&"alice".to_string()),
+                    "local config identities should not appear in list, got: {identities:?}"
+                );
+            });
+        });
     }
 
     #[test]
     #[serial]
     fn local_config_network_is_not_read() {
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_network_dir = tmp.path().join(".stellar/network");
-        std::fs::create_dir_all(&local_network_dir).unwrap();
-        std::fs::write(
-            local_network_dir.join("mynet.toml"),
-            "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_network_dir = tmp.path().join(".stellar/network");
+                std::fs::create_dir_all(&local_network_dir).unwrap();
+                std::fs::write(
+                    local_network_dir.join("mynet.toml"),
+                    "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let result = locator.read_network("mynet");
-        assert!(result.is_err(), "local config network should not be read");
+                let locator = Args { config_dir: None };
+                let result = locator.read_network("mynet");
+                assert!(result.is_err(), "local config network should not be read");
+            });
+        });
     }
 
     #[test]
     #[serial]
     fn local_config_network_not_listed() {
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_network_dir = tmp.path().join(".stellar/network");
-        std::fs::create_dir_all(&local_network_dir).unwrap();
-        std::fs::write(
-            local_network_dir.join("mynet.toml"),
-            "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_network_dir = tmp.path().join(".stellar/network");
+                std::fs::create_dir_all(&local_network_dir).unwrap();
+                std::fs::write(
+                    local_network_dir.join("mynet.toml"),
+                    "rpc_url = \"https://127.0.0.1\"\nnetwork_passphrase = \"Local\"\n",
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let networks = locator.list_networks().unwrap();
-        assert!(
-            !networks.contains(&"mynet".to_string()),
-            "local config networks should not appear in list, got: {networks:?}"
-        );
+                let locator = Args { config_dir: None };
+                let networks = locator.list_networks().unwrap();
+                assert!(
+                    !networks.contains(&"mynet".to_string()),
+                    "local config networks should not appear in list, got: {networks:?}"
+                );
+            });
+        });
     }
 
     #[test]
     #[serial]
     fn local_config_contract_alias_not_listed() {
         let tmp = tempfile::tempdir().unwrap();
-        let _env = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
-        let _cwd = CwdGuard::new();
 
-        let local_alias_dir = tmp.path().join(".stellar/contract-ids");
-        std::fs::create_dir_all(&local_alias_dir).unwrap();
-        std::fs::write(
-            local_alias_dir.join("mycontract.json"),
-            r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            with_cwd_guard(|| {
+                let local_alias_dir = tmp.path().join(".stellar/contract-ids");
+                std::fs::create_dir_all(&local_alias_dir).unwrap();
+                std::fs::write(
+                    local_alias_dir.join("mycontract.json"),
+                    r#"{"ids":{"testnet":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"}}"#,
+                )
+                .unwrap();
 
-        let global_cfg = tmp.path().join("global");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+                let global_cfg = tmp.path().join("global");
+                std::fs::create_dir_all(&global_cfg).unwrap();
+                std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        std::env::set_current_dir(tmp.path()).unwrap();
+                std::env::set_current_dir(tmp.path()).unwrap();
 
-        let locator = Args { config_dir: None };
-        let [local, global] = locator.local_and_global().unwrap();
+                let locator = Args { config_dir: None };
+                let [local, global] = locator.local_and_global().unwrap();
 
-        // Verify the alias ls logic: local must be skipped, global has no aliases.
-        assert!(matches!(local, Location::Local(_)));
-        assert!(matches!(global, Location::Global(_)));
-        let global_alias_dir = global.as_ref().join("contract-ids");
-        assert!(
-            !global_alias_dir.exists(),
-            "global alias dir should be empty — local alias must not bleed through"
-        );
+                // Verify the alias ls logic: local must be skipped, global has no aliases.
+                assert!(matches!(local, Location::Local(_)));
+                assert!(matches!(global, Location::Global(_)));
+                let global_alias_dir = global.as_ref().join("contract-ids");
+                assert!(
+                    !global_alias_dir.exists(),
+                    "global alias dir should be empty — local alias must not bleed through"
+                );
+            });
+        });
     }
 
     #[test]
@@ -1145,56 +1158,55 @@ mod tests {
         use crate::config::key::Key;
 
         let tmp = tempfile::tempdir().unwrap();
-        let _guard = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"]);
 
-        // Ancestor .stellar with alice.toml
-        let ancestor_identity_dir = tmp.path().join(".stellar/identity");
-        std::fs::create_dir_all(&ancestor_identity_dir).unwrap();
-        std::fs::write(
-            ancestor_identity_dir.join("alice.toml"),
-            "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
-        )
-        .unwrap();
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME"], || {
+            // Ancestor .stellar with alice.toml
+            let ancestor_identity_dir = tmp.path().join(".stellar/identity");
+            std::fs::create_dir_all(&ancestor_identity_dir).unwrap();
+            std::fs::write(
+                ancestor_identity_dir.join("alice.toml"),
+                "seed_phrase = \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n",
+            )
+            .unwrap();
 
-        // Explicit --config-dir is a descendant of the ancestor, and is empty.
-        let isolated = tmp.path().join("sub/deep");
-        std::fs::create_dir_all(&isolated).unwrap();
+            // Explicit --config-dir is a descendant of the ancestor, and is empty.
+            let isolated = tmp.path().join("sub/deep");
+            std::fs::create_dir_all(&isolated).unwrap();
 
-        // Global config is also separate and empty.
-        let global_cfg = tmp.path().join("global-cfg");
-        std::fs::create_dir_all(&global_cfg).unwrap();
-        std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
+            // Global config is also separate and empty.
+            let global_cfg = tmp.path().join("global-cfg");
+            std::fs::create_dir_all(&global_cfg).unwrap();
+            std::env::set_var("STELLAR_CONFIG_HOME", &global_cfg);
 
-        let locator = Args {
-            config_dir: Some(isolated),
-        };
+            let locator = Args {
+                config_dir: Some(isolated),
+            };
 
-        let result = locator.read_identity("alice");
-        assert!(
-            result.is_err(),
-            "expected error when alice is absent from --config-dir and global, \
-             but got: {:?}",
-            result.map(|k: Key| format!("{k:?}"))
-        );
+            let result = locator.read_identity("alice");
+            assert!(
+                result.is_err(),
+                "expected error when alice is absent from --config-dir and global, \
+                 but got: {:?}",
+                result.map(|k: Key| format!("{k:?}"))
+            );
+        });
     }
 
     #[test]
     #[serial]
     fn test_print_deprecation_warning_no_panic_when_global_dir_missing() {
         let tmp = tempfile::tempdir().unwrap();
-        let _guard = EnvGuard::new(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME", "HOME"]);
 
-        std::env::remove_var("STELLAR_CONFIG_HOME");
-        std::env::remove_var("XDG_CONFIG_HOME");
+        with_env_guard(&["STELLAR_CONFIG_HOME", "XDG_CONFIG_HOME", "HOME"], || {
+            let fake_home = tmp.path().join("home");
+            std::fs::create_dir_all(&fake_home).unwrap();
+            std::env::set_var("HOME", &fake_home);
 
-        let fake_home = tmp.path().join("home");
-        std::fs::create_dir_all(&fake_home).unwrap();
-        std::env::set_var("HOME", &fake_home);
+            let local_dir = tmp.path().join("workdir/.stellar");
+            std::fs::create_dir_all(&local_dir).unwrap();
 
-        let local_dir = tmp.path().join("workdir/.stellar");
-        std::fs::create_dir_all(&local_dir).unwrap();
-
-        // Must not panic even though ~/.config/stellar does not exist
-        print_deprecation_warning(&local_dir);
+            // Must not panic even though ~/.config/stellar does not exist
+            print_deprecation_warning(&local_dir);
+        });
     }
 }

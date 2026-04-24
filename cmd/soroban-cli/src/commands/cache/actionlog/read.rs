@@ -49,49 +49,51 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::EnvGuard;
+    use crate::test_utils::with_env_set;
     use serial_test::serial;
 
     #[test]
     #[serial]
     fn path_traversal_via_dotdot_is_rejected() {
         let tmp = tempfile::tempdir().unwrap();
-        let _guard = EnvGuard::set("STELLAR_DATA_HOME", tmp.path());
 
-        let outside = tmp.path().join("outside.json");
-        std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
+        with_env_set("STELLAR_DATA_HOME", tmp.path(), || {
+            let outside = tmp.path().join("outside.json");
+            std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
 
-        let cmd = Cmd {
-            id: "../outside".to_string(),
-        };
+            let cmd = Cmd {
+                id: "../outside".to_string(),
+            };
 
-        let err = cmd.run().expect_err("expected error for path-traversal ID");
-        assert!(
-            matches!(err, Error::InvalidId(_)),
-            "expected InvalidId, got {err:?}"
-        );
+            let err = cmd.run().expect_err("expected error for path-traversal ID");
+            assert!(
+                matches!(err, Error::InvalidId(_)),
+                "expected InvalidId, got {err:?}"
+            );
+        });
     }
 
     #[test]
     #[serial]
     fn absolute_path_id_is_rejected() {
         let tmp = tempfile::tempdir().unwrap();
-        let _guard = EnvGuard::set("STELLAR_DATA_HOME", tmp.path());
 
-        let outside = tmp.path().join("outside.json");
-        std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
+        with_env_set("STELLAR_DATA_HOME", tmp.path(), || {
+            let outside = tmp.path().join("outside.json");
+            std::fs::write(&outside, r#"{"leaked":true}"#).unwrap();
 
-        let abs_id = outside
-            .to_str()
-            .unwrap()
-            .trim_end_matches(".json")
-            .to_string();
-        let cmd = Cmd { id: abs_id };
+            let abs_id = outside
+                .to_str()
+                .unwrap()
+                .trim_end_matches(".json")
+                .to_string();
+            let cmd = Cmd { id: abs_id };
 
-        let err = cmd.run().expect_err("expected error for absolute-path ID");
-        assert!(
-            matches!(err, Error::InvalidId(_)),
-            "expected InvalidId, got {err:?}"
-        );
+            let err = cmd.run().expect_err("expected error for absolute-path ID");
+            assert!(
+                matches!(err, Error::InvalidId(_)),
+                "expected InvalidId, got {err:?}"
+            );
+        });
     }
 }
