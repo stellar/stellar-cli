@@ -721,6 +721,29 @@ fn cannot_create_key_with_alias() {
 }
 
 #[test]
+fn malformed_rpc_header_error_does_not_expose_secret() {
+    let sandbox = TestEnv::default();
+    let secret = "Authorization Bearer secret_poc_token_12345";
+    sandbox
+        .new_assert_cmd("network")
+        .args([
+            "add",
+            "--rpc-url",
+            "https://example.invalid",
+            "--network-passphrase",
+            "Test SDF Network ; September 2015",
+            "testcorp",
+        ])
+        .env("STELLAR_RPC_HEADERS", secret)
+        .assert()
+        .stderr(predicate::str::contains("secret_poc_token_12345").not())
+        .stderr(predicate::str::contains(
+            "invalid HTTP header: must be in the form 'key:value'",
+        ))
+        .failure();
+}
+
+#[test]
 fn env_does_not_display_rpc_headers() {
     let sandbox = TestEnv::default();
     sandbox
