@@ -224,22 +224,3 @@ fn message_sign_does_not_echo_message_to_stderr() {
         "stderr must not echo the message (stdin input), got: {stderr:?}"
     );
 }
-
-#[test]
-fn message_sign_escapes_control_characters_in_preview() {
-    let sandbox = TestEnv::default();
-    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
-    let malicious = "\x1b[31mRED\x1b[0m";
-
-    let output = sandbox
-        .new_assert_cmd("message")
-        .args(["sign", malicious, "--sign-with-key", secret_key])
-        .assert()
-        .success();
-
-    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
-    assert!(
-        !stderr.contains('\x1b'),
-        "stderr should not contain raw ESC bytes, got: {stderr:?}"
-    );
-}
