@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{stdin, Read};
 use std::io::{Cursor, IsTerminal};
 use std::path::Path;
-use stellar_xdr::curr::{Limited, SkipWhitespace};
+use stellar_xdr::curr::Limited;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -41,6 +41,40 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
     Ok(TransactionEnvelope::read_xdr_base64_to_end(&mut lim)?)
 }
 
+// TODO: use SkipWhitespace from rs-stellar-xdr once it's updated to 23.0
+pub struct SkipWhitespace<R: Read> {
+    pub inner: R,
+}
+
+impl<R: Read> SkipWhitespace<R> {
+    pub fn new(inner: R) -> Self {
+        SkipWhitespace { inner }
+    }
+}
+
+impl<R: Read> Read for SkipWhitespace<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        loop {
+            let n = self.inner.read(buf)?;
+            if n == 0 {
+                return Ok(0);
+            }
+
+            let mut written = 0;
+            for read in 0..n {
+                if !buf[read].is_ascii_whitespace() {
+                    buf[written] = buf[read];
+                    written += 1;
+                }
+            }
+
+            if written > 0 {
+                return Ok(written);
+            }
+        }
+    }
+}
+
 pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
     let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
         return Err(Error::OnlyTransactionV1Supported);
@@ -54,4 +88,94 @@ pub fn add_op(tx_env: TransactionEnvelope, op: Operation) -> Result<TransactionE
     ops.push(op);
     tx.operations = ops.try_into().map_err(|_| Error::TooManyOperations)?;
     Ok(tx.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    struct ChunkedReader {
+        chunks: Vec<Vec<u8>>,
+        pos: usize,
+    }
+
+    impl ChunkedReader {
+        fn new(chunks: Vec<&[u8]>) -> Self {
+            Self {
+                chunks: chunks.iter().map(|c| c.to_vec()).collect(),
+                pos: 0,
+            }
+        }
+    }
+
+    impl Read for ChunkedReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if self.pos >= self.chunks.len() {
+                return Ok(0);
+            }
+            let chunk = &self.chunks[self.pos];
+            let n = chunk.len().min(buf.len());
+            buf[..n].copy_from_slice(&chunk[..n]);
+            self.pos += 1;
+            Ok(n)
+        }
+    }
+
+    #[test]
+    fn skip_whitespace_preserves_content() {
+        let input = Cursor::new(b"helloworld");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn skip_whitespace_strips_all_whitespace_types() {
+        let input = Cursor::new(b"hello \t\n\r world");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_only_whitespace() {
+        let input = Cursor::new(b"\n \t \r\n");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_empty_input() {
+        let input = Cursor::new(b"");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn skip_whitespace_loops_past_whitespace_only_chunks() {
+        // Exercises the loop iterating more than once: first chunk is all
+        // whitespace, second chunk has content. A Cursor would satisfy both
+        // reads in one shot and would never trigger the loop.
+        let reader = ChunkedReader::new(vec![b"\n\n", b"hello", b""]);
+        let mut skipper = SkipWhitespace::new(reader);
+        let mut result = String::new();
+        skipper.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn skip_whitespace_handles_leading_trailing_whitespace() {
+        let input = Cursor::new(b"\n\nhello\n\n");
+        let mut reader = SkipWhitespace::new(input);
+        let mut result = String::new();
+        reader.read_to_string(&mut result).unwrap();
+        assert_eq!(result, "hello");
+    }
 }

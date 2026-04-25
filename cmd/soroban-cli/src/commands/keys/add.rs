@@ -33,6 +33,12 @@ pub enum Error {
 
     #[error("An identity with the name '{0}' already exists")]
     IdentityAlreadyExists(String),
+
+    #[error(
+        "--secure-store only supports seed phrases; \
+         unset STELLAR_SECRET_KEY or provide a seed phrase instead"
+    )]
+    SecureStoreRequiresSeedPhrase,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -51,7 +57,8 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
     pub public_key: Option<String>,
 
-    /// Overwrite existing identity if it already exists.
+    /// Overwrite existing identity if it already exists. When combined with
+    /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
 }
@@ -82,9 +89,15 @@ impl Cmd {
     }
 
     fn read_secret(&self, print: &Print) -> Result<Secret, Error> {
-        if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
-            Ok(Secret::SecretKey { secret_key })
-        } else if self.secrets.secure_store {
+        if self.secrets.secure_store {
+            if std::env::var("STELLAR_SECRET_KEY").is_ok() {
+                return Err(Error::SecureStoreRequiresSeedPhrase);
+            }
+        } else if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
+            return Ok(secret_key.parse()?);
+        }
+
+        if self.secrets.secure_store {
             let prompt = "Type a 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
             if secret_key.split_whitespace().count() < 24 {
@@ -96,7 +109,8 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            let secret = secure_store::save_secret(print, &self.name, &seed_phrase)?;
+            let secret =
+                secure_store::save_secret(print, &self.name, &seed_phrase, self.overwrite)?;
             Ok(secret.parse()?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";

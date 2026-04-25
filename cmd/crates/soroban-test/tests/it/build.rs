@@ -763,7 +763,7 @@ fn build_no_error_for_package() {
     let cargo_toml_path = dir_path.join("Cargo.toml");
     let cargo_toml_path_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
     let modified_cargo_toml_content =
-        format!("{cargo_toml_path_content}\n[profile.release]\noverflow-checks = true\n",);
+        format!("{cargo_toml_path_content}\n[profile.release]\noverflow-checks = true\n");
     std::fs::write(&cargo_toml_path, modified_cargo_toml_content).unwrap();
 
     sandbox
@@ -876,7 +876,7 @@ fn build_errors_when_overflow_check_only_applied_to_members() {
     let member_cargo_toml_path = dir_path.join("contracts").join("add").join("Cargo.toml");
     let member_cargo_toml_content = std::fs::read_to_string(&member_cargo_toml_path).unwrap();
     let modified_member_content =
-        format!("{member_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n",);
+        format!("{member_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n");
     std::fs::write(&member_cargo_toml_path, modified_member_content).unwrap();
 
     // Add overflow-checks = true to "add2" member
@@ -887,7 +887,7 @@ fn build_errors_when_overflow_check_only_applied_to_members() {
         .join("Cargo.toml");
     let member_2_cargo_toml_content = std::fs::read_to_string(&member_2_cargo_toml_path).unwrap();
     let modified_member_2_content =
-        format!("{member_2_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n",);
+        format!("{member_2_cargo_toml_content}\n[profile.release]\noverflow-checks = true\n");
     std::fs::write(&member_2_cargo_toml_path, modified_member_2_content).unwrap();
 
     sandbox

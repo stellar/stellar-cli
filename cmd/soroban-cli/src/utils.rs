@@ -171,6 +171,22 @@ pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
 }
 
+pub fn escape_control_characters(s: &str) -> String {
+    use std::fmt::Write as _;
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_control() {
+            let mut buf = [0u8; 4];
+            for &byte in c.encode_utf8(&mut buf).as_bytes() {
+                write!(result, "\\x{byte:02x}").unwrap();
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 pub fn contract_id_hash_from_asset(
     asset: &Asset,
     network_passphrase: &str,

@@ -380,14 +380,12 @@ impl Cmd {
                                     ScVal::ContractInstance(ScContractInstance {
                                         executable: ContractExecutable::Wasm(hash),
                                         ..
-                                    }) => {
-                                        if !current.wasm_hashes.contains(hash) {
-                                            next.wasm_hashes.insert(hash.clone());
-                                            print.infoln(format!(
-                                                "Adding wasm {} to search",
-                                                hex::encode(hash)
-                                            ));
-                                        }
+                                    }) if !current.wasm_hashes.contains(hash) => {
+                                        next.wasm_hashes.insert(hash.clone());
+                                        print.infoln(format!(
+                                            "Adding wasm {} to search",
+                                            hex::encode(hash)
+                                        ));
                                     }
                                     ScVal::ContractInstance(ScContractInstance {
                                         executable: ContractExecutable::StellarAsset,

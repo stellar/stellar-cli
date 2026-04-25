@@ -61,12 +61,12 @@ impl Args {
         // this is based on the `connect_with_defaults` method which has not yet been released in the bollard crate
         // https://github.com/fussybeaver/bollard/blob/0972b1aac0ad5c08798e100319ddd0d2ee010365/src/docker.rs#L660
         let connection = match host.clone() {
-            // if tcp or http, use connect_with_http_defaults
+            // if tcp or http, connect to the specified host directly
             // if unix and host starts with "unix://" use connect_with_unix
             // if windows and host starts with "npipe://", use connect_with_named_pipe
             // else default to connect_with_unix
             h if h.starts_with("tcp://") || h.starts_with("http://") => {
-                Docker::connect_with_http_defaults()
+                Docker::connect_with_http(&h, DEFAULT_TIMEOUT, API_DEFAULT_VERSION)
             }
             #[cfg(unix)]
             h if h.starts_with("unix://") => {

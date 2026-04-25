@@ -1137,7 +1137,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
   This only supports seed phrases for now.
 
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
-- `--overwrite` — Overwrite existing identity if it already exists
+- `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
 
 ###### **Options (Global):**
 
@@ -1211,7 +1211,7 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
   Default value: `false`
 
-- `--overwrite` — Overwrite existing identity if it already exists
+- `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
 
 ###### **Options (Global):**
 
