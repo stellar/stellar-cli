@@ -115,10 +115,11 @@ fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use soroban_spec_tools::Spec;
     use std::sync::{Arc, Mutex};
     use xdr::{
-        ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent,
-        ScString, ScVal, VecM, WriteXdr,
+        ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, ContractId,
+        DiagnosticEvent, Hash, ScString, ScVal, VecM, WriteXdr,
     };
 
     struct BufWriter(Arc<Mutex<Vec<u8>>>);
@@ -133,13 +134,13 @@ mod tests {
         }
     }
 
-    fn make_diagnostic_event(payload: &str) -> DiagnosticEvent {
+    fn make_contract_event(payload: &str) -> DiagnosticEvent {
         DiagnosticEvent {
             in_successful_contract_call: true,
             event: ContractEvent {
                 ext: xdr::ExtensionPoint::V0,
-                contract_id: None,
-                type_: ContractEventType::Diagnostic,
+                contract_id: Some(ContractId(Hash([0; 32]))),
+                type_: ContractEventType::Contract,
                 body: ContractEventBody::V0(ContractEventV0 {
                     topics: VecM::default(),
                     data: ScVal::String(ScString(payload.try_into().unwrap())),
@@ -149,11 +150,11 @@ mod tests {
     }
 
     #[test]
-    fn diagnostic_events_do_not_log_raw_payloads() {
+    fn contract_events_do_not_log_raw_payloads_on_spec_decode_failure() {
         let buf = Arc::new(Mutex::new(Vec::<u8>::new()));
         let buf_clone = buf.clone();
 
-        let event = make_diagnostic_event("RAW_SECRET_PAYLOAD_12345");
+        let event = make_contract_event("RAW_SECRET_PAYLOAD_12345");
         let event_xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
 
         let subscriber = tracing_subscriber::fmt::Subscriber::builder()
@@ -161,12 +162,20 @@ mod tests {
             .with_writer(move || BufWriter(buf_clone.clone()))
             .finish();
 
+        // An empty spec forces the spec-decode path to fail and emit a debug!
+        // message — exercising the only remaining debug! call in this module.
+        let spec = Spec::new(&[]);
         let print = Print::new(false);
         tracing::subscriber::with_default(subscriber, || {
-            contract_with_spec(&[event], &print, None);
+            contract_with_spec(&[event], &print, Some(&spec));
         });
 
         let output = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
+        // The debug! message must be emitted (proves the path was exercised).
+        assert!(
+            !output.is_empty(),
+            "expected a debug log from spec-decode failure, but got none"
+        );
         assert!(
             !output.contains(&event_xdr),
             "event logging must not emit raw event XDR; got: {output}"
