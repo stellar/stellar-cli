@@ -272,6 +272,44 @@ async fn parse_single_argument(
     }
 }
 
+fn redact_file_contents_in_error(err: Error, path: &PathBuf, byte_count: usize) -> Error {
+    let redacted = format!("<contents of {path:?} ({byte_count} bytes) redacted>");
+    match err {
+        Error::CannotParseArg {
+            arg,
+            error,
+            expected_type,
+            suggestion,
+            ..
+        } => Error::CannotParseArg {
+            arg,
+            error,
+            expected_type,
+            received_value: redacted,
+            suggestion,
+        },
+        Error::InvalidJsonArg {
+            arg, json_error, ..
+        } => Error::InvalidJsonArg {
+            arg,
+            json_error,
+            received_value: redacted,
+        },
+        Error::TypeMismatch {
+            arg,
+            expected_type,
+            actual_type,
+            ..
+        } => Error::TypeMismatch {
+            arg,
+            expected_type,
+            actual_type,
+            received_value: redacted,
+        },
+        other => other,
+    }
+}
+
 fn parse_file_argument(
     name: &str,
     arg_path: &PathBuf,
@@ -300,11 +338,12 @@ fn parse_file_argument(
                 error: e.to_string(),
             })?;
         tracing::debug!(
-            "file {arg_path:?}, has contents:\n{file_contents}\nAnd type {:#?}\n{}",
+            "file {arg_path:?}, size: {} bytes, type: {:#?}",
+            file_contents.len(),
             type_def,
-            file_contents.len()
         );
         parse_argument_with_validation(name, &file_contents, type_def, spec, config)
+            .map_err(|e| redact_file_contents_in_error(e, arg_path, file_contents.len()))
     }
 }
 
@@ -965,6 +1004,94 @@ mod tests {
         assert!(
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
+        );
+    }
+
+    #[test]
+    fn test_file_arg_parse_error_does_not_leak_contents() {
+        use std::io::Write;
+        use stellar_xdr::curr::{ScSpecTypeDef, ScSpecTypeVec};
+
+        let secret = "SCZANGBA5YHTNYVVV3C7CAZMCLSJQ3YXURLOXYG3JKRMUAHUZI4HBQES";
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, "{secret}").unwrap();
+        tmp.flush().unwrap();
+
+        let vec_type = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let config = crate::config::Args::default();
+        let spec = Spec(None);
+
+        let result = parse_file_argument(
+            "payload",
+            &tmp.path().to_path_buf(),
+            &vec_type,
+            "vector of u32 (unsigned 32-bit integer)".to_string(),
+            &spec,
+            &config,
+        );
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            !err_msg.contains(secret),
+            "error message must not contain file contents.\nSecret: {secret}\nError: {err_msg}"
+        );
+    }
+
+    struct CapturingWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for CapturingWriter {
+        fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(data);
+            Ok(data.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CapturingWriter {
+        type Writer = Self;
+        fn make_writer(&'a self) -> Self::Writer {
+            CapturingWriter(std::sync::Arc::clone(&self.0))
+        }
+    }
+
+    #[test]
+    fn test_file_arg_debug_log_does_not_leak_contents() {
+        use std::io::Write;
+        use std::sync::{Arc, Mutex};
+
+        let canary = "SECRET_CANARY_VALUE_12345";
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, "{canary}").unwrap();
+        tmp.flush().unwrap();
+
+        let captured: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .with_ansi(false)
+            .with_writer(CapturingWriter(Arc::clone(&captured)))
+            .finish();
+
+        let config = crate::config::Args::default();
+        let spec = Spec(None);
+
+        let _ = tracing::subscriber::with_default(subscriber, || {
+            parse_file_argument(
+                "note",
+                &tmp.path().to_path_buf(),
+                &ScSpecTypeDef::String,
+                "string".to_string(),
+                &spec,
+                &config,
+            )
+        });
+
+        let output = String::from_utf8_lossy(&captured.lock().unwrap()).to_string();
+        assert!(
+            !output.contains(canary),
+            "debug log must not contain file contents.\nCanary: {canary}\nLog output: {output}"
         );
     }
 }
