@@ -283,7 +283,7 @@ impl Cmd {
                 cmd.arg("--locked");
             }
             let manifest_path = if self.docker.is_some() {
-                // Inside the container the workspace is mounted at /work.
+                // Inside the container the workspace is mounted at /workspace.
                 let rel = pathdiff::diff_paths(&p.manifest_path, workspace_root)
                     .unwrap_or(p.manifest_path.clone().into());
                 Path::new(build_docker::WORK_DIR).join(rel)
@@ -720,13 +720,13 @@ fn make_rustflags_to_remap_absolute_paths(
     in_docker: bool,
 ) -> Result<Option<String>, Error> {
     // Inside the container the cargo registry is always mounted at
-    // /usr/local/cargo/registry and the workspace at /work, so the host's
+    // /usr/local/cargo/registry and the workspace at /workspace, so the host's
     // env vars (RUSTFLAGS, cargo_home) are irrelevant — the container does
     // not inherit them. Use fixed container paths so two hosts produce the
     // same wasm.
     if in_docker {
         return Ok(Some(
-            "--remap-path-prefix=/usr/local/cargo/registry/src/= --remap-path-prefix=/work=".to_string(),
+            "--remap-path-prefix=/usr/local/cargo/registry/src/= --remap-path-prefix=/workspace=".to_string(),
         ));
     }
 

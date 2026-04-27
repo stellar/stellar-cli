@@ -19,7 +19,7 @@ use crate::{
 };
 
 const PLATFORM: &str = "linux/amd64";
-pub const WORK_DIR: &str = "/work";
+pub const WORK_DIR: &str = "/workspace";
 const TARGET_DIR: &str = "/target";
 const REGISTRY_DIR: &str = "/usr/local/cargo/registry";
 
