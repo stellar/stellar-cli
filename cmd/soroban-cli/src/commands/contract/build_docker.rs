@@ -103,7 +103,6 @@ pub async fn run_in_docker(
         attach_stderr: Some(true),
         host_config: Some(HostConfig {
             binds: Some(binds),
-            network_mode: Some("none".to_string()),
             // auto_remove=false so we can stream logs first, then call
             // remove_container ourselves with force=true even on failure paths.
             auto_remove: Some(false),
