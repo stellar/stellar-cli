@@ -19,15 +19,9 @@ pub async fn simulate_and_assemble_transaction(
         signatures: VecM::default(),
     });
 
-    tracing::trace!(
-        "Simulation transaction envelope: {}",
-        envelope.to_xdr_base64(Limits::none())?
-    );
-
     let sim_res = client
         .next_simulate_transaction_envelope(&envelope, None, resource_config)
         .await?;
-    tracing::trace!("{sim_res:#?}");
 
     if let Some(e) = &sim_res.error {
         Err(Error::TransactionSimulationFailed(e.clone()))
@@ -292,6 +286,18 @@ mod tests {
         PublicKey, ScAddress, ScSymbol, ScVal, SequenceNumber, SorobanAuthorizedFunction,
         SorobanAuthorizedInvocation, SorobanResources, SorobanTransactionData, Uint256, WriteXdr,
     };
+
+    struct BufWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for BufWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
 
     const SOURCE: &str = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
 
@@ -646,5 +652,34 @@ mod tests {
             Ok(_) => panic!("expected error, got success"),
             Err(e) => panic!("expected LargeFee error, got: {e:#?}"),
         }
+    }
+
+    #[test]
+    fn assemble_does_not_log_raw_xdr_at_trace_level() {
+        let buf = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+        let buf_clone = buf.clone();
+
+        let sim = simulation_response();
+        let txn = single_contract_fn_transaction();
+        let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: txn.clone(),
+            signatures: VecM::default(),
+        });
+        let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
+
+        let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || BufWriter(buf_clone.clone()))
+            .finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            let _ = assemble(&txn, sim, None);
+        });
+
+        let output = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
+        assert!(
+            !output.contains(&envelope_xdr),
+            "assemble must not emit raw transaction XDR in trace logs; got: {output}"
+        );
     }
 }
