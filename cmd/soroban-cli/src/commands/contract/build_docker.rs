@@ -69,7 +69,7 @@ pub struct DockerRun<'a> {
 pub async fn run_cargo_rustc_in_docker(run: DockerRun<'_>) -> Result<String, Error> {
     let docker: Docker = match run.container_args.connect_to_docker(run.print).await {
         Ok(d) => d,
-        Err(e) => return Err(map_connect_error(e)),
+        Err(e) => return Err(Error::DockerNotRunning(e)),
     };
 
     pull_image(&docker, &run.image_ref, run.print).await?;
@@ -108,6 +108,8 @@ pub async fn run_cargo_rustc_in_docker(run: DockerRun<'_>) -> Result<String, Err
         host_config: Some(HostConfig {
             binds: Some(binds),
             network_mode: Some("none".to_string()),
+            // auto_remove=false so we can stream logs, then call
+            // remove_container ourselves with force=true even on failure paths.
             auto_remove: Some(false),
             ..Default::default()
         }),
@@ -199,8 +201,8 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
 }
 
 async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
-    if let Some(digest) = parse_pinned_digest(image) {
-        return Ok(format!("{}@{}", strip_digest(image), digest));
+    if let Some((name, digest)) = parse_pinned_digest(image) {
+        return Ok(format!("{name}@{digest}"));
     }
     let info = docker
         .inspect_image(image)
@@ -210,19 +212,30 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
             source: e,
         })?;
     let repo_digests = info.repo_digests.unwrap_or_default();
-    let first = repo_digests
-        .into_iter()
-        .next()
+    // The digest is the platform-specific manifest digest because we pulled
+    // with `--platform=linux/amd64`; reproducibility on `verify` depends on
+    // always pulling with that same platform.
+    //
+    // If the daemon has multiple repo_digests (e.g. registry mirror configs),
+    // prefer the one whose name prefix matches the user-supplied image.
+    let want_prefix = strip_tag(image);
+    let chosen = repo_digests
+        .iter()
+        .find(|d| strip_digest(d) == want_prefix)
+        .cloned()
+        .or_else(|| repo_digests.first().cloned())
         .ok_or_else(|| Error::DockerNoDigest {
             image: image.to_string(),
         })?;
-    Ok(first)
+    Ok(chosen)
 }
 
-fn parse_pinned_digest(image: &str) -> Option<String> {
-    let (_, after) = image.rsplit_once('@')?;
+/// Parse a `name@sha256:...` reference into `(name, digest)`. Returns `None`
+/// if the reference does not contain a `@sha256:` digest.
+fn parse_pinned_digest(image: &str) -> Option<(&str, &str)> {
+    let (name, after) = image.rsplit_once('@')?;
     if after.starts_with("sha256:") {
-        Some(after.to_string())
+        Some((name, after))
     } else {
         None
     }
@@ -232,8 +245,21 @@ fn strip_digest(image: &str) -> &str {
     image.split_once('@').map_or(image, |(name, _)| name)
 }
 
-fn map_connect_error(e: ContainerError) -> Error {
-    Error::DockerNotRunning(e)
+/// Strip both `@sha256:...` and `:tag`, leaving just the repository name.
+fn strip_tag(image: &str) -> &str {
+    let no_digest = strip_digest(image);
+    // A `:` in the host portion (e.g. `host:5000/name`) is not a tag separator.
+    // Tags only appear after the last `/`.
+    match no_digest.rfind('/') {
+        Some(slash) => match no_digest[slash + 1..].rfind(':') {
+            Some(colon) => &no_digest[..slash + 1 + colon],
+            None => no_digest,
+        },
+        None => match no_digest.rfind(':') {
+            Some(colon) => &no_digest[..colon],
+            None => no_digest,
+        },
+    }
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -335,4 +361,51 @@ pub fn source_date_epoch(workspace_root: &Path) -> String {
         }
     }
     "0".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_pinned_digest_cases() {
+        assert_eq!(parse_pinned_digest("name"), None);
+        assert_eq!(parse_pinned_digest("name:tag"), None);
+        assert_eq!(
+            parse_pinned_digest("name@sha256:abc"),
+            Some(("name", "sha256:abc"))
+        );
+        assert_eq!(
+            parse_pinned_digest("host/path/name@sha256:abc"),
+            Some(("host/path/name", "sha256:abc"))
+        );
+        assert_eq!(
+            parse_pinned_digest("host:5000/name:tag@sha256:abc"),
+            Some(("host:5000/name:tag", "sha256:abc"))
+        );
+        // Non-sha256 algorithms are not recognized.
+        assert_eq!(parse_pinned_digest("name@md5:abc"), None);
+    }
+
+    #[test]
+    fn strip_digest_cases() {
+        assert_eq!(strip_digest("name"), "name");
+        assert_eq!(strip_digest("name:tag"), "name:tag");
+        assert_eq!(strip_digest("name@sha256:abc"), "name");
+        assert_eq!(
+            strip_digest("host/name:tag@sha256:abc"),
+            "host/name:tag"
+        );
+    }
+
+    #[test]
+    fn strip_tag_cases() {
+        assert_eq!(strip_tag("name"), "name");
+        assert_eq!(strip_tag("name:tag"), "name");
+        assert_eq!(strip_tag("host/name:tag"), "host/name");
+        assert_eq!(strip_tag("host:5000/name"), "host:5000/name");
+        assert_eq!(strip_tag("host:5000/name:tag"), "host:5000/name");
+        assert_eq!(strip_tag("name@sha256:abc"), "name");
+        assert_eq!(strip_tag("host:5000/name:tag@sha256:abc"), "host:5000/name");
+    }
 }

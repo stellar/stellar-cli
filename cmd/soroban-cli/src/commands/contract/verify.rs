@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
@@ -6,6 +7,7 @@ use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::{self, Spec};
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
+use crate::commands::container::shared::Args as ContainerArgs;
 use crate::commands::global;
 use crate::commands::version;
 use crate::print::Print;
@@ -37,6 +39,9 @@ pub struct Cmd {
     /// Use only for debugging — overriding will normally cause a hash mismatch.
     #[arg(long, value_name = "IMAGE", help_heading = "Advanced")]
     pub docker: Option<String>,
+
+    #[command(flatten)]
+    pub container_args: ContainerArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -53,10 +58,25 @@ pub enum Error {
     MissingMeta(&'static str),
     #[error("CLI version mismatch: contract metadata says '{expected}', running CLI is '{actual}'.\nInstall the matching CLI version and re-run `stellar contract verify`.")]
     CliVersionMismatch { expected: String, actual: String },
-    #[error("verification failed: rebuilt wasm does not match original (sha256 {expected})")]
-    Mismatch { expected: String },
+    #[error("{}", format_mismatch(expected, produced))]
+    Mismatch {
+        expected: String,
+        produced: Vec<(String, String, PathBuf)>,
+    },
+    #[error("no Cargo.toml found at {0}; pass --source <path> to point at the contract's source tree")]
+    SourceNotFound(PathBuf),
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
+}
+
+fn format_mismatch(expected: &str, produced: &[(String, String, PathBuf)]) -> String {
+    let mut s = format!(
+        "verification failed: rebuilt wasm does not match (expected sha256 {expected}).\nproduced:"
+    );
+    for (name, hash, path) in produced {
+        let _ = write!(s, "\n  {name}  sha256:{hash}  {}", path.display());
+    }
+    s
 }
 
 impl Cmd {
@@ -73,10 +93,10 @@ impl Cmd {
         print.infoln(format!("Original wasm sha256: {original_hash}"));
 
         let spec = Spec::new(&wasm_bytes)?;
-        let cliver = find_meta(&spec, "cliver").ok_or(Error::MissingMeta("cliver"))?;
+        let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = match &self.docker {
             Some(image) => image.clone(),
-            None => find_meta(&spec, "bldimg").ok_or(Error::MissingMeta("bldimg"))?,
+            None => find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?,
         };
 
         let running_cliver = version::one_line();
@@ -88,15 +108,21 @@ impl Cmd {
         }
         print.infoln(format!("CLI version matches: {running_cliver}"));
 
+        let manifest_path = self.source.join("Cargo.toml");
+        if !manifest_path.exists() {
+            return Err(Error::SourceNotFound(self.source.clone()));
+        }
+
         print.infoln(format!("Rebuilding with docker image {bldimg}..."));
         let build_cmd = build::Cmd {
-            manifest_path: Some(self.source.join("Cargo.toml")),
+            manifest_path: Some(manifest_path),
             docker: Some(bldimg),
+            container_args: self.container_args.clone(),
             ..build::Cmd::default()
         };
         let built = build_cmd.run(global_args).await?;
 
-        let mut hashes: Vec<(String, String)> = Vec::with_capacity(built.len());
+        let mut produced: Vec<(String, String, PathBuf)> = Vec::with_capacity(built.len());
         let mut matched: Option<String> = None;
         for c in &built {
             let bytes = fs::read(&c.path).map_err(Error::ReadingRebuilt)?;
@@ -104,34 +130,86 @@ impl Cmd {
             if hash == original_hash {
                 matched = Some(c.name.clone());
             }
-            hashes.push((c.name.clone(), hash));
+            produced.push((c.name.clone(), hash, c.path.clone()));
         }
 
         if let Some(name) = matched {
+            // Intentional: bypasses --quiet because the pass/fail verdict is the primary output of this command.
             eprintln!(
                 "✅ Verified: rebuilt wasm matches the original (sha256 {original_hash}) — {name}"
             );
             Ok(())
         } else {
+            // Intentional: bypasses --quiet because the pass/fail verdict is the primary output of this command.
             eprintln!("⚠ Verification failed: rebuilt wasm does not match original.");
             eprintln!("   Built artifacts:");
-            for (name, hash) in &hashes {
-                eprintln!("     {name}  {hash}");
+            for (name, hash, path) in &produced {
+                eprintln!("     {name}  sha256:{hash}  {}", path.display());
             }
             Err(Error::Mismatch {
                 expected: original_hash,
+                produced,
             })
         }
     }
 }
 
-fn find_meta(spec: &Spec, key: &str) -> Option<String> {
-    spec.meta.iter().find_map(|meta_entry| {
-        let ScMetaEntry::ScMetaV0(ScMetaV0 { key: k, val }) = meta_entry;
+fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
+    meta.iter().find_map(|entry| {
+        let ScMetaEntry::ScMetaV0(ScMetaV0 { key: k, val }) = entry;
         if k.to_string() == key {
             Some(val.to_string())
         } else {
             None
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(key: &str, val: &str) -> ScMetaEntry {
+        ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: key.to_string().try_into().unwrap(),
+            val: val.to_string().try_into().unwrap(),
+        })
+    }
+
+    #[test]
+    fn find_meta_first_index() {
+        let meta = vec![entry("cliver", "v1"), entry("bldimg", "img@sha256:abc")];
+        assert_eq!(find_meta(&meta, "cliver"), Some("v1".to_string()));
+    }
+
+    #[test]
+    fn find_meta_later_index() {
+        let meta = vec![
+            entry("cliver", "v1"),
+            entry("other", "x"),
+            entry("bldimg", "img@sha256:abc"),
+        ];
+        assert_eq!(
+            find_meta(&meta, "bldimg"),
+            Some("img@sha256:abc".to_string())
+        );
+    }
+
+    #[test]
+    fn find_meta_missing() {
+        let meta = vec![entry("cliver", "v1")];
+        assert_eq!(find_meta(&meta, "bldimg"), None);
+    }
+
+    #[test]
+    fn find_meta_exact_key_not_prefix() {
+        let meta = vec![entry("bldimg2", "wrong"), entry("bldimg", "right")];
+        assert_eq!(find_meta(&meta, "bldimg"), Some("right".to_string()));
+    }
+
+    #[test]
+    fn find_meta_empty() {
+        let meta: Vec<ScMetaEntry> = Vec::new();
+        assert_eq!(find_meta(&meta, "cliver"), None);
+    }
 }

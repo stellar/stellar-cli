@@ -104,6 +104,8 @@ pub struct Cmd {
     ///
     /// With a value: uses the specified image. Pin via `<name>@sha256:...`
     /// for fully-reproducible builds.
+    ///
+    /// Aborted builds may leave a stopped container; clean with `docker container prune`.
     #[arg(
         long,
         num_args = 0..=1,
@@ -323,7 +325,9 @@ impl Cmd {
             }
 
             let mut env_vars: Vec<(String, String)> = Vec::new();
-            if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(&print)? {
+            if let Some(rustflags) =
+                make_rustflags_to_remap_absolute_paths(&print, self.docker.is_some())?
+            {
                 env_vars.push(("CARGO_BUILD_RUSTFLAGS".to_string(), rustflags));
             }
             env_vars.push((
@@ -765,7 +769,21 @@ fn serialize_command(cmd: &Command) -> String {
 /// the absolute path replacement. Non-Unicode `CARGO_BUILD_RUSTFLAGS` will result in the
 /// existing rustflags being ignored, which is also the behavior of
 /// Cargo itself.
-fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String>, Error> {
+fn make_rustflags_to_remap_absolute_paths(
+    print: &Print,
+    in_docker: bool,
+) -> Result<Option<String>, Error> {
+    // Inside the container the cargo registry is always mounted at
+    // /usr/local/cargo/registry and the workspace at /work, so the host's
+    // env vars (RUSTFLAGS, cargo_home) are irrelevant — the container does
+    // not inherit them. Use fixed container paths so two hosts produce the
+    // same wasm.
+    if in_docker {
+        return Ok(Some(
+            "--remap-path-prefix=/usr/local/cargo/registry/src/= --remap-path-prefix=/work=".to_string(),
+        ));
+    }
+
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
 
     if format!("{}", cargo_home.display())
@@ -969,6 +987,24 @@ mod tests {
         assert!(
             tokens.iter().any(|t| t == raw_arg),
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
+        );
+    }
+
+    #[test]
+    fn parse_docker_image_rejects_empty() {
+        let err = parse_docker_image("").unwrap_err();
+        assert!(err.contains("image cannot be empty"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_docker_image_accepts_non_empty() {
+        assert_eq!(
+            parse_docker_image("docker.io/library/rust:latest").unwrap(),
+            "docker.io/library/rust:latest"
+        );
+        assert_eq!(
+            parse_docker_image("name@sha256:abc").unwrap(),
+            "name@sha256:abc"
         );
     }
 }
