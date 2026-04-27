@@ -251,7 +251,6 @@ impl Cmd {
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
         let events = extract_events(&meta);
 
-        crate::log::event::all(&events);
         crate::log::event::contract(&events, &print);
 
         // The transaction from core will succeed regardless of whether it actually found & extended

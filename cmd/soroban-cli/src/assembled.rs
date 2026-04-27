@@ -30,7 +30,6 @@ pub async fn simulate_and_assemble_transaction(
     tracing::trace!("{sim_res:#?}");
 
     if let Some(e) = &sim_res.error {
-        crate::log::event::all(&sim_res.events()?);
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
         Ok(Assembled::new(tx, sim_res, resource_fee)?)
