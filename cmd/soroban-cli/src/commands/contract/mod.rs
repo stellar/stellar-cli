@@ -3,6 +3,7 @@ pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
+pub mod build_docker;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
@@ -16,6 +17,7 @@ pub mod read;
 pub mod restore;
 pub mod spec_verify;
 pub mod upload;
+pub mod verify;
 
 use crate::{commands::global, print::Print, utils::deprecate_message};
 
@@ -100,6 +102,9 @@ pub enum Cmd {
     // run as part of `contract build` so for a general user this is not needed.
     #[command(name = "spec-verify", hide = true)]
     SpecVerify(spec_verify::Cmd),
+
+    /// Verify a wasm by rebuilding from source in the recorded Docker image.
+    Verify(verify::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -154,6 +159,9 @@ pub enum Error {
 
     #[error(transparent)]
     SpecVerify(#[from] spec_verify::Error),
+
+    #[error(transparent)]
+    Verify(#[from] verify::Error),
 }
 
 impl Cmd {
@@ -164,7 +172,7 @@ impl Cmd {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => {
-                build.run(global_args)?;
+                build.run(global_args).await?;
             }
             Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
@@ -202,6 +210,7 @@ impl Cmd {
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run(global_args).await?,
             Cmd::SpecVerify(spec_verify) => spec_verify.run(global_args)?,
+            Cmd::Verify(verify) => verify.run(global_args).await?,
         }
         Ok(())
     }

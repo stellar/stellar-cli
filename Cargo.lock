@@ -5400,6 +5400,7 @@ dependencies = [
  "indexmap 2.11.0",
  "itertools 0.10.5",
  "keyring",
+ "libc",
  "mockito",
  "num-bigint",
  "open",

@@ -19,7 +19,9 @@ use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXd
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{global, version},
+    commands::{
+        container::shared::Args as ContainerArgs, contract::build_docker, global, version,
+    },
     print::Print,
     wasm,
 };
@@ -95,6 +97,27 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    /// Run `cargo rustc` inside a Docker container for reproducible builds.
+    ///
+    /// Without a value: pulls `docker.io/library/rust:latest` (linux/amd64)
+    /// and records the resolved image digest in contract metadata.
+    ///
+    /// With a value: uses the specified image. Pin via `<name>@sha256:...`
+    /// for fully-reproducible builds.
+    #[arg(
+        long,
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = "docker.io/library/rust:latest",
+        value_name = "IMAGE",
+        value_parser = parse_docker_image,
+        help_heading = "Reproducible Build",
+    )]
+    pub docker: Option<String>,
+
+    #[command(flatten)]
+    pub container_args: ContainerArgs,
+
     #[command(flatten)]
     pub build_args: BuildArgs,
 }
@@ -110,6 +133,15 @@ pub struct BuildArgs {
     #[cfg_attr(feature = "additional-libs", arg(long))]
     #[cfg_attr(not(feature = "additional-libs"), arg(long, hide = true))]
     pub optimize: bool,
+}
+
+fn parse_docker_image(s: &str) -> Result<String, String> {
+    if s.is_empty() {
+        return Err(
+            "image cannot be empty; pass --docker without a value to use the default image, or --docker=<image>".to_string(),
+        );
+    }
+    Ok(s.to_string())
 }
 
 pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
@@ -190,6 +222,9 @@ pub enum Error {
 
     #[error("wasm parsing error: {0}")]
     WasmParsing(String),
+
+    #[error(transparent)]
+    Docker(#[from] build_docker::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -208,6 +243,8 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
+            docker: None,
+            container_args: ContainerArgs { docker_host: None },
             build_args: BuildArgs::default(),
         }
     }
@@ -216,16 +253,17 @@ impl Default for Cmd {
 impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
+        let workspace_root = metadata.workspace_root.as_std_path().to_path_buf();
 
         // Run build configuration checks (only when actually building)
         if !self.print_commands_only {
-            run_checks(metadata.workspace_root.as_std_path(), &self.profile)?;
+            run_checks(&workspace_root, &self.profile)?;
         }
 
         if let Some(package) = &self.package {
@@ -237,62 +275,121 @@ impl Cmd {
         }
 
         let wasm_target = get_wasm_target()?;
+        // When building inside Docker, force --locked to keep builds deterministic.
+        let locked = self.locked || self.docker.is_some();
         let mut built_contracts = Vec::new();
 
         for p in packages {
-            let mut cmd = Command::new("cargo");
-            cmd.stdout(Stdio::piped());
-            cmd.arg("rustc");
-            if self.locked {
-                cmd.arg("--locked");
+            // Build cargo args + env once; both host and docker paths consume them.
+            let manifest_path = if self.docker.is_some() {
+                // Inside the container the workspace is mounted at /work, so make
+                // the manifest path relative to the workspace root.
+                let rel = pathdiff::diff_paths(&p.manifest_path, &workspace_root)
+                    .unwrap_or(p.manifest_path.clone().into());
+                Path::new(build_docker::WORK_DIR).join(rel)
+            } else {
+                pathdiff::diff_paths(&p.manifest_path, &working_dir)
+                    .unwrap_or(p.manifest_path.clone().into())
+            };
+
+            let mut cargo_args: Vec<String> = Vec::new();
+            if locked {
+                cargo_args.push("--locked".to_string());
             }
-            let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
-                .unwrap_or(p.manifest_path.clone().into());
-            cmd.arg(format!(
+            cargo_args.push(format!(
                 "--manifest-path={}",
                 manifest_path.to_string_lossy()
             ));
-            cmd.arg("--crate-type=cdylib");
-            cmd.arg(format!("--target={wasm_target}"));
+            cargo_args.push("--crate-type=cdylib".to_string());
+            cargo_args.push(format!("--target={wasm_target}"));
             if self.profile == "release" {
-                cmd.arg("--release");
+                cargo_args.push("--release".to_string());
             } else {
-                cmd.arg(format!("--profile={}", self.profile));
+                cargo_args.push(format!("--profile={}", self.profile));
             }
             if self.all_features {
-                cmd.arg("--all-features");
+                cargo_args.push("--all-features".to_string());
             }
             if self.no_default_features {
-                cmd.arg("--no-default-features");
+                cargo_args.push("--no-default-features".to_string());
             }
             if let Some(features) = self.features() {
                 let requested: HashSet<String> = features.iter().cloned().collect();
                 let available = p.features.iter().map(|f| f.0).cloned().collect();
                 let activate = requested.intersection(&available).join(",");
                 if !activate.is_empty() {
-                    cmd.arg(format!("--features={activate}"));
+                    cargo_args.push(format!("--features={activate}"));
                 }
             }
 
+            let mut env_vars: Vec<(String, String)> = Vec::new();
             if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(&print)? {
-                cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
+                env_vars.push(("CARGO_BUILD_RUSTFLAGS".to_string(), rustflags));
             }
+            env_vars.push((
+                "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2".to_string(),
+                "1".to_string(),
+            ));
 
-            // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
-            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+            // Resolved image digest, populated only on the docker path. Embedded
+            // in contract metadata as `bldimg`.
+            let mut bldimg: Option<String> = None;
 
-            let cmd_str = serialize_command(&cmd);
+            if let Some(image) = &self.docker {
+                let source_date_epoch = build_docker::source_date_epoch(&workspace_root);
+                if self.print_commands_only {
+                    let line = build_docker::print_docker_command(
+                        &workspace_root,
+                        target_dir.as_std_path(),
+                        &cargo_args,
+                        &env_vars,
+                        image,
+                        &source_date_epoch,
+                    )?;
+                    println!("{line}");
+                    continue;
+                }
 
-            if self.print_commands_only {
-                println!("{cmd_str}");
+                let summary = format_docker_summary(image, &cargo_args, &env_vars);
+                print.infoln(summary);
+
+                let resolved = build_docker::run_cargo_rustc_in_docker(build_docker::DockerRun {
+                    workspace_root: &workspace_root,
+                    target_dir: target_dir.as_std_path(),
+                    cargo_args: cargo_args.clone(),
+                    env_vars: env_vars.clone(),
+                    image_ref: image.clone(),
+                    source_date_epoch,
+                    container_args: &self.container_args,
+                    print: &print,
+                })
+                .await?;
+                bldimg = Some(resolved);
             } else {
+                let mut cmd = Command::new("cargo");
+                cmd.stdout(Stdio::piped());
+                cmd.arg("rustc");
+                for a in &cargo_args {
+                    cmd.arg(a);
+                }
+                for (k, v) in &env_vars {
+                    cmd.env(k, v);
+                }
+
+                let cmd_str = serialize_command(&cmd);
+
+                if self.print_commands_only {
+                    println!("{cmd_str}");
+                    continue;
+                }
                 print.infoln(cmd_str);
                 let status = cmd.status().map_err(Error::CargoCmd)?;
                 if !status.success() {
                     return Err(Error::Exit(status));
                 }
+            }
 
+            {
                 let wasm_name = p.name.replace('-', "_");
                 let file = format!("{wasm_name}.wasm");
                 let target_file_path = Path::new(target_dir)
@@ -300,7 +397,7 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.inject_meta(&target_file_path)?;
+                self.inject_meta(&target_file_path, bldimg.as_deref())?;
                 Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
@@ -417,9 +514,9 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
+    fn inject_meta(&self, target_file_path: &PathBuf, bldimg: Option<&str>) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let xdr = self.encoded_new_meta()?;
+        let xdr = self.encoded_new_meta(bldimg)?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
@@ -468,7 +565,7 @@ impl Cmd {
         fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
-    fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
+    fn encoded_new_meta(&self, bldimg: Option<&str>) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
 
         // Always inject CLI version
@@ -477,6 +574,18 @@ impl Cmd {
             val: version::one_line().clone().try_into().unwrap(),
         });
         new_meta.push(cli_meta_entry);
+
+        // Reproducible build image (only when --docker was used).
+        if let Some(image) = bldimg {
+            let key: StringM = "bldimg"
+                .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("bldimg is an invalid metadata key: {e}")))?;
+            let val: StringM = image.to_string().try_into().map_err(|e| {
+                Error::MetaArg(format!("{image} is an invalid metadata value: {e}"))
+            })?;
+            new_meta.push(ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }));
+        }
 
         // Add args provided meta
         for (k, v) in self.build_args.meta.clone() {
@@ -572,6 +681,23 @@ impl Cmd {
 
         print.checkln("Build Complete\n");
     }
+}
+
+fn format_docker_summary(image: &str, cargo_args: &[String], env_vars: &[(String, String)]) -> String {
+    let mut parts = Vec::<String>::new();
+    parts.push(format!("docker[{image}]"));
+    for (k, v) in env_vars {
+        parts.push(format!(
+            "{k}={}",
+            shell_escape::escape(v.into()).into_owned()
+        ));
+    }
+    parts.push("cargo".to_string());
+    parts.push("rustc".to_string());
+    for a in cargo_args {
+        parts.push(shell_escape::escape(a.into()).into_owned());
+    }
+    parts.join(" ")
 }
 
 fn serialize_command(cmd: &Command) -> String {

@@ -135,7 +135,7 @@ impl Cmd {
             return Err(Error::BuildOnlyNotSupported);
         }
 
-        let wasm_paths = self.resolve_wasm_paths(global_args)?;
+        let wasm_paths = self.resolve_wasm_paths(global_args).await?;
 
         for wasm_path in &wasm_paths {
             let res = self
@@ -172,7 +172,7 @@ impl Cmd {
         self.upload_wasm(&wasm_path, config, quiet, no_cache).await
     }
 
-    fn resolve_wasm_paths(&self, global_args: &global::Args) -> Result<Vec<PathBuf>, Error> {
+    async fn resolve_wasm_paths(&self, global_args: &global::Args) -> Result<Vec<PathBuf>, Error> {
         if let Some(wasm) = &self.wasm {
             Ok(vec![wasm.clone()])
         } else {
@@ -181,7 +181,7 @@ impl Cmd {
                 build_args: self.build_args.clone(),
                 ..build::Cmd::default()
             };
-            let contracts = build_cmd.run(global_args).map_err(|e| match e {
+            let contracts = build_cmd.run(global_args).await.map_err(|e| match e {
                 build::Error::Metadata(_) => Error::NotInCargoProject,
                 other => other.into(),
             })?;

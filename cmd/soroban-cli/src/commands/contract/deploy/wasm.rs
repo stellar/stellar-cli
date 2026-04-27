@@ -182,7 +182,7 @@ impl Cmd {
             return Err(Error::BuildOnlyNotSupported);
         }
 
-        let built_contracts = self.resolve_contracts(global_args)?;
+        let built_contracts = self.resolve_contracts(global_args).await?;
 
         // When --wasm-hash is used, no built contracts are returned.
         // Deploy directly with the hash.
@@ -259,7 +259,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn resolve_contracts(
+    async fn resolve_contracts(
         &self,
         global_args: &global::Args,
     ) -> Result<Vec<build::BuiltContract>, Error> {
@@ -282,7 +282,7 @@ impl Cmd {
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
-        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+        let contracts = build_cmd.run(global_args).await.map_err(|e| match e {
             build::Error::Metadata(_) => Error::NotInCargoProject,
             other => other.into(),
         })?;
