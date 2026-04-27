@@ -1,4 +1,6 @@
+use std::ffi::OsStr;
 use std::path::Path;
+use std::process::Command;
 
 use bollard::{
     models::ContainerCreateBody,
@@ -16,7 +18,6 @@ use crate::{
     print::Print,
 };
 
-pub const DEFAULT_IMAGE: &str = "docker.io/library/rust:latest";
 const PLATFORM: &str = "linux/amd64";
 pub const WORK_DIR: &str = "/work";
 const TARGET_DIR: &str = "/target";
@@ -52,63 +53,58 @@ pub enum Error {
     CargoHome(std::io::Error),
 }
 
-/// Inputs for a single `cargo rustc` invocation inside a container.
-pub struct DockerRun<'a> {
-    pub workspace_root: &'a Path,
-    pub target_dir: &'a Path,
-    pub cargo_args: Vec<String>,
-    pub env_vars: Vec<(String, String)>,
-    pub image_ref: String,
-    pub source_date_epoch: String,
-    pub container_args: &'a ContainerArgs,
-    pub print: &'a Print,
-}
+/// Pull (if needed), run the host `cmd` (its program and args) inside a
+/// linux/amd64 container, and return the resolved `name@sha256:...` reference.
+pub async fn run_in_docker(
+    cmd: &Command,
+    image: &str,
+    workspace_root: &Path,
+    target_dir: &Path,
+    container_args: &ContainerArgs,
+    print: &Print,
+) -> Result<String, Error> {
+    let docker: Docker = container_args
+        .connect_to_docker(print)
+        .await
+        .map_err(Error::DockerNotRunning)?;
 
-/// Pull (if needed), run `cargo rustc` inside the container, and return the
-/// fully-qualified image reference including the resolved `@sha256:...` digest.
-pub async fn run_cargo_rustc_in_docker(run: DockerRun<'_>) -> Result<String, Error> {
-    let docker: Docker = match run.container_args.connect_to_docker(run.print).await {
-        Ok(d) => d,
-        Err(e) => return Err(Error::DockerNotRunning(e)),
-    };
-
-    pull_image(&docker, &run.image_ref, run.print).await?;
-    let resolved_image = resolve_image_digest(&docker, &run.image_ref).await?;
+    pull_image(&docker, image, print).await?;
+    let resolved = resolve_image_digest(&docker, image).await?;
 
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
-    let registry = cargo_home.join("registry");
-
     let binds = vec![
-        format!("{}:{}", run.workspace_root.display(), WORK_DIR),
-        format!("{}:{}", run.target_dir.display(), TARGET_DIR),
-        format!("{}:{}", registry.display(), REGISTRY_DIR),
+        format!("{}:{}", workspace_root.display(), WORK_DIR),
+        format!("{}:{}", target_dir.display(), TARGET_DIR),
+        format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
     ];
 
-    let mut env: Vec<String> = run
-        .env_vars
-        .iter()
-        .map(|(k, v)| format!("{k}={v}"))
+    let mut env: Vec<String> = cmd
+        .get_envs()
+        .filter_map(|(k, v)| {
+            v.map(|val| format!("{}={}", k.to_string_lossy(), val.to_string_lossy()))
+        })
         .collect();
     env.push(format!("CARGO_TARGET_DIR={TARGET_DIR}"));
-    env.push(format!("SOURCE_DATE_EPOCH={}", run.source_date_epoch));
+    env.push(format!("SOURCE_DATE_EPOCH={}", source_date_epoch(workspace_root)));
 
-    let mut cmd = vec!["cargo".to_string(), "rustc".to_string()];
-    cmd.extend(run.cargo_args.iter().cloned());
-
-    let user = current_uid_gid();
+    let container_cmd: Vec<String> = std::iter::once(cmd.get_program())
+        .chain(cmd.get_args())
+        .map(OsStr::to_string_lossy)
+        .map(std::borrow::Cow::into_owned)
+        .collect();
 
     let config = ContainerCreateBody {
-        image: Some(resolved_image.clone()),
-        cmd: Some(cmd),
+        image: Some(resolved.clone()),
+        cmd: Some(container_cmd),
         env: Some(env),
         working_dir: Some(WORK_DIR.to_string()),
-        user,
+        user: current_uid_gid(),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         host_config: Some(HostConfig {
             binds: Some(binds),
             network_mode: Some("none".to_string()),
-            // auto_remove=false so we can stream logs, then call
+            // auto_remove=false so we can stream logs first, then call
             // remove_container ourselves with force=true even on failure paths.
             auto_remove: Some(false),
             ..Default::default()
@@ -116,12 +112,12 @@ pub async fn run_cargo_rustc_in_docker(run: DockerRun<'_>) -> Result<String, Err
         ..Default::default()
     };
 
-    let create_resp = docker
+    let container_id = docker
         .create_container(None::<CreateContainerOptions>, config)
-        .await?;
-    let container_id = create_resp.id;
+        .await?
+        .id;
 
-    let result = run_and_wait(&docker, &container_id, run.print).await;
+    let result = run_and_wait(&docker, &container_id, print).await;
 
     let _ = docker
         .remove_container(
@@ -134,8 +130,7 @@ pub async fn run_cargo_rustc_in_docker(run: DockerRun<'_>) -> Result<String, Err
         .await;
 
     result?;
-
-    Ok(resolved_image)
+    Ok(resolved)
 }
 
 async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Result<(), Error> {
@@ -143,23 +138,20 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
         .start_container(container_id, None::<StartContainerOptions>)
         .await?;
 
-    let logs_opts = LogsOptions {
-        follow: true,
-        stdout: true,
-        stderr: true,
-        ..Default::default()
-    };
-    let mut log_stream = docker.logs(container_id, Some(logs_opts));
+    let mut log_stream = docker.logs(
+        container_id,
+        Some(LogsOptions {
+            follow: true,
+            stdout: true,
+            stderr: true,
+            ..Default::default()
+        }),
+    );
     while let Some(item) = log_stream.next().await {
-        match item {
-            Ok(out) => {
-                let s = out.to_string();
-                let s = s.trim_end_matches('\n');
-                if !s.is_empty() {
-                    print.infoln(s);
-                }
-            }
-            Err(e) => return Err(Error::DockerRun(e)),
+        let s = item?.to_string();
+        let s = s.trim_end_matches('\n');
+        if !s.is_empty() {
+            print.infoln(s);
         }
     }
 
@@ -168,9 +160,7 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
     while let Some(res) = wait_stream.next().await {
         match res {
             Ok(r) => exit_code = r.status_code,
-            Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => {
-                exit_code = code;
-            }
+            Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => exit_code = code,
             Err(e) => return Err(Error::DockerRun(e)),
         }
     }
@@ -181,12 +171,15 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
 }
 
 async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
-    let opts = CreateImageOptions {
-        from_image: Some(image.to_string()),
-        platform: PLATFORM.to_string(),
-        ..Default::default()
-    };
-    let mut stream = docker.create_image(Some(opts), None, None);
+    let mut stream = docker.create_image(
+        Some(CreateImageOptions {
+            from_image: Some(image.to_string()),
+            platform: PLATFORM.to_string(),
+            ..Default::default()
+        }),
+        None,
+        None,
+    );
     while let Some(item) = stream.try_next().await.map_err(|e| Error::DockerImagePull {
         image: image.to_string(),
         source: e,
@@ -200,9 +193,11 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
     Ok(())
 }
 
+// We pull with --platform=linux/amd64 so the recorded digest is platform-specific;
+// reproducibility on `verify` depends on always pulling with that same platform.
 async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
-    if let Some((name, digest)) = parse_pinned_digest(image) {
-        return Ok(format!("{name}@{digest}"));
+    if parse_pinned_digest(image).is_some() {
+        return Ok(image.to_string());
     }
     let info = docker
         .inspect_image(image)
@@ -211,65 +206,27 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
             image: image.to_string(),
             source: e,
         })?;
-    let repo_digests = info.repo_digests.unwrap_or_default();
-    // The digest is the platform-specific manifest digest because we pulled
-    // with `--platform=linux/amd64`; reproducibility on `verify` depends on
-    // always pulling with that same platform.
-    //
-    // If the daemon has multiple repo_digests (e.g. registry mirror configs),
-    // prefer the one whose name prefix matches the user-supplied image.
-    let want_prefix = strip_tag(image);
-    let chosen = repo_digests
-        .iter()
-        .find(|d| strip_digest(d) == want_prefix)
-        .cloned()
-        .or_else(|| repo_digests.first().cloned())
+    info.repo_digests
+        .unwrap_or_default()
+        .into_iter()
+        .next()
         .ok_or_else(|| Error::DockerNoDigest {
             image: image.to_string(),
-        })?;
-    Ok(chosen)
+        })
 }
 
-/// Parse a `name@sha256:...` reference into `(name, digest)`. Returns `None`
-/// if the reference does not contain a `@sha256:` digest.
 fn parse_pinned_digest(image: &str) -> Option<(&str, &str)> {
     let (name, after) = image.rsplit_once('@')?;
-    if after.starts_with("sha256:") {
-        Some((name, after))
-    } else {
-        None
-    }
-}
-
-fn strip_digest(image: &str) -> &str {
-    image.split_once('@').map_or(image, |(name, _)| name)
-}
-
-/// Strip both `@sha256:...` and `:tag`, leaving just the repository name.
-fn strip_tag(image: &str) -> &str {
-    let no_digest = strip_digest(image);
-    // A `:` in the host portion (e.g. `host:5000/name`) is not a tag separator.
-    // Tags only appear after the last `/`.
-    match no_digest.rfind('/') {
-        Some(slash) => match no_digest[slash + 1..].rfind(':') {
-            Some(colon) => &no_digest[..slash + 1 + colon],
-            None => no_digest,
-        },
-        None => match no_digest.rfind(':') {
-            Some(colon) => &no_digest[..colon],
-            None => no_digest,
-        },
-    }
+    after.starts_with("sha256:").then_some((name, after))
 }
 
 #[allow(clippy::unnecessary_wraps)]
 #[cfg(unix)]
 fn current_uid_gid() -> Option<String> {
-    // SAFETY: getuid/getgid are infallible POSIX calls returning the real
-    // user/group ID of the calling process.
-    let uid = unsafe { libc::getuid() };
-    let gid = unsafe { libc::getgid() };
-    Some(format!("{uid}:{gid}"))
+    // SAFETY: getuid/getgid are infallible POSIX calls.
+    Some(format!("{}:{}", unsafe { libc::getuid() }, unsafe {
+        libc::getgid()
+    }))
 }
 
 #[cfg(not(unix))]
@@ -277,90 +234,19 @@ fn current_uid_gid() -> Option<String> {
     None
 }
 
-/// Build the equivalent `docker run ...` command line for `--print-commands-only`.
-pub fn print_docker_command(
-    workspace_root: &Path,
-    target_dir: &Path,
-    cargo_args: &[String],
-    env_vars: &[(String, String)],
-    image_ref: &str,
-    source_date_epoch: &str,
-) -> Result<String, Error> {
-    let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
-    let registry = cargo_home.join("registry");
-
-    let mut parts: Vec<String> = vec![
-        "docker".to_string(),
-        "run".to_string(),
-        "--rm".to_string(),
-        format!("--platform={PLATFORM}"),
-        "--network=none".to_string(),
-        format!("-w {WORK_DIR}"),
-    ];
-
-    if let Some(user) = current_uid_gid() {
-        parts.push(format!("-u {user}"));
-    }
-
-    parts.push(shell_escape_kv(
-        "-v",
-        &format!("{}:{}", workspace_root.display(), WORK_DIR),
-    ));
-    parts.push(shell_escape_kv(
-        "-v",
-        &format!("{}:{}", target_dir.display(), TARGET_DIR),
-    ));
-    parts.push(shell_escape_kv(
-        "-v",
-        &format!("{}:{}", registry.display(), REGISTRY_DIR),
-    ));
-
-    for (k, v) in env_vars {
-        parts.push(shell_escape_kv("-e", &format!("{k}={v}")));
-    }
-    parts.push(shell_escape_kv(
-        "-e",
-        &format!("CARGO_TARGET_DIR={TARGET_DIR}"),
-    ));
-    parts.push(shell_escape_kv(
-        "-e",
-        &format!("SOURCE_DATE_EPOCH={source_date_epoch}"),
-    ));
-
-    parts.push(shell_escape::escape(image_ref.into()).into_owned());
-    parts.push("cargo".to_string());
-    parts.push("rustc".to_string());
-    for a in cargo_args {
-        parts.push(shell_escape::escape(a.into()).into_owned());
-    }
-
-    Ok(parts.join(" "))
-}
-
-fn shell_escape_kv(flag: &str, value: &str) -> String {
-    format!(
-        "{flag} {}",
-        shell_escape::escape(value.into()).into_owned()
-    )
-}
-
-/// Best-effort SOURCE_DATE_EPOCH derived from the workspace's HEAD commit time.
-/// Falls back to `"0"` when not in a git repo or git is unavailable.
-pub fn source_date_epoch(workspace_root: &Path) -> String {
-    let output = std::process::Command::new("git")
+/// Best-effort SOURCE_DATE_EPOCH from the workspace's HEAD commit time;
+/// falls back to `"0"` when not in a git repo.
+fn source_date_epoch(workspace_root: &Path) -> String {
+    Command::new("git")
         .arg("-C")
         .arg(workspace_root)
         .args(["log", "-1", "--format=%ct"])
-        .output();
-    if let Ok(out) = output {
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !s.is_empty() {
-                return s;
-            }
-        }
-    }
-    "0".to_string()
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "0".to_string())
 }
 
 #[cfg(test)]
@@ -371,41 +257,14 @@ mod tests {
     fn parse_pinned_digest_cases() {
         assert_eq!(parse_pinned_digest("name"), None);
         assert_eq!(parse_pinned_digest("name:tag"), None);
+        assert_eq!(parse_pinned_digest("name@md5:abc"), None);
         assert_eq!(
             parse_pinned_digest("name@sha256:abc"),
             Some(("name", "sha256:abc"))
         );
         assert_eq!(
-            parse_pinned_digest("host/path/name@sha256:abc"),
-            Some(("host/path/name", "sha256:abc"))
-        );
-        assert_eq!(
             parse_pinned_digest("host:5000/name:tag@sha256:abc"),
             Some(("host:5000/name:tag", "sha256:abc"))
         );
-        // Non-sha256 algorithms are not recognized.
-        assert_eq!(parse_pinned_digest("name@md5:abc"), None);
-    }
-
-    #[test]
-    fn strip_digest_cases() {
-        assert_eq!(strip_digest("name"), "name");
-        assert_eq!(strip_digest("name:tag"), "name:tag");
-        assert_eq!(strip_digest("name@sha256:abc"), "name");
-        assert_eq!(
-            strip_digest("host/name:tag@sha256:abc"),
-            "host/name:tag"
-        );
-    }
-
-    #[test]
-    fn strip_tag_cases() {
-        assert_eq!(strip_tag("name"), "name");
-        assert_eq!(strip_tag("name:tag"), "name");
-        assert_eq!(strip_tag("host/name:tag"), "host/name");
-        assert_eq!(strip_tag("host:5000/name"), "host:5000/name");
-        assert_eq!(strip_tag("host:5000/name:tag"), "host:5000/name");
-        assert_eq!(strip_tag("name@sha256:abc"), "name");
-        assert_eq!(strip_tag("host:5000/name:tag@sha256:abc"), "host:5000/name");
     }
 }
