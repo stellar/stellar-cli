@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
 use std::{fs, process};
@@ -22,12 +23,6 @@ pub enum Error {
 
     #[error(transparent)]
     Network(#[from] network::Error),
-
-    #[error(transparent)]
-    PatternError(#[from] glob::PatternError),
-
-    #[error(transparent)]
-    GlobError(#[from] glob::GlobError),
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
@@ -58,33 +53,29 @@ impl Cmd {
     }
 
     fn collect_aliases(config_dir: &Path) -> Result<HashMap<String, Vec<AliasEntry>>, Error> {
-        let dir = glob::Pattern::escape(&config_dir.join("contract-ids").to_string_lossy());
-        let pattern = Path::new(&dir)
-            .join("*.json")
-            .to_string_lossy()
-            .into_owned();
-
-        let paths = glob::glob(&pattern)?;
+        let contract_ids_dir = config_dir.join("contract-ids");
         let mut map: HashMap<String, Vec<AliasEntry>> = HashMap::new();
 
-        for path in paths {
-            let path = path?;
+        if !contract_ids_dir.is_dir() {
+            return Ok(map);
+        }
+
+        for entry in fs::read_dir(&contract_ids_dir)? {
+            let path = entry?.path();
+
+            if path.extension() != Some(OsStr::new("json")) {
+                continue;
+            }
 
             if let Some(alias) = path.file_stem() {
                 let alias = alias.to_string_lossy().into_owned();
-                let content = fs::read_to_string(path)?;
+                let content = fs::read_to_string(&path)?;
                 let data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
-                for network_passphrase in data.ids.keys() {
-                    let network_passphrase = network_passphrase.clone();
-                    let contract = data
-                        .ids
-                        .get(&network_passphrase)
-                        .map(ToString::to_string)
-                        .unwrap_or_default();
+                for (network_passphrase, contract_id) in &data.ids {
                     let entry = AliasEntry {
                         alias: alias.clone(),
-                        contract,
+                        contract: contract_id.clone(),
                     };
 
                     map.entry(network_passphrase.clone())
@@ -98,22 +89,20 @@ impl Cmd {
     }
 
     fn read_from_config_dir(config_dir: &Path) -> Result<(), Error> {
-        let map = Self::collect_aliases(config_dir)?;
+        let mut map = Self::collect_aliases(config_dir)?;
         let mut found = false;
 
-        for network_passphrase in map.keys() {
-            if let Some(list) = map.clone().get_mut(network_passphrase) {
-                println!("ℹ️ Aliases available for network '{network_passphrase}'");
+        for (network_passphrase, list) in &mut map {
+            println!("ℹ️ Aliases available for network '{network_passphrase}'");
 
-                list.sort_by(|a, b| a.alias.cmp(&b.alias));
+            list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
-                for entry in list {
-                    found = true;
-                    println!("{}: {}", entry.alias, entry.contract);
-                }
-
-                println!();
+            for entry in list.iter() {
+                found = true;
+                println!("{}: {}", entry.alias, entry.contract);
             }
+
+            println!();
         }
 
         if !found {
