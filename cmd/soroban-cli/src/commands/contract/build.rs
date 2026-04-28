@@ -113,8 +113,8 @@ pub struct Cmd {
     #[command(flatten)]
     pub container_args: ContainerArgs,
 
-    /// Pin RUSTUP_TOOLCHAIN inside the docker container. Set by `verify` from
-    /// the `rsver` meta entry; not user-facing.
+    /// Run cargo via `cargo +<toolchain>` to pin the rust toolchain. Set by
+    /// `verify` from the wasm's `rsver` meta entry; not user-facing.
     #[arg(skip)]
     pub rustup_toolchain: Option<String>,
 
@@ -281,6 +281,12 @@ impl Cmd {
         for p in packages {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
+            // `+<toolchain>` is rustup's explicit toolchain selector and overrides
+            // any `rust-toolchain.toml` in the workspace. Set by `verify` from
+            // the wasm's `rsver` meta entry.
+            if let Some(toolchain) = &self.rustup_toolchain {
+                cmd.arg(format!("+{toolchain}"));
+            }
             cmd.arg("rustc");
             // Force --locked when building inside Docker so the build is deterministic.
             if self.locked || self.docker.is_some() {
@@ -330,10 +336,6 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
-
-            if let Some(toolchain) = &self.rustup_toolchain {
-                cmd.env("RUSTUP_TOOLCHAIN", toolchain);
-            }
 
             let cmd_str = serialize_command(&cmd);
 
