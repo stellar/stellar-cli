@@ -88,7 +88,10 @@ pub async fn run_in_docker(
         })
         .collect();
     env.push(format!("CARGO_TARGET_DIR={TARGET_DIR}"));
-    env.push(format!("SOURCE_DATE_EPOCH={}", source_date_epoch(workspace_root)));
+    env.push(format!(
+        "SOURCE_DATE_EPOCH={}",
+        source_date_epoch(workspace_root)
+    ));
 
     let container_cmd: Vec<String> = std::iter::once(cmd.get_program())
         .chain(cmd.get_args())
@@ -182,12 +185,19 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
         None,
         None,
     );
-    while let Some(item) = stream.try_next().await.map_err(|e| Error::DockerImagePull {
-        image: image.to_string(),
-        source: e,
-    })? {
+    while let Some(item) = stream
+        .try_next()
+        .await
+        .map_err(|e| Error::DockerImagePull {
+            image: image.to_string(),
+            source: e,
+        })?
+    {
         if let Some(status) = item.status {
-            if status.contains("Pulling from") || status.contains("Digest") || status.contains("Status") {
+            if status.contains("Pulling from")
+                || status.contains("Digest")
+                || status.contains("Status")
+            {
                 print.infoln(status);
             }
         }

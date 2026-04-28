@@ -54,14 +54,18 @@ pub enum Error {
         expected: String,
         produced: Vec<(String, String, PathBuf)>,
     },
-    #[error("no Cargo.toml found at {0}; pass --source <path> to point at the contract's source tree")]
+    #[error(
+        "no Cargo.toml found at {0}; pass --source <path> to point at the contract's source tree"
+    )]
     SourceNotFound(PathBuf),
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
 }
 
 fn format_mismatch(expected: &str, produced: &[(String, String, PathBuf)]) -> String {
-    let mut s = format!("verification failed: rebuilt wasm does not match (expected sha256 {expected}).\nproduced:");
+    let mut s = format!(
+        "verification failed: rebuilt wasm does not match (expected sha256 {expected}).\nproduced:"
+    );
     for (name, hash, path) in produced {
         let _ = write!(s, "\n  {name}  sha256:{hash}  {}", path.display());
     }
@@ -166,5 +170,4 @@ mod tests {
         );
         assert_eq!(find_meta(&meta, "missing"), None);
     }
-
 }

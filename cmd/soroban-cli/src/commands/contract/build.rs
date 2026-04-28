@@ -19,9 +19,7 @@ use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXd
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{
-        container::shared::Args as ContainerArgs, contract::build_docker, global, version,
-    },
+    commands::{container::shared::Args as ContainerArgs, contract::build_docker, global, version},
     print::Print,
     wasm,
 };
@@ -737,7 +735,8 @@ fn make_rustflags_to_remap_absolute_paths(
     // same wasm.
     if in_docker {
         return Ok(Some(
-            "--remap-path-prefix=/usr/local/cargo/registry/src/= --remap-path-prefix=/workspace=".to_string(),
+            "--remap-path-prefix=/usr/local/cargo/registry/src/= --remap-path-prefix=/workspace="
+                .to_string(),
         ));
     }
 
@@ -946,5 +945,4 @@ mod tests {
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
     }
-
 }
