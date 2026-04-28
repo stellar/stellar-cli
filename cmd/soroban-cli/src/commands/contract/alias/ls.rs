@@ -57,15 +57,14 @@ impl Cmd {
         Ok(())
     }
 
-    fn read_from_config_dir(config_dir: &Path) -> Result<(), Error> {
-        let pattern = config_dir
-            .join("contract-ids")
+    fn collect_aliases(config_dir: &Path) -> Result<HashMap<String, Vec<AliasEntry>>, Error> {
+        let dir = glob::Pattern::escape(&config_dir.join("contract-ids").to_string_lossy());
+        let pattern = Path::new(&dir)
             .join("*.json")
             .to_string_lossy()
             .into_owned();
 
         let paths = glob::glob(&pattern)?;
-        let mut found = false;
         let mut map: HashMap<String, Vec<AliasEntry>> = HashMap::new();
 
         for path in paths {
@@ -88,12 +87,19 @@ impl Cmd {
                         contract,
                     };
 
-                    let list = map.entry(network_passphrase.clone()).or_default();
-
-                    list.push(entry.clone());
+                    map.entry(network_passphrase.clone())
+                        .or_default()
+                        .push(entry);
                 }
             }
         }
+
+        Ok(map)
+    }
+
+    fn read_from_config_dir(config_dir: &Path) -> Result<(), Error> {
+        let map = Self::collect_aliases(config_dir)?;
+        let mut found = false;
 
         for network_passphrase in map.keys() {
             if let Some(list) = map.clone().get_mut(network_passphrase) {
@@ -117,5 +123,51 @@ impl Cmd {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn write_alias(dir: &Path, name: &str, network: &str, contract: &str) {
+        let contract_ids_dir = dir.join("contract-ids");
+        fs::create_dir_all(&contract_ids_dir).unwrap();
+        let content = format!(r#"{{"ids":{{"{network}":"{contract}"}}}}"#);
+        fs::write(contract_ids_dir.join(format!("{name}.json")), content).unwrap();
+    }
+
+    #[test]
+    fn glob_metacharacters_in_config_dir_are_treated_as_literal() {
+        let tmp = tempfile::tempdir().unwrap();
+        let base = tmp.path();
+
+        // Sibling directories that would match the glob `[12]` if unescaped.
+        write_alias(&base.join("cfg1"), "alpha", "testnet", "CAAAA");
+        write_alias(&base.join("cfg2"), "beta", "testnet", "CBBBB");
+
+        // The literal directory whose name contains bracket metacharacters.
+        write_alias(&base.join("cfg[12]"), "gamma", "testnet", "CCCCC");
+
+        let map = Cmd::collect_aliases(&base.join("cfg[12]")).unwrap();
+
+        let aliases: Vec<&str> = map
+            .values()
+            .flat_map(|entries| entries.iter().map(|e| e.alias.as_str()))
+            .collect();
+
+        assert!(
+            aliases.contains(&"gamma"),
+            "should read alias from the literal directory"
+        );
+        assert!(
+            !aliases.contains(&"alpha"),
+            "should not read from sibling cfg1"
+        );
+        assert!(
+            !aliases.contains(&"beta"),
+            "should not read from sibling cfg2"
+        );
     }
 }
