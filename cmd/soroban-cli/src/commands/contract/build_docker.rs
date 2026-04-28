@@ -23,11 +23,6 @@ pub const WORK_DIR: &str = "/workspace";
 const TARGET_DIR: &str = "/target";
 const REGISTRY_DIR: &str = "/usr/local/cargo/registry";
 const RUSTUP_DIR: &str = "/usr/local/rustup";
-// Named docker volumes for cached state across runs. Reproducibility comes
-// from --locked + checksums + the pinned image digest, so cache contents
-// don't affect build output.
-const CARGO_REGISTRY_VOLUME: &str = "stellar-cli-cargo-registry";
-const RUSTUP_VOLUME: &str = "stellar-cli-rustup";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -54,6 +49,9 @@ pub enum Error {
 
     #[error("docker run: {0}")]
     DockerRun(#[from] bollard::errors::Error),
+
+    #[error("resolving CARGO_HOME / RUSTUP_HOME: {0}")]
+    CargoHome(std::io::Error),
 }
 
 /// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
@@ -74,11 +72,17 @@ pub async fn run_in_docker(
     pull_image(&docker, image, print).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
 
+    // Bind-mount the host's cargo registry and rustup state. Bind mounts
+    // preserve host ownership, so the container (running as the host user)
+    // can write to them. This caches crate downloads and installed
+    // toolchains across runs.
+    let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
+    let rustup_home = home::rustup_home().map_err(Error::CargoHome)?;
     let binds = vec![
         format!("{}:{}", workspace_root.display(), WORK_DIR),
         format!("{}:{}", target_dir.display(), TARGET_DIR),
-        format!("{CARGO_REGISTRY_VOLUME}:{REGISTRY_DIR}"),
-        format!("{RUSTUP_VOLUME}:{RUSTUP_DIR}"),
+        format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
+        format!("{}:{}", rustup_home.display(), RUSTUP_DIR),
     ];
 
     let mut env: Vec<String> = cmd
