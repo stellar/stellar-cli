@@ -3,6 +3,7 @@ use std::{fmt::Debug, path::PathBuf};
 #[cfg(feature = "additional-libs")]
 use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
+use super::spec_shaking;
 use crate::wasm;
 
 #[derive(Parser, Debug, Clone)]
@@ -29,6 +30,9 @@ pub enum Error {
     #[cfg(not(feature = "additional-libs"))]
     #[error("must install with \"additional-libs\" feature.")]
     Install,
+
+    #[error(transparent)]
+    SpecShaking(#[from] spec_shaking::Error),
 
     #[error("--wasm-out cannot be used with --wasm option when passing multiple files")]
     MultipleFilesOutput,
@@ -94,6 +98,8 @@ pub fn optimize(
         options
             .run(&wasm_arg.wasm, &wasm_out)
             .map_err(Error::OptimizationError)?;
+
+        spec_shaking::shake_file_if_v2(&wasm_out)?;
 
         if !quiet {
             println!(

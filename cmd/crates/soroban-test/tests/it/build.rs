@@ -277,7 +277,7 @@ fn build_with_metadata_diff_dir() {
     assert_eq!(filtered_entries_dir2, expected_entries_dir2);
 }
 
-fn build_spec_shaking_fixture() -> (Vec<ScSpecEntry>, Vec<ScMetaEntry>) {
+fn build_spec_shaking_fixture() -> (Vec<ScSpecEntry>, Vec<ScMetaEntry>, Vec<u8>) {
     let sandbox = TestEnv::default();
     let outdir = sandbox.dir().join("out");
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -299,7 +299,7 @@ fn build_spec_shaking_fixture() -> (Vec<ScSpecEntry>, Vec<ScMetaEntry>) {
     let wasm_path = dir_path.join(&outdir).join("shaking.wasm");
     let wasm = std::fs::read(wasm_path).unwrap();
     let spec = Spec::new(&wasm).unwrap();
-    (spec.spec, spec.meta)
+    (spec.spec, spec.meta, wasm)
 }
 
 fn spec_entry_name(entry: &ScSpecEntry) -> String {
@@ -315,7 +315,7 @@ fn spec_entry_name(entry: &ScSpecEntry) -> String {
 
 #[test]
 fn build_with_spec_shaking_filters_unused_types() {
-    let (spec, _meta) = build_spec_shaking_fixture();
+    let (spec, _meta, _wasm) = build_spec_shaking_fixture();
     let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
 
     // All functions should be present
@@ -359,7 +359,7 @@ fn build_with_spec_shaking_filters_unused_types() {
 
 #[test]
 fn build_with_spec_shaking_filters_unused_events() {
-    let (spec, _meta) = build_spec_shaking_fixture();
+    let (spec, _meta, _wasm) = build_spec_shaking_fixture();
     let names: Vec<String> = spec.iter().map(spec_entry_name).collect();
 
     // Used event should be present
@@ -376,8 +376,23 @@ fn build_with_spec_shaking_filters_unused_events() {
 }
 
 #[test]
+fn build_with_spec_shaking_removes_sidecar_graph() {
+    let (_spec, _meta, wasm) = build_spec_shaking_fixture();
+
+    let has_graph = wasmparser::Parser::new(0).parse_all(&wasm).any(|payload| {
+        matches!(
+            payload,
+            Ok(wasmparser::Payload::CustomSection(section))
+                if section.name() == soroban_spec::shaking::GRAPH_SECTION
+        )
+    });
+
+    assert!(!has_graph, "spec shaking sidecar graph should be removed");
+}
+
+#[test]
 fn build_with_spec_shaking_preserves_all_functions() {
-    let (spec, _meta) = build_spec_shaking_fixture();
+    let (spec, _meta, _wasm) = build_spec_shaking_fixture();
     let function_names: Vec<String> = spec
         .iter()
         .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
@@ -392,80 +407,8 @@ fn build_with_spec_shaking_preserves_all_functions() {
 }
 
 #[test]
-fn filter_and_dedup_spec_removes_duplicates() {
-    use soroban_cli::commands::contract::build::filter_and_dedup_spec;
-    use soroban_cli::xdr::{
-        ReadXdr, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
-        ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
-    };
-
-    let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
-        doc: StringM::default(),
-        name: "hello".try_into().unwrap(),
-        inputs: vec![ScSpecFunctionInputV0 {
-            doc: StringM::default(),
-            name: "arg0".try_into().unwrap(),
-            type_: ScSpecTypeDef::U32,
-        }]
-        .try_into()
-        .unwrap(),
-        outputs: VecM::default(),
-    });
-
-    let used_struct = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
-        doc: StringM::default(),
-        lib: StringM::default(),
-        name: "MyStruct".try_into().unwrap(),
-        fields: vec![ScSpecUdtStructFieldV0 {
-            doc: StringM::default(),
-            name: "field".try_into().unwrap(),
-            type_: ScSpecTypeDef::U32,
-        }]
-        .try_into()
-        .unwrap(),
-    });
-
-    // Build markers for the struct so it passes the filter
-    let mut markers = std::collections::HashSet::new();
-    markers.insert(soroban_spec::shaking::generate_marker_for_entry(
-        &used_struct,
-    ));
-
-    // Input: function appears twice, struct appears three times
-    let entries = vec![
-        func.clone(),
-        func.clone(),
-        used_struct.clone(),
-        used_struct.clone(),
-        used_struct.clone(),
-    ];
-
-    let result_xdr = filter_and_dedup_spec(entries, &markers).unwrap();
-
-    // Parse back the entries from the XDR
-    let result_entries: Vec<ScSpecEntry> =
-        ScSpecEntry::read_xdr_iter(&mut Limited::new(Cursor::new(result_xdr), Limits::none()))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-
-    // Should have exactly 1 function + 1 struct, no duplicates
-    assert_eq!(
-        result_entries.len(),
-        2,
-        "expected 2 entries (1 function + 1 struct), got {}: {:?}",
-        result_entries.len(),
-        result_entries
-            .iter()
-            .map(spec_entry_name)
-            .collect::<Vec<_>>()
-    );
-    assert_eq!(spec_entry_name(&result_entries[0]), "hello");
-    assert_eq!(spec_entry_name(&result_entries[1]), "MyStruct");
-}
-
-#[test]
 fn build_with_spec_shaking_has_feature_meta() {
-    let (_spec, meta) = build_spec_shaking_fixture();
+    let (_spec, meta, _wasm) = build_spec_shaking_fixture();
 
     let version = soroban_spec::shaking::spec_shaking_version_for_meta(&meta);
 

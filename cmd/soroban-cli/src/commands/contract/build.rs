@@ -16,6 +16,7 @@ use std::{
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
+use super::spec_shaking;
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
@@ -186,10 +187,7 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
 
     #[error(transparent)]
-    SpecTools(#[from] soroban_spec_tools::contract::Error),
-
-    #[error("wasm parsing error: {0}")]
-    WasmParsing(String),
+    SpecShaking(#[from] spec_shaking::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -301,27 +299,25 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
-                Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
                     let out_file_path = Path::new(out_dir).join(&file);
-                    fs::copy(target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+                    fs::copy(&target_file_path, &out_file_path).map_err(Error::CopyingWasmFile)?;
+                    spec_shaking::shake_file_if_v2(&target_file_path)?;
                     out_file_path
                 } else {
                     target_file_path
                 };
 
-                let wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
-                #[cfg_attr(not(feature = "additional-libs"), allow(unused_mut))]
-                let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
+                let wasm_bytes_before_optimization =
+                    fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
 
                 #[cfg(feature = "additional-libs")]
                 if self.build_args.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
-                    optimized_wasm_bytes = fs::read(&path).map_err(Error::ReadingWasmFile)?;
 
                     fs::remove_file(&final_path).map_err(Error::DeletingArtifact)?;
                     fs::rename(&path, &final_path).map_err(Error::CopyingWasmFile)?;
@@ -331,6 +327,14 @@ impl Cmd {
                 if self.build_args.optimize {
                     return Err(Error::OptimizeFeatureNotEnabled);
                 }
+
+                spec_shaking::shake_file_if_v2(&final_path)?;
+                let final_wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
+                let (wasm_bytes, optimized_wasm_bytes) = if self.build_args.optimize {
+                    (wasm_bytes_before_optimization, final_wasm_bytes)
+                } else {
+                    (final_wasm_bytes, Vec::new())
+                };
 
                 Self::print_build_summary(
                     &print,
@@ -426,46 +430,6 @@ impl Cmd {
         // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
-    }
-
-    /// Filters unused types and events from the contract spec.
-    ///
-    /// This removes:
-    /// - Type definitions that are not referenced by any function
-    /// - Events that don't have corresponding markers in the WASM data section
-    ///   (events that are defined but never published)
-    ///
-    /// The SDK embeds markers in the data section for types/events that are
-    /// actually used. These markers survive dead code elimination, so we can
-    /// detect which spec entries are truly needed.
-    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
-        use soroban_spec_tools::contract::Spec;
-        use soroban_spec_tools::wasm::replace_custom_section;
-
-        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-
-        // Parse the spec from the wasm
-        let spec = Spec::new(&wasm_bytes)?;
-
-        // Check if the contract meta indicates spec shaking v2 is enabled.
-        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
-            return Ok(());
-        }
-
-        // Extract markers from the WASM data section
-        let markers = soroban_spec::shaking::find_all(&wasm_bytes);
-
-        // Filter spec entries (types, events) based on markers, and
-        // deduplicate any exact duplicate entries.
-        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
-
-        // Replace the contractspecv0 section with the filtered version
-        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
-            .map_err(|e| Error::WasmParsing(e.to_string()))?;
-
-        // Write the modified wasm back
-        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
@@ -792,28 +756,6 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
             [profile.{profile}] in your Cargo.toml."
         )))
     }
-}
-
-/// Filters spec entries based on markers and deduplicates exact duplicates.
-///
-/// Functions are always kept. Other entries (types, events) are kept only if a
-/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
-/// to a single occurrence.
-#[allow(clippy::implicit_hasher)]
-pub fn filter_and_dedup_spec(
-    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
-    markers: &HashSet<soroban_spec::shaking::Marker>,
-) -> Result<Vec<u8>, Error> {
-    let mut seen = HashSet::new();
-    let mut filtered_xdr = Vec::new();
-    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
-    for entry in soroban_spec::shaking::filter(entries, markers) {
-        let entry_xdr = entry.to_xdr(Limits::none())?;
-        if seen.insert(entry_xdr) {
-            entry.write_xdr(&mut writer)?;
-        }
-    }
-    Ok(filtered_xdr)
 }
 
 #[cfg(test)]

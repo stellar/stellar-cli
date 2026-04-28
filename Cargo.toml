@@ -44,7 +44,7 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "26.0.0"
+version = "26.0.1"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
@@ -54,6 +54,9 @@ version = "26.0.0-rc.1"
 version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-sdk]
+version = "26.0.0-rc.1"
+
+[workspace.dependencies.soroban-meta]
 version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-env-host]
@@ -137,3 +140,14 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = "release"
 panic = "unwind"
+
+[patch.crates-io]
+soroban-sdk = { path = "../rs-soroban-sdk/soroban-sdk" }
+soroban-sdk-macros = { path = "../rs-soroban-sdk/soroban-sdk-macros" }
+soroban-meta = { path = "../rs-soroban-sdk/soroban-meta" }
+soroban-spec = { path = "../rs-soroban-sdk/soroban-spec" }
+soroban-spec-rust = { path = "../rs-soroban-sdk/soroban-spec-rust" }
+soroban-ledger-snapshot = { path = "../rs-soroban-sdk/soroban-ledger-snapshot" }
+soroban-token-sdk = { path = "../rs-soroban-sdk/soroban-token-sdk" }
+soroban-token-spec = { path = "../rs-soroban-sdk/soroban-token-spec" }
+stellar-asset-spec = { path = "../rs-soroban-sdk/stellar-asset-spec" }
