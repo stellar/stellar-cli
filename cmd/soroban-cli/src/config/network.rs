@@ -165,11 +165,21 @@ impl std::fmt::Debug for Network {
             .map(|(k, _)| (k.as_str(), "<concealed>"))
             .collect();
         f.debug_struct("Network")
-            .field("rpc_url", &self.rpc_url)
+            .field("rpc_url", &redact_rpc_url(&self.rpc_url))
             .field("rpc_headers", &concealed)
             .field("network_passphrase", &self.network_passphrase)
             .finish()
     }
+}
+
+pub fn redact_rpc_url(rpc_url: &str) -> String {
+    let Ok(mut url) = Url::parse(rpc_url) else {
+        return rpc_url.to_string();
+    };
+    if url.password().is_some() {
+        let _ = url.set_password(Some("redacted"));
+    }
+    url.to_string()
 }
 
 fn parse_http_header(header: &str) -> Result<(String, String), Error> {
@@ -663,5 +673,56 @@ mod tests {
             format!("{network:?}"),
             r#"Network { rpc_url: "http://localhost:8000/rpc", rpc_headers: [("Authorization", "<concealed>"), ("X-Api-Key", "<concealed>")], network_passphrase: "Test Network" }"#
         );
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_url_password() {
+        let network = Network {
+            rpc_url: "https://alice:supersecret@rpc.example.com/soroban".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: Vec::new(),
+        };
+        let rendered = format!("{network:?}");
+        assert!(
+            !rendered.contains("supersecret"),
+            "password leaked into Debug output: {rendered}"
+        );
+        assert!(
+            rendered.contains("alice:redacted"),
+            "expected `alice:redacted` in Debug output: {rendered}"
+        );
+    }
+
+    #[test]
+    fn redact_rpc_url_leaves_url_without_password_unchanged() {
+        let plain = "https://rpc.example.com/soroban";
+        assert_eq!(redact_rpc_url(plain), plain);
+
+        let user_only = "https://alice@rpc.example.com/soroban";
+        assert_eq!(redact_rpc_url(user_only), user_only);
+    }
+
+    #[test]
+    fn redact_rpc_url_replaces_password_with_placeholder() {
+        let with_password = "https://alice:supersecret@rpc.example.com/soroban";
+        let redacted = redact_rpc_url(with_password);
+        assert!(
+            !redacted.contains("supersecret"),
+            "password leaked: {redacted}"
+        );
+        assert!(
+            redacted.contains("alice:redacted"),
+            "expected `alice:redacted`: {redacted}"
+        );
+        assert!(
+            redacted.contains("rpc.example.com/soroban"),
+            "expected host and path preserved: {redacted}"
+        );
+    }
+
+    #[test]
+    fn redact_rpc_url_returns_input_when_unparseable() {
+        let bad = "not a url";
+        assert_eq!(redact_rpc_url(bad), bad);
     }
 }
