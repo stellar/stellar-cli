@@ -115,6 +115,11 @@ pub struct Cmd {
     #[command(flatten)]
     pub container_args: ContainerArgs,
 
+    /// Pin RUSTUP_TOOLCHAIN inside the docker container. Set by `verify` from
+    /// the `rsver` meta entry; not user-facing.
+    #[arg(skip)]
+    pub rustup_toolchain: Option<String>,
+
     #[command(flatten)]
     pub build_args: BuildArgs,
 }
@@ -242,6 +247,7 @@ impl Default for Cmd {
             print_commands_only: false,
             docker: None,
             container_args: ContainerArgs { docker_host: None },
+            rustup_toolchain: None,
             build_args: BuildArgs::default(),
         }
     }
@@ -326,6 +332,10 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            if let Some(toolchain) = &self.rustup_toolchain {
+                cmd.env("RUSTUP_TOOLCHAIN", toolchain);
+            }
 
             let cmd_str = serialize_command(&cmd);
 
@@ -542,7 +552,8 @@ impl Cmd {
         });
         new_meta.push(cli_meta_entry);
 
-        // Reproducible build image (only when --docker was used).
+        // Reproducible build image (only when --docker was used). The matching
+        // rustc version is recorded as `rsver` by soroban-sdk itself.
         if let Some(image) = bldimg {
             let key: StringM = "bldimg"
                 .to_string()

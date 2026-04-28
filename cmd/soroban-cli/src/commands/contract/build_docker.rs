@@ -22,6 +22,12 @@ const PLATFORM: &str = "linux/amd64";
 pub const WORK_DIR: &str = "/workspace";
 const TARGET_DIR: &str = "/target";
 const REGISTRY_DIR: &str = "/usr/local/cargo/registry";
+const RUSTUP_DIR: &str = "/usr/local/rustup";
+// Named docker volumes for cached state across runs. Reproducibility comes
+// from --locked + checksums + the pinned image digest, so cache contents
+// don't affect build output.
+const CARGO_REGISTRY_VOLUME: &str = "stellar-cli-cargo-registry";
+const RUSTUP_VOLUME: &str = "stellar-cli-rustup";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,13 +54,10 @@ pub enum Error {
 
     #[error("docker run: {0}")]
     DockerRun(#[from] bollard::errors::Error),
-
-    #[error("resolving CARGO_HOME: {0}")]
-    CargoHome(std::io::Error),
 }
 
-/// Pull (if needed), run the host `cmd` (its program and args) inside a
-/// linux/amd64 container, and return the resolved `name@sha256:...` reference.
+/// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
+/// returning the resolved `name@sha256:...` reference for embedding into meta.
 pub async fn run_in_docker(
     cmd: &Command,
     image: &str,
@@ -71,11 +74,11 @@ pub async fn run_in_docker(
     pull_image(&docker, image, print).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
 
-    let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let binds = vec![
         format!("{}:{}", workspace_root.display(), WORK_DIR),
         format!("{}:{}", target_dir.display(), TARGET_DIR),
-        format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
+        format!("{CARGO_REGISTRY_VOLUME}:{REGISTRY_DIR}"),
+        format!("{RUSTUP_VOLUME}:{RUSTUP_DIR}"),
     ];
 
     let mut env: Vec<String> = cmd

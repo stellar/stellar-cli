@@ -93,6 +93,7 @@ impl Cmd {
             Some(image) => image.clone(),
             None => find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?,
         };
+        let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
 
         let manifest_path = self.source.join("Cargo.toml");
         if !manifest_path.exists() {
@@ -103,6 +104,7 @@ impl Cmd {
             manifest_path: Some(manifest_path),
             docker: Some(bldimg),
             container_args: self.container_args.clone(),
+            rustup_toolchain: Some(rsver),
             ..build::Cmd::default()
         };
         let built = build_cmd.run(global_args).await?;
@@ -164,4 +166,5 @@ mod tests {
         );
         assert_eq!(find_meta(&meta, "missing"), None);
     }
+
 }
