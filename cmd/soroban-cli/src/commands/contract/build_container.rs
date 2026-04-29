@@ -194,6 +194,7 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
         None,
         None,
     );
+    let mut first = true;
     while let Some(item) = stream.try_next().await.map_err(|e| Error::ImagePull {
         image: image.to_string(),
         source: e,
@@ -203,7 +204,12 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
                 || status.contains("Digest")
                 || status.contains("Status")
             {
-                print.infoln(status);
+                if first {
+                    print.infoln(status);
+                    first = false;
+                } else {
+                    print.blankln(status);
+                }
             }
         }
     }
