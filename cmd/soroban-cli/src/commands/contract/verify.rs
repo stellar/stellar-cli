@@ -82,6 +82,12 @@ impl Cmd {
 
         let spec = Spec::new(&wasm_bytes)?;
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
+        let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
+        let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
+        print.infoln(format!("cliver: {cliver}"));
+        print.infoln(format!("rsver:  {rsver}"));
+        print.infoln(format!("bldimg: {bldimg}"));
+
         let running = version::one_line();
         if cliver != running {
             return Err(Error::CliVersionMismatch {
@@ -89,8 +95,6 @@ impl Cmd {
                 actual: running,
             });
         }
-        let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
-        let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
 
         let manifest_path = self.source.join("Cargo.toml");
         if !manifest_path.exists() {
