@@ -74,6 +74,18 @@ pub struct Cmd {
     /// Package to build when auto-building without --wasm
     #[arg(long, help_heading = "Build Options", conflicts_with = "wasm_src")]
     pub package: Option<String>,
+    /// Build backend; see `stellar contract build --help` for values.
+    #[arg(
+        long,
+        value_name = "BACKEND",
+        default_value = "local",
+        value_parser = build::parse_backend,
+        help_heading = "Build Options",
+        conflicts_with = "wasm_src",
+    )]
+    pub backend: build::Backend,
+    #[command(flatten)]
+    pub container_args: crate::commands::container::shared::Args,
     #[command(flatten)]
     pub build_args: build::BuildArgs,
 }
@@ -279,6 +291,8 @@ impl Cmd {
         // Neither provided: auto-build
         let build_cmd = build::Cmd {
             package: self.package.clone(),
+            backend: self.backend.clone(),
+            container_args: self.container_args.clone(),
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
@@ -316,6 +330,10 @@ impl Cmd {
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
+                    backend: build::Backend::Local,
+                    container_args: crate::commands::container::shared::Args {
+                        docker_host: None,
+                    },
                     build_args: build::BuildArgs::default(),
                 }
                 .execute(config, quiet, no_cache)

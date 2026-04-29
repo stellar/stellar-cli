@@ -158,7 +158,7 @@ impl Backend {
 
 const DEFAULT_DOCKER_IMAGE: &str = "docker.io/library/rust:latest";
 
-fn parse_backend(s: &str) -> Result<Backend, String> {
+pub fn parse_backend(s: &str) -> Result<Backend, String> {
     match s {
         "local" => Ok(Backend::Local),
         "docker" => Ok(Backend::Docker {
