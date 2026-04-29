@@ -78,7 +78,7 @@ impl Cmd {
             Contract::StellarAssetContract => return Err(Error::StellarAssetContract),
         };
         let original_hash = hex::encode(Sha256::digest(&wasm_bytes));
-        print.infoln(format!("Original wasm sha256: {original_hash}"));
+        print.infoln(format!("Original wasm hash: {original_hash}"));
 
         let spec = Spec::new(&wasm_bytes)?;
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
