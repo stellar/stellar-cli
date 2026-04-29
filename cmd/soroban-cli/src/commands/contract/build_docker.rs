@@ -77,12 +77,11 @@ pub async fn run_in_docker(
     // Pull and resolve only on the first call; subsequent invocations within
     // the same build (e.g. workspace with multiple contracts) reuse the
     // already-resolved digest and skip the pull progress output.
-    let resolved = match pre_resolved {
-        Some(r) => r.to_string(),
-        None => {
-            pull_image(&docker, image, print).await?;
-            resolve_image_digest(&docker, image).await?
-        }
+    let resolved = if let Some(r) = pre_resolved {
+        r.to_string()
+    } else {
+        pull_image(&docker, image, print).await?;
+        resolve_image_digest(&docker, image).await?
     };
     // Print the cargo invocation after the pull progress so the on-screen
     // order matches execution: pull → cargo → cargo output.
