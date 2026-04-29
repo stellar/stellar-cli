@@ -23,9 +23,10 @@ pub struct Cmd {
     #[command(flatten)]
     pub common: shared::Args,
 
-    /// Source tree (Cargo.toml directory) to rebuild from. Defaults to cwd.
-    #[arg(long, default_value = ".")]
-    pub source: PathBuf,
+    /// Path to Cargo.toml of the source to rebuild. Defaults to the nearest
+    /// Cargo.toml in the current directory or its parents.
+    #[arg(long)]
+    pub manifest_path: Option<PathBuf>,
 
     #[command(flatten)]
     pub container_args: ContainerArgs,
@@ -51,10 +52,6 @@ pub enum Error {
         expected: String,
         actual: String,
     },
-    #[error(
-        "no Cargo.toml found at {0}; pass --source <path> to point at the contract's source tree"
-    )]
-    SourceNotFound(PathBuf),
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
     #[error("expected source to produce exactly one cdylib contract, found {found:?}; verify only supports a single contract per invocation")]
@@ -92,21 +89,16 @@ impl Cmd {
             });
         }
 
-        let manifest_path = self.source.join("Cargo.toml");
-        if !manifest_path.exists() {
-            return Err(Error::SourceNotFound(self.source.clone()));
-        }
-
         // Verify takes a single wasm input, so the source must produce exactly
         // one cdylib contract. Detect this up-front via cargo metadata so we
         // don't waste a build cycle on a workspace with multiple contracts.
-        let cdylibs = single_cdylib_or_workspace_cdylibs(&manifest_path)?;
+        let cdylibs = single_cdylib_or_workspace_cdylibs(self.manifest_path.as_deref())?;
         if cdylibs.len() != 1 {
             return Err(Error::ExpectedSingleContract { found: cdylibs });
         }
 
         let build_cmd = build::Cmd {
-            manifest_path: Some(manifest_path),
+            manifest_path: self.manifest_path.clone(),
             backend: build::Backend::Container { image: bldimg },
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
@@ -142,35 +134,40 @@ impl Cmd {
 
 /// Mirror what `build::Cmd::packages` selects: if `manifest_path` points at a
 /// specific package, return that package's name iff it is a cdylib; otherwise
-/// (workspace root) return the names of all workspace-member cdylibs.
-fn single_cdylib_or_workspace_cdylibs(manifest_path: &PathBuf) -> Result<Vec<String>, Error> {
-    let metadata = MetadataCommand::new()
-        .manifest_path(manifest_path)
-        .no_deps()
-        .exec()?;
-    let manifest_abs = std::path::absolute(manifest_path).map_err(Error::AbsolutePath)?;
+/// (workspace root, or no manifest given) return the names of all
+/// workspace-member cdylibs.
+fn single_cdylib_or_workspace_cdylibs(
+    manifest_path: Option<&std::path::Path>,
+) -> Result<Vec<String>, Error> {
+    let mut cmd = MetadataCommand::new();
+    cmd.no_deps();
+    if let Some(p) = manifest_path {
+        cmd.manifest_path(p);
+    }
+    let metadata = cmd.exec()?;
+    let manifest_abs = match manifest_path {
+        Some(p) => Some(std::path::absolute(p).map_err(Error::AbsolutePath)?),
+        None => None,
+    };
     let is_cdylib = |p: &cargo_metadata::Package| {
         p.targets
             .iter()
             .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
     };
-    Ok(
-        match metadata
+    let specific = manifest_abs
+        .as_ref()
+        .and_then(|abs| metadata.packages.iter().find(|p| p.manifest_path == *abs));
+    Ok(match specific {
+        Some(p) if is_cdylib(p) => vec![p.name.clone()],
+        Some(_) => vec![],
+        None => metadata
             .packages
             .iter()
-            .find(|p| p.manifest_path == manifest_abs)
-        {
-            Some(p) if is_cdylib(p) => vec![p.name.clone()],
-            Some(_) => vec![],
-            None => metadata
-                .packages
-                .iter()
-                .filter(|p| metadata.workspace_members.contains(&p.id))
-                .filter(|p| is_cdylib(p))
-                .map(|p| p.name.clone())
-                .collect(),
-        },
-    )
+            .filter(|p| metadata.workspace_members.contains(&p.id))
+            .filter(|p| is_cdylib(p))
+            .map(|p| p.name.clone())
+            .collect(),
+    })
 }
 
 fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
