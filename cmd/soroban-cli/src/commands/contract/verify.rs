@@ -82,7 +82,8 @@ impl Cmd {
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
-        print.infoln(format!("Original wasm hash: {original_hash}"));
+        print.infoln("Loading meta from contract...");
+        print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
         print.blankln(format!("Container image: {bldimg}"));
