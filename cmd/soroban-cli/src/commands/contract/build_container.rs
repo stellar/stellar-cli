@@ -69,7 +69,7 @@ pub async fn run_in_container(
         .await
         .map_err(Error::RuntimeNotRunning)?;
 
-    pull_image(&docker, image, print).await?;
+    pull_image(&docker, image).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
 
     // Bind-mount the host's cargo registry and rustup state. Bind mounts
@@ -96,6 +96,9 @@ pub async fn run_in_container(
         "SOURCE_DATE_EPOCH={}",
         source_date_epoch(workspace_root)
     ));
+    // Force cargo to emit color (otherwise cargo detects the non-TTY stdout
+    // and falls back to monochrome). Matches what users see for local builds.
+    env.push("CARGO_TERM_COLOR=always".to_string());
 
     let container_cmd: Vec<String> = std::iter::once(cmd.get_program())
         .chain(cmd.get_args())
@@ -126,7 +129,7 @@ pub async fn run_in_container(
         .await?
         .id;
 
-    let result = run_and_wait(&docker, &container_id, print).await;
+    let result = run_and_wait(&docker, &container_id).await;
 
     let _ = docker
         .remove_container(
@@ -142,7 +145,7 @@ pub async fn run_in_container(
     Ok(resolved)
 }
 
-async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Result<(), Error> {
+async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> {
     docker
         .start_container(container_id, None::<StartContainerOptions>)
         .await?;
@@ -160,7 +163,9 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
         let s = item?.to_string();
         let s = s.trim_end_matches('\n');
         if !s.is_empty() {
-            print.infoln(s);
+            // Emit container output raw (no `ℹ️` prefix) so it looks like
+            // cargo running locally.
+            eprintln!("{s}");
         }
     }
 
@@ -179,7 +184,7 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
     Ok(())
 }
 
-async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
+async fn pull_image(docker: &Docker, image: &str) -> Result<(), Error> {
     let mut stream = docker.create_image(
         Some(CreateImageOptions {
             from_image: Some(image.to_string()),
@@ -198,7 +203,7 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
                 || status.contains("Digest")
                 || status.contains("Status")
             {
-                print.infoln(status);
+                eprintln!("{status}");
             }
         }
     }
