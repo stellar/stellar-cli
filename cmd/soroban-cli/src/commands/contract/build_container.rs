@@ -113,7 +113,9 @@ pub async fn run_in_container(
     // install for the override toolchain; otherwise the rustup default applies.
     // Args pass through `$@` so we don't have to shell-escape.
     let target_install = match pin_toolchain {
-        Some(toolchain) => format!("rustup --quiet target add --toolchain {toolchain} {wasm_target}"),
+        Some(toolchain) => {
+            format!("rustup --quiet target add --toolchain {toolchain} {wasm_target}")
+        }
         None => format!("rustup --quiet target add {wasm_target}"),
     };
     let mut container_cmd = vec![

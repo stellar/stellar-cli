@@ -43,9 +43,9 @@ pub enum Error {
     StellarAssetContract,
     #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --backend container` to make it verifiable")]
     MissingMeta(&'static str),
-    #[error("CLI version mismatch: contract says '{expected}', running CLI is '{actual}'. Install the matching CLI version and re-run.")]
+    #[error("stellar-cli version mismatch: contract was built with '{expected}', running stellar-cli is '{actual}'. Install the matching CLI version and re-run.")]
     CliVersionMismatch { expected: String, actual: String },
-    #[error("verification failed: rebuilt {name} (sha256 {actual}) does not match original (sha256 {expected})")]
+    #[error("verification failed: rebuilt {name} ({actual}) does not match original ({expected})")]
     Mismatch {
         name: String,
         expected: String,
@@ -131,10 +131,6 @@ impl Cmd {
             ));
             Ok(())
         } else {
-            print.warnln(format!(
-                "Verification failed: rebuilt {} does not match original",
-                c.name
-            ));
             Err(Error::Mismatch {
                 name: c.name.clone(),
                 expected: original_hash,
