@@ -370,6 +370,7 @@ impl Cmd {
             }
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
         };
+        warn_if_mainnet_wasm_not_reproducible(&raw_wasm, &network.network_passphrase, &print);
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
         let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
@@ -470,6 +471,42 @@ fn build_create_contract_tx(
     };
 
     Ok(tx)
+}
+
+/// On mainnet, warn if the wasm is missing the meta entries that indicate
+/// a reproducible build (`bldimg`, `rsver`, `cliver`, `source_repo`,
+/// `source_rev`). Skipped on other networks. Best-effort: parse failures are
+/// silently ignored.
+fn warn_if_mainnet_wasm_not_reproducible(
+    wasm_bytes: &[u8],
+    network_passphrase: &str,
+    print: &Print,
+) {
+    if network_passphrase != crate::config::network::passphrase::MAINNET {
+        return;
+    }
+    let Ok(spec) = soroban_spec_tools::contract::Spec::new(wasm_bytes) else {
+        return;
+    };
+    let required = ["cliver", "bldimg", "rsver", "source_repo", "source_rev"];
+    let missing: Vec<&str> = required
+        .iter()
+        .filter(|k| {
+            !spec.meta.iter().any(|e| {
+                let crate::xdr::ScMetaEntry::ScMetaV0(crate::xdr::ScMetaV0 { key, .. }) = e;
+                key.to_string() == **k
+            })
+        })
+        .copied()
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    print.warnln(format!(
+        "the wasm being deployed is missing reproducibility meta entries: {missing:?}. \
+         The deployed wasm may not be independently verifiable. To make it reproducible, \
+         build with `stellar contract build --backend docker` in a clean git repository."
+    ));
 }
 
 #[cfg(test)]

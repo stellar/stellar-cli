@@ -341,6 +341,21 @@ impl Cmd {
         let wasm_target = get_wasm_target()?;
         let mut built_contracts = Vec::new();
 
+        // Detect git state once for the build. Embed source_repo/source_rev
+        // when the workspace is a clean git checkout with an origin remote;
+        // warn (but proceed) otherwise so users know the wasm won't be
+        // reproducible against a public source.
+        let (source_repo, source_rev) = match detect_git_state(workspace_root) {
+            GitState::Clean { repo, rev } => (Some(repo), Some(rev)),
+            GitState::Dirty => {
+                print.warnln(
+                    "git working tree has uncommitted changes; source_repo/source_rev not embedded in contract metadata. Commit changes for a reproducible build.",
+                );
+                (None, None)
+            }
+            GitState::NotARepo => (None, None),
+        };
+
         for (i, p) in packages.iter().enumerate() {
             if i > 0 {
                 // Blank line separating successive contract builds in a workspace.
@@ -444,7 +459,14 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.inject_meta(&target_file_path, bldimg.as_deref())?;
+                self.inject_meta(
+                    &target_file_path,
+                    &ExtraMeta {
+                        bldimg: bldimg.clone(),
+                        source_repo: source_repo.clone(),
+                        source_rev: source_rev.clone(),
+                    },
+                )?;
                 Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
@@ -561,9 +583,9 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn inject_meta(&self, target_file_path: &PathBuf, bldimg: Option<&str>) -> Result<(), Error> {
+    fn inject_meta(&self, target_file_path: &PathBuf, extra: &ExtraMeta) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let xdr = self.encoded_new_meta(bldimg)?;
+        let xdr = self.encoded_new_meta(extra)?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
@@ -612,7 +634,7 @@ impl Cmd {
         fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
-    fn encoded_new_meta(&self, bldimg: Option<&str>) -> Result<Vec<u8>, Error> {
+    fn encoded_new_meta(&self, extra: &ExtraMeta) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
 
         // Always inject CLI version
@@ -622,16 +644,25 @@ impl Cmd {
         });
         new_meta.push(cli_meta_entry);
 
-        // Reproducible build image (only when --docker was used). The matching
-        // rustc version is recorded as `rsver` by soroban-sdk itself.
-        if let Some(image) = bldimg {
-            let key: StringM = "bldimg"
+        // Reproducible-build meta. `rsver` (rustc version) is recorded by
+        // soroban-sdk itself; here we add `bldimg` when --backend docker
+        // was used, and source_repo/source_rev when the workspace was a
+        // clean git checkout.
+        let kvs = [
+            ("bldimg", extra.bldimg.as_deref()),
+            ("source_repo", extra.source_repo.as_deref()),
+            ("source_rev", extra.source_rev.as_deref()),
+        ];
+        for (k, v) in kvs {
+            let Some(v) = v else { continue };
+            let key: StringM = k
                 .to_string()
                 .try_into()
-                .map_err(|e| Error::MetaArg(format!("bldimg is an invalid metadata key: {e}")))?;
-            let val: StringM = image.to_string().try_into().map_err(|e| {
-                Error::MetaArg(format!("{image} is an invalid metadata value: {e}"))
-            })?;
+                .map_err(|e| Error::MetaArg(format!("{k} is an invalid metadata key: {e}")))?;
+            let val: StringM = v
+                .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             new_meta.push(ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }));
         }
 
@@ -729,6 +760,98 @@ impl Cmd {
 
         print.checkln("Build Complete");
     }
+}
+
+/// Extra meta entries to embed in the wasm's `contractmetav0` custom section.
+/// `cliver` is always embedded (separately). `rsver` is embedded by soroban-sdk.
+#[derive(Default, Debug, Clone)]
+struct ExtraMeta {
+    /// `bldimg`: fully-qualified container image used to build (e.g.
+    /// `docker.io/library/rust@sha256:...`). Set when `--backend docker`.
+    bldimg: Option<String>,
+    /// `source_repo`: HTTPS URL of the workspace's git origin remote.
+    /// Set only when the workspace is a clean git checkout.
+    source_repo: Option<String>,
+    /// `source_rev`: full SHA of the workspace's git HEAD commit.
+    /// Set only when the workspace is a clean git checkout.
+    source_rev: Option<String>,
+}
+
+enum GitState {
+    NotARepo,
+    Dirty,
+    Clean { repo: String, rev: String },
+}
+
+fn detect_git_state(workspace_root: &Path) -> GitState {
+    let in_repo = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(["rev-parse", "--git-dir"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !in_repo {
+        return GitState::NotARepo;
+    }
+    let dirty = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(["status", "--porcelain"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(true);
+    if dirty {
+        return GitState::Dirty;
+    }
+    let Some(repo) = git_output(workspace_root, &["remote", "get-url", "origin"])
+        .as_deref()
+        .and_then(remote_to_https)
+    else {
+        return GitState::Dirty;
+    };
+    let Some(rev) = git_output(workspace_root, &["rev-parse", "HEAD"]) else {
+        return GitState::Dirty;
+    };
+    GitState::Clean { repo, rev }
+}
+
+fn git_output(workspace_root: &Path, args: &[&str]) -> Option<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(args)
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Convert a git remote URL to a canonical `https://...` form.
+fn remote_to_https(url: &str) -> Option<String> {
+    let url = url.trim();
+    let canonical = if url.starts_with("https://") || url.starts_with("http://") {
+        url.to_string()
+    } else if let Some(rest) = url.strip_prefix("git@") {
+        let (host, path) = rest.split_once(':')?;
+        format!("https://{host}/{path}")
+    } else if let Some(rest) = url.strip_prefix("ssh://git@") {
+        format!("https://{rest}")
+    } else if let Some(rest) = url.strip_prefix("ssh://") {
+        format!("https://{rest}")
+    } else if let Some(rest) = url.strip_prefix("git://") {
+        format!("https://{rest}")
+    } else {
+        return None;
+    };
+    Some(
+        canonical
+            .strip_suffix(".git")
+            .unwrap_or(&canonical)
+            .to_string(),
+    )
 }
 
 fn serialize_command(cmd: &Command) -> String {
@@ -1016,5 +1139,26 @@ mod tests {
             tokens.iter().any(|t| t == raw_arg),
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
+    }
+
+    #[test]
+    fn remote_to_https_normalizes_common_forms() {
+        let cases = [
+            ("https://github.com/x/y", "https://github.com/x/y"),
+            ("https://github.com/x/y.git", "https://github.com/x/y"),
+            ("http://example.com/x/y.git", "http://example.com/x/y"),
+            ("git@github.com:x/y.git", "https://github.com/x/y"),
+            ("ssh://git@github.com/x/y.git", "https://github.com/x/y"),
+            ("ssh://git.example.com/x/y", "https://git.example.com/x/y"),
+            ("git://github.com/x/y.git", "https://github.com/x/y"),
+        ];
+        for (input, want) in cases {
+            assert_eq!(
+                remote_to_https(input).as_deref(),
+                Some(want),
+                "input: {input}"
+            );
+        }
+        assert_eq!(remote_to_https("notaurl"), None);
     }
 }

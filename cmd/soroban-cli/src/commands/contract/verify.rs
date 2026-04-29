@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
 
-use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::{self, Spec};
@@ -15,8 +14,9 @@ use crate::print::Print;
 
 /// Verify a wasm by rebuilding it inside the Docker image recorded in its metadata.
 ///
-/// Succeeds only if the rebuilt artifact is byte-identical to the input.
-/// User is responsible for checking out the matching commit before running.
+/// All cdylib contracts in the workspace are rebuilt; verification succeeds if
+/// any rebuilt artifact is byte-identical to the input. The user is responsible
+/// for checking out the matching commit before running.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -46,20 +46,13 @@ pub enum Error {
     MissingMeta(&'static str),
     #[error("stellar-cli version mismatch: contract was built with '{expected}', running stellar-cli is '{actual}'. Install the matching CLI version and re-run.")]
     CliVersionMismatch { expected: String, actual: String },
-    #[error("verification failed: rebuilt {name} ({actual}) does not match original ({expected})")]
+    #[error("verification failed: none of the rebuilt artifacts ({}) match original ({expected})", produced.iter().map(|(n, h)| format!("{n}={h}")).collect::<Vec<_>>().join(", "))]
     Mismatch {
-        name: String,
         expected: String,
-        actual: String,
+        produced: Vec<(String, String)>,
     },
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
-    #[error("expected source to produce exactly one cdylib contract, found {found:?}; verify only supports a single contract per invocation")]
-    ExpectedSingleContract { found: Vec<String> },
-    #[error("reading cargo metadata: {0}")]
-    Metadata(#[from] cargo_metadata::Error),
-    #[error("resolving source path: {0}")]
-    AbsolutePath(std::io::Error),
 }
 
 impl Cmd {
@@ -89,14 +82,6 @@ impl Cmd {
             });
         }
 
-        // Verify takes a single wasm input, so the source must produce exactly
-        // one cdylib contract. Detect this up-front via cargo metadata so we
-        // don't waste a build cycle on a workspace with multiple contracts.
-        let cdylibs = single_cdylib_or_workspace_cdylibs(self.manifest_path.as_deref())?;
-        if cdylibs.len() != 1 {
-            return Err(Error::ExpectedSingleContract { found: cdylibs });
-        }
-
         let build_cmd = build::Cmd {
             manifest_path: self.manifest_path.clone(),
             backend: build::Backend::Docker { image: bldimg },
@@ -105,69 +90,31 @@ impl Cmd {
             ..build::Cmd::default()
         };
         let built = build_cmd.run(global_args).await?;
-        let c = match built.as_slice() {
-            [c] => c,
-            other => {
-                return Err(Error::ExpectedSingleContract {
-                    found: other.iter().map(|c| c.name.clone()).collect(),
-                });
-            }
-        };
 
-        let bytes = fs::read(&c.path).map_err(Error::ReadingRebuilt)?;
-        let hash = hex::encode(Sha256::digest(&bytes));
-        if hash == original_hash {
+        // Hash every rebuilt artifact and find one that matches.
+        let mut produced = Vec::with_capacity(built.len());
+        let mut matched = None;
+        for c in &built {
+            let bytes = fs::read(&c.path).map_err(Error::ReadingRebuilt)?;
+            let hash = hex::encode(Sha256::digest(&bytes));
+            if matched.is_none() && hash == original_hash {
+                matched = Some(c.name.clone());
+            }
+            produced.push((c.name.clone(), hash));
+        }
+
+        if let Some(name) = matched {
             print.checkln(format!(
-                "Verified: rebuilt {} wasm matches {original_hash}",
-                c.name
+                "Verified: rebuilt {name} wasm matches {original_hash}"
             ));
             Ok(())
         } else {
             Err(Error::Mismatch {
-                name: c.name.clone(),
                 expected: original_hash,
-                actual: hash,
+                produced,
             })
         }
     }
-}
-
-/// Mirror what `build::Cmd::packages` selects: if `manifest_path` points at a
-/// specific package, return that package's name iff it is a cdylib; otherwise
-/// (workspace root, or no manifest given) return the names of all
-/// workspace-member cdylibs.
-fn single_cdylib_or_workspace_cdylibs(
-    manifest_path: Option<&std::path::Path>,
-) -> Result<Vec<String>, Error> {
-    let mut cmd = MetadataCommand::new();
-    cmd.no_deps();
-    if let Some(p) = manifest_path {
-        cmd.manifest_path(p);
-    }
-    let metadata = cmd.exec()?;
-    let manifest_abs = match manifest_path {
-        Some(p) => Some(std::path::absolute(p).map_err(Error::AbsolutePath)?),
-        None => None,
-    };
-    let is_cdylib = |p: &cargo_metadata::Package| {
-        p.targets
-            .iter()
-            .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
-    };
-    let specific = manifest_abs
-        .as_ref()
-        .and_then(|abs| metadata.packages.iter().find(|p| p.manifest_path == *abs));
-    Ok(match specific {
-        Some(p) if is_cdylib(p) => vec![p.name.clone()],
-        Some(_) => vec![],
-        None => metadata
-            .packages
-            .iter()
-            .filter(|p| metadata.workspace_members.contains(&p.id))
-            .filter(|p| is_cdylib(p))
-            .map(|p| p.name.clone())
-            .collect(),
-    })
 }
 
 fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
