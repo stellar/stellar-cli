@@ -700,7 +700,7 @@ impl Cmd {
             }
         }
 
-        print.checkln("Build Complete\n");
+        print.checkln("Build Complete");
     }
 }
 
