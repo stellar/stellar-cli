@@ -400,6 +400,8 @@ impl Cmd {
                             image,
                             workspace_root,
                             target_dir.as_std_path(),
+                            &wasm_target,
+                            self.rustup_toolchain.as_deref(),
                             &self.container_args,
                             &print,
                         )

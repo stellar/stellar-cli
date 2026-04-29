@@ -61,6 +61,8 @@ pub async fn run_in_container(
     image: &str,
     workspace_root: &Path,
     target_dir: &Path,
+    wasm_target: &str,
+    pin_toolchain: Option<&str>,
     container_args: &ContainerArgs,
     print: &Print,
 ) -> Result<String, Error> {
@@ -100,11 +102,26 @@ pub async fn run_in_container(
     // and falls back to monochrome). Matches what users see for local builds.
     env.push("CARGO_TERM_COLOR=always".to_string());
 
-    let container_cmd: Vec<String> = std::iter::once(cmd.get_program())
+    let argv: Vec<String> = std::iter::once(cmd.get_program())
         .chain(cmd.get_args())
         .map(OsStr::to_string_lossy)
         .map(std::borrow::Cow::into_owned)
         .collect();
+    // Always install the wasm target before the build so we don't depend on
+    // the workspace's `rust-toolchain.toml` having configured it. When pinning,
+    // install for the override toolchain; otherwise the rustup default applies.
+    // Args pass through `$@` so we don't have to shell-escape.
+    let target_install = match pin_toolchain {
+        Some(toolchain) => format!("rustup target add --toolchain {toolchain} {wasm_target}"),
+        None => format!("rustup target add {wasm_target}"),
+    };
+    let mut container_cmd = vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        format!("{target_install} && exec \"$@\""),
+        "sh".to_string(),
+    ];
+    container_cmd.extend(argv);
 
     let config = ContainerCreateBody {
         image: Some(resolved.clone()),

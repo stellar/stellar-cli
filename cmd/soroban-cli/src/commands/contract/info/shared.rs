@@ -148,9 +148,7 @@ pub async fn fetch(args: &Args, print: &Print) -> Result<Fetched, Error> {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        print.globeln(format!(
-            "Downloading contract for wasm hash: {wasm_hash}"
-        ));
+        print.globeln(format!("Downloading contract for wasm hash: {wasm_hash}"));
         let wasm_bytes = get_remote_wasm_from_hash(&client, &hash).await?;
         Ok(Fetched {
             contract: Contract::Wasm { wasm_bytes },
