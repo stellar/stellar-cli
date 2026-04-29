@@ -506,7 +506,14 @@ fn warn_if_mainnet_wasm_not_reproducible(
     let Ok(spec) = soroban_spec_tools::contract::Spec::new(wasm_bytes) else {
         return;
     };
-    let required = ["cliver", "bldimg", "rsver", "source_repo", "source_rev"];
+    let required = [
+        "cliver",
+        "bldimg",
+        "rsver",
+        "source_repo",
+        "source_rev",
+        "source_path",
+    ];
     let missing: Vec<&str> = required
         .iter()
         .filter(|k| {

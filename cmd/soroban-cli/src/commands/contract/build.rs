@@ -345,18 +345,18 @@ impl Cmd {
         let mut resolved_image: Option<String> = None;
 
         // Detect git state once for the build. Embed source_repo/source_rev
-        // when the workspace is a clean git checkout with an origin remote;
-        // warn (but proceed) otherwise so users know the wasm won't be
-        // reproducible against a public source.
-        let (source_repo, source_rev) = match detect_git_state(workspace_root) {
-            GitState::Clean { repo, rev } => (Some(repo), Some(rev)),
+        // (and per-package source_path) when the workspace is a clean git
+        // checkout with an origin remote; warn (but proceed) otherwise so
+        // users know the wasm won't be reproducible against a public source.
+        let (source_repo, source_rev, git_root) = match detect_git_state(workspace_root) {
+            GitState::Clean { repo, rev, root } => (Some(repo), Some(rev), Some(root)),
             GitState::Dirty => {
                 print.warnln(
-                    "git working tree has uncommitted changes; source_repo/source_rev not embedded in contract metadata. Commit changes for a reproducible build.",
+                    "git working tree has uncommitted changes; source_repo/source_rev/source_path not embedded in contract metadata. Commit changes for a reproducible build.",
                 );
-                (None, None)
+                (None, None, None)
             }
-            GitState::NotARepo => (None, None),
+            GitState::NotARepo => (None, None, None),
         };
 
         for (i, p) in packages.iter().enumerate() {
@@ -463,12 +463,17 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
+                let source_path = git_root.as_deref().and_then(|gr| {
+                    pathdiff::diff_paths(&p.manifest_path, gr)
+                        .map(|p| p.to_string_lossy().into_owned())
+                });
                 self.inject_meta(
                     &target_file_path,
                     &ExtraMeta {
                         bldimg: bldimg.clone(),
                         source_repo: source_repo.clone(),
                         source_rev: source_rev.clone(),
+                        source_path,
                     },
                 )?;
                 Self::filter_spec(&target_file_path)?;
@@ -656,6 +661,7 @@ impl Cmd {
             ("bldimg", extra.bldimg.as_deref()),
             ("source_repo", extra.source_repo.as_deref()),
             ("source_rev", extra.source_rev.as_deref()),
+            ("source_path", extra.source_path.as_deref()),
         ];
         for (k, v) in kvs {
             let Some(v) = v else { continue };
@@ -779,12 +785,20 @@ struct ExtraMeta {
     /// `source_rev`: full SHA of the workspace's git HEAD commit.
     /// Set only when the workspace is a clean git checkout.
     source_rev: Option<String>,
+    /// `source_path`: the package's `Cargo.toml` path relative to the git
+    /// repo root, e.g. `contracts/foo/Cargo.toml`. Set only when the
+    /// workspace is a clean git checkout.
+    source_path: Option<String>,
 }
 
 enum GitState {
     NotARepo,
     Dirty,
-    Clean { repo: String, rev: String },
+    Clean {
+        repo: String,
+        rev: String,
+        root: PathBuf,
+    },
 }
 
 fn detect_git_state(workspace_root: &Path) -> GitState {
@@ -817,7 +831,12 @@ fn detect_git_state(workspace_root: &Path) -> GitState {
     let Some(rev) = git_output(workspace_root, &["rev-parse", "HEAD"]) else {
         return GitState::Dirty;
     };
-    GitState::Clean { repo, rev }
+    let Some(root) =
+        git_output(workspace_root, &["rev-parse", "--show-toplevel"]).map(PathBuf::from)
+    else {
+        return GitState::Dirty;
+    };
+    GitState::Clean { repo, rev, root }
 }
 
 fn git_output(workspace_root: &Path, args: &[&str]) -> Option<String> {

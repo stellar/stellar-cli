@@ -69,10 +69,14 @@ impl Cmd {
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
+        let source_path = find_meta(&spec.meta, "source_path");
         print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
         print.blankln(format!("Docker image: {bldimg}"));
+        if let Some(p) = &source_path {
+            print.blankln(format!("Source path: {p}"));
+        }
 
         let running = version::one_line();
         if cliver != running {
