@@ -1,6 +1,5 @@
 use crate::{
     assembled::simulate_and_assemble_transaction,
-    auth::check_auth,
     commands::tx::fetch,
     config::{self, data, network},
     print, resources,
@@ -66,11 +65,8 @@ where
         data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
     }
 
-    // Check for malformed, or non-strict auth entries that could be submitted
-    // outside the context of this transaction
-    check_auth(&txn, quiet).map_err(config::Error::from)?;
-
-    // Sign all auth entries now that they've been validated/approved
+    // Sign all auth entries. Each entry is validated against the transaction's
+    // host function inside `sign_soroban_authorizations` before being signed.
     if let Some(tx) = config
         .sign_soroban_authorizations(&txn, auth_signers)
         .await?

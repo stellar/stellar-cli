@@ -2,19 +2,12 @@ use std::fmt::Write;
 
 use crate::xdr::{
     AccountId, InvokeContractArgs, PublicKey, ScAddress, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Uint256, VecM,
+    SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Uint256,
 };
-
-/// Legacy debug logging function (preserved for backward compatibility via `pub use auth::*`)
-pub fn auth(auth: &[VecM<SorobanAuthorizationEntry>]) {
-    if !auth.is_empty() {
-        tracing::debug!("{auth:#?}");
-    }
-}
 
 /// Format a single auth entry for display.
 pub fn format_auth_entry(entry: &SorobanAuthorizationEntry) -> String {
-    let mut result = format!("  Auth Entry:\n");
+    let mut result = String::from("  Auth Entry:\n");
 
     match &entry.credentials {
         SorobanCredentials::Address(creds) => {
@@ -25,19 +18,22 @@ pub fn format_auth_entry(entry: &SorobanAuthorizationEntry) -> String {
         }
     }
 
-    format_invocation(&entry.root_invocation, 2, 0, &mut result);
+    format_invocation(&entry.root_invocation, 2, "Invocation:", &mut result);
 
     result
 }
 
-/// Recursively format a `SorobanAuthorizedInvocation` tree.
+/// Recursively format a `SorobanAuthorizedInvocation` tree. `label` is the
+/// header line printed for this node — `"Invocation:"` for the root and
+/// `"Sub-invocation #N:"` for each child.
 fn format_invocation(
     invocation: &SorobanAuthorizedInvocation,
     indent: usize,
-    index: usize,
+    label: &str,
     result: &mut String,
 ) {
     let prefix = "  ".repeat(indent);
+    let _ = writeln!(result, "{prefix}{label}");
 
     match &invocation.function {
         SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
@@ -46,7 +42,6 @@ fn format_invocation(
             args,
         }) => {
             let fn_name = std::str::from_utf8(function_name.as_ref()).unwrap_or("<invalid>");
-            let _ = writeln!(result, "{prefix}Function #{index}:");
             let _ = writeln!(
                 result,
                 "{prefix}  Contract: {}",
@@ -67,13 +62,13 @@ fn format_invocation(
         }
         SorobanAuthorizedFunction::CreateContractHostFn(_)
         | SorobanAuthorizedFunction::CreateContractV2HostFn(_) => {
-            let _ = writeln!(result, "{prefix}Function #{index}:");
             let _ = writeln!(result, "{prefix}  CreateContract");
         }
     }
 
     for (i, sub) in invocation.sub_invocations.iter().enumerate() {
-        format_invocation(sub, indent + 1, i, result);
+        let sub_label = format!("Sub-invocation #{i}:");
+        format_invocation(sub, indent + 1, &sub_label, result);
     }
 }
 
