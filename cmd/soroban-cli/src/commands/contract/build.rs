@@ -95,20 +95,23 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
-    /// Run inside a Docker container (linux/amd64) for reproducible builds.
-    /// The resolved image digest is recorded in contract metadata. Pin via
-    /// `--docker=<name>@sha256:...` for fully-reproducible builds. Aborted
-    /// builds may leave a stopped container; clean with `docker container prune`.
+    /// Build backend.
+    ///
+    /// - `local` (default): build using the host's rust toolchain.
+    /// - `docker`: build inside `docker.io/library/rust:latest` (linux/amd64).
+    ///   The resolved image digest is recorded in contract metadata.
+    /// - `docker=<image>`: build inside the specified Docker image. Pin via
+    ///   `--backend docker=<name>@sha256:...` for fully-reproducible builds.
+    ///
+    /// Aborted docker builds may leave a stopped container; clean with `docker container prune`.
     #[arg(
         long,
-        num_args = 0..=1,
-        require_equals = true,
-        default_missing_value = "docker.io/library/rust:latest",
-        value_name = "IMAGE",
-        value_parser = parse_docker_image,
+        value_name = "BACKEND",
+        default_value = "local",
+        value_parser = parse_backend,
         help_heading = "Reproducible Build",
     )]
-    pub docker: Option<String>,
+    pub backend: Backend,
 
     #[command(flatten)]
     pub container_args: ContainerArgs,
@@ -122,6 +125,51 @@ pub struct Cmd {
     pub build_args: BuildArgs,
 }
 
+/// Build backend selector for `--backend`.
+#[derive(Clone, Debug, Default)]
+pub enum Backend {
+    /// Build with the host's rust toolchain.
+    #[default]
+    Local,
+    /// Build inside a Docker container with the given image.
+    Docker { image: String },
+}
+
+impl Backend {
+    /// Returns the docker image if the backend is `Docker`, else `None`.
+    pub fn docker_image(&self) -> Option<&str> {
+        match self {
+            Self::Docker { image } => Some(image),
+            Self::Local => None,
+        }
+    }
+}
+
+const DEFAULT_DOCKER_IMAGE: &str = "docker.io/library/rust:latest";
+
+fn parse_backend(s: &str) -> Result<Backend, String> {
+    match s {
+        "local" => Ok(Backend::Local),
+        "docker" => Ok(Backend::Docker {
+            image: DEFAULT_DOCKER_IMAGE.to_string(),
+        }),
+        _ => {
+            if let Some(image) = s.strip_prefix("docker=") {
+                if image.is_empty() {
+                    return Err("docker image cannot be empty; use `--backend docker` for the default image".to_string());
+                }
+                Ok(Backend::Docker {
+                    image: image.to_string(),
+                })
+            } else {
+                Err(format!(
+                    "unknown backend {s:?}; expected `local`, `docker`, or `docker=<image>`"
+                ))
+            }
+        }
+    }
+}
+
 /// Shared build options for meta and optimization, reused by deploy and upload.
 #[derive(Parser, Debug, Clone, Default)]
 pub struct BuildArgs {
@@ -133,15 +181,6 @@ pub struct BuildArgs {
     #[cfg_attr(feature = "additional-libs", arg(long))]
     #[cfg_attr(not(feature = "additional-libs"), arg(long, hide = true))]
     pub optimize: bool,
-}
-
-fn parse_docker_image(s: &str) -> Result<String, String> {
-    if s.is_empty() {
-        return Err(
-            "image cannot be empty; pass --docker without a value to use the default image, or --docker=<image>".to_string(),
-        );
-    }
-    Ok(s.to_string())
 }
 
 pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
@@ -243,7 +282,7 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
-            docker: None,
+            backend: Backend::Local,
             container_args: ContainerArgs { docker_host: None },
             rustup_toolchain: None,
             build_args: BuildArgs::default(),
@@ -289,10 +328,10 @@ impl Cmd {
             }
             cmd.arg("rustc");
             // Force --locked when building inside Docker so the build is deterministic.
-            if self.locked || self.docker.is_some() {
+            if self.locked || self.backend.docker_image().is_some() {
                 cmd.arg("--locked");
             }
-            let manifest_path = if self.docker.is_some() {
+            let manifest_path = if self.backend.docker_image().is_some() {
                 // Inside the container the workspace is mounted at /workspace.
                 let rel = pathdiff::diff_paths(&p.manifest_path, workspace_root)
                     .unwrap_or(p.manifest_path.clone().into());
@@ -327,9 +366,10 @@ impl Cmd {
                 }
             }
 
-            if let Some(rustflags) =
-                make_rustflags_to_remap_absolute_paths(&print, self.docker.is_some())?
-            {
+            if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(
+                &print,
+                self.backend.docker_image().is_some(),
+            )? {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
@@ -340,12 +380,12 @@ impl Cmd {
             let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
-                if let Some(image) = &self.docker {
+                if let Some(image) = self.backend.docker_image() {
                     println!("# inside docker image: {image}");
                 }
                 println!("{cmd_str}");
             } else {
-                let bldimg = if let Some(image) = &self.docker {
+                let bldimg = if let Some(image) = self.backend.docker_image() {
                     print.infoln(format!("docker[{image}] {cmd_str}"));
                     Some(
                         build_docker::run_in_docker(

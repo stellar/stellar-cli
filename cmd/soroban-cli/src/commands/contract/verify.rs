@@ -29,7 +29,7 @@ pub struct Cmd {
 
     /// Override the docker image read from the contract metadata. For debugging only.
     #[arg(long, value_name = "IMAGE", help_heading = "Advanced")]
-    pub docker: Option<String>,
+    pub docker_image: Option<String>,
 
     #[command(flatten)]
     pub container_args: ContainerArgs,
@@ -45,7 +45,7 @@ pub enum Error {
     Build(#[from] build::Error),
     #[error("stellar asset contract has no source to verify")]
     StellarAssetContract,
-    #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --docker` to make it verifiable")]
+    #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --backend docker` to make it verifiable")]
     MissingMeta(&'static str),
     #[error("CLI version mismatch: contract says '{expected}', running CLI is '{actual}'. Install the matching CLI version and re-run.")]
     CliVersionMismatch { expected: String, actual: String },
@@ -93,7 +93,7 @@ impl Cmd {
                 actual: running,
             });
         }
-        let bldimg = match &self.docker {
+        let bldimg = match &self.docker_image {
             Some(image) => image.clone(),
             None => find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?,
         };
@@ -106,7 +106,7 @@ impl Cmd {
 
         let build_cmd = build::Cmd {
             manifest_path: Some(manifest_path),
-            docker: Some(bldimg),
+            backend: build::Backend::Docker { image: bldimg },
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
             ..build::Cmd::default()

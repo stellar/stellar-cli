@@ -211,29 +211,65 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
 
 // We pull with --platform=linux/amd64 so the recorded digest is platform-specific;
 // reproducibility on `verify` depends on always pulling with that same platform.
+// Returns a fully-qualified `<registry>/<path>@sha256:<digest>` reference so
+// that `verify` on a different machine can resolve it without depending on
+// local registry config.
 async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
-    if parse_pinned_digest(image).is_some() {
-        return Ok(image.to_string());
-    }
-    let info = docker
-        .inspect_image(image)
-        .await
-        .map_err(|e| Error::DockerImageInspect {
-            image: image.to_string(),
-            source: e,
-        })?;
-    info.repo_digests
-        .unwrap_or_default()
-        .into_iter()
-        .next()
-        .ok_or_else(|| Error::DockerNoDigest {
-            image: image.to_string(),
-        })
+    let canonical = fully_qualify(strip_tag(image));
+    let digest = if let Some((_, digest)) = parse_pinned_digest(image) {
+        digest.to_string()
+    } else {
+        docker
+            .inspect_image(image)
+            .await
+            .map_err(|e| Error::DockerImageInspect {
+                image: image.to_string(),
+                source: e,
+            })?
+            .repo_digests
+            .unwrap_or_default()
+            .into_iter()
+            .find_map(|d| d.split_once('@').map(|(_, d)| d.to_string()))
+            .ok_or_else(|| Error::DockerNoDigest {
+                image: image.to_string(),
+            })?
+    };
+    Ok(format!("{canonical}@{digest}"))
 }
 
 fn parse_pinned_digest(image: &str) -> Option<(&str, &str)> {
     let (name, after) = image.rsplit_once('@')?;
     after.starts_with("sha256:").then_some((name, after))
+}
+
+/// Strip any `@sha256:...` and `:tag` suffix, leaving only the repository name.
+fn strip_tag(image: &str) -> &str {
+    let no_digest = image.split_once('@').map_or(image, |(name, _)| name);
+    // Tags appear after the last `/`; a `:` in the host portion (host:port) is not a tag.
+    match no_digest.rfind('/') {
+        Some(slash) => match no_digest[slash + 1..].rfind(':') {
+            Some(colon) => &no_digest[..slash + 1 + colon],
+            None => no_digest,
+        },
+        None => match no_digest.rfind(':') {
+            Some(colon) => &no_digest[..colon],
+            None => no_digest,
+        },
+    }
+}
+
+/// Add the implicit `docker.io` registry (and `library/` namespace for short names).
+fn fully_qualify(name: &str) -> String {
+    let has_registry = name
+        .split_once('/')
+        .is_some_and(|(host, _)| host.contains('.') || host.contains(':') || host == "localhost");
+    if has_registry {
+        name.to_string()
+    } else if name.contains('/') {
+        format!("docker.io/{name}")
+    } else {
+        format!("docker.io/library/{name}")
+    }
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -282,5 +318,34 @@ mod tests {
             parse_pinned_digest("host:5000/name:tag@sha256:abc"),
             Some(("host:5000/name:tag", "sha256:abc"))
         );
+    }
+
+    #[test]
+    fn strip_tag_cases() {
+        assert_eq!(strip_tag("rust"), "rust");
+        assert_eq!(strip_tag("rust:latest"), "rust");
+        assert_eq!(strip_tag("rust@sha256:abc"), "rust");
+        assert_eq!(strip_tag("rust:latest@sha256:abc"), "rust");
+        assert_eq!(
+            strip_tag("docker.io/library/rust:latest"),
+            "docker.io/library/rust"
+        );
+        assert_eq!(strip_tag("host:5000/myimage:v1"), "host:5000/myimage");
+    }
+
+    #[test]
+    fn fully_qualify_cases() {
+        assert_eq!(fully_qualify("rust"), "docker.io/library/rust");
+        assert_eq!(fully_qualify("myorg/myimage"), "docker.io/myorg/myimage");
+        assert_eq!(
+            fully_qualify("docker.io/library/rust"),
+            "docker.io/library/rust"
+        );
+        assert_eq!(
+            fully_qualify("quay.io/myorg/myimage"),
+            "quay.io/myorg/myimage"
+        );
+        assert_eq!(fully_qualify("host:5000/myimage"), "host:5000/myimage");
+        assert_eq!(fully_qualify("localhost/myimage"), "localhost/myimage");
     }
 }
