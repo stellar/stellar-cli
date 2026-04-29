@@ -27,10 +27,6 @@ pub struct Cmd {
     #[arg(long, default_value = ".")]
     pub source: PathBuf,
 
-    /// Override the docker image read from the contract metadata. For debugging only.
-    #[arg(long, value_name = "IMAGE", help_heading = "Advanced")]
-    pub docker_image: Option<String>,
-
     #[command(flatten)]
     pub container_args: ContainerArgs,
 }
@@ -93,10 +89,7 @@ impl Cmd {
                 actual: running,
             });
         }
-        let bldimg = match &self.docker_image {
-            Some(image) => image.clone(),
-            None => find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?,
-        };
+        let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
 
         let manifest_path = self.source.join("Cargo.toml");
