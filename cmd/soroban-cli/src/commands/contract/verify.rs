@@ -120,12 +120,13 @@ impl Cmd {
             produced.push((c.name.clone(), hash, c.path.clone()));
         }
 
-        // Verdict bypasses --quiet because pass/fail is this command's primary output.
         if let Some(name) = matched {
-            eprintln!("✅ Verified: rebuilt wasm matches (sha256 {original_hash}) — {name}");
+            print.checkln(format!(
+                "Verified: rebuilt wasm matches (sha256 {original_hash}) — {name}"
+            ));
             Ok(())
         } else {
-            eprintln!("⚠ Verification failed: rebuilt wasm does not match original.");
+            print.warnln("Verification failed: rebuilt wasm does not match original.");
             Err(Error::Mismatch {
                 expected: original_hash,
                 produced,
