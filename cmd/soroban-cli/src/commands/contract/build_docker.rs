@@ -22,7 +22,6 @@ const PLATFORM: &str = "linux/amd64";
 pub const WORK_DIR: &str = "/workspace";
 const TARGET_DIR: &str = "/target";
 const REGISTRY_DIR: &str = "/usr/local/cargo/registry";
-const RUSTUP_DIR: &str = "/usr/local/rustup";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -87,17 +86,19 @@ pub async fn run_in_docker(
     // order matches execution: pull → cargo → cargo output.
     print.infoln(cmd_str);
 
-    // Bind-mount the host's cargo registry and rustup state. Bind mounts
-    // preserve host ownership, so the container (running as the host user)
-    // can write to them. This caches crate downloads and installed
-    // toolchains across runs.
+    // Bind-mount the host's cargo registry to cache crate downloads across
+    // runs. Crate sources are platform-agnostic so this is safe.
+    //
+    // We deliberately do not mount the host's `~/.rustup`: it contains
+    // toolchain binaries built for the host's OS/arch (e.g. Mach-O on macOS),
+    // which the linux/amd64 container cannot exec. The image's pre-installed
+    // rustup state is used instead; the wasm target is installed on each
+    // container run.
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
-    let rustup_home = home::rustup_home().map_err(Error::CargoHome)?;
     let binds = vec![
         format!("{}:{}", workspace_root.display(), WORK_DIR),
         format!("{}:{}", target_dir.display(), TARGET_DIR),
         format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
-        format!("{}:{}", rustup_home.display(), RUSTUP_DIR),
     ];
 
     let mut env: Vec<String> = cmd
