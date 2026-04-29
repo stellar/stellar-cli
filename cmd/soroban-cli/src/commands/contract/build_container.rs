@@ -69,7 +69,7 @@ pub async fn run_in_container(
         .await
         .map_err(Error::RuntimeNotRunning)?;
 
-    pull_image(&docker, image).await?;
+    pull_image(&docker, image, print).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
 
     // Bind-mount the host's cargo registry and rustup state. Bind mounts
@@ -184,7 +184,7 @@ async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> 
     Ok(())
 }
 
-async fn pull_image(docker: &Docker, image: &str) -> Result<(), Error> {
+async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
     let mut stream = docker.create_image(
         Some(CreateImageOptions {
             from_image: Some(image.to_string()),
@@ -203,7 +203,7 @@ async fn pull_image(docker: &Docker, image: &str) -> Result<(), Error> {
                 || status.contains("Digest")
                 || status.contains("Status")
             {
-                eprintln!("{status}");
+                print.infoln(status);
             }
         }
     }
