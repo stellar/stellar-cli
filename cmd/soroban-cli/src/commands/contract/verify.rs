@@ -164,14 +164,14 @@ fn single_cdylib_or_workspace_cdylibs(manifest_path: &PathBuf) -> Result<Vec<Str
             .iter()
             .find(|p| p.manifest_path == manifest_abs)
         {
-            Some(p) if is_cdylib(p) => vec![p.name.to_string()],
+            Some(p) if is_cdylib(p) => vec![p.name.clone()],
             Some(_) => vec![],
             None => metadata
                 .packages
                 .iter()
                 .filter(|p| metadata.workspace_members.contains(&p.id))
                 .filter(|p| is_cdylib(p))
-                .map(|p| p.name.to_string())
+                .map(|p| p.name.clone())
                 .collect(),
         },
     )
