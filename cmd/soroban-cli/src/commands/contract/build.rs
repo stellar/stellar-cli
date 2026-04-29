@@ -340,6 +340,9 @@ impl Cmd {
 
         let wasm_target = get_wasm_target()?;
         let mut built_contracts = Vec::new();
+        // Cache the resolved image digest across multi-contract workspace
+        // builds so the docker pull only runs once.
+        let mut resolved_image: Option<String> = None;
 
         // Detect git state once for the build. Embed source_repo/source_rev
         // when the workspace is a clean git checkout with an origin remote;
@@ -429,20 +432,21 @@ impl Cmd {
                 println!("{cmd_str}");
             } else {
                 let bldimg = if let Some(image) = self.backend.docker_image() {
-                    Some(
-                        build_docker::run_in_docker(
-                            &cmd,
-                            &cmd_str,
-                            image,
-                            workspace_root,
-                            target_dir.as_std_path(),
-                            &wasm_target,
-                            self.rustup_toolchain.as_deref(),
-                            &self.container_args,
-                            &print,
-                        )
-                        .await?,
+                    let r = build_docker::run_in_docker(
+                        &cmd,
+                        &cmd_str,
+                        image,
+                        resolved_image.as_deref(),
+                        workspace_root,
+                        target_dir.as_std_path(),
+                        &wasm_target,
+                        self.rustup_toolchain.as_deref(),
+                        &self.container_args,
+                        &print,
                     )
+                    .await?;
+                    resolved_image = Some(r.clone());
+                    Some(r)
                 } else {
                     print.infoln(cmd_str);
                     let status = cmd.status().map_err(Error::CargoCmd)?;

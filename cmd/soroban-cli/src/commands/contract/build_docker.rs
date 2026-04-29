@@ -61,6 +61,7 @@ pub async fn run_in_docker(
     cmd: &Command,
     cmd_str: &str,
     image: &str,
+    pre_resolved: Option<&str>,
     workspace_root: &Path,
     target_dir: &Path,
     wasm_target: &str,
@@ -73,8 +74,16 @@ pub async fn run_in_docker(
         .await
         .map_err(Error::RuntimeNotRunning)?;
 
-    pull_image(&docker, image, print).await?;
-    let resolved = resolve_image_digest(&docker, image).await?;
+    // Pull and resolve only on the first call; subsequent invocations within
+    // the same build (e.g. workspace with multiple contracts) reuse the
+    // already-resolved digest and skip the pull progress output.
+    let resolved = match pre_resolved {
+        Some(r) => r.to_string(),
+        None => {
+            pull_image(&docker, image, print).await?;
+            resolve_image_digest(&docker, image).await?
+        }
+    };
     // Print the cargo invocation after the pull progress so the on-screen
     // order matches execution: pull → cargo → cargo output.
     print.infoln(cmd_str);
