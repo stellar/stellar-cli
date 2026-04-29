@@ -1,7 +1,7 @@
-use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
+use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::{self, Spec};
@@ -45,10 +45,11 @@ pub enum Error {
     MissingMeta(&'static str),
     #[error("CLI version mismatch: contract says '{expected}', running CLI is '{actual}'. Install the matching CLI version and re-run.")]
     CliVersionMismatch { expected: String, actual: String },
-    #[error("{}", format_mismatch(expected, produced))]
+    #[error("verification failed: rebuilt {name} (sha256 {actual}) does not match original (sha256 {expected})")]
     Mismatch {
+        name: String,
         expected: String,
-        produced: Vec<(String, String, PathBuf)>,
+        actual: String,
     },
     #[error(
         "no Cargo.toml found at {0}; pass --source <path> to point at the contract's source tree"
@@ -56,16 +57,12 @@ pub enum Error {
     SourceNotFound(PathBuf),
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
-}
-
-fn format_mismatch(expected: &str, produced: &[(String, String, PathBuf)]) -> String {
-    let mut s = format!(
-        "verification failed: rebuilt wasm does not match (expected sha256 {expected}).\nproduced:"
-    );
-    for (name, hash, path) in produced {
-        let _ = write!(s, "\n  {name}  sha256:{hash}  {}", path.display());
-    }
-    s
+    #[error("expected source to produce exactly one cdylib contract, found {found:?}; verify only supports a single contract per invocation")]
+    ExpectedSingleContract { found: Vec<String> },
+    #[error("reading cargo metadata: {0}")]
+    Metadata(#[from] cargo_metadata::Error),
+    #[error("resolving source path: {0}")]
+    AbsolutePath(std::io::Error),
 }
 
 impl Cmd {
@@ -100,6 +97,14 @@ impl Cmd {
             return Err(Error::SourceNotFound(self.source.clone()));
         }
 
+        // Verify takes a single wasm input, so the source must produce exactly
+        // one cdylib contract. Detect this up-front via cargo metadata so we
+        // don't waste a build cycle on a workspace with multiple contracts.
+        let cdylibs = single_cdylib_or_workspace_cdylibs(&manifest_path)?;
+        if cdylibs.len() != 1 {
+            return Err(Error::ExpectedSingleContract { found: cdylibs });
+        }
+
         let build_cmd = build::Cmd {
             manifest_path: Some(manifest_path),
             backend: build::Backend::Container { image: bldimg },
@@ -108,31 +113,68 @@ impl Cmd {
             ..build::Cmd::default()
         };
         let built = build_cmd.run(global_args).await?;
-
-        let mut produced = Vec::with_capacity(built.len());
-        let mut matched = None;
-        for c in &built {
-            let bytes = fs::read(&c.path).map_err(Error::ReadingRebuilt)?;
-            let hash = hex::encode(Sha256::digest(&bytes));
-            if hash == original_hash {
-                matched = Some(c.name.clone());
+        let c = match built.as_slice() {
+            [c] => c,
+            other => {
+                return Err(Error::ExpectedSingleContract {
+                    found: other.iter().map(|c| c.name.clone()).collect(),
+                });
             }
-            produced.push((c.name.clone(), hash, c.path.clone()));
-        }
+        };
 
-        if let Some(name) = matched {
+        let bytes = fs::read(&c.path).map_err(Error::ReadingRebuilt)?;
+        let hash = hex::encode(Sha256::digest(&bytes));
+        if hash == original_hash {
             print.checkln(format!(
-                "Verified: rebuilt wasm matches (sha256 {original_hash}) — {name}"
+                "Verified: rebuilt {} wasm matches {original_hash}",
+                c.name
             ));
             Ok(())
         } else {
-            print.warnln("Verification failed: rebuilt wasm does not match original.");
+            print.warnln(format!(
+                "Verification failed: rebuilt {} does not match original",
+                c.name
+            ));
             Err(Error::Mismatch {
+                name: c.name.clone(),
                 expected: original_hash,
-                produced,
+                actual: hash,
             })
         }
     }
+}
+
+/// Mirror what `build::Cmd::packages` selects: if `manifest_path` points at a
+/// specific package, return that package's name iff it is a cdylib; otherwise
+/// (workspace root) return the names of all workspace-member cdylibs.
+fn single_cdylib_or_workspace_cdylibs(manifest_path: &PathBuf) -> Result<Vec<String>, Error> {
+    let metadata = MetadataCommand::new()
+        .manifest_path(manifest_path)
+        .no_deps()
+        .exec()?;
+    let manifest_abs = std::path::absolute(manifest_path).map_err(Error::AbsolutePath)?;
+    let is_cdylib = |p: &cargo_metadata::Package| {
+        p.targets
+            .iter()
+            .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
+    };
+    Ok(
+        match metadata
+            .packages
+            .iter()
+            .find(|p| p.manifest_path == manifest_abs)
+        {
+            Some(p) if is_cdylib(p) => vec![p.name.to_string()],
+            Some(_) => vec![],
+            None => metadata
+                .packages
+                .iter()
+                .filter(|p| metadata.workspace_members.contains(&p.id))
+                .filter(|p| is_cdylib(p))
+                .map(|p| p.name.to_string())
+                .collect(),
+        },
+    )
 }
 
 fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
