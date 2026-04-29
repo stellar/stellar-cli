@@ -102,9 +102,6 @@ pub enum Cmd {
     // run as part of `contract build` so for a general user this is not needed.
     #[command(name = "spec-verify", hide = true)]
     SpecVerify(spec_verify::Cmd),
-
-    /// Verify a wasm by rebuilding from source in the recorded container image.
-    Verify(verify::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -159,9 +156,6 @@ pub enum Error {
 
     #[error(transparent)]
     SpecVerify(#[from] spec_verify::Error),
-
-    #[error(transparent)]
-    Verify(#[from] verify::Error),
 }
 
 impl Cmd {
@@ -210,7 +204,6 @@ impl Cmd {
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run(global_args).await?,
             Cmd::SpecVerify(spec_verify) => spec_verify.run(global_args)?,
-            Cmd::Verify(verify) => verify.run(global_args).await?,
         }
         Ok(())
     }

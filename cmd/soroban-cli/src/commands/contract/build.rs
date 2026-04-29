@@ -126,6 +126,16 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub build_args: BuildArgs,
+
+    #[command(subcommand)]
+    pub action: Option<Action>,
+}
+
+/// Subcommands of `stellar contract build`.
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum Action {
+    /// Verify a wasm by rebuilding it inside the container image recorded in its metadata.
+    Verify(super::verify::Cmd),
 }
 
 /// Build backend selector for `--backend`.
@@ -267,6 +277,10 @@ pub enum Error {
 
     #[error(transparent)]
     Container(#[from] build_container::Error),
+
+    // Boxed to break the cycle between verify::Error::Build and build::Error::Verify.
+    #[error(transparent)]
+    Verify(Box<super::verify::Error>),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -289,6 +303,7 @@ impl Default for Cmd {
             container_args: ContainerArgs { docker_host: None },
             rustup_toolchain: None,
             build_args: BuildArgs::default(),
+            action: None,
         }
     }
 }
@@ -297,6 +312,14 @@ impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+        if let Some(Action::Verify(verify)) = &self.action {
+            // Box::pin breaks the recursion: verify.run() calls build::Cmd::run()
+            // for the rebuild, so the future would otherwise have infinite size.
+            Box::pin(verify.run(global_args))
+                .await
+                .map_err(|e| Error::Verify(Box::new(e)))?;
+            return Ok(Vec::new());
+        }
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
