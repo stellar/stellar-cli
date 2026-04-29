@@ -103,6 +103,11 @@ impl Cmd {
             produced.push((c.name.clone(), hash));
         }
 
+        // For multi-contract workspaces, separate the per-contract build
+        // output from the final verdict with a blank line.
+        if built.len() > 1 {
+            eprintln!();
+        }
         if let Some(name) = matched {
             print.checkln(format!(
                 "Verified: rebuilt {name} wasm matches {original_hash}"
