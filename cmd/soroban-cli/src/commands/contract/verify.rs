@@ -13,7 +13,7 @@ use crate::commands::container::shared::Args as ContainerArgs;
 use crate::commands::{global, version};
 use crate::print::Print;
 
-/// Verify a wasm by rebuilding it inside the container image recorded in its metadata.
+/// Verify a wasm by rebuilding it inside the Docker image recorded in its metadata.
 ///
 /// Succeeds only if the rebuilt artifact is byte-identical to the input.
 /// User is responsible for checking out the matching commit before running.
@@ -42,7 +42,7 @@ pub enum Error {
     Build(#[from] build::Error),
     #[error("stellar asset contract has no source to verify")]
     StellarAssetContract,
-    #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --backend container` to make it verifiable")]
+    #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --backend docker` to make it verifiable")]
     MissingMeta(&'static str),
     #[error("stellar-cli version mismatch: contract was built with '{expected}', running stellar-cli is '{actual}'. Install the matching CLI version and re-run.")]
     CliVersionMismatch { expected: String, actual: String },
@@ -79,7 +79,7 @@ impl Cmd {
         print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
-        print.blankln(format!("Container image: {bldimg}"));
+        print.blankln(format!("Docker image: {bldimg}"));
 
         let running = version::one_line();
         if cliver != running {
@@ -99,7 +99,7 @@ impl Cmd {
 
         let build_cmd = build::Cmd {
             manifest_path: self.manifest_path.clone(),
-            backend: build::Backend::Container { image: bldimg },
+            backend: build::Backend::Docker { image: bldimg },
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
             ..build::Cmd::default()

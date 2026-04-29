@@ -26,28 +26,28 @@ const RUSTUP_DIR: &str = "/usr/local/rustup";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cannot connect to container runtime; is it running? ({0})")]
+    #[error("cannot connect to docker daemon; is it running? ({0})")]
     RuntimeNotRunning(ContainerError),
 
-    #[error("pulling container image {image}: {source}")]
+    #[error("pulling docker image {image}: {source}")]
     ImagePull {
         image: String,
         source: bollard::errors::Error,
     },
 
-    #[error("inspecting container image {image}: {source}")]
+    #[error("inspecting docker image {image}: {source}")]
     ImageInspect {
         image: String,
         source: bollard::errors::Error,
     },
 
-    #[error("container image {image} has no repository digest; pin via --backend container=<registry>/<image>@sha256:...")]
+    #[error("docker image {image} has no repository digest; pin via --backend docker=<registry>/<image>@sha256:...")]
     NoDigest { image: String },
 
-    #[error("build failed inside container (exit {0})")]
+    #[error("build failed inside docker container (exit {0})")]
     BuildExit(i64),
 
-    #[error("container runtime: {0}")]
+    #[error("docker run: {0}")]
     Runtime(#[from] bollard::errors::Error),
 
     #[error("resolving CARGO_HOME / RUSTUP_HOME: {0}")]
@@ -57,7 +57,7 @@ pub enum Error {
 /// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
 /// returning the resolved `name@sha256:...` reference for embedding into meta.
 #[allow(clippy::too_many_arguments)]
-pub async fn run_in_container(
+pub async fn run_in_docker(
     cmd: &Command,
     image: &str,
     workspace_root: &Path,

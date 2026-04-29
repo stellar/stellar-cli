@@ -3,7 +3,7 @@ pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
-pub mod build_container;
+pub mod build_docker;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;

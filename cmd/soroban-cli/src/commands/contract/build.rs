@@ -19,9 +19,7 @@ use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXd
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{
-        container::shared::Args as ContainerArgs, contract::build_container, global, version,
-    },
+    commands::{container::shared::Args as ContainerArgs, contract::build_docker, global, version},
     print::Print,
     wasm,
 };
@@ -100,13 +98,13 @@ pub struct Cmd {
     /// Build backend.
     ///
     /// - `local` (default): build using the host's rust toolchain.
-    /// - `container`: build inside `docker.io/library/rust:latest` (linux/amd64)
-    ///   using the local container runtime. The resolved image digest is
+    /// - `docker`: build inside `docker.io/library/rust:latest` (linux/amd64)
+    ///   using the local docker daemon. The resolved image digest is
     ///   recorded in contract metadata.
-    /// - `container=<image>`: build inside the specified container image. Pin
-    ///   via `--backend container=<name>@sha256:...` for fully-reproducible builds.
+    /// - `docker=<image>`: build inside the specified docker image. Pin
+    ///   via `--backend docker=<name>@sha256:...` for fully-reproducible builds.
     ///
-    /// Aborted container builds may leave a stopped container; clean with `docker container prune`.
+    /// Aborted docker builds may leave a stopped container; clean with `docker container prune`.
     #[arg(
         long,
         value_name = "BACKEND",
@@ -134,7 +132,7 @@ pub struct Cmd {
 /// Subcommands of `stellar contract build`.
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum Action {
-    /// Verify a wasm by rebuilding it inside the container image recorded in its metadata.
+    /// Verify a wasm by rebuilding it inside the Docker image recorded in its metadata.
     Verify(super::verify::Cmd),
 }
 
@@ -144,39 +142,39 @@ pub enum Backend {
     /// Build with the host's rust toolchain.
     #[default]
     Local,
-    /// Build inside a container with the given image.
-    Container { image: String },
+    /// Build inside a Docker container with the given image.
+    Docker { image: String },
 }
 
 impl Backend {
-    /// Returns the container image if the backend is `Container`, else `None`.
-    pub fn container_image(&self) -> Option<&str> {
+    /// Returns the docker image if the backend is `Docker`, else `None`.
+    pub fn docker_image(&self) -> Option<&str> {
         match self {
-            Self::Container { image } => Some(image),
+            Self::Docker { image } => Some(image),
             Self::Local => None,
         }
     }
 }
 
-const DEFAULT_CONTAINER_IMAGE: &str = "docker.io/library/rust:latest";
+const DEFAULT_DOCKER_IMAGE: &str = "docker.io/library/rust:latest";
 
 fn parse_backend(s: &str) -> Result<Backend, String> {
     match s {
         "local" => Ok(Backend::Local),
-        "container" => Ok(Backend::Container {
-            image: DEFAULT_CONTAINER_IMAGE.to_string(),
+        "docker" => Ok(Backend::Docker {
+            image: DEFAULT_DOCKER_IMAGE.to_string(),
         }),
         _ => {
-            if let Some(image) = s.strip_prefix("container=") {
+            if let Some(image) = s.strip_prefix("docker=") {
                 if image.is_empty() {
-                    return Err("container image cannot be empty; use `--backend container` for the default image".to_string());
+                    return Err("docker image cannot be empty; use `--backend docker` for the default image".to_string());
                 }
-                Ok(Backend::Container {
+                Ok(Backend::Docker {
                     image: image.to_string(),
                 })
             } else {
                 Err(format!(
-                    "unknown backend {s:?}; expected `local`, `container`, or `container=<image>`"
+                    "unknown backend {s:?}; expected `local`, `docker`, or `docker=<image>`"
                 ))
             }
         }
@@ -276,7 +274,7 @@ pub enum Error {
     WasmParsing(String),
 
     #[error(transparent)]
-    Container(#[from] build_container::Error),
+    Container(#[from] build_docker::Error),
 
     // Boxed to break the cycle between verify::Error::Build and build::Error::Verify.
     #[error(transparent)]
@@ -358,14 +356,14 @@ impl Cmd {
             }
             cmd.arg("rustc");
             // Force --locked when building inside Docker so the build is deterministic.
-            if self.locked || self.backend.container_image().is_some() {
+            if self.locked || self.backend.docker_image().is_some() {
                 cmd.arg("--locked");
             }
-            let manifest_path = if self.backend.container_image().is_some() {
+            let manifest_path = if self.backend.docker_image().is_some() {
                 // Inside the container the workspace is mounted at /workspace.
                 let rel = pathdiff::diff_paths(&p.manifest_path, workspace_root)
                     .unwrap_or(p.manifest_path.clone().into());
-                Path::new(build_container::WORK_DIR).join(rel)
+                Path::new(build_docker::WORK_DIR).join(rel)
             } else {
                 pathdiff::diff_paths(&p.manifest_path, &working_dir)
                     .unwrap_or(p.manifest_path.clone().into())
@@ -398,7 +396,7 @@ impl Cmd {
 
             if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(
                 &print,
-                self.backend.container_image().is_some(),
+                self.backend.docker_image().is_some(),
             )? {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
@@ -410,15 +408,15 @@ impl Cmd {
             let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
-                if let Some(image) = self.backend.container_image() {
-                    println!("# inside container image: {image}");
+                if let Some(image) = self.backend.docker_image() {
+                    println!("# inside docker image: {image}");
                 }
                 println!("{cmd_str}");
             } else {
-                let bldimg = if let Some(image) = self.backend.container_image() {
-                    print.infoln(format!("container[{image}] {cmd_str}"));
+                let bldimg = if let Some(image) = self.backend.docker_image() {
+                    print.infoln(format!("docker[{image}] {cmd_str}"));
                     Some(
-                        build_container::run_in_container(
+                        build_docker::run_in_docker(
                             &cmd,
                             image,
                             workspace_root,
