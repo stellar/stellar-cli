@@ -352,7 +352,7 @@ impl Cmd {
             GitState::Clean { repo, rev, root } => (Some(repo), Some(rev), Some(root)),
             GitState::Dirty => {
                 print.warnln(
-                    "git working tree has uncommitted changes; source_repo/source_rev/source_path not embedded in contract metadata. Commit changes for a reproducible build.",
+                    "git working tree has uncommitted changes; source_repo/source_rev/bldopt_* not embedded in contract metadata. Commit changes for a reproducible build.",
                 );
                 (None, None, None)
             }
@@ -463,7 +463,7 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                let source_path = git_root.as_deref().and_then(|gr| {
+                let bldopt_manifest_path = git_root.as_deref().and_then(|gr| {
                     pathdiff::diff_paths(&p.manifest_path, gr)
                         .map(|p| p.to_string_lossy().into_owned())
                 });
@@ -473,7 +473,10 @@ impl Cmd {
                         bldimg: bldimg.clone(),
                         source_repo: source_repo.clone(),
                         source_rev: source_rev.clone(),
-                        source_path,
+                        bldopt_manifest_path,
+                        bldopt_package: Some(p.name.clone()),
+                        bldopt_profile: Some(self.profile.clone()),
+                        bldopt_optimize: self.build_args.optimize,
                     },
                 )?;
                 Self::filter_spec(&target_file_path)?;
@@ -661,7 +664,20 @@ impl Cmd {
             ("bldimg", extra.bldimg.as_deref()),
             ("source_repo", extra.source_repo.as_deref()),
             ("source_rev", extra.source_rev.as_deref()),
-            ("source_path", extra.source_path.as_deref()),
+            (
+                "bldopt_manifest_path",
+                extra.bldopt_manifest_path.as_deref(),
+            ),
+            ("bldopt_package", extra.bldopt_package.as_deref()),
+            ("bldopt_profile", extra.bldopt_profile.as_deref()),
+            (
+                "bldopt_optimize",
+                if extra.bldopt_optimize {
+                    Some("true")
+                } else {
+                    None
+                },
+            ),
         ];
         for (k, v) in kvs {
             let Some(v) = v else { continue };
@@ -785,10 +801,15 @@ struct ExtraMeta {
     /// `source_rev`: full SHA of the workspace's git HEAD commit.
     /// Set only when the workspace is a clean git checkout.
     source_rev: Option<String>,
-    /// `source_path`: the package's `Cargo.toml` path relative to the git
-    /// repo root, e.g. `contracts/foo/Cargo.toml`. Set only when the
-    /// workspace is a clean git checkout.
-    source_path: Option<String>,
+    /// `bldopt_manifest_path`: package's `Cargo.toml` path relative to the
+    /// git repo root. Set only when the workspace is a clean git checkout.
+    bldopt_manifest_path: Option<String>,
+    /// `bldopt_package`: cargo package name being built.
+    bldopt_package: Option<String>,
+    /// `bldopt_profile`: cargo profile (e.g. `release`).
+    bldopt_profile: Option<String>,
+    /// `bldopt_optimize`: present (with value `true`) iff `--optimize` was used.
+    bldopt_optimize: bool,
 }
 
 enum GitState {

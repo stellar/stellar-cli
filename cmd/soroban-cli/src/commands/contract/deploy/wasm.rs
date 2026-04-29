@@ -512,7 +512,9 @@ fn warn_if_mainnet_wasm_not_reproducible(
         "rsver",
         "source_repo",
         "source_rev",
-        "source_path",
+        "bldopt_manifest_path",
+        "bldopt_package",
+        "bldopt_profile",
     ];
     let missing: Vec<&str> = required
         .iter()

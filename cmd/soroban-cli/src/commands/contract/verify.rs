@@ -23,11 +23,6 @@ pub struct Cmd {
     #[command(flatten)]
     pub common: shared::Args,
 
-    /// Path to Cargo.toml of the source to rebuild. Defaults to the nearest
-    /// Cargo.toml in the current directory or its parents.
-    #[arg(long)]
-    pub manifest_path: Option<PathBuf>,
-
     #[command(flatten)]
     pub container_args: ContainerArgs,
 }
@@ -69,13 +64,23 @@ impl Cmd {
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
-        let source_path = find_meta(&spec.meta, "source_path");
+        let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path")
+            .ok_or(Error::MissingMeta("bldopt_manifest_path"))?;
+        let bldopt_package =
+            find_meta(&spec.meta, "bldopt_package").ok_or(Error::MissingMeta("bldopt_package"))?;
+        let bldopt_profile =
+            find_meta(&spec.meta, "bldopt_profile").ok_or(Error::MissingMeta("bldopt_profile"))?;
+        let bldopt_optimize = find_meta(&spec.meta, "bldopt_optimize").is_some();
+
         print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
         print.blankln(format!("Docker image: {bldimg}"));
-        if let Some(p) = &source_path {
-            print.blankln(format!("Source path: {p}"));
+        print.blankln(format!("Manifest path: {bldopt_manifest_path}"));
+        print.blankln(format!("Package: {bldopt_package}"));
+        print.blankln(format!("Profile: {bldopt_profile}"));
+        if bldopt_optimize {
+            print.blankln("Optimize: true");
         }
 
         let running = version::one_line();
@@ -86,11 +91,30 @@ impl Cmd {
             });
         }
 
+        // Resolve the manifest path relative to the cwd's git top-level so
+        // verify works from anywhere inside the checkout.
+        let manifest_path = {
+            let p = PathBuf::from(&bldopt_manifest_path);
+            if p.is_absolute() {
+                p
+            } else if let Some(root) = git_top_level() {
+                root.join(p)
+            } else {
+                p
+            }
+        };
+
         let build_cmd = build::Cmd {
-            manifest_path: self.manifest_path.clone(),
+            manifest_path: Some(manifest_path),
+            package: Some(bldopt_package),
+            profile: bldopt_profile,
             backend: build::Backend::Docker { image: bldimg },
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
+            build_args: build::BuildArgs {
+                optimize: bldopt_optimize,
+                ..build::BuildArgs::default()
+            },
             ..build::Cmd::default()
         };
         let built = build_cmd.run(global_args).await?;
@@ -124,6 +148,16 @@ impl Cmd {
             })
         }
     }
+}
+
+fn git_top_level() -> Option<PathBuf> {
+    let out = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
 }
 
 fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
