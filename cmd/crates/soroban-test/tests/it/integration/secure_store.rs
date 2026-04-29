@@ -35,6 +35,21 @@ async fn secure_store_key_management() {
         .stdout_as_str();
     assert!(secure_store_address.starts_with('G'));
 
+    // validate that the public key is cached on disk (so `keys address` and
+    // tx-signing hint derivation can skip the keychain on subsequent calls).
+    let identity_path = sandbox
+        .config_dir()
+        .join("identity")
+        .join(format!("{secure_key_name}.toml"));
+    let identity_toml = std::fs::read_to_string(&identity_path).unwrap_or_else(|err| {
+        panic!("expected identity file at {identity_path:?}: {err}");
+    });
+    assert!(
+        identity_toml.contains(&format!("public_key = \"{secure_store_address}\"")),
+        "expected public_key to be cached on disk after `keys generate --secure-store`, \
+         but identity file was:\n{identity_toml}"
+    );
+
     // use the secure store key to fund a new account
     let new_key_name = "new";
     sandbox
