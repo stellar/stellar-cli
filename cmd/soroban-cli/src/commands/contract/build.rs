@@ -112,7 +112,7 @@ pub struct Cmd {
         value_name = "BACKEND",
         default_value = "local",
         value_parser = parse_backend,
-        help_heading = "Reproducible Build",
+        help_heading = "Build Backends",
     )]
     pub backend: Backend,
 
