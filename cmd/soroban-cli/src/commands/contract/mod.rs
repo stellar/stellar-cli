@@ -3,7 +3,7 @@ pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
-pub mod build_docker;
+pub mod build_container;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
@@ -103,7 +103,7 @@ pub enum Cmd {
     #[command(name = "spec-verify", hide = true)]
     SpecVerify(spec_verify::Cmd),
 
-    /// Verify a wasm by rebuilding from source in the recorded Docker image.
+    /// Verify a wasm by rebuilding from source in the recorded container image.
     Verify(verify::Cmd),
 }
 

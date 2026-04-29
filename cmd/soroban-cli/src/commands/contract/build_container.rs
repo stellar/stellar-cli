@@ -26,29 +26,29 @@ const RUSTUP_DIR: &str = "/usr/local/rustup";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cannot connect to docker daemon; is the daemon running? ({0})")]
-    DockerNotRunning(ContainerError),
+    #[error("cannot connect to container runtime; is it running? ({0})")]
+    RuntimeNotRunning(ContainerError),
 
-    #[error("pulling docker image {image}: {source}")]
-    DockerImagePull {
+    #[error("pulling container image {image}: {source}")]
+    ImagePull {
         image: String,
         source: bollard::errors::Error,
     },
 
-    #[error("inspecting docker image {image}: {source}")]
-    DockerImageInspect {
+    #[error("inspecting container image {image}: {source}")]
+    ImageInspect {
         image: String,
         source: bollard::errors::Error,
     },
 
-    #[error("docker image {image} has no repository digest; pin via --docker=<registry>/<image>@sha256:...")]
-    DockerNoDigest { image: String },
+    #[error("container image {image} has no repository digest; pin via --backend container=<registry>/<image>@sha256:...")]
+    NoDigest { image: String },
 
-    #[error("build failed inside docker container (exit {0})")]
-    DockerBuildExit(i64),
+    #[error("build failed inside container (exit {0})")]
+    BuildExit(i64),
 
-    #[error("docker run: {0}")]
-    DockerRun(#[from] bollard::errors::Error),
+    #[error("container runtime: {0}")]
+    Runtime(#[from] bollard::errors::Error),
 
     #[error("resolving CARGO_HOME / RUSTUP_HOME: {0}")]
     CargoHome(std::io::Error),
@@ -56,7 +56,7 @@ pub enum Error {
 
 /// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
 /// returning the resolved `name@sha256:...` reference for embedding into meta.
-pub async fn run_in_docker(
+pub async fn run_in_container(
     cmd: &Command,
     image: &str,
     workspace_root: &Path,
@@ -67,7 +67,7 @@ pub async fn run_in_docker(
     let docker: Docker = container_args
         .connect_to_docker(print)
         .await
-        .map_err(Error::DockerNotRunning)?;
+        .map_err(Error::RuntimeNotRunning)?;
 
     pull_image(&docker, image, print).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
@@ -170,11 +170,11 @@ async fn run_and_wait(docker: &Docker, container_id: &str, print: &Print) -> Res
         match res {
             Ok(r) => exit_code = r.status_code,
             Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => exit_code = code,
-            Err(e) => return Err(Error::DockerRun(e)),
+            Err(e) => return Err(Error::Runtime(e)),
         }
     }
     if exit_code != 0 {
-        return Err(Error::DockerBuildExit(exit_code));
+        return Err(Error::BuildExit(exit_code));
     }
     Ok(())
 }
@@ -189,14 +189,10 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
         None,
         None,
     );
-    while let Some(item) = stream
-        .try_next()
-        .await
-        .map_err(|e| Error::DockerImagePull {
-            image: image.to_string(),
-            source: e,
-        })?
-    {
+    while let Some(item) = stream.try_next().await.map_err(|e| Error::ImagePull {
+        image: image.to_string(),
+        source: e,
+    })? {
         if let Some(status) = item.status {
             if status.contains("Pulling from")
                 || status.contains("Digest")
@@ -222,7 +218,7 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
         docker
             .inspect_image(image)
             .await
-            .map_err(|e| Error::DockerImageInspect {
+            .map_err(|e| Error::ImageInspect {
                 image: image.to_string(),
                 source: e,
             })?
@@ -230,7 +226,7 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
             .unwrap_or_default()
             .into_iter()
             .find_map(|d| d.split_once('@').map(|(_, d)| d.to_string()))
-            .ok_or_else(|| Error::DockerNoDigest {
+            .ok_or_else(|| Error::NoDigest {
                 image: image.to_string(),
             })?
     };
