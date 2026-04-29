@@ -320,7 +320,11 @@ impl Cmd {
         let wasm_target = get_wasm_target()?;
         let mut built_contracts = Vec::new();
 
-        for p in packages {
+        for (i, p) in packages.iter().enumerate() {
+            if i > 0 {
+                // Blank line separating successive contract builds in a workspace.
+                eprintln!();
+            }
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
             // `+<toolchain>` is rustup's explicit toolchain selector and overrides
