@@ -56,6 +56,7 @@ pub enum Error {
 
 /// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
 /// returning the resolved `name@sha256:...` reference for embedding into meta.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_in_container(
     cmd: &Command,
     image: &str,
