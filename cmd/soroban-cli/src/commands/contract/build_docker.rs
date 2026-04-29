@@ -109,19 +109,15 @@ pub async fn run_in_docker(
         .map(std::borrow::Cow::into_owned)
         .collect();
     // Always install the wasm target before the build so we don't depend on
-    // the workspace's `rust-toolchain.toml` having configured it. When pinning,
-    // install for the override toolchain; otherwise the rustup default applies.
-    // Args pass through `$@` so we don't have to shell-escape.
-    let target_install = match pin_toolchain {
-        Some(toolchain) => {
-            format!("rustup --quiet target add --toolchain {toolchain} {wasm_target}")
-        }
-        None => format!("rustup --quiet target add {wasm_target}"),
-    };
+    // the workspace's `rust-toolchain.toml` having configured it. Args pass
+    // through `$@` so we don't have to shell-escape.
+    let toolchain_arg = pin_toolchain
+        .map(|t| format!("--toolchain {t} "))
+        .unwrap_or_default();
     let mut container_cmd = vec![
         "sh".to_string(),
         "-c".to_string(),
-        format!("{target_install} && exec \"$@\""),
+        format!("rustup --quiet target add {toolchain_arg}{wasm_target} && exec \"$@\""),
         "sh".to_string(),
     ];
     container_cmd.extend(argv);
@@ -243,8 +239,8 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
 // local registry config.
 async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
     let canonical = fully_qualify(strip_tag(image));
-    let digest = if let Some((_, digest)) = parse_pinned_digest(image) {
-        digest.to_string()
+    let digest = if let Some(d) = sha256_digest(image) {
+        d.to_string()
     } else {
         docker
             .inspect_image(image)
@@ -256,7 +252,7 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
             .repo_digests
             .unwrap_or_default()
             .into_iter()
-            .find_map(|d| d.split_once('@').map(|(_, d)| d.to_string()))
+            .find_map(|d| sha256_digest(&d).map(str::to_string))
             .ok_or_else(|| Error::NoDigest {
                 image: image.to_string(),
             })?
@@ -264,9 +260,10 @@ async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Er
     Ok(format!("{canonical}@{digest}"))
 }
 
-fn parse_pinned_digest(image: &str) -> Option<(&str, &str)> {
-    let (name, after) = image.rsplit_once('@')?;
-    after.starts_with("sha256:").then_some((name, after))
+/// Returns the `sha256:...` portion of a `<name>@sha256:...` reference, if present.
+fn sha256_digest(image: &str) -> Option<&str> {
+    let (_, after) = image.rsplit_once('@')?;
+    after.starts_with("sha256:").then_some(after)
 }
 
 /// Strip any `@sha256:...` and `:tag` suffix, leaving only the repository name.
@@ -333,17 +330,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_pinned_digest_cases() {
-        assert_eq!(parse_pinned_digest("name"), None);
-        assert_eq!(parse_pinned_digest("name:tag"), None);
-        assert_eq!(parse_pinned_digest("name@md5:abc"), None);
+    fn sha256_digest_cases() {
+        assert_eq!(sha256_digest("name"), None);
+        assert_eq!(sha256_digest("name:tag"), None);
+        assert_eq!(sha256_digest("name@md5:abc"), None);
+        assert_eq!(sha256_digest("name@sha256:abc"), Some("sha256:abc"));
         assert_eq!(
-            parse_pinned_digest("name@sha256:abc"),
-            Some(("name", "sha256:abc"))
-        );
-        assert_eq!(
-            parse_pinned_digest("host:5000/name:tag@sha256:abc"),
-            Some(("host:5000/name:tag", "sha256:abc"))
+            sha256_digest("host:5000/name:tag@sha256:abc"),
+            Some("sha256:abc")
         );
     }
 
