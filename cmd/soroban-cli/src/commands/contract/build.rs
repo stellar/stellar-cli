@@ -429,10 +429,10 @@ impl Cmd {
                 println!("{cmd_str}");
             } else {
                 let bldimg = if let Some(image) = self.backend.docker_image() {
-                    print.infoln(format!("docker[{image}] {cmd_str}"));
                     Some(
                         build_docker::run_in_docker(
                             &cmd,
+                            &cmd_str,
                             image,
                             workspace_root,
                             target_dir.as_std_path(),

@@ -59,6 +59,7 @@ pub enum Error {
 #[allow(clippy::too_many_arguments)]
 pub async fn run_in_docker(
     cmd: &Command,
+    cmd_str: &str,
     image: &str,
     workspace_root: &Path,
     target_dir: &Path,
@@ -74,6 +75,9 @@ pub async fn run_in_docker(
 
     pull_image(&docker, image, print).await?;
     let resolved = resolve_image_digest(&docker, image).await?;
+    // Print the cargo invocation after the pull progress so the on-screen
+    // order matches execution: pull → cargo → cargo output.
+    print.infoln(format!("docker[{image}] {cmd_str}"));
 
     // Bind-mount the host's cargo registry and rustup state. Bind mounts
     // preserve host ownership, so the container (running as the host user)
