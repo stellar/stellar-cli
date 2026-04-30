@@ -62,7 +62,7 @@ pub struct Cmd {
     #[arg(long)]
     pub overwrite: bool,
 
-    /// When importing a seed phrase into the Secure Store, which `hd_path` should be derived from it.
+    /// When importing a seed phrase into the Secure Store, which `hd_path` to derive the key at.
     #[arg(long)]
     pub hd_path: Option<usize>,
 }

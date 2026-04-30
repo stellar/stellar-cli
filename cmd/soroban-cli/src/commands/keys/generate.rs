@@ -50,7 +50,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub config_locator: locator::Args,
 
-    /// When generating a secret key, which `hd_path` should be used from the original `seed_phrase`.
+    /// With `--as-secret` or `--secure-store`, which `hd_path` to derive the key at from the seed phrase.
     #[arg(long)]
     pub hd_path: Option<usize>,
 
