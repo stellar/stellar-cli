@@ -61,6 +61,10 @@ pub struct Cmd {
     /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
+
+    /// When importing a seed phrase into the Secure Store, which `hd_path` to derive the key at.
+    #[arg(long)]
+    pub hd_path: Option<usize>,
 }
 
 impl Cmd {
@@ -113,7 +117,7 @@ impl Cmd {
                 print,
                 &self.name,
                 &seed_phrase,
-                None,
+                self.hd_path,
                 self.overwrite,
             )?)
         } else {
