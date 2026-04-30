@@ -39,6 +39,12 @@ pub enum Error {
          unset STELLAR_SECRET_KEY or provide a seed phrase instead"
     )]
     SecureStoreRequiresSeedPhrase,
+
+    #[error("--hd-path is not valid with a secret key; secret keys cannot be derived")]
+    HdPathNotSupportedForSecretKey,
+
+    #[error("--hd-path is not valid with --public-key; public keys cannot be derived")]
+    HdPathNotSupportedForPublicKey,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -62,7 +68,9 @@ pub struct Cmd {
     #[arg(long)]
     pub overwrite: bool,
 
-    /// When importing a seed phrase into the Secure Store, which `hd_path` to derive the key at.
+    /// When importing a seed phrase, which `hd_path` to derive the key at. Persisted on
+    /// the identity (or its Secure Store entry) so later commands derive the same account
+    /// without re-passing the flag. Not valid with `--public-key` or a raw secret key.
     #[arg(long)]
     pub hd_path: Option<usize>,
 }
@@ -70,6 +78,10 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
+
+        if self.public_key.is_some() && self.hd_path.is_some() {
+            return Err(Error::HdPathNotSupportedForPublicKey);
+        }
 
         if self.config_locator.read_identity(&self.name).is_ok() {
             if !self.overwrite {
@@ -98,7 +110,7 @@ impl Cmd {
                 return Err(Error::SecureStoreRequiresSeedPhrase);
             }
         } else if let Ok(secret_key) = std::env::var("STELLAR_SECRET_KEY") {
-            return Ok(secret_key.parse()?);
+            return build_secret(&secret_key, self.hd_path);
         }
 
         if self.secrets.secure_store {
@@ -123,8 +135,8 @@ impl Cmd {
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
-            let secret = secret_key.parse()?;
-            if let Secret::SeedPhrase { seed_phrase } = &secret {
+            let secret = build_secret(&secret_key, self.hd_path)?;
+            if let Secret::SeedPhrase { seed_phrase, .. } = &secret {
                 if seed_phrase.split_whitespace().count() < 24 {
                     print.warnln("The provided seed phrase lacks sufficient entropy and should be avoided. Using a 24-word seed phrase is a safer option.".to_string());
                     print.warnln(
@@ -135,6 +147,18 @@ impl Cmd {
             }
             Ok(secret)
         }
+    }
+}
+
+fn build_secret(input: &str, hd_path: Option<usize>) -> Result<Secret, Error> {
+    let secret: Secret = input.parse()?;
+    match (secret, hd_path) {
+        (Secret::SecretKey { .. }, Some(_)) => Err(Error::HdPathNotSupportedForSecretKey),
+        (Secret::SeedPhrase { seed_phrase, .. }, hd_path) => Ok(Secret::SeedPhrase {
+            seed_phrase,
+            hd_path,
+        }),
+        (secret, _) => Ok(secret),
     }
 }
 
@@ -190,11 +214,70 @@ mod tests {
         (temp_dir, locator, cmd)
     }
 
+    fn cmd_with_public_key(
+        public_key: &str,
+        hd_path: Option<usize>,
+    ) -> (tempfile::TempDir, locator::Args, Cmd) {
+        let (temp_dir, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some(public_key.to_string());
+        cmd.hd_path = hd_path;
+        (temp_dir, locator, cmd)
+    }
+
     fn global_args() -> global::Args {
         global::Args {
             quiet: true,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn test_build_secret_persists_hd_path_on_seed_phrase() {
+        let secret = build_secret(SEED_PHRASE, Some(5)).unwrap();
+        match secret {
+            Secret::SeedPhrase {
+                seed_phrase,
+                hd_path,
+            } => {
+                assert_eq!(seed_phrase, SEED_PHRASE);
+                assert_eq!(hd_path, Some(5));
+            }
+            other => panic!("expected SeedPhrase variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_build_secret_seed_phrase_without_hd_path() {
+        let secret = build_secret(SEED_PHRASE, None).unwrap();
+        match secret {
+            Secret::SeedPhrase { hd_path, .. } => assert_eq!(hd_path, None),
+            other => panic!("expected SeedPhrase variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_build_secret_rejects_hd_path_with_secret_key() {
+        let result = build_secret(SECRET_KEY, Some(5));
+        assert!(matches!(result, Err(Error::HdPathNotSupportedForSecretKey)));
+    }
+
+    #[test]
+    fn test_build_secret_secret_key_without_hd_path() {
+        let secret = build_secret(SECRET_KEY, None).unwrap();
+        assert!(matches!(secret, Secret::SecretKey { .. }));
+    }
+
+    #[test]
+    fn test_run_rejects_hd_path_with_public_key() {
+        let (_tmp, _locator, cmd) = cmd_with_public_key(PUBLIC_KEY, Some(3));
+        let result = cmd.run(&global_args());
+        assert!(matches!(result, Err(Error::HdPathNotSupportedForPublicKey)));
+    }
+
+    #[test]
+    fn test_run_accepts_public_key_without_hd_path() {
+        let (_tmp, _locator, cmd) = cmd_with_public_key(PUBLIC_KEY, None);
+        assert!(cmd.run(&global_args()).is_ok());
     }
 
     #[test]

@@ -71,7 +71,7 @@ async fn invoke_contract() {
     let dir = sandbox.config_dir();
     let seed_phrase = std::fs::read_to_string(dir.join("identity/test.toml")).unwrap();
     let s = toml::from_str::<secret::Secret>(&seed_phrase).unwrap();
-    let secret::Secret::SeedPhrase { seed_phrase } = s else {
+    let secret::Secret::SeedPhrase { seed_phrase, .. } = s else {
         panic!("Expected seed phrase")
     };
 
