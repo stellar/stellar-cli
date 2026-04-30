@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use url::Url;
 
+use super::network::redact_rpc_url;
 use crate::xdr::{self, WriteXdr};
 
 #[derive(thiserror::Error, Debug)]
@@ -60,20 +61,12 @@ pub fn bucket_dir() -> Result<std::path::PathBuf, Error> {
 pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     let data = Data {
         action,
-        rpc_url: redact_userinfo(rpc_url).to_string(),
+        rpc_url: redact_rpc_url(rpc_url.as_str()),
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
     std::fs::write(file, serde_json::to_string(&data)?)?;
     Ok(id)
-}
-
-fn redact_userinfo(url: &Url) -> Url {
-    let mut redacted = url.clone();
-    if redacted.password().is_some() {
-        let _ = redacted.set_password(Some("redacted"));
-    }
-    redacted
 }
 
 pub fn read(id: &ulid::Ulid) -> Result<(Action, Url), Error> {
@@ -267,23 +260,6 @@ mod test {
                 "expected host to be preserved: {contents}"
             );
         });
-    }
-
-    #[test]
-    fn redact_userinfo_leaves_url_without_password_unchanged() {
-        let plain = Url::from_str("https://rpc.example.com/soroban/rpc").unwrap();
-        assert_eq!(redact_userinfo(&plain), plain);
-
-        let user_only = Url::from_str("https://alice@rpc.example.com/soroban/rpc").unwrap();
-        assert_eq!(redact_userinfo(&user_only), user_only);
-
-        let with_password =
-            Url::from_str("https://alice:supersecret@rpc.example.com/soroban/rpc").unwrap();
-        let redacted = redact_userinfo(&with_password);
-        assert_eq!(redacted.username(), "alice");
-        assert_eq!(redacted.password(), Some("redacted"));
-        assert_eq!(redacted.host_str(), Some("rpc.example.com"));
-        assert_eq!(redacted.path(), "/soroban/rpc");
     }
 
     #[test]
