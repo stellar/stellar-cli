@@ -1138,6 +1138,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
 - `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
+- `--hd-path <HD_PATH>` — When importing a seed phrase into the Secure Store, which `hd_path` should be derived from it
 
 ###### **Options (Global):**
 

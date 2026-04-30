@@ -113,4 +113,60 @@ async fn secure_store_key_management() {
         .success()
         .stdout_as_str();
     assert!(new_secure_store_address.starts_with('G'));
+
+    // `keys add --secure-store --hd-path N` must derive and cache the public
+    // key at the requested HD path, and persist `hd_path` in the identity TOML.
+    let seed_phrase = "aisle reflect depart add safe fury dress artist bronze abuse warrior clap inquiry ask mandate deputy view trade debate flip priority boy depart recipe";
+
+    let add_default = "secure-store-add-default";
+    sandbox
+        .new_assert_cmd("keys")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .args(["add", add_default, "--secure-store"])
+        .assert()
+        .success();
+    let address_default = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", add_default])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let add_hd_path = "secure-store-add-hd-path";
+    sandbox
+        .new_assert_cmd("keys")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .args(["add", add_hd_path, "--secure-store", "--hd-path", "5"])
+        .assert()
+        .success();
+    let address_hd_path = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", add_hd_path, "--hd-path", "5"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert!(address_hd_path.starts_with('G'));
+    assert_ne!(
+        address_default, address_hd_path,
+        "expected --hd-path 5 to derive a different public key than the default path"
+    );
+
+    let identity_path = sandbox
+        .config_dir()
+        .join("identity")
+        .join(format!("{add_hd_path}.toml"));
+    let identity_toml = std::fs::read_to_string(&identity_path).unwrap_or_else(|err| {
+        panic!("expected identity file at {identity_path:?}: {err}");
+    });
+    assert!(
+        identity_toml.contains("hd_path = 5"),
+        "expected hd_path = 5 to be persisted after `keys add --secure-store --hd-path 5`, \
+         but identity file was:\n{identity_toml}"
+    );
+    assert!(
+        identity_toml.contains(&format!("public_key = \"{}\"", address_hd_path.trim())),
+        "expected cached public_key to match the address derived at hd_path 5, \
+         but identity file was:\n{identity_toml}"
+    );
 }
