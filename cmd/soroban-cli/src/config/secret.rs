@@ -148,10 +148,8 @@ impl Secret {
             hd_path,
         } = self
         {
-            if let Some(cached) = public_key {
-                if hd_path == &index {
-                    return Ok(PublicKey::from_string(cached)?);
-                }
+            if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, index) {
+                return Ok(cached);
             }
             Ok(secure_store::get_public_key(entry_name, index)?)
         } else {
@@ -180,11 +178,8 @@ impl Secret {
                 public_key,
                 hd_path: cached_hd_path,
             } => {
-                let cached_public_key = public_key
-                    .as_deref()
-                    .filter(|_| cached_hd_path == &hd_path)
-                    .map(PublicKey::from_string)
-                    .transpose()?;
+                let cached_public_key =
+                    cached_public_key(public_key.as_deref(), *cached_hd_path, hd_path);
                 SignerKind::SecureStore(SecureStoreEntry {
                     name: entry_name.clone(),
                     hd_path,
@@ -202,6 +197,21 @@ impl Secret {
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
         Ok(seed_phrase_from_seed(seed)?.into())
     }
+}
+
+// Returns the cached public key when it can be used, or `None` to signal a
+// cache miss. The cache is best-effort: a malformed cached value is ignored
+// rather than propagated, and `None`/`Some(0)` are treated as the same path
+// since the rest of the codebase uses `unwrap_or_default()` for hd_path.
+fn cached_public_key(
+    cached: Option<&str>,
+    cached_hd_path: Option<usize>,
+    requested_hd_path: Option<usize>,
+) -> Option<PublicKey> {
+    if cached_hd_path.unwrap_or_default() != requested_hd_path.unwrap_or_default() {
+        return None;
+    }
+    PublicKey::from_string(cached?).ok()
 }
 
 pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
@@ -314,5 +324,27 @@ mod tests {
         };
         let pk = secret.public_key(None).unwrap();
         assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+    }
+
+    #[test]
+    fn test_cached_public_key_treats_none_and_zero_as_equal() {
+        // `unwrap_or_default()` is used everywhere else for hd_path, so the
+        // cache must treat None and Some(0) as the same path.
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, Some(0)).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(0), None).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, None).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(0), Some(0)).is_some());
+
+        // Different paths must still miss.
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, Some(1)).is_none());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(1), None).is_none());
+    }
+
+    #[test]
+    fn test_cached_public_key_treats_corrupt_value_as_miss() {
+        // A malformed cached value must be ignored so callers fall through to
+        // the keychain instead of erroring out.
+        assert!(cached_public_key(Some("not-a-public-key"), None, None).is_none());
+        assert!(cached_public_key(Some(""), None, None).is_none());
     }
 }

@@ -49,7 +49,7 @@ mod secure_store_impl {
         hd_path: Option<usize>,
         overwrite: bool,
     ) -> Result<Secret, Error> {
-        // secure_store:org.stellar.cli:<key name>
+        // secure_store:org.stellar.cli-<key name>
         let entry_name = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{name}");
 
         let entry = StellarEntry::new(&entry_name)?;
