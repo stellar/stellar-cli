@@ -57,10 +57,23 @@ pub struct Args {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Secret {
-    SecretKey { secret_key: String },
-    SeedPhrase { seed_phrase: String },
+    SecretKey {
+        secret_key: String,
+    },
+    SeedPhrase {
+        seed_phrase: String,
+    },
     Ledger,
-    SecureStore { entry_name: String },
+    SecureStore {
+        entry_name: String,
+        // Cached public key derived from the secure-store entry. Lets us answer
+        // address/hint queries without unlocking the keychain. Optional for
+        // backwards compatibility with files written before this field existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        public_key: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        hd_path: Option<usize>,
+    },
 }
 
 impl FromStr for Secret {
@@ -80,6 +93,8 @@ impl FromStr for Secret {
         } else if s.starts_with(secure_store::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
+                public_key: None,
+                hd_path: None,
             })
         } else {
             Err(Error::InvalidSecretOrSeedPhrase)
@@ -127,7 +142,15 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore { entry_name } = self {
+        if let Secret::SecureStore {
+            entry_name,
+            public_key,
+            hd_path,
+        } = self
+        {
+            if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, index) {
+                return Ok(cached);
+            }
             Ok(secure_store::get_public_key(entry_name, index)?)
         } else {
             let key = self.key_pair(index)?;
@@ -150,10 +173,19 @@ impl Secret {
                     .expect("uszie bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
-            Secret::SecureStore { entry_name } => SignerKind::SecureStore(SecureStoreEntry {
-                name: entry_name.clone(),
-                hd_path,
-            }),
+            Secret::SecureStore {
+                entry_name,
+                public_key,
+                hd_path: cached_hd_path,
+            } => {
+                let cached_public_key =
+                    cached_public_key(public_key.as_deref(), *cached_hd_path, hd_path);
+                SignerKind::SecureStore(SecureStoreEntry {
+                    name: entry_name.clone(),
+                    hd_path,
+                    public_key: cached_public_key,
+                })
+            }
         };
         Ok(Signer { kind, print })
     }
@@ -165,6 +197,21 @@ impl Secret {
     pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
         Ok(seed_phrase_from_seed(seed)?.into())
     }
+}
+
+// Returns the cached public key when it can be used, or `None` to signal a
+// cache miss. The cache is best-effort: a malformed cached value is ignored
+// rather than propagated, and `None`/`Some(0)` are treated as the same path
+// since the rest of the codebase uses `unwrap_or_default()` for hd_path.
+fn cached_public_key(
+    cached: Option<&str>,
+    cached_hd_path: Option<usize>,
+    requested_hd_path: Option<usize>,
+) -> Option<PublicKey> {
+    if cached_hd_path.unwrap_or_default() != requested_hd_path.unwrap_or_default() {
+        return None;
+    }
+    PublicKey::from_string(cached?).ok()
 }
 
 pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
@@ -224,5 +271,80 @@ mod tests {
     fn test_secret_from_invalid_string() {
         let secret = Secret::from_str("invalid");
         assert!(secret.is_err());
+    }
+
+    #[test]
+    fn test_secure_store_toml_round_trip_with_cache() {
+        let secret = Secret::SecureStore {
+            entry_name: "secure_store:org.stellar.cli-alice".to_string(),
+            public_key: Some(TEST_PUBLIC_KEY.to_string()),
+            hd_path: None,
+        };
+        let serialized = toml::to_string(&secret).unwrap();
+        assert!(
+            serialized.contains("entry_name"),
+            "expected entry_name field in TOML, got: {serialized}"
+        );
+        assert!(
+            serialized.contains("public_key"),
+            "expected public_key field in TOML, got: {serialized}"
+        );
+        let parsed: Secret = toml::from_str(&serialized).unwrap();
+        assert_eq!(secret, parsed);
+    }
+
+    #[test]
+    fn test_secure_store_legacy_toml_parses_with_none_cache() {
+        // Identity files written before this feature only contain entry_name.
+        // They must still parse, with public_key/hd_path defaulting to None.
+        let toml_str = "entry_name = \"secure_store:org.stellar.cli-alice\"\n";
+        let secret: Secret = toml::from_str(toml_str).unwrap();
+        match secret {
+            Secret::SecureStore {
+                entry_name,
+                public_key,
+                hd_path,
+            } => {
+                assert_eq!(entry_name, "secure_store:org.stellar.cli-alice");
+                assert_eq!(public_key, None);
+                assert_eq!(hd_path, None);
+            }
+            other => panic!("expected SecureStore variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_secure_store_public_key_uses_cache_without_keychain_access() {
+        // A non-existent entry_name guarantees a keychain lookup would fail.
+        // The cached public_key should be returned without touching the keychain.
+        let secret = Secret::SecureStore {
+            entry_name: "secure_store:org.stellar.cli-no-such-entry".to_string(),
+            public_key: Some(TEST_PUBLIC_KEY.to_string()),
+            hd_path: None,
+        };
+        let pk = secret.public_key(None).unwrap();
+        assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+    }
+
+    #[test]
+    fn test_cached_public_key_treats_none_and_zero_as_equal() {
+        // `unwrap_or_default()` is used everywhere else for hd_path, so the
+        // cache must treat None and Some(0) as the same path.
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, Some(0)).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(0), None).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, None).is_some());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(0), Some(0)).is_some());
+
+        // Different paths must still miss.
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), None, Some(1)).is_none());
+        assert!(cached_public_key(Some(TEST_PUBLIC_KEY), Some(1), None).is_none());
+    }
+
+    #[test]
+    fn test_cached_public_key_treats_corrupt_value_as_miss() {
+        // A malformed cached value must be ignored so callers fall through to
+        // the keychain instead of erroring out.
+        assert!(cached_public_key(Some("not-a-public-key"), None, None).is_none());
+        assert!(cached_public_key(Some(""), None, None).is_none());
     }
 }

@@ -116,9 +116,9 @@ impl UnresolvedMuxedAccount {
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
-            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                Ok(locator.read_key(alias_or_secret)?.muxed_account(hd_path)?)
-            }
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => Ok(locator
+                .read_key_with_secure_store_cache(alias_or_secret, hd_path)?
+                .muxed_account(hd_path)?),
             UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerNotSupported),
         }
     }

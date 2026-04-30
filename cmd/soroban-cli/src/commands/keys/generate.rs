@@ -116,9 +116,13 @@ impl Cmd {
     fn secret(&self, print: &Print) -> Result<Secret, Error> {
         let seed_phrase = self.seed_phrase()?;
         if self.secure_store {
-            let secret =
-                secure_store::save_secret(print, &self.name, &seed_phrase, self.overwrite)?;
-            Ok(secret.parse()?)
+            Ok(secure_store::save_secret(
+                print,
+                &self.name,
+                &seed_phrase,
+                self.hd_path,
+                self.overwrite,
+            )?)
         } else if self.as_secret {
             let secret: Secret = seed_phrase.into();
             Ok(secret.private_key(self.hd_path)?.into())
@@ -200,6 +204,34 @@ mod tests {
         assert!(result.is_ok());
         let identity = test_locator.read_identity("test_name").unwrap();
         assert!(matches!(identity, Key::Secret(Secret::SecureStore { .. })));
+    }
+
+    #[cfg(feature = "additional-libs")]
+    #[tokio::test]
+    async fn test_generate_secure_store_caches_public_key_on_disk() {
+        use keyring::{mock, set_default_credential_builder};
+        set_default_credential_builder(mock::default_credential_builder());
+        let (test_locator, mut cmd) = set_up_test();
+        cmd.secure_store = true;
+        let global_args = global_args();
+
+        cmd.run(&global_args).await.unwrap();
+
+        let identity = test_locator.read_identity("test_name").unwrap();
+        match identity {
+            Key::Secret(Secret::SecureStore {
+                public_key,
+                hd_path,
+                ..
+            }) => {
+                assert!(
+                    public_key.is_some(),
+                    "public_key should be cached on disk after `keys generate --secure-store`"
+                );
+                assert_eq!(hd_path, None);
+            }
+            other => panic!("expected SecureStore variant, got {other:?}"),
+        }
     }
 
     #[cfg(not(feature = "additional-libs"))]
