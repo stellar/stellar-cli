@@ -61,7 +61,7 @@ pub async fn run_in_docker(
     cmd_str: &str,
     image: &str,
     pre_resolved: Option<&str>,
-    workspace_root: &Path,
+    mount_root: &Path,
     target_dir: &Path,
     wasm_target: &str,
     pin_toolchain: Option<&str>,
@@ -96,7 +96,7 @@ pub async fn run_in_docker(
     // container run.
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let binds = vec![
-        format!("{}:{}", workspace_root.display(), WORK_DIR),
+        format!("{}:{}", mount_root.display(), WORK_DIR),
         format!("{}:{}", target_dir.display(), TARGET_DIR),
         format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
     ];
@@ -110,7 +110,7 @@ pub async fn run_in_docker(
     env.push(format!("CARGO_TARGET_DIR={TARGET_DIR}"));
     env.push(format!(
         "SOURCE_DATE_EPOCH={}",
-        source_date_epoch(workspace_root)
+        source_date_epoch(mount_root)
     ));
     // Force cargo to emit color (otherwise cargo detects the non-TTY stdout
     // and falls back to monochrome). Matches what users see for local builds.
@@ -325,10 +325,10 @@ fn current_uid_gid() -> Option<String> {
 
 /// Best-effort SOURCE_DATE_EPOCH from the workspace's HEAD commit time;
 /// falls back to `"0"` when not in a git repo.
-fn source_date_epoch(workspace_root: &Path) -> String {
+fn source_date_epoch(mount_root: &Path) -> String {
     Command::new("git")
         .arg("-C")
-        .arg(workspace_root)
+        .arg(mount_root)
         .args(["log", "-1", "--format=%ct"])
         .output()
         .ok()

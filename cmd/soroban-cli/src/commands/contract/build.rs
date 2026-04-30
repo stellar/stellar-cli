@@ -358,6 +358,10 @@ impl Cmd {
             }
             GitState::NotARepo => (None, None, None),
         };
+        // Mount the git repo root when available (so cross-workspace path
+        // dependencies and shared repo files are visible inside the
+        // container). Fall back to the cargo workspace root otherwise.
+        let mount_root = git_root.as_deref().unwrap_or(workspace_root);
 
         for (i, p) in packages.iter().enumerate() {
             if i > 0 {
@@ -378,8 +382,8 @@ impl Cmd {
                 cmd.arg("--locked");
             }
             let manifest_path = if self.backend.docker_image().is_some() {
-                // Inside the container the workspace is mounted at /workspace.
-                let rel = pathdiff::diff_paths(&p.manifest_path, workspace_root)
+                // Inside the container the mount root is at /workspace.
+                let rel = pathdiff::diff_paths(&p.manifest_path, mount_root)
                     .unwrap_or(p.manifest_path.clone().into());
                 Path::new(build_docker::WORK_DIR).join(rel)
             } else {
@@ -437,7 +441,7 @@ impl Cmd {
                         &cmd_str,
                         image,
                         resolved_image.as_deref(),
-                        workspace_root,
+                        mount_root,
                         target_dir.as_std_path(),
                         &wasm_target,
                         self.rustup_toolchain.as_deref(),
