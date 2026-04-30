@@ -62,6 +62,12 @@ pub enum Secret {
     },
     SeedPhrase {
         seed_phrase: String,
+        // Persisted derivation index. Lets `--hd-path` set on `keys generate` /
+        // `keys add` travel with the identity, so later commands derive the
+        // intended account without re-passing the flag. Optional for backwards
+        // compatibility with files written before this field existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        hd_path: Option<usize>,
     },
     Ledger,
     SecureStore {
@@ -87,6 +93,7 @@ impl FromStr for Secret {
         } else if sep5::SeedPhrase::from_str(s).is_ok() {
             Ok(Secret::SeedPhrase {
                 seed_phrase: s.to_string(),
+                hd_path: None,
             })
         } else if s == "ledger" {
             Ok(Secret::Ledger)
@@ -120,6 +127,7 @@ impl From<SeedPhrase> for Secret {
     fn from(value: SeedPhrase) -> Self {
         Secret::SeedPhrase {
             seed_phrase: value.seed_phrase.into_phrase(),
+            hd_path: None,
         }
     }
 }
@@ -128,9 +136,12 @@ impl Secret {
     pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
         Ok(match self {
             Secret::SecretKey { secret_key } => PrivateKey::from_string(secret_key)?,
-            Secret::SeedPhrase { seed_phrase } => PrivateKey::from_payload(
+            Secret::SeedPhrase {
+                seed_phrase,
+                hd_path,
+            } => PrivateKey::from_payload(
                 &sep5::SeedPhrase::from_str(seed_phrase)?
-                    .from_path_index(index.unwrap_or_default(), None)?
+                    .from_path_index(index.or(*hd_path).unwrap_or_default(), None)?
                     .private()
                     .0,
             )?,
@@ -148,10 +159,11 @@ impl Secret {
             hd_path,
         } = self
         {
-            if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, index) {
+            let effective = index.or(*hd_path);
+            if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, effective) {
                 return Ok(cached);
             }
-            Ok(secure_store::get_public_key(entry_name, index)?)
+            Ok(secure_store::get_public_key(entry_name, effective)?)
         } else {
             let key = self.key_pair(index)?;
             Ok(stellar_strkey::ed25519::PublicKey::from_payload(
@@ -178,11 +190,12 @@ impl Secret {
                 public_key,
                 hd_path: cached_hd_path,
             } => {
+                let effective = hd_path.or(*cached_hd_path);
                 let cached_public_key =
-                    cached_public_key(public_key.as_deref(), *cached_hd_path, hd_path);
+                    cached_public_key(public_key.as_deref(), *cached_hd_path, effective);
                 SignerKind::SecureStore(SecureStoreEntry {
                     name: entry_name.clone(),
-                    hd_path,
+                    hd_path: effective,
                     public_key: cached_public_key,
                 })
             }
@@ -327,6 +340,20 @@ mod tests {
     }
 
     #[test]
+    fn test_secure_store_public_key_falls_back_to_persisted_hd_path() {
+        // Bogus entry_name guarantees a keychain lookup would fail. The cache is
+        // populated at the persisted hd_path; calling public_key(None) must fall
+        // back to that hd_path and hit the cache rather than re-deriving at index 0.
+        let secret = Secret::SecureStore {
+            entry_name: "secure_store:org.stellar.cli-no-such-entry".to_string(),
+            public_key: Some(TEST_PUBLIC_KEY.to_string()),
+            hd_path: Some(5),
+        };
+        let pk = secret.public_key(None).unwrap();
+        assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+    }
+
+    #[test]
     fn test_cached_public_key_treats_none_and_zero_as_equal() {
         // `unwrap_or_default()` is used everywhere else for hd_path, so the
         // cache must treat None and Some(0) as the same path.
@@ -346,5 +373,63 @@ mod tests {
         // the keychain instead of erroring out.
         assert!(cached_public_key(Some("not-a-public-key"), None, None).is_none());
         assert!(cached_public_key(Some(""), None, None).is_none());
+    }
+
+    #[test]
+    fn test_seed_phrase_toml_round_trip_with_hd_path() {
+        let secret = Secret::SeedPhrase {
+            seed_phrase: TEST_SEED_PHRASE.to_string(),
+            hd_path: Some(5),
+        };
+        let serialized = toml::to_string(&secret).unwrap();
+        assert!(
+            serialized.contains("hd_path"),
+            "expected hd_path field in TOML, got: {serialized}"
+        );
+        let parsed: Secret = toml::from_str(&serialized).unwrap();
+        assert_eq!(secret, parsed);
+    }
+
+    #[test]
+    fn test_seed_phrase_legacy_toml_parses_with_none_hd_path() {
+        // Identity files written before this feature only contain seed_phrase.
+        // They must still parse, with hd_path defaulting to None.
+        let toml_str = format!("seed_phrase = \"{TEST_SEED_PHRASE}\"\n");
+        let secret: Secret = toml::from_str(&toml_str).unwrap();
+        match secret {
+            Secret::SeedPhrase {
+                seed_phrase,
+                hd_path,
+            } => {
+                assert_eq!(seed_phrase, TEST_SEED_PHRASE);
+                assert_eq!(hd_path, None);
+            }
+            other => panic!("expected SeedPhrase variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_seed_phrase_uses_persisted_hd_path_when_caller_passes_none() {
+        // When the caller passes None, the persisted hd_path should drive derivation.
+        let secret = Secret::SeedPhrase {
+            seed_phrase: TEST_SEED_PHRASE.to_string(),
+            hd_path: Some(1),
+        };
+        let pk_at_0 = secret.public_key(Some(0)).unwrap();
+        let pk_default = secret.public_key(None).unwrap();
+        assert_ne!(pk_at_0.to_string(), pk_default.to_string());
+    }
+
+    #[test]
+    fn test_seed_phrase_caller_hd_path_overrides_persisted() {
+        // Caller's explicit hd_path argument always wins over the persisted value.
+        let secret = Secret::SeedPhrase {
+            seed_phrase: TEST_SEED_PHRASE.to_string(),
+            hd_path: Some(1),
+        };
+        let pk = secret.public_key(Some(0)).unwrap();
+        let sk = secret.private_key(Some(0)).unwrap();
+        assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+        assert_eq!(sk.to_string(), TEST_SECRET_KEY);
     }
 }

@@ -49,7 +49,7 @@ impl Cmd {
     pub fn seed_phrase(&self) -> Result<String, Error> {
         let key = self.locator.read_identity(&self.name)?;
 
-        if let Key::Secret(Secret::SeedPhrase { seed_phrase }) = key {
+        if let Key::Secret(Secret::SeedPhrase { seed_phrase, .. }) = key {
             Ok(seed_phrase)
         } else {
             Err(Error::UnknownSeedPhrase)
