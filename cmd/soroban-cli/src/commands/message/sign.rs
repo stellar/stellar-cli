@@ -77,7 +77,9 @@ impl Cmd {
 
         // Get the signer
         let key_or_name = &self.sign_with_key;
-        let secret = self.locator.get_secret_key(key_or_name)?;
+        let secret = self
+            .locator
+            .get_secret_key_with_hd_path(key_or_name, self.hd_path)?;
         let signer = secret.signer(self.hd_path, print.clone()).await?;
         let public_key = signer.get_public_key()?;
 

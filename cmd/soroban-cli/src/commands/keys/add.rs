@@ -61,6 +61,10 @@ pub struct Cmd {
     /// --secure-store, also replaces the existing Secure Store entry.
     #[arg(long)]
     pub overwrite: bool,
+
+    /// When importing a seed phrase into the Secure Store, which `hd_path` to derive the key at.
+    #[arg(long)]
+    pub hd_path: Option<usize>,
 }
 
 impl Cmd {
@@ -109,9 +113,13 @@ impl Cmd {
 
             let seed_phrase: SeedPhrase = secret_key.parse()?;
 
-            let secret =
-                secure_store::save_secret(print, &self.name, &seed_phrase, self.overwrite)?;
-            Ok(secret.parse()?)
+            Ok(secure_store::save_secret(
+                print,
+                &self.name,
+                &seed_phrase,
+                self.hd_path,
+                self.overwrite,
+            )?)
         } else {
             let prompt = "Type a secret key or 12/24 word seed phrase:";
             let secret_key = read_password(print, prompt)?;
