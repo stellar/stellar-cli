@@ -84,15 +84,7 @@ pub async fn run_in_docker_all(
     print.infoln(format!(
         "Building stellar-cli build image {layered_tag} (base {base_resolved}, stellar-cli {cli_rev})"
     ));
-    build_layered_image(
-        &docker,
-        &base_resolved,
-        cli_rev,
-        wasm_target,
-        &layered_tag,
-        print,
-    )
-    .await?;
+    build_layered_image(&docker, &base_resolved, cli_rev, wasm_target, &layered_tag).await?;
 
     print.infoln(format_inner_cmd(inner, &base_resolved));
 
@@ -116,7 +108,6 @@ async fn build_layered_image(
     cli_rev: &str,
     wasm_target: &str,
     tag: &str,
-    print: &Print,
 ) -> Result<(), Error> {
     let context = build_tar_context()?;
 
@@ -141,11 +132,13 @@ async fn build_layered_image(
     let mut stream = docker.build_image(options, None, Some(body));
     while let Some(item) = stream.next().await {
         let info = item?;
+        // Stream the build output verbatim. Docker emits each step header,
+        // each cargo progress line, and each compile message as its own
+        // chunk with its own line ending — re-formatting (trim, indent,
+        // print.blankln) makes the cargo install output unreadable. Match
+        // what `run_inner_build` does and trust the chunks.
         if let Some(s) = info.stream {
-            let s = s.trim_end_matches('\n');
-            if !s.is_empty() {
-                print.blankln(s);
-            }
+            eprint!("{s}");
         }
         if let Some(detail) = info.error_detail {
             return Err(Error::ImageBuild(
