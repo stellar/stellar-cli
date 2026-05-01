@@ -25,10 +25,10 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
-install_rust: install
-
 install:
 	cargo install --force --locked --path ./cmd/stellar-cli --debug
+
+install-fixtures:
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
 
