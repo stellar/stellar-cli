@@ -384,6 +384,9 @@ impl Cmd {
                     target_dir.as_std_path(),
                     workspace_root,
                     mount_root,
+                    git_root.as_deref(),
+                    source_repo.as_deref(),
+                    source_rev.as_deref(),
                     &wasm_target,
                 )
                 .await;
@@ -525,11 +528,12 @@ impl Cmd {
         Ok(built_contracts)
     }
 
-    /// Orchestrate a `--backend docker` build: pull the requested stellar-cli
-    /// image and run `stellar contract build --backend local` inside it
+    /// Orchestrate a `--backend docker` build: pull the requested
+    /// stellar-cli image and run `stellar contract build` inside it
     /// against the bind-mounted source. The in-container cli does cargo +
-    /// meta injection + spec filtering + optional wasm-opt itself; the host
-    /// only orchestrates and copies outputs to `--out-dir` if requested.
+    /// meta injection + spec filtering + optional wasm-opt itself; the
+    /// host only orchestrates and copies outputs to `--out-dir` if
+    /// requested.
     #[allow(clippy::too_many_arguments)]
     async fn run_docker(
         &self,
@@ -539,6 +543,9 @@ impl Cmd {
         target_dir: &Path,
         workspace_root: &Path,
         mount_root: &Path,
+        git_root: Option<&Path>,
+        source_repo: Option<&str>,
+        source_rev: Option<&str>,
         wasm_target: &str,
     ) -> Result<Vec<BuiltContract>, Error> {
         // The user's --manifest-path (if any) is a host path; translate to
@@ -555,6 +562,47 @@ impl Cmd {
             .to_string_lossy()
             .into_owned();
 
+        // TODO(transitional): forward host-detected `source_*` and
+        // `bldopt_*` reproducibility meta as `--meta` entries to the
+        // in-container cli. Released `stellar/stellar-cli` images today
+        // don't auto-inject these on build, so without this pass-through
+        // the resulting wasm would be missing them.
+        //
+        // Once a `stellar/stellar-cli` image carrying this PR's auto-
+        // injection logic is published and adopted as the default, the
+        // in-container cli will set these itself (and its values, being
+        // first in the meta section, take precedence over the user-meta
+        // entries we add here per `find_meta`'s first-match semantics).
+        // At that point, remove this block and let the in-container cli
+        // be the source of truth.
+        let mut meta = self.build_args.meta.clone();
+        if let Some(s) = source_repo {
+            meta.push(("source_repo".to_string(), s.to_string()));
+        }
+        if let Some(s) = source_rev {
+            meta.push(("source_rev".to_string(), s.to_string()));
+        }
+        meta.push(("bldopt_profile".to_string(), self.profile.clone()));
+        if self.build_args.optimize {
+            meta.push(("bldopt_optimize".to_string(), "true".to_string()));
+        }
+        // Per-package fields are only safe to forward when exactly one
+        // package will be built — passing a single value to a multi-package
+        // workspace build would attach the same `bldopt_package` /
+        // `bldopt_manifest_path` to every wasm. For multi-package builds we
+        // skip them and let the in-container cli supply them per-package
+        // (newer images will; older won't).
+        if packages.len() == 1 {
+            let p = &packages[0];
+            meta.push(("bldopt_package".to_string(), p.name.clone()));
+            if let Some(rel) = git_root.and_then(|gr| {
+                pathdiff::diff_paths(&p.manifest_path, gr)
+                    .map(|p| p.to_string_lossy().into_owned())
+            }) {
+                meta.push(("bldopt_manifest_path".to_string(), rel));
+            }
+        }
+
         let inner = build_docker::InnerBuildArgs {
             manifest_path: in_container_manifest,
             package: self.package.as_deref(),
@@ -563,7 +611,7 @@ impl Cmd {
             all_features: self.all_features,
             no_default_features: self.no_default_features,
             optimize: self.build_args.optimize,
-            meta: &self.build_args.meta,
+            meta,
         };
 
         build_docker::run_in_docker(

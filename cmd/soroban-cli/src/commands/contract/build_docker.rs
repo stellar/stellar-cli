@@ -79,8 +79,11 @@ pub enum Error {
 }
 
 /// Forwarded host build args used to construct the inner
-/// `stellar contract build --backend local` invocation. `manifest_path` is
-/// expected to already be in container-relative form (`/source/...`).
+/// `stellar contract build` invocation. `manifest_path` is expected to
+/// already be in container-relative form (`/source/...`). `meta` holds both
+/// the user's `--meta` entries and any host-detected entries (e.g.
+/// `source_repo`, `source_rev`, `bldopt_*`) that are forwarded as
+/// transitional pass-throughs while the published cli image catches up.
 pub struct InnerBuildArgs<'a> {
     pub manifest_path: String,
     pub package: Option<&'a str>,
@@ -89,7 +92,7 @@ pub struct InnerBuildArgs<'a> {
     pub all_features: bool,
     pub no_default_features: bool,
     pub optimize: bool,
-    pub meta: &'a [(String, String)],
+    pub meta: Vec<(String, String)>,
 }
 
 /// Pull the image (if needed), then run the in-container
@@ -279,7 +282,7 @@ fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
     if inner.optimize {
         argv.push("--optimize".to_string());
     }
-    for (k, v) in inner.meta {
+    for (k, v) in &inner.meta {
         argv.push("--meta".to_string());
         argv.push(format!("{k}={v}"));
     }
