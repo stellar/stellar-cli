@@ -65,7 +65,8 @@ where
         data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
     }
 
-    // Need to sign all auth entries
+    // Sign all auth entries. Each entry is validated against the transaction's
+    // host function inside `sign_soroban_authorizations` before being signed.
     if let Some(tx) = config
         .sign_soroban_authorizations(&txn, auth_signers)
         .await?
