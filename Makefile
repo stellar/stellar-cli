@@ -41,7 +41,7 @@ build:
 build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
-build-test: build-test-wasms build-fixtures
+build-test: build-test-wasms build-fixtures install
 
 docs:
 	cargo run --package doc-gen --features additional-libs
