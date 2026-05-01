@@ -118,7 +118,14 @@ pub async fn run_in_docker(
     let resolved = if let Some(r) = pre_resolved {
         r.to_string()
     } else {
-        pull_image(&docker, image, print).await?;
+        // Skip the pull when the image is already local. For digest-pinned
+        // references the digest is immutable, so a present image is the
+        // image. This also sidesteps a bollard quirk where pulling an
+        // already-present digest-pinned image surfaces the daemon's
+        // "cannot overwrite digest" event as a stream error.
+        if docker.inspect_image(image).await.is_err() {
+            pull_image(&docker, image, print).await?;
+        }
         resolve_image_digest(&docker, image).await?
     };
 
