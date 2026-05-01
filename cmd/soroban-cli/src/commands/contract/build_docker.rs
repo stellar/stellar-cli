@@ -1,6 +1,25 @@
-use std::ffi::OsStr;
+//! `--backend docker` build backend.
+//!
+//! Runs the entire `stellar contract build` pipeline inside a container
+//! whose entrypoint is `stellar` (the official `stellar/stellar-cli`
+//! image, or any user-supplied image with the same shape). The host
+//! orchestrates only — pull, set up bind mounts, run, stream logs.
+//!
+//! The host CLI's version is irrelevant: whatever cli is in the image is
+//! what builds the wasm and what records `cliver` / `rsver` / source meta
+//! into the wasm. The host injects `bldimg` (the pulled image's resolved
+//! digest) via the inner cli's `--meta` mechanism — no new flags.
+//!
+//! For `verify`, the recorded `bldimg` is pulled (so the same cli runs)
+//! and `RUSTUP_TOOLCHAIN` is set from the wasm's `rsver` so the rust
+//! toolchain matches whatever the original build used.
+//!
+//! User-supplied images must:
+//! - Have `stellar` as their entrypoint
+//! - Have `rustup` available with the `wasm32v1-none` target installed
+//!   (preflight-checked before the build runs)
+
 use std::path::Path;
-use std::process::Command;
 
 use bollard::{
     models::ContainerCreateBody,
@@ -19,8 +38,11 @@ use crate::{
 };
 
 const PLATFORM: &str = "linux/amd64";
-pub const WORK_DIR: &str = "/workspace";
-const TARGET_DIR: &str = "/target";
+/// Where the workspace gets bind-mounted inside the container. Matches the
+/// official `stellar/stellar-cli` image's `WORKDIR`. Cargo writes its
+/// target directory under this path, so the host reads the wasm via the
+/// same bind mount — no separate `/target` mount needed.
+pub const SOURCE_DIR: &str = "/source";
 const REGISTRY_DIR: &str = "/usr/local/cargo/registry";
 
 #[derive(thiserror::Error, Debug)]
@@ -49,31 +71,39 @@ pub enum Error {
     #[error("docker run: {0}")]
     Runtime(#[from] bollard::errors::Error),
 
-    #[error("resolving CARGO_HOME / RUSTUP_HOME: {0}")]
+    #[error("resolving CARGO_HOME: {0}")]
     CargoHome(std::io::Error),
-
-    #[error("building stellar-cli image: {0}")]
-    ImageBuild(String),
-
-    #[error("packaging Dockerfile context: {0}")]
-    Tar(std::io::Error),
-
-    #[error("host stellar-cli has no commit sha to install in container; rebuild from a git checkout (or install via `cargo install --git ... --rev <sha>`)")]
-    NoHostCliRev,
 }
 
-/// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
-/// returning the resolved `name@sha256:...` reference for embedding into meta.
+/// Forwarded host build args used to construct the inner
+/// `stellar contract build --backend local` invocation. `manifest_path` is
+/// expected to already be in container-relative form (`/source/...`).
+pub struct InnerBuildArgs<'a> {
+    pub manifest_path: String,
+    pub package: Option<&'a str>,
+    pub profile: &'a str,
+    pub features: Option<&'a str>,
+    pub all_features: bool,
+    pub no_default_features: bool,
+    pub optimize: bool,
+    pub meta: &'a [(String, String)],
+}
+
+/// Pull the image (if needed), then run the in-container
+/// `stellar contract build --backend local --meta bldimg=<digest>` against
+/// the bind-mounted source. Returns the resolved image digest for the host
+/// to record.
+///
+/// `rsver` is `None` for fresh builds and `Some(<wasm's rsver>)` for verify;
+/// when set, `RUSTUP_TOOLCHAIN` inside the container is pinned to that
+/// toolchain so rustup-managed cargo uses the matching rust version.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_in_docker(
-    cmd: &Command,
-    cmd_str: &str,
     image: &str,
     pre_resolved: Option<&str>,
+    rsver: Option<&str>,
     mount_root: &Path,
-    target_dir: &Path,
-    wasm_target: &str,
-    pin_toolchain: Option<&str>,
+    inner: &InnerBuildArgs<'_>,
     container_args: &ContainerArgs,
     print: &Print,
 ) -> Result<String, Error> {
@@ -82,80 +112,61 @@ pub async fn run_in_docker(
         .await
         .map_err(Error::RuntimeNotRunning)?;
 
-    // Pull and resolve only on the first call; subsequent invocations within
-    // the same build (e.g. workspace with multiple contracts) reuse the
-    // already-resolved digest and skip the pull progress output.
     let resolved = if let Some(r) = pre_resolved {
         r.to_string()
     } else {
         pull_image(&docker, image, print).await?;
         resolve_image_digest(&docker, image).await?
     };
-    // Print the cargo invocation after the pull progress so the on-screen
-    // order matches execution: pull → cargo → cargo output.
-    print.infoln(cmd_str);
 
-    // Bind-mount the host's cargo registry to cache crate downloads across
-    // runs. Crate sources are platform-agnostic so this is safe.
-    //
-    // We deliberately do not mount the host's `~/.rustup`: it contains
-    // toolchain binaries built for the host's OS/arch (e.g. Mach-O on macOS),
-    // which the linux/amd64 container cannot exec. The image's pre-installed
-    // rustup state is used instead; the wasm target is installed on each
-    // container run.
+    print.infoln(format_inner_cmd(inner, &resolved));
+    run_inner_build(&docker, &resolved, inner, rsver, mount_root).await?;
+
+    Ok(resolved)
+}
+
+async fn run_inner_build(
+    docker: &Docker,
+    image: &str,
+    inner: &InnerBuildArgs<'_>,
+    rsver: Option<&str>,
+    mount_root: &Path,
+) -> Result<(), Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
     let binds = vec![
-        format!("{}:{}", mount_root.display(), WORK_DIR),
-        format!("{}:{}", target_dir.display(), TARGET_DIR),
+        format!("{}:{}", mount_root.display(), SOURCE_DIR),
         format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
     ];
 
-    let mut env: Vec<String> = cmd
-        .get_envs()
-        .filter_map(|(k, v)| {
-            v.map(|val| format!("{}={}", k.to_string_lossy(), val.to_string_lossy()))
-        })
-        .collect();
-    env.push(format!("CARGO_TARGET_DIR={TARGET_DIR}"));
-    env.push(format!(
-        "SOURCE_DATE_EPOCH={}",
-        source_date_epoch(mount_root)
-    ));
-    // Force cargo to emit color (otherwise cargo detects the non-TTY stdout
-    // and falls back to monochrome). Matches what users see for local builds.
-    env.push("CARGO_TERM_COLOR=always".to_string());
+    let mut env = vec![
+        format!("SOURCE_DATE_EPOCH={}", source_date_epoch(mount_root)),
+        "CARGO_TERM_COLOR=always".to_string(),
+    ];
+    if let Some(t) = rsver {
+        env.push(format!("RUSTUP_TOOLCHAIN={t}"));
+    }
 
-    let argv: Vec<String> = std::iter::once(cmd.get_program())
-        .chain(cmd.get_args())
-        .map(OsStr::to_string_lossy)
-        .map(std::borrow::Cow::into_owned)
-        .collect();
-    // Always install the wasm target before the build so we don't depend on
-    // the workspace's `rust-toolchain.toml` having configured it. Args pass
-    // through `$@` so we don't have to shell-escape.
-    let toolchain_arg = pin_toolchain
-        .map(|t| format!("--toolchain {t} "))
-        .unwrap_or_default();
-    let mut container_cmd = vec![
+    // Override the image's entrypoint with `sh -c` so we can preflight-check
+    // the wasm target before invoking the cli. Works against the official
+    // `stellar/stellar-cli` image and any compatible custom image.
+    let entrypoint = vec![
         "sh".to_string(),
         "-c".to_string(),
-        format!("rustup --quiet target add {toolchain_arg}{wasm_target} && exec \"$@\""),
-        "sh".to_string(),
+        preflight_script(),
     ];
-    container_cmd.extend(argv);
+    let argv = build_inner_argv(inner, image);
 
     let config = ContainerCreateBody {
-        image: Some(resolved.clone()),
-        cmd: Some(container_cmd),
+        image: Some(image.to_string()),
+        entrypoint: Some(entrypoint),
+        cmd: Some(argv),
         env: Some(env),
-        working_dir: Some(WORK_DIR.to_string()),
+        working_dir: Some(SOURCE_DIR.to_string()),
         user: current_uid_gid(),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         host_config: Some(HostConfig {
             binds: Some(binds),
-            // auto_remove=false so we can stream logs first, then call
-            // remove_container ourselves with force=true even on failure paths.
             auto_remove: Some(false),
             ..Default::default()
         }),
@@ -167,7 +178,7 @@ pub async fn run_in_docker(
         .await?
         .id;
 
-    let result = run_and_wait(&docker, &container_id).await;
+    let result = stream_and_wait(docker, &container_id).await;
 
     let _ = docker
         .remove_container(
@@ -179,11 +190,22 @@ pub async fn run_in_docker(
         )
         .await;
 
-    result?;
-    Ok(resolved)
+    result
 }
 
-async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> {
+/// Shell script run as the container's entrypoint. Preflight-checks that
+/// `wasm32v1-none` is installed in the active rust toolchain, then `exec`s
+/// `stellar` with the args passed via `cmd`.
+fn preflight_script() -> String {
+    "rustup target list --installed 2>/dev/null | grep -q '^wasm32v1-none$' || { \
+         echo 'error: wasm32v1-none target not installed in image; install it with `rustup target add wasm32v1-none` or use a different image' >&2; \
+         exit 1; \
+     }; \
+     exec stellar \"$@\""
+        .to_string()
+}
+
+async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> {
     docker
         .start_container(container_id, None::<StartContainerOptions>)
         .await?;
@@ -201,8 +223,6 @@ async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> 
         let s = item?.to_string();
         let s = s.trim_end_matches('\n');
         if !s.is_empty() {
-            // Emit container output raw (no `ℹ️` prefix) so it looks like
-            // cargo running locally.
             eprintln!("{s}");
         }
     }
@@ -222,7 +242,66 @@ async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> 
     Ok(())
 }
 
-pub(super) async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
+/// Build the argv passed via `cmd` after the `sh -c '... exec stellar "$@"'`
+/// entrypoint. The first element is the `$0` placeholder for sh; the rest
+/// become `stellar`'s actual args.
+///
+/// `bldimg` is forwarded as `--meta bldimg=<digest>` so the in-container
+/// `--backend local` build records the image identity in the wasm meta —
+/// without needing a new cli flag.
+fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
+    let mut argv: Vec<String> = vec![
+        "sh".to_string(), // $0 placeholder
+        "contract".to_string(),
+        "build".to_string(),
+        "--backend".to_string(),
+        "local".to_string(),
+        "--manifest-path".to_string(),
+        inner.manifest_path.clone(),
+        "--profile".to_string(),
+        inner.profile.to_string(),
+        "--locked".to_string(),
+        "--meta".to_string(),
+        format!("bldimg={image}"),
+    ];
+    if let Some(p) = inner.package {
+        argv.push("--package".to_string());
+        argv.push(p.to_string());
+    }
+    if let Some(f) = inner.features {
+        argv.push("--features".to_string());
+        argv.push(f.to_string());
+    }
+    if inner.all_features {
+        argv.push("--all-features".to_string());
+    }
+    if inner.no_default_features {
+        argv.push("--no-default-features".to_string());
+    }
+    if inner.optimize {
+        argv.push("--optimize".to_string());
+    }
+    for (k, v) in inner.meta {
+        argv.push("--meta".to_string());
+        argv.push(format!("{k}={v}"));
+    }
+    argv
+}
+
+fn format_inner_cmd(inner: &InnerBuildArgs<'_>, image: &str) -> String {
+    // Skip the `$0` placeholder when displaying.
+    build_inner_argv(inner, image)
+        .into_iter()
+        .skip(1)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub(super) async fn pull_image(
+    docker: &Docker,
+    image: &str,
+    print: &Print,
+) -> Result<(), Error> {
     let mut stream = docker.create_image(
         Some(CreateImageOptions {
             from_image: Some(image.to_string()),
@@ -259,7 +338,10 @@ pub(super) async fn pull_image(docker: &Docker, image: &str, print: &Print) -> R
 // Returns a fully-qualified `<registry>/<path>@sha256:<digest>` reference so
 // that `verify` on a different machine can resolve it without depending on
 // local registry config.
-pub(super) async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
+pub(super) async fn resolve_image_digest(
+    docker: &Docker,
+    image: &str,
+) -> Result<String, Error> {
     let canonical = fully_qualify(strip_tag(image));
     let digest = if let Some(d) = sha256_digest(image) {
         d.to_string()
@@ -282,16 +364,13 @@ pub(super) async fn resolve_image_digest(docker: &Docker, image: &str) -> Result
     Ok(format!("{canonical}@{digest}"))
 }
 
-/// Returns the `sha256:...` portion of a `<name>@sha256:...` reference, if present.
 fn sha256_digest(image: &str) -> Option<&str> {
     let (_, after) = image.rsplit_once('@')?;
     after.starts_with("sha256:").then_some(after)
 }
 
-/// Strip any `@sha256:...` and `:tag` suffix, leaving only the repository name.
 fn strip_tag(image: &str) -> &str {
     let no_digest = image.split_once('@').map_or(image, |(name, _)| name);
-    // Tags appear after the last `/`; a `:` in the host portion (host:port) is not a tag.
     match no_digest.rfind('/') {
         Some(slash) => match no_digest[slash + 1..].rfind(':') {
             Some(colon) => &no_digest[..slash + 1 + colon],
@@ -304,7 +383,6 @@ fn strip_tag(image: &str) -> &str {
     }
 }
 
-/// Add the implicit `docker.io` registry (and `library/` namespace for short names).
 fn fully_qualify(name: &str) -> String {
     let has_registry = name
         .split_once('/')
@@ -320,22 +398,21 @@ fn fully_qualify(name: &str) -> String {
 
 #[allow(clippy::unnecessary_wraps)]
 #[cfg(unix)]
-pub(super) fn current_uid_gid() -> Option<String> {
-    // SAFETY: getuid/getgid are infallible POSIX calls.
+fn current_uid_gid() -> Option<String> {
     Some(format!("{}:{}", unsafe { libc::getuid() }, unsafe {
         libc::getgid()
     }))
 }
 
 #[cfg(not(unix))]
-pub(super) fn current_uid_gid() -> Option<String> {
+fn current_uid_gid() -> Option<String> {
     None
 }
 
 /// Best-effort SOURCE_DATE_EPOCH from the workspace's HEAD commit time;
 /// falls back to `"0"` when not in a git repo.
-pub(super) fn source_date_epoch(mount_root: &Path) -> String {
-    Command::new("git")
+fn source_date_epoch(mount_root: &Path) -> String {
+    std::process::Command::new("git")
         .arg("-C")
         .arg(mount_root)
         .args(["log", "-1", "--format=%ct"])

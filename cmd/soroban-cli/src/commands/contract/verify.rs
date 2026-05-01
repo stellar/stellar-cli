@@ -9,20 +9,22 @@ use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 use super::build;
 use super::info::shared::{self, fetch, Contract, Fetched};
 use crate::commands::container::shared::Args as ContainerArgs;
-use crate::commands::{global, version};
+use crate::commands::global;
 use crate::print::Print;
 
-/// Verify a wasm by rebuilding it with the same backend recorded in its metadata.
+/// Verify a wasm by rebuilding it and comparing bytes.
 ///
-/// All cdylib contracts in the workspace are rebuilt; verification succeeds if
-/// any rebuilt artifact is byte-identical to the input. The user is responsible
-/// for checking out the matching commit before running.
+/// All cdylib contracts in the workspace are rebuilt; verification succeeds
+/// if any rebuilt artifact is byte-identical to the input. The user is
+/// responsible for checking out the matching commit before running.
 ///
-/// `bldbkd: docker` and `bldbkd: docker-all` rebuild inside the recorded image.
-/// `bldbkd: local` rebuilds with the host rust toolchain pinned to the wasm's
-/// `rsver` — this is best-effort: local builds depend on environment factors
-/// (system libs, paths, env vars) that aren't captured in meta, so a verify
-/// match is informative but not as strong a guarantee as the docker backends.
+/// Backend selection from meta:
+/// - `bldimg` present: rebuild inside that image (with `RUSTUP_TOOLCHAIN`
+///   pinned to the wasm's `rsver` so the rust version matches whatever the
+///   original build used).
+/// - `bldimg` absent: rebuild locally with the host's rust toolchain pinned
+///   via `cargo +<rsver>`. Best-effort — local builds depend on environment
+///   factors (system libs, env vars) that aren't captured in meta.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -45,8 +47,6 @@ pub enum Error {
     StellarAssetContract,
     #[error("required '{0}' meta entry not found in contract; rebuild the wasm with `stellar contract build --backend docker` to make it verifiable")]
     MissingMeta(&'static str),
-    #[error("stellar-cli version mismatch: contract was built with '{expected}', running stellar-cli is '{actual}'. Install the matching CLI version and re-run.")]
-    CliVersionMismatch { expected: String, actual: String },
     #[error("verification failed: none of the rebuilt artifacts ({}) match original ({expected})", produced.iter().map(|(n, h)| format!("{n}={h}")).collect::<Vec<_>>().join(", "))]
     Mismatch {
         expected: String,
@@ -54,12 +54,9 @@ pub enum Error {
     },
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
-    #[error("unknown bldbkd value '{0}'")]
-    UnknownBackend(String),
 }
 
 impl Cmd {
-    #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
@@ -72,7 +69,6 @@ impl Cmd {
         let spec = Spec::new(&wasm_bytes)?;
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg");
-        let bldbkd = find_meta(&spec.meta, "bldbkd");
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
         let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path")
             .ok_or(Error::MissingMeta("bldopt_manifest_path"))?;
@@ -88,10 +84,6 @@ impl Cmd {
         if let Some(b) = &bldimg {
             print.blankln(format!("Docker image: {b}"));
         }
-        print.blankln(format!(
-            "Build backend: {}",
-            bldbkd.as_deref().unwrap_or("docker")
-        ));
         print.blankln(format!("Manifest path: {bldopt_manifest_path}"));
         print.blankln(format!("Package: {bldopt_package}"));
         print.blankln(format!("Profile: {bldopt_profile}"));
@@ -99,26 +91,9 @@ impl Cmd {
             print.blankln("Optimize: true");
         }
 
-        // Pick the rebuild backend. For docker-all the in-container CLI did
-        // the build, so the host CLI version doesn't have to match. For
-        // docker and local, the host CLI is part of the build pipeline, so
-        // a cliver mismatch means the rebuild will diverge. Legacy wasms
-        // with no bldbkd are treated as docker.
-        let backend = match bldbkd.as_deref().unwrap_or("docker") {
-            "docker-all" => build::Backend::DockerAll {
-                image: bldimg.ok_or(Error::MissingMeta("bldimg"))?,
-            },
-            "docker" => {
-                require_cliver_match(&cliver)?;
-                build::Backend::Docker {
-                    image: bldimg.ok_or(Error::MissingMeta("bldimg"))?,
-                }
-            }
-            "local" => {
-                require_cliver_match(&cliver)?;
-                build::Backend::Local
-            }
-            other => return Err(Error::UnknownBackend(other.to_string())),
+        let backend = match bldimg {
+            Some(image) => build::Backend::Docker { image },
+            None => build::Backend::Local,
         };
 
         // Resolve the manifest path relative to the cwd's git top-level so
@@ -177,18 +152,6 @@ impl Cmd {
                 produced,
             })
         }
-    }
-}
-
-fn require_cliver_match(expected: &str) -> Result<(), Error> {
-    let running = version::one_line();
-    if expected == running {
-        Ok(())
-    } else {
-        Err(Error::CliVersionMismatch {
-            expected: expected.to_string(),
-            actual: running,
-        })
     }
 }
 
