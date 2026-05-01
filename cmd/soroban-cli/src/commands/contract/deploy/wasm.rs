@@ -492,9 +492,10 @@ fn build_create_contract_tx(
 }
 
 /// On mainnet, warn if the wasm is missing the meta entries that indicate
-/// a reproducible build. `bldimg` is required only when `bldbkd` is not
-/// `local` (local builds have no docker image to record). All other
-/// reproducibility entries are required for both backends. Skipped on
+/// a reproducible build (`bldimg`, `cliver`, `rsver`, `source_repo`,
+/// `source_rev`, `bldopt_*`). `bldimg` is the docker-build marker — its
+/// presence indicates the wasm was built inside a recorded image; its
+/// absence means a local build with no image to verify against. Skipped on
 /// other networks. Best-effort: parse failures are silently ignored.
 fn warn_if_mainnet_wasm_not_reproducible(
     wasm_bytes: &[u8],
@@ -507,14 +508,8 @@ fn warn_if_mainnet_wasm_not_reproducible(
     let Ok(spec) = soroban_spec_tools::contract::Spec::new(wasm_bytes) else {
         return;
     };
-    let find = |k: &str| -> Option<String> {
-        spec.meta.iter().find_map(|e| {
-            let crate::xdr::ScMetaEntry::ScMetaV0(crate::xdr::ScMetaV0 { key, val }) = e;
-            (key.to_string() == k).then(|| val.to_string())
-        })
-    };
-    let mut required: Vec<&str> = vec![
-        "bldbkd",
+    let required = [
+        "bldimg",
         "cliver",
         "rsver",
         "source_repo",
@@ -523,13 +518,14 @@ fn warn_if_mainnet_wasm_not_reproducible(
         "bldopt_package",
         "bldopt_profile",
     ];
-    // `bldimg` is only meaningful for non-local backends.
-    if find("bldbkd").as_deref() != Some("local") {
-        required.push("bldimg");
-    }
     let missing: Vec<&str> = required
         .iter()
-        .filter(|k| find(k).is_none())
+        .filter(|k| {
+            !spec.meta.iter().any(|e| {
+                let crate::xdr::ScMetaEntry::ScMetaV0(crate::xdr::ScMetaV0 { key, .. }) = e;
+                key.to_string() == **k
+            })
+        })
         .copied()
         .collect();
     if missing.is_empty() {

@@ -467,7 +467,6 @@ impl Cmd {
                 self.inject_meta(
                     &target_file_path,
                     &ExtraMeta {
-                        bldbkd: Some("local".to_string()),
                         bldimg: None,
                         source_repo: source_repo.clone(),
                         source_rev: source_rev.clone(),
@@ -737,7 +736,6 @@ impl Cmd {
         // was used, and source_repo/source_rev when the workspace was a
         // clean git checkout.
         let kvs = [
-            ("bldbkd", extra.bldbkd.as_deref()),
             ("bldimg", extra.bldimg.as_deref()),
             ("source_repo", extra.source_repo.as_deref()),
             ("source_rev", extra.source_rev.as_deref()),
@@ -869,10 +867,6 @@ impl Cmd {
 /// `cliver` is always embedded (separately). `rsver` is embedded by soroban-sdk.
 #[derive(Default, Debug, Clone)]
 struct ExtraMeta {
-    /// `bldbkd`: build backend identifier — `local` or `docker`. Always
-    /// recorded so consumers can tell whether `bldimg` is expected to be
-    /// present.
-    bldbkd: Option<String>,
     /// `bldimg`: fully-qualified container image used to build (e.g.
     /// `docker.io/stellar/stellar-cli@sha256:...`). Set when `--backend
     /// docker`; injected by the in-container cli via `--meta bldimg=...`,
