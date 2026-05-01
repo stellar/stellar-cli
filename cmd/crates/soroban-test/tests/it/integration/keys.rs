@@ -145,6 +145,56 @@ async fn overwrite_identity_with_add() {
 }
 
 #[tokio::test]
+async fn add_public_key_rejects_secret_bearing_input() {
+    let sandbox = &TestEnv::new();
+    let secret = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("public-only")
+        .arg("--public-key")
+        .arg(secret)
+        .assert()
+        .failure();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("public-only")
+        .assert()
+        .failure();
+
+    let seed = "depth decade power loud smile spatial sign movie judge february rate broccoli";
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("public-only-seed")
+        .arg("--public-key")
+        .arg(seed)
+        .assert()
+        .failure();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("public-only-ledger")
+        .arg("--public-key")
+        .arg("ledger")
+        .assert()
+        .failure();
+
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("add")
+        .arg("public-only-secure")
+        .arg("--public-key")
+        .arg("secure_store:org.stellar.cli-alice")
+        .assert()
+        .failure();
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn set_default_identity() {
     let sandbox = &TestEnv::new();
