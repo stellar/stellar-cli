@@ -299,11 +299,64 @@ impl Args {
             .or_else(|_| self.read_identity(key_or_name))
     }
 
+    /// Like [`Args::read_key`], but for a `SecureStore` identity loaded from disk
+    /// that lacks a cached public key, derive one via the keychain (one prompt)
+    /// and persist it back so subsequent reads avoid the keychain.
+    pub fn read_key_with_secure_store_cache(
+        &self,
+        key_or_name: &str,
+        hd_path: Option<usize>,
+    ) -> Result<Key, Error> {
+        if let Ok(literal) = key_or_name.parse::<Key>() {
+            return Ok(literal);
+        }
+        let key = self.read_identity(key_or_name)?;
+        if let Key::Secret(Secret::SecureStore {
+            entry_name,
+            public_key: None,
+            ..
+        }) = &key
+        {
+            let pk = secure_store::get_public_key(entry_name, hd_path)?;
+            let migrated = Key::Secret(Secret::SecureStore {
+                entry_name: entry_name.clone(),
+                public_key: Some(pk.to_string()),
+                hd_path,
+            });
+            // Best-effort write-back: if persistence fails we still return the
+            // freshly-derived value so the current call succeeds.
+            let _ = self.write_key(key_or_name, &migrated);
+            return Ok(migrated);
+        }
+        Ok(key)
+    }
+
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
         let key = self.read_key(key_or_name).map_err(|e| match e {
             Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
             other => other,
         })?;
+        match key {
+            Key::Secret(s) => Ok(s),
+            _ => Err(Error::InvalidSigningKey),
+        }
+    }
+
+    /// Like [`Args::get_secret_key`], but if the secret is a `SecureStore`
+    /// identity loaded from disk without a cached public key, derive it for the
+    /// given `hd_path` and persist the cache. Use from signing paths so the
+    /// returned `Secret` already carries the data signing needs for the hint.
+    pub fn get_secret_key_with_hd_path(
+        &self,
+        key_or_name: &str,
+        hd_path: Option<usize>,
+    ) -> Result<Secret, Error> {
+        let key = self
+            .read_key_with_secure_store_cache(key_or_name, hd_path)
+            .map_err(|e| match e {
+                Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
+                other => other,
+            })?;
         match key {
             Key::Secret(s) => Ok(s),
             _ => Err(Error::InvalidSigningKey),
@@ -334,7 +387,7 @@ impl Args {
         let print = Print::new(global_args.quiet);
         let identity = self.read_identity(name)?;
 
-        if let Key::Secret(Secret::SecureStore { entry_name }) = identity {
+        if let Key::Secret(Secret::SecureStore { entry_name, .. }) = identity {
             secure_store::delete_secret(&print, &entry_name)?;
         }
 
@@ -1208,5 +1261,80 @@ mod tests {
             // Must not panic even though ~/.config/stellar does not exist
             print_deprecation_warning(&local_dir);
         });
+    }
+
+    mod secure_store_cache {
+        use super::super::*;
+
+        const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+
+        fn locator_with_tempdir() -> (tempfile::TempDir, Args) {
+            let dir = tempfile::tempdir().unwrap();
+            let args = Args {
+                config_dir: Some(dir.path().to_path_buf()),
+            };
+            (dir, args)
+        }
+
+        // The legacy-file -> derive-via-keychain -> write-back path is
+        // exercised end-to-end by the soroban-test integration test
+        // `secure_store_key_management`. The keyring crate's mock builder
+        // assigns each `Entry` instance its own in-memory credential
+        // (CredentialPersistence::EntryOnly), which makes the read-after-write
+        // round trip impossible to simulate in pure unit tests.
+
+        #[test]
+        fn passes_through_already_cached_identity_without_keychain_access() {
+            let (_dir, locator) = locator_with_tempdir();
+
+            // Entry name points to a non-existent keychain entry, so any
+            // keychain access would fail the test.
+            let already = Secret::SecureStore {
+                entry_name: "secure_store:org.stellar.cli-no-such-entry".to_string(),
+                public_key: Some(TEST_PUBLIC_KEY.to_string()),
+                hd_path: None,
+            };
+            locator.write_identity("already", &already).unwrap();
+
+            let key = locator
+                .read_key_with_secure_store_cache("already", None)
+                .unwrap();
+            match key {
+                Key::Secret(Secret::SecureStore {
+                    public_key: Some(pk),
+                    ..
+                }) => assert_eq!(pk, TEST_PUBLIC_KEY),
+                other => panic!("expected SecureStore, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn passes_through_non_secure_store_identity() {
+            let (_dir, locator) = locator_with_tempdir();
+
+            let secret = Secret::SecretKey {
+                secret_key: TEST_SECRET_KEY.to_string(),
+            };
+            locator.write_identity("plain", &secret).unwrap();
+
+            let key = locator
+                .read_key_with_secure_store_cache("plain", None)
+                .unwrap();
+            assert!(matches!(
+                key,
+                Key::Secret(Secret::SecretKey { ref secret_key }) if secret_key == TEST_SECRET_KEY
+            ));
+        }
+
+        #[test]
+        fn returns_literal_public_key_without_disk_lookup() {
+            let (_dir, locator) = locator_with_tempdir();
+
+            let key = locator
+                .read_key_with_secure_store_cache(TEST_PUBLIC_KEY, None)
+                .unwrap();
+            assert!(matches!(key, Key::PublicKey(_)));
+        }
     }
 }
