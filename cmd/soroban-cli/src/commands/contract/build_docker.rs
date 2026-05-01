@@ -156,19 +156,16 @@ async fn run_inner_build(
         env.push(format!("RUSTUP_TOOLCHAIN={t}"));
     }
 
-    // Override the image's entrypoint with `sh -c` so we can preflight-check
-    // the wasm target before invoking the cli. Works against the official
-    // `stellar/stellar-cli` image and any compatible custom image.
-    let entrypoint = vec![
-        "sh".to_string(),
-        "-c".to_string(),
-        preflight_script(),
-    ];
+    // Use the image's default entrypoint (`stellar` for the official image,
+    // and any compatible custom image must do the same). The args in `cmd`
+    // become the cli's arguments. We rely on the image to have the right
+    // wasm target installed for its default toolchain; if `RUSTUP_TOOLCHAIN`
+    // selects a different one, the cli/cargo handle target installation
+    // themselves.
     let argv = build_inner_argv(inner, image);
 
     let config = ContainerCreateBody {
         image: Some(image.to_string()),
-        entrypoint: Some(entrypoint),
         cmd: Some(argv),
         env: Some(env),
         working_dir: Some(SOURCE_DIR.to_string()),
@@ -201,18 +198,6 @@ async fn run_inner_build(
         .await;
 
     result
-}
-
-/// Shell script run as the container's entrypoint. Preflight-checks that
-/// `wasm32v1-none` is installed in the active rust toolchain, then `exec`s
-/// `stellar` with the args passed via `cmd`.
-fn preflight_script() -> String {
-    "rustup target list --installed 2>/dev/null | grep -q '^wasm32v1-none$' || { \
-         echo 'error: wasm32v1-none target not installed in image; install it with `rustup target add wasm32v1-none` or use a different image' >&2; \
-         exit 1; \
-     }; \
-     exec stellar \"$@\""
-        .to_string()
 }
 
 async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> {
@@ -252,9 +237,8 @@ async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Erro
     Ok(())
 }
 
-/// Build the argv passed via `cmd` after the `sh -c '... exec stellar "$@"'`
-/// entrypoint. The first element is the `$0` placeholder for sh; the rest
-/// become `stellar`'s actual args.
+/// Build the argv passed via `cmd`. The image's entrypoint is `stellar`,
+/// so these become the cli's arguments directly.
 ///
 /// We deliberately do not pass `--backend local` here: the in-container cli
 /// may be a release that predates this PR and doesn't know about `--backend`.
@@ -265,7 +249,6 @@ async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Erro
 /// no separate `bldbkd` field is needed.
 fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
     let mut argv: Vec<String> = vec![
-        "sh".to_string(), // $0 placeholder
         "contract".to_string(),
         "build".to_string(),
         "--manifest-path".to_string(),
@@ -301,12 +284,7 @@ fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
 }
 
 fn format_inner_cmd(inner: &InnerBuildArgs<'_>, image: &str) -> String {
-    // Skip the `$0` placeholder when displaying.
-    build_inner_argv(inner, image)
-        .into_iter()
-        .skip(1)
-        .collect::<Vec<_>>()
-        .join(" ")
+    build_inner_argv(inner, image).join(" ")
 }
 
 /// Pull `image` (by tag or by digest) on `linux/amd64`. Daemon-reported
