@@ -156,16 +156,19 @@ async fn run_inner_build(
         env.push(format!("RUSTUP_TOOLCHAIN={t}"));
     }
 
-    // Use the image's default entrypoint (`stellar` for the official image,
-    // and any compatible custom image must do the same). The args in `cmd`
-    // become the cli's arguments. We rely on the image to have the right
-    // wasm target installed for its default toolchain; if `RUSTUP_TOOLCHAIN`
-    // selects a different one, the cli/cargo handle target installation
-    // themselves.
+    // Override the image's entrypoint to invoke `stellar` directly. The
+    // official `stellar/stellar-cli` image's entrypoint is a wrapper script
+    // that launches dbus + gnome-keyring before exec-ing `stellar`; that
+    // setup is irrelevant for `contract build` and dbus refuses to start
+    // when the container runs as a host UID with no `/etc/passwd` entry.
+    // Going straight to the binary keeps the host UID mapping intact (so
+    // build outputs aren't root-owned on the host) and skips the broken
+    // dbus init.
     let argv = build_inner_argv(inner, image);
 
     let config = ContainerCreateBody {
         image: Some(image.to_string()),
+        entrypoint: Some(vec!["stellar".to_string()]),
         cmd: Some(argv),
         env: Some(env),
         working_dir: Some(SOURCE_DIR.to_string()),
