@@ -182,7 +182,7 @@ async fn run_inner_build(
     let entrypoint = vec![
         "sh".to_string(),
         "-c".to_string(),
-        "rustup target add wasm32v1-none --quiet && exec stellar \"$@\"".to_string(),
+        "rustup --quiet target add wasm32v1-none && exec stellar \"$@\"".to_string(),
     ];
     let argv = build_inner_argv(inner, image);
 
