@@ -159,19 +159,36 @@ async fn run_inner_build(
         env.push(format!("RUSTUP_TOOLCHAIN={t}"));
     }
 
-    // Override the image's entrypoint to invoke `stellar` directly. The
-    // official `stellar/stellar-cli` image's entrypoint is a wrapper script
-    // that launches dbus + gnome-keyring before exec-ing `stellar`; that
-    // setup is irrelevant for `contract build` and dbus refuses to start
-    // when the container runs as a host UID with no `/etc/passwd` entry.
-    // Going straight to the binary keeps the host UID mapping intact (so
-    // build outputs aren't root-owned on the host) and skips the broken
-    // dbus init.
+    // Override the image's entrypoint with a small shim that ensures the
+    // wasm target is installed for the active rust toolchain, then exec's
+    // `stellar`. Two reasons:
+    //
+    // - When `RUSTUP_TOOLCHAIN=<rsver>` selects a toolchain other than the
+    //   image's default (typical at verify time), the image's pre-installed
+    //   `wasm32v1-none` target is associated with the *other* toolchain,
+    //   not the selected one — `cargo build --target=wasm32v1-none` would
+    //   fail. `rustup target add` is idempotent (and quick, when the target
+    //   is already present) so always running it is safe.
+    // - The official `stellar/stellar-cli` image's stock entrypoint is a
+    //   wrapper script that launches dbus + gnome-keyring before exec-ing
+    //   `stellar`; that setup is irrelevant for `contract build` and dbus
+    //   refuses to start when the container runs as a host UID with no
+    //   `/etc/passwd` entry. Skipping it keeps the host UID mapping intact.
+    //
+    // TODO: remove this entrypoint override once
+    // https://github.com/stellar/stellar-cli/issues/2545 is implemented and
+    // the published image's entrypoint installs the wasm target itself
+    // (and doesn't drag dbus/gnome-keyring into the contract-build path).
+    let entrypoint = vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        "rustup target add wasm32v1-none --quiet && exec stellar \"$@\"".to_string(),
+    ];
     let argv = build_inner_argv(inner, image);
 
     let config = ContainerCreateBody {
         image: Some(image.to_string()),
-        entrypoint: Some(vec!["stellar".to_string()]),
+        entrypoint: Some(entrypoint),
         cmd: Some(argv),
         env: Some(env),
         working_dir: Some(SOURCE_DIR.to_string()),
@@ -243,8 +260,10 @@ async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Erro
     Ok(())
 }
 
-/// Build the argv passed via `cmd`. The image's entrypoint is `stellar`,
-/// so these become the cli's arguments directly.
+/// Build the argv passed via `cmd`. The image's entrypoint is overridden
+/// to `sh -c '<script>' "$@"`, so the first element is the `$0` placeholder
+/// for sh; the rest become `stellar`'s actual args (since `<script>` ends
+/// in `exec stellar "$@"`).
 ///
 /// We deliberately do not pass `--backend local` here: the in-container cli
 /// may be a release that predates this PR and doesn't know about `--backend`.
@@ -255,6 +274,7 @@ async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Erro
 /// no separate `bldbkd` field is needed.
 fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
     let mut argv: Vec<String> = vec![
+        "sh".to_string(), // $0 placeholder for the entrypoint's `sh -c`
         "contract".to_string(),
         "build".to_string(),
         "--manifest-path".to_string(),
@@ -290,7 +310,12 @@ fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
 }
 
 fn format_inner_cmd(inner: &InnerBuildArgs<'_>, image: &str) -> String {
-    build_inner_argv(inner, image).join(" ")
+    // Skip the `$0` placeholder when displaying.
+    build_inner_argv(inner, image)
+        .into_iter()
+        .skip(1)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Pull `image` (by tag or by digest) on `linux/amd64`. Daemon-reported
