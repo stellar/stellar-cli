@@ -1,9 +1,9 @@
 ## Preamble
 
 ```
-SEP: 0058
+SEP: 0000
 Title: Soroban Contract Build Reproducibility and Verification
-Author: <Author Name>
+Author: Leigh McCulloch <@leighmcculloch>
 Status: Draft
 Created: 2026-05-01
 Updated: 2026-05-01
