@@ -246,21 +246,24 @@ async fn stream_and_wait(docker: &Docker, container_id: &str) -> Result<(), Erro
 /// entrypoint. The first element is the `$0` placeholder for sh; the rest
 /// become `stellar`'s actual args.
 ///
-/// `bldimg` is forwarded as `--meta bldimg=<digest>` so the in-container
-/// `--backend local` build records the image identity in the wasm meta —
-/// without needing a new cli flag.
+/// We deliberately do not pass `--backend local` here: the in-container cli
+/// may be a release that predates this PR and doesn't know about `--backend`.
+/// Its default behavior (build locally) is what we want anyway. `bldbkd` and
+/// `bldimg` are forwarded as `--meta` entries (an existing flag) so the
+/// in-container build records them in the wasm meta — without depending on
+/// any new flags from this PR.
 fn build_inner_argv(inner: &InnerBuildArgs<'_>, image: &str) -> Vec<String> {
     let mut argv: Vec<String> = vec![
         "sh".to_string(), // $0 placeholder
         "contract".to_string(),
         "build".to_string(),
-        "--backend".to_string(),
-        "local".to_string(),
         "--manifest-path".to_string(),
         inner.manifest_path.clone(),
         "--profile".to_string(),
         inner.profile.to_string(),
         "--locked".to_string(),
+        "--meta".to_string(),
+        "bldbkd=docker".to_string(),
         "--meta".to_string(),
         format!("bldimg={image}"),
     ];
