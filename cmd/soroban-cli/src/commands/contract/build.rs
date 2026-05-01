@@ -626,9 +626,17 @@ impl Cmd {
     ) -> Result<Vec<BuiltContract>, Error> {
         // Pick the stellar-cli rev to install in the layered image. We
         // require the host CLI to have been built from a commit so the same
-        // version can be installed inside the container — guaranteeing
-        // `cliver` (recorded by the in-container build) matches the host's.
-        let cli_rev = build_docker_all::extract_full_sha(version::git())?;
+        // version can be installed inside the container — the in-container
+        // build records that exact rev in `cliver`. If the host CLI was
+        // itself built from a dirty working tree, warn but proceed: the
+        // wasm will reflect the *clean* commit (whatever's pushed to
+        // origin), not the host's local diff.
+        let (cli_rev, host_dirty) = build_docker_all::extract_full_sha(version::git())?;
+        if host_dirty {
+            print.warnln(format!(
+                "host stellar-cli was built from a dirty working tree at {cli_rev}; the layered image will install the clean commit and the resulting wasm will not match a build from the host's local diff"
+            ));
+        }
 
         // The user's --manifest-path (if any) is a host path; translate to
         // the in-container `/workspace/...` form. If absent, fall back to

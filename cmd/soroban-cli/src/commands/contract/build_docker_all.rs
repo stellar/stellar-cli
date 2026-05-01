@@ -333,26 +333,30 @@ fn format_inner_cmd(inner: &InnerBuildArgs<'_>, base_resolved: &str) -> String {
     build_inner_argv(inner, base_resolved).join(" ")
 }
 
-/// Reduce a host stellar-cli git revision string to a 40-char commit sha.
+/// Reduce a host stellar-cli git revision string to a 40-char commit sha
+/// plus a dirty flag.
 ///
-/// `crate_git_revision` produces three shapes depending on how the host CLI
-/// was installed (homebrew/crates.io/cargo-git). Only the full sha can be
-/// passed to `cargo install --rev` reliably. (See issue #2535 for the
-/// in-progress normalization of this rendering.)
-pub fn extract_full_sha(git: &str) -> Result<String, Error> {
+/// `crate_git_revision` (stellar's fork) emits one of two shapes:
+/// - `<40-char-sha>` for a clean working tree
+/// - `<40-char-sha>-dirty` for a working tree with uncommitted changes
+///
+/// The bare sha is what `cargo install --git --rev` needs. Callers should
+/// warn the user when the dirty flag is set: the layered image will install
+/// the *clean* commit, so the resulting wasm won't match what a clean host
+/// CLI would have produced.
+pub fn extract_full_sha(git: &str) -> Result<(String, bool), Error> {
     if git.is_empty() {
         return Err(Error::NoHostCliRev);
     }
-    if is_full_sha(git) {
-        return Ok(git.to_string());
+    let (sha, dirty) = match git.strip_suffix("-dirty") {
+        Some(s) => (s, true),
+        None => (git, false),
+    };
+    if is_full_sha(sha) {
+        Ok((sha.to_string(), dirty))
+    } else {
+        Err(Error::NoHostCliRev)
     }
-    if let Some(idx) = git.rfind("-g") {
-        let candidate = &git[idx + 2..];
-        if is_full_sha(candidate) {
-            return Ok(candidate.to_string());
-        }
-    }
-    Err(Error::NoHostCliRev)
 }
 
 fn is_full_sha(s: &str) -> bool {
@@ -364,16 +368,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn extract_full_sha_full() {
+    fn extract_full_sha_clean() {
         let sha = "60f7458e7ecffddf2f2d91dc6d0d2db4fab03ecc";
-        assert_eq!(extract_full_sha(sha).unwrap(), sha);
+        assert_eq!(extract_full_sha(sha).unwrap(), (sha.to_string(), false));
     }
 
     #[test]
-    fn extract_full_sha_describe() {
-        let s = "v20.0.0-836-gfe07b3678833e07c43235a6caaeccff81e146856";
-        let want = "fe07b3678833e07c43235a6caaeccff81e146856";
-        assert_eq!(extract_full_sha(s).unwrap(), want);
+    fn extract_full_sha_dirty() {
+        let sha = "edc5397642bb6e53a4eb6c96348493df105ffa69";
+        let input = format!("{sha}-dirty");
+        assert_eq!(
+            extract_full_sha(&input).unwrap(),
+            (sha.to_string(), true)
+        );
     }
 
     #[test]
@@ -384,6 +391,14 @@ mod tests {
     #[test]
     fn extract_full_sha_short_errors() {
         assert!(matches!(extract_full_sha("abc"), Err(Error::NoHostCliRev)));
+    }
+
+    #[test]
+    fn extract_full_sha_describe_form_no_longer_supported() {
+        // `crate_git_revision` (stellar's fork) emits only `<sha>` or
+        // `<sha>-dirty` now; the legacy git-describe form should error.
+        let s = "v20.0.0-836-gfe07b3678833e07c43235a6caaeccff81e146856";
+        assert!(matches!(extract_full_sha(s), Err(Error::NoHostCliRev)));
     }
 
     #[test]

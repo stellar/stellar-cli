@@ -55,6 +55,7 @@ pub enum Error {
 }
 
 impl Cmd {
+    #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
