@@ -57,6 +57,7 @@ pub enum Error {
 }
 
 impl Cmd {
+    #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
@@ -70,13 +71,27 @@ impl Cmd {
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg");
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
-        let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path")
-            .ok_or(Error::MissingMeta("bldopt_manifest_path"))?;
-        let bldopt_package =
-            find_meta(&spec.meta, "bldopt_package").ok_or(Error::MissingMeta("bldopt_package"))?;
-        let bldopt_profile =
-            find_meta(&spec.meta, "bldopt_profile").ok_or(Error::MissingMeta("bldopt_profile"))?;
+        let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path");
+        let bldopt_package = find_meta(&spec.meta, "bldopt_package");
+        let bldopt_profile = find_meta(&spec.meta, "bldopt_profile");
         let bldopt_optimize = find_meta(&spec.meta, "bldopt_optimize").is_some();
+
+        // Bldopts are best-effort: warn about missing ones and fall back to
+        // the build command's defaults so verify still tries to rebuild.
+        let missing_bldopts: Vec<&str> = [
+            ("bldopt_manifest_path", bldopt_manifest_path.is_some()),
+            ("bldopt_package", bldopt_package.is_some()),
+            ("bldopt_profile", bldopt_profile.is_some()),
+        ]
+        .into_iter()
+        .filter_map(|(k, present)| (!present).then_some(k))
+        .collect();
+        if !missing_bldopts.is_empty() {
+            print.warnln(format!(
+                "wasm meta is missing build option entries: {missing_bldopts:?}. \
+                 The build may not be reproducible — defaults will be used for missing options."
+            ));
+        }
 
         print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
@@ -84,9 +99,15 @@ impl Cmd {
         if let Some(b) = &bldimg {
             print.blankln(format!("Docker image: {b}"));
         }
-        print.blankln(format!("Manifest path: {bldopt_manifest_path}"));
-        print.blankln(format!("Package: {bldopt_package}"));
-        print.blankln(format!("Profile: {bldopt_profile}"));
+        if let Some(p) = &bldopt_manifest_path {
+            print.blankln(format!("Manifest path: {p}"));
+        }
+        if let Some(p) = &bldopt_package {
+            print.blankln(format!("Package: {p}"));
+        }
+        if let Some(p) = &bldopt_profile {
+            print.blankln(format!("Profile: {p}"));
+        }
         if bldopt_optimize {
             print.blankln("Optimize: true");
         }
@@ -98,8 +119,8 @@ impl Cmd {
 
         // Resolve the manifest path relative to the cwd's git top-level so
         // verify works from anywhere inside the checkout.
-        let manifest_path = {
-            let p = PathBuf::from(&bldopt_manifest_path);
+        let manifest_path = bldopt_manifest_path.map(|s| {
+            let p = PathBuf::from(&s);
             if p.is_absolute() {
                 p
             } else if let Some(root) = git_top_level() {
@@ -107,12 +128,12 @@ impl Cmd {
             } else {
                 p
             }
-        };
+        });
 
         let build_cmd = build::Cmd {
-            manifest_path: Some(manifest_path),
-            package: Some(bldopt_package),
-            profile: bldopt_profile,
+            manifest_path,
+            package: bldopt_package,
+            profile: bldopt_profile.unwrap_or_else(|| build::Cmd::default().profile),
             backend,
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
