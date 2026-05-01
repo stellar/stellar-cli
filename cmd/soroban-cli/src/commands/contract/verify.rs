@@ -12,11 +12,17 @@ use crate::commands::container::shared::Args as ContainerArgs;
 use crate::commands::{global, version};
 use crate::print::Print;
 
-/// Verify a wasm by rebuilding it inside the Docker image recorded in its metadata.
+/// Verify a wasm by rebuilding it with the same backend recorded in its metadata.
 ///
 /// All cdylib contracts in the workspace are rebuilt; verification succeeds if
 /// any rebuilt artifact is byte-identical to the input. The user is responsible
 /// for checking out the matching commit before running.
+///
+/// `bldbkd: docker` and `bldbkd: docker-all` rebuild inside the recorded image.
+/// `bldbkd: local` rebuilds with the host rust toolchain pinned to the wasm's
+/// `rsver` — this is best-effort: local builds depend on environment factors
+/// (system libs, paths, env vars) that aren't captured in meta, so a verify
+/// match is informative but not as strong a guarantee as the docker backends.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -48,8 +54,6 @@ pub enum Error {
     },
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
-    #[error("contract was built with `--backend local` (bldbkd=local); local builds are not reproducible. Rebuild with `--backend docker` or `--backend docker-all` to make it verifiable.")]
-    LocalBackend,
     #[error("unknown bldbkd value '{0}'")]
     UnknownBackend(String),
 }
@@ -67,7 +71,7 @@ impl Cmd {
         let original_hash = hex::encode(Sha256::digest(&wasm_bytes));
         let spec = Spec::new(&wasm_bytes)?;
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
-        let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
+        let bldimg = find_meta(&spec.meta, "bldimg");
         let bldbkd = find_meta(&spec.meta, "bldbkd");
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
         let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path")
@@ -81,7 +85,9 @@ impl Cmd {
         print.blankln(format!("Original wasm hash: {original_hash}"));
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
-        print.blankln(format!("Docker image: {bldimg}"));
+        if let Some(b) = &bldimg {
+            print.blankln(format!("Docker image: {b}"));
+        }
         print.blankln(format!(
             "Build backend: {}",
             bldbkd.as_deref().unwrap_or("docker")
@@ -93,28 +99,25 @@ impl Cmd {
             print.blankln("Optimize: true");
         }
 
-        // For docker-all builds the in-container stellar-cli is what built
-        // the wasm, so the host version doesn't have to match. For docker
-        // (host post-processing), the host stellar-cli is part of the build
-        // pipeline and a mismatch means the rebuild will diverge. Legacy
-        // wasms with no bldbkd are treated as `docker`.
+        // Pick the rebuild backend. For docker-all the in-container CLI did
+        // the build, so the host CLI version doesn't have to match. For
+        // docker and local, the host CLI is part of the build pipeline, so
+        // a cliver mismatch means the rebuild will diverge. Legacy wasms
+        // with no bldbkd are treated as docker.
         let backend = match bldbkd.as_deref().unwrap_or("docker") {
             "docker-all" => build::Backend::DockerAll {
-                image: bldimg.clone(),
+                image: bldimg.ok_or(Error::MissingMeta("bldimg"))?,
             },
             "docker" => {
-                let running = version::one_line();
-                if cliver != running {
-                    return Err(Error::CliVersionMismatch {
-                        expected: cliver,
-                        actual: running,
-                    });
-                }
+                require_cliver_match(&cliver)?;
                 build::Backend::Docker {
-                    image: bldimg.clone(),
+                    image: bldimg.ok_or(Error::MissingMeta("bldimg"))?,
                 }
             }
-            "local" => return Err(Error::LocalBackend),
+            "local" => {
+                require_cliver_match(&cliver)?;
+                build::Backend::Local
+            }
             other => return Err(Error::UnknownBackend(other.to_string())),
         };
 
@@ -174,6 +177,18 @@ impl Cmd {
                 produced,
             })
         }
+    }
+}
+
+fn require_cliver_match(expected: &str) -> Result<(), Error> {
+    let running = version::one_line();
+    if expected == running {
+        Ok(())
+    } else {
+        Err(Error::CliVersionMismatch {
+            expected: expected.to_string(),
+            actual: running,
+        })
     }
 }
 
