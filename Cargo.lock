@@ -5377,6 +5377,7 @@ dependencies = [
  "async-trait",
  "base64 0.21.7",
  "bollard",
+ "bytes",
  "bytesize",
  "cargo_metadata",
  "chrono",
@@ -5396,6 +5397,7 @@ dependencies = [
  "heck 0.5.0",
  "hex",
  "home",
+ "http-body-util",
  "humantime",
  "indexmap 2.11.0",
  "itertools 0.10.5",
@@ -5437,6 +5439,7 @@ dependencies = [
  "strsim",
  "strum 0.17.1",
  "strum_macros 0.17.1",
+ "tar",
  "tempfile",
  "termcolor",
  "termcolor_output",
@@ -6085,6 +6088,17 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "tar"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22692a6476a21fa75fdfc11d452fda482af402c008cdbaf3476414e122040973"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
 
 [[package]]
 name = "temp-dir"

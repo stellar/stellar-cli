@@ -19,7 +19,11 @@ use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXd
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{container::shared::Args as ContainerArgs, contract::build_docker, global, version},
+    commands::{
+        container::shared::Args as ContainerArgs,
+        contract::{build_docker, build_docker_all},
+        global, version,
+    },
     print::Print,
     wasm,
 };
@@ -103,6 +107,11 @@ pub struct Cmd {
     ///   recorded in contract metadata.
     /// - `docker=<image>`: build inside the specified docker image. Pin
     ///   via `--backend docker=<name>@sha256:...` for fully-reproducible builds.
+    /// - `docker-all` / `docker-all=<image>`: like `docker`, but layers a
+    ///   stellar-cli install on top of the base image and runs the entire
+    ///   `stellar contract build` (including post-build steps) inside the
+    ///   container. Captures the whole build pipeline in the image so the
+    ///   host stellar-cli version is irrelevant for `verify`.
     ///
     /// Aborted docker builds may leave a stopped container; clean with `docker container prune`.
     #[arg(
@@ -119,8 +128,19 @@ pub struct Cmd {
 
     /// Run cargo via `cargo +<toolchain>` to pin the rust toolchain. Set by
     /// `verify` from the wasm's `rsver` meta entry; not user-facing.
-    #[arg(skip)]
+    #[arg(long, hide = true)]
     pub rustup_toolchain: Option<String>,
+
+    /// Override `bldimg` meta. Set by `--backend docker-all` when invoking
+    /// the in-container stellar-cli; not user-facing.
+    #[arg(long, hide = true)]
+    pub bldimg: Option<String>,
+
+    /// Override `bldbkd` meta (build backend identifier). Set by
+    /// `--backend docker-all` when invoking the in-container stellar-cli;
+    /// not user-facing.
+    #[arg(long, hide = true)]
+    pub bldbkd: Option<String>,
 
     #[command(flatten)]
     pub build_args: BuildArgs,
@@ -142,15 +162,19 @@ pub enum Backend {
     /// Build with the host's rust toolchain.
     #[default]
     Local,
-    /// Build inside a Docker container with the given image.
+    /// Build cargo inside a Docker container with the given image; post-build
+    /// steps run on the host.
     Docker { image: String },
+    /// Build inside a stellar-cli image layered on top of the given base
+    /// image; the entire build pipeline runs inside the container.
+    DockerAll { image: String },
 }
 
 impl Backend {
-    /// Returns the docker image if the backend is `Docker`, else `None`.
+    /// Returns the docker image if the backend uses one, else `None`.
     pub fn docker_image(&self) -> Option<&str> {
         match self {
-            Self::Docker { image } => Some(image),
+            Self::Docker { image } | Self::DockerAll { image } => Some(image),
             Self::Local => None,
         }
     }
@@ -164,6 +188,9 @@ pub fn parse_backend(s: &str) -> Result<Backend, String> {
         "docker" => Ok(Backend::Docker {
             image: DEFAULT_DOCKER_IMAGE.to_string(),
         }),
+        "docker-all" => Ok(Backend::DockerAll {
+            image: DEFAULT_DOCKER_IMAGE.to_string(),
+        }),
         _ => {
             if let Some(image) = s.strip_prefix("docker=") {
                 if image.is_empty() {
@@ -172,9 +199,16 @@ pub fn parse_backend(s: &str) -> Result<Backend, String> {
                 Ok(Backend::Docker {
                     image: image.to_string(),
                 })
+            } else if let Some(image) = s.strip_prefix("docker-all=") {
+                if image.is_empty() {
+                    return Err("docker-all image cannot be empty; use `--backend docker-all` for the default image".to_string());
+                }
+                Ok(Backend::DockerAll {
+                    image: image.to_string(),
+                })
             } else {
                 Err(format!(
-                    "unknown backend {s:?}; expected `local`, `docker`, or `docker=<image>`"
+                    "unknown backend {s:?}; expected `local`, `docker`, `docker=<image>`, `docker-all`, or `docker-all=<image>`"
                 ))
             }
         }
@@ -300,6 +334,8 @@ impl Default for Cmd {
             backend: Backend::Local,
             container_args: ContainerArgs { docker_host: None },
             rustup_toolchain: None,
+            bldimg: None,
+            bldbkd: None,
             build_args: BuildArgs::default(),
             action: None,
         }
@@ -362,6 +398,24 @@ impl Cmd {
         // dependencies and shared repo files are visible inside the
         // container). Fall back to the cargo workspace root otherwise.
         let mount_root = git_root.as_deref().unwrap_or(workspace_root);
+
+        // `--backend docker-all` orchestrates a *layered* image build (base
+        // rust image + wasm target + stellar-cli installed at the host's
+        // commit sha) and runs the entire build pipeline inside it. The host
+        // skips the cargo + post-processing loop below.
+        if let Backend::DockerAll { image } = &self.backend {
+            return self
+                .run_docker_all(
+                    image,
+                    &print,
+                    &packages,
+                    target_dir.as_std_path(),
+                    workspace_root,
+                    mount_root,
+                    &wasm_target,
+                )
+                .await;
+        }
 
         for (i, p) in packages.iter().enumerate() {
             if i > 0 {
@@ -457,7 +511,11 @@ impl Cmd {
                     if !status.success() {
                         return Err(Error::Exit(status));
                     }
-                    None
+                    // When invoked from inside a `--backend docker-all`
+                    // container, the outer host passes `--bldimg` so the
+                    // in-container build still records the original base
+                    // image digest in meta.
+                    self.bldimg.clone()
                 };
 
                 let wasm_name = p.name.replace('-', "_");
@@ -471,10 +529,26 @@ impl Cmd {
                     pathdiff::diff_paths(&p.manifest_path, gr)
                         .map(|p| p.to_string_lossy().into_owned())
                 });
+                let bldbkd = self.bldbkd.clone().unwrap_or_else(|| {
+                    match &self.backend {
+                        Backend::Local => "local",
+                        Backend::Docker { .. } => "docker",
+                        // `Backend::DockerAll` returns early in `run` before
+                        // reaching this loop; it never injects meta itself.
+                        // The in-container `Backend::Local` invocation is
+                        // what actually writes the wasm, with `--bldbkd
+                        // docker-all` set so `self.bldbkd` is `Some` above.
+                        Backend::DockerAll { .. } => {
+                            unreachable!("DockerAll returns before inject_meta")
+                        }
+                    }
+                    .to_string()
+                });
                 self.inject_meta(
                     &target_file_path,
                     &ExtraMeta {
                         bldimg: bldimg.clone(),
+                        bldbkd: Some(bldbkd),
                         source_repo: source_repo.clone(),
                         source_rev: source_rev.clone(),
                         bldopt_manifest_path,
@@ -530,6 +604,95 @@ impl Cmd {
         }
 
         Ok(built_contracts)
+    }
+
+    /// Orchestrate a `--backend docker-all` build: build a stellar-cli image
+    /// layered on top of the chosen base, then run the full
+    /// `stellar contract build --backend local` pipeline inside it.
+    ///
+    /// The host doesn't run cargo or post-processing itself — those are done
+    /// by the in-container stellar-cli, against the bind-mounted source and
+    /// target directories.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_docker_all(
+        &self,
+        image: &str,
+        print: &Print,
+        packages: &[Package],
+        target_dir: &Path,
+        workspace_root: &Path,
+        mount_root: &Path,
+        wasm_target: &str,
+    ) -> Result<Vec<BuiltContract>, Error> {
+        // Pick the stellar-cli rev to install in the layered image. We
+        // require the host CLI to have been built from a commit so the same
+        // version can be installed inside the container — guaranteeing
+        // `cliver` (recorded by the in-container build) matches the host's.
+        let cli_rev = build_docker_all::extract_full_sha(version::git())?;
+
+        // The user's --manifest-path (if any) is a host path; translate to
+        // the in-container `/workspace/...` form. If absent, fall back to
+        // the workspace root's Cargo.toml.
+        let host_manifest = self
+            .manifest_path
+            .clone()
+            .unwrap_or_else(|| workspace_root.join("Cargo.toml"));
+        let rel = pathdiff::diff_paths(&host_manifest, mount_root)
+            .unwrap_or_else(|| host_manifest.clone());
+        let in_container_manifest = Path::new(build_docker::WORK_DIR)
+            .join(rel)
+            .to_string_lossy()
+            .into_owned();
+
+        let inner = build_docker_all::InnerBuildArgs {
+            manifest_path: in_container_manifest,
+            package: self.package.as_deref(),
+            profile: &self.profile,
+            features: self.features.as_deref(),
+            all_features: self.all_features,
+            no_default_features: self.no_default_features,
+            optimize: self.build_args.optimize,
+            meta: &self.build_args.meta,
+            rustup_toolchain: self.rustup_toolchain.as_deref(),
+        };
+
+        build_docker_all::run_in_docker_all(
+            image,
+            &cli_rev,
+            mount_root,
+            target_dir,
+            wasm_target,
+            &inner,
+            &self.container_args,
+            print,
+        )
+        .await?;
+
+        // The in-container build wrote its outputs to the bind-mounted
+        // target dir (and optionally copied to --out-dir, but the inner
+        // doesn't see --out-dir; we copy here on the host side).
+        let mut built = Vec::with_capacity(packages.len());
+        for p in packages {
+            let wasm_name = p.name.replace('-', "_");
+            let file = format!("{wasm_name}.wasm");
+            let target_file_path = target_dir.join(wasm_target).join(&self.profile).join(&file);
+
+            let final_path = if let Some(out_dir) = &self.out_dir {
+                fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+                let out_file_path = out_dir.join(&file);
+                fs::copy(&target_file_path, &out_file_path)
+                    .map_err(Error::CopyingWasmFile)?;
+                out_file_path
+            } else {
+                target_file_path
+            };
+
+            built.push(BuiltContract {
+                name: p.name.clone(),
+                path: final_path,
+            });
+        }
+        Ok(built)
     }
 
     fn features(&self) -> Option<Vec<String>> {
@@ -666,6 +829,7 @@ impl Cmd {
         // clean git checkout.
         let kvs = [
             ("bldimg", extra.bldimg.as_deref()),
+            ("bldbkd", extra.bldbkd.as_deref()),
             ("source_repo", extra.source_repo.as_deref()),
             ("source_rev", extra.source_rev.as_deref()),
             (
@@ -799,6 +963,10 @@ struct ExtraMeta {
     /// `bldimg`: fully-qualified container image used to build (e.g.
     /// `docker.io/library/rust@sha256:...`). Set when `--backend docker`.
     bldimg: Option<String>,
+    /// `bldbkd`: build backend identifier — one of `local`, `docker`, or
+    /// `docker-all`. Always recorded so anyone inspecting the wasm can see
+    /// which build path produced it.
+    bldbkd: Option<String>,
     /// `source_repo`: HTTPS URL of the workspace's git origin remote.
     /// Set only when the workspace is a clean git checkout.
     source_repo: Option<String>,
@@ -1208,5 +1376,29 @@ mod tests {
             );
         }
         assert_eq!(remote_to_https("notaurl"), None);
+    }
+
+    #[test]
+    fn parse_backend_recognizes_docker_all() {
+        assert!(matches!(parse_backend("local"), Ok(Backend::Local)));
+        assert!(matches!(
+            parse_backend("docker"),
+            Ok(Backend::Docker { .. })
+        ));
+        assert!(matches!(
+            parse_backend("docker=quay.io/foo/bar:tag"),
+            Ok(Backend::Docker { .. })
+        ));
+        assert!(matches!(
+            parse_backend("docker-all"),
+            Ok(Backend::DockerAll { .. })
+        ));
+        let parsed = parse_backend("docker-all=quay.io/foo/bar:tag").unwrap();
+        match parsed {
+            Backend::DockerAll { image } => assert_eq!(image, "quay.io/foo/bar:tag"),
+            other => panic!("expected DockerAll, got {other:?}"),
+        }
+        assert!(parse_backend("docker-all=").is_err());
+        assert!(parse_backend("nonsense").is_err());
     }
 }

@@ -4,6 +4,7 @@ pub mod asset;
 pub mod bindings;
 pub mod build;
 pub mod build_docker;
+pub mod build_docker_all;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;

@@ -48,6 +48,10 @@ pub enum Error {
     },
     #[error("reading rebuilt wasm: {0}")]
     ReadingRebuilt(std::io::Error),
+    #[error("contract was built with `--backend local` (bldbkd=local); local builds are not reproducible. Rebuild with `--backend docker` or `--backend docker-all` to make it verifiable.")]
+    LocalBackend,
+    #[error("unknown bldbkd value '{0}'")]
+    UnknownBackend(String),
 }
 
 impl Cmd {
@@ -63,6 +67,7 @@ impl Cmd {
         let spec = Spec::new(&wasm_bytes)?;
         let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
         let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
+        let bldbkd = find_meta(&spec.meta, "bldbkd");
         let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
         let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path")
             .ok_or(Error::MissingMeta("bldopt_manifest_path"))?;
@@ -76,6 +81,10 @@ impl Cmd {
         print.blankln(format!("stellar-cli version: {cliver}"));
         print.blankln(format!("rust version: {rsver}"));
         print.blankln(format!("Docker image: {bldimg}"));
+        print.blankln(format!(
+            "Build backend: {}",
+            bldbkd.as_deref().unwrap_or("docker")
+        ));
         print.blankln(format!("Manifest path: {bldopt_manifest_path}"));
         print.blankln(format!("Package: {bldopt_package}"));
         print.blankln(format!("Profile: {bldopt_profile}"));
@@ -83,13 +92,30 @@ impl Cmd {
             print.blankln("Optimize: true");
         }
 
-        let running = version::one_line();
-        if cliver != running {
-            return Err(Error::CliVersionMismatch {
-                expected: cliver,
-                actual: running,
-            });
-        }
+        // For docker-all builds the in-container stellar-cli is what built
+        // the wasm, so the host version doesn't have to match. For docker
+        // (host post-processing), the host stellar-cli is part of the build
+        // pipeline and a mismatch means the rebuild will diverge. Legacy
+        // wasms with no bldbkd are treated as `docker`.
+        let backend = match bldbkd.as_deref().unwrap_or("docker") {
+            "docker-all" => build::Backend::DockerAll {
+                image: bldimg.clone(),
+            },
+            "docker" => {
+                let running = version::one_line();
+                if cliver != running {
+                    return Err(Error::CliVersionMismatch {
+                        expected: cliver,
+                        actual: running,
+                    });
+                }
+                build::Backend::Docker {
+                    image: bldimg.clone(),
+                }
+            }
+            "local" => return Err(Error::LocalBackend),
+            other => return Err(Error::UnknownBackend(other.to_string())),
+        };
 
         // Resolve the manifest path relative to the cwd's git top-level so
         // verify works from anywhere inside the checkout.
@@ -108,7 +134,7 @@ impl Cmd {
             manifest_path: Some(manifest_path),
             package: Some(bldopt_package),
             profile: bldopt_profile,
-            backend: build::Backend::Docker { image: bldimg },
+            backend,
             container_args: self.container_args.clone(),
             rustup_toolchain: Some(rsver),
             build_args: build::BuildArgs {

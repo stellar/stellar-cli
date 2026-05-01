@@ -108,6 +108,9 @@ tempfile = "3.8.1"
 toml_edit = { workspace = true }
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
 bollard = { workspace = true }
+bytes = { workspace = true }
+tar = "0.4"
+http-body-util = "0.1"
 futures-util = "0.3.30"
 futures = "0.3.30"
 home = "0.5.9"

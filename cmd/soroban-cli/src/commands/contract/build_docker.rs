@@ -51,6 +51,15 @@ pub enum Error {
 
     #[error("resolving CARGO_HOME / RUSTUP_HOME: {0}")]
     CargoHome(std::io::Error),
+
+    #[error("building stellar-cli image: {0}")]
+    ImageBuild(String),
+
+    #[error("packaging Dockerfile context: {0}")]
+    Tar(std::io::Error),
+
+    #[error("host stellar-cli has no commit sha to install in container; rebuild from a git checkout (or install via `cargo install --git ... --rev <sha>`)")]
+    NoHostCliRev,
 }
 
 /// Pull (if needed) and run the host `cmd` inside a linux/amd64 container,
@@ -213,7 +222,7 @@ async fn run_and_wait(docker: &Docker, container_id: &str) -> Result<(), Error> 
     Ok(())
 }
 
-async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
+pub(super) async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), Error> {
     let mut stream = docker.create_image(
         Some(CreateImageOptions {
             from_image: Some(image.to_string()),
@@ -250,7 +259,7 @@ async fn pull_image(docker: &Docker, image: &str, print: &Print) -> Result<(), E
 // Returns a fully-qualified `<registry>/<path>@sha256:<digest>` reference so
 // that `verify` on a different machine can resolve it without depending on
 // local registry config.
-async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
+pub(super) async fn resolve_image_digest(docker: &Docker, image: &str) -> Result<String, Error> {
     let canonical = fully_qualify(strip_tag(image));
     let digest = if let Some(d) = sha256_digest(image) {
         d.to_string()
@@ -311,7 +320,7 @@ fn fully_qualify(name: &str) -> String {
 
 #[allow(clippy::unnecessary_wraps)]
 #[cfg(unix)]
-fn current_uid_gid() -> Option<String> {
+pub(super) fn current_uid_gid() -> Option<String> {
     // SAFETY: getuid/getgid are infallible POSIX calls.
     Some(format!("{}:{}", unsafe { libc::getuid() }, unsafe {
         libc::getgid()
@@ -319,13 +328,13 @@ fn current_uid_gid() -> Option<String> {
 }
 
 #[cfg(not(unix))]
-fn current_uid_gid() -> Option<String> {
+pub(super) fn current_uid_gid() -> Option<String> {
     None
 }
 
 /// Best-effort SOURCE_DATE_EPOCH from the workspace's HEAD commit time;
 /// falls back to `"0"` when not in a git repo.
-fn source_date_epoch(mount_root: &Path) -> String {
+pub(super) fn source_date_epoch(mount_root: &Path) -> String {
     Command::new("git")
         .arg("-C")
         .arg(mount_root)
