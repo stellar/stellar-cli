@@ -38,6 +38,10 @@ docker run --rm -it \
   stellar/stellar-cli contract build
 ```
 
+### Secure Store Keys
+
+The image does not include a system keyring, so `stellar keys` operations using `--secure-store` are not supported inside the container. Use file-based keys (the default) instead.
+
 ## Container Paths
 
 | Path | Description |
