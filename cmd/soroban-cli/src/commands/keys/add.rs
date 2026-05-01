@@ -170,7 +170,7 @@ mod tests {
     const SEED_PHRASE: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";
 
-    fn set_up_test() -> (locator::Args, Cmd) {
+    fn set_up_test() -> (tempfile::TempDir, locator::Args, Cmd) {
         let temp_dir = tempfile::tempdir().unwrap();
         let locator = locator::Args {
             config_dir: Some(temp_dir.path().to_path_buf()),
@@ -187,7 +187,7 @@ mod tests {
             overwrite: false,
             hd_path: None,
         };
-        (locator, cmd)
+        (temp_dir, locator, cmd)
     }
 
     fn global_args() -> global::Args {
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_accepts_public_key() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some(PUBLIC_KEY.to_string());
         cmd.run(&global_args()).unwrap();
         let stored = locator.read_identity("test_name").unwrap();
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_accepts_muxed_account() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some(MUXED_ACCOUNT.to_string());
         cmd.run(&global_args()).unwrap();
         let stored = locator.read_identity("test_name").unwrap();
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_rejects_secret_key() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some(SECRET_KEY.to_string());
         let err = cmd.run(&global_args()).unwrap_err();
         assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_rejects_seed_phrase() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some(SEED_PHRASE.to_string());
         let err = cmd.run(&global_args()).unwrap_err();
         assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_rejects_ledger() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some("ledger".to_string());
         let err = cmd.run(&global_args()).unwrap_err();
         assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn public_key_flag_rejects_secure_store() {
-        let (locator, mut cmd) = set_up_test();
+        let (_tmp, locator, mut cmd) = set_up_test();
         cmd.public_key = Some("secure_store:org.stellar.cli-alice".to_string());
         let err = cmd.run(&global_args()).unwrap_err();
         assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
