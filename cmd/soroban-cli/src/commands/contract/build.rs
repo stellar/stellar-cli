@@ -158,7 +158,17 @@ impl Backend {
     }
 }
 
-const DEFAULT_DOCKER_IMAGE: &str = "docker.io/stellar/stellar-cli:latest";
+// Pinned by digest rather than `:latest` so that:
+// - the digest is recorded in `bldimg` immediately (no post-pull resolution
+//   that can fail on Apple Silicon docker, where `RepoDigests` is often left
+//   empty after a cross-platform pull),
+// - builds with the default backend are reproducible day-one without the
+//   user having to specify `--backend docker=...@sha256:...` themselves.
+//
+// To bump: `docker pull --platform linux/amd64 stellar/stellar-cli:<tag>`,
+// then read the `Digest:` line.
+const DEFAULT_DOCKER_IMAGE: &str =
+    "docker.io/stellar/stellar-cli@sha256:cb2fc3116a6ace37a77ca6bb88afb4bee57fc746cd556a4373f2c3ee95d4e917";
 
 pub fn parse_backend(s: &str) -> Result<Backend, String> {
     match s {

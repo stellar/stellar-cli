@@ -62,8 +62,11 @@ pub enum Error {
         source: bollard::errors::Error,
     },
 
-    #[error("docker image {image} has no repository digest; pin via --backend docker=<registry>/<image>@sha256:...")]
+    #[error("docker image {image} has no repository digest. Either pin via --backend docker=<registry>/<image>@sha256:..., or remove any locally-built image at this tag (`docker rmi {image}`) and let the default re-pull")]
     NoDigest { image: String },
+
+    #[error("pulling docker image {image}: daemon reported error: {message}")]
+    PullDaemonError { image: String, message: String },
 
     #[error("build failed inside docker container (exit {0})")]
     BuildExit(i64),
@@ -300,6 +303,8 @@ fn format_inner_cmd(inner: &InnerBuildArgs<'_>, image: &str) -> String {
         .join(" ")
 }
 
+/// Pull `image` (by tag or by digest) on `linux/amd64`. Daemon-reported
+/// errors in the pull event stream are surfaced as `PullDaemonError`.
 pub(super) async fn pull_image(
     docker: &Docker,
     image: &str,
@@ -319,6 +324,12 @@ pub(super) async fn pull_image(
         image: image.to_string(),
         source: e,
     })? {
+        if let Some(detail) = item.error_detail {
+            return Err(Error::PullDaemonError {
+                image: image.to_string(),
+                message: detail.message.unwrap_or_else(|| "unknown".to_string()),
+            });
+        }
         if let Some(status) = item.status {
             if status.contains("Pulling from")
                 || status.contains("Digest")
@@ -336,11 +347,11 @@ pub(super) async fn pull_image(
     Ok(())
 }
 
-// We pull with --platform=linux/amd64 so the recorded digest is platform-specific;
-// reproducibility on `verify` depends on always pulling with that same platform.
-// Returns a fully-qualified `<registry>/<path>@sha256:<digest>` reference so
-// that `verify` on a different machine can resolve it without depending on
-// local registry config.
+/// Returns a fully-qualified `<registry>/<path>@sha256:<digest>` reference
+/// for embedding in `bldimg`. If `image` already contains an `@sha256:...`
+/// reference, it's used directly. Otherwise we fall back to inspecting the
+/// local image's `RepoDigests` after pull. (For the default image we ship
+/// a digest-pinned reference, so this fallback is rare.)
 pub(super) async fn resolve_image_digest(
     docker: &Docker,
     image: &str,
