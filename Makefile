@@ -25,10 +25,10 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
-install_rust: install
-
 install:
 	cargo install --force --locked --path ./cmd/stellar-cli --debug
+
+build-fixtures:
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
 
@@ -41,7 +41,7 @@ build:
 build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
-build-test: build-test-wasms install
+build-test: build-test-wasms build-fixtures install
 
 docs:
 	cargo run --package doc-gen --features additional-libs
