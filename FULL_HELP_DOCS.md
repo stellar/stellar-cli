@@ -1138,7 +1138,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
 - `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
-- `--hd-path <HD_PATH>` — When importing a seed phrase into the Secure Store, which `hd_path` to derive the key at
+- `--hd-path <HD_PATH>` — When importing a seed phrase, which `hd_path` to derive the key at. Persisted on the identity (or its Secure Store entry) so later commands derive the same account without re-passing the flag. Not valid with `--public-key` or a raw secret key
 
 ###### **Options (Global):**
 
@@ -1207,7 +1207,7 @@ Generate a new identity using a 24-word seed phrase The seed phrase can be store
 
   On Mac this uses Keychain, on Windows it is Secure Store Service, and on \*nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
 
-- `--hd-path <HD_PATH>` — With `--as-secret` or `--secure-store`, which `hd_path` to derive the key at from the seed phrase
+- `--hd-path <HD_PATH>` — Which `hd_path` to derive the key at from the seed phrase. Honored across all storage modes: with `--as-secret` it picks which derived key is stored, with `--secure-store` or plain seed-phrase storage it is persisted on the identity so later commands derive the same account without re-passing the flag
 - `--fund` — Fund generated key pair
 
   Default value: `false`

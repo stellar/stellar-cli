@@ -50,7 +50,10 @@ pub struct Cmd {
     #[command(flatten)]
     pub config_locator: locator::Args,
 
-    /// With `--as-secret` or `--secure-store`, which `hd_path` to derive the key at from the seed phrase.
+    /// Which `hd_path` to derive the key at from the seed phrase. Honored across all
+    /// storage modes: with `--as-secret` it picks which derived key is stored, with
+    /// `--secure-store` or plain seed-phrase storage it is persisted on the identity
+    /// so later commands derive the same account without re-passing the flag.
     #[arg(long)]
     pub hd_path: Option<usize>,
 
@@ -127,7 +130,10 @@ impl Cmd {
             let secret: Secret = seed_phrase.into();
             Ok(secret.private_key(self.hd_path)?.into())
         } else {
-            Ok(seed_phrase.into())
+            Ok(Secret::SeedPhrase {
+                seed_phrase: seed_phrase.seed_phrase.into_phrase(),
+                hd_path: self.hd_path,
+            })
         }
     }
 
@@ -140,7 +146,7 @@ impl Cmd {
 mod tests {
     use crate::config::{address::KeyName, key::Key, secret::Secret};
 
-    fn set_up_test() -> (super::locator::Args, super::Cmd) {
+    fn set_up_test() -> (super::locator::Args, super::Cmd, tempfile::TempDir) {
         let temp_dir = tempfile::tempdir().unwrap();
         let locator = super::locator::Args {
             config_dir: Some(temp_dir.path().to_path_buf()),
@@ -158,7 +164,7 @@ mod tests {
             overwrite: false,
         };
 
-        (locator, cmd)
+        (locator, cmd, temp_dir)
     }
 
     fn global_args() -> super::global::Args {
@@ -170,7 +176,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_storing_secret_as_a_seed_phrase() {
-        let (test_locator, cmd) = set_up_test();
+        let (test_locator, cmd, _temp_dir) = set_up_test();
         let global_args = global_args();
 
         let result = cmd.run(&global_args).await;
@@ -180,8 +186,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_generate_seed_phrase_persists_hd_path() {
+        let (test_locator, mut cmd, _temp_dir) = set_up_test();
+        cmd.hd_path = Some(7);
+        let global_args = global_args();
+
+        cmd.run(&global_args).await.unwrap();
+
+        let identity = test_locator.read_identity("test_name").unwrap();
+        match identity {
+            Key::Secret(Secret::SeedPhrase { hd_path, .. }) => {
+                assert_eq!(hd_path, Some(7));
+            }
+            other => panic!("expected SeedPhrase variant, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
     async fn test_storing_secret_as_a_secret_key() {
-        let (test_locator, mut cmd) = set_up_test();
+        let (test_locator, mut cmd, _temp_dir) = set_up_test();
         cmd.as_secret = true;
         let global_args = global_args();
 
@@ -196,7 +219,7 @@ mod tests {
     async fn test_storing_secret_in_secure_store() {
         use keyring::{mock, set_default_credential_builder};
         set_default_credential_builder(mock::default_credential_builder());
-        let (test_locator, mut cmd) = set_up_test();
+        let (test_locator, mut cmd, _temp_dir) = set_up_test();
         cmd.secure_store = true;
         let global_args = global_args();
 
@@ -211,7 +234,7 @@ mod tests {
     async fn test_generate_secure_store_caches_public_key_on_disk() {
         use keyring::{mock, set_default_credential_builder};
         set_default_credential_builder(mock::default_credential_builder());
-        let (test_locator, mut cmd) = set_up_test();
+        let (test_locator, mut cmd, _temp_dir) = set_up_test();
         cmd.secure_store = true;
         let global_args = global_args();
 
@@ -237,7 +260,7 @@ mod tests {
     #[cfg(not(feature = "additional-libs"))]
     #[tokio::test]
     async fn test_storing_in_secure_store_returns_error_when_additional_libs_not_enabled() {
-        let (test_locator, mut cmd) = set_up_test();
+        let (test_locator, mut cmd, _temp_dir) = set_up_test();
         cmd.secure_store = true;
         let global_args = global_args();
 

@@ -185,7 +185,10 @@ mod test {
     #[test]
     fn secret_seed_phrase() {
         let seed_phrase = "singer swing mango apple singer swing mango apple singer swing mango apple singer swing mango apple".to_string();
-        let secret = Secret::SeedPhrase { seed_phrase };
+        let secret = Secret::SeedPhrase {
+            seed_phrase,
+            hd_path: None,
+        };
         let key = Key::Secret(secret);
         round_trip(&key);
     }
