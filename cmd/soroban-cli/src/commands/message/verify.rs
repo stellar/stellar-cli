@@ -2,7 +2,7 @@ use std::io::{self, Read};
 
 use crate::{
     commands::global,
-    config::{locator, secret},
+    config::{key, locator, secret},
     print::Print,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -28,6 +28,9 @@ pub enum Error {
 
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
+    #[error(transparent)]
+    Key(#[from] key::Error),
 
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
@@ -133,15 +136,14 @@ impl Cmd {
     }
 
     fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        // try to parse as stellar public key first
-        if let Ok(pk) = stellar_strkey::ed25519::PublicKey::from_string(&self.public_key) {
-            return Ok(pk);
-        }
-
-        // otherwise treat as identity and resolve
-        let account = self
-            .locator
-            .read_key(&self.public_key)?
+        // Try public-only parsing first (G... or M...); fall through to alias
+        // resolution only when the input doesn't parse as any key.
+        let key = match key::Key::parse_public_only(&self.public_key) {
+            Ok(key) => key,
+            Err(err @ key::Error::PublicKeyExpected) => return Err(Error::Key(err)),
+            Err(_) => self.locator.read_key(&self.public_key)?,
+        };
+        let account = key
             .muxed_account(self.hd_path)
             .map_err(crate::config::address::Error::from)?;
         let bytes = match account {
@@ -271,5 +273,76 @@ mod tests {
         };
         let successful = cmd.run(&global);
         assert!(successful.is_err());
+    }
+
+    #[test]
+    fn test_verify_rejects_raw_secret_key_as_public_key() {
+        let secret_key = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+        let cmd = super::Cmd {
+            message: Some("Hello, World!".to_string()),
+            base64: false,
+            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
+            public_key: secret_key.to_string(),
+            hd_path: None,
+            locator: setup_locator(),
+        };
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Key(crate::config::key::Error::PublicKeyExpected)
+        ));
+    }
+
+    #[test]
+    fn test_verify_rejects_raw_seed_phrase_as_public_key() {
+        let seed_phrase =
+            "depth decade power loud smile spatial sign movie judge february rate broccoli";
+        let cmd = super::Cmd {
+            message: Some("Hello, World!".to_string()),
+            base64: false,
+            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
+            public_key: seed_phrase.to_string(),
+            hd_path: None,
+            locator: setup_locator(),
+        };
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Key(crate::config::key::Error::PublicKeyExpected)
+        ));
+    }
+
+    #[test]
+    fn test_verify_rejects_ledger_as_public_key() {
+        let cmd = super::Cmd {
+            message: Some("Hello, World!".to_string()),
+            base64: false,
+            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
+            public_key: "ledger".to_string(),
+            hd_path: None,
+            locator: setup_locator(),
+        };
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Key(crate::config::key::Error::PublicKeyExpected)
+        ));
+    }
+
+    #[test]
+    fn test_verify_rejects_secure_store_as_public_key() {
+        let cmd = super::Cmd {
+            message: Some("Hello, World!".to_string()),
+            base64: false,
+            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
+            public_key: "secure_store:org.stellar.cli-alice".to_string(),
+            hd_path: None,
+            locator: setup_locator(),
+        };
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Key(crate::config::key::Error::PublicKeyExpected)
+        ));
     }
 }

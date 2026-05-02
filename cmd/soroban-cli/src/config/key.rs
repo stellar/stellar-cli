@@ -15,6 +15,8 @@ pub enum Error {
     StrKey(#[from] stellar_strkey::DecodeError),
     #[error("failed to parse key")]
     Parse,
+    #[error("expected a public key (G...) or muxed account (M...)")]
+    PublicKeyExpected,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -52,6 +54,13 @@ impl Key {
         match self {
             Key::Secret(secret) => Ok(secret.private_key(hd_path)?),
             _ => Err(Error::SecretPublicKey),
+        }
+    }
+
+    pub fn parse_public_only(s: &str) -> Result<Self, Error> {
+        match s.parse()? {
+            key @ (Key::PublicKey(_) | Key::MuxedAccount(_)) => Ok(key),
+            Key::Secret(_) => Err(Error::PublicKeyExpected),
         }
     }
 }
@@ -179,5 +188,54 @@ mod test {
         let secret = Secret::SeedPhrase { seed_phrase };
         let key = Key::Secret(secret);
         round_trip(&key);
+    }
+
+    const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+    const MUXED_ACCOUNT: &str =
+        "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    const SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+    const SEED_PHRASE: &str =
+        "depth decade power loud smile spatial sign movie judge february rate broccoli";
+
+    #[test]
+    fn parse_public_only_accepts_public_key() {
+        let key = Key::parse_public_only(PUBLIC_KEY).unwrap();
+        assert!(matches!(key, Key::PublicKey(_)));
+    }
+
+    #[test]
+    fn parse_public_only_accepts_muxed_account() {
+        let key = Key::parse_public_only(MUXED_ACCOUNT).unwrap();
+        assert!(matches!(key, Key::MuxedAccount(_)));
+    }
+
+    #[test]
+    fn parse_public_only_rejects_secret_key() {
+        let err = Key::parse_public_only(SECRET_KEY).unwrap_err();
+        assert!(matches!(err, Error::PublicKeyExpected));
+    }
+
+    #[test]
+    fn parse_public_only_rejects_seed_phrase() {
+        let err = Key::parse_public_only(SEED_PHRASE).unwrap_err();
+        assert!(matches!(err, Error::PublicKeyExpected));
+    }
+
+    #[test]
+    fn parse_public_only_rejects_ledger() {
+        let err = Key::parse_public_only("ledger").unwrap_err();
+        assert!(matches!(err, Error::PublicKeyExpected));
+    }
+
+    #[test]
+    fn parse_public_only_rejects_secure_store() {
+        let err = Key::parse_public_only("secure_store:org.stellar.cli-alice").unwrap_err();
+        assert!(matches!(err, Error::PublicKeyExpected));
+    }
+
+    #[test]
+    fn parse_public_only_rejects_garbage() {
+        let err = Key::parse_public_only("not-a-key").unwrap_err();
+        assert!(matches!(err, Error::Parse));
     }
 }

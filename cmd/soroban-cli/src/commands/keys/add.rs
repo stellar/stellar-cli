@@ -80,7 +80,7 @@ impl Cmd {
         }
 
         let key = if let Some(key) = self.public_key.as_ref() {
-            key.parse()?
+            key::Key::parse_public_only(key)?
         } else {
             self.read_secret(&print)?.into()
         };
@@ -155,5 +155,99 @@ fn read_password(print: &Print, prompt: &str) -> Result<String, Error> {
             return Err(Error::PasswordRead);
         }
         Ok(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::key::{self as key_mod, Key};
+
+    const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+    const MUXED_ACCOUNT: &str =
+        "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    const SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+    const SEED_PHRASE: &str =
+        "depth decade power loud smile spatial sign movie judge february rate broccoli";
+
+    fn set_up_test() -> (tempfile::TempDir, locator::Args, Cmd) {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(temp_dir.path().to_path_buf()),
+        };
+        let cmd = Cmd {
+            name: "test_name".parse().unwrap(),
+            secrets: secret::Args {
+                secret_key: false,
+                seed_phrase: false,
+                secure_store: false,
+            },
+            config_locator: locator.clone(),
+            public_key: None,
+            overwrite: false,
+            hd_path: None,
+        };
+        (temp_dir, locator, cmd)
+    }
+
+    fn global_args() -> global::Args {
+        global::Args {
+            quiet: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn public_key_flag_accepts_public_key() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some(PUBLIC_KEY.to_string());
+        cmd.run(&global_args()).unwrap();
+        let stored = locator.read_identity("test_name").unwrap();
+        assert!(matches!(stored, Key::PublicKey(_)));
+    }
+
+    #[test]
+    fn public_key_flag_accepts_muxed_account() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some(MUXED_ACCOUNT.to_string());
+        cmd.run(&global_args()).unwrap();
+        let stored = locator.read_identity("test_name").unwrap();
+        assert!(matches!(stored, Key::MuxedAccount(_)));
+    }
+
+    #[test]
+    fn public_key_flag_rejects_secret_key() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some(SECRET_KEY.to_string());
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
+        assert!(locator.read_identity("test_name").is_err());
+    }
+
+    #[test]
+    fn public_key_flag_rejects_seed_phrase() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some(SEED_PHRASE.to_string());
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
+        assert!(locator.read_identity("test_name").is_err());
+    }
+
+    #[test]
+    fn public_key_flag_rejects_ledger() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some("ledger".to_string());
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
+        assert!(locator.read_identity("test_name").is_err());
+    }
+
+    #[test]
+    fn public_key_flag_rejects_secure_store() {
+        let (_tmp, locator, mut cmd) = set_up_test();
+        cmd.public_key = Some("secure_store:org.stellar.cli-alice".to_string());
+        let err = cmd.run(&global_args()).unwrap_err();
+        assert!(matches!(err, Error::Key(key_mod::Error::PublicKeyExpected)));
+        assert!(locator.read_identity("test_name").is_err());
     }
 }
