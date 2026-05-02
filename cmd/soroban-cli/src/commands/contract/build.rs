@@ -19,7 +19,7 @@ use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXd
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{global, version},
+    commands::{container::shared::Args as ContainerArgs, contract::build_docker, global, version},
     print::Print,
     wasm,
 };
@@ -95,8 +95,102 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    /// Build backend.
+    ///
+    /// - `local` (default): build using the host's rust toolchain.
+    /// - `docker`: build inside `docker.io/stellar/stellar-cli:latest`
+    ///   (linux/amd64) using the local docker daemon. The entire build
+    ///   pipeline runs inside the container; the host orchestrates only.
+    ///   The resolved image digest is recorded in contract metadata.
+    /// - `docker=<image>`: build inside the specified image (must have
+    ///   `stellar` as its entrypoint). Pin via
+    ///   `--backend docker=<name>@sha256:...` for fully-reproducible builds.
+    ///
+    /// Aborted docker builds may leave a stopped container; clean with `docker container prune`.
+    #[arg(
+        long,
+        value_name = "BACKEND",
+        default_value = "local",
+        value_parser = parse_backend,
+        help_heading = "Build Backends",
+    )]
+    pub backend: Backend,
+
+    #[command(flatten)]
+    pub container_args: ContainerArgs,
+
+    /// Run cargo via `cargo +<toolchain>` to pin the rust toolchain. Set by
+    /// `verify` from the wasm's `rsver` meta entry; not user-facing.
+    #[arg(skip)]
+    pub rustup_toolchain: Option<String>,
+
     #[command(flatten)]
     pub build_args: BuildArgs,
+
+    #[command(subcommand)]
+    pub action: Option<Action>,
+}
+
+/// Subcommands of `stellar contract build`.
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum Action {
+    /// Verify a wasm by rebuilding it inside the Docker image recorded in its metadata.
+    Verify(super::verify::Cmd),
+}
+
+/// Build backend selector for `--backend`.
+#[derive(Clone, Debug, Default)]
+pub enum Backend {
+    /// Build with the host's rust toolchain.
+    #[default]
+    Local,
+    /// Build inside a Docker container whose entrypoint is `stellar`.
+    Docker { image: String },
+}
+
+impl Backend {
+    /// Returns the docker image if the backend uses one, else `None`.
+    pub fn docker_image(&self) -> Option<&str> {
+        match self {
+            Self::Docker { image } => Some(image),
+            Self::Local => None,
+        }
+    }
+}
+
+// Pinned by digest rather than `:latest` so that:
+// - the digest is recorded in `bldimg` immediately (no post-pull resolution
+//   that can fail on Apple Silicon docker, where `RepoDigests` is often left
+//   empty after a cross-platform pull),
+// - builds with the default backend are reproducible day-one without the
+//   user having to specify `--backend docker=...@sha256:...` themselves.
+//
+// To bump: `docker pull --platform linux/amd64 stellar/stellar-cli:<tag>`,
+// then read the `Digest:` line.
+const DEFAULT_DOCKER_IMAGE: &str =
+    "docker.io/stellar/stellar-cli@sha256:cb2fc3116a6ace37a77ca6bb88afb4bee57fc746cd556a4373f2c3ee95d4e917";
+
+pub fn parse_backend(s: &str) -> Result<Backend, String> {
+    match s {
+        "local" => Ok(Backend::Local),
+        "docker" => Ok(Backend::Docker {
+            image: DEFAULT_DOCKER_IMAGE.to_string(),
+        }),
+        _ => {
+            if let Some(image) = s.strip_prefix("docker=") {
+                if image.is_empty() {
+                    return Err("docker image cannot be empty; use `--backend docker` for the default image".to_string());
+                }
+                Ok(Backend::Docker {
+                    image: image.to_string(),
+                })
+            } else {
+                Err(format!(
+                    "unknown backend {s:?}; expected `local`, `docker`, or `docker=<image>`"
+                ))
+            }
+        }
+    }
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
@@ -190,6 +284,13 @@ pub enum Error {
 
     #[error("wasm parsing error: {0}")]
     WasmParsing(String),
+
+    #[error(transparent)]
+    Container(#[from] build_docker::Error),
+
+    // Boxed to break the cycle between verify::Error::Build and build::Error::Verify.
+    #[error(transparent)]
+    Verify(Box<super::verify::Error>),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -208,7 +309,11 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
+            backend: Backend::Local,
+            container_args: ContainerArgs { docker_host: None },
+            rustup_toolchain: None,
             build_args: BuildArgs::default(),
+            action: None,
         }
     }
 }
@@ -216,16 +321,25 @@ impl Default for Cmd {
 impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+        if let Some(Action::Verify(verify)) = &self.action {
+            // Box::pin breaks the recursion: verify.run() calls build::Cmd::run()
+            // for the rebuild, so the future would otherwise have infinite size.
+            Box::pin(verify.run(global_args))
+                .await
+                .map_err(|e| Error::Verify(Box::new(e)))?;
+            return Ok(Vec::new());
+        }
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
+        let workspace_root = metadata.workspace_root.as_std_path();
 
         // Run build configuration checks (only when actually building)
         if !self.print_commands_only {
-            run_checks(metadata.workspace_root.as_std_path(), &self.profile)?;
+            run_checks(workspace_root, &self.profile)?;
         }
 
         if let Some(package) = &self.package {
@@ -239,9 +353,58 @@ impl Cmd {
         let wasm_target = get_wasm_target()?;
         let mut built_contracts = Vec::new();
 
-        for p in packages {
+        // Detect git state once for the build. Embed source_repo/source_rev
+        // (and per-package source_path) when the workspace is a clean git
+        // checkout with an origin remote; warn (but proceed) otherwise so
+        // users know the wasm won't be reproducible against a public source.
+        let (source_repo, source_rev, git_root) = match detect_git_state(workspace_root) {
+            GitState::Clean { repo, rev, root } => (Some(repo), Some(rev), Some(root)),
+            GitState::Dirty => {
+                print.warnln(
+                    "git working tree has uncommitted changes; source_repo/source_rev/bldopt_* not embedded in contract metadata. Commit changes for a reproducible build.",
+                );
+                (None, None, None)
+            }
+            GitState::NotARepo => (None, None, None),
+        };
+        // Mount the git repo root when available (so cross-workspace path
+        // dependencies and shared repo files are visible inside the
+        // container). Fall back to the cargo workspace root otherwise.
+        let mount_root = git_root.as_deref().unwrap_or(workspace_root);
+
+        // `--backend docker` runs the entire build pipeline (cargo + meta
+        // injection + spec filtering + optional wasm-opt) inside a container
+        // whose entrypoint is `stellar`. The host orchestrates only.
+        if let Backend::Docker { image } = &self.backend {
+            return self
+                .run_docker(
+                    image,
+                    &print,
+                    &packages,
+                    target_dir.as_std_path(),
+                    workspace_root,
+                    mount_root,
+                    git_root.as_deref(),
+                    source_repo.as_deref(),
+                    source_rev.as_deref(),
+                    &wasm_target,
+                )
+                .await;
+        }
+
+        for (i, p) in packages.iter().enumerate() {
+            if i > 0 {
+                // Blank line separating successive contract builds in a workspace.
+                eprintln!();
+            }
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
+            // `+<toolchain>` is rustup's explicit toolchain selector and overrides
+            // any `rust-toolchain.toml` in the workspace. Set by `verify` from
+            // the wasm's `rsver` meta entry.
+            if let Some(toolchain) = &self.rustup_toolchain {
+                cmd.arg(format!("+{toolchain}"));
+            }
             cmd.arg("rustc");
             if self.locked {
                 cmd.arg("--locked");
@@ -300,7 +463,22 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.inject_meta(&target_file_path)?;
+                let bldopt_manifest_path = git_root.as_deref().and_then(|gr| {
+                    pathdiff::diff_paths(&p.manifest_path, gr)
+                        .map(|p| p.to_string_lossy().into_owned())
+                });
+                self.inject_meta(
+                    &target_file_path,
+                    &ExtraMeta {
+                        bldimg: None,
+                        source_repo: source_repo.clone(),
+                        source_rev: source_rev.clone(),
+                        bldopt_manifest_path,
+                        bldopt_package: Some(p.name.clone()),
+                        bldopt_profile: Some(self.profile.clone()),
+                        bldopt_optimize: self.build_args.optimize,
+                    },
+                )?;
                 Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
@@ -348,6 +526,129 @@ impl Cmd {
         }
 
         Ok(built_contracts)
+    }
+
+    /// Orchestrate a `--backend docker` build: pull the requested
+    /// stellar-cli image and run `stellar contract build` inside it
+    /// against the bind-mounted source. The in-container cli does cargo +
+    /// meta injection + spec filtering + optional wasm-opt itself; the
+    /// host only orchestrates and copies outputs to `--out-dir` if
+    /// requested.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_docker(
+        &self,
+        image: &str,
+        print: &Print,
+        packages: &[Package],
+        target_dir: &Path,
+        workspace_root: &Path,
+        mount_root: &Path,
+        git_root: Option<&Path>,
+        source_repo: Option<&str>,
+        source_rev: Option<&str>,
+        wasm_target: &str,
+    ) -> Result<Vec<BuiltContract>, Error> {
+        // The user's --manifest-path (if any) is a host path; translate to
+        // the in-container `/source/...` form. If absent, fall back to the
+        // workspace root's Cargo.toml.
+        let host_manifest = self
+            .manifest_path
+            .clone()
+            .unwrap_or_else(|| workspace_root.join("Cargo.toml"));
+        let rel = pathdiff::diff_paths(&host_manifest, mount_root)
+            .unwrap_or_else(|| host_manifest.clone());
+        let in_container_manifest = Path::new(build_docker::SOURCE_DIR)
+            .join(rel)
+            .to_string_lossy()
+            .into_owned();
+
+        // TODO(transitional): forward host-detected `source_*` and
+        // `bldopt_*` reproducibility meta as `--meta` entries to the
+        // in-container cli. Released `stellar/stellar-cli` images today
+        // don't auto-inject these on build, so without this pass-through
+        // the resulting wasm would be missing them.
+        //
+        // Once a `stellar/stellar-cli` image carrying this PR's auto-
+        // injection logic is published and adopted as the default, the
+        // in-container cli will set these itself (and its values, being
+        // first in the meta section, take precedence over the user-meta
+        // entries we add here per `find_meta`'s first-match semantics).
+        // At that point, remove this block and let the in-container cli
+        // be the source of truth.
+        let mut meta = self.build_args.meta.clone();
+        if let Some(s) = source_repo {
+            meta.push(("source_repo".to_string(), s.to_string()));
+        }
+        if let Some(s) = source_rev {
+            meta.push(("source_rev".to_string(), s.to_string()));
+        }
+        meta.push(("bldopt_profile".to_string(), self.profile.clone()));
+        if self.build_args.optimize {
+            meta.push(("bldopt_optimize".to_string(), "true".to_string()));
+        }
+        // Per-package fields are only safe to forward when exactly one
+        // package will be built — passing a single value to a multi-package
+        // workspace build would attach the same `bldopt_package` /
+        // `bldopt_manifest_path` to every wasm. For multi-package builds we
+        // skip them and let the in-container cli supply them per-package
+        // (newer images will; older won't).
+        if packages.len() == 1 {
+            let p = &packages[0];
+            meta.push(("bldopt_package".to_string(), p.name.clone()));
+            if let Some(rel) = git_root.and_then(|gr| {
+                pathdiff::diff_paths(&p.manifest_path, gr)
+                    .map(|p| p.to_string_lossy().into_owned())
+            }) {
+                meta.push(("bldopt_manifest_path".to_string(), rel));
+            }
+        }
+
+        let inner = build_docker::InnerBuildArgs {
+            manifest_path: in_container_manifest,
+            package: self.package.as_deref(),
+            profile: &self.profile,
+            features: self.features.as_deref(),
+            all_features: self.all_features,
+            no_default_features: self.no_default_features,
+            optimize: self.build_args.optimize,
+            meta,
+        };
+
+        build_docker::run_in_docker(
+            image,
+            None,
+            self.rustup_toolchain.as_deref(),
+            mount_root,
+            &inner,
+            &self.container_args,
+            print,
+        )
+        .await?;
+
+        // The in-container build wrote its outputs to the bind-mounted
+        // target dir; copy to --out-dir if requested.
+        let mut built = Vec::with_capacity(packages.len());
+        for p in packages {
+            let wasm_name = p.name.replace('-', "_");
+            let file = format!("{wasm_name}.wasm");
+            let target_file_path = target_dir.join(wasm_target).join(&self.profile).join(&file);
+
+            let final_path = if let Some(out_dir) = &self.out_dir {
+                fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
+                let out_file_path = out_dir.join(&file);
+                fs::copy(&target_file_path, &out_file_path)
+                    .map_err(Error::CopyingWasmFile)?;
+                out_file_path
+            } else {
+                target_file_path
+            };
+
+            built.push(BuiltContract {
+                name: p.name.clone(),
+                path: final_path,
+            });
+        }
+        Ok(built)
     }
 
     fn features(&self) -> Option<Vec<String>> {
@@ -417,9 +718,9 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
+    fn inject_meta(&self, target_file_path: &PathBuf, extra: &ExtraMeta) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
-        let xdr = self.encoded_new_meta()?;
+        let xdr = self.encoded_new_meta(extra)?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
         // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
@@ -468,7 +769,7 @@ impl Cmd {
         fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
-    fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
+    fn encoded_new_meta(&self, extra: &ExtraMeta) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
 
         // Always inject CLI version
@@ -477,6 +778,42 @@ impl Cmd {
             val: version::one_line().clone().try_into().unwrap(),
         });
         new_meta.push(cli_meta_entry);
+
+        // Reproducible-build meta. `rsver` (rustc version) is recorded by
+        // soroban-sdk itself; here we add `bldimg` when --backend docker
+        // was used, and source_repo/source_rev when the workspace was a
+        // clean git checkout.
+        let kvs = [
+            ("bldimg", extra.bldimg.as_deref()),
+            ("source_repo", extra.source_repo.as_deref()),
+            ("source_rev", extra.source_rev.as_deref()),
+            (
+                "bldopt_manifest_path",
+                extra.bldopt_manifest_path.as_deref(),
+            ),
+            ("bldopt_package", extra.bldopt_package.as_deref()),
+            ("bldopt_profile", extra.bldopt_profile.as_deref()),
+            (
+                "bldopt_optimize",
+                if extra.bldopt_optimize {
+                    Some("true")
+                } else {
+                    None
+                },
+            ),
+        ];
+        for (k, v) in kvs {
+            let Some(v) = v else { continue };
+            let key: StringM = k
+                .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("{k} is an invalid metadata key: {e}")))?;
+            let val: StringM = v
+                .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
+            new_meta.push(ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }));
+        }
 
         // Add args provided meta
         for (k, v) in self.build_args.meta.clone() {
@@ -570,8 +907,120 @@ impl Cmd {
             }
         }
 
-        print.checkln("Build Complete\n");
+        print.checkln("Build Complete");
     }
+}
+
+/// Extra meta entries to embed in the wasm's `contractmetav0` custom section.
+/// `cliver` is always embedded (separately). `rsver` is embedded by soroban-sdk.
+#[derive(Default, Debug, Clone)]
+struct ExtraMeta {
+    /// `bldimg`: fully-qualified container image used to build (e.g.
+    /// `docker.io/stellar/stellar-cli@sha256:...`). Set when `--backend
+    /// docker`; injected by the in-container cli via `--meta bldimg=...`,
+    /// not by this struct (which is only used on the local code path).
+    bldimg: Option<String>,
+    /// `source_repo`: HTTPS URL of the workspace's git origin remote.
+    /// Set only when the workspace is a clean git checkout.
+    source_repo: Option<String>,
+    /// `source_rev`: full SHA of the workspace's git HEAD commit.
+    /// Set only when the workspace is a clean git checkout.
+    source_rev: Option<String>,
+    /// `bldopt_manifest_path`: package's `Cargo.toml` path relative to the
+    /// git repo root. Set only when the workspace is a clean git checkout.
+    bldopt_manifest_path: Option<String>,
+    /// `bldopt_package`: cargo package name being built.
+    bldopt_package: Option<String>,
+    /// `bldopt_profile`: cargo profile (e.g. `release`).
+    bldopt_profile: Option<String>,
+    /// `bldopt_optimize`: present (with value `true`) iff `--optimize` was used.
+    bldopt_optimize: bool,
+}
+
+enum GitState {
+    NotARepo,
+    Dirty,
+    Clean {
+        repo: String,
+        rev: String,
+        root: PathBuf,
+    },
+}
+
+fn detect_git_state(workspace_root: &Path) -> GitState {
+    let in_repo = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(["rev-parse", "--git-dir"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !in_repo {
+        return GitState::NotARepo;
+    }
+    let dirty = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(["status", "--porcelain"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(true);
+    if dirty {
+        return GitState::Dirty;
+    }
+    let Some(repo) = git_output(workspace_root, &["remote", "get-url", "origin"])
+        .as_deref()
+        .and_then(remote_to_https)
+    else {
+        return GitState::Dirty;
+    };
+    let Some(rev) = git_output(workspace_root, &["rev-parse", "HEAD"]) else {
+        return GitState::Dirty;
+    };
+    let Some(root) =
+        git_output(workspace_root, &["rev-parse", "--show-toplevel"]).map(PathBuf::from)
+    else {
+        return GitState::Dirty;
+    };
+    GitState::Clean { repo, rev, root }
+}
+
+fn git_output(workspace_root: &Path, args: &[&str]) -> Option<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(workspace_root)
+        .args(args)
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Convert a git remote URL to a canonical `https://...` form.
+fn remote_to_https(url: &str) -> Option<String> {
+    let url = url.trim();
+    let canonical = if url.starts_with("https://") || url.starts_with("http://") {
+        url.to_string()
+    } else if let Some(rest) = url.strip_prefix("git@") {
+        let (host, path) = rest.split_once(':')?;
+        format!("https://{host}/{path}")
+    } else if let Some(rest) = url.strip_prefix("ssh://git@") {
+        format!("https://{rest}")
+    } else if let Some(rest) = url.strip_prefix("ssh://") {
+        format!("https://{rest}")
+    } else if let Some(rest) = url.strip_prefix("git://") {
+        format!("https://{rest}")
+    } else {
+        return None;
+    };
+    Some(
+        canonical
+            .strip_suffix(".git")
+            .unwrap_or(&canonical)
+            .to_string(),
+    )
 }
 
 fn serialize_command(cmd: &Command) -> String {
@@ -844,5 +1293,44 @@ mod tests {
             tokens.iter().any(|t| t == raw_arg),
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
+    }
+
+    #[test]
+    fn remote_to_https_normalizes_common_forms() {
+        let cases = [
+            ("https://github.com/x/y", "https://github.com/x/y"),
+            ("https://github.com/x/y.git", "https://github.com/x/y"),
+            ("http://example.com/x/y.git", "http://example.com/x/y"),
+            ("git@github.com:x/y.git", "https://github.com/x/y"),
+            ("ssh://git@github.com/x/y.git", "https://github.com/x/y"),
+            ("ssh://git.example.com/x/y", "https://git.example.com/x/y"),
+            ("git://github.com/x/y.git", "https://github.com/x/y"),
+        ];
+        for (input, want) in cases {
+            assert_eq!(
+                remote_to_https(input).as_deref(),
+                Some(want),
+                "input: {input}"
+            );
+        }
+        assert_eq!(remote_to_https("notaurl"), None);
+    }
+
+    #[test]
+    fn parse_backend_cases() {
+        assert!(matches!(parse_backend("local"), Ok(Backend::Local)));
+        let parsed = parse_backend("docker").unwrap();
+        match parsed {
+            Backend::Docker { image } => assert_eq!(image, DEFAULT_DOCKER_IMAGE),
+            other @ Backend::Local => panic!("expected Docker, got {other:?}"),
+        }
+        let parsed = parse_backend("docker=quay.io/foo/bar:tag").unwrap();
+        match parsed {
+            Backend::Docker { image } => assert_eq!(image, "quay.io/foo/bar:tag"),
+            other @ Backend::Local => panic!("expected Docker, got {other:?}"),
+        }
+        assert!(parse_backend("docker=").is_err());
+        assert!(parse_backend("docker-all").is_err());
+        assert!(parse_backend("nonsense").is_err());
     }
 }

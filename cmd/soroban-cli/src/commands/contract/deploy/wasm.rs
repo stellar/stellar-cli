@@ -74,6 +74,18 @@ pub struct Cmd {
     /// Package to build when auto-building without --wasm
     #[arg(long, help_heading = "Build Options", conflicts_with = "wasm_src")]
     pub package: Option<String>,
+    /// Build backend; see `stellar contract build --help` for values.
+    #[arg(
+        long,
+        value_name = "BACKEND",
+        default_value = "local",
+        value_parser = build::parse_backend,
+        help_heading = "Build Options",
+        conflicts_with = "wasm_src",
+    )]
+    pub backend: build::Backend,
+    #[command(flatten)]
+    pub container_args: crate::commands::container::shared::Args,
     #[command(flatten)]
     pub build_args: build::BuildArgs,
 }
@@ -182,7 +194,7 @@ impl Cmd {
             return Err(Error::BuildOnlyNotSupported);
         }
 
-        let built_contracts = self.resolve_contracts(global_args)?;
+        let built_contracts = self.resolve_contracts(global_args).await?;
 
         // When --wasm-hash is used, no built contracts are returned.
         // Deploy directly with the hash.
@@ -259,7 +271,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn resolve_contracts(
+    async fn resolve_contracts(
         &self,
         global_args: &global::Args,
     ) -> Result<Vec<build::BuiltContract>, Error> {
@@ -279,10 +291,12 @@ impl Cmd {
         // Neither provided: auto-build
         let build_cmd = build::Cmd {
             package: self.package.clone(),
+            backend: self.backend.clone(),
+            container_args: self.container_args.clone(),
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
-        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+        let contracts = build_cmd.run(global_args).await.map_err(|e| match e {
             build::Error::Metadata(_) => Error::NotInCargoProject,
             other => other.into(),
         })?;
@@ -316,6 +330,10 @@ impl Cmd {
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
+                    backend: build::Backend::Local,
+                    container_args: crate::commands::container::shared::Args {
+                        docker_host: None,
+                    },
                     build_args: build::BuildArgs::default(),
                 }
                 .execute(config, quiet, no_cache)
@@ -370,6 +388,7 @@ impl Cmd {
             }
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
         };
+        warn_if_mainnet_wasm_not_reproducible(&raw_wasm, &network.network_passphrase, &print);
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
         let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
@@ -470,6 +489,53 @@ fn build_create_contract_tx(
     };
 
     Ok(tx)
+}
+
+/// On mainnet, warn if the wasm is missing the meta entries that indicate
+/// a reproducible build (`bldimg`, `cliver`, `rsver`, `source_repo`,
+/// `source_rev`, `bldopt_*`). `bldimg` is the docker-build marker — its
+/// presence indicates the wasm was built inside a recorded image; its
+/// absence means a local build with no image to verify against. Skipped on
+/// other networks. Best-effort: parse failures are silently ignored.
+fn warn_if_mainnet_wasm_not_reproducible(
+    wasm_bytes: &[u8],
+    network_passphrase: &str,
+    print: &Print,
+) {
+    if network_passphrase != crate::config::network::passphrase::MAINNET {
+        return;
+    }
+    let Ok(spec) = soroban_spec_tools::contract::Spec::new(wasm_bytes) else {
+        return;
+    };
+    let required = [
+        "bldimg",
+        "cliver",
+        "rsver",
+        "source_repo",
+        "source_rev",
+        "bldopt_manifest_path",
+        "bldopt_package",
+        "bldopt_profile",
+    ];
+    let missing: Vec<&str> = required
+        .iter()
+        .filter(|k| {
+            !spec.meta.iter().any(|e| {
+                let crate::xdr::ScMetaEntry::ScMetaV0(crate::xdr::ScMetaV0 { key, .. }) = e;
+                key.to_string() == **k
+            })
+        })
+        .copied()
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    print.warnln(format!(
+        "the wasm being deployed is missing reproducibility meta entries: {missing:?}. \
+         The deployed wasm may not be independently verifiable. To make it reproducible, \
+         build with `stellar contract build --backend docker` in a clean git repository."
+    ));
 }
 
 #[cfg(test)]

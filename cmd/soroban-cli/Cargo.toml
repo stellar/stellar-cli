@@ -127,8 +127,11 @@ whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [build-dependencies]
-crate-git-revision = "0.0.6"
+crate-git-revision = { git = "https://github.com/stellar/crate-git-revision", branch = "dirty-untracked-files" }
 serde.workspace = true
 thiserror.workspace = true
 

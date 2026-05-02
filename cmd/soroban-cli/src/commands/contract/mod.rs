@@ -3,6 +3,7 @@ pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
 pub mod build;
+pub mod build_docker;
 pub mod deploy;
 pub mod extend;
 pub mod fetch;
@@ -16,6 +17,7 @@ pub mod read;
 pub mod restore;
 pub mod spec_verify;
 pub mod upload;
+pub mod verify;
 
 use crate::{commands::global, print::Print, utils::deprecate_message};
 
@@ -164,7 +166,7 @@ impl Cmd {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
             Cmd::Build(build) => {
-                build.run(global_args)?;
+                build.run(global_args).await?;
             }
             Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
