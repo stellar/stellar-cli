@@ -390,19 +390,17 @@ impl SecureStoreEntry {
 mod tests {
     use super::*;
     use xdr::{
-        Hash, InvokeContractArgs, InvokeHostFunctionOp, Memo, MuxedEd25519Account, Operation,
-        OperationBody, Preconditions, ScAddress, ScSymbol, ScVal, SequenceNumber,
-        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
-        SorobanAuthorizedInvocation, SorobanCredentials, Transaction, Uint256, VecM,
+        ClaimableBalanceId, Hash, InvokeContractArgs, InvokeHostFunctionOp, Memo,
+        MuxedEd25519Account, Operation, OperationBody, PoolId, Preconditions, ScAddress, ScSymbol,
+        ScVal, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
+        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Transaction,
+        Uint256, VecM,
     };
 
-    fn make_tx_with_muxed_auth() -> Transaction {
+    fn make_tx_with_auth(address: ScAddress) -> Transaction {
         let auth_entry = SorobanAuthorizationEntry {
             credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-                address: ScAddress::MuxedAccount(MuxedEd25519Account {
-                    id: 12345,
-                    ed25519: Uint256([1u8; 32]),
-                }),
+                address,
                 nonce: 0,
                 signature_expiration_ledger: 999,
                 signature: ScVal::Void,
@@ -416,7 +414,6 @@ mod tests {
                 sub_invocations: VecM::default(),
             },
         };
-
         Transaction {
             source_account: xdr::MuxedAccount::Ed25519(Uint256([1u8; 32])),
             fee: 100,
@@ -442,11 +439,36 @@ mod tests {
 
     #[test]
     fn test_muxed_account_returns_error_not_panic() {
-        let tx = make_tx_with_muxed_auth();
+        let tx = make_tx_with_auth(ScAddress::MuxedAccount(MuxedEd25519Account {
+            id: 12345,
+            ed25519: Uint256([1u8; 32]),
+        }));
         let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
         assert!(
             matches!(result, Err(Error::MuxedAddressNotSupported)),
             "expected MuxedAddressNotSupported error, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_claimable_balance_returns_error_not_panic() {
+        let tx = make_tx_with_auth(ScAddress::ClaimableBalance(
+            ClaimableBalanceId::ClaimableBalanceIdTypeV0(Hash([0u8; 32])),
+        ));
+        let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
+        assert!(
+            matches!(result, Err(Error::ClaimableBalanceNotSupported)),
+            "expected ClaimableBalanceNotSupported error, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_liquidity_pool_returns_error_not_panic() {
+        let tx = make_tx_with_auth(ScAddress::LiquidityPool(PoolId(Hash([0u8; 32]))));
+        let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
+        assert!(
+            matches!(result, Err(Error::LiquidityPoolNotSupported)),
+            "expected LiquidityPoolNotSupported error, got: {result:?}"
         );
     }
 }
