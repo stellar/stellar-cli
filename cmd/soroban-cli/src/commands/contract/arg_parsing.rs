@@ -778,6 +778,9 @@ fn resolve_aliases_in_udt(
     };
     match entry {
         ScSpecEntry::UdtStructV0(strukt) => {
+            // Soroban's contract macros emit numeric field names ("0", "1", …)
+            // for tuple structs and identifier names for regular structs, so a
+            // field literally named "0" reliably distinguishes the two.
             let is_tuple_struct = strukt
                 .fields
                 .iter()
