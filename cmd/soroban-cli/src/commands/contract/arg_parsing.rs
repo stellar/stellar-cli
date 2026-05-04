@@ -749,9 +749,11 @@ fn resolve_aliases_in_json(
             mutated |= resolve_aliases_in_json(value, &inner.value_type, spec, config)?;
         }
         ScSpecTypeDef::Result(result) => {
-            // Result is rarely used as an input type; the walker just descends
-            // into both branches and relies on per-arm shape checks to no-op
-            // when the JSON doesn't match.
+            // Result is rarely used as an input type. The walker descends into
+            // both branches; the inner `match value` no-ops when the JSON
+            // shape doesn't fit the branch's type. Resolution is idempotent
+            // (a strkey re-resolves to itself), so descending twice is safe
+            // when both branches happen to share a shape.
             mutated |= resolve_aliases_in_json(value, &result.ok_type, spec, config)?;
             mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
         }
