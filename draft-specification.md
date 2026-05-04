@@ -43,17 +43,19 @@ A reproducible Soroban contract build embeds a set of meta entries in the wasm's
 
 A reproducible build embeds the following entries in the wasm's `contractmetav0` custom section. Each entry is a `ScMetaEntry::ScMetaV0` with a UTF-8 `key` and UTF-8 `val`. Values that fail their format regex below are not considered conformant.
 
-| key | description | format regex |
-|---|---|---|
-| `cliver` | Build cli version + git rev. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?#([0-9a-f]{40}(-dirty)?)?$` |
-| `rsver` | Resolved rustc version used for the build. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?$` |
-| `bldimg` | Fully-qualified container image used for the build, pinned by digest. Required for builds claiming `docker`-class reproducibility; absent for host-local builds. | `^[^@\s]+@sha256:[0-9a-f]{64}$` |
-| `source_repo` | HTTPS URL of the source repository's origin. Optional. Recorded when the build tooling can determine it (e.g. a clean git checkout with an `origin` remote); enables self-served verification (the verifier fetches source from this URL). May be absent when source is delivered through another channel — see Appendix A.3. | `^https?://\S+$` |
-| `source_rev` | Full 40-char SHA-1 of the source commit (`HEAD`). Optional, recorded under the same conditions as `source_repo`. | `^[0-9a-f]{40}$` |
-| `bldopt_manifest_path` | Path to the package's `Cargo.toml` relative to the repository root. | `^([^/\s]+/)*Cargo\.toml$` |
-| `bldopt_package` | Cargo package name being built. | `^[A-Za-z][A-Za-z0-9_-]*$` |
-| `bldopt_profile` | Cargo profile (e.g. `release`). | `^[A-Za-z][A-Za-z0-9_-]*$` |
-| `bldopt_optimize` | Present and equal to `true` iff post-build wasm optimization (`wasm-opt`) was applied. | `^true$` |
+The `required` column indicates whether an entry must be present to claim a given build class (see §2). "Optional" entries are never required by this SEP, but are recommended where applicable because they enable additional verification paths.
+
+| key | required | description | format regex |
+|---|---|---|---|
+| `cliver` | Class A & B | Build cli version + git rev. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?#([0-9a-f]{40}(-dirty)?)?$` |
+| `rsver` | Class A & B | Resolved rustc version used for the build. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?$` |
+| `bldimg` | Class A only | Fully-qualified container image used for the build, pinned by digest. Absent for host-local (Class B) builds. | `^[^@\s]+@sha256:[0-9a-f]{64}$` |
+| `source_repo` | Optional | HTTPS URL of the source repository's origin. Recorded when the build tooling can determine it (e.g. a clean git checkout with an `origin` remote); enables self-served verification (the verifier fetches source from this URL). May be absent when source is delivered through another channel — see Appendix A.3. | `^https?://\S+$` |
+| `source_rev` | Optional | Full 40-char SHA-1 of the source commit (`HEAD`). Recorded under the same conditions as `source_repo`. | `^[0-9a-f]{40}$` |
+| `bldopt_manifest_path` | Class A & B | Path to the package's `Cargo.toml` relative to the repository root. | `^([^/\s]+/)*Cargo\.toml$` |
+| `bldopt_package` | Class A & B | Cargo package name being built. | `^[A-Za-z][A-Za-z0-9_-]*$` |
+| `bldopt_profile` | Class A & B | Cargo profile (e.g. `release`). | `^[A-Za-z][A-Za-z0-9_-]*$` |
+| `bldopt_optimize` | Optional | Present and equal to `true` iff post-build wasm optimization (`wasm-opt`) was applied. | `^true$` |
 
 Tooling may inject additional, application-specific entries; verifiers ignore unrecognized keys.
 
