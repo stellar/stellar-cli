@@ -63,7 +63,7 @@ A wasm's reproducibility class is determined by the build-environment meta entri
 
 - **Class A — container-pinned**: all of `cliver`, `rsver`, `bldimg`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant. The build is reproducible to the bytes of `bldimg`'s pulled image content; verification produces identical bytes on any host with a working docker daemon and access to the registry.
 - **Class B — host best-effort**: all of `cliver`, `rsver`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant; `bldimg` is absent. The build was performed on the host with a non-containerized toolchain. Verification is best-effort and may produce different bytes on different hosts due to environment differences not captured in meta.
-- **Class C — non-reproducible**: any required entry above is absent. Verification cannot be claimed.
+- **Class C — non-reproducible from meta alone**: any required entry above is absent. Verification cannot be self-served from the wasm's meta. The wasm may still be verifiable through a path where the verifier obtains the missing parameters from another source (e.g. supplied by the user at submission time; see §3 and Appendix A.3) — this is the typical path for contracts deployed before this SEP, or with tooling that did not populate the meta fields.
 
 Tooling deploying to mainnet should warn when a wasm is Class B or C, and may additionally warn when `source_repo` / `source_rev` are absent (since that limits the verification paths available to consumers).
 
@@ -90,6 +90,8 @@ Given an on-chain or offline wasm `W`, a verifier produces a verification result
 8. Verification succeeds iff `rebuilt_hash == original_hash`.
 
 In a workspace with multiple cdylib packages, a verifier MAY rebuild all packages and search for any rebuilt artifact whose hash matches `original_hash`; this accommodates cases where the recorded `bldopt_package` cannot be honored verbatim.
+
+**Parameter sourcing.** Steps 5–7 require knowing the rust toolchain, the container image (if any), and the per-package build options. By default these are read from the wasm's meta as described in steps 2–3. A verifier MAY also accept these parameters from external sources — typically the user submitting the verification — and use those instead of, or in place of, missing meta. This is the only verification path available for wasms that lack the relevant meta entries (e.g. contracts deployed before this SEP, or with tooling that did not populate the meta fields). When external parameters are used, the verifier SHOULD record which values were used so consumers can evaluate the result's basis. Externally-supplied parameters MUST conform to the same regexes defined in §1.
 
 ## Limitations
 
@@ -212,9 +214,13 @@ A verifier following this pattern in production should:
 
 The choice of storage, scheduling, and record format is left to the verifier; conformance to §3 is the only thing that makes results comparable across verifiers.
 
-### A.3. Verification registry (user-submitted source)
+### A.3. Verification registry (user-submitted source and parameters)
 
-A verification registry is a service that accepts (contract id or wasm hash, source code) submissions from end users, runs §3 against each submission, and exposes the result via an API. Source is delivered by direct upload at submission time rather than fetched from a public git host, so a wasm submitted for registry verification need not embed `source_repo` or `source_rev` — only the build-environment fields (`bldimg`, `rsver`, `bldopt_*`) are required to reconstruct the rebuild environment.
+A verification registry is a service that accepts submissions from end users — at minimum (contract id or wasm hash, source code), and optionally any of the build parameters listed in §1 — runs §3 against each submission, and exposes the result via an API. Source is delivered by direct upload at submission time rather than fetched from a public git host. Build parameters that the wasm's meta does not carry can be supplied by the user, exercising the parameter-sourcing path described at the end of §3. A registry can therefore verify:
+
+- Wasms with full reproducibility meta — submitter only needs to provide source.
+- Wasms missing `source_repo` / `source_rev` — submitter provides source via upload.
+- Wasms missing build-environment meta entirely (Class C) — submitter provides source *and* the build parameters (e.g. by filling in a form: rust version, image, profile, manifest path). This is the typical path for contracts deployed before this SEP, or built with tooling that didn't populate meta.
 
 This pattern is well-established on other chains, where source-upload registries are the predominant verification path:
 
@@ -223,7 +229,8 @@ This pattern is well-established on other chains, where source-upload registries
 
 What this pattern brings:
 
-- **Source delivery via upload.** A wasm submitted to a registry needs only the build-environment meta (`bldimg`, `rsver`, `bldopt_*`); it does not need `source_repo` / `source_rev`. The registry obtains source from the submitter, not from a public host.
+- **Source and parameter delivery via upload.** Source comes from the submitter, not a public host. Build parameters can come from the wasm's meta, the submitter, or a mix — whatever the wasm doesn't carry, the submitter supplies.
+- **Coverage of legacy contracts.** Contracts deployed before this SEP existed, or built with tooling that didn't populate meta, can still be verified — the submitter provides everything the verifier needs, including the rust version, image, and build options.
 - **Authenticated, point-in-time results.** Results are tied to a registry-controlled signing key or commit, with a stable URL per wasm hash. Block explorers and wallets link to those URLs for "verified" indicators.
 - **Pull-based discovery.** Users submit when they want their contract verified; the registry doesn't have to walk the chain looking for things to verify.
 - **Privacy-preserving option.** Source can be uploaded without being made publicly browsable — the registry rebuilds and reports the verification outcome without re-publishing the source verbatim, if the registry chooses to operate that way.
@@ -234,14 +241,16 @@ Indicative API shape:
 POST /contracts/<contract_id>/verify
   Content-Type: multipart/form-data
   - source: <tar.gz of source tree, including Cargo.toml and Cargo.lock>
-  - meta:   <optional override of meta entries the wasm carries>
+  - meta:   <optional override or supplement of meta entries the wasm carries>
 GET  /contracts/<contract_id>/verification
-  → { verified: bool, original_hash, rebuilt_hash, rebuilt_at, reason? }
+  → { verified: bool, original_hash, rebuilt_hash, rebuilt_at, parameters_used, reason? }
 ```
+
+`parameters_used` records which of the build parameters came from the wasm's meta vs. the submitter — important for legacy-contract verifications, where every parameter may have come from the submitter and consumers need to evaluate the result on that basis.
 
 Operational notes for a registry following this pattern:
 
 - The registry SHOULD pin its own verifier-tool version (per A.2's guidance) and disclose it on each result, so the registry's verifications are themselves reproducible.
-- A registry MAY accept submissions for wasms whose meta lacks `source_repo` / `source_rev`; the source is supplied by the submitter. The remaining reproducibility fields (`bldimg`, `rsver`, `bldopt_*`) are still required.
+- A registry MAY accept submissions where any subset of the meta entries (including all of them) is supplied by the submitter rather than read from the wasm. Submitter-supplied parameters MUST conform to the regexes in §1.
 - The registry's trust model centers on the registry operator: consumers trust that the operator faithfully ran §3 and didn't tamper with results. Operators SHOULD publish their verification logs and tool versions to make that trust auditable.
 - Registries can co-exist with the CI-driven pattern in A.2: a wasm's meta might support both paths simultaneously (CI verifies via the recorded git URL; registry verifies via uploaded source), and consumers are free to consult either or both.
