@@ -31,6 +31,7 @@ async fn parse() {
     enum_2_str(sandbox, id).await;
     e_2_s_enum(sandbox, id).await;
     asset(sandbox, id).await;
+    asset_with_alias(sandbox, id).await;
     e_2_s_tuple(sandbox, id).await;
     e_2_s_strukt(sandbox, id).await;
     number_arg(sandbox, id).await;
@@ -157,6 +158,18 @@ async fn asset(sandbox: &TestEnv, id: &str) {
         json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
     )
     .await;
+}
+
+async fn asset_with_alias(sandbox: &TestEnv, id: &str) {
+    let res = invoke(
+        sandbox,
+        id,
+        "complex",
+        &json!({"Asset": ["test", "100"]}).to_string(),
+    )
+    .await;
+    let expected = json!({"Asset": [test_address(sandbox), "100"]}).to_string();
+    assert_eq!(res, expected);
 }
 
 fn complex_tuple() -> serde_json::Value {
