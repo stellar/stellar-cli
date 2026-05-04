@@ -690,8 +690,6 @@ fn resolve_aliases_in_json(
     spec: &Spec,
     config: &config::Args,
 ) -> Result<(), Error> {
-    use stellar_xdr::curr::ScSpecUdtUnionCaseV0;
-
     match type_def {
         ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress => {
             if let serde_json::Value::String(s) = value {
@@ -714,8 +712,20 @@ fn resolve_aliases_in_json(
         }
         ScSpecTypeDef::Map(map) => {
             if let serde_json::Value::Object(obj) = value {
-                for v in obj.values_mut() {
-                    resolve_aliases_in_json(v, &map.value_type, spec, config)?;
+                let key_is_address = matches!(
+                    *map.key_type,
+                    ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+                );
+                if key_is_address {
+                    let entries = std::mem::take(obj);
+                    for (k, mut v) in entries {
+                        resolve_aliases_in_json(&mut v, &map.value_type, spec, config)?;
+                        obj.insert(resolve_address(&k, config)?, v);
+                    }
+                } else {
+                    for v in obj.values_mut() {
+                        resolve_aliases_in_json(v, &map.value_type, spec, config)?;
+                    }
                 }
             }
         }
@@ -723,65 +733,81 @@ fn resolve_aliases_in_json(
             resolve_aliases_in_json(value, &inner.value_type, spec, config)?;
         }
         ScSpecTypeDef::Udt(udt) => {
-            let name = udt.name.to_utf8_string_lossy();
-            let Ok(entry) = spec.find(&name) else {
-                return Ok(());
-            };
-            match entry {
-                ScSpecEntry::UdtStructV0(strukt) => {
-                    let is_tuple_struct = strukt
-                        .fields
-                        .iter()
-                        .any(|f| f.name.to_utf8_string_lossy() == "0");
-                    match value {
-                        serde_json::Value::Array(arr) if is_tuple_struct => {
-                            for (item, field) in arr.iter_mut().zip(strukt.fields.iter()) {
-                                resolve_aliases_in_json(item, &field.type_, spec, config)?;
-                            }
-                        }
-                        serde_json::Value::Object(obj) => {
-                            for field in strukt.fields.iter() {
-                                let key = field.name.to_utf8_string_lossy();
-                                if let Some(field_val) = obj.get_mut(key.as_str()) {
-                                    resolve_aliases_in_json(field_val, &field.type_, spec, config)?;
-                                }
-                            }
-                        }
-                        _ => {}
+            resolve_aliases_in_udt(value, udt, spec, config)?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn resolve_aliases_in_udt(
+    value: &mut serde_json::Value,
+    udt: &stellar_xdr::curr::ScSpecTypeUdt,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<(), Error> {
+    let name = udt.name.to_utf8_string_lossy();
+    let Ok(entry) = spec.find(&name) else {
+        return Ok(());
+    };
+    match entry {
+        ScSpecEntry::UdtStructV0(strukt) => {
+            let is_tuple_struct = strukt
+                .fields
+                .iter()
+                .any(|f| f.name.to_utf8_string_lossy() == "0");
+            match value {
+                serde_json::Value::Array(arr) if is_tuple_struct => {
+                    for (item, field) in arr.iter_mut().zip(strukt.fields.iter()) {
+                        resolve_aliases_in_json(item, &field.type_, spec, config)?;
                     }
                 }
-                ScSpecEntry::UdtUnionV0(union) => {
-                    if let serde_json::Value::Object(obj) = value {
-                        if let Some((case_name, payload)) = obj.iter_mut().next() {
-                            let matched = union.cases.iter().find_map(|c| match c {
-                                ScSpecUdtUnionCaseV0::TupleV0(t)
-                                    if t.name.to_utf8_string_lossy() == *case_name =>
-                                {
-                                    Some(t)
-                                }
-                                _ => None,
-                            });
-                            if let Some(tuple) = matched {
-                                if tuple.type_.len() == 1 {
-                                    resolve_aliases_in_json(
-                                        payload,
-                                        &tuple.type_[0],
-                                        spec,
-                                        config,
-                                    )?;
-                                } else if let serde_json::Value::Array(arr) = payload {
-                                    for (item, ty) in arr.iter_mut().zip(tuple.type_.iter()) {
-                                        resolve_aliases_in_json(item, ty, spec, config)?;
-                                    }
-                                }
-                            }
+                serde_json::Value::Object(obj) => {
+                    for field in strukt.fields.iter() {
+                        let key = field.name.to_utf8_string_lossy();
+                        if let Some(field_val) = obj.get_mut(key.as_str()) {
+                            resolve_aliases_in_json(field_val, &field.type_, spec, config)?;
                         }
                     }
                 }
                 _ => {}
             }
         }
+        ScSpecEntry::UdtUnionV0(union) => {
+            resolve_aliases_in_union(value, union, spec, config)?;
+        }
         _ => {}
+    }
+    Ok(())
+}
+
+fn resolve_aliases_in_union(
+    value: &mut serde_json::Value,
+    union: &stellar_xdr::curr::ScSpecUdtUnionV0,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<(), Error> {
+    use stellar_xdr::curr::ScSpecUdtUnionCaseV0;
+
+    let serde_json::Value::Object(obj) = value else {
+        return Ok(());
+    };
+    let Some((case_name, payload)) = obj.iter_mut().next() else {
+        return Ok(());
+    };
+    let matched = union.cases.iter().find_map(|c| match c {
+        ScSpecUdtUnionCaseV0::TupleV0(t) if t.name.to_utf8_string_lossy() == *case_name => Some(t),
+        _ => None,
+    });
+    let Some(tuple) = matched else {
+        return Ok(());
+    };
+    if tuple.type_.len() == 1 {
+        resolve_aliases_in_json(payload, &tuple.type_[0], spec, config)?;
+    } else if let serde_json::Value::Array(arr) = payload {
+        for (item, ty) in arr.iter_mut().zip(tuple.type_.iter()) {
+            resolve_aliases_in_json(item, ty, spec, config)?;
+        }
     }
     Ok(())
 }
@@ -1214,6 +1240,29 @@ mod tests {
         assert_eq!(value, serde_json::json!({"owner": TEST_G_ADDRESS}));
 
         let mut value = serde_json::json!({"owner": "bogus-alias"});
+        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_map_keys() {
+        use stellar_xdr::curr::ScSpecTypeMap;
+
+        let map_ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
+            key_type: Box::new(ScSpecTypeDef::Address),
+            value_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!({ TEST_G_ADDRESS: 1 });
+        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({ TEST_G_ADDRESS: 1 }));
+
+        let mut value = serde_json::json!({ "bogus-alias": 1 });
         let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
