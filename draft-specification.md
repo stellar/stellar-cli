@@ -214,12 +214,14 @@ A verifier following this pattern in production should:
 
 The choice of storage, scheduling, and record format is left to the verifier; conformance to §3 is the only thing that makes results comparable across verifiers.
 
-### A.3. Verification registry (user-submitted source and parameters)
+### A.3. Verification registry (user-supplied source and parameters)
 
-A verification registry is a service that accepts submissions from end users — at minimum (contract id or wasm hash, source code), and optionally any of the build parameters listed in §1 — runs §3 against each submission, and exposes the result via an API. Source is delivered by direct upload at submission time rather than fetched from a public git host. Build parameters that the wasm's meta does not carry can be supplied by the user, exercising the parameter-sourcing path described at the end of §3. A registry can therefore verify:
+A verification registry is a service that accepts submissions from end users — at minimum a contract id or wasm hash, plus whatever source and build parameters the wasm doesn't already carry — runs §3 against each submission, and exposes the result via an API.
 
-- Wasms with full reproducibility meta — submitter only needs to provide source.
-- Wasms missing `source_repo` / `source_rev` — submitter provides source via upload.
+Source delivery is flexible: the registry MAY fetch source from `source_repo` at `source_rev` when those entries are present in the wasm's meta, OR accept source uploaded directly by the submitter, OR a mix (e.g. fetch from a recorded URL but allow the submitter to override). Build parameters not present in the meta can likewise be supplied by the submitter, exercising the parameter-sourcing path described at the end of §3. A registry can therefore verify:
+
+- Wasms with full reproducibility meta — registry fetches source from the recorded URL and uses meta-supplied parameters; submitter only triggers the verification.
+- Wasms missing `source_repo` / `source_rev` — submitter provides source via upload; registry uses meta-supplied parameters.
 - Wasms missing build-environment meta entirely (Class C) — submitter provides source *and* the build parameters (e.g. by filling in a form: rust version, image, profile, manifest path). This is the typical path for contracts deployed before this SEP, or built with tooling that didn't populate meta.
 
 This pattern is well-established on other chains, where source-upload registries are the predominant verification path:
@@ -229,7 +231,7 @@ This pattern is well-established on other chains, where source-upload registries
 
 What this pattern brings:
 
-- **Source and parameter delivery via upload.** Source comes from the submitter, not a public host. Build parameters can come from the wasm's meta, the submitter, or a mix — whatever the wasm doesn't carry, the submitter supplies.
+- **Flexible source and parameter delivery.** Source comes from whichever path is available: the wasm's `source_repo`/`source_rev`, an upload from the submitter, or a registry-cached copy. Build parameters likewise come from the wasm's meta, the submitter, or a mix — whatever the wasm doesn't carry, the submitter supplies.
 - **Coverage of legacy contracts.** Contracts deployed before this SEP existed, or built with tooling that didn't populate meta, can still be verified — the submitter provides everything the verifier needs, including the rust version, image, and build options.
 - **Authenticated, point-in-time results.** Results are tied to a registry-controlled signing key or commit, with a stable URL per wasm hash. Block explorers and wallets link to those URLs for "verified" indicators.
 - **Pull-based discovery.** Users submit when they want their contract verified; the registry doesn't have to walk the chain looking for things to verify.
@@ -240,17 +242,18 @@ Indicative API shape:
 ```
 POST /contracts/<contract_id>/verify
   Content-Type: multipart/form-data
-  - source: <tar.gz of source tree, including Cargo.toml and Cargo.lock>
+  - source: <optional tar.gz of source tree, including Cargo.toml and Cargo.lock;
+             omit to have the registry fetch from the wasm's source_repo/source_rev>
   - meta:   <optional override or supplement of meta entries the wasm carries>
 GET  /contracts/<contract_id>/verification
-  → { verified: bool, original_hash, rebuilt_hash, rebuilt_at, parameters_used, reason? }
+  → { verified: bool, original_hash, rebuilt_hash, rebuilt_at, source_origin, parameters_used, reason? }
 ```
 
-`parameters_used` records which of the build parameters came from the wasm's meta vs. the submitter — important for legacy-contract verifications, where every parameter may have come from the submitter and consumers need to evaluate the result on that basis.
+`source_origin` records where source came from for this verification (e.g. `"meta:source_repo"` or `"upload"` or `"cache"`); `parameters_used` records which of the build parameters came from the wasm's meta vs. the submitter — both fields matter for legacy-contract verifications, where source and parameters may have come entirely from the submitter and consumers need to evaluate the result on that basis.
 
 Operational notes for a registry following this pattern:
 
 - The registry SHOULD pin its own verifier-tool version (per A.2's guidance) and disclose it on each result, so the registry's verifications are themselves reproducible.
 - A registry MAY accept submissions where any subset of the meta entries (including all of them) is supplied by the submitter rather than read from the wasm. Submitter-supplied parameters MUST conform to the regexes in §1.
 - The registry's trust model centers on the registry operator: consumers trust that the operator faithfully ran §3 and didn't tamper with results. Operators SHOULD publish their verification logs and tool versions to make that trust auditable.
-- Registries can co-exist with the CI-driven pattern in A.2: a wasm's meta might support both paths simultaneously (CI verifies via the recorded git URL; registry verifies via uploaded source), and consumers are free to consult either or both.
+- Registries can co-exist with the CI-driven pattern in A.2: a wasm's meta might support both paths simultaneously, and consumers are free to consult either or both. The registry adds value beyond what CI provides by additionally accepting submissions where source and/or parameters are user-supplied — the path that legacy contracts and submitter-overridden builds rely on.
