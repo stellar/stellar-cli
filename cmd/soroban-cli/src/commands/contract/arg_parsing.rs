@@ -65,6 +65,8 @@ pub enum Error {
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
+    #[error("Duplicate map key '{key}' after alias resolution\n\nMultiple input keys resolved to the same address — likely an alias passed alongside its strkey, or two aliases pointing to the same identity.")]
+    DuplicateMapKey { key: String },
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
@@ -725,7 +727,7 @@ fn resolve_aliases_in_json(
         ScSpecTypeDef::Map(map) => {
             if let serde_json::Value::Object(obj) = value {
                 let key_is_address = matches!(
-                    *map.key_type,
+                    map.key_type.as_ref(),
                     ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
                 );
                 if key_is_address {
@@ -735,6 +737,9 @@ fn resolve_aliases_in_json(
                         let resolved = resolve_address(&k, config)?;
                         if resolved != k {
                             mutated = true;
+                        }
+                        if obj.contains_key(&resolved) {
+                            return Err(Error::DuplicateMapKey { key: resolved });
                         }
                         obj.insert(resolved, v);
                     }
