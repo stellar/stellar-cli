@@ -747,6 +747,13 @@ fn resolve_aliases_in_json(
         ScSpecTypeDef::Option(inner) if !matches!(value, serde_json::Value::Null) => {
             mutated |= resolve_aliases_in_json(value, &inner.value_type, spec, config)?;
         }
+        ScSpecTypeDef::Result(result) => {
+            // Result is rarely used as an input type; the walker just descends
+            // into both branches and relies on per-arm shape checks to no-op
+            // when the JSON doesn't match.
+            mutated |= resolve_aliases_in_json(value, &result.ok_type, spec, config)?;
+            mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
+        }
         ScSpecTypeDef::Udt(udt) => {
             mutated |= resolve_aliases_in_udt(value, udt, spec, config)?;
         }
@@ -1260,6 +1267,29 @@ mod tests {
 
         let mut value = serde_json::json!({"owner": "bogus-alias"});
         let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_result_inner_types() {
+        use stellar_xdr::curr::ScSpecTypeResult;
+
+        let ty = ScSpecTypeDef::Result(Box::new(ScSpecTypeResult {
+            ok_type: Box::new(ScSpecTypeDef::Address),
+            error_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!(TEST_G_ADDRESS);
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!(TEST_G_ADDRESS));
+
+        let mut value = serde_json::json!("bogus-alias");
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
