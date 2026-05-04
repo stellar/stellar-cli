@@ -48,8 +48,8 @@ A reproducible build embeds the following entries in the wasm's `contractmetav0`
 | `cliver` | Build cli version + git rev. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?#([0-9a-f]{40}(-dirty)?)?$` |
 | `rsver` | Resolved rustc version used for the build. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?$` |
 | `bldimg` | Fully-qualified container image used for the build, pinned by digest. Required for builds claiming `docker`-class reproducibility; absent for host-local builds. | `^[^@\s]+@sha256:[0-9a-f]{64}$` |
-| `source_repo` | HTTPS URL of the source repository's origin. Recorded only when the working tree was clean at build time. | `^https?://\S+$` |
-| `source_rev` | Full 40-char SHA-1 of the source commit (`HEAD`). Recorded only when the working tree was clean at build time. | `^[0-9a-f]{40}$` |
+| `source_repo` | HTTPS URL of the source repository's origin. Optional. Recorded when the build tooling can determine it (e.g. a clean git checkout with an `origin` remote); enables self-served verification (the verifier fetches source from this URL). May be absent when source is delivered through another channel — see Appendix A.3. | `^https?://\S+$` |
+| `source_rev` | Full 40-char SHA-1 of the source commit (`HEAD`). Optional, recorded under the same conditions as `source_repo`. | `^[0-9a-f]{40}$` |
 | `bldopt_manifest_path` | Path to the package's `Cargo.toml` relative to the repository root. | `^([^/\s]+/)*Cargo\.toml$` |
 | `bldopt_package` | Cargo package name being built. | `^[A-Za-z][A-Za-z0-9_-]*$` |
 | `bldopt_profile` | Cargo profile (e.g. `release`). | `^[A-Za-z][A-Za-z0-9_-]*$` |
@@ -59,13 +59,13 @@ Tooling may inject additional, application-specific entries; verifiers ignore un
 
 ### 2. Build classes
 
-A wasm's reproducibility class is determined by the meta entries present:
+A wasm's reproducibility class is determined by the build-environment meta entries present. Source-delivery entries (`source_repo`, `source_rev`) are recommended but not required for any class — they enable self-served verification (the verifier fetches source from the recorded URL); when they are absent, source must be supplied to the verifier through another channel (e.g. uploaded to a verification registry; see Appendix A.3).
 
-- **Class A — container-pinned**: all of `cliver`, `rsver`, `bldimg`, `source_repo`, `source_rev`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant. The build is reproducible to the bytes of `bldimg`'s pulled image content; verification produces identical bytes on any host with a working docker daemon and access to the registry.
-- **Class B — host best-effort**: all of `cliver`, `rsver`, `source_repo`, `source_rev`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant; `bldimg` is absent. The build was performed on the host with a non-containerized toolchain. Verification is best-effort and may produce different bytes on different hosts due to environment differences not captured in meta.
+- **Class A — container-pinned**: all of `cliver`, `rsver`, `bldimg`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant. The build is reproducible to the bytes of `bldimg`'s pulled image content; verification produces identical bytes on any host with a working docker daemon and access to the registry.
+- **Class B — host best-effort**: all of `cliver`, `rsver`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant; `bldimg` is absent. The build was performed on the host with a non-containerized toolchain. Verification is best-effort and may produce different bytes on different hosts due to environment differences not captured in meta.
 - **Class C — non-reproducible**: any required entry above is absent. Verification cannot be claimed.
 
-Tooling deploying to mainnet should warn when a wasm is Class B or C.
+Tooling deploying to mainnet should warn when a wasm is Class B or C, and may additionally warn when `source_repo` / `source_rev` are absent (since that limits the verification paths available to consumers).
 
 ### 3. Verification algorithm
 
@@ -74,7 +74,7 @@ Given an on-chain or offline wasm `W`, a verifier produces a verification result
 1. Compute `sha256(W)` → `original_hash`.
 2. Parse `W`'s `contractmetav0` section. Extract the entries listed in §1.
 3. Determine the build class per §2. If Class C, verification fails: the wasm carries insufficient meta to be reproduced.
-4. Source acquisition is the verifier's responsibility. The verifier ensures a checkout of `source_repo` at commit `source_rev` is available before invoking the rebuild; this SEP does not mandate a clone strategy.
+4. Source acquisition is the verifier's responsibility. The verifier ensures the source tree is available before invoking the rebuild. When `source_repo` and `source_rev` are present, the verifier may fetch the named commit from that URL (self-served verification). When they are absent, source must come from another channel — e.g. uploaded to the verifier (see the verification-registry pattern in Appendix A.3) or already on the verifier's filesystem. This SEP does not mandate a particular source-delivery mechanism.
 5. Reconstruct the build environment:
    - For Class A: pull `bldimg` (digest-pinned, so deterministic) and run the rebuild inside that container with the source checkout bind-mounted in. The rust toolchain inside the container MUST be the version recorded in `rsver` (e.g. via the `RUSTUP_TOOLCHAIN` environment variable when rustup is the in-image toolchain manager).
    - For Class B: use the host rust toolchain pinned to `rsver` (e.g. via `cargo +<rsver>` when rustup is the host toolchain manager).
@@ -211,3 +211,37 @@ A verifier following this pattern in production should:
 - skip wasms already verified by the same verifier at the same tool version (idempotency).
 
 The choice of storage, scheduling, and record format is left to the verifier; conformance to §3 is the only thing that makes results comparable across verifiers.
+
+### A.3. Verification registry (user-submitted source)
+
+A verification registry is a service that accepts (contract id or wasm hash, source code) submissions from end users, runs §3 against each submission, and exposes the result via an API. Source is delivered by direct upload at submission time rather than fetched from a public git host, so a wasm submitted for registry verification need not embed `source_repo` or `source_rev` — only the build-environment fields (`bldimg`, `rsver`, `bldopt_*`) are required to reconstruct the rebuild environment.
+
+This pattern is well-established on other chains, where source-upload registries are the predominant verification path:
+
+- **EVM** — [Etherscan](https://etherscan.io/verifyContract) and [Sourcify](https://sourcify.dev/) accept Solidity source uploads, recompile against the deployed bytecode, and publish "verified source" badges that block explorers and wallets surface to end users.
+- **Solana** — [solana-verify](https://github.com/Ellipsis-Labs/solana-verifiable-build) and [OtterSec's Solana verify](https://github.com/otter-sec/solana-verify) accept Anchor program source, rebuild deterministically, and expose results to explorers.
+
+What this pattern brings:
+
+- **Source delivery via upload.** A wasm submitted to a registry needs only the build-environment meta (`bldimg`, `rsver`, `bldopt_*`); it does not need `source_repo` / `source_rev`. The registry obtains source from the submitter, not from a public host.
+- **Authenticated, point-in-time results.** Results are tied to a registry-controlled signing key or commit, with a stable URL per wasm hash. Block explorers and wallets link to those URLs for "verified" indicators.
+- **Pull-based discovery.** Users submit when they want their contract verified; the registry doesn't have to walk the chain looking for things to verify.
+- **Privacy-preserving option.** Source can be uploaded without being made publicly browsable — the registry rebuilds and reports the verification outcome without re-publishing the source verbatim, if the registry chooses to operate that way.
+
+Indicative API shape:
+
+```
+POST /contracts/<contract_id>/verify
+  Content-Type: multipart/form-data
+  - source: <tar.gz of source tree, including Cargo.toml and Cargo.lock>
+  - meta:   <optional override of meta entries the wasm carries>
+GET  /contracts/<contract_id>/verification
+  → { verified: bool, original_hash, rebuilt_hash, rebuilt_at, reason? }
+```
+
+Operational notes for a registry following this pattern:
+
+- The registry SHOULD pin its own verifier-tool version (per A.2's guidance) and disclose it on each result, so the registry's verifications are themselves reproducible.
+- A registry MAY accept submissions for wasms whose meta lacks `source_repo` / `source_rev`; the source is supplied by the submitter. The remaining reproducibility fields (`bldimg`, `rsver`, `bldopt_*`) are still required.
+- The registry's trust model centers on the registry operator: consumers trust that the operator faithfully ran §3 and didn't tamper with results. Operators SHOULD publish their verification logs and tool versions to make that trust auditable.
+- Registries can co-exist with the CI-driven pattern in A.2: a wasm's meta might support both paths simultaneously (CI verifies via the recorded git URL; registry verifies via uploaded source), and consumers are free to consult either or both.
