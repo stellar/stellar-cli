@@ -53,7 +53,7 @@ impl Contract {
         42
     }
 
-    pub fn hello(env: Env) -> Symbol {
+    pub fn hello(_env: Env) -> Symbol {
         symbol_short!("hello")
     }
 }

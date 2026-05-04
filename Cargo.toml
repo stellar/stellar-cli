@@ -44,7 +44,7 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "26.0.0"
+version = "26.0.1"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
@@ -53,7 +53,14 @@ version = "26.0.0-rc.1"
 [workspace.dependencies.soroban-spec-rust]
 version = "26.0.0-rc.1"
 
+[workspace.dependencies.soroban-spec-markers]
+git = "https://github.com/stellar/rs-soroban-sdk"
+branch = "spec-shaking-marker-fix-3"
+
 [workspace.dependencies.soroban-sdk]
+version = "26.0.0-rc.1"
+
+[workspace.dependencies.soroban-meta]
 version = "26.0.0-rc.1"
 
 [workspace.dependencies.soroban-env-host]
@@ -137,3 +144,14 @@ lto = true
 [profile.release-with-panic-unwind]
 inherits = "release"
 panic = "unwind"
+
+[patch.crates-io]
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-sdk-macros = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-meta = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+soroban-token-spec = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", branch = "spec-shaking-marker-fix-3" }
