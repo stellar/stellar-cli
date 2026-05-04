@@ -684,12 +684,13 @@ fn resolve_aliases(
 }
 
 /// Walks a JSON value alongside the contract spec type tree, rewriting any
-/// string at an `Address`/`MuxedAddress` position into its resolved strkey via
-/// the locator. Strings that already parse as strkeys pass through unchanged.
+/// string at an `Address`/`MuxedAddress` position into the resolved address
+/// via the locator. Strings that are already a valid account, contract, or
+/// muxed strkey pass through unchanged.
 ///
 /// This makes identity aliases work inside nested arguments (struct fields,
 /// vec/map/tuple elements, option values, union tuple-variant payloads), not
-/// just at the top level.
+/// just at the top level. Returns whether any string was actually rewritten.
 fn resolve_aliases_in_json(
     value: &mut serde_json::Value,
     type_def: &ScSpecTypeDef,
