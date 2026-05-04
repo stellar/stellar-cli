@@ -1174,6 +1174,30 @@ mod tests {
     }
 
     #[test]
+    fn resolve_aliases_in_json_walks_tuple() {
+        use stellar_xdr::curr::ScSpecTypeTuple;
+
+        let ty = ScSpecTypeDef::Tuple(Box::new(ScSpecTypeTuple {
+            value_types: vec![ScSpecTypeDef::Address, ScSpecTypeDef::U32]
+                .try_into()
+                .unwrap(),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!([TEST_G_ADDRESS, 42]);
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!([TEST_G_ADDRESS, 42]));
+
+        let mut value = serde_json::json!(["bogus-alias", 42]);
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
     fn resolve_aliases_in_json_walks_struct_field() {
         use stellar_xdr::curr::ScSpecTypeVec;
 
