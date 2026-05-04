@@ -85,7 +85,7 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("contract not found: {0}{}", wasm_hash_hint(.0))]
+    #[error("contract not found: {0}{hint}", hint = wasm_hash_hint(.0))]
     ContractNotFound(String),
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
@@ -111,7 +111,7 @@ pub enum Error {
 
 fn wasm_hash_hint(value: &str) -> &'static str {
     if value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit()) {
-        "; expected a contract address (looks like a Wasm hash)"
+        "; expected a contract address (C...), got a hash"
     } else {
         ""
     }
@@ -952,9 +952,7 @@ mod error_message_tests {
         let err = Error::ContractNotFound(hash.to_string());
         assert_eq!(
             err.to_string(),
-            format!(
-                "contract not found: {hash}; expected a contract address (looks like a Wasm hash)"
-            ),
+            format!("contract not found: {hash}; expected a contract address (C...), got a hash"),
         );
     }
 
@@ -963,7 +961,7 @@ mod error_message_tests {
         let hash = "5EA0F3D6C880148C8DA088809E851732127FC36B7B42BBDDE6052FCC6F6253F3";
         let err = Error::ContractNotFound(hash.to_string());
         assert!(
-            err.to_string().contains("looks like a Wasm hash"),
+            err.to_string().contains("got a hash"),
             "expected wasm-hash hint for uppercase hex, got: {err}",
         );
     }
@@ -973,7 +971,7 @@ mod error_message_tests {
         let hash = "5ea0F3d6C880148c8DA088809e851732127fc36b7b42BBDDE6052fcc6F6253F3";
         let err = Error::ContractNotFound(hash.to_string());
         assert!(
-            err.to_string().contains("looks like a Wasm hash"),
+            err.to_string().contains("got a hash"),
             "expected wasm-hash hint for mixed-case hex, got: {err}",
         );
     }
