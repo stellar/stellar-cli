@@ -827,6 +827,9 @@ fn resolve_aliases_in_union(
     let Some(tuple) = matched else {
         return Ok(false);
     };
+    // Single-element tuple variants take a bare payload — `{"Variant": value}` —
+    // matching the form `soroban_spec_tools` accepts. Variants with two or more
+    // elements take an array payload — `{"Variant": [a, b, ...]}`.
     if tuple.type_.len() == 1 {
         return resolve_aliases_in_json(payload, &tuple.type_[0], spec, config);
     }
@@ -1233,6 +1236,43 @@ mod tests {
         assert_eq!(value, serde_json::json!({"Pick": [TEST_G_ADDRESS, 42]}));
 
         let mut value = serde_json::json!({"Pick": ["bogus-alias", 42]});
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_single_element_union_variant() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+            ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "OneOf".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                doc: StringM::default(),
+                name: "Only".try_into().unwrap(),
+                type_: vec![ScSpecTypeDef::Address].try_into().unwrap(),
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Bare payload form: {"Only": addr} — not {"Only": [addr]}.
+        let mut value = serde_json::json!({"Only": TEST_G_ADDRESS});
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({"Only": TEST_G_ADDRESS}));
+
+        let mut value = serde_json::json!({"Only": "bogus-alias"});
         let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
