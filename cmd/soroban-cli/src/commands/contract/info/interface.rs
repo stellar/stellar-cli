@@ -37,6 +37,8 @@ pub enum Error {
     Wasm(#[from] shared::Error),
     #[error(transparent)]
     Spec(#[from] contract::Error),
+    #[error(transparent)]
+    GenerateRust(#[from] soroban_spec_rust::GenerateError),
     #[error("no interface present in provided WASM file")]
     NoInterfacePresent(),
     #[error(transparent)]
@@ -67,7 +69,7 @@ impl Cmd {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };

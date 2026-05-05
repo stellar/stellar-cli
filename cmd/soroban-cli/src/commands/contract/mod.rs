@@ -14,6 +14,7 @@ pub mod invoke;
 pub mod optimize;
 pub mod read;
 pub mod restore;
+pub(crate) mod spec_shaking;
 pub mod spec_verify;
 pub mod upload;
 
