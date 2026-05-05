@@ -322,14 +322,19 @@ impl Args {
         if let Key::Secret(Secret::SecureStore {
             entry_name,
             public_key: None,
-            ..
+            hd_path: persisted_hd_path,
         }) = &key
         {
-            let pk = secure_store::get_public_key(entry_name, hd_path)?;
+            // Honor the persisted hd_path when the caller passes None. Without
+            // this the cache gets populated at index 0 even when the identity
+            // was added with `--hd-path N`, which silently locks every later
+            // read to the wrong account.
+            let effective = hd_path.or(*persisted_hd_path);
+            let pk = secure_store::get_public_key(entry_name, effective)?;
             let migrated = Key::Secret(Secret::SecureStore {
                 entry_name: entry_name.clone(),
                 public_key: Some(pk.to_string()),
-                hd_path,
+                hd_path: effective,
             });
             // Best-effort write-back: if persistence fails we still return the
             // freshly-derived value so the current call succeeds.

@@ -42,9 +42,6 @@ pub enum Error {
 
     #[error("--hd-path is not valid with a secret key; secret keys cannot be derived")]
     HdPathNotSupportedForSecretKey,
-
-    #[error("--hd-path is not valid with --public-key; public keys cannot be derived")]
-    HdPathNotSupportedForPublicKey,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -60,7 +57,12 @@ pub struct Cmd {
     pub config_locator: locator::Args,
 
     /// Add a public key, ed25519, or muxed account, e.g. G1.., M2..
-    #[arg(long, conflicts_with = "seed_phrase", conflicts_with = "secret_key")]
+    #[arg(
+        long,
+        conflicts_with = "seed_phrase",
+        conflicts_with = "secret_key",
+        conflicts_with = "hd_path"
+    )]
     pub public_key: Option<String>,
 
     /// Overwrite existing identity if it already exists. When combined with
@@ -68,9 +70,10 @@ pub struct Cmd {
     #[arg(long)]
     pub overwrite: bool,
 
-    /// When importing a seed phrase, which `hd_path` to derive the key at. Persisted on
-    /// the identity (or its Secure Store entry) so later commands derive the same account
-    /// without re-passing the flag. Not valid with `--public-key` or a raw secret key.
+    /// When importing a seed phrase, which `hd_path` to derive the key at.
+    /// Persisted on the identity so later commands derive the same account
+    /// without re-passing the flag. Not valid with `--public-key` or a raw
+    /// secret key.
     #[arg(long)]
     pub hd_path: Option<usize>,
 }
@@ -78,10 +81,6 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
-
-        if self.public_key.is_some() && self.hd_path.is_some() {
-            return Err(Error::HdPathNotSupportedForPublicKey);
-        }
 
         if self.config_locator.read_identity(&self.name).is_ok() {
             if !self.overwrite {
@@ -268,10 +267,22 @@ mod tests {
     }
 
     #[test]
-    fn test_run_rejects_hd_path_with_public_key() {
-        let (_tmp, _locator, cmd) = cmd_with_public_key(PUBLIC_KEY, Some(3));
-        let result = cmd.run(&global_args());
-        assert!(matches!(result, Err(Error::HdPathNotSupportedForPublicKey)));
+    fn test_clap_rejects_hd_path_with_public_key() {
+        // clap-level conflict: --public-key cannot be combined with --hd-path.
+        // Driving through `try_parse_from` rather than constructing `Cmd`
+        // directly is what exercises the conflict.
+        use clap::Parser;
+
+        let result = Cmd::try_parse_from([
+            "add",
+            "test_name",
+            "--public-key",
+            PUBLIC_KEY,
+            "--hd-path",
+            "3",
+        ]);
+        let err = result.expect_err("clap must reject --public-key + --hd-path");
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]
