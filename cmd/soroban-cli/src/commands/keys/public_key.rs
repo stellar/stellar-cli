@@ -43,7 +43,7 @@ impl Args {
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// Name of identity to lookup, default test identity used if not provided
+    /// Name of identity to lookup. Required unless `--ledger` is provided.
     #[arg(required_unless_present = "ledger")]
     pub name: Option<UnresolvedMuxedAccount>,
 
