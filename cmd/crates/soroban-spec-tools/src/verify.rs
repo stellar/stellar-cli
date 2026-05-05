@@ -5,7 +5,7 @@ use stellar_xdr::curr::{
     ScSpecUdtUnionCaseV0,
 };
 
-use crate::Spec;
+use crate::{sanitize, Spec};
 
 // Types defined in the Rust soroban-sdk that are referenced in contract specs
 // but are never exported as UDT definitions, at least in current versions of
@@ -29,10 +29,16 @@ impl std::fmt::Display for SpecWarning {
         match self {
             SpecWarning::UndefinedType { type_name, context } => write!(
                 f,
-                "type '{type_name}' referenced by {context} is not defined in the spec"
+                "type '{}' referenced by {} is not defined in the spec",
+                sanitize(type_name),
+                sanitize(context),
             ),
             SpecWarning::DuplicateEntry { name } => {
-                write!(f, "spec entry '{name}' is defined more than once")
+                write!(
+                    f,
+                    "spec entry '{}' is defined more than once",
+                    sanitize(name)
+                )
             }
         }
     }
@@ -410,5 +416,22 @@ mod tests {
                 name: "Foo".to_string()
             }
         );
+    }
+
+    #[test]
+    fn undefined_type_display_strips_control_chars() {
+        let w = SpecWarning::UndefinedType {
+            type_name: "Evil\x1b[31m".into(),
+            context: "function 'do\x1b[2J' input 'x'".into(),
+        };
+        crate::test_utils::assert_no_control_chars(&format!("{w}"));
+    }
+
+    #[test]
+    fn duplicate_entry_display_strips_control_chars() {
+        let w = SpecWarning::DuplicateEntry {
+            name: "Foo\x1b[2J\x1b[H".into(),
+        };
+        crate::test_utils::assert_no_control_chars(&format!("{w}"));
     }
 }
