@@ -1,4 +1,4 @@
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{sanitize, Spec};
 use tracing::debug;
 
 use crate::{print::Print, xdr};
@@ -53,18 +53,24 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
                             let params_str = decoded
                                 .params
                                 .iter()
-                                .map(|(k, v)| format!("{k}: {v}"))
+                                .map(|(k, v)| format!("{}: {v}", sanitize(k)))
                                 .collect::<Vec<_>>()
                                 .join(", ");
 
                             let prefix_str = if decoded.prefix_topics.is_empty() {
                                 String::new()
                             } else {
-                                format!(" ({})", decoded.prefix_topics.join(", "))
+                                let prefix = decoded
+                                    .prefix_topics
+                                    .iter()
+                                    .map(|t| sanitize(t))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                format!(" ({prefix})")
                             };
                             let output = format!(
                                 "{contract_id} - {status} - Event: {}{prefix_str}, {params_str}",
-                                decoded.event_name
+                                sanitize(&decoded.event_name)
                             )
                             .trim_end_matches([',', ' '])
                             .to_string();

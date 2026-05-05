@@ -1,7 +1,7 @@
 use clap::Parser;
 use indexmap::IndexMap;
 use soroban_spec_tools::event::DecodedEvent;
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{sanitize, Spec};
 use std::collections::HashMap;
 use std::io;
 
@@ -394,10 +394,16 @@ impl Cmd {
         write!(stdout, "  Event:    ")?;
         stdout.reset()?;
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true))?;
-        write!(stdout, "{}", decoded.event_name)?;
+        write!(stdout, "{}", sanitize(&decoded.event_name))?;
         stdout.reset()?;
         if !decoded.prefix_topics.is_empty() {
-            write!(stdout, " ({})", decoded.prefix_topics.join(", "))?;
+            let prefix = decoded
+                .prefix_topics
+                .iter()
+                .map(|t| sanitize(t))
+                .collect::<Vec<_>>()
+                .join(", ");
+            write!(stdout, " ({prefix})")?;
         }
         writeln!(stdout)?;
 
@@ -408,7 +414,7 @@ impl Cmd {
             stdout.reset()?;
             for (name, value) in &decoded.params {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-                write!(stdout, "    {name}")?;
+                write!(stdout, "    {}", sanitize(name))?;
                 stdout.reset()?;
                 write!(stdout, ": ")?;
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)))?;
