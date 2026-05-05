@@ -605,7 +605,7 @@ fn claimable_balance_tx_env(sender: &str, destination: &str) -> TransactionEnvel
 
     let source: UnresolvedMuxedAccount = sender.parse().unwrap();
     let resolved_source = source
-        .resolve_muxed_account_sync(&locator::Args::default(), None)
+        .resolve_muxed_account(&locator::Args::default(), None)
         .unwrap();
 
     xdr::Transaction::new_tx(resolved_source, 1000, 1, create_op).into()
@@ -642,7 +642,7 @@ fn liquidity_pool_tx_env(
 
     let source: UnresolvedMuxedAccount = test_account_address.parse().unwrap();
     let resolved_source = source
-        .resolve_muxed_account_sync(&locator::Args::default(), None)
+        .resolve_muxed_account(&locator::Args::default(), None)
         .unwrap();
 
     let tx = xdr::Transaction::new_tx(resolved_source, 1000, 1, op).into();

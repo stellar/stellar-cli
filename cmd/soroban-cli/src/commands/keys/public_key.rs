@@ -1,12 +1,16 @@
 use crate::{
     commands::config::{address, locator},
     config::UnresolvedMuxedAccount,
+    signer::ledger,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Address(#[from] address::Error),
+
+    #[error(transparent)]
+    Ledger(#[from] ledger::Error),
 
     #[error("--hd-path {0} is out of range for a Ledger account index")]
     HdPathOutOfRange(usize),
@@ -44,19 +48,14 @@ impl Cmd {
         if self.ledger {
             let raw = self.hd_path.unwrap_or(0);
             let index: u32 = raw.try_into().map_err(|_| Error::HdPathOutOfRange(raw))?;
-            return Ok(public_key_from_muxed(
-                UnresolvedMuxedAccount::Ledger(index)
-                    .resolve_muxed_account(&self.locator, None)
-                    .await?,
-            ));
+            return Ok(ledger::new(index).await?.public_key().await?);
         }
         let name = self
             .name
             .as_ref()
             .expect("clap requires `name` unless --ledger is set");
         Ok(public_key_from_muxed(
-            name.resolve_muxed_account(&self.locator, self.hd_path)
-                .await?,
+            name.resolve_muxed_account(&self.locator, self.hd_path)?,
         ))
     }
 }

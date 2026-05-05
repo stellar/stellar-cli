@@ -147,7 +147,7 @@ impl Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         // TODO: use symbols for the method names (both here and in serve)

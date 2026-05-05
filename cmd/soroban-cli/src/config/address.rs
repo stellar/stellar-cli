@@ -3,10 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    signer::{self, ledger},
-    xdr,
-};
+use crate::{signer, xdr};
 
 use super::{key, locator, secret, utils};
 
@@ -15,7 +12,6 @@ use super::{key, locator, secret, utils};
 pub enum UnresolvedMuxedAccount {
     Resolved(xdr::MuxedAccount),
     AliasOrSecret(String),
-    Ledger(u32),
 }
 
 impl Default for UnresolvedMuxedAccount {
@@ -31,7 +27,6 @@ impl Display for UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
                 write!(f, "{alias_or_secret}")
             }
-            UnresolvedMuxedAccount::Ledger(hd_path) => write!(f, "ledger:{hd_path}"),
         }
     }
 }
@@ -48,20 +43,12 @@ pub enum Error {
     Key(#[from] key::Error),
     #[error("Address cannot be used to sign {0}")]
     CannotSign(xdr::MuxedAccount),
-    #[error("Ledger cannot reveal private keys")]
-    LedgerPrivateKeyRevealNotSupported,
-    #[error("Invalid key name: {0}\n `ledger` is not allowed")]
-    LedgerIsInvalidKeyName(String),
     #[error("Invalid key name: {0}\n only alphanumeric characters, underscores (_), and hyphens (-) are allowed.")]
     InvalidKeyNameCharacters(String),
     #[error("Invalid key name: {0}\n keys cannot exceed 250 characters")]
     InvalidKeyNameLength(String),
     #[error("Invalid key name: {0}\n keys cannot be the word \"ledger\"")]
     InvalidKeyName(String),
-    #[error("Ledger not supported in this context")]
-    LedgerNotSupported,
-    #[error(transparent)]
-    Ledger(#[from] signer::ledger::Error),
     #[error(transparent)]
     Name(#[from] utils::Error),
 }
@@ -70,11 +57,6 @@ impl FromStr for UnresolvedMuxedAccount {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.starts_with("ledger") {
-            if let Some(ledger) = parse_ledger(value) {
-                return Ok(UnresolvedMuxedAccount::Ledger(ledger));
-            }
-        }
         Ok(xdr::MuxedAccount::from_str(value).map_or_else(
             |_| UnresolvedMuxedAccount::AliasOrSecret(value.to_string()),
             UnresolvedMuxedAccount::Resolved,
@@ -82,34 +64,8 @@ impl FromStr for UnresolvedMuxedAccount {
     }
 }
 
-fn parse_ledger(value: &str) -> Option<u32> {
-    let vals: Vec<_> = value.split(':').collect();
-    if vals.len() > 2 {
-        return None;
-    }
-    if vals.len() == 1 {
-        return Some(0);
-    }
-    vals[1].parse().ok()
-}
-
 impl UnresolvedMuxedAccount {
-    pub async fn resolve_muxed_account(
-        &self,
-        locator: &locator::Args,
-        hd_path: Option<usize>,
-    ) -> Result<xdr::MuxedAccount, Error> {
-        match self {
-            UnresolvedMuxedAccount::Ledger(hd_path) => Ok(xdr::MuxedAccount::Ed25519(
-                ledger::new(*hd_path).await?.public_key().await?.0.into(),
-            )),
-            UnresolvedMuxedAccount::Resolved(_) | UnresolvedMuxedAccount::AliasOrSecret(_) => {
-                self.resolve_muxed_account_sync(locator, hd_path)
-            }
-        }
-    }
-
-    pub fn resolve_muxed_account_sync(
+    pub fn resolve_muxed_account(
         &self,
         locator: &locator::Args,
         hd_path: Option<usize>,
@@ -119,7 +75,6 @@ impl UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => Ok(locator
                 .read_key_with_secure_store_cache(alias_or_secret, hd_path)?
                 .muxed_account(hd_path)?),
-            UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerNotSupported),
         }
     }
 
@@ -131,7 +86,6 @@ impl UnresolvedMuxedAccount {
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
                 Ok(locator.read_key(alias_or_secret)?.try_into()?)
             }
-            UnresolvedMuxedAccount::Ledger(_) => Err(Error::LedgerPrivateKeyRevealNotSupported),
         }
     }
 }
@@ -251,6 +205,22 @@ impl AsRef<std::path::Path> for ContractName {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ledger_shorthand_is_not_recognized() {
+        match "ledger".parse::<UnresolvedMuxedAccount>().unwrap() {
+            UnresolvedMuxedAccount::AliasOrSecret(s) => assert_eq!(s, "ledger"),
+            UnresolvedMuxedAccount::Resolved(m) => panic!("unexpected resolved muxed: {m}"),
+        }
+    }
+
+    #[test]
+    fn ledger_indexed_shorthand_is_not_recognized() {
+        match "ledger:5".parse::<UnresolvedMuxedAccount>().unwrap() {
+            UnresolvedMuxedAccount::AliasOrSecret(s) => assert_eq!(s, "ledger:5"),
+            UnresolvedMuxedAccount::Resolved(m) => panic!("unexpected resolved muxed: {m}"),
+        }
+    }
 
     #[test]
     fn network_name_valid() {

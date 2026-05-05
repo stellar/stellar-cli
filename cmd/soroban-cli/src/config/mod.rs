@@ -85,11 +85,10 @@ pub struct Args {
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path())
-            .await?)
+            .resolve_muxed_account(&self.locator, self.hd_path())?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {

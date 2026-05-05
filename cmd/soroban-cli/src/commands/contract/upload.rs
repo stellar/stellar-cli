@@ -237,7 +237,7 @@ impl Cmd {
         }
 
         // Get the account sequence number
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         let account_details = client
             .get_account(&source_account.clone().to_string())

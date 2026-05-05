@@ -54,7 +54,7 @@ pub enum Error {
 
 impl Args {
     pub async fn tx(&self, body: impl Into<xdr::OperationBody>) -> Result<xdr::Transaction, Error> {
-        let source_account = self.source_account().await?;
+        let source_account = self.source_account()?;
         let seq_num = self
             .config
             .next_sequence_number(source_account.clone().account_id())
@@ -121,15 +121,15 @@ impl Args {
         Ok(TxnEnvelopeResult::Res(txn_resp))
     }
 
-    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
-        Ok(self.config.source_account().await?)
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+        Ok(self.config.source_account()?)
     }
 
     pub fn resolve_muxed_address(
         &self,
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::MuxedAccount, Error> {
-        Ok(address.resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?)
+        Ok(address.resolve_muxed_account(&self.config.locator, self.config.hd_path())?)
     }
 
     pub fn resolve_account_id(
@@ -137,11 +137,11 @@ impl Args {
         address: &UnresolvedMuxedAccount,
     ) -> Result<xdr::AccountId, Error> {
         Ok(address
-            .resolve_muxed_account_sync(&self.config.locator, self.config.hd_path())?
+            .resolve_muxed_account(&self.config.locator, self.config.hd_path())?
             .account_id())
     }
 
-    pub async fn add_op(
+    pub fn add_op(
         &self,
         op_body: impl Into<xdr::OperationBody>,
         tx_env: xdr::TransactionEnvelope,
@@ -149,11 +149,8 @@ impl Args {
     ) -> Result<xdr::TransactionEnvelope, Error> {
         let mut source_account = None;
         if let Some(account) = op_source {
-            source_account = Some(
-                account
-                    .resolve_muxed_account(&self.config.locator, self.config.hd_path())
-                    .await?,
-            );
+            source_account =
+                Some(account.resolve_muxed_account(&self.config.locator, self.config.hd_path())?);
         }
         let op = xdr::Operation {
             source_account,

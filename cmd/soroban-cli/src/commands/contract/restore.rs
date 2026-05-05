@@ -165,7 +165,7 @@ impl Cmd {
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         let account_details = client

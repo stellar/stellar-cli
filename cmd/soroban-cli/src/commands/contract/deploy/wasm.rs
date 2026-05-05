@@ -352,7 +352,7 @@ impl Cmd {
         };
 
         let client = network.rpc_client()?;
-        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
