@@ -17,7 +17,7 @@ pub struct Cmd {
     pub network: network::Args,
     /// Address to fund
     #[command(flatten)]
-    pub address: public_key::Cmd,
+    pub address: public_key::Args,
 }
 
 impl Cmd {
@@ -32,5 +32,20 @@ impl Cmd {
             formatted_name, network.network_passphrase
         ));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+
+    #[test]
+    fn fund_does_not_accept_ledger_flag() {
+        let err = Cmd::try_parse_from(["fund", PUBLIC_KEY, "--ledger"])
+            .expect_err("`--ledger` belongs to `keys address` only");
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
     }
 }
