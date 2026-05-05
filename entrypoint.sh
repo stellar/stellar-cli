@@ -11,4 +11,5 @@ export GNOME_KEYRING_CONTROL
 export SSH_AUTH_SOCK
 
 cd /source
+rustup target add wasm32v1-none
 exec "$@"
