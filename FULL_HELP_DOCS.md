@@ -1173,7 +1173,7 @@ Fund an identity on a test network
 
 ###### **Arguments:**
 
-- `<NAME>` — Name of identity to lookup, default test identity used if not provided
+- `<NAME>` — Name of identity to lookup. Required unless `--ledger` is provided
 
 ###### **Options:**
 
