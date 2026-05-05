@@ -97,7 +97,7 @@ impl Args {
                 },
             };
 
-            let secret = locator.get_secret_key(key_or_name)?;
+            let secret = locator.get_secret_key_with_hd_path(key_or_name, self.hd_path)?;
             secret.signer(self.hd_path, print).await?
         };
         Ok(signer.sign_tx_env(tx, network).await?)

@@ -1,6 +1,7 @@
 use sep5::SeedPhrase;
 use stellar_strkey::ed25519::PublicKey;
 
+use crate::config::secret::Secret;
 use crate::print::Print;
 
 #[cfg(feature = "additional-libs")]
@@ -28,7 +29,7 @@ pub enum Error {
 
 #[cfg(feature = "additional-libs")]
 mod secure_store_impl {
-    use super::{Error, Print, PublicKey, SeedPhrase, StellarEntry, ENTRY_PREFIX};
+    use super::{Error, Print, PublicKey, Secret, SeedPhrase, StellarEntry, ENTRY_PREFIX};
     const ENTRY_SERVICE: &str = "org.stellar.cli";
 
     pub fn get_public_key(entry_name: &str, index: Option<usize>) -> Result<PublicKey, Error> {
@@ -43,17 +44,29 @@ mod secure_store_impl {
 
     pub fn save_secret(
         print: &Print,
-        entry_name: &str,
+        name: &str,
         seed_phrase: &SeedPhrase,
+        hd_path: Option<usize>,
         overwrite: bool,
-    ) -> Result<String, Error> {
-        // secure_store:org.stellar.cli:<key name>
-        let entry_name_with_prefix = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{entry_name}");
+    ) -> Result<Secret, Error> {
+        // secure_store:org.stellar.cli-<key name>
+        let entry_name = format!("{ENTRY_PREFIX}{ENTRY_SERVICE}-{name}");
 
-        let entry = StellarEntry::new(&entry_name_with_prefix)?;
+        let entry = StellarEntry::new(&entry_name)?;
         entry.write(seed_phrase.clone(), print, overwrite)?;
 
-        Ok(entry_name_with_prefix)
+        let public_key_bytes = seed_phrase
+            .clone()
+            .from_path_index(hd_path.unwrap_or_default(), None)?
+            .public()
+            .0;
+        let public_key = PublicKey(public_key_bytes).to_string();
+
+        Ok(Secret::SecureStore {
+            entry_name,
+            public_key: Some(public_key),
+            hd_path,
+        })
     }
 
     pub fn sign_tx_data(
@@ -68,7 +81,7 @@ mod secure_store_impl {
 
 #[cfg(not(feature = "additional-libs"))]
 mod secure_store_impl {
-    use super::{Error, Print, PublicKey, SeedPhrase};
+    use super::{Error, Print, PublicKey, Secret, SeedPhrase};
 
     pub fn get_public_key(_entry_name: &str, _index: Option<usize>) -> Result<PublicKey, Error> {
         Err(Error::FeatureNotEnabled)
@@ -80,10 +93,11 @@ mod secure_store_impl {
 
     pub fn save_secret(
         _print: &Print,
-        _entry_name: &str,
+        _name: &str,
         _seed_phrase: &SeedPhrase,
+        _hd_path: Option<usize>,
         _overwrite: bool,
-    ) -> Result<String, Error> {
+    ) -> Result<Secret, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
