@@ -17,7 +17,7 @@ pub struct Cmd {
     pub network: network::Args,
     /// Address to fund
     #[command(flatten)]
-    pub address: public_key::Args,
+    pub address: public_key::Cmd,
 }
 
 impl Cmd {
@@ -25,11 +25,15 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let addr = self.address.public_key().await?;
         let network = self.network.get(&self.address.locator)?;
-        let formatted_name = self.address.name.to_string();
+        let label = self
+            .address
+            .name
+            .as_ref()
+            .map_or_else(|| addr.to_string(), ToString::to_string);
         network.fund_address(&addr).await?;
         print.checkln(format!(
             "Account {} funded on {:?}",
-            formatted_name, network.network_passphrase
+            label, network.network_passphrase
         ));
         Ok(())
     }
@@ -43,9 +47,29 @@ mod tests {
     const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
 
     #[test]
-    fn fund_does_not_accept_ledger_flag() {
+    fn ledger_flag_parses_without_name() {
+        let cmd = Cmd::try_parse_from(["fund", "--ledger"]).expect("--ledger alone parses");
+        assert!(cmd.address.ledger);
+        assert!(cmd.address.name.is_none());
+    }
+
+    #[test]
+    fn ledger_flag_with_hd_path_parses() {
+        let cmd = Cmd::try_parse_from(["fund", "--ledger", "--hd-path", "5"]).unwrap();
+        assert!(cmd.address.ledger);
+        assert_eq!(cmd.address.hd_path, Some(5));
+    }
+
+    #[test]
+    fn ledger_flag_conflicts_with_name() {
         let err = Cmd::try_parse_from(["fund", PUBLIC_KEY, "--ledger"])
-            .expect_err("`--ledger` belongs to `keys address` only");
-        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+            .expect_err("--ledger + name must conflict");
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn missing_name_without_ledger_is_rejected() {
+        let err = Cmd::try_parse_from(["fund"]).expect_err("name is required without --ledger");
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
     }
 }

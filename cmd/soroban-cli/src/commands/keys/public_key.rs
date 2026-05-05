@@ -12,34 +12,6 @@ pub enum Error {
     HdPathOutOfRange(usize),
 }
 
-/// The fields shared by every command that resolves an identity to a public
-/// key. Embed this with `#[command(flatten)]` to inherit `name`, `hd_path`,
-/// and the config locator without picking up `keys address`'s `--ledger`
-/// flag.
-#[derive(Debug, clap::Parser, Clone)]
-#[group(skip)]
-pub struct Args {
-    /// Name of identity to lookup, default test identity used if not provided
-    pub name: UnresolvedMuxedAccount,
-
-    /// If identity is a seed phrase use this hd path, default is 0
-    #[arg(long)]
-    pub hd_path: Option<usize>,
-
-    #[command(flatten)]
-    pub locator: locator::Args,
-}
-
-impl Args {
-    pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
-        Ok(public_key_from_muxed(
-            self.name
-                .resolve_muxed_account(&self.locator, self.hd_path)
-                .await?,
-        ))
-    }
-}
-
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
