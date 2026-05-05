@@ -8,12 +8,12 @@ RUN apt-get update && \
 
 ARG TARGETARCH
 COPY stellar-${TARGETARCH}/stellar /usr/local/bin/stellar
+RUN chmod +x /usr/local/bin/stellar
 
 ENV STELLAR_CONFIG_HOME=/config
 ENV STELLAR_DATA_HOME=/data
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/stellar
 
 WORKDIR /source
 
