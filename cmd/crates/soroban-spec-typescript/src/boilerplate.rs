@@ -122,12 +122,6 @@ impl Project {
         }
         let contract_id = contract_id.unwrap();
         let network_passphrase = network_passphrase.unwrap();
-        let network = match network_passphrase {
-            NETWORK_PASSPHRASE_TESTNET => "testnet",
-            NETWORK_PASSPHRASE_FUTURENET => "futurenet",
-            NETWORK_PASSPHRASE_LOCAL => "local",
-            _ => "unknown",
-        };
         if network_passphrase == NETWORK_PASSPHRASE_LOCAL {
             return format!(
                 r#"export const networks = {{
@@ -143,6 +137,11 @@ impl Project {
 }} as const"#
             );
         }
+        let network = match network_passphrase {
+            NETWORK_PASSPHRASE_TESTNET => "testnet",
+            NETWORK_PASSPHRASE_FUTURENET => "futurenet",
+            _ => "unknown",
+        };
         format!(
             r#"export const networks = {{
   {network}: {{
