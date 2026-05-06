@@ -128,6 +128,21 @@ impl Project {
             NETWORK_PASSPHRASE_LOCAL => "local",
             _ => "unknown",
         };
+        if network_passphrase == NETWORK_PASSPHRASE_LOCAL {
+            return format!(
+                r#"export const networks = {{
+  local: {{
+    networkPassphrase: "{network_passphrase}",
+    contractId: "{contract_id}",
+  }},
+  /** @deprecated Use `local` instead. */
+  standalone: {{
+    networkPassphrase: "{network_passphrase}",
+    contractId: "{contract_id}",
+  }},
+}} as const"#
+            );
+        }
         format!(
             r#"export const networks = {{
   {network}: {{
