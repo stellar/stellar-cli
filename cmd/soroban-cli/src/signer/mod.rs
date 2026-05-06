@@ -27,6 +27,12 @@ pub enum Error {
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Missing signing key for account {address}")]
     MissingSignerForAddress { address: String },
+    #[error("muxed addresses are not supported for Soroban authorization signing")]
+    MuxedAddressNotSupported,
+    #[error("claimable balance addresses are not supported for Soroban authorization signing")]
+    ClaimableBalanceNotSupported,
+    #[error("liquidity pool addresses are not supported for Soroban authorization signing")]
+    LiquidityPoolNotSupported,
     #[error(transparent)]
     TryFromSlice(#[from] std::array::TryFromSliceError),
     #[error("User cancelled signing, perhaps need to add -y")]
@@ -91,9 +97,9 @@ pub fn sign_soroban_authorizations(
         // See if we have a signer for this authorizationEntry
         // If not, then we Error
         let needle: &[u8; 32] = match address {
-            ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
-            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
-            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
+            ScAddress::MuxedAccount(_) => return Err(Error::MuxedAddressNotSupported),
+            ScAddress::ClaimableBalance(_) => return Err(Error::ClaimableBalanceNotSupported),
+            ScAddress::LiquidityPool(_) => return Err(Error::LiquidityPoolNotSupported),
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
             ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
                 // This address is for a contract. This means we're using a custom
@@ -377,5 +383,92 @@ impl SecureStoreEntry {
         let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
         let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
         Ok(sig)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use xdr::{
+        ClaimableBalanceId, Hash, InvokeContractArgs, InvokeHostFunctionOp, Memo,
+        MuxedEd25519Account, Operation, OperationBody, PoolId, Preconditions, ScAddress, ScSymbol,
+        ScVal, SequenceNumber, SorobanAddressCredentials, SorobanAuthorizationEntry,
+        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Transaction,
+        Uint256, VecM,
+    };
+
+    fn make_tx_with_auth(address: ScAddress) -> Transaction {
+        let auth_entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address,
+                nonce: 0,
+                signature_expiration_ledger: 999,
+                signature: ScVal::Void,
+            }),
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::Contract(xdr::ContractId(Hash([0u8; 32]))),
+                    function_name: ScSymbol("transfer".try_into().unwrap()),
+                    args: VecM::default(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        };
+        Transaction {
+            source_account: xdr::MuxedAccount::Ed25519(Uint256([1u8; 32])),
+            fee: 100,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::None,
+            operations: vec![Operation {
+                source_account: None,
+                body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                    host_function: xdr::HostFunction::InvokeContract(InvokeContractArgs {
+                        contract_address: ScAddress::Contract(xdr::ContractId(Hash([0u8; 32]))),
+                        function_name: ScSymbol("transfer".try_into().unwrap()),
+                        args: VecM::default(),
+                    }),
+                    auth: vec![auth_entry].try_into().unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+            ext: xdr::TransactionExt::V0,
+        }
+    }
+
+    #[test]
+    fn test_muxed_account_returns_error_not_panic() {
+        let tx = make_tx_with_auth(ScAddress::MuxedAccount(MuxedEd25519Account {
+            id: 12345,
+            ed25519: Uint256([1u8; 32]),
+        }));
+        let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
+        assert!(
+            matches!(result, Err(Error::MuxedAddressNotSupported)),
+            "expected MuxedAddressNotSupported error, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_claimable_balance_returns_error_not_panic() {
+        let tx = make_tx_with_auth(ScAddress::ClaimableBalance(
+            ClaimableBalanceId::ClaimableBalanceIdTypeV0(Hash([0u8; 32])),
+        ));
+        let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
+        assert!(
+            matches!(result, Err(Error::ClaimableBalanceNotSupported)),
+            "expected ClaimableBalanceNotSupported error, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_liquidity_pool_returns_error_not_panic() {
+        let tx = make_tx_with_auth(ScAddress::LiquidityPool(PoolId(Hash([0u8; 32]))));
+        let result = sign_soroban_authorizations(&tx, &[], 999, "Test SDF Network ; September 2015");
+        assert!(
+            matches!(result, Err(Error::LiquidityPoolNotSupported)),
+            "expected LiquidityPoolNotSupported error, got: {result:?}"
+        );
     }
 }
