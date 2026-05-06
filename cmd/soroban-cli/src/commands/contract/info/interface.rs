@@ -4,7 +4,7 @@ use crate::commands::contract::info::interface::Error::NoInterfacePresent;
 use crate::commands::contract::info::shared::{self, fetch, Fetched};
 use crate::commands::global;
 use crate::print::Print;
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
@@ -67,6 +67,12 @@ impl Cmd {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,
             InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
+            // soroban_spec_rust drops doc strings entirely (rustdocs can execute
+            // code) and routes every spec name through `format_ident!`, which
+            // rejects non-identifier bytes. If a future revision starts
+            // emitting spec strings as `Literal::string` or rustdocs, this
+            // path becomes a terminal-escape-injection vector and must be
+            // sanitized before printing.
             InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),

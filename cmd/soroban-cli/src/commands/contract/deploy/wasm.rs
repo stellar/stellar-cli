@@ -1,9 +1,15 @@
-use crate::commands::contract::deploy::utils::alias_validator;
 use std::array::TryFromSliceError;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
+use clap::Parser;
+use rand::Rng;
+use soroban_spec_tools::contract as contract_spec;
+
+use crate::config::address::AliasName;
+use crate::resources;
+use crate::tx::sim_sign_and_send_tx;
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -11,18 +17,13 @@ use crate::xdr::{
     Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
     VecM, WriteXdr,
 };
-use clap::{arg, command, Parser};
-use rand::Rng;
 
-use soroban_spec_tools::contract as contract_spec;
-
+use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
+        contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable, HEADING_RPC,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -36,105 +37,205 @@ pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 #[derive(Parser, Debug, Clone)]
 #[command(group(
     clap::ArgGroup::new("wasm_src")
-        .required(true)
+        .required(false)
         .args(&["wasm", "wasm_hash"]),
 ))]
 #[group(skip)]
 pub struct Cmd {
-    /// WASM file to deploy
+    /// WASM file to deploy. When neither --wasm nor --wasm-hash is provided
+    /// inside a Cargo workspace, builds the project automatically. One of
+    /// --wasm or --wasm-hash is required when outside a Cargo workspace.
     #[arg(long, group = "wasm_src")]
     pub wasm: Option<std::path::PathBuf>,
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     pub wasm_hash: Option<String>,
     /// Custom salt 32-byte salt for the token id
-    #[arg(
-        long,
-        help_heading = HEADING_RPC,
-    )]
+    #[arg(long)]
     pub salt: Option<String>,
     #[command(flatten)]
     pub config: config::Args,
-    #[command(flatten)]
-    pub fee: crate::fee::Args,
     #[arg(long, short = 'i', default_value = "false")]
     /// Whether to ignore safety checks when deploying contracts
     pub ignore_checks: bool,
     /// The alias that will be used to save the contract's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
     /// configuration without asking for confirmation.
-    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
-    pub alias: Option<String>,
+    #[arg(long)]
+    pub alias: Option<AliasName>,
+    #[command(flatten)]
+    pub resources: resources::Args,
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
+    /// Package to build when auto-building without --wasm
+    #[arg(long, help_heading = "Build Options", conflicts_with = "wasm_src")]
+    pub package: Option<String>,
+    #[command(flatten)]
+    pub build_args: build::BuildArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Install(#[from] upload::Error),
+
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error("internal conversion error: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
-    #[error("jsonrpc error: {0}")]
-    JsonRpc(#[from] jsonrpsee_core::Error),
+
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
+
     #[error("cannot parse contract ID {contract_id}: {error}")]
     CannotParseContractId {
         contract_id: String,
         error: stellar_strkey::DecodeError,
     },
+
     #[error("cannot parse WASM hash {wasm_hash}: {error}")]
     CannotParseWasmHash {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
-    #[error("Must provide either --wasm or --wash-hash")]
+
+    #[error("Must provide either --wasm or --wasm-hash")]
     WasmNotProvided,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
     #[error(transparent)]
     Infallible(#[from] std::convert::Infallible),
+
     #[error(transparent)]
     WasmId(#[from] contract::id::wasm::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error(transparent)]
     ContractSpec(#[from] contract_spec::Error),
+
     #[error(transparent)]
     ArgParse(#[from] arg_parsing::Error),
+
     #[error("Only ed25519 accounts are allowed")]
     OnlyEd25519AccountsAllowed,
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    Build(#[from] build::Error),
+
+    #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
+    NoBuildableContracts,
+
+    #[error("--alias is not supported when deploying multiple contracts; aliases are derived from package names automatically")]
+    AliasNotSupported,
+
+    #[error("--salt is not supported when deploying multiple contracts")]
+    SaltNotSupported,
+
+    #[error("constructor arguments are not supported when deploying multiple contracts")]
+    ConstructorArgsNotSupported,
+
+    #[error("--build-only is not supported without --wasm or --wasm-hash")]
+    BuildOnlyNotSupported,
+
+    #[error(
+        "--wasm or --wasm-hash is required when not in a Cargo workspace; no Cargo.toml found"
+    )]
+    NotInCargoProject,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .run_against_rpc_server(Some(global_args), None)
+        if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
+            return Err(Error::BuildOnlyNotSupported);
+        }
+
+        let built_contracts = self.resolve_contracts(global_args)?;
+
+        // When --wasm-hash is used, no built contracts are returned.
+        // Deploy directly with the hash.
+        if built_contracts.is_empty() {
+            Self::run_single(self, global_args).await?;
+        } else {
+            if built_contracts.len() > 1 {
+                if self.alias.is_some() {
+                    return Err(Error::AliasNotSupported);
+                }
+
+                if self.salt.is_some() {
+                    return Err(Error::SaltNotSupported);
+                }
+
+                if !self.slop.is_empty() {
+                    return Err(Error::ConstructorArgsNotSupported);
+                }
+            }
+
+            for contract in &built_contracts {
+                let mut cmd = self.clone();
+                cmd.wasm = Some(contract.path.clone());
+
+                // When auto-building and no explicit --alias, use the
+                // package name as alias.
+                if cmd.alias.is_none() && !contract.name.is_empty() {
+                    if let Ok(alias) = contract.name.parse::<AliasName>() {
+                        cmd.alias = Some(alias);
+                    }
+                }
+
+                Self::run_single(&cmd, global_args).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn run_single(cmd: &Cmd, global_args: &global::Args) -> Result<(), Error> {
+        let res = cmd
+            .execute(&cmd.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
-        match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
 
-                if let Some(alias) = self.alias.clone() {
-                    if let Some(existing_contract) = self
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::none())?);
+            }
+            TxnEnvelopeResult::Res(contract) => {
+                let network = cmd.config.get_network()?;
+
+                if let Some(alias) = cmd.alias.clone() {
+                    if let Some(existing_contract) = cmd
                         .config
                         .locator
                         .get_contract_id(&alias, &network.network_passphrase)?
@@ -145,7 +246,7 @@ impl Cmd {
                         ));
                     }
 
-                    self.config.locator.save_contract_id(
+                    cmd.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
                         &alias,
@@ -157,34 +258,67 @@ impl Cmd {
         }
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<stellar_strkey::Contract>;
+    fn resolve_contracts(
+        &self,
+        global_args: &global::Args,
+    ) -> Result<Vec<build::BuiltContract>, Error> {
+        // If --wasm is explicitly provided, use it (no package name available)
+        if let Some(wasm) = &self.wasm {
+            return Ok(vec![build::BuiltContract {
+                name: String::new(),
+                path: wasm.clone(),
+            }]);
+        }
+
+        // If --wasm-hash is provided, no WASM file paths needed
+        if self.wasm_hash.is_some() {
+            return Ok(vec![]);
+        }
+
+        // Neither provided: auto-build
+        let build_cmd = build::Cmd {
+            package: self.package.clone(),
+            build_args: self.build_args.clone(),
+            ..build::Cmd::default()
+        };
+        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+            build::Error::Metadata(_) => Error::NotInCargoProject,
+            other => other.into(),
+        })?;
+
+        if contracts.is_empty() {
+            return Err(Error::NoBuildableContracts);
+        }
+
+        Ok(contracts)
+    }
 
     #[allow(clippy::too_many_lines)]
     #[allow(unused_variables)]
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        let print = Print::new(global_args.is_some_and(|a| a.quiet));
-        let config = config.unwrap_or(&self.config);
+        let print = Print::new(quiet);
         let wasm_hash = if let Some(wasm) = &self.wasm {
-            let is_build = self.fee.build_only;
+            let is_build = self.build_only;
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
+                print.infoln("Uploading contract WASM…");
                 upload::Cmd {
-                    wasm: wasm::Args { wasm: wasm.clone() },
+                    wasm: Some(wasm.clone()),
                     config: config.clone(),
-                    fee: self.fee.clone(),
+                    resources: self.resources.clone(),
                     ignore_checks: self.ignore_checks,
+                    build_only: is_build,
+                    package: None,
+                    build_args: build::BuildArgs::default(),
                 }
-                .run_against_rpc_server(global_args, Some(config))
+                .execute(config, quiet, no_cache)
                 .await?
                 .into_result()
                 .expect("the value (hash) is expected because it should always be available since build-only is a shared parameter")
@@ -194,7 +328,7 @@ impl NetworkRunnable for Cmd {
             self.wasm_hash
                 .as_ref()
                 .ok_or(Error::WasmNotProvided)?
-                .to_string()
+                .clone()
         };
 
         let wasm_hash = Hash(
@@ -206,7 +340,7 @@ impl NetworkRunnable for Cmd {
                 .0,
         );
 
-        print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
+        print.infoln(format!("Deploying contract using wasm hash {wasm_hash}").as_str());
 
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
@@ -231,7 +365,7 @@ impl NetworkRunnable for Cmd {
         let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
             wasm::Args { wasm: wasm.clone() }.read()?
         } else {
-            if self.fee.build_only {
+            if self.build_only {
                 return Err(Error::WasmNotProvided);
             }
             get_remote_wasm_from_hash(&client, &wasm_hash).await?
@@ -250,7 +384,8 @@ impl NetworkRunnable for Cmd {
                         &slop,
                         &entries,
                         config,
-                    )?
+                    )
+                    .await?
                     .2,
                 )
             }
@@ -269,39 +404,23 @@ impl NetworkRunnable for Cmd {
         let txn = Box::new(build_create_contract_tx(
             wasm_hash,
             sequence + 1,
-            self.fee.fee,
+            config.get_inclusion_fee()?,
             source_account,
             contract_id_preimage,
             constructor_params.as_ref(),
         )?);
 
-        if self.fee.build_only {
+        if self.build_only {
             print.checkln("Transaction built!");
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.infoln("Simulating deploy transaction…");
+        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
+            .await?;
 
-        let txn = simulate_and_assemble_transaction(&client, &txn).await?;
-        let txn = Box::new(self.fee.apply_to_assembled_txn(txn).transaction().clone());
-
-        print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign(*txn).await?;
-        print.globeln("Submitting deploy transaction…");
-
-        let get_txn_resp = client
-            .send_transaction_polling(signed_txn)
-            .await?
-            .try_into()?;
-
-        if global_args.is_none_or(|a| !a.no_cache) {
-            data::write(get_txn_resp, &network.rpc_uri()?)?;
-        }
-
-        if let Some(url) = utils::explorer_url_for_contract(&network, &contract_id) {
+        if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
-
         print.checkln("Deployed!");
 
         Ok(TxnResult::Res(contract_id))

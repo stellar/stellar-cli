@@ -1,7 +1,4 @@
-use clap::{
-    arg,
-    builder::styling::{AnsiColor, Effects, Styles},
-};
+use clap::builder::styling::{AnsiColor, Effects, Styles};
 use std::path::PathBuf;
 
 use super::{config, HEADING_GLOBAL};
@@ -38,10 +35,6 @@ pub struct Args {
     /// Log DEBUG and TRACE events
     #[arg(long, visible_alias = "vv", global = true, help_heading = HEADING_GLOBAL)]
     pub very_verbose: bool,
-
-    /// List installed plugins. E.g. `stellar-hello`
-    #[arg(long)]
-    pub list: bool,
 
     /// Do not cache your simulations and transactions
     #[arg(long, env = "STELLAR_NO_CACHE", global = true, help_heading = HEADING_GLOBAL)]

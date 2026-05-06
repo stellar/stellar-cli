@@ -34,10 +34,11 @@ fn stellar_bye() {
 
 #[test]
 fn list() {
-    // Call `soroban --list` with the PATH variable set to include the target/bin directory
+    // Call `stellar plugin ls` with the PATH variable set to include the target/bin directory
     assert_cmd::Command::cargo_bin("stellar")
         .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
-        .arg("--list")
+        .arg("plugin")
+        .arg("ls")
         .env("PATH", get_paths())
         .assert()
         .stdout(predicates::str::contains("hello"))

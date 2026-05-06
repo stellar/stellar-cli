@@ -16,17 +16,6 @@ defaults:
     shell: bash
 
 jobs:
-  debug-context:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug GitHub context
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "Head ref: ${{ github.head_ref }}"
-          echo "Base ref: ${{ github.base_ref }}"
-          echo "Condition result: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') }}"
-
   complete:
     if: always()
     needs:
@@ -36,10 +25,9 @@ jobs:
         build-and-test,
         build-and-test-macos,
         build-and-test-windows,
-        disallow-git-deps,
         publish-dry-run,
       ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
@@ -52,19 +40,20 @@ jobs:
         check: [advisories, bans, licenses, sources]
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad
+      - uses: actions/checkout@v6
+      - uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb
         with:
           command: check ${{ matrix.check }}
 
   check:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: stellar/actions/rust-cache@main
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: rustup update
       - run: npm install
+      - run: make build-test-wasms
       - run: make check
 
   build-and-test:
@@ -79,7 +68,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -92,13 +81,13 @@ jobs:
       matrix:
         rust: [msrv, latest]
         sys:
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -115,28 +104,11 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
           rust-version: ${{ matrix.rust }}
-
-  disallow-git-deps:
-    # This job fails if a release is being prepared and there are still crate
-    # dependencies in the Cargo.toml files that reference dependencies via git.
-    # Git dependencies should not be set when releasing because the binary
-    # builds that happen based on the local source, and the published crate,
-    # may not build to be the same. This is because when the crate is published
-    # the git dependencies are stripped out automatically, but when building
-    # locally they'd still be present. The presence of git dependencies at
-    # release time in any case is probably a bug.
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Check that Cargo.tomls do not contain git dependencies for release
-        run: |
-          ! git --no-pager grep 'git\s*=' -- Cargo.toml **/Cargo.toml
 
   publish-dry-run:
     if: github.event_name == 'push' || startsWith(github.head_ref, 'release/')
@@ -153,7 +125,7 @@ jobs:
           #          target: aarch64-unknown-linux-gnu
           #          cargo-hack-feature-options: --feature-powerset --skip emulator-tests default
           #          additional-deb-packages: libudev-dev libssl-dev libdbus-1-dev
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             cargo-hack-feature-options:
               --feature-powerset --skip emulator-tests

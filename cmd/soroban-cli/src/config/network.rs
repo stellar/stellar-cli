@@ -1,7 +1,6 @@
-use clap::arg;
 use itertools::Itertools;
-use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
+use reqwest::header::HeaderMap;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -69,7 +68,7 @@ pub struct Args {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: Option<String>,
-    /// RPC Header(s) to include in requests to the RPC provider
+    /// RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
     #[arg(
         long = "rpc-header",
         env = "STELLAR_RPC_HEADERS",
@@ -77,9 +76,9 @@ pub struct Args {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
+        hide_env_values = true,
     )]
-    pub rpc_headers: Vec<(String, String)>,
+    pub rpc_headers: Vec<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -111,16 +110,23 @@ impl Args {
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
-            (_, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
-                rpc_url,
-                rpc_headers: self.rpc_headers.clone(),
-                network_passphrase,
-            }),
+            (_, Some(rpc_url), Some(network_passphrase)) => {
+                let rpc_headers = self
+                    .rpc_headers
+                    .iter()
+                    .map(|h| parse_http_header(h))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Network {
+                    rpc_url,
+                    rpc_headers,
+                    network_passphrase,
+                })
+            }
         }
     }
 }
 
-#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
+#[derive(clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint
@@ -130,7 +136,7 @@ pub struct Network {
         help_heading = HEADING_RPC,
     )]
     pub rpc_url: String,
-    /// Optional header (e.g. API Key) to include in requests to the RPC
+    /// Optional header to include in requests to the RPC, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
     #[arg(
         long = "rpc-header",
         env = "STELLAR_RPC_HEADERS",
@@ -138,7 +144,8 @@ pub struct Network {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
+        value_parser = accept_raw_rpc_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
@@ -150,6 +157,31 @@ pub struct Network {
     pub network_passphrase: String,
 }
 
+impl std::fmt::Debug for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let concealed: Vec<(&str, &str)> = self
+            .rpc_headers
+            .iter()
+            .map(|(k, _)| (k.as_str(), "<concealed>"))
+            .collect();
+        f.debug_struct("Network")
+            .field("rpc_url", &redact_rpc_url(&self.rpc_url))
+            .field("rpc_headers", &concealed)
+            .field("network_passphrase", &self.network_passphrase)
+            .finish()
+    }
+}
+
+pub fn redact_rpc_url(rpc_url: &str) -> String {
+    let Ok(mut url) = Url::parse(rpc_url) else {
+        return rpc_url.to_string();
+    };
+    if url.password().is_some() {
+        let _ = url.set_password(Some("redacted"));
+    }
+    url.to_string()
+}
+
 fn parse_http_header(header: &str) -> Result<(String, String), Error> {
     let header_components = header.splitn(2, ':');
 
@@ -158,18 +190,39 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
         .next_tuple()
         .ok_or_else(|| Error::InvalidHeader)?;
 
-    // Check that the headers are properly formatted
     HeaderName::from_str(key)?;
     HeaderValue::from_str(value)?;
 
     Ok((key.to_string(), value.to_string()))
 }
 
+/// Clap value_parser for `Network::rpc_headers` that always succeeds, deferring
+/// validation to application code so clap never echoes the raw value in error messages.
+#[allow(clippy::unnecessary_wraps)]
+fn accept_raw_rpc_header(header: &str) -> Result<(String, String), std::convert::Infallible> {
+    match header.split_once(':') {
+        Some((key, value)) => Ok((key.trim().to_string(), value.trim().to_string())),
+        None => Ok((String::new(), header.to_string())),
+    }
+}
+
+fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
+    for (key, value) in headers {
+        HeaderName::from_str(key).map_err(|_| Error::InvalidHeader)?;
+        HeaderValue::from_str(value).map_err(|_| Error::InvalidHeader)?;
+    }
+    Ok(())
+}
+
 impl Network {
+    pub fn validate_headers(&self) -> Result<(), Error> {
+        validate_rpc_headers(&self.rpc_headers)
+    }
+
     pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_url = Url::from_str(&self.rpc_url)
-            .map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))?;
+        let rpc_url =
+            Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
             let mut local_url = rpc_url;
             local_url.set_path("/friendbot");
@@ -183,7 +236,7 @@ impl Network {
             tracing::debug!("URL {url:?}");
             let mut url = Url::from_str(&url).map_err(|e| {
                 tracing::error!("{e}");
-                Error::InvalidUrl(url.to_string())
+                Error::InvalidUrl(url.clone())
             })?;
             url.query_pairs_mut().append_pair("addr", addr);
             Ok(url)
@@ -220,20 +273,25 @@ impl Network {
     }
 
     pub fn rpc_uri(&self) -> Result<Url, Error> {
-        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.to_string()))
+        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))
     }
 
     pub fn rpc_client(&self) -> Result<Client, Error> {
         let mut header_hash_map = HashMap::new();
         for (header_name, header_value) in &self.rpc_headers {
-            header_hash_map.insert(header_name.to_string(), header_value.to_string());
+            header_hash_map.insert(header_name.clone(), header_value.clone());
         }
 
         let header_map: HeaderMap = (&header_hash_map)
             .try_into()
             .map_err(|_| Error::InvalidHeader)?;
 
-        Ok(rpc::Client::new_with_headers(&self.rpc_url, header_map)?)
+        rpc::Client::new_with_headers(&self.rpc_url, header_map).map_err(|e| match e {
+            rpc::Error::InvalidRpcUrl(..) | rpc::Error::InvalidRpcUrlFromUriParts(..) => {
+                Error::InvalidUrl(self.rpc_url.clone())
+            }
+            other => Error::Rpc(other),
+        })
     }
 }
 
@@ -466,6 +524,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_rpc_client_returns_err_with_bad_rpc_url() {
+        let network = Network {
+            rpc_url: "Bring Your Own: http://localhost:8000".to_string(),
+            network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: [].to_vec(),
+        };
+
+        let result = network.rpc_client();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Invalid URL Bring Your Own: http://localhost:8000")
+        );
+    }
+
+    #[tokio::test]
     async fn test_default_to_testnet_when_no_network_specified() {
         use super::super::locator;
 
@@ -515,5 +589,140 @@ mod tests {
         } else {
             env::remove_var("STELLAR_CONFIG_HOME");
         }
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_accepted_by_clap_without_error() {
+        use crate::test_utils::with_env_guard;
+        use clap::Parser;
+
+        #[derive(clap::Parser)]
+        struct TestCmd {
+            #[command(flatten)]
+            args: Args,
+        }
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        with_env_guard(&["STELLAR_RPC_HEADERS"], || {
+            std::env::set_var("STELLAR_RPC_HEADERS", secret);
+            let result = TestCmd::try_parse_from(["stellar"]);
+            assert!(
+                result.is_ok(),
+                "Clap must accept malformed RPC headers without error — validation is deferred to application code to prevent secrets from being echoed in clap error messages"
+            );
+        });
+    }
+
+    #[test]
+    fn test_validate_headers_rejects_missing_colon_without_exposing_value() {
+        // Simulates what accept_raw_rpc_header stores when no ':' is present.
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: "Test".to_string(),
+            rpc_headers: vec![(
+                String::new(),
+                "Authorization Bearer secret_token_xyz".to_string(),
+            )],
+        };
+
+        let result = network.validate_headers();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert_eq!(
+            error_msg,
+            "invalid HTTP header: must be in the form 'key:value'"
+        );
+        assert!(
+            !error_msg.contains("secret_token_xyz"),
+            "Error must not expose the raw header value, got: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_app_error_does_not_expose_value() {
+        use super::super::locator;
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        let args = Args {
+            rpc_url: Some("https://example.com".to_string()),
+            rpc_headers: vec![secret.to_string()],
+            network_passphrase: Some("Test SDF Network ; September 2015".to_string()),
+            network: None,
+        };
+
+        let result = args.get(&locator::Args::default());
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            !error_msg.contains("secret_poc_token_12345"),
+            "Application error must not expose secret header value, got: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_header_values() {
+        let network = Network {
+            rpc_url: "http://localhost:8000/rpc".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: vec![
+                ("Authorization".to_string(), "Bearer secret123".to_string()),
+                ("X-Api-Key".to_string(), "mykey".to_string()),
+            ],
+        };
+        assert_eq!(
+            format!("{network:?}"),
+            r#"Network { rpc_url: "http://localhost:8000/rpc", rpc_headers: [("Authorization", "<concealed>"), ("X-Api-Key", "<concealed>")], network_passphrase: "Test Network" }"#
+        );
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_url_password() {
+        let network = Network {
+            rpc_url: "https://alice:supersecret@rpc.example.com/soroban".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: Vec::new(),
+        };
+        let rendered = format!("{network:?}");
+        assert!(
+            !rendered.contains("supersecret"),
+            "password leaked into Debug output: {rendered}"
+        );
+        assert!(
+            rendered.contains("alice:redacted"),
+            "expected `alice:redacted` in Debug output: {rendered}"
+        );
+    }
+
+    #[test]
+    fn redact_rpc_url_leaves_url_without_password_unchanged() {
+        let plain = "https://rpc.example.com/soroban";
+        assert_eq!(redact_rpc_url(plain), plain);
+
+        let user_only = "https://alice@rpc.example.com/soroban";
+        assert_eq!(redact_rpc_url(user_only), user_only);
+    }
+
+    #[test]
+    fn redact_rpc_url_replaces_password_with_placeholder() {
+        let with_password = "https://alice:supersecret@rpc.example.com/soroban";
+        let redacted = redact_rpc_url(with_password);
+        assert!(
+            !redacted.contains("supersecret"),
+            "password leaked: {redacted}"
+        );
+        assert!(
+            redacted.contains("alice:redacted"),
+            "expected `alice:redacted`: {redacted}"
+        );
+        assert!(
+            redacted.contains("rpc.example.com/soroban"),
+            "expected host and path preserved: {redacted}"
+        );
+    }
+
+    #[test]
+    fn redact_rpc_url_returns_input_when_unparseable() {
+        let bad = "not a url";
+        assert_eq!(redact_rpc_url(bad), bad);
     }
 }

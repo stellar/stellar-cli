@@ -1,4 +1,4 @@
-all: check build test
+all: build-test-wasms check build test
 
 
 REPOSITORY_COMMIT_HASH := "$(shell git rev-parse HEAD)"
@@ -14,7 +14,7 @@ endif
 REPOSITORY_BRANCH := "$(shell git rev-parse --abbrev-ref HEAD)"
 BUILD_TIMESTAMP ?= $(shell date '+%Y-%m-%dT%H:%M:%S')
 
-SOROBAN_PORT?=8000
+STELLAR_PORT?=8000
 
 # The following works around incompatibility between the rust and the go linkers -
 # the rust would generate an object file with min-version of 13.0 where-as the go
@@ -25,10 +25,10 @@ ifeq ($(shell uname -s),Darwin)
 	MACOS_MIN_VER = -ldflags='-extldflags -mmacosx-version-min=13.0'
 endif
 
-install_rust: install
-
 install:
 	cargo install --force --locked --path ./cmd/stellar-cli --debug
+
+build-fixtures:
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
 
@@ -41,10 +41,10 @@ build:
 build-test-wasms:
 	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
-build-test: build-test-wasms install
+build-test: build-test-wasms build-fixtures install
 
 docs:
-	cargo run --bin doc-gen
+	cargo run --package doc-gen --features additional-libs
 	./node_modules/.bin/prettier --write --log-level warn FULL_HELP_DOCS.md
 
 test: build-test
@@ -52,8 +52,9 @@ test: build-test
 	cargo test --workspace --exclude soroban-test --features additional-libs
 	cargo test -p soroban-test -- --skip integration::
 
-e2e-test:
-	cargo test --features it --test it -- integration
+# expects a quickstart container running with the rpc exposed at localhost:STELLAR_PORT
+rpc-test:
+	cargo test --features it --test it -- integration --test-threads=4
 
 check:
 	cargo clippy --all-targets
@@ -85,4 +86,4 @@ typescript-bindings-fixtures: build-test-wasms
 
 
 # PHONY lists all the targets that aren't file names, so that make would skip the timestamp based check.
-.PHONY: publish clean fmt watch check e2e-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures
+.PHONY: publish clean fmt watch check rpc-test test build-test-wasms install build build-snapshot typescript-bindings-fixtures

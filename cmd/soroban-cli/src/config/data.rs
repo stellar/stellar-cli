@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use url::Url;
 
+use super::network::redact_rpc_url;
 use crate::xdr::{self, WriteXdr};
 
 #[derive(thiserror::Error, Debug)]
@@ -22,17 +23,16 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
 }
 
-pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
-
 pub fn project_dir() -> Result<directories::ProjectDirs, Error> {
-    std::env::var(XDG_DATA_HOME)
-        .map_or_else(
-            |_| ProjectDirs::from("org", "stellar", "stellar-cli"),
-            |data_home| {
-                ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
-            },
-        )
-        .ok_or(Error::FailedToFindProjectDirs)
+    let dir = if let Ok(data_home) = std::env::var("STELLAR_DATA_HOME") {
+        ProjectDirs::from_path(std::path::PathBuf::from(data_home))
+    } else if let Ok(data_home) = std::env::var("XDG_DATA_HOME") {
+        ProjectDirs::from_path(std::path::PathBuf::from(data_home).join("stellar-cli"))
+    } else {
+        ProjectDirs::from("org", "stellar", "stellar-cli")
+    };
+
+    dir.ok_or(Error::FailedToFindProjectDirs)
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -61,7 +61,7 @@ pub fn bucket_dir() -> Result<std::path::PathBuf, Error> {
 pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     let data = Data {
         action,
-        rpc_url: rpc_url.to_string(),
+        rpc_url: redact_rpc_url(rpc_url.as_str()),
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
@@ -130,9 +130,9 @@ impl std::fmt::Display for DatedAction {
                 .error
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
-            Action::Send { response } => response.status.to_string(),
+            Action::Send { response } => response.status.clone(),
         };
-        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str(),)
+        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str())
     }
 }
 
@@ -181,6 +181,10 @@ impl TryFrom<GetTransactionResponse> for Action {
     fn try_from(res: GetTransactionResponse) -> Result<Self, Self::Error> {
         Ok(Self::Send {
             response: GetTransactionResponseRaw {
+                created_at: res.created_at,
+                fee_bump: res.fee_bump,
+                tx_hash: res.tx_hash,
+                application_order: res.application_order,
                 status: res.status,
                 ledger: res.ledger,
                 envelope_xdr: res.envelope.as_ref().map(to_xdr).transpose()?,
@@ -199,23 +203,90 @@ fn to_xdr(data: &impl WriteXdr) -> Result<String, xdr::Error> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::test_utils::with_env_set;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_write_read() {
         let t = assert_fs::TempDir::new().unwrap();
-        std::env::set_var(XDG_DATA_HOME, t.path().to_str().unwrap());
-        let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
-        let sim = SimulateTransactionResponse::default();
-        let original_action: Action = sim.into();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
+            let sim = SimulateTransactionResponse::default();
+            let original_action: Action = sim.into();
 
-        let id = write(original_action.clone(), &rpc_uri.clone()).unwrap();
-        let (action, new_rpc_uri) = read(&id).unwrap();
-        assert_eq!(rpc_uri, new_rpc_uri);
-        match (action, original_action) {
-            (Action::Simulate { response: a }, Action::Simulate { response: b }) => {
-                assert_eq!(a.min_resource_fee, b.min_resource_fee);
+            let id = write(original_action.clone(), &rpc_uri.clone()).unwrap();
+            let (action, new_rpc_uri) = read(&id).unwrap();
+            assert_eq!(rpc_uri, new_rpc_uri);
+            match (action, original_action) {
+                (Action::Simulate { response: a }, Action::Simulate { response: b }) => {
+                    assert_eq!(a.min_resource_fee, b.min_resource_fee);
+                }
+                _ => panic!("Action mismatch"),
             }
-            _ => panic!("Action mismatch"),
-        }
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn actionlog_write_redacts_rpc_url_password_on_disk() {
+        let t = assert_fs::TempDir::new().unwrap();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let rpc_uri =
+                Url::from_str("https://alice:supersecret@rpc.example.com/soroban/rpc").unwrap();
+            let action: Action = SimulateTransactionResponse::default().into();
+
+            let id = write(action, &rpc_uri).unwrap();
+            let file = actions_dir()
+                .unwrap()
+                .join(id.to_string())
+                .with_extension("json");
+            let contents = std::fs::read_to_string(&file).unwrap();
+
+            assert!(
+                !contents.contains("supersecret"),
+                "password leaked into action-log JSON: {contents}"
+            );
+            assert!(
+                contents.contains("alice"),
+                "username should be preserved: {contents}"
+            );
+            assert!(
+                contents.contains("redacted"),
+                "expected literal `redacted` placeholder: {contents}"
+            );
+            assert!(
+                contents.contains("rpc.example.com"),
+                "expected host to be preserved: {contents}"
+            );
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn actionlog_list_actions_renders_redacted_rpc_url() {
+        let t = assert_fs::TempDir::new().unwrap();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let rpc_uri =
+                Url::from_str("https://alice:supersecret@rpc.example.com/soroban/rpc").unwrap();
+            let action: Action = SimulateTransactionResponse::default().into();
+
+            write(action, &rpc_uri).unwrap();
+            let rendered = list_actions()
+                .unwrap()
+                .into_iter()
+                .map(|entry| entry.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            assert!(
+                !rendered.contains("supersecret"),
+                "password leaked into ls -l render: {rendered}"
+            );
+            assert!(
+                rendered.contains("alice:redacted"),
+                "expected `alice:redacted` in ls -l render: {rendered}"
+            );
+        });
     }
 }

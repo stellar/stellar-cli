@@ -30,6 +30,12 @@ runs:
     - if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get -y install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev libdbus-1-dev
       shell: bash
+    - run: make build-test-wasms
+      shell: bash
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        CARGO_BUILD_TARGET: ${{ inputs.target }}
+        CI_TESTS: true
     - run: cargo clippy --all-targets --target ${{ inputs.target }}
       shell: bash
     - run: make test

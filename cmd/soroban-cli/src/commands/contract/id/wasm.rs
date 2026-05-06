@@ -2,7 +2,7 @@ use crate::xdr::{
     self, AccountId, ContractIdPreimage, ContractIdPreimageFromAddress, Hash, HashIdPreimage,
     HashIdPreimageContractId, Limits, PublicKey, ScAddress, Uint256, WriteXdr,
 };
-use clap::{arg, command, Parser};
+use clap::Parser;
 use sha2::{Digest, Sha256};
 
 use crate::config;

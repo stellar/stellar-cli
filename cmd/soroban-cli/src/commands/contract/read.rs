@@ -7,10 +7,9 @@ use crate::xdr::{
     ContractDataEntry, Error as XdrError, LedgerEntryData, LedgerKey, LedgerKeyContractData,
     Limits, ScVal, WriteXdr,
 };
-use clap::{command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 
 use crate::{
-    commands::{global, NetworkRunnable},
     config::{self, locator},
     key,
     rpc::{self, FullLedgerEntries, FullLedgerEntry},
@@ -88,8 +87,25 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let entries = self.run_against_rpc_server(None, None).await?;
+        let entries = self
+            .execute(&config::Args {
+                locator: self.config.locator.clone(),
+                network: self.config.network.clone(),
+                source_account: config::UnresolvedMuxedAccount::default(),
+                sign_with: config::sign_with::Args::default(),
+                fee: None,
+                inclusion_fee: None,
+            })
+            .await?;
         self.output_entries(&entries)
+    }
+
+    pub async fn execute(&self, config: &config::Args) -> Result<FullLedgerEntries, Error> {
+        let network = config.get_network()?;
+        tracing::trace!(?network);
+        let client = network.rpc_client()?;
+        let keys = self.key.parse_keys(&config.locator, &network)?;
+        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 
     fn output_entries(&self, entries: &FullLedgerEntries) -> Result<(), Error> {
@@ -144,18 +160,19 @@ impl Cmd {
                             error,
                         }
                     })?,
-                    serde_json::to_string_pretty(&live_until_ledger_seq).map_err(|error| {
-                        Error::CannotPrintJsonResult {
+                    serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default())
+                        .map_err(|error| Error::CannotPrintJsonResult {
                             result: val.clone(),
                             error,
-                        }
-                    })?,
+                        })?,
                 ],
                 Output::Xdr => [
                     key.to_xdr_base64(Limits::none())?,
                     val.to_xdr_base64(Limits::none())?,
                     last_modified_ledger.to_xdr_base64(Limits::none())?,
-                    live_until_ledger_seq.to_xdr_base64(Limits::none())?,
+                    live_until_ledger_seq
+                        .unwrap_or_default()
+                        .to_xdr_base64(Limits::none())?,
                 ],
             };
             out.write_record(output)
@@ -164,25 +181,5 @@ impl Cmd {
         out.flush()
             .map_err(|e| Error::CannotPrintFlush { error: e })?;
         Ok(())
-    }
-}
-
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = FullLedgerEntries;
-
-    async fn run_against_rpc_server(
-        &self,
-        _global_args: Option<&global::Args>,
-        _config: Option<&config::Args>,
-    ) -> Result<FullLedgerEntries, Error> {
-        let locator = self.config.locator.clone();
-        let network = self.config.network.get(&locator)?;
-
-        tracing::trace!(?network);
-        let client = network.rpc_client()?;
-        let keys = self.key.parse_keys(&locator, &network)?;
-        Ok(client.get_full_ledger_entries(&keys).await?)
     }
 }

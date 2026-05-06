@@ -12,19 +12,23 @@ mod cli;
 pub use cli::main;
 
 pub mod assembled;
+pub mod color;
 pub mod commands;
 pub mod config;
-pub mod fee;
+mod env_vars;
 pub mod get_spec;
 pub mod key;
 pub mod log;
 pub mod print;
+pub mod resources;
 pub mod signer;
-pub mod toid;
 pub mod tx;
 pub mod upgrade_check;
 pub mod utils;
 pub mod wasm;
+
+#[cfg(test)]
+pub mod test_utils;
 
 pub use commands::Root;
 

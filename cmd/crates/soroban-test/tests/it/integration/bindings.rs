@@ -21,7 +21,7 @@ async fn invoke_test_generate_typescript_bindings() {
         &contract_id.to_string(),
     ]);
 
-    let result = sandbox.run_cmd_with(cmd, "test").await;
+    let result = cmd.execute(false).await;
 
     assert!(result.is_ok(), "Failed to generate TypeScript bindings");
 
@@ -51,7 +51,7 @@ async fn invoke_test_bindings_context_failure() {
         &contract_id.to_string(),
     ]);
 
-    let result = sandbox.run_cmd_with(cmd, "test").await;
+    let result = cmd.execute(false).await;
 
     assert!(result.is_ok(), "Failed to generate TypeScript bindings");
 

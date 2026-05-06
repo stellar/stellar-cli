@@ -24,9 +24,7 @@ pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
         },
     };
 
-    KeyType::Identity
-        .write(name, &secret, &dir.join(".soroban"))
-        .unwrap();
+    KeyType::Identity.write(name, &secret, dir).unwrap();
 }
 
 pub fn add_test_id(dir: &Path) -> String {
@@ -40,7 +38,7 @@ pub fn add_test_id(dir: &Path) -> String {
     name.to_owned()
 }
 
-pub const DEFAULT_SEED_PHRASE: &str =
+pub const GENERATED_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
 pub async fn invoke_custom(
@@ -53,8 +51,10 @@ pub async fn invoke_custom(
     let mut i: contract::invoke::Cmd =
         sandbox.cmd_with_config(&["--id", id, "--", func, arg], None);
     i.wasm = Some(wasm.to_path_buf());
-    let s = sandbox.run_cmd_with(i, TEST_ACCOUNT).await;
-    s.map(|tx| tx.into_result().unwrap())
+    let config = sandbox.clone_config(TEST_ACCOUNT);
+    i.execute(&config, false, false)
+        .await
+        .map(|tx| tx.into_result().unwrap())
 }
 
 pub const DEFAULT_CONTRACT_ID: &str = "CDR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OO5Z";

@@ -1,4 +1,4 @@
-use clap::{arg, CommandFactory, Parser};
+use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use std::io;
 

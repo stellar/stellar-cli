@@ -44,6 +44,7 @@ impl UnresolvedScAddress {
         self,
         locator: &locator::Args,
         network_passphrase: &str,
+        hd_path: Option<usize>,
     ) -> Result<xdr::ScAddress, Error> {
         let alias = match self {
             UnresolvedScAddress::Resolved(addr) => return Ok(addr),
@@ -64,7 +65,7 @@ impl UnresolvedScAddress {
                 xdr::Hash(contract.0),
             ))),
             (_, Ok(key)) => Ok(xdr::ScAddress::Account(
-                key.muxed_account(None)?.account_id(),
+                key.muxed_account(hd_path)?.account_id(),
             )),
             _ => Err(Error::AccountAliasNotFound(alias)),
         }

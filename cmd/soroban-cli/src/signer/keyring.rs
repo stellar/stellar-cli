@@ -15,6 +15,9 @@ pub enum Error {
 
     #[error("Secure Store keys are not allowed: additional-libs feature must be enabled")]
     FeatureNotEnabled,
+
+    #[error("An entry for '{0}' already exists in the secure store")]
+    EntryAlreadyExists(String),
 }
 
 pub struct StellarEntry {
@@ -31,19 +34,32 @@ impl StellarEntry {
         })
     }
 
-    pub fn write(&self, seed_phrase: SeedPhrase, print: &Print) -> Result<(), Error> {
-        if let Ok(key) = self.get_public_key(None) {
+    pub fn write(
+        &self,
+        seed_phrase: SeedPhrase,
+        print: &Print,
+        overwrite: bool,
+    ) -> Result<(), Error> {
+        let exists = match self.keyring.get_password() {
+            Ok(_) => true,
+            Err(keyring::Error::NoEntry) => false,
+            Err(e) => return Err(Error::Keyring(e)),
+        };
+        if exists {
+            if !overwrite {
+                return Err(Error::EntryAlreadyExists(self.name.clone()));
+            }
             print.warnln(format!(
-                "A key for {0} already exists in your operating system's secure store: {1}",
-                self.name, key
+                "Overwriting existing key in secure store: {0}",
+                self.name
             ));
         } else {
             print.infoln(format!(
                 "Saving a new key to your operating system's secure store: {0}",
                 self.name
             ));
-            self.set_seed_phrase(seed_phrase)?;
         }
+        self.set_seed_phrase(seed_phrase)?;
         Ok(())
     }
 
@@ -182,6 +198,58 @@ mod test {
 
         let sign_tx_env_result = entry.sign_data(tx_xdr.as_bytes(), None);
         assert!(sign_tx_env_result.is_ok());
+    }
+
+    #[test]
+    fn write_with_overwrite_updates_existing_entry() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        let seed_phrase_1 =
+            crate::config::secret::seed_phrase_from_seed(Some("0123456789abcdef")).unwrap();
+        let seed_phrase_2 =
+            crate::config::secret::seed_phrase_from_seed(Some("fedcba9876543210")).unwrap();
+
+        let pubkey_1 = seed_phrase_1.from_path_index(0, None).unwrap().public().0;
+        let pubkey_2 = seed_phrase_2.from_path_index(0, None).unwrap().public().0;
+        assert_ne!(pubkey_1, pubkey_2, "test seeds must produce different keys");
+
+        let entry = StellarEntry::new("test-overwrite").unwrap();
+        let print = print::Print::new(true);
+
+        entry.write(seed_phrase_1, &print, false).unwrap();
+        assert_eq!(entry.get_public_key(None).unwrap().0, pubkey_1);
+
+        // overwrite=true must replace the entry with the new seed phrase
+        entry.write(seed_phrase_2, &print, true).unwrap();
+        assert_eq!(
+            entry.get_public_key(None).unwrap().0,
+            pubkey_2,
+            "overwrite should have replaced the keyring entry"
+        );
+    }
+
+    #[test]
+    fn write_without_overwrite_errors_on_existing_entry() {
+        set_default_credential_builder(mock::default_credential_builder());
+
+        let seed_phrase_1 =
+            crate::config::secret::seed_phrase_from_seed(Some("0123456789abcdef")).unwrap();
+        let seed_phrase_2 =
+            crate::config::secret::seed_phrase_from_seed(Some("fedcba9876543210")).unwrap();
+
+        let entry = StellarEntry::new("test-no-overwrite").unwrap();
+        let print = print::Print::new(true);
+
+        entry.write(seed_phrase_1, &print, false).unwrap();
+
+        // overwrite=false must fail with EntryAlreadyExists when an entry already exists
+        let err = entry
+            .write(seed_phrase_2, &print, false)
+            .expect_err("write without overwrite should fail on existing entry");
+        assert!(
+            matches!(err, Error::EntryAlreadyExists(_)),
+            "expected EntryAlreadyExists, got {err:?}"
+        );
     }
 
     #[test]

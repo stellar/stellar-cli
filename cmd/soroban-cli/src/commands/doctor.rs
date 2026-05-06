@@ -9,7 +9,7 @@ use crate::{
     config::{
         self, data,
         locator::{self, KeyType},
-        network::{Network, DEFAULTS as DEFAULT_NETWORKS},
+        network::{redact_rpc_url, Network, DEFAULTS as DEFAULT_NETWORKS},
     },
     print::Print,
     rpc,
@@ -48,6 +48,7 @@ impl Cmd {
         check_version(&print).await?;
         check_rust_version(&print);
         check_wasm_target(&print);
+        check_optional_features(&print);
         show_config_path(&print, &self.config_locator)?;
         show_data_path(&print)?;
         show_xdr_version(&print);
@@ -97,9 +98,12 @@ async fn print_network(
         "Network"
     };
 
-    print.globeln(format!("{prefix} {name:?} ({})", network.rpc_url,));
-    print.blankln(format!(" protocol {}", version_info.protocol_version));
-    print.blankln(format!(" rpc {}", version_info.version));
+    print.globeln(format!(
+        "{prefix} {name:?} ({})",
+        redact_rpc_url(&network.rpc_url)
+    ));
+    print.blankln(format!("protocol {}", version_info.protocol_version));
+    print.blankln(format!("rpc {}", version_info.version));
 
     Ok(())
 }
@@ -119,7 +123,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
         if print_network(true, print, &name, &network).await.is_err() {
             print.warnln(format!(
                 "Default network {name:?} ({}) is unreachable",
-                network.rpc_url
+                redact_rpc_url(&network.rpc_url)
             ));
         }
     }
@@ -129,7 +133,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
             if print_network(false, print, name, &network).await.is_err() {
                 print.warnln(format!(
                     "Network {name:?} ({}) is unreachable",
-                    network.rpc_url
+                    redact_rpc_url(&network.rpc_url)
                 ));
             }
         }
@@ -197,6 +201,25 @@ fn check_wasm_target(print: &Print) {
         }
     } else {
         print.warnln("Could not retrieve Rust targets".to_string());
+    }
+}
+
+fn check_optional_features(print: &Print) {
+    #[cfg(feature = "additional-libs")]
+    {
+        print.checkln("Wasm optimization");
+        print.checkln("Secure store (OS keyring)");
+        print.checkln("Ledger hardware wallet");
+    }
+
+    #[cfg(not(feature = "additional-libs"))]
+    {
+        print.warnln(
+            "The following features are disabled until `--features additional-libs` is used:",
+        );
+        print.blankln("- Wasm optimization");
+        print.blankln("- Secure store (OS keyring)");
+        print.blankln("- Ledger hardware wallet");
     }
 }
 

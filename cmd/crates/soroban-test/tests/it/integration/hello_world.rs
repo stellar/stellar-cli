@@ -7,7 +7,7 @@ use soroban_cli::{
 };
 use soroban_test::{AssertExt, TestEnv, LOCAL_NETWORK_PASSPHRASE};
 
-use super::util::{deploy_hello, extend, HELLO_WORLD};
+use super::util::{deploy_hello, extend};
 use crate::integration::util::extend_contract;
 
 #[allow(clippy::too_many_lines)]
@@ -17,7 +17,8 @@ async fn invoke_view_with_non_existent_source_account() {
     let id = deploy_hello(sandbox).await;
     let world = "world";
     let cmd = hello_world_cmd(&id, world);
-    let res = sandbox.run_cmd_with(cmd, "").await.unwrap();
+    let config = sandbox.clone_config("");
+    let res = cmd.execute(&config, false, false).await.unwrap();
     assert_eq!(res, TxnResult::Res(format!(r#"["Hello",{world:?}]"#)));
 }
 
@@ -99,7 +100,6 @@ async fn invoke_contract() {
     invoke_hello_world_with_lib(sandbox, id).await;
 
     let config_locator = locator::Args {
-        global: false,
         config_dir: Some(dir.to_path_buf()),
     };
 
@@ -132,8 +132,8 @@ async fn invoke_contract() {
     invoke_auth(sandbox, id, &addr);
     invoke_auth_with_identity(sandbox, id, "test", &addr);
     invoke_auth_with_identity(sandbox, id, "testone", &addr_1);
+    invoke_auth_with_non_source_identity(sandbox, id, "test", "testone", &addr_1);
     invoke_auth_with_different_test_account_fail(sandbox, id, &addr_1).await;
-    // invoke_auth_with_different_test_account(sandbox, id);
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
@@ -172,7 +172,8 @@ fn hello_world_cmd(id: &str, arg: &str) -> contract::invoke::Cmd {
 
 async fn invoke_hello_world_with_lib(e: &TestEnv, id: &str) {
     let cmd = hello_world_cmd(id, "world");
-    let res = e.run_cmd_with(cmd, "test").await.unwrap();
+    let config = e.clone_config("test");
+    let res = cmd.execute(&config, false, false).await.unwrap();
     assert_eq!(res, TxnResult::Res(r#"["Hello","world"]"#.to_string()));
 }
 
@@ -211,6 +212,30 @@ fn invoke_auth_with_identity(sandbox: &TestEnv, id: &str, key: &str, addr: &str)
         .arg("invoke")
         .arg("--source")
         .arg(key)
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("auth")
+        .arg("--addr")
+        .arg(key)
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{addr}\"\n"))
+        .success();
+}
+
+fn invoke_auth_with_non_source_identity(
+    sandbox: &TestEnv,
+    id: &str,
+    source: &str,
+    key: &str,
+    addr: &str,
+) {
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source")
+        .arg(source)
         .arg("--id")
         .arg(id)
         .arg("--")
@@ -317,26 +342,6 @@ async fn contract_data_read() {
         .stdout(predicates::str::starts_with("COUNTER,2"));
 }
 
-#[tokio::test]
-#[ignore]
-async fn half_max_instructions() {
-    let sandbox = TestEnv::new();
-    let wasm = HELLO_WORLD;
-    sandbox
-        .new_assert_cmd("contract")
-        .arg("deploy")
-        .arg("--fee")
-        .arg("1000000")
-        .arg("--instructions")
-        .arg((u32::MAX / 2).to_string())
-        .arg("--wasm")
-        .arg(wasm.path())
-        .arg("--ignore-checks")
-        .assert()
-        .stderr("")
-        .stdout_as_str();
-}
-
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
     invoke_with_source(sandbox, seed_phrase, id).await;
 }
@@ -415,4 +420,48 @@ fn invoke_log(sandbox: &TestEnv, id: &str) {
         .stderr(predicates::str::contains(
             r#"Log: {"vec":[{"string":"hello {}"},{"symbol":"world"}]}"#,
         ));
+}
+
+#[tokio::test]
+async fn invoke_auth_uses_hd_path_for_addr_alias() {
+    let sandbox = &TestEnv::new();
+
+    // Fund path 1 of the "test" seed (path 0 is funded by default)
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg("test")
+        .arg("--hd-path=1")
+        .assert()
+        .success();
+
+    let addr_1 = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("test")
+        .arg("--hd-path=1")
+        .assert()
+        .stdout_as_str();
+
+    let id = &deploy_hello(sandbox).await;
+    extend_contract(sandbox, id).await;
+
+    // --hd-path=1 must propagate to --addr alias resolution AND the auth signer.
+    // The contract's auth function returns the Address it was called with, so
+    // the output must be addr_1 (path 1), not path 0.
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source")
+        .arg("test")
+        .arg("--hd-path=1")
+        .arg("--id")
+        .arg(id)
+        .arg("--")
+        .arg("auth")
+        .arg("--addr=test")
+        .arg("--world=world")
+        .assert()
+        .stdout(format!("\"{addr_1}\"\n"))
+        .success();
 }

@@ -2,6 +2,7 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
     log::extract_events,
+    tx::sim_sign_and_send_tx,
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
         LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
@@ -10,16 +11,15 @@ use crate::{
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 use stellar_strkey::DecodeError;
 
+use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::extend,
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
@@ -30,16 +30,24 @@ use crate::{
 pub struct Cmd {
     #[command(flatten)]
     pub key: key::Args,
+
     /// Number of ledgers to extend the entry
     #[arg(long)]
     pub ledgers_to_extend: Option<u32>,
+
     /// Only print the new Time To Live ledger
     #[arg(long)]
     pub ttl_ledger_only: bool,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub resources: crate::resources::Args,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl FromStr for Cmd {
@@ -64,40 +72,63 @@ pub enum Error {
         key: String,
         error: soroban_spec_tools::Error,
     },
+
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
+
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("either `--key` or `--key-xdr` are required")]
     KeyIsRequired,
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("Ledger entry not found")]
     LedgerEntryNotFound,
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Key(#[from] key::Error),
+
     #[error(transparent)]
     Extend(#[from] extend::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
+            .await?
+            .to_envelope();
         let expiration_ledger_seq = match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
                 println!("{}", tx.to_xdr_base64(Limits::none())?);
@@ -110,10 +141,11 @@ impl Cmd {
                 key: self.key.clone(),
                 ledgers_to_extend,
                 config: self.config.clone(),
-                fee: self.fee.clone(),
+                resources: self.resources.clone(),
                 ttl_ledger_only: false,
+                build_only: self.build_only,
             }
-            .run()
+            .run(global_args)
             .await?;
         } else {
             println!("New ttl ledger: {expiration_ledger_seq}");
@@ -121,20 +153,14 @@ impl Cmd {
 
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<u32>;
-
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<u32>, Error> {
-        let config = config.unwrap_or(&self.config);
-        let print = crate::print::Print::new(args.is_some_and(|a| a.quiet));
+        let print = crate::print::Print::new(quiet);
         let network = config.get_network()?;
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
@@ -149,7 +175,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = Box::new(Transaction {
             source_account,
-            fee: self.fee.fee,
+            fee: config.get_inclusion_fee()?,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
             memo: Memo::None,
@@ -167,26 +193,28 @@ impl NetworkRunnable for Cmd {
                         read_only: vec![].try_into()?,
                         read_write: entry_keys.clone().try_into()?,
                     },
-                    instructions: self.fee.instructions.unwrap_or_default(),
+                    instructions: self.resources.instructions.unwrap_or_default(),
                     disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
             }),
         });
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = simulate_and_assemble_transaction(&client, &tx)
-            .await?
-            .transaction()
-            .clone();
-        let res = client
-            .send_transaction_polling(&config.sign(tx).await?)
-            .await?;
-        if args.is_none_or(|a| !a.no_cache) {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
+
+        let res = sim_sign_and_send_tx::<Error>(
+            &client,
+            &tx,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
+        )
+        .await?;
+
         let meta = res
             .result_meta
             .as_ref()

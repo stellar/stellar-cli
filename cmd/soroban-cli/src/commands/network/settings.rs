@@ -1,7 +1,6 @@
 use crate::config::network;
 use crate::print::Print;
 use crate::{commands::global, config};
-use clap::command;
 use semver::Version;
 use stellar_xdr::curr::{
     ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting, Limits,

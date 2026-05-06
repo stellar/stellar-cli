@@ -1,5 +1,6 @@
 use clap::CommandFactory;
 use dotenvy::dotenv;
+use std::path::PathBuf;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::commands::contract::arg_parsing::Error::HelpMessage;
@@ -7,10 +8,10 @@ use crate::commands::contract::deploy::wasm::Error::ArgParse;
 use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::commands::contract::Error::{Deploy, Invoke};
 use crate::commands::Error::Contract;
-use crate::config::Config;
+use crate::config::{locator::cli_config_file, Config};
 use crate::print::Print;
 use crate::upgrade_check::upgrade_check;
-use crate::{commands, Root};
+use crate::{commands, env_vars, Root};
 use std::error::Error;
 
 #[tokio::main]
@@ -19,19 +20,9 @@ pub async fn main() {
 
     // Map SOROBAN_ env vars to STELLAR_ env vars for backwards compatibility
     // with the soroban-cli prior to when the stellar-cli was released.
-    let vars = &[
-        "FEE",
-        "NO_CACHE",
-        "ACCOUNT",
-        "CONTRACT_ID",
-        "INVOKE_VIEW",
-        "RPC_URL",
-        "NETWORK_PASSPHRASE",
-        "NETWORK",
-        "PORT",
-        "SECRET_KEY",
-        "CONFIG_HOME",
-    ];
+    //
+    let vars = env_vars::unprefixed();
+
     for var in vars {
         let soroban_key = format!("SOROBAN_{var}");
         let stellar_key = format!("STELLAR_{var}");
@@ -108,18 +99,43 @@ pub async fn main() {
     }
 }
 
-// Load ~/.config/stellar/config.toml defaults as env vars.
+// Load config.toml defaults as env vars, honoring --config-dir if present in raw args.
 fn set_env_from_config() {
-    if let Ok(config) = Config::new() {
-        set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
-        set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+    let config_file = config_dir_from_raw_args()
+        .map(|dir| dir.join("config.toml"))
+        .or_else(|| cli_config_file().ok());
+
+    let config = config_file
+        .as_deref()
+        .and_then(|p| Config::load(p).ok())
+        .unwrap_or_default();
+
+    set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
+    set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
+    set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
+}
+
+fn config_dir_from_raw_args() -> Option<PathBuf> {
+    use std::ffi::OsStr;
+    let mut iter = std::env::args_os().peekable();
+    while let Some(arg) = iter.next() {
+        if arg == OsStr::new("--") {
+            break;
+        }
+        if arg == OsStr::new("--config-dir") {
+            return iter.next().map(PathBuf::from);
+        }
+        if let Some(val) = arg.to_str().and_then(|s| s.strip_prefix("--config-dir=")) {
+            return Some(PathBuf::from(val));
+        }
     }
+    None
 }
 
 // Set an env var from a config file if the env var is not already set.
 // Additionally, a `$NAME_SOURCE` variant will be set, which allows
 // `stellar env` to properly identity the source.
-fn set_env_value_from_config(name: &str, value: Option<String>) {
+fn set_env_value_from_config<T: std::fmt::Display>(name: &str, value: Option<T>) {
     let Some(value) = value else {
         return;
     };
@@ -127,7 +143,7 @@ fn set_env_value_from_config(name: &str, value: Option<String>) {
     std::env::remove_var(format!("{name}_SOURCE"));
 
     if std::env::var(name).is_err() {
-        std::env::set_var(name, value);
+        std::env::set_var(name, value.to_string());
         std::env::set_var(format!("{name}_SOURCE"), "use");
     }
 }

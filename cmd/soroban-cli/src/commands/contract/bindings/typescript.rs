@@ -1,14 +1,11 @@
 use std::{ffi::OsString, fmt::Debug, path::PathBuf};
 
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_tools::contract as spec_tools;
 use soroban_spec_typescript::boilerplate::Project;
 
+use crate::commands::contract::info::shared as contract_spec;
 use crate::print::Print;
-use crate::{
-    commands::{contract::info::shared as contract_spec, global, NetworkRunnable},
-    config,
-};
 use soroban_spec_tools::contract::Spec;
 
 #[derive(Parser, Debug, Clone)]
@@ -42,23 +39,21 @@ pub enum Error {
     Spec(#[from] spec_tools::Error),
     #[error("Failed to get file name from path: {0:?}")]
     FailedToGetFileName(PathBuf),
+    #[error("--output-dir basename '{0}' is not a valid npm package name: {1}. Use only lowercase alphanumeric characters, hyphens, dots, and underscores")]
+    InvalidContractName(String, String),
     #[error(transparent)]
     WasmOrContract(#[from] contract_spec::Error),
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
 }
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = ();
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        self.execute(false).await
+    }
 
-    async fn run_against_rpc_server(
-        &self,
-        global_args: Option<&global::Args>,
-        _config: Option<&config::Args>,
-    ) -> Result<(), Error> {
-        let print = Print::new(global_args.is_some_and(|a| a.quiet));
+    pub async fn execute(&self, quiet: bool) -> Result<(), Error> {
+        let print = Print::new(quiet);
 
         let contract_spec::Fetched { contract, source } =
             contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
@@ -89,6 +84,8 @@ impl NetworkRunnable for Cmd {
         let contract_name = &file_name
             .to_str()
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
+        soroban_spec_typescript::validate_npm_package_name(contract_name)
+            .map_err(|reason| Error::InvalidContractName((*contract_name).to_string(), reason))?;
         let (resolved_address, network) = match source {
             contract_spec::Source::Contract {
                 resolved_address,
@@ -113,11 +110,5 @@ impl NetworkRunnable for Cmd {
             self.output_dir
         ));
         Ok(())
-    }
-}
-
-impl Cmd {
-    pub async fn run(&self) -> Result<(), Error> {
-        self.run_against_rpc_server(None, None).await
     }
 }

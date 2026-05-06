@@ -1,5 +1,3 @@
-use clap::arg;
-
 use crate::config::{
     key::{self, Key},
     locator,

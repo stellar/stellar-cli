@@ -2,10 +2,13 @@ use phf::phf_map;
 use sha2::{Digest, Sha256};
 use stellar_strkey::ed25519::PrivateKey;
 
-use crate::xdr::{
-    self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits, ScMap,
-    ScMapEntry, ScVal, Transaction, TransactionSignaturePayload,
-    TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+use crate::{
+    print::Print,
+    xdr::{
+        self, Asset, ContractIdPreimage, Hash, HashIdPreimage, HashIdPreimageContractId, Limits,
+        ScMap, ScMapEntry, ScVal, Transaction, TransactionEnvelope, TransactionSignaturePayload,
+        TransactionSignaturePayloadTaggedTransaction, WriteXdr,
+    },
 };
 
 pub use soroban_spec_tools::contract as contract_spec;
@@ -17,6 +20,25 @@ use crate::config::network::Network;
 /// Might return an error
 pub fn contract_hash(contract: &[u8]) -> Result<Hash, xdr::Error> {
     Ok(Hash(Sha256::digest(contract).into()))
+}
+
+/// Compute the transaction hash for a given transaction envelope.
+///
+/// # Errors
+///
+/// If the transaction envelope contains unsupported types (e.g., TxV0), this function will return an error.
+/// If an XDR error is encountered during processing, it will be propagated.
+pub fn transaction_env_hash(
+    tx_env: &TransactionEnvelope,
+    network_passphrase: &str,
+) -> Result<[u8; 32], xdr::Error> {
+    match tx_env {
+        TransactionEnvelope::Tx(ref v1_env) => transaction_hash(&v1_env.tx, network_passphrase),
+        TransactionEnvelope::TxFeeBump(ref fee_bump_env) => {
+            fee_bump_transaction_hash(&fee_bump_env.tx, network_passphrase)
+        }
+        TransactionEnvelope::TxV0(_) => Err(xdr::Error::Unsupported),
+    }
 }
 
 /// # Errors
@@ -33,9 +55,30 @@ pub fn transaction_hash(
     Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
 }
 
+/// # Errors
+///
+/// Might return an error
+pub fn fee_bump_transaction_hash(
+    fee_bump_tx: &xdr::FeeBumpTransaction,
+    network_passphrase: &str,
+) -> Result<[u8; 32], xdr::Error> {
+    let signature_payload = TransactionSignaturePayload {
+        network_id: Hash(Sha256::digest(network_passphrase).into()),
+        tagged_transaction: TransactionSignaturePayloadTaggedTransaction::TxFeeBump(
+            fee_bump_tx.clone(),
+        ),
+    };
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+}
+
 static EXPLORERS: phf::Map<&'static str, &'static str> = phf_map! {
     "Test SDF Network ; September 2015" => "https://stellar.expert/explorer/testnet",
     "Public Global Stellar Network ; September 2015" => "https://stellar.expert/explorer/public",
+};
+
+static LAB_CONTRACT_URLS: phf::Map<&'static str, &'static str> = phf_map! {
+    "Test SDF Network ; September 2015" => "https://lab.stellar.org/r/testnet/contract/{contract_id}",
+    "Public Global Stellar Network ; September 2015" => "https://lab.stellar.org/r/mainnet/contract/{contract_id}",
 };
 
 pub fn explorer_url_for_transaction(network: &Network, tx_hash: &str) -> Option<String> {
@@ -44,13 +87,13 @@ pub fn explorer_url_for_transaction(network: &Network, tx_hash: &str) -> Option<
         .map(|base_url| format!("{base_url}/tx/{tx_hash}"))
 }
 
-pub fn explorer_url_for_contract(
+pub fn lab_url_for_contract(
     network: &Network,
     contract_id: &stellar_strkey::Contract,
 ) -> Option<String> {
-    EXPLORERS
+    LAB_CONTRACT_URLS
         .get(&network.network_passphrase)
-        .map(|base_url| format!("{base_url}/contract/{contract_id}"))
+        .map(|base_url| base_url.replace("{contract_id}", &contract_id.to_string()))
 }
 
 /// # Errors
@@ -109,6 +152,13 @@ pub(crate) fn into_signing_key(key: &PrivateKey) -> ed25519_dalek::SigningKey {
     ed25519_dalek::SigningKey::from_bytes(&secret)
 }
 
+pub fn deprecate_message(print: Print, arg: &str, hint: &str) {
+    print.warnln(
+        format!("`{arg}` is deprecated and will be removed in future versions of the CLI. {hint}")
+            .trim(),
+    );
+}
+
 /// Used in tests
 #[allow(unused)]
 pub(crate) fn parse_secret_key(
@@ -119,6 +169,22 @@ pub(crate) fn parse_secret_key(
 
 pub fn is_hex_string(s: &str) -> bool {
     s.chars().all(|s| s.is_ascii_hexdigit())
+}
+
+pub fn escape_control_characters(s: &str) -> String {
+    use std::fmt::Write as _;
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_control() {
+            let mut buf = [0u8; 4];
+            for &byte in c.encode_utf8(&mut buf).as_bytes() {
+                write!(result, "\\x{byte:02x}").unwrap();
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
 
 pub fn contract_id_hash_from_asset(
@@ -161,10 +227,14 @@ pub fn get_name_from_stellar_asset_contract_storage(storage: &ScMap) -> Option<S
 }
 
 pub mod http {
+    use std::time::Duration;
+
     use crate::commands::version;
     fn user_agent() -> String {
         format!("{}/{}", env!("CARGO_PKG_NAME"), version::pkg())
     }
+
+    const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
     /// Creates and returns a configured `reqwest::Client`.
     ///
@@ -178,6 +248,7 @@ pub mod http {
         // 3. This simplifies error handling for callers, as they can assume a valid client.
         reqwest::Client::builder()
             .user_agent(user_agent())
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .expect("Failed to build reqwest client")
     }
@@ -190,6 +261,7 @@ pub mod http {
     pub fn blocking_client() -> reqwest::blocking::Client {
         reqwest::blocking::Client::builder()
             .user_agent(user_agent())
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .expect("Failed to build reqwest blocking client")
     }
@@ -248,11 +320,31 @@ pub mod rpc {
             ));
         }
         let contract_data_entry = &entries[0];
-        match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())? {
-            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Ok(code.into()),
-            scval => Err(Error::UnexpectedContractCodeDataType(scval)),
-        }
+        let code = match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())?
+        {
+            LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Vec::from(code),
+            scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
+        };
+        super::verify_wasm_hash(&code, hash)?;
+        Ok(code)
     }
+}
+
+// Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch
+// variant. The message makes the actual failure reason clear.
+fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), soroban_rpc::Error> {
+    let computed_hash = Hash(Sha256::digest(code).into());
+    if computed_hash != *expected_hash {
+        return Err(soroban_rpc::Error::NotFound(
+            "WASM hash mismatch".to_string(),
+            format!(
+                "expected {}, got {}",
+                hex::encode(expected_hash.0),
+                hex::encode(computed_hash.0),
+            ),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -273,5 +365,37 @@ mod tests {
             ),
             Err(err) => panic!("Failed to parse contract id: {err}"),
         }
+    }
+
+    #[test]
+    fn test_verify_wasm_hash_matching() {
+        use sha2::{Digest, Sha256};
+        use stellar_xdr::curr::Hash;
+
+        let wasm_bytes = b"\0asm fake wasm content";
+        let correct_hash = Hash(Sha256::digest(wasm_bytes).into());
+        assert!(verify_wasm_hash(wasm_bytes, &correct_hash).is_ok());
+    }
+
+    #[test]
+    fn test_verify_wasm_hash_mismatch() {
+        use stellar_xdr::curr::Hash;
+
+        let wasm_bytes = b"\0asm fake wasm content";
+        let wrong_hash = Hash([0xAB; 32]);
+        let err = verify_wasm_hash(wasm_bytes, &wrong_hash).unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("WASM hash mismatch"),
+            "expected 'WASM hash mismatch' in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("abababababababababababababababababababababababababababababababab"),
+            "expected expected-hash in error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("501dc4e05f47c4713c4a27e89a5b07ed769bb2cc858bcf46de9bed13ae65af29"),
+            "expected computed-hash in error: {err_msg}"
+        );
     }
 }

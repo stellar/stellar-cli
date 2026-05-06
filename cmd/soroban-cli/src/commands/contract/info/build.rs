@@ -2,7 +2,7 @@ use super::shared::{self, Fetched};
 use crate::commands::contract::info::shared::fetch;
 use crate::{commands::global, print::Print, utils::http};
 use base64::Engine as _;
-use clap::{command, Parser};
+use clap::Parser;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
@@ -84,16 +84,25 @@ impl Cmd {
         print.infoln(format!("Collecting GitHub attestation from {url}"));
         let resp = http::client().get(url).send().await?;
         let resp: gh_attest_resp::Root = resp.json().await?;
-        let Some(attestation) = resp.attestations.first() else {
-            return Err(Error::AttestationNotFound);
-        };
-        let Ok(payload) = base64::engine::general_purpose::STANDARD
-            .decode(&attestation.bundle.dsse_envelope.payload)
-        else {
-            return Err(Error::AttestationInvalid);
-        };
-        let payload: gh_payload::Root = serde_json::from_slice(&payload)?;
+
+        // Find the SLSA provenance attestation (not the Release attestation)
+        // GitHub may attach multiple attestations, and we need the one with predicate_type
+        // matching "https://slsa.dev/provenance/v1"
+        let payload = resp
+            .attestations
+            .iter()
+            .find_map(|attestation| {
+                let payload = base64::engine::general_purpose::STANDARD
+                    .decode(&attestation.bundle.dsse_envelope.payload)
+                    .ok()?;
+                let payload: gh_payload::Root = serde_json::from_slice(&payload).ok()?;
+
+                (payload.predicate_type == "https://slsa.dev/provenance/v1").then_some(payload)
+            })
+            .ok_or(Error::AttestationNotFound)?;
+
         print.checkln("Attestation found linked to GitHub Actions Workflow Run:");
+
         let workflow_repo = payload
             .predicate
             .build_definition
@@ -117,7 +126,7 @@ impl Cmd {
             .build_definition
             .resolved_dependencies
             .first()
-            .unwrap()
+            .ok_or(Error::AttestationInvalid)?
             .digest
             .git_commit;
         let runner_environment = payload

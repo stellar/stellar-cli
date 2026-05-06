@@ -1,3 +1,4 @@
+use bollard::query_parameters::LogsOptions;
 use futures_util::TryStreamExt;
 
 use crate::{
@@ -33,11 +34,11 @@ impl Cmd {
         let docker = self.container_args.connect_to_docker(&print).await?;
         let logs_stream = &mut docker.logs(
             &container_name,
-            Some(bollard::container::LogsOptions {
+            Some(LogsOptions {
                 follow: true,
                 stdout: true,
                 stderr: true,
-                tail: "all",
+                tail: "all".to_owned(),
                 ..Default::default()
             }),
         );

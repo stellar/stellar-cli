@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::{
-    fs::{create_dir_all, metadata, write, Metadata},
+    fs::{create_dir_all, metadata, write},
     io,
     path::{Path, PathBuf},
     str,
@@ -9,13 +9,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, error_on_use_of_removed_arg, print, utils};
-
-const EXAMPLE_REMOVAL_NOTICE: &str = "Adding examples via cli is no longer supported. \
-You can still clone examples from the repo https://github.com/stellar/soroban-examples";
-const FRONTEND_EXAMPLE_REMOVAL_NOTICE: &str = "Using frontend template via cli is no longer \
-supported. You can search for frontend templates using github tags, \
-such as `soroban-template` or `soroban-frontend-template`";
+use crate::{commands::global, config::address::ContractName, print};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -27,26 +21,7 @@ pub struct Cmd {
         default_value = "hello-world",
         long_help = "An optional flag to specify a new contract's name."
     )]
-    pub name: String,
-
-    // TODO: remove in future version (23+) https://github.com/stellar/stellar-cli/issues/1586
-    #[arg(
-        short,
-        long,
-        hide = true,
-        display_order = 100,
-        value_parser = error_on_use_of_removed_arg!(String, EXAMPLE_REMOVAL_NOTICE)
-    )]
-    pub with_example: Option<String>,
-
-    // TODO: remove in future version (23+) https://github.com/stellar/stellar-cli/issues/1586
-    #[arg(
-        long,
-        hide = true,
-        display_order = 100,
-        value_parser = error_on_use_of_removed_arg!(String, FRONTEND_EXAMPLE_REMOVAL_NOTICE),
-    )]
-    pub frontend_template: Option<String>,
+    pub name: ContractName,
 
     #[arg(long, long_help = "Overwrite all existing files.")]
     pub overwrite: bool,
@@ -183,10 +158,7 @@ impl Runner {
     }
 
     fn file_exists(file_path: &Path) -> bool {
-        metadata(file_path)
-            .as_ref()
-            .map(Metadata::is_file)
-            .unwrap_or(false)
+        metadata(file_path).is_ok_and(|m| m.is_file())
     }
 
     fn create_dir_all(path: &Path) -> Result<(), Error> {
@@ -216,9 +188,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "hello_world".to_string(),
-                with_example: None,
-                frontend_template: None,
+                name: "hello_world".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -236,9 +206,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "contract2".to_string(),
-                with_example: None,
-                frontend_template: None,
+                name: "contract2".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),

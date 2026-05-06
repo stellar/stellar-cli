@@ -6,6 +6,8 @@ use std::{
     process::{self},
 };
 
+use tempfile::TempDir;
+
 use serde_json::json;
 use stellar_xdr::curr;
 
@@ -52,14 +54,14 @@ impl Cmd {
             xdr_to_json::<curr::TransactionEnvelope>(input)?
         };
 
-        let path = tmp_file(&json)?;
+        let (_temp_dir, path) = tmp_file(&json)?;
         let editor = get_editor();
 
+        print.infoln(format!("Editing transaction at {}", path.display()));
         open_editor(&print, &editor, &path)?;
 
         let contents = fs::read_to_string(&path)?;
         let xdr = json_to_xdr::<curr::TransactionEnvelope>(&contents)?;
-        fs::remove_file(&path)?;
 
         println!("{xdr}");
 
@@ -73,15 +75,30 @@ struct Editor {
     args: Vec<String>,
 }
 
-fn tmp_file(contents: &str) -> Result<PathBuf, Error> {
-    let temp_dir = env::current_dir().unwrap_or(env::temp_dir());
-    let file_name = format!("stellar-xdr-{}.json", rand::random::<u64>());
-    let path = temp_dir.join(file_name);
+fn tmp_file(contents: &str) -> Result<(TempDir, PathBuf), Error> {
+    let temp_dir = tempfile::Builder::new()
+        .prefix("stellar-tx-edit-")
+        .tempdir()?;
+    let path = temp_dir.path().join("edit.json");
 
+    #[cfg(unix)]
+    let mut file = {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        fs::set_permissions(temp_dir.path(), fs::Permissions::from_mode(0o700))?;
+        fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&path)?
+    };
+
+    #[cfg(not(unix))]
     let mut file = fs::File::create(&path)?;
+
     file.write_all(contents.as_bytes())?;
 
-    Ok(path)
+    Ok((temp_dir, path))
 }
 
 fn get_editor() -> Editor {
@@ -192,4 +209,39 @@ fn default_json() -> String {
 }}
 "#
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tmp_file_uses_private_tempdir() {
+        let contents = r#"{"test": true}"#;
+        let (temp_dir, path) = tmp_file(contents).expect("tmp_file failed");
+
+        // File must exist inside the tempdir, not in CWD
+        assert!(path.starts_with(temp_dir.path()));
+        assert_ne!(temp_dir.path(), env::current_dir().unwrap());
+
+        // Contents must match
+        let read_back = fs::read_to_string(&path).expect("read failed");
+        assert_eq!(read_back, contents);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tmp_file_has_restricted_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (temp_dir, path) = tmp_file("{}").expect("tmp_file failed");
+
+        let file_meta = fs::metadata(&path).expect("file metadata failed");
+        let file_mode = file_meta.permissions().mode() & 0o777;
+        assert_eq!(file_mode, 0o600, "file permissions should be 0o600");
+
+        let dir_meta = fs::metadata(temp_dir.path()).expect("dir metadata failed");
+        let dir_mode = dir_meta.permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "tempdir permissions should be 0o700");
+    }
 }

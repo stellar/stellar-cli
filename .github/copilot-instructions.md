@@ -9,7 +9,7 @@ Stellar CLI is a Rust-based command-line tool for interacting with the Stellar n
 ### Bootstrap and Build
 
 - Install system dependencies: `sudo apt-get update && sudo apt-get install -y libudev-dev libdbus-1-dev build-essential`
-- Install Rust toolchain: `rustup update` (Rust 1.89.0+ required)
+- Install Rust toolchain: `rustup update` (Rust 1.92.0+ required)
 - Add WebAssembly target: `rustup target add wasm32v1-none`
 - Build main CLI: `cargo build --bin stellar` -- takes 45 seconds. NEVER CANCEL.
 - Install CLI: `make install` -- takes 3 minutes with potential network timeouts. NEVER CANCEL. Set timeout to 10+ minutes.
@@ -24,6 +24,7 @@ Stellar CLI is a Rust-based command-line tool for interacting with the Stellar n
 
 - Test main soroban-cli library: `cargo test --package soroban-cli --lib` -- takes 52 seconds. NEVER CANCEL.
 - Test individual crates: `cargo test --package <crate-name>` -- typically takes 40 seconds per crate.
+- Test soroban-test integration tests: `cargo test --features it --test it -- integration` -- tests the commands of the cli and is where the bulk of the tests live for this repository. All new commands and changes to commands should include updates or additions to tests in soroban-test.
 - **WARNING**: Full test suite via `make test` requires building WebAssembly test fixtures and consumes significant memory and disk space. It may fail with "No space left on device" in constrained environments.
 
 ### CLI Usage and Validation
@@ -112,7 +113,6 @@ stellar keys address test      # Test key operations
 The project uses GitHub Actions with workflows in `.github/workflows/`:
 
 - `rust.yml`: Main CI pipeline with formatting, linting, building, and testing
-- `e2e.yml`: End-to-end system tests
 - `binaries.yml`: Multi-platform binary builds
 
 Always run `make fmt` and `make check` locally before pushing to ensure CI passes.

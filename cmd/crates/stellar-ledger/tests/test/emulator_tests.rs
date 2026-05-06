@@ -165,7 +165,8 @@ async fn test_sign_tx_hash_when_hash_signing_is_not_enabled(ledger_device_model:
     let test_hash = b"313e8447f569233bb8db39aa607c8889";
 
     let result = ledger.sign_transaction_hash(path, test_hash).await;
-    if let Err(Error::APDUExchangeError(msg)) = result {
+
+    if let Err(Error::BlindSigningModeNotEnabled(msg)) = result {
         assert_eq!(msg, "Ledger APDU retcode: 0x6C66");
         // this error code is SW_TX_HASH_SIGNING_MODE_NOT_ENABLED https://github.com/LedgerHQ/app-stellar/blob/develop/docs/COMMANDS.md
     } else {

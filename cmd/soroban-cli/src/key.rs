@@ -7,7 +7,6 @@ use crate::{
     config::{alias, locator, network::Network},
     wasm,
 };
-use clap::arg;
 use std::path::PathBuf;
 
 #[derive(thiserror::Error, Debug)]

@@ -5,9 +5,10 @@ use crate::commands::contract::info::meta::Error::{NoMetaPresent, NoSACMeta};
 use crate::commands::contract::info::shared::{self, fetch, Fetched, MetasInfoOutput};
 use crate::commands::global;
 use crate::print::Print;
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
+use soroban_spec_tools::sanitize;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
 #[derive(Parser, Debug, Clone)]
@@ -57,13 +58,17 @@ impl Cmd {
                 for meta_entry in &spec.meta {
                     match meta_entry {
                         ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) => {
-                            let key = key.to_string();
+                            let key = sanitize(&key.to_utf8_string_lossy());
                             let val = match key.as_str() {
-                                "rsver" => format!("{val} (Rust version)"),
-                                "rssdkver" => {
-                                    format!("{val} (Soroban SDK version and its commit hash)")
-                                }
-                                _ => val.to_string(),
+                                "rsver" => format!(
+                                    "{} (Rust version)",
+                                    sanitize(&val.to_utf8_string_lossy())
+                                ),
+                                "rssdkver" => format!(
+                                    "{} (Soroban SDK version and its commit hash)",
+                                    sanitize(&val.to_utf8_string_lossy())
+                                ),
+                                _ => sanitize(&val.to_utf8_string_lossy()),
                             };
                             let _ = writeln!(meta_str, " • {key}: {val}");
                         }

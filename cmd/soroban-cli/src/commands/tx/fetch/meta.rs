@@ -2,7 +2,7 @@ use crate::{
     commands::global,
     xdr::{self, Limits, WriteXdr},
 };
-use clap::{command, Parser};
+use clap::Parser;
 
 use super::args;
 

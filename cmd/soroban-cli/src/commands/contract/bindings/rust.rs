@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use clap::{command, Parser};
+use clap::Parser;
 use soroban_spec_rust::{self, ToFormattedString};
 
 use crate::wasm;

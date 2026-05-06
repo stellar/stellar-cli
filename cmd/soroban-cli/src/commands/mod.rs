@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use async_trait::async_trait;
-use clap::{command, error::ErrorKind, CommandFactory, FromArgMatches, Parser};
+use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
 use crate::config;
 
@@ -14,9 +13,11 @@ pub mod doctor;
 pub mod env;
 pub mod events;
 pub mod fee_stats;
+pub mod fees;
 pub mod global;
 pub mod keys;
 pub mod ledger;
+pub mod message;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
@@ -85,19 +86,12 @@ pub struct Root {
 
 impl Root {
     pub fn new() -> Result<Self, Error> {
-        Self::try_parse().map_err(|e| {
-            if std::env::args().any(|s| s == "--list") {
-                let _ = plugin::ls::Cmd.run();
-                std::process::exit(0);
-            }
-
-            match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::default::run() {
-                    Ok(()) => Error::Clap(e),
-                    Err(e) => Error::PluginDefault(e),
-                },
-                _ => Error::Clap(e),
-            }
+        Self::try_parse().map_err(|e| match e.kind() {
+            ErrorKind::InvalidSubcommand => match plugin::default::run() {
+                Ok(()) => Error::Clap(e),
+                Err(e) => Error::PluginDefault(e),
+            },
+            _ => Error::Clap(e),
         })
     }
 
@@ -118,15 +112,18 @@ impl Root {
             Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
+            Cmd::Strkey(strkey) => strkey.run()?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
+            Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
+            Cmd::Message(message) => message.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
-            Cmd::Ledger(env) => env.run(&self.global_args).await?,
+            Cmd::Fees(env) => env.run(&self.global_args).await?,
             Cmd::FeeStats(env) => env.run(&self.global_args).await?,
         }
         Ok(())
@@ -175,7 +172,7 @@ pub enum Cmd {
     #[command(subcommand)]
     Container(container::Cmd),
 
-    /// Manage cli configuration
+    /// Manage CLI configuration
     #[command(subcommand)]
     Config(cfg::Cmd),
 
@@ -189,6 +186,9 @@ pub enum Cmd {
 
     /// Decode and encode XDR
     Xdr(stellar_xdr::cli::Root),
+
+    /// Decode and encode strkey
+    Strkey(stellar_strkey::cli::Root),
 
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
@@ -209,8 +209,16 @@ pub enum Cmd {
     #[command(subcommand)]
     Ledger(ledger::Cmd),
 
-    /// Fetch network feestats
+    /// Sign and verify arbitrary messages using SEP-53
+    #[command(subcommand)]
+    Message(message::Cmd),
+
+    /// ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
     FeeStats(fee_stats::Cmd),
+
+    /// Fetch network feestats and configure CLI fee settings
+    #[command(subcommand)]
+    Fees(fees::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -230,6 +238,9 @@ pub enum Error {
 
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::cli::Error),
+
+    #[error(transparent)]
+    Strkey(#[from] stellar_strkey::cli::Error),
 
     #[error(transparent)]
     Clap(#[from] clap::error::Error),
@@ -265,17 +276,11 @@ pub enum Error {
     Ledger(#[from] ledger::Error),
 
     #[error(transparent)]
+    Message(#[from] message::Error),
+
+    #[error(transparent)]
     FeeStats(#[from] fee_stats::Error),
-}
 
-#[async_trait]
-pub trait NetworkRunnable {
-    type Error;
-    type Result;
-
-    async fn run_against_rpc_server(
-        &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<Self::Result, Self::Error>;
+    #[error(transparent)]
+    Fees(#[from] fees::Error),
 }

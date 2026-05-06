@@ -5,21 +5,25 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{arg, command, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
+use crate::commands::tx::fetch;
 use crate::log::extract_events;
+use crate::print::Print;
+use crate::tx::sim_sign_and_send_tx;
+use crate::utils::deprecate_message;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
         contract::arg_parsing::{build_host_function_parameters, output_to_string},
         global,
+        tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
@@ -42,22 +46,32 @@ pub struct Cmd {
     /// Contract ID to invoke
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: config::UnresolvedContract,
+
     // For testing only
     #[arg(skip)]
     pub wasm: Option<std::path::PathBuf>,
-    /// View the result simulating and do not sign and submit transaction. Deprecated use `--send=no`
+
+    /// ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction.
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub resources: crate::resources::Args,
+
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl FromStr for Cmd {
@@ -79,49 +93,75 @@ impl Pwd for Cmd {
 pub enum Error {
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
+
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
+
     #[error("committing file {filepath}: {error}")]
     CannotCommitEventsFile {
         filepath: std::path::PathBuf,
         error: events::Error,
     },
+
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
+
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error("error loading signing key: {0}")]
     SignatureError(#[from] ed25519_dalek::SignatureError),
+
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("unexpected ({length}) simulate transaction result length")]
     UnexpectedSimulateTransactionResultSize { length: usize },
+
     #[error(transparent)]
     Clap(#[from] clap::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error("Contract Error\n{0}: {1}")]
     ContractInvoke(String, String),
+
     #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
+
     #[error(transparent)]
     ContractSpec(#[from] contract::Error),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     GetSpecError(#[from] get_spec::Error),
+
     #[error(transparent)]
     ArgParsing(#[from] arg_parsing::Error),
+
+    #[error(transparent)]
+    Fee(#[from] fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl From<Infallible> for Error {
@@ -132,7 +172,13 @@ impl From<Infallible> for Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
         let res = self.invoke(global_args).await?.to_envelope();
+
+        if self.is_view {
+            deprecate_message(print, "--is-view", "Use `--send=no` instead.");
+        }
+
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(output) => {
@@ -143,7 +189,8 @@ impl Cmd {
     }
 
     pub async fn invoke(&self, global_args: &global::Args) -> Result<TxnResult<String>, Error> {
-        self.run_against_rpc_server(Some(global_args), None).await
+        self.execute(&self.config, global_args.quiet, global_args.no_cache)
+            .await
     }
 
     pub fn read_wasm(&self) -> Result<Option<Vec<u8>>, Error> {
@@ -179,7 +226,8 @@ impl Cmd {
         })
     }
 
-    // uses a default account to check if the tx should be sent after the simulation
+    /// Uses a default account to check if the tx should be sent after the simulation. The transaction
+    /// should be recreated with the real source account later.
     async fn simulate(
         &self,
         host_function_params: &InvokeContractArgs,
@@ -190,28 +238,25 @@ impl Cmd {
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) =
             account_details.account_id.clone();
 
-        let tx = build_invoke_contract_tx(
-            host_function_params.clone(),
-            sequence + 1,
-            self.fee.fee,
-            account_id,
-        )?;
-        Ok(simulate_and_assemble_transaction(rpc_client, &tx).await?)
+        let tx =
+            build_invoke_contract_tx(host_function_params.clone(), sequence + 1, 100, account_id)?;
+        Ok(simulate_and_assemble_transaction(
+            rpc_client,
+            &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+        )
+        .await?)
     }
-}
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<String>;
-
-    async fn run_against_rpc_server(
+    #[allow(clippy::too_many_lines)]
+    pub async fn execute(
         &self,
-        global_args: Option<&global::Args>,
-        config: Option<&config::Args>,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
-        let config = config.unwrap_or(&self.config);
-        let print = print::Print::new(global_args.is_some_and(|g| g.quiet));
+        let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
         tracing::trace!(?network);
@@ -224,29 +269,38 @@ impl NetworkRunnable for Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
         }
 
         let client = network.rpc_client()?;
+
+        let global_args = global::Args {
+            locator: config.locator.clone(),
+            filter_logs: Vec::default(),
+            quiet,
+            verbose: false,
+            very_verbose: false,
+            no_cache,
+        };
 
         let spec_entries = get_remote_contract_spec(
             &contract_id.0,
             &config.locator,
             &config.network,
-            global_args,
+            Some(&global_args),
             Some(config),
         )
         .await
         .map_err(Error::from)?;
 
         let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
 
         let (function, spec, host_function_params, signers) = params;
 
-        // `self.fee.build_only` will be checked again below and the fn will return a TxnResult::Txn
+        // `self.build_only` will be checked again below and the fn will return a TxnResult::Txn
         // if the user passed the --build-only flag
-        let (should_send, cached_simulation) = if self.fee.build_only {
+        let (should_send, cached_simulation) = if self.build_only {
             (ShouldSend::Yes, None)
         } else {
             let assembled = self
@@ -279,7 +333,10 @@ impl NetworkRunnable for Cmd {
             let events = sim_res.events()?;
 
             crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
+            // Note: Only events from the invoked contract will be decoded with named parameters.
+            // Events emitted by other contracts (e.g., token transfers during a swap) will
+            // fall back to raw format since we only have the spec for the invoked contract.
+            crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
@@ -290,43 +347,33 @@ impl NetworkRunnable for Cmd {
         let tx = Box::new(build_invoke_contract_tx(
             host_function_params.clone(),
             sequence + 1,
-            self.fee.fee,
+            config.get_inclusion_fee()?,
             account_id,
         )?);
 
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_assemble_transaction(&client, &tx).await?;
-        let assembled = self.fee.apply_to_assembled_txn(txn);
-        let mut txn = Box::new(assembled.transaction().clone());
-        let sim_res = assembled.sim_response();
-
-        if global_args.is_none_or(|a| !a.no_cache) {
-            data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
-        }
-
-        let global::Args { no_cache, .. } = global_args.cloned().unwrap_or_default();
-
-        // Need to sign all auth entries
-        if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-            txn = Box::new(tx);
-        }
-
-        let res = client
-            .send_transaction_polling(&config.sign(*txn).await?)
-            .await?;
-
-        if !no_cache {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
+        let res = sim_sign_and_send_tx::<Error>(
+            &client,
+            &tx,
+            config,
+            &self.resources,
+            &signers,
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         let return_value = res.return_value()?;
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
         crate::log::event::all(&events);
-        crate::log::event::contract(&events, &print);
+        // Note: Only events from the invoked contract will be decoded with named parameters.
+        // Events emitted by other contracts (e.g., token transfers during a swap) will
+        // fall back to raw format since we only have the spec for the invoked contract.
+        crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }

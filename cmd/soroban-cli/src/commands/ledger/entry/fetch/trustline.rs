@@ -1,0 +1,105 @@
+use std::fmt::Debug;
+
+use super::args::Args;
+use crate::{
+    commands::config::{self, locator},
+    xdr::{
+        AccountId, AlphaNum12, AlphaNum4, AssetCode, LedgerKey, LedgerKeyTrustLine, MuxedAccount,
+        PublicKey, TrustLineAsset, Uint256,
+    },
+};
+use clap::Parser;
+use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
+
+#[derive(Parser, Debug, Clone)]
+#[group(skip)]
+pub struct Cmd {
+    #[command(flatten)]
+    pub args: Args,
+
+    /// Account alias or address to lookup
+    #[arg(long)]
+    pub account: String,
+
+    /// Assets to get trustline info for
+    #[arg(long, required = true)]
+    pub asset: Vec<String>,
+
+    /// If account is a seed phrase use this hd path, default is 0
+    #[arg(long)]
+    pub hd_path: Option<usize>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Config(#[from] config::key::Error),
+    #[error("provided asset is invalid: {0}")]
+    InvalidAsset(String),
+    #[error("provided data name is invalid: {0}")]
+    InvalidDataName(String),
+    #[error("native assets do not have trustlines")]
+    NativeAsset,
+    #[error(transparent)]
+    Locator(#[from] locator::Error),
+    #[error(transparent)]
+    Run(#[from] super::args::Error),
+}
+
+impl Cmd {
+    pub async fn run(&self) -> Result<(), Error> {
+        let mut ledger_keys = vec![];
+        self.insert_asset_keys(&mut ledger_keys)?;
+        Ok(self.args.run(ledger_keys).await?)
+    }
+
+    fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
+        let acc = self.muxed_account(&self.account)?;
+        for asset in &self.asset {
+            let asset = if asset.contains(':') {
+                let mut parts = asset.split(':');
+                let code = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
+                let issuer = parts.next().ok_or(Error::InvalidAsset(asset.clone()))?;
+                if parts.next().is_some() {
+                    Err(Error::InvalidAsset(asset.clone()))?;
+                }
+                let source_bytes = Ed25519PublicKey::from_string(issuer)
+                    .map_err(|_| Error::InvalidAsset(asset.clone()))?
+                    .0;
+                let issuer = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(source_bytes)));
+
+                let asset_code: AssetCode = code
+                    .parse()
+                    .map_err(|_| Error::InvalidAsset(asset.clone()))?;
+                match asset_code {
+                    AssetCode::CreditAlphanum4(asset_code) => {
+                        TrustLineAsset::CreditAlphanum4(AlphaNum4 { asset_code, issuer })
+                    }
+                    AssetCode::CreditAlphanum12(asset_code) => {
+                        TrustLineAsset::CreditAlphanum12(AlphaNum12 { asset_code, issuer })
+                    }
+                }
+            } else if matches!(asset.as_str(), "XLM" | "xlm" | "native") {
+                Err(Error::NativeAsset)?
+            } else {
+                Err(Error::InvalidAsset(asset.clone()))?
+            };
+
+            let key = LedgerKey::Trustline(LedgerKeyTrustLine {
+                account_id: acc.clone().account_id(),
+                asset,
+            });
+
+            ledger_keys.push(key);
+        }
+        Ok(())
+    }
+
+    fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
+        Ok(self
+            .args
+            .locator
+            .read_key(account)?
+            .muxed_account(self.hd_path)?)
+    }
+}

@@ -41,9 +41,16 @@ async fn tuple_help() {
 #[tokio::test]
 async fn strukt_help() {
     let output = invoke_custom("strukt", "--help").await.unwrap();
-    println!("{output}");
     assert!(output.contains("--strukt '{ \"a\": 1, \"b\": true, \"c\": \"hello\" }'",));
     assert!(output.contains("This is from the rust doc above the struct Test",));
+}
+
+#[tokio::test]
+async fn simple_enum() {
+    assert!(invoke_custom("simple", "--help")
+        .await
+        .unwrap()
+        .contains("First|Second|Third"));
 }
 
 #[tokio::test]
@@ -59,10 +66,17 @@ async fn complex_enum_help() {
 }
 
 #[tokio::test]
+async fn recursive_enum() {
+    let output = invoke_custom("recursive_enum", "--help").await.unwrap();
+    assert!(output.contains("--recursive"));
+    assert!(output.contains(r#""Void"'"#));
+}
+
+#[tokio::test]
 async fn multi_arg_failure() {
     assert!(matches!(
         invoke_custom("multi_args", "--b").await.unwrap_err(),
-        contract::invoke::Error::ArgParsing(arg_parsing::Error::MissingArgument(_))
+        contract::invoke::Error::ArgParsing(arg_parsing::Error::MissingArgument { .. })
     ));
 }
 

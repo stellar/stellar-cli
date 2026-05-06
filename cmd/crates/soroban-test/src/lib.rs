@@ -34,7 +34,7 @@ use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{contract::invoke, global, keys, NetworkRunnable},
+    commands::{contract::invoke, keys},
     config::{self, network},
     CommandParser,
 };
@@ -131,13 +131,10 @@ impl TestEnv {
     }
 
     pub fn new() -> TestEnv {
-        if let Ok(rpc_url) = std::env::var("SOROBAN_RPC_URL") {
-            return Self::with_rpc_url(&rpc_url);
-        }
         if let Ok(rpc_url) = std::env::var("STELLAR_RPC_URL") {
             return Self::with_rpc_url(&rpc_url);
         }
-        let host_port = std::env::var("SOROBAN_PORT")
+        let host_port = std::env::var("STELLAR_PORT")
             .as_deref()
             .ok()
             .and_then(|n| n.parse().ok())
@@ -159,9 +156,9 @@ impl TestEnv {
         let mut cmd: Command = self.bin();
 
         cmd.arg(subcommand)
-            .env("SOROBAN_ACCOUNT", TEST_ACCOUNT)
-            .env("SOROBAN_RPC_URL", &self.network.rpc_url)
-            .env("SOROBAN_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
+            .env("STELLAR_ACCOUNT", TEST_ACCOUNT)
+            .env("STELLAR_RPC_URL", &self.network.rpc_url)
+            .env("STELLAR_NETWORK_PASSPHRASE", LOCAL_NETWORK_PASSPHRASE)
             .env("XDG_CONFIG_HOME", self.dir().join("config").as_os_str())
             .env("XDG_DATA_HOME", self.data_dir().as_os_str())
             .current_dir(self.dir());
@@ -236,13 +233,14 @@ impl TestEnv {
         source: &str,
     ) -> Result<String, invoke::Error> {
         let cmd = self.cmd_with_config::<I, invoke::Cmd>(command_str, None);
-        self.run_cmd_with(cmd, source)
+        let config = self.clone_config(source);
+        cmd.execute(&config, false, false)
             .await
             .map(|tx| tx.into_result().unwrap())
     }
 
     /// A convenience method for using the invoke command.
-    pub fn cmd_with_config<I: AsRef<str>, T: CommandParser<T> + NetworkRunnable>(
+    pub fn cmd_with_config<I: AsRef<str>, T: CommandParser<T>>(
         &self,
         command_str: &[I],
         source_account: Option<&str>,
@@ -274,54 +272,21 @@ impl TestEnv {
                 network: None,
             },
             source_account: account.parse().unwrap(),
-            locator: config::locator::Args {
-                global: false,
-                config_dir,
-            },
+            locator: config::locator::Args { config_dir },
             sign_with: config::sign_with::Args {
                 sign_with_key: None,
                 hd_path: None,
                 sign_with_lab: false,
                 sign_with_ledger: false,
             },
+            fee: None,
+            inclusion_fee: None,
         }
-    }
-
-    /// Invoke an already parsed invoke command
-    pub async fn run_cmd_with<T: NetworkRunnable>(
-        &self,
-        cmd: T,
-        account: &str,
-    ) -> Result<T::Result, T::Error> {
-        let config = self.clone_config(account);
-
-        cmd.run_against_rpc_server(
-            Some(&global::Args {
-                locator: config.locator.clone(),
-                filter_logs: Vec::default(),
-                quiet: false,
-                verbose: false,
-                very_verbose: false,
-                list: false,
-                no_cache: false,
-            }),
-            Some(&config),
-        )
-        .await
     }
 
     /// Reference to current directory of the `TestEnv`.
     pub fn dir(&self) -> &TempDir {
         &self.temp_dir
-    }
-
-    /// Returns the public key corresponding to the test keys's `hd_path`
-    pub async fn test_address(&self, hd_path: usize) -> String {
-        self.cmd::<keys::public_key::Cmd>(&format!("--hd-path={hd_path}"))
-            .public_key()
-            .await
-            .unwrap()
-            .to_string()
     }
 
     /// Returns the private key corresponding to the test keys's `hd_path`
@@ -392,6 +357,7 @@ impl AssertExt for Assert {
             .to_owned()
     }
 }
+
 pub trait CommandExt {
     fn json_arg<A>(&mut self, j: A) -> &mut Self
     where

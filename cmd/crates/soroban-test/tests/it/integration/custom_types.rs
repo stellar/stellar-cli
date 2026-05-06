@@ -31,6 +31,7 @@ async fn parse() {
     enum_2_str(sandbox, id).await;
     e_2_s_enum(sandbox, id).await;
     asset(sandbox, id).await;
+    asset_with_alias(sandbox, id).await;
     e_2_s_tuple(sandbox, id).await;
     e_2_s_strukt(sandbox, id).await;
     number_arg(sandbox, id).await;
@@ -44,6 +45,9 @@ async fn parse() {
     contract_address(sandbox, id).await;
     contract_address_with_alias(sandbox, id).await;
     bytes(sandbox, id).await;
+    bytes_n(sandbox, id).await;
+    timepoint(sandbox, id).await;
+    duration(sandbox, id).await;
     const_enum(sandbox, id).await;
     number_arg_return_ok(sandbox, id);
     void(sandbox, id);
@@ -154,6 +158,18 @@ async fn asset(sandbox: &TestEnv, id: &str) {
         json!({"Asset": ["CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT", "100" ]}),
     )
     .await;
+}
+
+async fn asset_with_alias(sandbox: &TestEnv, id: &str) {
+    let res = invoke(
+        sandbox,
+        id,
+        "complex",
+        &json!({"Asset": ["test", "100"]}).to_string(),
+    )
+    .await;
+    let expected = json!({"Asset": [test_address(sandbox), "100"]}).to_string();
+    assert_eq!(res, expected);
 }
 
 fn complex_tuple() -> serde_json::Value {
@@ -273,6 +289,39 @@ async fn contract_address_with_alias(sandbox: &TestEnv, id: &str) {
 
 async fn bytes(sandbox: &TestEnv, id: &str) {
     invoke_with_roundtrip(sandbox, id, "bytes", json!("7374656c6c6172")).await;
+}
+
+async fn bytes_n(sandbox: &TestEnv, id: &str) {
+    let bytes = "beeffacebeefface00";
+    invoke_custom(sandbox, id, "bytes_n")
+        .arg("--bytes_n")
+        .arg(bytes)
+        .assert()
+        .success()
+        .stdout(format!(
+            r#""{bytes}"
+"#,
+        ));
+}
+
+async fn timepoint(sandbox: &TestEnv, id: &str) {
+    let tp = "1633046400";
+    invoke_custom(sandbox, id, "timepoint")
+        .arg("--timepoint")
+        .arg(tp)
+        .assert()
+        .success()
+        .stdout(format!("{tp}\n"));
+}
+
+async fn duration(sandbox: &TestEnv, id: &str) {
+    let dur = "3600";
+    invoke_custom(sandbox, id, "duration")
+        .arg("--duration")
+        .arg(dur)
+        .assert()
+        .success()
+        .stdout(format!("{dur}\n"));
 }
 
 async fn const_enum(sandbox: &TestEnv, id: &str) {

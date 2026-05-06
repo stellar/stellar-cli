@@ -4,8 +4,8 @@ use itertools::Itertools;
 use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
+use soroban_spec_tools::sanitize;
 use std::{
-    borrow::Cow,
     collections::HashSet,
     env,
     ffi::OsStr,
@@ -17,11 +17,22 @@ use std::{
 };
 use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
+#[cfg(feature = "additional-libs")]
+use crate::commands::contract::optimize;
 use crate::{
-    commands::{contract::optimize, global},
+    commands::{global, version},
     print::Print,
     wasm,
 };
+
+/// A built WASM artifact with its package name and file path.
+#[derive(Debug, Clone)]
+pub struct BuiltContract {
+    /// The Cargo package name (e.g. "my-contract").
+    pub name: String,
+    /// The path to the built WASM file.
+    pub path: PathBuf,
+}
 
 /// Build a contract from source
 ///
@@ -77,20 +88,32 @@ pub struct Cmd {
     #[arg(long)]
     pub out_dir: Option<std::path::PathBuf>,
 
+    /// Assert that `Cargo.lock` will remain unchanged
+    #[arg(long)]
+    pub locked: bool,
+
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    #[command(flatten)]
+    pub build_args: BuildArgs,
+}
+
+/// Shared build options for meta and optimization, reused by deploy and upload.
+#[derive(Parser, Debug, Clone, Default)]
+pub struct BuildArgs {
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
 
     /// Optimize the generated wasm.
-    #[arg(long)]
+    #[cfg_attr(feature = "additional-libs", arg(long))]
+    #[cfg_attr(not(feature = "additional-libs"), arg(long, hide = true))]
     pub optimize: bool,
 }
 
-fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
+pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
     let parts = s.splitn(2, '=');
 
     let (key, value) = parts
@@ -130,7 +153,7 @@ pub enum Error {
     #[error("getting the current directory: {0}")]
     GettingCurrentDir(io::Error),
 
-    #[error("retreiving CARGO_HOME: {0}")]
+    #[error("retrieving CARGO_HOME: {0}")]
     CargoHome(io::Error),
 
     #[error("reading wasm file: {0}")]
@@ -142,30 +165,69 @@ pub enum Error {
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
 
-    #[error("use rust 1.81 or 1.84+ to build contracts (got {0})")]
+    #[error(
+        "use a rust version other than 1.81, 1.82, 1.83 or 1.91.0 to build contracts (got {0})"
+    )]
     RustVersion(String),
+
+    #[error("must install with \"additional-libs\" feature.")]
+    OptimizeFeatureNotEnabled,
+
+    #[error("invalid Cargo.toml configuration: {0}")]
+    CargoConfiguration(String),
 
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::curr::Error),
 
+    #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Optimize(#[from] optimize::Error),
 
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
+    #[error(transparent)]
+    SpecTools(#[from] soroban_spec_tools::contract::Error),
+
+    #[error("wasm parsing error: {0}")]
+    WasmParsing(String),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
 const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
+impl Default for Cmd {
+    fn default() -> Self {
+        Self {
+            manifest_path: None,
+            package: None,
+            profile: "release".to_string(),
+            features: None,
+            all_features: false,
+            no_default_features: false,
+            out_dir: None,
+            locked: false,
+            print_commands_only: false,
+            build_args: BuildArgs::default(),
+        }
+    }
+}
+
 impl Cmd {
-    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+    /// Builds the project and returns the built WASM artifacts.
+    #[allow(clippy::too_many_lines)]
+    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
         let target_dir = &metadata.target_directory;
+
+        // Run build configuration checks (only when actually building)
+        if !self.print_commands_only {
+            run_checks(metadata.workspace_root.as_std_path(), &self.profile)?;
+        }
 
         if let Some(package) = &self.package {
             if packages.is_empty() {
@@ -176,11 +238,15 @@ impl Cmd {
         }
 
         let wasm_target = get_wasm_target()?;
+        let mut built_contracts = Vec::new();
 
         for p in packages {
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
             cmd.arg("rustc");
+            if self.locked {
+                cmd.arg("--locked");
+            }
             let manifest_path = pathdiff::diff_paths(&p.manifest_path, &working_dir)
                 .unwrap_or(p.manifest_path.clone().into());
             cmd.arg(format!(
@@ -213,21 +279,11 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            let mut cmd_str_parts = Vec::<String>::new();
-            cmd_str_parts.extend(cmd.get_envs().map(|(key, val)| {
-                format!(
-                    "{}={}",
-                    key.to_string_lossy(),
-                    shell_escape::escape(val.unwrap_or_default().to_string_lossy())
-                )
-            }));
-            cmd_str_parts.push("cargo".to_string());
-            cmd_str_parts.extend(
-                cmd.get_args()
-                    .map(OsStr::to_string_lossy)
-                    .map(Cow::into_owned),
-            );
-            let cmd_str = cmd_str_parts.join(" ");
+            // Set env var to inform the SDK that this CLI supports spec
+            // optimization using markers.
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
                 println!("{cmd_str}");
@@ -245,7 +301,8 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                self.handle_contract_metadata_args(&target_file_path)?;
+                self.inject_meta(&target_file_path)?;
+                Self::filter_spec(&target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -257,9 +314,11 @@ impl Cmd {
                 };
 
                 let wasm_bytes = fs::read(&final_path).map_err(Error::ReadingWasmFile)?;
+                #[cfg_attr(not(feature = "additional-libs"), allow(unused_mut))]
                 let mut optimized_wasm_bytes: Vec<u8> = Vec::new();
 
-                if self.optimize {
+                #[cfg(feature = "additional-libs")]
+                if self.build_args.optimize {
                     let mut path = final_path.clone();
                     path.set_extension("optimized.wasm");
                     optimize::optimize(true, vec![final_path.clone()], Some(path.clone()))?;
@@ -269,11 +328,27 @@ impl Cmd {
                     fs::rename(&path, &final_path).map_err(Error::CopyingWasmFile)?;
                 }
 
-                Self::print_build_summary(&print, &final_path, wasm_bytes, optimized_wasm_bytes);
+                #[cfg(not(feature = "additional-libs"))]
+                if self.build_args.optimize {
+                    return Err(Error::OptimizeFeatureNotEnabled);
+                }
+
+                Self::print_build_summary(
+                    &print,
+                    &p.name,
+                    &final_path,
+                    wasm_bytes,
+                    optimized_wasm_bytes,
+                );
+
+                built_contracts.push(BuiltContract {
+                    name: p.name.clone(),
+                    path: final_path,
+                });
             }
         }
 
-        Ok(())
+        Ok(built_contracts)
     }
 
     fn features(&self) -> Option<Vec<String>> {
@@ -343,11 +418,7 @@ impl Cmd {
         cmd.exec()
     }
 
-    fn handle_contract_metadata_args(&self, target_file_path: &PathBuf) -> Result<(), Error> {
-        if self.meta.is_empty() {
-            return Ok(());
-        }
-
+    fn inject_meta(&self, target_file_path: &PathBuf) -> Result<(), Error> {
         let mut wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let xdr = self.encoded_new_meta()?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
@@ -358,9 +429,58 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
+    /// Filters unused types and events from the contract spec.
+    ///
+    /// This removes:
+    /// - Type definitions that are not referenced by any function
+    /// - Events that don't have corresponding markers in the WASM data section
+    ///   (events that are defined but never published)
+    ///
+    /// The SDK embeds markers in the data section for types/events that are
+    /// actually used. These markers survive dead code elimination, so we can
+    /// detect which spec entries are truly needed.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+
+        // Parse the spec from the wasm
+        let spec = Spec::new(&wasm_bytes)?;
+
+        // Check if the contract meta indicates spec shaking v2 is enabled.
+        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
+            return Ok(());
+        }
+
+        // Extract markers from the WASM data section
+        let markers = soroban_spec::shaking::find_all(&wasm_bytes);
+
+        // Filter spec entries (types, events) based on markers, and
+        // deduplicate any exact duplicate entries.
+        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
+
+        // Replace the contractspecv0 section with the filtered version
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
+            .map_err(|e| Error::WasmParsing(e.to_string()))?;
+
+        // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
+    }
+
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
         let mut new_meta: Vec<ScMetaEntry> = Vec::new();
-        for (k, v) in self.meta.clone() {
+
+        // Always inject CLI version
+        let cli_meta_entry = ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: "cliver".to_string().try_into().unwrap(),
+            val: version::one_line().clone().try_into().unwrap(),
+        });
+        new_meta.push(cli_meta_entry);
+
+        // Add args provided meta
+        for (k, v) in self.build_args.meta.clone() {
             let key: StringM = k
                 .clone()
                 .try_into()
@@ -384,6 +504,7 @@ impl Cmd {
 
     fn print_build_summary(
         print: &Print,
+        name: &str,
         path: &Path,
         wasm_bytes: Vec<u8>,
         optimized_wasm_bytes: Vec<u8>,
@@ -440,12 +561,36 @@ impl Cmd {
         } else {
             print.blankln(format!("Exported Functions: {} found", export_names.len()));
             for name in export_names {
-                print.blankln(format!("  • {name}"));
+                print.blankln(format!("  • {}", sanitize(name)));
+            }
+        }
+
+        if let Ok(spec) = soroban_spec_tools::Spec::from_wasm(bytes) {
+            for w in spec.verify() {
+                print.warnln(format!("{name}: {w}"));
             }
         }
 
         print.checkln("Build Complete\n");
     }
+}
+
+fn serialize_command(cmd: &Command) -> String {
+    let mut parts = Vec::<String>::new();
+    parts.extend(cmd.get_envs().map(|(key, val)| {
+        format!(
+            "{}={}",
+            key.to_string_lossy(),
+            shell_escape::escape(val.unwrap_or_default().to_string_lossy())
+        )
+    }));
+    parts.push(cmd.get_program().to_string_lossy().into_owned());
+    parts.extend(
+        cmd.get_args()
+            .map(OsStr::to_string_lossy)
+            .map(|a| shell_escape::escape(a).into_owned()),
+    );
+    parts.join(" ")
 }
 
 /// Configure cargo/rustc to replace absolute paths in panic messages / debuginfo
@@ -507,7 +652,7 @@ fn make_rustflags_to_remap_absolute_paths(print: &Print) -> Result<Option<String
     }
 
     if env::var("RUSTFLAGS").is_ok() {
-        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible.");
+        print.warnln("`RUSTFLAGS` set. Dependency paths will not be remapped; builds may not be reproducible. Use CARGO_BUILD_RUSTFLAGS instead, which the CLI will merge with remapping.");
         return Ok(None);
     }
 
@@ -561,6 +706,11 @@ fn get_wasm_target() -> Result<String, Error> {
 
     let v184 = Version::parse("1.84.0").unwrap();
     let v182 = Version::parse("1.82.0").unwrap();
+    let v191 = Version::parse("1.91.0").unwrap();
+
+    if current_version == v191 {
+        return Err(Error::RustVersion(current_version.to_string()));
+    }
 
     if current_version >= v182 && current_version < v184 {
         return Err(Error::RustVersion(current_version.to_string()));
@@ -570,5 +720,130 @@ fn get_wasm_target() -> Result<String, Error> {
         Ok(WASM_TARGET_OLD.into())
     } else {
         Ok(WASM_TARGET.into())
+    }
+}
+
+/// Run build configuration checks and return an error if configuration is invalid.
+fn run_checks(workspace_root: &Path, profile: &str) -> Result<(), Error> {
+    let cargo_toml_path = workspace_root.join("Cargo.toml");
+
+    let cargo_toml_str = match fs::read_to_string(&cargo_toml_path) {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(Error::CargoConfiguration(format!(
+                "Could not read Cargo.toml: {e}"
+            )));
+        }
+    };
+
+    let doc: toml_edit::DocumentMut = match cargo_toml_str.parse() {
+        Ok(d) => d,
+        Err(e) => {
+            return Err(Error::CargoConfiguration(format!(
+                "Could not parse Cargo.toml to run checks: {e}"
+            )));
+        }
+    };
+
+    check_overflow_checks(&doc, profile)?;
+    // Future checks can be added here
+    Ok(())
+}
+
+/// Check if overflow-checks is enabled for the specified profile.
+/// Returns an error if not enabled.
+fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<(), Error> {
+    // Helper to check a profile and follow inheritance chain
+    // Returns Some(bool) if overflow-checks is found, None if not found
+    fn get_overflow_checks(
+        doc: &toml_edit::DocumentMut,
+        profile: &str,
+        visited: &mut Vec<String>,
+    ) -> Option<bool> {
+        if visited.contains(&profile.to_string()) {
+            return None; // Prevent infinite loops
+        }
+        visited.push(profile.to_string());
+
+        let profile_section = doc.get("profile")?.get(profile)?;
+
+        // Check if overflow-checks is explicitly set
+        if let Some(val) = profile_section
+            .get("overflow-checks")
+            .and_then(toml_edit::Item::as_bool)
+        {
+            return Some(val);
+        }
+
+        // Check inherited profile
+        if let Some(inherits) = profile_section.get("inherits").and_then(|v| v.as_str()) {
+            return get_overflow_checks(doc, inherits, visited);
+        }
+
+        None
+    }
+
+    let mut visited = Vec::new();
+    if get_overflow_checks(doc, profile, &mut visited) == Some(true) {
+        Ok(())
+    } else {
+        Err(Error::CargoConfiguration(format!(
+            "`overflow-checks` is not enabled for profile `{profile}`. \
+            To prevent silent integer overflow, add `overflow-checks = true` to \
+            [profile.{profile}] in your Cargo.toml."
+        )))
+    }
+}
+
+/// Filters spec entries based on markers and deduplicates exact duplicates.
+///
+/// Functions are always kept. Other entries (types, events) are kept only if a
+/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
+/// to a single occurrence.
+#[allow(clippy::implicit_hasher)]
+pub fn filter_and_dedup_spec(
+    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
+    markers: &HashSet<soroban_spec::shaking::Marker>,
+) -> Result<Vec<u8>, Error> {
+    let mut seen = HashSet::new();
+    let mut filtered_xdr = Vec::new();
+    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+    for entry in soroban_spec::shaking::filter(entries, markers) {
+        let entry_xdr = entry.to_xdr(Limits::none())?;
+        if seen.insert(entry_xdr) {
+            entry.write_xdr(&mut writer)?;
+        }
+    }
+    Ok(filtered_xdr)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_command_shell_escapes_args_with_metacharacters() {
+        let raw_arg = "--manifest-path=/path/to/contract;touch PWNED;#/Cargo.toml";
+        let escaped_arg = shell_escape::escape(raw_arg.into()).into_owned();
+
+        let mut cmd = Command::new("cargo");
+        cmd.arg("rustc");
+        cmd.arg(raw_arg);
+
+        let output = serialize_command(&cmd);
+
+        // The full escaped form of the argument must appear verbatim.
+        assert!(
+            output.contains(&escaped_arg),
+            "expected escaped arg {escaped_arg:?} in output: {output}"
+        );
+
+        // Round-trip through shlex: the metacharacter-laden arg must parse back
+        // as a single token equal to the original.
+        let tokens = shlex::split(&output).expect("serialize_command output must be valid shell");
+        assert!(
+            tokens.iter().any(|t| t == raw_arg),
+            "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
+        );
     }
 }

@@ -14,9 +14,10 @@ pub mod invoke;
 pub mod optimize;
 pub mod read;
 pub mod restore;
+pub mod spec_verify;
 pub mod upload;
 
-use crate::{commands::global, print::Print};
+use crate::{commands::global, print::Print, utils::deprecate_message};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
@@ -61,14 +62,14 @@ pub enum Cmd {
     /// be overwritten unless `--overwrite` is passed.
     Init(init::Cmd),
 
-    /// (Deprecated, use `contract info`) Inspect a WASM file listing contract functions, meta, etc
+    /// ⚠️ Deprecated, use `contract info`. Inspect a WASM file listing contract functions, meta, etc
     #[command(display_order = 100)]
     Inspect(inspect::Cmd),
 
     /// Install a WASM file to the ledger without creating a contract instance
     Upload(upload::Cmd),
 
-    /// (Deprecated, use `contract upload`) Install a WASM file to the ledger without creating a contract instance
+    /// ⚠️ Deprecated, use `contract upload`. Install a WASM file to the ledger without creating a contract instance
     Install(upload::Cmd),
 
     /// Invoke a contract function
@@ -81,7 +82,7 @@ pub enum Cmd {
     ///     stellar contract invoke ... -- --help
     Invoke(invoke::Cmd),
 
-    /// (Deprecated, use `build --optimize`) Optimize a WASM file
+    /// ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
     Optimize(optimize::Cmd),
 
     /// Print the current value of a contract-data ledger entry
@@ -91,6 +92,14 @@ pub enum Cmd {
     ///
     /// If no keys are specificed the contract itself is restored.
     Restore(restore::Cmd),
+
+    /// Verify that a contract spec references only defined types
+    // Hidden because it's unclear if this makes sense as a general subcommand
+    // to offer, but during the development of features relating to specs it has
+    // been helpful to have it as its own command. Verification is automatically
+    // run as part of `contract build` so for a general user this is not needed.
+    #[command(name = "spec-verify", hide = true)]
+    SpecVerify(spec_verify::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -142,6 +151,9 @@ pub enum Error {
 
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
+    #[error(transparent)]
+    SpecVerify(#[from] spec_verify::Error),
 }
 
 impl Cmd {
@@ -151,24 +163,45 @@ impl Cmd {
         match &self {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
-            Cmd::Build(build) => build.run(global_args)?,
-            Cmd::Extend(extend) => extend.run().await?,
+            Cmd::Build(build) => {
+                build.run(global_args)?;
+            }
+            Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
             Cmd::Id(id) => id.run().await?,
             Cmd::Info(info) => info.run(global_args).await?,
             Cmd::Init(init) => init.run(global_args)?,
-            Cmd::Inspect(inspect) => inspect.run(global_args)?,
+            Cmd::Inspect(inspect) => {
+                deprecate_message(
+                    print,
+                    "stellar contract inspect",
+                    "Use `stellar contract info` instead.",
+                );
+                inspect.run()?;
+            }
             Cmd::Install(install) => {
-                print.warnln("`stellar contract install` has been deprecated in favor of `stellar contract upload`");
+                deprecate_message(
+                    print,
+                    "stellar contract install",
+                    "Use `stellar contract upload` instead.",
+                );
                 install.run(global_args).await?;
             }
             Cmd::Upload(upload) => upload.run(global_args).await?,
             Cmd::Invoke(invoke) => invoke.run(global_args).await?,
-            Cmd::Optimize(optimize) => optimize.run(global_args)?,
+            Cmd::Optimize(optimize) => {
+                deprecate_message(
+                    print,
+                    "stellar contract optimize",
+                    "Use `stellar contract build --optimize` instead.",
+                );
+                optimize.run()?;
+            }
             Cmd::Fetch(fetch) => fetch.run().await?,
             Cmd::Read(read) => read.run().await?,
-            Cmd::Restore(restore) => restore.run().await?,
+            Cmd::Restore(restore) => restore.run(global_args).await?,
+            Cmd::SpecVerify(spec_verify) => spec_verify.run(global_args)?,
         }
         Ok(())
     }

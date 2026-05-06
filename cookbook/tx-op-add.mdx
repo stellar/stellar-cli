@@ -26,7 +26,7 @@ ASSET="USDC:$ISSUER_PK"
 # rather than transferring assets directly.
 
 # first the issuer sets the options for being able to clawback and revoke the asset
-stellar tx new set-options --fee 1000 --source issuer --set-clawback-enabled --set-revocable --build-only \
+stellar tx new set-options --inclusion-fee 1000 --source issuer --set-clawback-enabled --set-revocable --build-only \
 # next the distributor establishes a trustline with the asset. Note that here the distributor the source account for the operation, not the issuer
 | stellar tx op add change-trust --op-source distributor --line $ASSET \
 # then the issuer sends the smallest amount possible to the distributor
@@ -41,7 +41,7 @@ stellar tx new set-options --fee 1000 --source issuer --set-clawback-enabled --s
 # Next is an example of sandwiching an operation. That is giving permission in one operation, preforming the operation, and then removing the permission in a third operation.
 # Here is an example of minting new assets to the distributor with a sandwich transaction
 # First authorize the distributor to receive the asset
-stellar tx new set-trustline-flags --fee 1000 --build-only --source issuer --asset $ASSET --trustor $distributor_PK --set-authorize \
+stellar tx new set-trustline-flags --inclusion-fee 1000 --build-only --source issuer --asset $ASSET --trustor $distributor_PK --set-authorize \
 # Then mint the asset to the distributor
 | stellar tx op add payment --destination distributor --asset $ASSET --amount 1_000_000_000_000 \
 # Finally remove the authorization

@@ -1,5 +1,4 @@
-use crate::config::{locator, network, secret};
-use clap::command;
+use crate::config::{address::NetworkName, locator, network, secret};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -8,13 +7,16 @@ pub enum Error {
 
     #[error(transparent)]
     Config(#[from] locator::Error),
+
+    #[error(transparent)]
+    Network(#[from] network::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Name of network
-    pub name: String,
+    pub name: NetworkName,
 
     #[command(flatten)]
     pub network: network::Network,
@@ -25,6 +27,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
+        self.network.validate_headers()?;
         self.config_locator
             .write_network(&self.name, &self.network)?;
         Ok(())

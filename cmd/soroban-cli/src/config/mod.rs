@@ -1,4 +1,3 @@
-use clap::{arg, command};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
@@ -6,8 +5,13 @@ use std::{
 };
 
 use crate::{
-    signer,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    print::Print,
+    signer::{self, Signer},
+    utils::deprecate_message,
+    xdr::{
+        self, FeeBumpTransaction, FeeBumpTransactionEnvelope, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionV1Envelope, VecM,
+    },
     Pwd,
 };
 use network::Network;
@@ -22,6 +26,7 @@ pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
+pub mod utils;
 
 use crate::config::locator::cli_config_file;
 pub use address::UnresolvedMuxedAccount;
@@ -35,7 +40,7 @@ pub enum Error {
     #[error(transparent)]
     Secret(#[from] secret::Error),
     #[error(transparent)]
-    Config(#[from] locator::Error),
+    Locator(#[from] locator::Error),
     #[error(transparent)]
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
@@ -59,7 +64,7 @@ pub struct Args {
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
     /// or a seed phrase (--source "kite urban…").
-    /// If `--build-only` or `--sim-only` flags were NOT provided, this key will also be used to
+    /// If `--build-only` was NOT provided, this key will also be used to
     /// sign the final transaction. In that case, trying to sign with public key will fail.
     pub source_account: UnresolvedMuxedAccount,
 
@@ -68,6 +73,14 @@ pub struct Args {
 
     #[command(flatten)]
     pub sign_with: sign_with::Args,
+
+    /// ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+    #[arg(long, env = "STELLAR_FEE")]
+    pub fee: Option<u32>,
+
+    /// Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+    #[arg(long, env = "STELLAR_INCLUSION_FEE")]
+    pub inclusion_fee: Option<u32>,
 }
 
 impl Args {
@@ -84,7 +97,7 @@ impl Args {
         Ok(key.key_pair(self.hd_path())?)
     }
 
-    pub async fn sign(&self, tx: Transaction) -> Result<TransactionEnvelope, Error> {
+    pub async fn sign(&self, tx: Transaction, quiet: bool) -> Result<TransactionEnvelope, Error> {
         let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
             tx,
             signatures: VecM::default(),
@@ -95,7 +108,28 @@ impl Args {
                 &tx_env,
                 &self.locator,
                 &self.network.get(&self.locator)?,
-                false,
+                quiet,
+                Some(&self.source_account),
+            )
+            .await?)
+    }
+
+    pub async fn sign_fee_bump(
+        &self,
+        tx: FeeBumpTransaction,
+        quiet: bool,
+    ) -> Result<TransactionEnvelope, Error> {
+        let tx_env = TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self
+            .sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                quiet,
                 Some(&self.source_account),
             )
             .await?)
@@ -104,16 +138,14 @@ impl Args {
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
-        signers: &[ed25519_dalek::SigningKey],
+        signers: &[Signer],
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_key = self.key_pair()?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_key,
             signers,
             seq_num,
             &network.network_passphrase,
@@ -122,6 +154,24 @@ impl Args {
 
     pub fn get_network(&self) -> Result<Network, Error> {
         Ok(self.network.get(&self.locator)?)
+    }
+
+    /// Get the inclusion fee if available from args, otherwise fall back to fee,
+    /// and finally return 100 if nothing is set.
+    ///
+    /// Precedence is:
+    /// 1. inclusion_fee (via clap, arg then env var)
+    /// 2. fee (via clap, arg then env var)
+    /// 3. default of 100 stroops
+    pub fn get_inclusion_fee(&self) -> Result<u32, Error> {
+        if self.fee.is_some() {
+            deprecate_message(
+                Print::new(false),
+                "--fee [env: STELLAR_FEE]",
+                "Use `--inclusion-fee [env: STELLAR_INCLUSION_FEE]` instead.",
+            );
+        }
+        Ok(self.inclusion_fee.or(self.fee).unwrap_or(100))
     }
 
     pub async fn next_sequence_number(
@@ -175,14 +225,19 @@ pub struct Config {
 pub struct Defaults {
     pub network: Option<String>,
     pub identity: Option<String>,
+    pub inclusion_fee: Option<u32>,
 }
 
 impl Config {
     pub fn new() -> Result<Config, locator::Error> {
-        let path = cli_config_file()?;
+        Self::load(&cli_config_file()?)
+    }
 
+    pub fn load(path: &std::path::Path) -> Result<Config, locator::Error> {
         if path.exists() {
-            let data = fs::read_to_string(&path).map_err(|_| locator::Error::FileRead { path })?;
+            let data = fs::read_to_string(path).map_err(|_| locator::Error::FileRead {
+                path: path.to_path_buf(),
+            })?;
             Ok(toml::from_str(&data)?)
         } else {
             Ok(Config::default())
@@ -201,13 +256,39 @@ impl Config {
         self
     }
 
-    pub fn save(&self) -> Result<(), locator::Error> {
-        let toml_string = toml::to_string(&self)?;
-        let path = cli_config_file()?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path)?)?;
-        file.write_all(toml_string.as_bytes())?;
+    #[must_use]
+    pub fn set_inclusion_fee(mut self, uint: u32) -> Self {
+        self.defaults.inclusion_fee = Some(uint);
+        self
+    }
 
+    #[must_use]
+    pub fn unset_identity(mut self) -> Self {
+        self.defaults.identity = None;
+        self
+    }
+
+    #[must_use]
+    pub fn unset_network(mut self) -> Self {
+        self.defaults.network = None;
+        self
+    }
+
+    #[must_use]
+    pub fn unset_inclusion_fee(mut self) -> Self {
+        self.defaults.inclusion_fee = None;
+        self
+    }
+
+    pub fn save(&self) -> Result<(), locator::Error> {
+        self.save_to(&cli_config_file()?)
+    }
+
+    pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
+        let toml_string = toml::to_string(&self)?;
+        // Depending on the platform, this function may fail if the full directory path does not exist
+        let mut file = File::create(locator::ensure_directory(path.to_path_buf())?)?;
+        file.write_all(toml_string.as_bytes())?;
         Ok(())
     }
 }

@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use clap::{command, Parser};
+use clap::Parser;
 
 use crate::commands::{config::network, global};
-use crate::config::locator;
+use crate::config::{address::AliasName, locator};
 use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct Cmd {
     pub network: network::Args,
 
     /// The contract alias that will be used.
-    pub alias: String,
+    pub alias: AliasName,
 
     /// Overwrite the contract alias if it already exists.
     #[arg(long)]
@@ -60,7 +60,7 @@ impl Cmd {
             if contract != self.contract_id && !self.overwrite {
                 return Err(Error::AlreadyExist {
                     alias: alias.to_string(),
-                    network_passphrase: network_passphrase.to_string(),
+                    network_passphrase: network_passphrase.clone(),
                     contract,
                 });
             }

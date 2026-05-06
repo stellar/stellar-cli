@@ -3,28 +3,28 @@ use std::{fmt::Debug, num::TryFromIntError, path::Path, str::FromStr};
 use crate::{
     log::extract_events,
     print::Print,
+    resources,
+    tx::sim_sign_and_send_tx,
     xdr::{
-        Error as XdrError, ExtendFootprintTtlOp, ExtensionPoint, LedgerEntry, LedgerEntryChange,
-        LedgerEntryData, LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions,
+        ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtendFootprintTtlOp,
+        ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData, LedgerFootprint,
+        LedgerKey, LedgerKeyConfigSetting, Limits, Memo, Operation, OperationBody, Preconditions,
         SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
         Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
         TtlEntry, WriteXdr,
     },
 };
-use clap::{command, Parser};
+use clap::Parser;
 
+use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
-        NetworkRunnable,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
 };
-
-const MAX_LEDGERS_TO_EXTEND: u32 = 535_679;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -32,15 +32,23 @@ pub struct Cmd {
     /// Number of ledgers to extend the entries
     #[arg(long, required = true)]
     pub ledgers_to_extend: u32,
+
     /// Only print the new Time To Live ledger
     #[arg(long)]
     pub ttl_ledger_only: bool,
+
     #[command(flatten)]
     pub key: key::Args,
+
     #[command(flatten)]
     pub config: config::Args,
+
     #[command(flatten)]
-    pub fee: crate::fee::Args,
+    pub resources: resources::Args,
+
+    /// Build the transaction and only write the base64 xdr to stdout
+    #[arg(long)]
+    pub build_only: bool,
 }
 
 impl FromStr for Cmd {
@@ -65,39 +73,66 @@ pub enum Error {
         key: String,
         error: soroban_spec_tools::Error,
     },
+
     #[error("parsing XDR key {key}: {error}")]
     CannotParseXdrKey { key: String, error: XdrError },
 
     #[error(transparent)]
     Config(#[from] config::Error),
+
     #[error("either `--key` or `--key-xdr` are required")]
     KeyIsRequired,
+
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
+
     #[error("Ledger entry not found")]
     LedgerEntryNotFound,
+
     #[error("missing operation result")]
     MissingOperationResult,
+
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
+
     #[error(transparent)]
     Key(#[from] key::Error),
+
     #[error(transparent)]
     Data(#[from] data::Error),
+
     #[error(transparent)]
     Network(#[from] network::Error),
+
     #[error(transparent)]
     Locator(#[from] locator::Error),
+
     #[error(transparent)]
     IntError(#[from] TryFromIntError),
+
+    #[error("Failed to fetch state archival settings from network")]
+    StateArchivalSettingsNotFound,
+
+    #[error("Ledgers to extend ({requested}) exceeds network maximum ({max})")]
+    LedgersToExtendTooLarge { requested: u32, max: u32 },
+
+    #[error(transparent)]
+    Fee(#[from] fetch::fee::Error),
+
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self) -> Result<(), Error> {
-        let res = self.run_against_rpc_server(None, None).await?.to_envelope();
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let res = self
+            .execute(&self.config, global_args.quiet, global_args.no_cache)
+            .await?
+            .to_envelope();
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
             TxnEnvelopeResult::Res(ttl_ledger) => {
@@ -112,36 +147,57 @@ impl Cmd {
         Ok(())
     }
 
-    fn ledgers_to_extend(&self) -> u32 {
-        let res = u32::min(self.ledgers_to_extend, MAX_LEDGERS_TO_EXTEND);
-        if res < self.ledgers_to_extend {
-            tracing::warn!(
-                "Ledgers to extend is too large, using max value of {MAX_LEDGERS_TO_EXTEND}"
-            );
-        }
-        res
-    }
-}
+    async fn get_max_entry_ttl(client: &rpc::Client) -> Result<u32, Error> {
+        let key = LedgerKey::ConfigSetting(LedgerKeyConfigSetting {
+            config_setting_id: ConfigSettingId::StateArchival,
+        });
 
-#[async_trait::async_trait]
-impl NetworkRunnable for Cmd {
-    type Error = Error;
-    type Result = TxnResult<u32>;
+        let entries = client.get_full_ledger_entries(&[key]).await?;
+
+        if let Some(entry) = entries.entries.first() {
+            if let LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(settings)) =
+                &entry.val
+            {
+                return Ok(settings.max_entry_ttl);
+            }
+        }
+
+        Err(Error::StateArchivalSettingsNotFound)
+    }
+
+    async fn ledgers_to_extend(&self, client: &rpc::Client) -> Result<u32, Error> {
+        let max_entry_ttl = Self::get_max_entry_ttl(client).await?;
+
+        tracing::trace!(
+            "Checking ledgers_to_extend: requested={}, max_entry_ttl={}",
+            self.ledgers_to_extend,
+            max_entry_ttl
+        );
+
+        if self.ledgers_to_extend > max_entry_ttl {
+            return Err(Error::LedgersToExtendTooLarge {
+                requested: self.ledgers_to_extend,
+                max: max_entry_ttl,
+            });
+        }
+
+        Ok(self.ledgers_to_extend)
+    }
 
     #[allow(clippy::too_many_lines)]
-    async fn run_against_rpc_server(
+    pub async fn execute(
         &self,
-        args: Option<&global::Args>,
-        config: Option<&config::Args>,
-    ) -> Result<TxnResult<u32>, Self::Error> {
-        let config = config.unwrap_or(&self.config);
-        let print = Print::new(args.is_some_and(|a| a.quiet));
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<u32>, Error> {
+        let print = Print::new(quiet);
         let network = config.get_network()?;
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
         let source_account = config.source_account().await?;
-        let extend_to = self.ledgers_to_extend();
+        let extend_to = self.ledgers_to_extend(&client).await?;
 
         // Get the account sequence number
         let account_details = client
@@ -151,7 +207,7 @@ impl NetworkRunnable for Cmd {
 
         let tx = Box::new(Transaction {
             source_account,
-            fee: self.fee.fee,
+            fee: config.get_inclusion_fee()?,
             seq_num: SequenceNumber(sequence + 1),
             cond: Preconditions::None,
             memo: Memo::None,
@@ -170,26 +226,27 @@ impl NetworkRunnable for Cmd {
                         read_only: keys.clone().try_into()?,
                         read_write: vec![].try_into()?,
                     },
-                    instructions: self.fee.instructions.unwrap_or_default(),
+                    instructions: self.resources.instructions.unwrap_or_default(),
                     disk_read_bytes: 0,
                     write_bytes: 0,
                 },
                 resource_fee: 0,
             }),
         });
-        if self.fee.build_only {
+        if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let tx = simulate_and_assemble_transaction(&client, &tx)
-            .await?
-            .transaction()
-            .clone();
-        let res = client
-            .send_transaction_polling(&config.sign(tx).await?)
-            .await?;
-        if args.is_none_or(|a| !a.no_cache) {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
+
+        let res = sim_sign_and_send_tx::<Error>(
+            &client,
+            &tx,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         let meta = res.result_meta.ok_or(Error::MissingOperationResult)?;
         let events = extract_events(&meta);

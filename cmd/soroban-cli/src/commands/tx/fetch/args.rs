@@ -1,3 +1,4 @@
+use crate::color::{green, red};
 use soroban_rpc::GetTransactionResponse;
 
 use crate::{
@@ -33,10 +34,10 @@ pub enum Error {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
 pub enum OutputFormat {
-    /// JSON output of the ledger entry with parsed XDRs (one line, not formatted)
+    /// JSON output with parsed XDRs (one line, not formatted)
     #[default]
     Json,
-    /// Formatted (multiline) JSON output of the ledger entry with parsed XDRs
+    /// Formatted (multiline) JSON output with parsed XDRs
     JsonFormatted,
     /// Original RPC output (containing XDRs)
     Xdr,
@@ -56,7 +57,7 @@ impl Args {
                 if let Some(n) = &self.network.network {
                     return Err(Error::NotFound {
                         tx_hash,
-                        network: n.to_string(),
+                        network: n.clone(),
                     });
                 }
             }
@@ -66,9 +67,15 @@ impl Args {
     }
 
     pub fn print_tx_summary(tx: &GetTransactionResponse) {
-        println!("Transaction Status: {}", tx.status);
+        let status = if tx.status == "SUCCESS" {
+            green(&tx.status)
+        } else {
+            red(&tx.status)
+        };
+        println!("Transaction Status: {status}");
         if let Some(ledger) = tx.ledger {
             println!("Transaction Ledger: {ledger}");
         }
+        println!();
     }
 }

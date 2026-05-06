@@ -1,10 +1,9 @@
 use soroban_test::{AssertExt, TestEnv};
 
 #[test]
-#[ignore]
 fn init_and_deploy() {
     let name = "hello_world";
-    let sandbox = TestEnv::default();
+    let sandbox = &TestEnv::new();
 
     sandbox
         .new_assert_cmd("contract")
