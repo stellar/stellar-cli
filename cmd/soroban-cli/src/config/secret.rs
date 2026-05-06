@@ -32,6 +32,12 @@ pub enum Error {
     SecureStoreDoesNotRevealSecretKey,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
+    #[error(
+        "--hd-path {requested} does not match the path stored on this Ledger identity ({cached})"
+    )]
+    LedgerHdPathMismatch { cached: usize, requested: usize },
+    #[error("--hd-path {0} is out of range for a Ledger account index")]
+    HdPathOutOfRange(usize),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -180,7 +186,18 @@ impl Secret {
                 }
                 Ok(secure_store::get_public_key(entry_name, effective)?)
             }
-            Secret::Ledger { public_key, .. } => Ok(PublicKey::from_string(public_key)?),
+            Secret::Ledger {
+                public_key,
+                hd_path: cached_hd_path,
+                ..
+            } => {
+                let cached = cached_hd_path.unwrap_or_default();
+                let requested = index.unwrap_or(cached);
+                if cached != requested {
+                    return Err(Error::LedgerHdPathMismatch { cached, requested });
+                }
+                Ok(PublicKey::from_string(public_key)?)
+            }
             _ => {
                 let key = self.key_pair(index)?;
                 Ok(stellar_strkey::ed25519::PublicKey::from_payload(
@@ -202,7 +219,9 @@ impl Secret {
                 ..
             } => {
                 let effective = hd_path.or(*cached_hd_path).unwrap_or_default();
-                let hd_path: u32 = effective.try_into().expect("usize bigger than u32");
+                let hd_path: u32 = effective
+                    .try_into()
+                    .map_err(|_| Error::HdPathOutOfRange(effective))?;
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
             Secret::SecureStore {
@@ -504,6 +523,37 @@ mod tests {
         };
         let pk = secret.public_key(None).unwrap();
         assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+    }
+
+    #[test]
+    fn test_ledger_public_key_rejects_mismatched_hd_path() {
+        // Caller asks for a different account index than the one cached on
+        // disk; returning the cached key would leak the wrong address.
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: Some(5),
+        };
+        assert!(matches!(
+            secret.public_key(Some(7)).unwrap_err(),
+            Error::LedgerHdPathMismatch {
+                cached: 5,
+                requested: 7
+            },
+        ));
+    }
+
+    #[test]
+    fn test_ledger_public_key_treats_none_and_zero_as_equivalent() {
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+        };
+        assert_eq!(
+            secret.public_key(Some(0)).unwrap().to_string(),
+            TEST_PUBLIC_KEY
+        );
     }
 
     #[test]

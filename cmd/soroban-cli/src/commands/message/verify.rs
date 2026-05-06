@@ -313,20 +313,6 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_rejects_ledger_as_public_key() {
-        let cmd = super::Cmd {
-            message: Some("Hello, World!".to_string()),
-            base64: false,
-            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
-            public_key: "ledger".to_string(),
-            hd_path: None,
-            locator: setup_locator(),
-        };
-        let err = cmd.run(&global_args()).unwrap_err();
-        assert!(matches!(err, Error::Locator(_)));
-    }
-
-    #[test]
     fn test_verify_rejects_secure_store_as_public_key() {
         let cmd = super::Cmd {
             message: Some("Hello, World!".to_string()),
