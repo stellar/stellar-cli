@@ -189,11 +189,9 @@ test("tuple", async (t) => {
 });
 
 test("option", async (t) => {
-  // this makes sense
   t.deepEqual((await contract.option({ option: 1 })).result, 1);
 
-  // this passes but shouldn't
-  t.deepEqual((await contract.option({ option: undefined })).result, undefined);
+  t.deepEqual((await contract.option({ option: undefined })).result, null);
 
   // this is the behavior we probably want, but fails
   // t.deepEqual(await contract.option(), undefined) // typing and implementation require the object
@@ -220,4 +218,12 @@ test("tuple_strukt", async (t) => {
   ] as const;
   const res = [{ a: 0, b: true, c: "hello" }, { tag: "First" }];
   t.deepEqual((await contract.tuple_strukt({ tuple_strukt: arg })).result, res);
+});
+
+test("timepoint", async (t) => {
+  t.is((await contract.timepoint({ timepoint: 1n })).result, 1n);
+});
+
+test("duration", async (t) => {
+  t.is((await contract.duration({ duration: 1n })).result, 1n);
 });
