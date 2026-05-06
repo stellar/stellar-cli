@@ -1,7 +1,7 @@
 use clap::Parser;
 use indexmap::IndexMap;
 use soroban_spec_tools::event::DecodedEvent;
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::{sanitize, Spec};
 use std::collections::HashMap;
 use std::io;
 
@@ -352,8 +352,7 @@ impl Cmd {
         event: &rpc::Event,
         use_colors: bool,
     ) -> Result<(), Error> {
-        use std::io::Write;
-        use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+        use termcolor::{ColorChoice, StandardStream};
 
         let color_choice = if use_colors {
             ColorChoice::Auto
@@ -361,6 +360,15 @@ impl Cmd {
             ColorChoice::Never
         };
         let mut stdout = StandardStream::stdout(color_choice);
+        Self::write_decoded_event(&mut stdout, decoded, event)
+    }
+
+    fn write_decoded_event<W: termcolor::WriteColor>(
+        stdout: &mut W,
+        decoded: &DecodedEvent,
+        event: &rpc::Event,
+    ) -> Result<(), Error> {
+        use termcolor::{Color, ColorSpec};
 
         // Event header
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)).set_bold(true))?;
@@ -394,10 +402,16 @@ impl Cmd {
         write!(stdout, "  Event:    ")?;
         stdout.reset()?;
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true))?;
-        write!(stdout, "{}", decoded.event_name)?;
+        write!(stdout, "{}", sanitize(&decoded.event_name))?;
         stdout.reset()?;
         if !decoded.prefix_topics.is_empty() {
-            write!(stdout, " ({})", decoded.prefix_topics.join(", "))?;
+            let prefix = decoded
+                .prefix_topics
+                .iter()
+                .map(|t| sanitize(t))
+                .collect::<Vec<_>>()
+                .join(", ");
+            write!(stdout, " ({prefix})")?;
         }
         writeln!(stdout)?;
 
@@ -408,7 +422,7 @@ impl Cmd {
             stdout.reset()?;
             for (name, value) in &decoded.params {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
-                write!(stdout, "    {name}")?;
+                write!(stdout, "    {}", sanitize(name))?;
                 stdout.reset()?;
                 write!(stdout, ": ")?;
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)))?;
@@ -500,5 +514,49 @@ impl Cmd {
             _ => return Err(Error::MissingStartLedgerAndCursor),
         };
         Ok(start)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use soroban_spec_tools::test_utils::assert_no_control_chars;
+    use termcolor::Buffer;
+
+    fn evil_event() -> rpc::Event {
+        rpc::Event {
+            event_type: "contract".into(),
+            ledger: 1,
+            ledger_closed_at: "2026-01-01T00:00:00Z".into(),
+            contract_id: "CACA".into(),
+            id: "0000000001-0000000001".into(),
+            operation_index: None,
+            transaction_index: None,
+            tx_hash: None,
+            #[allow(deprecated)]
+            is_successful_contract_call: None,
+            topic: vec![],
+            value: String::new(),
+        }
+    }
+
+    fn evil_decoded() -> DecodedEvent {
+        let mut params = IndexMap::new();
+        params.insert("amount\x1b[31m".to_string(), json!(1000));
+        DecodedEvent {
+            contract_id: "CACA".to_string(),
+            event_name: "\x1b[2J\x1b[Htransfer".to_string(),
+            prefix_topics: vec!["\x1b[31mEVIL".into(), "topic2".into()],
+            params,
+        }
+    }
+
+    #[test]
+    fn write_decoded_event_strips_attacker_control_bytes() {
+        let mut buf = Buffer::no_color();
+        Cmd::write_decoded_event(&mut buf, &evil_decoded(), &evil_event()).unwrap();
+        let output = String::from_utf8(buf.into_inner()).unwrap();
+        assert_no_control_chars(&output);
     }
 }

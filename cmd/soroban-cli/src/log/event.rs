@@ -1,10 +1,40 @@
-use soroban_spec_tools::Spec;
+use soroban_spec_tools::event::DecodedEvent;
+use soroban_spec_tools::{sanitize, Spec};
 use tracing::debug;
 
 use crate::{print::Print, xdr};
 use xdr::{
     ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
 };
+
+fn format_decoded_event(decoded: &DecodedEvent, status: &str) -> String {
+    let params_str = decoded
+        .params
+        .iter()
+        .map(|(k, v)| format!("{}: {v}", sanitize(k)))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let prefix_str = if decoded.prefix_topics.is_empty() {
+        String::new()
+    } else {
+        let prefix = decoded
+            .prefix_topics
+            .iter()
+            .map(|t| sanitize(t))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(" ({prefix})")
+    };
+
+    format!(
+        "{} - {status} - Event: {}{prefix_str}, {params_str}",
+        decoded.contract_id,
+        sanitize(&decoded.event_name),
+    )
+    .trim_end_matches([',', ' '])
+    .to_string()
+}
 
 pub fn all(events: &[DiagnosticEvent]) {
     for (index, event) in events.iter().enumerate() {
@@ -50,26 +80,7 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
                     let contract_id_str = contract_id.to_string();
                     match spec.decode_event(&contract_id_str, &topics, &data) {
                         Ok(decoded) => {
-                            let params_str = decoded
-                                .params
-                                .iter()
-                                .map(|(k, v)| format!("{k}: {v}"))
-                                .collect::<Vec<_>>()
-                                .join(", ");
-
-                            let prefix_str = if decoded.prefix_topics.is_empty() {
-                                String::new()
-                            } else {
-                                format!(" ({})", decoded.prefix_topics.join(", "))
-                            };
-                            let output = format!(
-                                "{contract_id} - {status} - Event: {}{prefix_str}, {params_str}",
-                                decoded.event_name
-                            )
-                            .trim_end_matches([',', ' '])
-                            .to_string();
-
-                            print.eventln(output);
+                            print.eventln(format_decoded_event(&decoded, status));
                             continue;
                         }
                         Err(e) => {
@@ -124,4 +135,26 @@ fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
 
 fn print_event(xdr: &str, json: &str, index: usize) {
     debug!("{index}: {xdr} {json}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::IndexMap;
+    use serde_json::json;
+    use soroban_spec_tools::test_utils::assert_no_control_chars;
+
+    #[test]
+    fn format_decoded_event_strips_attacker_control_bytes() {
+        let mut params = IndexMap::new();
+        params.insert("amount\x1b[31m".to_string(), json!(1000));
+        let decoded = DecodedEvent {
+            contract_id: "CACA".to_string(),
+            event_name: "\x1b[2J\x1b[Htransfer".to_string(),
+            prefix_topics: vec!["\x1b[31mEVIL".into(), "topic2".into()],
+            params,
+        };
+
+        assert_no_control_chars(&format_decoded_event(&decoded, "Success"));
+    }
 }
