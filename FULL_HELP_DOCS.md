@@ -1137,6 +1137,7 @@ Add a new identity (keypair, ledger, OS specific secure store)
   This only supports seed phrases for now.
 
 - `--public-key <PUBLIC_KEY>` — Add a public key, ed25519, or muxed account, e.g. G1.., M2..
+- `--ledger` — Derive the address from a connected Ledger hardware wallet at `m/44'/148'/N'`, where `N` defaults to 0 and can be set with `--hd-path`. Persists the derived public key (and `--hd-path`, when provided) so later commands work without the device
 - `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
 - `--hd-path <HD_PATH>` — When importing a seed phrase, which `hd_path` to derive the key at. Persisted on the identity so later commands derive the same account without re-passing the flag. Not valid with `--public-key` or a raw secret key
 

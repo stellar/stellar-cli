@@ -323,10 +323,7 @@ mod tests {
             locator: setup_locator(),
         };
         let err = cmd.run(&global_args()).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::Key(crate::config::key::Error::PublicKeyExpected)
-        ));
+        assert!(matches!(err, Error::Locator(_)));
     }
 
     #[test]

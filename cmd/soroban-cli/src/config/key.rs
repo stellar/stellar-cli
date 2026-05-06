@@ -227,7 +227,7 @@ mod test {
     #[test]
     fn parse_public_only_rejects_ledger() {
         let err = Key::parse_public_only("ledger").unwrap_err();
-        assert!(matches!(err, Error::PublicKeyExpected));
+        assert!(matches!(err, Error::Parse));
     }
 
     #[test]

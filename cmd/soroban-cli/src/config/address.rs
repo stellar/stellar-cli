@@ -47,8 +47,6 @@ pub enum Error {
     InvalidKeyNameCharacters(String),
     #[error("Invalid key name: {0}\n keys cannot exceed 250 characters")]
     InvalidKeyNameLength(String),
-    #[error("Invalid key name: {0}\n keys cannot be the word \"ledger\"")]
-    InvalidKeyName(String),
     #[error(transparent)]
     Name(#[from] utils::Error),
 }
@@ -107,9 +105,6 @@ impl std::str::FromStr for KeyName {
             utils::Error::InvalidNameLength(s) => Error::InvalidKeyNameLength(s),
             utils::Error::InvalidNameCharacters(s) => Error::InvalidKeyNameCharacters(s),
         })?;
-        if s == "ledger" {
-            return Err(Error::InvalidKeyName(s.to_string()));
-        }
         Ok(KeyName(s.to_string()))
     }
 }

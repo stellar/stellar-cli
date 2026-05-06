@@ -69,7 +69,17 @@ pub enum Secret {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         hd_path: Option<usize>,
     },
-    Ledger,
+    // Hardware-wallet identity. The required `hardware` field tags the device
+    // kind (currently only `ledger`) and disambiguates this variant under
+    // `untagged`; future wallets can introduce new `HardwareKind` values
+    // without a new Secret variant. The cached `public_key` lets address and
+    // hint lookups succeed without the device being connected.
+    Ledger {
+        hardware: HardwareKind,
+        public_key: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        hd_path: Option<usize>,
+    },
     SecureStore {
         entry_name: String,
         // Cached public key derived from the secure-store entry. Lets us answer
@@ -80,6 +90,12 @@ pub enum Secret {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         hd_path: Option<usize>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum HardwareKind {
+    Ledger,
 }
 
 impl FromStr for Secret {
@@ -95,8 +111,6 @@ impl FromStr for Secret {
                 seed_phrase: s.to_string(),
                 hd_path: None,
             })
-        } else if s == "ledger" {
-            Ok(Secret::Ledger)
         } else if s.starts_with(secure_store::ENTRY_PREFIX) {
             Ok(Secret::SecureStore {
                 entry_name: s.to_string(),
@@ -145,7 +159,7 @@ impl Secret {
                     .private()
                     .0,
             )?,
-            Secret::Ledger => panic!("Ledger does not reveal secret key"),
+            Secret::Ledger { .. } => return Err(Error::LedgerDoesNotRevealSecretKey),
             Secret::SecureStore { .. } => {
                 return Err(Error::SecureStoreDoesNotRevealSecretKey);
             }
@@ -153,22 +167,26 @@ impl Secret {
     }
 
     pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
-        if let Secret::SecureStore {
-            entry_name,
-            public_key,
-            hd_path,
-        } = self
-        {
-            let effective = index.or(*hd_path);
-            if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, effective) {
-                return Ok(cached);
+        match self {
+            Secret::SecureStore {
+                entry_name,
+                public_key,
+                hd_path,
+            } => {
+                let effective = index.or(*hd_path);
+                if let Some(cached) = cached_public_key(public_key.as_deref(), *hd_path, effective)
+                {
+                    return Ok(cached);
+                }
+                Ok(secure_store::get_public_key(entry_name, effective)?)
             }
-            Ok(secure_store::get_public_key(entry_name, effective)?)
-        } else {
-            let key = self.key_pair(index)?;
-            Ok(stellar_strkey::ed25519::PublicKey::from_payload(
-                key.verifying_key().as_bytes(),
-            )?)
+            Secret::Ledger { public_key, .. } => Ok(PublicKey::from_string(public_key)?),
+            _ => {
+                let key = self.key_pair(index)?;
+                Ok(stellar_strkey::ed25519::PublicKey::from_payload(
+                    key.verifying_key().as_bytes(),
+                )?)
+            }
         }
     }
 
@@ -178,11 +196,13 @@ impl Secret {
                 let key = self.key_pair(hd_path)?;
                 SignerKind::Local(LocalKey { key })
             }
-            Secret::Ledger => {
-                let hd_path: u32 = hd_path
-                    .unwrap_or_default()
-                    .try_into()
-                    .expect("usize bigger than u32");
+            Secret::Ledger {
+                hardware: HardwareKind::Ledger,
+                hd_path: cached_hd_path,
+                ..
+            } => {
+                let effective = hd_path.or(*cached_hd_path).unwrap_or_default();
+                let hd_path: u32 = effective.try_into().expect("usize bigger than u32");
                 SignerKind::Ledger(ledger::new(hd_path).await?)
             }
             Secret::SecureStore {
@@ -431,5 +451,81 @@ mod tests {
         let sk = secret.private_key(Some(0)).unwrap();
         assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
         assert_eq!(sk.to_string(), TEST_SECRET_KEY);
+    }
+
+    #[test]
+    fn test_ledger_toml_round_trip_with_hd_path() {
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: Some(5),
+        };
+        let serialized = toml::to_string(&secret).unwrap();
+        assert!(
+            serialized.contains("hardware = \"ledger\""),
+            "expected `hardware = \"ledger\"` tag in TOML, got: {serialized}"
+        );
+        assert!(
+            serialized.contains("public_key"),
+            "expected public_key field in TOML, got: {serialized}"
+        );
+        assert!(
+            serialized.contains("hd_path"),
+            "expected hd_path field in TOML, got: {serialized}"
+        );
+        let parsed: Secret = toml::from_str(&serialized).unwrap();
+        assert_eq!(secret, parsed);
+    }
+
+    #[test]
+    fn test_ledger_toml_omits_hd_path_when_none() {
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+        };
+        let serialized = toml::to_string(&secret).unwrap();
+        assert!(
+            !serialized.contains("hd_path"),
+            "expected no hd_path field in TOML when None, got: {serialized}"
+        );
+        let parsed: Secret = toml::from_str(&serialized).unwrap();
+        assert_eq!(secret, parsed);
+    }
+
+    #[test]
+    fn test_ledger_public_key_returns_cached_without_device() {
+        // No emulator/device available in this test; the cached public_key
+        // must be returned directly without attempting to query the device.
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: Some(5),
+        };
+        let pk = secret.public_key(None).unwrap();
+        assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
+    }
+
+    #[test]
+    fn test_ledger_private_key_is_rejected() {
+        let secret = Secret::Ledger {
+            hardware: HardwareKind::Ledger,
+            public_key: TEST_PUBLIC_KEY.to_string(),
+            hd_path: None,
+        };
+        assert!(matches!(
+            secret.private_key(None).unwrap_err(),
+            Error::LedgerDoesNotRevealSecretKey,
+        ));
+    }
+
+    #[test]
+    fn test_ledger_toml_does_not_collide_with_secure_store() {
+        // SecureStore TOMLs (entry_name + optional cached public_key) must not
+        // be mis-deserialized as Ledger now that Ledger also carries public_key.
+        let toml_str = "entry_name = \"secure_store:org.stellar.cli-alice\"\n\
+                        public_key = \"GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ\"\n";
+        let secret: Secret = toml::from_str(toml_str).unwrap();
+        assert!(matches!(secret, Secret::SecureStore { .. }));
     }
 }
