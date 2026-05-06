@@ -85,7 +85,7 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("contract not found: {0}")]
+    #[error("contract not found: {0}{hint}", hint = wasm_hash_hint(.0))]
     ContractNotFound(String),
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
@@ -107,6 +107,14 @@ pub enum Error {
     InvalidName(#[from] utils::Error),
     #[error("invalid signing key or identity name")]
     InvalidSigningKey,
+}
+
+fn wasm_hash_hint(value: &str) -> &'static str {
+    if value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit()) {
+        "; expected a contract address (C...), got a hash"
+    } else {
+        ""
+    }
 }
 
 #[derive(Debug, clap::Args, Default, Clone)]
@@ -926,6 +934,60 @@ fn location_to_string(location: &Location) -> String {
 // This is only to be used to fetch global Stellar config (e.g. to use for defaults)
 pub fn cli_config_file() -> Result<PathBuf, Error> {
     Ok(global_config_path()?.join("config.toml"))
+}
+
+#[cfg(test)]
+mod error_message_tests {
+    use super::*;
+
+    #[test]
+    fn contract_not_found_plain_alias_has_no_hint() {
+        let err = Error::ContractNotFound("alice".to_string());
+        assert_eq!(err.to_string(), "contract not found: alice");
+    }
+
+    #[test]
+    fn contract_not_found_64_char_lowercase_hex_includes_wasm_hash_hint() {
+        let hash = "5ea0f3d6c880148c8da088809e851732127fc36b7b42bbdde6052fcc6f6253f3";
+        let err = Error::ContractNotFound(hash.to_string());
+        assert_eq!(
+            err.to_string(),
+            format!("contract not found: {hash}; expected a contract address (C...), got a hash"),
+        );
+    }
+
+    #[test]
+    fn contract_not_found_64_char_uppercase_hex_includes_wasm_hash_hint() {
+        let hash = "5EA0F3D6C880148C8DA088809E851732127FC36B7B42BBDDE6052FCC6F6253F3";
+        let err = Error::ContractNotFound(hash.to_string());
+        assert!(
+            err.to_string().contains("got a hash"),
+            "expected wasm-hash hint for uppercase hex, got: {err}",
+        );
+    }
+
+    #[test]
+    fn contract_not_found_64_char_mixed_case_hex_includes_wasm_hash_hint() {
+        let hash = "5ea0F3d6C880148c8DA088809e851732127fc36b7b42BBDDE6052fcc6F6253F3";
+        let err = Error::ContractNotFound(hash.to_string());
+        assert!(
+            err.to_string().contains("got a hash"),
+            "expected wasm-hash hint for mixed-case hex, got: {err}",
+        );
+    }
+
+    #[test]
+    fn contract_not_found_short_hex_string_has_no_hint() {
+        let err = Error::ContractNotFound("deadbeef".to_string());
+        assert_eq!(err.to_string(), "contract not found: deadbeef");
+    }
+
+    #[test]
+    fn contract_not_found_64_char_non_hex_has_no_hint() {
+        let value = "z".repeat(64);
+        let err = Error::ContractNotFound(value.clone());
+        assert_eq!(err.to_string(), format!("contract not found: {value}"));
+    }
 }
 
 #[cfg(all(test, unix))]

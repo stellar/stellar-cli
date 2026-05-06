@@ -1148,17 +1148,18 @@ Add a new identity (keypair, ledger, OS specific secure store)
 
 Given an identity return its address (public key)
 
-**Usage:** `stellar keys public-key [OPTIONS] <NAME>`
+**Usage:** `stellar keys public-key [OPTIONS] [NAME]`
 
 **Command Alias:** `address`
 
 ###### **Arguments:**
 
-- `<NAME>` — Name of identity to lookup, default test identity used if not provided
+- `<NAME>` — Name of identity to lookup. Required unless `--ledger` is provided
 
 ###### **Options:**
 
-- `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+- `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0. With --ledger this is the Ledger account index (default 0)
+- `--ledger` — Derive the address from a connected Ledger hardware wallet at `m/44'/148'/N'`, where `N` defaults to 0 and can be set with `--hd-path`
 
 ###### **Options (Global):**
 
@@ -1168,15 +1169,16 @@ Given an identity return its address (public key)
 
 Fund an identity on a test network
 
-**Usage:** `stellar keys fund [OPTIONS] <NAME>`
+**Usage:** `stellar keys fund [OPTIONS] [NAME]`
 
 ###### **Arguments:**
 
-- `<NAME>` — Name of identity to lookup, default test identity used if not provided
+- `<NAME>` — Name of identity to lookup. Required unless `--ledger` is provided
 
 ###### **Options:**
 
-- `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0
+- `--hd-path <HD_PATH>` — If identity is a seed phrase use this hd path, default is 0. With --ledger this is the Ledger account index (default 0)
+- `--ledger` — Derive the address from a connected Ledger hardware wallet at `m/44'/148'/N'`, where `N` defaults to 0 and can be set with `--hd-path`
 
 ###### **Options (Global):**
 

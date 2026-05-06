@@ -4,6 +4,7 @@ use itertools::Itertools;
 use rustc_version::version;
 use semver::Version;
 use sha2::{Digest, Sha256};
+use soroban_spec_tools::sanitize;
 use std::{
     collections::HashSet,
     env,
@@ -560,7 +561,7 @@ impl Cmd {
         } else {
             print.blankln(format!("Exported Functions: {} found", export_names.len()));
             for name in export_names {
-                print.blankln(format!("  • {name}"));
+                print.blankln(format!("  • {}", sanitize(name)));
             }
         }
 

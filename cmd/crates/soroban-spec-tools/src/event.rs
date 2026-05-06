@@ -6,7 +6,7 @@ use stellar_xdr::curr::{
     ScVal,
 };
 
-use crate::{Error, Spec};
+use crate::{sanitize, Error, Spec};
 
 /// Decoded event with named parameters
 #[derive(Debug, Clone, Serialize)]
@@ -158,7 +158,7 @@ fn extract_topic_params(
 
         let json_value = spec.xdr_to_json(topic_value, &param.type_).map_err(|e| {
             EventDecodeError::ParamDecodeError {
-                name: param_name.clone(),
+                name: sanitize(&param_name),
                 source: e,
             }
         })?;
@@ -188,7 +188,7 @@ fn extract_data_params(
                 let param_name = param.name.to_utf8_string_lossy();
                 let json_value = spec.xdr_to_json(data, &param.type_).map_err(|e| {
                     EventDecodeError::ParamDecodeError {
-                        name: param_name.clone(),
+                        name: sanitize(&param_name),
                         source: e,
                     }
                 })?;
@@ -205,7 +205,7 @@ fn extract_data_params(
                     let param_name = param.name.to_utf8_string_lossy();
                     let json_value = spec.xdr_to_json(&vec[i], &param.type_).map_err(|e| {
                         EventDecodeError::ParamDecodeError {
-                            name: param_name.clone(),
+                            name: sanitize(&param_name),
                             source: e,
                         }
                     })?;
@@ -231,7 +231,7 @@ fn extract_data_params(
                         let json_value =
                             spec.xdr_to_json(&entry.val, &param.type_).map_err(|e| {
                                 EventDecodeError::ParamDecodeError {
-                                    name: param_name.clone(),
+                                    name: sanitize(&param_name),
                                     source: e,
                                 }
                             })?;

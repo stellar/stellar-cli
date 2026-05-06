@@ -65,6 +65,8 @@ pub enum Error {
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
     #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
+    #[error("Duplicate map key '{key}' after alias resolution\n\nMultiple input keys resolved to the same address — likely an alias passed alongside its strkey, or two aliases pointing to the same identity.")]
+    DuplicateMapKey { key: String },
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error(transparent)]
@@ -223,24 +225,18 @@ async fn parse_single_argument(
             }
         };
 
-        // Handle address types with signer resolution
+        // Collect a signer up front for top-level address args, so the
+        // alias-named identity can also sign the transaction. Alias-to-strkey
+        // resolution itself happens inside parse_argument_with_validation,
+        // which uniformly handles top-level and nested Address positions.
         if matches!(
             input.type_,
             ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
         ) {
             let trimmed_s = s.trim_matches('"');
-            let addr = resolve_address(trimmed_s, config)?;
             if let Some(signer) = resolve_signer(trimmed_s, config).await {
                 signers.push(signer);
             }
-            parsed_args.push(parse_argument_with_validation(
-                &name,
-                &addr,
-                &input.type_,
-                spec,
-                config,
-            )?);
-            return Ok(());
         }
 
         parsed_args.push(parse_argument_with_validation(
@@ -637,26 +633,11 @@ fn parse_argument_with_validation(
         validate_json_arg(arg_name, value)?;
     }
 
-    // Handle special address types
-    if matches!(
-        expected_type,
-        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
-    ) {
-        let trimmed_value = value.trim_matches('"');
-        let addr = resolve_address(trimmed_value, config)?;
-        return spec
-            .from_string(&addr, expected_type)
-            .map_err(|error| Error::CannotParseArg {
-                arg: arg_name.to_string(),
-                error,
-                expected_type: expected_type_name.clone(),
-                received_value: value.to_string(),
-                suggestion: get_context_suggestions(expected_type, value),
-            });
-    }
+    // Walk the input through resolve_aliases_in_json so identity aliases are
+    // resolved at every Address/MuxedAddress position, top-level or nested.
+    let resolved = resolve_aliases(value, expected_type, spec, config)?;
 
-    // Parse the argument
-    spec.from_string(value, expected_type)
+    spec.from_string(&resolved, expected_type)
         .map_err(|error| Error::CannotParseArg {
             arg: arg_name.to_string(),
             error,
@@ -664,6 +645,211 @@ fn parse_argument_with_validation(
             received_value: value.to_string(),
             suggestion: get_context_suggestions(expected_type, value),
         })
+}
+
+/// Returns the input with identity aliases resolved to strkeys at every
+/// `Address`/`MuxedAddress` position the spec describes. Inputs that aren't
+/// JSON (e.g. a bare top-level alias `alice`) are wrapped as a JSON string
+/// for `Address`-typed args so the walker can still resolve them.
+fn resolve_aliases(
+    value: &str,
+    type_def: &ScSpecTypeDef,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<String, Error> {
+    let is_address = matches!(
+        type_def,
+        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+    );
+
+    let mut json = match serde_json::from_str::<serde_json::Value>(value) {
+        Ok(j) => j,
+        Err(_) if is_address => serde_json::Value::String(value.trim_matches('"').to_string()),
+        Err(_) => return Ok(value.to_string()),
+    };
+
+    let mutated = resolve_aliases_in_json(&mut json, type_def, spec, config)?;
+
+    // Nothing was rewritten — return the original input verbatim so we don't
+    // disturb whitespace, key ordering, or number formatting just to reparse it.
+    if !mutated {
+        return Ok(value.to_string());
+    }
+
+    // For top-level Address inputs, hand back the bare strkey rather than a
+    // JSON-quoted form — `Spec::from_string` accepts both, but the bare form
+    // matches what the original Address path produced.
+    Ok(match (&json, is_address) {
+        (serde_json::Value::String(s), true) => s.clone(),
+        _ => json.to_string(),
+    })
+}
+
+/// Walks a JSON value alongside the contract spec type tree, rewriting any
+/// string at an `Address`/`MuxedAddress` position into the resolved address
+/// via the locator. Strings that are already a valid account, contract, or
+/// muxed strkey pass through unchanged.
+///
+/// This makes identity aliases work inside nested arguments (struct fields,
+/// vec/map/tuple elements, option values, union tuple-variant payloads), not
+/// just at the top level. Returns whether any string was actually rewritten.
+fn resolve_aliases_in_json(
+    value: &mut serde_json::Value,
+    type_def: &ScSpecTypeDef,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<bool, Error> {
+    let mut mutated = false;
+    match type_def {
+        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress => {
+            if let serde_json::Value::String(s) = value {
+                let resolved = resolve_address(s, config)?;
+                if &resolved != s {
+                    *s = resolved;
+                    mutated = true;
+                }
+            }
+        }
+        ScSpecTypeDef::Vec(inner) => {
+            if let serde_json::Value::Array(arr) = value {
+                for item in arr.iter_mut() {
+                    mutated |= resolve_aliases_in_json(item, &inner.element_type, spec, config)?;
+                }
+            }
+        }
+        ScSpecTypeDef::Tuple(tuple) => {
+            if let serde_json::Value::Array(arr) = value {
+                for (item, ty) in arr.iter_mut().zip(tuple.value_types.iter()) {
+                    mutated |= resolve_aliases_in_json(item, ty, spec, config)?;
+                }
+            }
+        }
+        ScSpecTypeDef::Map(map) => {
+            if let serde_json::Value::Object(obj) = value {
+                let key_is_address = matches!(
+                    map.key_type.as_ref(),
+                    ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+                );
+                if key_is_address {
+                    let entries = std::mem::take(obj);
+                    for (k, mut v) in entries {
+                        mutated |= resolve_aliases_in_json(&mut v, &map.value_type, spec, config)?;
+                        let resolved = resolve_address(&k, config)?;
+                        if resolved != k {
+                            mutated = true;
+                        }
+                        if obj.contains_key(&resolved) {
+                            return Err(Error::DuplicateMapKey { key: resolved });
+                        }
+                        obj.insert(resolved, v);
+                    }
+                } else {
+                    for v in obj.values_mut() {
+                        mutated |= resolve_aliases_in_json(v, &map.value_type, spec, config)?;
+                    }
+                }
+            }
+        }
+        ScSpecTypeDef::Option(inner) if !matches!(value, serde_json::Value::Null) => {
+            mutated |= resolve_aliases_in_json(value, &inner.value_type, spec, config)?;
+        }
+        ScSpecTypeDef::Result(result) => {
+            // Result is rarely used as an input type. The walker descends into
+            // both branches; the inner `match value` no-ops when the JSON
+            // shape doesn't fit the branch's type. Resolution is idempotent
+            // (a strkey re-resolves to itself), so descending twice is safe
+            // when both branches happen to share a shape.
+            mutated |= resolve_aliases_in_json(value, &result.ok_type, spec, config)?;
+            mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
+        }
+        ScSpecTypeDef::Udt(udt) => {
+            mutated |= resolve_aliases_in_udt(value, udt, spec, config)?;
+        }
+        _ => {}
+    }
+    Ok(mutated)
+}
+
+fn resolve_aliases_in_udt(
+    value: &mut serde_json::Value,
+    udt: &stellar_xdr::curr::ScSpecTypeUdt,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<bool, Error> {
+    let mut mutated = false;
+    let name = udt.name.to_utf8_string_lossy();
+    let Ok(entry) = spec.find(&name) else {
+        return Ok(false);
+    };
+    match entry {
+        ScSpecEntry::UdtStructV0(strukt) => {
+            // Soroban's contract macros emit numeric field names ("0", "1", …)
+            // for tuple structs and identifier names for regular structs, so a
+            // field literally named "0" reliably distinguishes the two.
+            let is_tuple_struct = strukt
+                .fields
+                .iter()
+                .any(|f| f.name.to_utf8_string_lossy() == "0");
+            match value {
+                serde_json::Value::Array(arr) if is_tuple_struct => {
+                    for (item, field) in arr.iter_mut().zip(strukt.fields.iter()) {
+                        mutated |= resolve_aliases_in_json(item, &field.type_, spec, config)?;
+                    }
+                }
+                serde_json::Value::Object(obj) => {
+                    for field in strukt.fields.iter() {
+                        let key = field.name.to_utf8_string_lossy();
+                        if let Some(field_val) = obj.get_mut(key.as_str()) {
+                            mutated |=
+                                resolve_aliases_in_json(field_val, &field.type_, spec, config)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        ScSpecEntry::UdtUnionV0(union) => {
+            mutated |= resolve_aliases_in_union(value, union, spec, config)?;
+        }
+        _ => {}
+    }
+    Ok(mutated)
+}
+
+fn resolve_aliases_in_union(
+    value: &mut serde_json::Value,
+    union: &stellar_xdr::curr::ScSpecUdtUnionV0,
+    spec: &Spec,
+    config: &config::Args,
+) -> Result<bool, Error> {
+    use stellar_xdr::curr::ScSpecUdtUnionCaseV0;
+
+    let serde_json::Value::Object(obj) = value else {
+        return Ok(false);
+    };
+    let Some((case_name, payload)) = obj.iter_mut().next() else {
+        return Ok(false);
+    };
+    let matched = union.cases.iter().find_map(|c| match c {
+        ScSpecUdtUnionCaseV0::TupleV0(t) if t.name.to_utf8_string_lossy() == *case_name => Some(t),
+        _ => None,
+    });
+    let Some(tuple) = matched else {
+        return Ok(false);
+    };
+    // Single-element tuple variants take a bare payload — `{"Variant": value}` —
+    // matching the form `soroban_spec_tools` accepts. Variants with two or more
+    // elements take an array payload — `{"Variant": [a, b, ...]}`.
+    if tuple.type_.len() == 1 {
+        return resolve_aliases_in_json(payload, &tuple.type_[0], spec, config);
+    }
+    let mut mutated = false;
+    if let serde_json::Value::Array(arr) = payload {
+        for (item, ty) in arr.iter_mut().zip(tuple.type_.iter()) {
+            mutated |= resolve_aliases_in_json(item, ty, spec, config)?;
+        }
+    }
+    Ok(mutated)
 }
 
 #[cfg(test)]
@@ -944,6 +1130,297 @@ mod tests {
         assert!(error_message.contains("Expected type u64 (unsigned 64-bit integer)"));
         assert!(error_message.contains("received: '\"100\"'"));
         assert!(error_message.contains("Suggestion: For numbers, ensure no quotes"));
+    }
+
+    fn struct_spec(name: &'static str, fields: &[(&str, ScSpecTypeDef)]) -> (Spec, ScSpecTypeDef) {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeUdt, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM,
+        };
+        let struct_name: StringM<60> = name.try_into().unwrap();
+        let fields_xdr: Vec<ScSpecUdtStructFieldV0> = fields
+            .iter()
+            .map(|(n, t)| ScSpecUdtStructFieldV0 {
+                doc: StringM::default(),
+                name: (*n).try_into().unwrap(),
+                type_: t.clone(),
+            })
+            .collect();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: struct_name.clone(),
+            fields: fields_xdr.try_into().unwrap(),
+        })]));
+        let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: struct_name });
+        (spec, ty)
+    }
+
+    // A real account strkey that should pass through resolve_address unchanged.
+    const TEST_G_ADDRESS: &str = "GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS";
+
+    #[test]
+    fn resolve_aliases_in_json_walks_vec_of_address() {
+        use stellar_xdr::curr::ScSpecTypeVec;
+
+        let ty = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScSpecTypeDef::Address),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!([TEST_G_ADDRESS]);
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!([TEST_G_ADDRESS]));
+
+        // An unknown alias-shaped string at a nested Address position must surface as an error.
+        let mut value = serde_json::json!(["definitely-not-a-known-alias"]);
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_tuple() {
+        use stellar_xdr::curr::ScSpecTypeTuple;
+
+        let ty = ScSpecTypeDef::Tuple(Box::new(ScSpecTypeTuple {
+            value_types: vec![ScSpecTypeDef::Address, ScSpecTypeDef::U32]
+                .try_into()
+                .unwrap(),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!([TEST_G_ADDRESS, 42]);
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!([TEST_G_ADDRESS, 42]));
+
+        let mut value = serde_json::json!(["bogus-alias", 42]);
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_struct_field() {
+        use stellar_xdr::curr::ScSpecTypeVec;
+
+        let (spec, ty) = struct_spec(
+            "Operator",
+            &[
+                ("count", ScSpecTypeDef::U32),
+                (
+                    "addresses",
+                    ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+                        element_type: Box::new(ScSpecTypeDef::Address),
+                    })),
+                ),
+            ],
+        );
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!({"count": 1, "addresses": [TEST_G_ADDRESS]});
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"count": 1, "addresses": [TEST_G_ADDRESS]})
+        );
+
+        // Walker must reach the Address inside Vec inside the struct field.
+        let mut value = serde_json::json!({"count": 1, "addresses": ["bogus-alias"]});
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_union_tuple_variant() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+            ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "Choice".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                doc: StringM::default(),
+                name: "Pick".try_into().unwrap(),
+                type_: vec![ScSpecTypeDef::Address, ScSpecTypeDef::U32]
+                    .try_into()
+                    .unwrap(),
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!({"Pick": [TEST_G_ADDRESS, 42]});
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({"Pick": [TEST_G_ADDRESS, 42]}));
+
+        let mut value = serde_json::json!({"Pick": ["bogus-alias", 42]});
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_single_element_union_variant() {
+        use stellar_xdr::curr::{
+            ScSpecEntry, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+            ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "OneOf".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                doc: StringM::default(),
+                name: "Only".try_into().unwrap(),
+                type_: vec![ScSpecTypeDef::Address].try_into().unwrap(),
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+
+        let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Bare payload form: {"Only": addr} — not {"Only": [addr]}.
+        let mut value = serde_json::json!({"Only": TEST_G_ADDRESS});
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({"Only": TEST_G_ADDRESS}));
+
+        let mut value = serde_json::json!({"Only": "bogus-alias"});
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_option_and_map() {
+        use stellar_xdr::curr::{ScSpecTypeMap, ScSpecTypeOption};
+
+        let opt_ty = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Address),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::Value::Null;
+        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::Value::Null);
+
+        let mut value = serde_json::json!(TEST_G_ADDRESS);
+        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!(TEST_G_ADDRESS));
+
+        let map_ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
+            key_type: Box::new(ScSpecTypeDef::Symbol),
+            value_type: Box::new(ScSpecTypeDef::Address),
+        }));
+        let mut value = serde_json::json!({"owner": TEST_G_ADDRESS});
+        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({"owner": TEST_G_ADDRESS}));
+
+        let mut value = serde_json::json!({"owner": "bogus-alias"});
+        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_result_inner_types() {
+        use stellar_xdr::curr::ScSpecTypeResult;
+
+        let ty = ScSpecTypeDef::Result(Box::new(ScSpecTypeResult {
+            ok_type: Box::new(ScSpecTypeDef::Address),
+            error_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!(TEST_G_ADDRESS);
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!(TEST_G_ADDRESS));
+
+        let mut value = serde_json::json!("bogus-alias");
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_preserves_input_when_nothing_mutated() {
+        use stellar_xdr::curr::ScSpecTypeVec;
+
+        // Type with no Address positions: input is returned verbatim,
+        // including whitespace that compact JSON re-serialization would drop.
+        let (spec, ty) = struct_spec(
+            "Point",
+            &[("x", ScSpecTypeDef::U32), ("y", ScSpecTypeDef::U32)],
+        );
+        let config = crate::config::Args::default();
+        let pretty = r#"{ "x": 1, "y": 2 }"#;
+        assert_eq!(
+            resolve_aliases(pretty, &ty, &spec, &config).unwrap(),
+            pretty
+        );
+
+        // Type with Address positions but no aliases: also returned verbatim.
+        let ty = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScSpecTypeDef::Address),
+        }));
+        let spec = Spec(Some(vec![]));
+        let pretty = format!(r#"[ "{TEST_G_ADDRESS}" ]"#);
+        assert_eq!(
+            resolve_aliases(&pretty, &ty, &spec, &config).unwrap(),
+            pretty
+        );
+    }
+
+    #[test]
+    fn resolve_aliases_in_json_walks_map_keys() {
+        use stellar_xdr::curr::ScSpecTypeMap;
+
+        let map_ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
+            key_type: Box::new(ScSpecTypeDef::Address),
+            value_type: Box::new(ScSpecTypeDef::U32),
+        }));
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!({ TEST_G_ADDRESS: 1 });
+        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap();
+        assert_eq!(value, serde_json::json!({ TEST_G_ADDRESS: 1 }));
+
+        let mut value = serde_json::json!({ "bogus-alias": 1 });
+        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        assert!(
+            matches!(err, Error::Config(_) | Error::ScAddress(_)),
+            "expected alias-resolution error, got {err:?}"
+        );
     }
 
     /// Mirrors `stellar contract invoke`: Spec::from_wasm -> build_clap_command -> render_long_help.
