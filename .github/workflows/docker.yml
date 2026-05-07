@@ -38,11 +38,33 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
-      - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libudev-dev libdbus-1-dev
+      - name: Resolve rust image
+        run: |
+          rust_image="${{ github.event_name == 'workflow_dispatch' && inputs.rust_image || 'latest' }}"
+          echo "RUST_IMAGE=${rust_image}" >> "$GITHUB_ENV"
 
+      # Build inside the rust_image container so the binary's glibc and linked
+      # libraries match the runtime base image. Each matrix runner is native
+      # arch, so docker pulls the matching variant from the multi-arch manifest
+      # — no QEMU emulation.
       - name: Build binary
-        run: cargo build --package stellar-cli --release
+        run: |
+          # Compute the revision on the host so we don't need git inside the
+          # container. soroban-cli's source reads GIT_REVISION via env!() at
+          # compile time; setting it here lets cargo pass it through to rustc.
+          git_revision="$(git rev-parse HEAD)"
+          docker run --rm \
+            -v "$(pwd):/src" \
+            -w /src \
+            -e "GIT_REVISION=${git_revision}" \
+            "rust:${RUST_IMAGE}" \
+            sh -c "
+              apt-get update && \
+              apt-get install -y --no-install-recommends \
+                build-essential cmake pkg-config \
+                libssl-dev libudev-dev libdbus-1-dev && \
+              cargo build --package stellar-cli --release
+            "
 
       - name: Upload binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
