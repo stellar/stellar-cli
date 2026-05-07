@@ -270,7 +270,7 @@ impl Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
 
         let client = network.rpc_client()?;
@@ -295,7 +295,7 @@ impl Cmd {
         .map_err(Error::from)?;
 
         let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
         let (function, spec, host_function_params, signers) = params;
 

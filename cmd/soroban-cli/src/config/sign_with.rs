@@ -1,7 +1,7 @@
 use crate::{
     config::UnresolvedMuxedAccount,
     print::Print,
-    signer::{self, ledger, Signer, SignerKind},
+    signer::{self, ledger::LedgerEntry, Signer, SignerKind},
     xdr::{self, TransactionEnvelope},
 };
 
@@ -88,15 +88,16 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            let ledger = ledger::new(
-                self.hd_path
-                    .unwrap_or_default()
-                    .try_into()
-                    .unwrap_or_default(),
-            )
-            .await?;
+            let hd_path = self
+                .hd_path
+                .unwrap_or_default()
+                .try_into()
+                .unwrap_or_default();
             Signer {
-                kind: SignerKind::Ledger(ledger),
+                kind: SignerKind::Ledger(LedgerEntry {
+                    hd_path,
+                    public_key: None,
+                }),
                 print,
             }
         } else {
@@ -110,7 +111,7 @@ impl Args {
             };
 
             let secret = locator.get_secret_key_with_hd_path(key_or_name, self.hd_path)?;
-            secret.signer(self.hd_path, print).await?
+            secret.signer(self.hd_path, print)?
         };
         Ok(signer.sign_tx_env(tx, network).await?)
     }

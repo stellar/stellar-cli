@@ -385,8 +385,7 @@ impl Cmd {
                         &slop,
                         &entries,
                         config,
-                    )
-                    .await?
+                    )?
                     .2,
                 )
             }
