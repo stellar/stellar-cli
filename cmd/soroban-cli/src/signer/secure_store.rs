@@ -32,7 +32,7 @@ mod secure_store_impl {
     use super::{Error, Print, PublicKey, Secret, SeedPhrase, StellarEntry, ENTRY_PREFIX};
     const ENTRY_SERVICE: &str = "org.stellar.cli";
 
-    pub fn get_public_key(entry_name: &str, index: Option<usize>) -> Result<PublicKey, Error> {
+    pub fn get_public_key(entry_name: &str, index: Option<u32>) -> Result<PublicKey, Error> {
         let entry = StellarEntry::new(entry_name)?;
         Ok(entry.get_public_key(index)?)
     }
@@ -46,7 +46,7 @@ mod secure_store_impl {
         print: &Print,
         name: &str,
         seed_phrase: &SeedPhrase,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
         overwrite: bool,
     ) -> Result<Secret, Error> {
         // secure_store:org.stellar.cli-<key name>
@@ -57,7 +57,7 @@ mod secure_store_impl {
 
         let public_key_bytes = seed_phrase
             .clone()
-            .from_path_index(hd_path.unwrap_or_default(), None)?
+            .from_path_index(hd_path.unwrap_or_default() as usize, None)?
             .public()
             .0;
         let public_key = PublicKey(public_key_bytes).to_string();
@@ -71,7 +71,7 @@ mod secure_store_impl {
 
     pub fn sign_tx_data(
         entry_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
         data: &[u8],
     ) -> Result<Vec<u8>, Error> {
         let entry = StellarEntry::new(entry_name)?;
@@ -83,7 +83,7 @@ mod secure_store_impl {
 mod secure_store_impl {
     use super::{Error, Print, PublicKey, Secret, SeedPhrase};
 
-    pub fn get_public_key(_entry_name: &str, _index: Option<usize>) -> Result<PublicKey, Error> {
+    pub fn get_public_key(_entry_name: &str, _index: Option<u32>) -> Result<PublicKey, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
@@ -95,7 +95,7 @@ mod secure_store_impl {
         _print: &Print,
         _name: &str,
         _seed_phrase: &SeedPhrase,
-        _hd_path: Option<usize>,
+        _hd_path: Option<u32>,
         _overwrite: bool,
     ) -> Result<Secret, Error> {
         Err(Error::FeatureNotEnabled)
@@ -103,7 +103,7 @@ mod secure_store_impl {
 
     pub fn sign_tx_data(
         _entry_name: &str,
-        _hd_path: Option<usize>,
+        _hd_path: Option<u32>,
         _data: &[u8],
     ) -> Result<Vec<u8>, Error> {
         Err(Error::FeatureNotEnabled)

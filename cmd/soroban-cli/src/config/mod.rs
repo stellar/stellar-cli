@@ -197,7 +197,7 @@ impl Args {
         .into())
     }
 
-    pub fn hd_path(&self) -> Option<usize> {
+    pub fn hd_path(&self) -> Option<u32> {
         self.sign_with.hd_path
     }
 }

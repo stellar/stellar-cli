@@ -351,7 +351,7 @@ impl Lab {
 
 pub struct SecureStoreEntry {
     pub name: String,
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
     pub public_key: Option<stellar_strkey::ed25519::PublicKey>,
 }
 

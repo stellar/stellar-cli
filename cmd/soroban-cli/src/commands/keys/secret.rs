@@ -29,7 +29,7 @@ pub struct Cmd {
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long, conflicts_with = "phrase")]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub locator: locator::Args,

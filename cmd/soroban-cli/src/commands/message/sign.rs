@@ -67,7 +67,7 @@ pub struct Cmd {
 
     #[arg(long, help_heading = HEADING_SIGNING)]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub locator: locator::Args,

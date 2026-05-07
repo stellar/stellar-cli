@@ -45,9 +45,6 @@ pub enum Error {
 
     #[error("--hd-path is not valid with a secret key; secret keys cannot be derived")]
     HdPathNotSupportedForSecretKey,
-
-    #[error("--hd-path {0} is out of range for a Ledger account index")]
-    HdPathOutOfRange(usize),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -94,7 +91,7 @@ pub struct Cmd {
     /// without re-passing the flag. Not valid with `--public-key` or a raw
     /// secret key.
     #[arg(long)]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 }
 
 impl Cmd {
@@ -125,9 +122,10 @@ impl Cmd {
     }
 
     async fn derive_ledger_secret(&self) -> Result<Secret, Error> {
-        let raw = self.hd_path.unwrap_or(0);
-        let index: u32 = raw.try_into().map_err(|_| Error::HdPathOutOfRange(raw))?;
-        let public_key = ledger::new(index).await?.public_key().await?;
+        let public_key = ledger::new(self.hd_path.unwrap_or_default())
+            .await?
+            .public_key()
+            .await?;
         Ok(Secret::Ledger {
             hardware: HardwareKind::Ledger,
             public_key: public_key.to_string(),
@@ -181,7 +179,7 @@ impl Cmd {
     }
 }
 
-fn build_secret(input: &str, hd_path: Option<usize>) -> Result<Secret, Error> {
+fn build_secret(input: &str, hd_path: Option<u32>) -> Result<Secret, Error> {
     let secret: Secret = input.parse()?;
     match (secret, hd_path) {
         (Secret::SecretKey { .. }, Some(_)) => Err(Error::HdPathNotSupportedForSecretKey),
@@ -248,7 +246,7 @@ mod tests {
 
     fn cmd_with_public_key(
         public_key: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> (tempfile::TempDir, locator::Args, Cmd) {
         let (temp_dir, locator, mut cmd) = set_up_test();
         cmd.public_key = Some(public_key.to_string());

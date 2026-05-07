@@ -313,7 +313,7 @@ impl Args {
     pub fn read_key_with_secure_store_cache(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<Key, Error> {
         if let Ok(literal) = key_or_name.parse::<Key>() {
             return Ok(literal);
@@ -362,7 +362,7 @@ impl Args {
     pub fn get_secret_key_with_hd_path(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<Secret, Error> {
         let key = self
             .read_key_with_secure_store_cache(key_or_name, hd_path)
@@ -379,7 +379,7 @@ impl Args {
     pub fn get_public_key(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<xdr::MuxedAccount, Error> {
         Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }

@@ -30,7 +30,7 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn muxed_account(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
+    pub fn muxed_account(&self, hd_path: Option<u32>) -> Result<xdr::MuxedAccount, Error> {
         let bytes = match self {
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
             Key::PublicKey(Public(key)) => key.0,
@@ -49,7 +49,7 @@ impl Key {
 
     pub fn private_key(
         &self,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
         match self {
             Key::Secret(secret) => Ok(secret.private_key(hd_path)?),

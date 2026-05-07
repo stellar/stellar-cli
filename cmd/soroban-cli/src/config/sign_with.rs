@@ -48,7 +48,7 @@ pub struct Args {
 
     #[arg(long, conflicts_with = "sign_with_lab", help_heading = HEADING_SIGNING)]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[allow(clippy::doc_markdown)]
     /// Sign with https://lab.stellar.org
@@ -88,14 +88,9 @@ impl Args {
                 print,
             }
         } else if self.sign_with_ledger {
-            let hd_path = self
-                .hd_path
-                .unwrap_or_default()
-                .try_into()
-                .unwrap_or_default();
             Signer {
                 kind: SignerKind::Ledger(LedgerEntry {
-                    hd_path,
+                    hd_path: self.hd_path.unwrap_or_default(),
                     public_key: None,
                 }),
                 print,
