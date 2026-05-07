@@ -57,10 +57,20 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Check out the workflow's own ref so we use the Dockerfile + entrypoint
+      # from the branch/PR running this workflow, not from the (potentially
+      # older) ref being built. If that ref doesn't carry a Dockerfile (e.g.
+      # an older release tag), fall back to a known-good branch.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
-          fetch-depth: 0
+
+      # NOTE: switch fallback ref to `main` once this branch lands.
+      - name: Fall back to docker-custom-image Dockerfile if missing
+        run: |
+          if [[ ! -f Dockerfile ]]; then
+            echo "::notice::Dockerfile not present at ${GITHUB_REF}; falling back to docker-custom-image"
+            git fetch --depth=1 origin docker-custom-image
+            git checkout FETCH_HEAD -- Dockerfile entrypoint.sh docker/
+          fi
 
       - name: Download binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -84,6 +94,23 @@ jobs:
         run: |
           rust_image="${{ github.event_name == 'workflow_dispatch' && inputs.rust_image || 'latest' }}"
           echo "RUST_IMAGE=${rust_image}" >> "$GITHUB_ENV"
+
+      # The docker job's checkout points at the workflow ref (for the Dockerfile),
+      # not at the binary's ref, so HEAD here doesn't represent what was built.
+      # Resolve the SHA of the binary ref via ls-remote for the SHA-tag path.
+      - name: Resolve build commit SHA
+        run: |
+          ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
+          if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            sha="$ref"
+          else
+            sha="$(git ls-remote https://github.com/${{ github.repository }}.git "$ref" | awk 'END{print $1}')"
+          fi
+          if [[ -z "$sha" ]]; then
+            echo "::error::Could not resolve SHA for ref: $ref"
+            exit 1
+          fi
+          echo "BUILD_SHA=${sha}" >> "$GITHUB_ENV"
 
       # Compute Docker tags from the ref and rust image.
       # - Version tag (e.g. v1.2.3) + default rust: push versioned + latest tags.
@@ -110,8 +137,7 @@ jobs:
             echo "::error::Release tag '${ref}' is not a valid version tag (expected vX.Y.Z)."
             exit 1
           else
-            commit="$(git rev-parse HEAD)"
-            echo "DOCKER_TAGS=stellar/stellar-cli:${commit}${suffix}" >> $GITHUB_ENV
+            echo "DOCKER_TAGS=stellar/stellar-cli:${BUILD_SHA}${suffix}" >> $GITHUB_ENV
           fi
 
       - name: Build and push
