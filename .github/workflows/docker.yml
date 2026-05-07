@@ -9,6 +9,11 @@ on:
         type: string
         required: true
         default: main
+      rust_image:
+        description: "The rust base image tag (e.g. 1.90.0-slim-bookworm). Defaults to latest."
+        type: string
+        required: false
+        default: latest
   release:
     types: [published]
 
@@ -75,22 +80,38 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Compute Docker tags from the ref.
-      # - Version tag (e.g. v1.2.3): push versioned + latest tags.
-      # - Any other ref: push a tag for the resolved commit SHA.
+      - name: Resolve rust image
+        run: |
+          rust_image="${{ github.event_name == 'workflow_dispatch' && inputs.rust_image || 'latest' }}"
+          echo "RUST_IMAGE=${rust_image}" >> "$GITHUB_ENV"
+
+      # Compute Docker tags from the ref and rust image.
+      # - Version tag (e.g. v1.2.3) + default rust: push versioned + latest tags.
+      # - Version tag + custom rust: push versioned + -rust-<image> suffix only (do not update :latest).
+      # - Any other ref: push a tag for the resolved commit SHA, with the rust suffix when custom.
       - name: Compute tags
         run: |
           ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
 
+          suffix=""
+          if [[ "${RUST_IMAGE}" != "latest" ]]; then
+            sanitized="${RUST_IMAGE//[^A-Za-z0-9._-]/-}"
+            suffix="-rust-${sanitized}"
+          fi
+
           if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             version="${ref#v}"
-            echo "DOCKER_TAGS=stellar/stellar-cli:${version},stellar/stellar-cli:latest" >> $GITHUB_ENV
+            if [[ -n "$suffix" ]]; then
+              echo "DOCKER_TAGS=stellar/stellar-cli:${version}${suffix}" >> $GITHUB_ENV
+            else
+              echo "DOCKER_TAGS=stellar/stellar-cli:${version},stellar/stellar-cli:latest" >> $GITHUB_ENV
+            fi
           elif [[ "${{ github.event_name }}" == "release" ]]; then
             echo "::error::Release tag '${ref}' is not a valid version tag (expected vX.Y.Z)."
             exit 1
           else
             commit="$(git rev-parse HEAD)"
-            echo "DOCKER_TAGS=stellar/stellar-cli:${commit}" >> $GITHUB_ENV
+            echo "DOCKER_TAGS=stellar/stellar-cli:${commit}${suffix}" >> $GITHUB_ENV
           fi
 
       - name: Build and push
@@ -100,6 +121,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.DOCKER_TAGS }}
+          build-args: |
+            RUST_IMAGE=${{ env.RUST_IMAGE }}
 
       - name: Update Docker Hub description
         run: |

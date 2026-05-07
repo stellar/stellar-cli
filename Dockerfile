@@ -1,4 +1,5 @@
-FROM rust:latest
+ARG RUST_IMAGE=latest
+FROM rust:${RUST_IMAGE}
 
 RUN rustup target add wasm32v1-none
 
