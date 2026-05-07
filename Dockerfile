@@ -4,7 +4,7 @@ FROM rust:${RUST_IMAGE}
 RUN rustup target add wasm32v1-none
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libudev1 libssl3 && \
+    apt-get install -y --no-install-recommends libudev1 libssl3 libdbus-1-3 && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
