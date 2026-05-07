@@ -24,6 +24,7 @@ use crate::{
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
@@ -70,7 +71,7 @@ pub struct Cmd {
     pub send: Send,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 

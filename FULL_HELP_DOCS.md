@@ -144,7 +144,6 @@ Deploy builtin Soroban Asset Contract
 
 - `--asset <ASSET>` — ID of the Stellar classic asset to wrap, e.g. "USDC:G...5"
 - `--alias <ALIAS>` — The alias that will be used to save the assets's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ###### **RPC Options:**
 
@@ -169,6 +168,7 @@ Deploy builtin Soroban Asset Contract
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract alias`
 
@@ -417,8 +417,6 @@ If no keys are specified the contract itself is extended.
   - `persistent`: Persistent
   - `temporary`: Temporary
 
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
 ###### **RPC Options:**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -442,6 +440,7 @@ If no keys are specified the contract itself is extended.
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract deploy`
 
@@ -475,7 +474,6 @@ Deploy a wasm contract
   Default value: `false`
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--optimize` — Optimize the generated wasm
 
 ###### **RPC Options:**
@@ -501,6 +499,7 @@ Deploy a wasm contract
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract fetch`
 
@@ -810,7 +809,6 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--optimize` — Optimize the generated wasm
 
 ###### **RPC Options:**
@@ -836,6 +834,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract install`
 
@@ -862,7 +861,6 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 - `--optimize` — Optimize the generated wasm
 
 ###### **RPC Options:**
@@ -888,6 +886,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract invoke`
 
@@ -920,8 +919,6 @@ stellar contract invoke ... -- --help
   - `no`: Do not send transaction, return simulation result
   - `yes`: Always send transaction
 
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
-
 ###### **RPC Options:**
 
 - `--rpc-url <RPC_URL>` — RPC server endpoint
@@ -945,6 +942,7 @@ stellar contract invoke ... -- --help
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar contract optimize`
 
@@ -1027,7 +1025,6 @@ If no keys are specificed the contract itself is restored.
 
 - `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entry
 - `--ttl-ledger-only` — Only print the new Time To Live ledger
-- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ###### **RPC Options:**
 
@@ -1052,6 +1049,7 @@ If no keys are specificed the contract itself is restored.
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+- `--build-only` — Build the transaction and only write the base64 xdr to stdout
 
 ## `stellar doctor`
 
