@@ -466,11 +466,6 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 
 async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
-    // Ledger co-signing must go through `--source`; opening the HID transport
-    // here conflicts with the source-account signer (hidapi is per-process).
-    if matches!(secret, crate::config::secret::Secret::Ledger { .. }) {
-        return None;
-    }
     let print = Print::new(false);
     let signer = secret.signer(config.hd_path(), print).await.ok()?;
     Some(signer)
