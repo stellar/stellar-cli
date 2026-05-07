@@ -10,6 +10,7 @@ use super::{
     network::{self, Network},
     secret,
 };
+use crate::commands::HEADING_SIGNING;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -37,16 +38,26 @@ pub enum Error {
 #[group(skip)]
 pub struct Args {
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
-    #[arg(long, env = "STELLAR_SIGN_WITH_KEY", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "STELLAR_SIGN_WITH_KEY",
+        hide_env_values = true,
+        help_heading = HEADING_SIGNING
+    )]
     pub sign_with_key: Option<String>,
 
-    #[arg(long, conflicts_with = "sign_with_lab")]
+    #[arg(long, conflicts_with = "sign_with_lab", help_heading = HEADING_SIGNING)]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
     #[allow(clippy::doc_markdown)]
     /// Sign with https://lab.stellar.org
-    #[arg(long, conflicts_with = "sign_with_key", env = "STELLAR_SIGN_WITH_LAB")]
+    #[arg(
+        long,
+        conflicts_with = "sign_with_key",
+        env = "STELLAR_SIGN_WITH_LAB",
+        help_heading = HEADING_SIGNING
+    )]
     pub sign_with_lab: bool,
 
     /// Sign with a ledger wallet
@@ -54,7 +65,8 @@ pub struct Args {
         long,
         conflicts_with = "sign_with_key",
         conflicts_with = "sign_with_lab",
-        env = "STELLAR_SIGN_WITH_LEDGER"
+        env = "STELLAR_SIGN_WITH_LEDGER",
+        help_heading = HEADING_SIGNING
     )]
     pub sign_with_ledger: bool,
 }

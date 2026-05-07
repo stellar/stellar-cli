@@ -1,5 +1,5 @@
 use crate::{
-    commands::{global, txn_result::TxnEnvelopeResult},
+    commands::{global, txn_result::TxnEnvelopeResult, HEADING_TRANSACTION},
     config::{
         self,
         address::{self, UnresolvedMuxedAccount},
@@ -16,7 +16,7 @@ pub struct Args {
     #[clap(flatten)]
     pub config: config::Args,
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 

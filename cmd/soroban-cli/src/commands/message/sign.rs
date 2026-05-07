@@ -5,7 +5,7 @@ use clap::Parser;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    commands::global,
+    commands::{global, HEADING_SIGNING},
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
@@ -57,10 +57,15 @@ pub struct Cmd {
 
     // @dev: Ledger and Lab don't support signing arbitrary messages yet. Once they do, use `sign_with::Args` here.
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
-    #[arg(long, env = "STELLAR_SIGN_WITH_KEY", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "STELLAR_SIGN_WITH_KEY",
+        hide_env_values = true,
+        help_heading = HEADING_SIGNING
+    )]
     pub sign_with_key: String,
 
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_SIGNING)]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
     pub hd_path: Option<usize>,
 
