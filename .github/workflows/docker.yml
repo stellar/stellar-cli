@@ -39,11 +39,12 @@ jobs:
       # The binary's source is cloned by the Dockerfile itself based on CLI_REF.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Fall back to main packaging files if missing
+      # NOTE: switch fallback ref to `main` once this branch lands.
+      - name: Fall back to docker-custom-image packaging files if missing
         run: |
           if [[ ! -f Dockerfile ]]; then
-            echo "::notice::Dockerfile not present at ${GITHUB_REF}; falling back to main"
-            git fetch --depth=1 origin main
+            echo "::notice::Dockerfile not present at ${GITHUB_REF}; falling back to docker-custom-image"
+            git fetch --depth=1 origin docker-custom-image
             git checkout FETCH_HEAD -- Dockerfile .dockerignore entrypoint.sh docker/
           fi
 
@@ -96,10 +97,11 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # NOTE: switch fallback ref to `main` once this branch lands.
       - name: Ensure docker/README.md is available
         run: |
           if [[ ! -f docker/README.md ]]; then
-            git fetch --depth=1 origin main
+            git fetch --depth=1 origin docker-custom-image
             git checkout FETCH_HEAD -- docker/
           fi
 
