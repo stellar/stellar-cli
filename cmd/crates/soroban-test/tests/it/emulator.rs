@@ -124,6 +124,13 @@ async fn invoke_auth_with_ledger_identity(ledger_device_model: &str, hd_path: u3
         .assert()
         .success();
 
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg("testone")
+        .assert()
+        .success();
+
     let addr = sandbox
         .new_assert_cmd("keys")
         .arg("address")
