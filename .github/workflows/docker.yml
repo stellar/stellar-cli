@@ -24,6 +24,7 @@ defaults:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runs-on: ubuntu-latest
@@ -34,73 +35,80 @@ jobs:
     permissions:
       contents: read
     steps:
+      # The workflow's own ref provides Dockerfile + entrypoint.sh + docker/.
+      # The binary's source is cloned by the Dockerfile itself based on CLI_REF.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
-      - name: Resolve rust image
+      - name: Fall back to main packaging files if missing
+        run: |
+          if [[ ! -f Dockerfile ]]; then
+            echo "::notice::Dockerfile not present at ${GITHUB_REF}; falling back to main"
+            git fetch --depth=1 origin main
+            git checkout FETCH_HEAD -- Dockerfile .dockerignore entrypoint.sh docker/
+          fi
+
+      - name: Resolve build args
         run: |
           rust_image="${{ github.event_name == 'workflow_dispatch' && inputs.rust_image || 'latest' }}"
+          cli_ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
           echo "RUST_IMAGE=${rust_image}" >> "$GITHUB_ENV"
+          echo "CLI_REF=${cli_ref}" >> "$GITHUB_ENV"
 
-      # Build inside the rust_image container so the binary's glibc and linked
-      # libraries match the runtime base image. Each matrix runner is native
-      # arch, so docker pulls the matching variant from the multi-arch manifest
-      # — no QEMU emulation.
-      - name: Build binary
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: build
+        name: Build and push by digest
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=stellar/stellar-cli,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            RUST_IMAGE=${{ env.RUST_IMAGE }}
+            CLI_REF=${{ env.CLI_REF }}
+
+      - name: Export digest
         run: |
-          # Compute the revision on the host so we don't need git inside the
-          # container. soroban-cli's source reads GIT_REVISION via env!() at
-          # compile time; setting it here lets cargo pass it through to rustc.
-          git_revision="$(git rev-parse HEAD)"
-          docker run --rm \
-            -v "$(pwd):/src" \
-            -w /src \
-            -e "GIT_REVISION=${git_revision}" \
-            "rust:${RUST_IMAGE}" \
-            sh -c "
-              apt-get update && \
-              apt-get install -y --no-install-recommends \
-                build-essential cmake pkg-config \
-                libssl-dev libudev-dev libdbus-1-dev && \
-              cargo build --package stellar-cli --release
-            "
+          mkdir -p "${RUNNER_TEMP}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${RUNNER_TEMP}/digests/${digest#sha256:}"
 
-      - name: Upload binary
+      - name: Upload digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: stellar-${{ matrix.arch }}
-          path: target/release/stellar
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
           retention-days: 1
 
-  docker:
+  manifest:
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      # Check out the workflow's own ref so we use the Dockerfile + entrypoint
-      # from the branch/PR running this workflow, not from the (potentially
-      # older) ref being built. If that ref doesn't carry a Dockerfile (e.g.
-      # an older release tag), fall back to a known-good branch.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Fall back to main Dockerfile if missing
+      - name: Ensure docker/README.md is available
         run: |
-          if [[ ! -f Dockerfile ]]; then
-            echo "::notice::Dockerfile not present at ${GITHUB_REF}; falling back to main"
+          if [[ ! -f docker/README.md ]]; then
             git fetch --depth=1 origin main
-            git checkout FETCH_HEAD -- Dockerfile entrypoint.sh docker/
+            git checkout FETCH_HEAD -- docker/
           fi
 
-      - name: Download binaries
+      - name: Download digests
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: stellar-*
-          merge-multiple: false
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
@@ -116,9 +124,6 @@ jobs:
           rust_image="${{ github.event_name == 'workflow_dispatch' && inputs.rust_image || 'latest' }}"
           echo "RUST_IMAGE=${rust_image}" >> "$GITHUB_ENV"
 
-      # The docker job's checkout points at the workflow ref (for the Dockerfile),
-      # not at the binary's ref, so HEAD here doesn't represent what was built.
-      # Resolve the SHA of the binary ref via ls-remote for the SHA-tag path.
       - name: Resolve build commit SHA
         run: |
           ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
@@ -161,15 +166,21 @@ jobs:
             echo "DOCKER_TAGS=stellar/stellar-cli:${BUILD_SHA}${suffix}" >> $GITHUB_ENV
           fi
 
-      - name: Build and push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.DOCKER_TAGS }}
-          build-args: |
-            RUST_IMAGE=${{ env.RUST_IMAGE }}
+      - name: Create and push manifest list
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          IFS=',' read -ra TAGS <<< "${DOCKER_TAGS}"
+          tag_args=()
+          for tag in "${TAGS[@]}"; do
+            tag_args+=(-t "$tag")
+          done
+
+          digest_refs=()
+          for f in *; do
+            digest_refs+=("stellar/stellar-cli@sha256:${f}")
+          done
+
+          docker buildx imagetools create "${tag_args[@]}" "${digest_refs[@]}"
 
       - name: Update Docker Hub description
         run: |
