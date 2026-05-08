@@ -81,7 +81,7 @@ impl FromStr for DeviceModel {
             "nanos" => Ok(DeviceModel::NanoS),
             "nanosp" => Ok(DeviceModel::NanoSP),
             "nanox" => Ok(DeviceModel::NanoX),
-            _ => Err(format!("Unsupported device model: {}", s)),
+            _ => Err(format!("Unsupported device model: {s}")),
         }
     }
 }
