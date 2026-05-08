@@ -70,6 +70,8 @@ jobs:
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
 
+      - run: RUST_BACKTRACE=1 make build-test-wasms
+
       - run: RUST_BACKTRACE=1 cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture $TEST_THREADS
 
       - run: RUST_BACKTRACE=1 cargo build --features emulator-tests,additional-libs
