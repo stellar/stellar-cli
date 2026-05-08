@@ -4,8 +4,7 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs::{self, OpenOptions},
-    io::{self, Write},
+    fs, io,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -483,32 +482,11 @@ impl Args {
             .insert(network_passphrase.into(), contract_id.to_string());
 
         let content = serde_json::to_string(&data)?;
+        write_hardened_file(&path, content.as_bytes())?;
 
         #[cfg(unix)]
-        {
-            use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut to_file = OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .mode(0o600)
-                .open(&path)?;
-            to_file.write_all(content.as_bytes())?;
-            set_hardened_permissions(&path)?;
-            if let Ok(root) = self.config_dir() {
-                fix_config_permissions(root);
-            }
-        }
-
-        #[cfg(not(unix))]
-        {
-            let mut to_file = OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(path)?;
-            to_file.write_all(content.as_bytes())?;
+        if let Ok(root) = self.config_dir() {
+            fix_config_permissions(root);
         }
 
         Ok(())
@@ -524,17 +502,11 @@ impl Args {
         let content = fs::read_to_string(&path).unwrap_or_default();
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(path)?;
-
         data.ids.remove::<str>(network_passphrase);
 
         let content = serde_json::to_string(&data)?;
-
-        Ok(to_file.write_all(content.as_bytes())?)
+        write_hardened_file(&path, content.as_bytes())?;
+        Ok(())
     }
 
     pub fn get_contract_id(
@@ -662,6 +634,31 @@ pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Writes `contents` to `path`, creating the file with `0600` on Unix and
+/// resetting the mode to exactly `0600` afterwards regardless of any
+/// pre-existing permissions. Falls back to `std::fs::write` on non-Unix
+/// platforms.
+pub(crate) fn write_hardened_file(path: &Path, contents: &[u8]) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        file.write_all(contents)?;
+        set_hardened_permissions(path)?;
+    }
+
+    #[cfg(not(unix))]
+    std::fs::write(path, contents)?;
+
+    Ok(())
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
 
@@ -757,41 +754,15 @@ impl KeyType {
     ) -> Result<PathBuf, Error> {
         let filepath = ensure_directory(self.path(pwd, key))?;
         let data = toml::to_string(value).map_err(|_| Error::ConfigSerialization)?;
-        #[cfg(unix)]
-        {
-            use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&filepath)
-                .map_err(|error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                })?;
-            file.write_all(data.as_bytes())
-                .map_err(|error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                })?;
-        }
-
-        #[cfg(not(unix))]
-        std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
-            filepath: filepath.clone(),
-            error,
+        write_hardened_file(&filepath, data.as_bytes()).map_err(|error| {
+            Error::IdCreationFailed {
+                filepath: filepath.clone(),
+                error,
+            }
         })?;
 
         #[cfg(unix)]
-        {
-            set_hardened_permissions(&filepath).map_err(|error| Error::IdCreationFailed {
-                filepath: filepath.clone(),
-                error,
-            })?;
-            fix_config_permissions(pwd.to_path_buf());
-        }
+        fix_config_permissions(pwd.to_path_buf());
 
         Ok(filepath)
     }

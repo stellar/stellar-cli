@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::Write,
-};
+use std::fs;
 
 use crate::{
     commands::HEADING_TRANSACTION,
@@ -294,9 +291,8 @@ impl Config {
 
     pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path.to_path_buf())?)?;
-        file.write_all(toml_string.as_bytes())?;
+        let path = locator::ensure_directory(path.to_path_buf())?;
+        locator::write_hardened_file(&path, toml_string.as_bytes())?;
         Ok(())
     }
 }
