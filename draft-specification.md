@@ -131,7 +131,7 @@ This appendix shows one way to produce a wasm with the vocabulary fields embedde
 **Pin the image to a digest.** A reproducible build needs a content digest, not a mutable tag. The digest can be read from Docker Hub: visit the [stellar/stellar-cli tags page](https://hub.docker.com/r/stellar/stellar-cli/tags) and copy the digest next to the desired tag and architecture. Pick the single-arch digest, not the multi-arch manifest list digest at the top of the tag entry; per §1, `bldimg` must reference a single-arch manifest.
 
 ```
-$ IMAGE=docker.io/stellar/stellar-cli:26.0.0@sha256:cb2fc31...
+$ IMAGE=docker.io/stellar/stellar-cli:26.0.0@sha256:8b45455a...
 ```
 
 **Resolve the image's rust toolchain.** Read the toolchain name from the image so it can be passed back in as `RUSTUP_TOOLCHAIN`. Without this, a `rust-toolchain.toml` in the source could cause rustup to silently switch toolchains mid-build, defeating the image pin.
