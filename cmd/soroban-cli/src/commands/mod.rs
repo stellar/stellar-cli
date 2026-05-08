@@ -26,9 +26,11 @@ pub mod version;
 
 pub mod txn_result;
 
-pub const HEADING_RPC: &str = "Options (RPC)";
-pub const HEADING_ARCHIVE: &str = "Options (Archive)";
-pub const HEADING_GLOBAL: &str = "Options (Global)";
+pub const HEADING_RPC: &str = "RPC Options";
+pub const HEADING_ARCHIVE: &str = "Archive Options";
+pub const HEADING_GLOBAL: &str = "Global Options";
+pub const HEADING_SIGNING: &str = "Signing Options";
+pub const HEADING_TRANSACTION: &str = "Transaction Options";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 

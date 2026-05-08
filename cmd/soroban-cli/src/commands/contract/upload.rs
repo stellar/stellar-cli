@@ -16,6 +16,7 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, network},
     key,
@@ -50,7 +51,7 @@ pub struct Cmd {
     pub ignore_checks: bool,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 
     /// Package to build when --wasm is not provided
@@ -237,7 +238,7 @@ impl Cmd {
         }
 
         // Get the account sequence number
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         let account_details = client
             .get_account(&source_account.clone().to_string())

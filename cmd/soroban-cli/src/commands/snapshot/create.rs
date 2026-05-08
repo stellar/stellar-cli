@@ -487,9 +487,7 @@ impl Cmd {
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account_sync(&self, address: &str) -> Option<AccountId> {
         let address: UnresolvedMuxedAccount = address.parse().ok()?;
-        let muxed_account = address
-            .resolve_muxed_account_sync(&self.locator, None)
-            .ok()?;
+        let muxed_account = address.resolve_muxed_account(&self.locator, None).ok()?;
         Some(muxed_account.account_id())
     }
 

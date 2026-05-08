@@ -20,6 +20,7 @@ use crate::{
         contract::extend,
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
@@ -46,7 +47,7 @@ pub struct Cmd {
     pub resources: crate::resources::Args,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -168,7 +169,7 @@ impl Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         let account_details = client

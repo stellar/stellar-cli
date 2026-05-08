@@ -17,6 +17,7 @@ use stellar_xdr::curr::{
 
 pub mod contract;
 pub mod event;
+pub mod test_utils;
 pub mod utils;
 mod verify;
 pub mod wasm;
@@ -188,7 +189,7 @@ impl Spec {
                     name == entry_name
                 })
             })
-            .ok_or_else(|| Error::MissingEntry(name.to_owned()))
+            .ok_or_else(|| Error::MissingEntry(sanitize(name)))
     }
 
     /// # Errors
@@ -197,7 +198,7 @@ impl Spec {
     pub fn find_function(&self, name: &str) -> Result<&ScSpecFunctionV0, Error> {
         match self.find(name)? {
             ScSpecEntry::FunctionV0(f) => Ok(f),
-            _ => Err(Error::MissingEntry(name.to_owned())),
+            _ => Err(Error::MissingEntry(sanitize(name))),
         }
     }
     //
@@ -433,7 +434,7 @@ impl Spec {
                 let name = &f.name.to_utf8_string_lossy();
                 let v = map
                     .get(name)
-                    .ok_or_else(|| Error::MissingKey(name.clone()))?;
+                    .ok_or_else(|| Error::MissingKey(sanitize(name)))?;
                 let val = self.from_json(v, &f.type_)?;
                 let key = StringM::from_str(name).unwrap();
                 Ok(ScMapEntry {
@@ -475,7 +476,12 @@ impl Spec {
                 };
                 enum_case == &name.to_utf8_string_lossy()
             })
-            .ok_or_else(|| Error::EnumCase(enum_case.clone(), union.name.to_utf8_string_lossy()))?;
+            .ok_or_else(|| {
+                Error::EnumCase(
+                    sanitize(enum_case),
+                    sanitize(&union.name.to_utf8_string_lossy()),
+                )
+            })?;
 
         let mut res = vec![ScVal::Symbol(ScSymbol(
             enum_case.try_into().map_err(Error::Xdr)?,
@@ -672,7 +678,11 @@ impl Spec {
                 let (first, rest) = match v.split_at(1) {
                     ([first], []) => (first, None),
                     ([first], rest) => (first, Some(rest)),
-                    _ => return Err(Error::IllFormedEnum(union.name.to_utf8_string_lossy())),
+                    _ => {
+                        return Err(Error::IllFormedEnum(sanitize(
+                            &union.name.to_utf8_string_lossy(),
+                        )))
+                    }
                 };
 
                 let ScVal::Symbol(case_name) = first else {
@@ -688,15 +698,17 @@ impl Spec {
                         };
                         name.as_vec() == case_name.as_vec()
                     })
-                    .ok_or_else(|| Error::FailedToFindEnumCase(case_name.to_utf8_string_lossy()))?;
+                    .ok_or_else(|| {
+                        Error::FailedToFindEnumCase(sanitize(&case_name.to_utf8_string_lossy()))
+                    })?;
 
                 let case_name = case_name.to_utf8_string_lossy();
                 match case {
                     ScSpecUdtUnionCaseV0::TupleV0(v) => {
                         let rest = rest.ok_or_else(|| {
                             Error::EnumMissingSecondValue(
-                                union.name.to_utf8_string_lossy(),
-                                case_name.clone(),
+                                sanitize(&union.name.to_utf8_string_lossy()),
+                                sanitize(&case_name),
                             )
                         })?;
                         let val = if v.type_.len() == 1 {
@@ -2513,5 +2525,19 @@ mod tests {
         let spec = Spec(None);
         let result = spec.xdr_to_json(&ScVal::U32(100), &ScType::Val);
         assert_eq!(result.unwrap(), Value::Number(100.into()));
+    }
+
+    #[test]
+    fn missing_entry_via_find_strips_control_chars() {
+        let spec = Spec::new(&[]);
+        let err = spec.find("evil\x1b[31mname").unwrap_err();
+        crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    #[test]
+    fn missing_entry_via_find_function_strips_control_chars() {
+        let spec = Spec::new(&[]);
+        let err = spec.find_function("evil\x1b[2J").unwrap_err();
+        crate::test_utils::assert_no_control_chars(&format!("{err}"));
     }
 }

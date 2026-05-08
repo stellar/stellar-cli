@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{
+    commands::HEADING_TRANSACTION,
     print::Print,
     signer::{self, Signer},
     utils::deprecate_message,
@@ -59,7 +60,13 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(
+        long,
+        short = 's',
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        help_heading = HEADING_TRANSACTION
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
@@ -75,21 +82,24 @@ pub struct Args {
     pub sign_with: sign_with::Args,
 
     /// ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-    #[arg(long, env = "STELLAR_FEE")]
+    #[arg(long, env = "STELLAR_FEE", help_heading = HEADING_TRANSACTION)]
     pub fee: Option<u32>,
 
     /// Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-    #[arg(long, env = "STELLAR_INCLUSION_FEE")]
+    #[arg(
+        long,
+        env = "STELLAR_INCLUSION_FEE",
+        help_heading = HEADING_TRANSACTION
+    )]
     pub inclusion_fee: Option<u32>,
 }
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path())
-            .await?)
+            .resolve_muxed_account(&self.locator, self.hd_path())?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -144,12 +154,10 @@ impl Args {
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
-        Ok(signer::sign_soroban_authorizations(
-            tx,
-            signers,
-            seq_num,
-            &network.network_passphrase,
-        )?)
+        Ok(
+            signer::sign_soroban_authorizations(tx, signers, seq_num, &network.network_passphrase)
+                .await?,
+        )
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
@@ -189,7 +197,7 @@ impl Args {
         .into())
     }
 
-    pub fn hd_path(&self) -> Option<usize> {
+    pub fn hd_path(&self) -> Option<u32> {
         self.sign_with.hd_path
     }
 }

@@ -91,12 +91,12 @@ impl StellarEntry {
     fn use_key<T>(
         &self,
         f: impl FnOnce(ed25519_dalek::SigningKey) -> Result<T, Error>,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<T, Error> {
         // The underlying Mnemonic type is zeroized when dropped
         let mut key_bytes: [u8; 32] = {
             self.get_seed_phrase()?
-                .from_path_index(hd_path.unwrap_or_default(), None)?
+                .from_path_index(hd_path.unwrap_or_default() as usize, None)?
                 .private()
                 .0
         };
@@ -111,7 +111,7 @@ impl StellarEntry {
 
     pub fn get_public_key(
         &self,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         self.use_key(
             |keypair| {
@@ -123,7 +123,7 @@ impl StellarEntry {
         )
     }
 
-    pub fn sign_data(&self, data: &[u8], hd_path: Option<usize>) -> Result<Vec<u8>, Error> {
+    pub fn sign_data(&self, data: &[u8], hd_path: Option<u32>) -> Result<Vec<u8>, Error> {
         self.use_key(
             |keypair| {
                 let signature = keypair.sign(data);

@@ -24,6 +24,7 @@ use crate::{
         contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -66,7 +67,7 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: resources::Args,
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
@@ -352,7 +353,7 @@ impl Cmd {
         };
 
         let client = network.rpc_client()?;
-        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
@@ -384,8 +385,7 @@ impl Cmd {
                         &slop,
                         &entries,
                         config,
-                    )
-                    .await?
+                    )?
                     .2,
                 )
             }

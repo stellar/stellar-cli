@@ -1,5 +1,6 @@
 use crate::{
     log::format_auth_entry,
+    signer::ledger::LedgerEntry,
     utils::fee_bump_transaction_hash,
     xdr::{
         self, AccountId, DecoratedSignature, FeeBumpTransactionEnvelope, Hash, HashIdPreimage,
@@ -63,7 +64,7 @@ pub enum Error {
 ///
 /// If a SorobanAuthorizationEntry needs signing, but a signature cannot be produced for it,
 /// return an Error
-pub fn sign_soroban_authorizations(
+pub async fn sign_soroban_authorizations(
     raw: &Transaction,
     signers: &[Signer],
     signature_expiration_ledger: u32,
@@ -151,7 +152,8 @@ pub fn sign_soroban_authorizations(
                     signer,
                     signature_expiration_ledger,
                     &network_id,
-                )?;
+                )
+                .await?;
                 signed_auths.push(signed_entry);
                 auths_modified = true;
             }
@@ -183,7 +185,7 @@ pub fn sign_soroban_authorizations(
     Ok(Some(tx))
 }
 
-fn sign_soroban_authorization_entry(
+async fn sign_soroban_authorization_entry(
     raw: &SorobanAuthorizationEntry,
     signer: &Signer,
     signature_expiration_ledger: u32,
@@ -210,7 +212,7 @@ fn sign_soroban_authorization_entry(
 
     let payload = Sha256::digest(preimage);
     let p: [u8; 32] = payload.as_slice().try_into()?;
-    let signature = signer.sign_payload(p)?;
+    let signature = signer.sign_payload(p).await?;
     let public_key_vec = signer.get_public_key()?.0.to_vec();
 
     let map = ScMap::sorted_from(vec![
@@ -246,7 +248,7 @@ pub struct Signer {
 #[allow(clippy::module_name_repetitions, clippy::large_enum_variant)]
 pub enum SignerKind {
     Local(LocalKey),
-    Ledger(ledger::LedgerType),
+    Ledger(LedgerEntry),
     Lab,
     SecureStore(SecureStoreEntry),
 }
@@ -301,23 +303,23 @@ impl Signer {
         }
     }
 
-    // when we implement this for ledger we'll need it to be async so we can await for the ledger's public key
     pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(stellar_strkey::ed25519::PublicKey::from_payload(
                 local_key.key.verifying_key().as_bytes(),
             )?),
-            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Ledger(ledger) => Ok(ledger
+                .public_key
+                .expect("Ledger signers reachable here are built from Secret::Ledger and always carry a cached public key")),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
         }
     }
 
-    // when we implement this for ledger we'll need it to be async so we can await the user approved the tx on the ledger device
-    pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+    pub async fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         match &self.kind {
             SignerKind::Local(local_key) => local_key.sign_payload(payload),
-            SignerKind::Ledger(_ledger) => todo!("ledger device is not implemented"),
+            SignerKind::Ledger(ledger) => Ok(ledger.sign_payload(payload).await?),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
         }
@@ -332,10 +334,7 @@ impl Signer {
         match &self.kind {
             SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
-            SignerKind::Ledger(ledger) => ledger
-                .sign_transaction_hash(&tx_hash)
-                .await
-                .map_err(Error::from),
+            SignerKind::Ledger(ledger) => ledger.sign_tx_hash(tx_hash).await.map_err(Error::from),
             SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash),
         }
     }
@@ -384,18 +383,20 @@ impl Lab {
 
 pub struct SecureStoreEntry {
     pub name: String,
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
+    pub public_key: Option<stellar_strkey::ed25519::PublicKey>,
 }
 
 impl SecureStoreEntry {
     pub fn get_public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
+        if let Some(pk) = &self.public_key {
+            return Ok(*pk);
+        }
         Ok(secure_store::get_public_key(&self.name, self.hd_path)?)
     }
 
     pub fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
-        let hint = SignatureHint(
-            secure_store::get_public_key(&self.name, self.hd_path)?.0[28..].try_into()?,
-        );
+        let hint = SignatureHint(self.get_public_key()?.0[28..].try_into()?);
 
         let signed_tx_hash = secure_store::sign_tx_data(&self.name, self.hd_path, &tx_hash)?;
 
@@ -421,6 +422,7 @@ fn muxed_account_bytes(source: &MuxedAccount) -> &[u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::signer::ledger::LedgerEntry;
     use crate::xdr::{
         BytesM, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Memo, Preconditions,
         SequenceNumber, SorobanAuthorizedFunction, SorobanAuthorizedInvocation, TransactionExt,
@@ -518,8 +520,8 @@ mod tests {
             .expect("public_key entry")
     }
 
-    #[test]
-    fn test_signs_address_auth_entry_with_matching_signer() {
+    #[tokio::test]
+    async fn test_signs_address_auth_entry_with_matching_signer() {
         let signer = local_signer([1u8; 32]);
         let signer_unused = local_signer([2u8; 32]);
         let signer_pk = signer_pubkey(&signer);
@@ -532,6 +534,7 @@ mod tests {
 
         let signed_auth_tx =
             sign_soroban_authorizations(&tx, &[signer_unused, signer], EXPIRATION_LEDGER, NETWORK)
+                .await
                 .unwrap()
                 .expect("signing modifies the transaction");
 
@@ -553,8 +556,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_non_strict_auth_returns_error() {
+    #[tokio::test]
+    async fn test_non_strict_auth_returns_error() {
         let signer = local_signer([1u8; 32]);
         let signer_pk = signer_pubkey(&signer);
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
@@ -568,12 +571,12 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK);
+        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
         assert!(matches!(result, Err(Error::NotStrictAuthEntry { .. })));
     }
 
-    #[test]
-    fn test_multiple_entries_with_non_strict_returns_error() {
+    #[tokio::test]
+    async fn test_multiple_entries_with_non_strict_returns_error() {
         let signer = local_signer([1u8; 32]);
         let signer_pk = signer_pubkey(&signer);
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
@@ -588,12 +591,12 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry, entry_non_strict]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK);
+        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
         assert!(matches!(result, Err(Error::NotStrictAuthEntry { .. })));
     }
 
-    #[test]
-    fn test_upload_wasm_with_auth_returns_invalid() {
+    #[tokio::test]
+    async fn test_upload_wasm_with_auth_returns_invalid() {
         let signer = local_signer([1u8; 32]);
         let signer_pk = signer_pubkey(&signer);
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
@@ -603,12 +606,12 @@ mod tests {
         let host_fn = HostFunction::UploadContractWasm(wasm);
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK);
+        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
-    #[test]
-    fn test_source_account_as_address_returns_invalid() {
+    #[tokio::test]
+    async fn test_source_account_as_address_returns_invalid() {
         let signer = local_signer([1u8; 32]);
         let signer_pk = signer_pubkey(&signer);
         let source = MuxedAccount::Ed25519(Uint256(signer_pk));
@@ -618,12 +621,12 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK);
+        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
-    #[test]
-    fn test_missing_signer_returns_error() {
+    #[tokio::test]
+    async fn test_missing_signer_returns_error() {
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
         let contract = [42u8; 32];
         let unknown = [77u8; 32];
@@ -632,7 +635,24 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[], EXPIRATION_LEDGER, NETWORK);
+        let result = sign_soroban_authorizations(&tx, &[], EXPIRATION_LEDGER, NETWORK).await;
         assert!(matches!(result, Err(Error::MissingSignerForAddress { .. })));
+    }
+
+    #[test]
+    fn ledger_signer_get_public_key_returns_cached_without_device() {
+        const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        let pk = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
+        let signer = Signer {
+            kind: SignerKind::Ledger(LedgerEntry {
+                hd_path: 0,
+                public_key: Some(pk),
+            }),
+            print: Print::new(true),
+        };
+        assert_eq!(
+            signer.get_public_key().unwrap().to_string(),
+            TEST_PUBLIC_KEY
+        );
     }
 }

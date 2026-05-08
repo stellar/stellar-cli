@@ -24,7 +24,7 @@ pub struct Cmd {
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 }
 
 #[derive(thiserror::Error, Debug)]

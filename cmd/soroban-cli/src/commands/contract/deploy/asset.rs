@@ -17,6 +17,7 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, network},
     rpc::Error as SorobanRpcError,
@@ -91,7 +92,7 @@ pub struct Cmd {
     pub alias: Option<AliasName>,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -147,7 +148,7 @@ impl Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         // TODO: use symbols for the method names (both here and in serve)
