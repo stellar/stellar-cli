@@ -6,13 +6,14 @@
 //! orchestrates only — pull, set up bind mounts, run, stream logs.
 //!
 //! The host CLI's version is irrelevant: whatever cli is in the image is
-//! what builds the wasm and what records `cliver` / `rsver` / source meta
-//! into the wasm. The host injects `bldimg` (the pulled image's resolved
-//! digest) via the inner cli's `--meta` mechanism — no new flags.
+//! what builds the wasm and what records `cliver` / source meta into the
+//! wasm. The host injects `bldimg` (the pulled image's resolved digest)
+//! via the inner cli's `--meta` mechanism — no new flags.
 //!
-//! For `verify`, the recorded `bldimg` is pulled (so the same cli runs)
-//! and `RUSTUP_TOOLCHAIN` is set from the wasm's `rsver` so the rust
-//! toolchain matches whatever the original build used.
+//! For `verify`, the recorded `bldimg` is pulled (so the same cli runs).
+//! The container shim exports `RUSTUP_TOOLCHAIN` to the image's installed
+//! default before invoking cargo so an in-source `rust-toolchain.toml`
+//! can't silently switch the rust version.
 //!
 //! User-supplied images must:
 //! - Have `stellar` as their entrypoint
@@ -82,7 +83,7 @@ pub enum Error {
 /// `stellar contract build` invocation. `manifest_path` is expected to
 /// already be in container-relative form (`/source/...`). `meta` holds both
 /// the user's `--meta` entries and any host-detected entries (e.g.
-/// `source_repo`, `source_rev`, `bldopt_*`) that are forwarded as
+/// `source_repo`, `source_rev`, `bldopt`) that are forwarded as
 /// transitional pass-throughs while the published cli image catches up.
 pub struct InnerBuildArgs<'a> {
     pub manifest_path: String,
@@ -99,15 +100,9 @@ pub struct InnerBuildArgs<'a> {
 /// `stellar contract build --backend local --meta bldimg=<digest>` against
 /// the bind-mounted source. Returns the resolved image digest for the host
 /// to record.
-///
-/// `rsver` is `None` for fresh builds and `Some(<wasm's rsver>)` for verify;
-/// when set, `RUSTUP_TOOLCHAIN` inside the container is pinned to that
-/// toolchain so rustup-managed cargo uses the matching rust version.
-#[allow(clippy::too_many_arguments)]
 pub async fn run_in_docker(
     image: &str,
     pre_resolved: Option<&str>,
-    rsver: Option<&str>,
     mount_root: &Path,
     inner: &InnerBuildArgs<'_>,
     container_args: &ContainerArgs,
@@ -133,7 +128,7 @@ pub async fn run_in_docker(
     };
 
     print.infoln(format_inner_cmd(inner, &resolved));
-    run_inner_build(&docker, &resolved, inner, rsver, mount_root).await?;
+    run_inner_build(&docker, &resolved, inner, mount_root).await?;
 
     Ok(resolved)
 }
@@ -142,7 +137,6 @@ async fn run_inner_build(
     docker: &Docker,
     image: &str,
     inner: &InnerBuildArgs<'_>,
-    rsver: Option<&str>,
     mount_root: &Path,
 ) -> Result<(), Error> {
     let cargo_home = home::cargo_home().map_err(Error::CargoHome)?;
@@ -151,38 +145,36 @@ async fn run_inner_build(
         format!("{}:{}", cargo_home.join("registry").display(), REGISTRY_DIR),
     ];
 
-    let mut env = vec![
+    let env = vec![
         format!("SOURCE_DATE_EPOCH={}", source_date_epoch(mount_root)),
         "CARGO_TERM_COLOR=always".to_string(),
     ];
-    if let Some(t) = rsver {
-        env.push(format!("RUSTUP_TOOLCHAIN={t}"));
-    }
 
-    // Override the image's entrypoint with a small shim that ensures the
-    // wasm target is installed for the active rust toolchain, then exec's
-    // `stellar`. Two reasons:
+    // Override the image's entrypoint with a small shim that:
     //
-    // - When `RUSTUP_TOOLCHAIN=<rsver>` selects a toolchain other than the
-    //   image's default (typical at verify time), the image's pre-installed
-    //   `wasm32v1-none` target is associated with the *other* toolchain,
-    //   not the selected one — `cargo build --target=wasm32v1-none` would
-    //   fail. `rustup target add` is idempotent (and quick, when the target
-    //   is already present) so always running it is safe.
-    // - The official `stellar/stellar-cli` image's stock entrypoint is a
-    //   wrapper script that launches dbus + gnome-keyring before exec-ing
-    //   `stellar`; that setup is irrelevant for `contract build` and dbus
+    // - Pins `RUSTUP_TOOLCHAIN` to the image's installed default, so a
+    //   `rust-toolchain.toml` in the bind-mounted source can't make rustup
+    //   silently install or switch to a different toolchain mid-build.
+    //   This is what makes `bldimg`'s digest a sufficient pin for the rust
+    //   version: with this export, rustup honors the image's contents and
+    //   ignores in-source pins.
+    // - Ensures the wasm target is installed for the active toolchain
+    //   (idempotent, fast when already present).
+    // - exec's `stellar`, bypassing the official image's dbus/gnome-keyring
+    //   wrapper entrypoint (irrelevant for `contract build` and dbus
     //   refuses to start when the container runs as a host UID with no
-    //   `/etc/passwd` entry. Skipping it keeps the host UID mapping intact.
+    //   `/etc/passwd` entry).
     //
     // TODO: remove this entrypoint override once
     // https://github.com/stellar/stellar-cli/issues/2545 is implemented and
-    // the published image's entrypoint installs the wasm target itself
-    // (and doesn't drag dbus/gnome-keyring into the contract-build path).
+    // the published image's entrypoint does this itself.
     let entrypoint = vec![
         "sh".to_string(),
         "-c".to_string(),
-        "rustup --quiet target add wasm32v1-none && exec stellar \"$@\"".to_string(),
+        "export RUSTUP_TOOLCHAIN=$(rustup default | awk '{print $1}') && \
+         rustup --quiet target add wasm32v1-none && \
+         exec stellar \"$@\""
+            .to_string(),
     ];
     let argv = build_inner_argv(inner, image);
 

@@ -492,9 +492,11 @@ fn build_create_contract_tx(
 }
 
 /// On mainnet, warn if the wasm is missing the meta entries that indicate
-/// a reproducible build (`bldimg`, `cliver`, `rsver`, `source_repo`,
-/// `source_rev`, `bldopt_*`). `bldimg` is the docker-build marker — its
-/// presence indicates the wasm was built inside a recorded image; its
+/// a reproducible build (`bldimg`, `cliver`, `source_repo`, `source_rev`).
+/// `bldopt` entries are only present when the build deviates from the SEP
+/// baseline, so they're not a reproducibility signal here. `bldimg` is the
+/// docker-build marker; its presence indicates the wasm was built inside a
+/// recorded image (which transitively pins the rust version), and its
 /// absence means a local build with no image to verify against. Skipped on
 /// other networks. Best-effort: parse failures are silently ignored.
 fn warn_if_mainnet_wasm_not_reproducible(
@@ -508,16 +510,7 @@ fn warn_if_mainnet_wasm_not_reproducible(
     let Ok(spec) = soroban_spec_tools::contract::Spec::new(wasm_bytes) else {
         return;
     };
-    let required = [
-        "bldimg",
-        "cliver",
-        "rsver",
-        "source_repo",
-        "source_rev",
-        "bldopt_manifest_path",
-        "bldopt_package",
-        "bldopt_profile",
-    ];
+    let required = ["bldimg", "cliver", "source_repo", "source_rev"];
     let missing: Vec<&str> = required
         .iter()
         .filter(|k| {

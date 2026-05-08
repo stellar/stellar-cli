@@ -14,17 +14,14 @@ use crate::print::Print;
 
 /// Verify a wasm by rebuilding it and comparing bytes.
 ///
-/// All cdylib contracts in the workspace are rebuilt; verification succeeds
+/// The wasm's `bldimg` meta entry identifies the container image used for
+/// the original build; verify pulls that image and rebuilds inside it. The
+/// image bundles its own rust toolchain, and the in-container shim exports
+/// `RUSTUP_TOOLCHAIN` to the image's default before invoking cargo so an
+/// in-source `rust-toolchain.toml` can't silently switch versions. All
+/// cdylib contracts in the workspace are rebuilt; verification succeeds
 /// if any rebuilt artifact is byte-identical to the input. The user is
 /// responsible for checking out the matching commit before running.
-///
-/// Backend selection from meta:
-/// - `bldimg` present: rebuild inside that image (with `RUSTUP_TOOLCHAIN`
-///   pinned to the wasm's `rsver` so the rust version matches whatever the
-///   original build used).
-/// - `bldimg` absent: rebuild locally with the host's rust toolchain pinned
-///   via `cargo +<rsver>`. Best-effort — local builds depend on environment
-///   factors (system libs, env vars) that aren't captured in meta.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -68,77 +65,69 @@ impl Cmd {
         };
         let original_hash = hex::encode(Sha256::digest(&wasm_bytes));
         let spec = Spec::new(&wasm_bytes)?;
-        let cliver = find_meta(&spec.meta, "cliver").ok_or(Error::MissingMeta("cliver"))?;
-        let bldimg = find_meta(&spec.meta, "bldimg");
-        let rsver = find_meta(&spec.meta, "rsver").ok_or(Error::MissingMeta("rsver"))?;
-        let bldopt_manifest_path = find_meta(&spec.meta, "bldopt_manifest_path");
-        let bldopt_package = find_meta(&spec.meta, "bldopt_package");
-        let bldopt_profile = find_meta(&spec.meta, "bldopt_profile");
-        let bldopt_optimize = find_meta(&spec.meta, "bldopt_optimize").is_some();
-
-        // Bldopts are best-effort: warn about missing ones and fall back to
-        // the build command's defaults so verify still tries to rebuild.
-        let missing_bldopts: Vec<&str> = [
-            ("bldopt_manifest_path", bldopt_manifest_path.is_some()),
-            ("bldopt_package", bldopt_package.is_some()),
-            ("bldopt_profile", bldopt_profile.is_some()),
-        ]
-        .into_iter()
-        .filter_map(|(k, present)| (!present).then_some(k))
-        .collect();
-        if !missing_bldopts.is_empty() {
-            print.warnln(format!(
-                "wasm meta is missing build option entries: {missing_bldopts:?}. \
-                 The build may not be reproducible — defaults will be used for missing options."
-            ));
+        let bldimg = find_meta(&spec.meta, "bldimg").ok_or(Error::MissingMeta("bldimg"))?;
+        // `bldopt` is a repeating shell-form flag set. Apply the SEP
+        // baseline defaults, then overlay each recorded flag.
+        let bldopts = find_meta_all(&spec.meta, "bldopt");
+        let mut manifest_path_str: String = "Cargo.toml".into();
+        let mut package: Option<String> = None;
+        let mut profile: String = "release".into();
+        let mut optimize = true;
+        let mut features: Option<String> = None;
+        let mut all_features = false;
+        let mut no_default_features = false;
+        for opt in &bldopts {
+            if let Some(v) = opt.strip_prefix("--manifest-path=") {
+                manifest_path_str = v.to_string();
+            } else if let Some(v) = opt.strip_prefix("--package=") {
+                package = Some(v.to_string());
+            } else if let Some(v) = opt.strip_prefix("--profile=") {
+                profile = v.to_string();
+            } else if opt == "--no-optimize" {
+                optimize = false;
+            } else if let Some(v) = opt.strip_prefix("--features=") {
+                features = Some(v.to_string());
+            } else if opt == "--all-features" {
+                all_features = true;
+            } else if opt == "--no-default-features" {
+                no_default_features = true;
+            } else {
+                print.warnln(format!(
+                    "ignoring unrecognized bldopt flag: {opt}. The rebuild may not match the original."
+                ));
+            }
         }
 
         print.blankln(format!("Original wasm hash: {original_hash}"));
-        print.blankln(format!("stellar-cli version: {cliver}"));
-        print.blankln(format!("rust version: {rsver}"));
-        if let Some(b) = &bldimg {
-            print.blankln(format!("Docker image: {b}"));
+        print.blankln(format!("Docker image: {bldimg}"));
+        for opt in &bldopts {
+            print.blankln(format!("Build flag: {opt}"));
         }
-        if let Some(p) = &bldopt_manifest_path {
-            print.blankln(format!("Manifest path: {p}"));
-        }
-        if let Some(p) = &bldopt_package {
-            print.blankln(format!("Package: {p}"));
-        }
-        if let Some(p) = &bldopt_profile {
-            print.blankln(format!("Profile: {p}"));
-        }
-        if bldopt_optimize {
-            print.blankln("Optimize: true");
-        }
-
-        let backend = match bldimg {
-            Some(image) => build::Backend::Docker { image },
-            None => build::Backend::Local,
-        };
 
         // Resolve the manifest path relative to the cwd's git top-level so
         // verify works from anywhere inside the checkout.
-        let manifest_path = bldopt_manifest_path.map(|s| {
-            let p = PathBuf::from(&s);
+        let manifest_path = {
+            let p = PathBuf::from(&manifest_path_str);
             if p.is_absolute() {
-                p
+                Some(p)
             } else if let Some(root) = git_top_level() {
-                root.join(p)
+                Some(root.join(p))
             } else {
-                p
+                Some(p)
             }
-        });
+        };
 
         let build_cmd = build::Cmd {
             manifest_path,
-            package: bldopt_package,
-            profile: bldopt_profile.unwrap_or_else(|| build::Cmd::default().profile),
-            backend,
+            package,
+            profile,
+            features,
+            all_features,
+            no_default_features,
+            backend: build::Backend::Docker { image: bldimg },
             container_args: self.container_args.clone(),
-            rustup_toolchain: Some(rsver),
             build_args: build::BuildArgs {
-                optimize: bldopt_optimize,
+                optimize,
                 ..build::BuildArgs::default()
             },
             ..build::Cmd::default()
@@ -191,6 +180,15 @@ fn find_meta(meta: &[ScMetaEntry], key: &str) -> Option<String> {
         let ScMetaEntry::ScMetaV0(ScMetaV0 { key: k, val }) = entry;
         (k.to_string() == key).then(|| val.to_string())
     })
+}
+
+fn find_meta_all(meta: &[ScMetaEntry], key: &str) -> Vec<String> {
+    meta.iter()
+        .filter_map(|entry| {
+            let ScMetaEntry::ScMetaV0(ScMetaV0 { key: k, val }) = entry;
+            (k.to_string() == key).then(|| val.to_string())
+        })
+        .collect()
 }
 
 #[cfg(test)]

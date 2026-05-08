@@ -595,7 +595,7 @@ fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
     ))
     .filter(|entry| match entry {
         // Ignore SDK-embedded keys (rsver, rssdkver) and stellar-cli-embedded
-        // build-record keys (bldbkd, bldimg, bldopt_*, source_*) — these
+        // build-record keys (bldbkd, bldimg, bldopt, source_*); these
         // change often and aren't what these tests are asserting on.
         Ok(ScMetaEntry::ScMetaV0(ScMetaV0 { key, .. })) => {
             let key = key.to_string();
@@ -605,10 +605,7 @@ fn get_entries(fixture_path: &Path, outdir: &Path) -> Vec<ScMetaEntry> {
                     | "rssdkver"
                     | "bldbkd"
                     | "bldimg"
-                    | "bldopt_manifest_path"
-                    | "bldopt_package"
-                    | "bldopt_profile"
-                    | "bldopt_optimize"
+                    | "bldopt"
                     | "source_repo"
                     | "source_rev"
             )

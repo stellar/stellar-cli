@@ -119,11 +119,6 @@ pub struct Cmd {
     #[command(flatten)]
     pub container_args: ContainerArgs,
 
-    /// Run cargo via `cargo +<toolchain>` to pin the rust toolchain. Set by
-    /// `verify` from the wasm's `rsver` meta entry; not user-facing.
-    #[arg(skip)]
-    pub rustup_toolchain: Option<String>,
-
     #[command(flatten)]
     pub build_args: BuildArgs,
 
@@ -311,7 +306,6 @@ impl Default for Cmd {
             print_commands_only: false,
             backend: Backend::Local,
             container_args: ContainerArgs { docker_host: None },
-            rustup_toolchain: None,
             build_args: BuildArgs::default(),
             action: None,
         }
@@ -361,7 +355,7 @@ impl Cmd {
             GitState::Clean { repo, rev, root } => (Some(repo), Some(rev), Some(root)),
             GitState::Dirty => {
                 print.warnln(
-                    "git working tree has uncommitted changes; source_repo/source_rev/bldopt_* not embedded in contract metadata. Commit changes for a reproducible build.",
+                    "git working tree has uncommitted changes; source_repo/source_rev/bldopt not embedded in contract metadata. Commit changes for a reproducible build.",
                 );
                 (None, None, None)
             }
@@ -399,12 +393,6 @@ impl Cmd {
             }
             let mut cmd = Command::new("cargo");
             cmd.stdout(Stdio::piped());
-            // `+<toolchain>` is rustup's explicit toolchain selector and overrides
-            // any `rust-toolchain.toml` in the workspace. Set by `verify` from
-            // the wasm's `rsver` meta entry.
-            if let Some(toolchain) = &self.rustup_toolchain {
-                cmd.arg(format!("+{toolchain}"));
-            }
             cmd.arg("rustc");
             if self.locked {
                 cmd.arg("--locked");
@@ -463,20 +451,23 @@ impl Cmd {
                     .join(&self.profile)
                     .join(&file);
 
-                let bldopt_manifest_path = git_root.as_deref().and_then(|gr| {
+                let manifest_rel = git_root.as_deref().and_then(|gr| {
                     pathdiff::diff_paths(&p.manifest_path, gr)
                         .map(|p| p.to_string_lossy().into_owned())
                 });
+                // Spec default for `--package` is the workspace's sole
+                // cdylib. When that's exactly what we're building, omit
+                // the flag; otherwise the consumer can't tell which
+                // package this wasm came from.
+                let package = (packages.len() != 1).then(|| p.name.as_str());
+                let bldopt = self.bldopt_entries(package, manifest_rel.as_deref());
                 self.inject_meta(
                     &target_file_path,
                     &ExtraMeta {
                         bldimg: None,
                         source_repo: source_repo.clone(),
                         source_rev: source_rev.clone(),
-                        bldopt_manifest_path,
-                        bldopt_package: Some(p.name.clone()),
-                        bldopt_profile: Some(self.profile.clone()),
-                        bldopt_optimize: self.build_args.optimize,
+                        bldopt,
                     },
                 )?;
                 Self::filter_spec(&target_file_path)?;
@@ -563,7 +554,7 @@ impl Cmd {
             .into_owned();
 
         // TODO(transitional): forward host-detected `source_*` and
-        // `bldopt_*` reproducibility meta as `--meta` entries to the
+        // `bldopt` reproducibility meta as `--meta` entries to the
         // in-container cli. Released `stellar/stellar-cli` images today
         // don't auto-inject these on build, so without this pass-through
         // the resulting wasm would be missing them.
@@ -582,25 +573,22 @@ impl Cmd {
         if let Some(s) = source_rev {
             meta.push(("source_rev".to_string(), s.to_string()));
         }
-        meta.push(("bldopt_profile".to_string(), self.profile.clone()));
-        if self.build_args.optimize {
-            meta.push(("bldopt_optimize".to_string(), "true".to_string()));
-        }
-        // Per-package fields are only safe to forward when exactly one
-        // package will be built — passing a single value to a multi-package
-        // workspace build would attach the same `bldopt_package` /
-        // `bldopt_manifest_path` to every wasm. For multi-package builds we
-        // skip them and let the in-container cli supply them per-package
-        // (newer images will; older won't).
-        if packages.len() == 1 {
-            let p = &packages[0];
-            meta.push(("bldopt_package".to_string(), p.name.clone()));
-            if let Some(rel) = git_root.and_then(|gr| {
-                pathdiff::diff_paths(&p.manifest_path, gr)
+        // `--package` is only safe to forward as a `bldopt` when exactly
+        // one package will be built; in a multi-package workspace, attaching
+        // a single name would mislabel every wasm. The single-package case
+        // also matches the spec default (workspace's sole cdylib), so the
+        // helper omits it; only `--manifest-path` survives that branch, and
+        // only when the package isn't at the repo root.
+        let manifest_rel = if packages.len() == 1 {
+            git_root.and_then(|gr| {
+                pathdiff::diff_paths(&packages[0].manifest_path, gr)
                     .map(|p| p.to_string_lossy().into_owned())
-            }) {
-                meta.push(("bldopt_manifest_path".to_string(), rel));
-            }
+            })
+        } else {
+            None
+        };
+        for entry in self.bldopt_entries(None, manifest_rel.as_deref()) {
+            meta.push(("bldopt".to_string(), entry));
         }
 
         let inner = build_docker::InnerBuildArgs {
@@ -617,7 +605,6 @@ impl Cmd {
         build_docker::run_in_docker(
             image,
             None,
-            self.rustup_toolchain.as_deref(),
             mount_root,
             &inner,
             &self.container_args,
@@ -655,6 +642,46 @@ impl Cmd {
         self.features
             .as_ref()
             .map(|f| f.split(&[',', ' ']).map(String::from).collect())
+    }
+
+    /// Build the list of `bldopt` shell-flag entries that deviate from the
+    /// SEP's baseline cargo invocation. The baseline is: profile=release,
+    /// no extra features, default features active, manifest at
+    /// `Cargo.toml`, package=workspace's sole cdylib, post-build wasm-opt.
+    /// `bldopt_package` is filled in by the caller when more than one
+    /// cdylib is being built (since the spec default is "the workspace's
+    /// sole cdylib").
+    fn bldopt_entries(&self, package: Option<&str>, manifest_rel: Option<&str>) -> Vec<String> {
+        let mut entries = Vec::new();
+        if let Some(rel) = manifest_rel.filter(|p| *p != "Cargo.toml") {
+            entries.push(format!("--manifest-path={rel}"));
+        }
+        if let Some(name) = package {
+            entries.push(format!("--package={name}"));
+        }
+        if self.profile != "release" {
+            entries.push(format!("--profile={}", self.profile));
+        }
+        if !self.build_args.optimize {
+            entries.push("--no-optimize".to_string());
+        }
+        if let Some(features) = self.features() {
+            let joined = features
+                .iter()
+                .map(String::as_str)
+                .filter(|f| !f.is_empty())
+                .join(",");
+            if !joined.is_empty() {
+                entries.push(format!("--features={joined}"));
+            }
+        }
+        if self.all_features {
+            entries.push("--all-features".to_string());
+        }
+        if self.no_default_features {
+            entries.push("--no-default-features".to_string());
+        }
+        entries
     }
 
     fn packages(&self, metadata: &Metadata) -> Result<Vec<Package>, Error> {
@@ -779,30 +806,21 @@ impl Cmd {
         });
         new_meta.push(cli_meta_entry);
 
-        // Reproducible-build meta. `rsver` (rustc version) is recorded by
-        // soroban-sdk itself; here we add `bldimg` when --backend docker
-        // was used, and source_repo/source_rev when the workspace was a
-        // clean git checkout.
-        let kvs = [
+        // Reproducible-build meta. Here we add `bldimg` when --backend
+        // docker was used, and source_repo/source_rev when the workspace
+        // was a clean git checkout. `bldopt` is a repeating key whose
+        // values are shell-style flags; producers populate it with
+        // deviations from the SEP's baseline cargo invocation (verifiers
+        // fill in the baseline for absent entries).
+        // (soroban-sdk also embeds an `rsver` of its own; that field is
+        // informational and not used for verification, the rust version
+        // is pinned by `bldimg`.)
+        let single_kvs = [
             ("bldimg", extra.bldimg.as_deref()),
             ("source_repo", extra.source_repo.as_deref()),
             ("source_rev", extra.source_rev.as_deref()),
-            (
-                "bldopt_manifest_path",
-                extra.bldopt_manifest_path.as_deref(),
-            ),
-            ("bldopt_package", extra.bldopt_package.as_deref()),
-            ("bldopt_profile", extra.bldopt_profile.as_deref()),
-            (
-                "bldopt_optimize",
-                if extra.bldopt_optimize {
-                    Some("true")
-                } else {
-                    None
-                },
-            ),
         ];
-        for (k, v) in kvs {
+        for (k, v) in single_kvs {
             let Some(v) = v else { continue };
             let key: StringM = k
                 .to_string()
@@ -810,6 +828,17 @@ impl Cmd {
                 .map_err(|e| Error::MetaArg(format!("{k} is an invalid metadata key: {e}")))?;
             let val: StringM = v
                 .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
+            new_meta.push(ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }));
+        }
+        for v in &extra.bldopt {
+            let key: StringM = "bldopt"
+                .to_string()
+                .try_into()
+                .map_err(|e| Error::MetaArg(format!("bldopt is an invalid metadata key: {e}")))?;
+            let val: StringM = v
+                .clone()
                 .try_into()
                 .map_err(|e| Error::MetaArg(format!("{v} is an invalid metadata value: {e}")))?;
             new_meta.push(ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }));
@@ -912,7 +941,7 @@ impl Cmd {
 }
 
 /// Extra meta entries to embed in the wasm's `contractmetav0` custom section.
-/// `cliver` is always embedded (separately). `rsver` is embedded by soroban-sdk.
+/// `cliver` is always embedded (separately).
 #[derive(Default, Debug, Clone)]
 struct ExtraMeta {
     /// `bldimg`: fully-qualified container image used to build (e.g.
@@ -926,15 +955,11 @@ struct ExtraMeta {
     /// `source_rev`: full SHA of the workspace's git HEAD commit.
     /// Set only when the workspace is a clean git checkout.
     source_rev: Option<String>,
-    /// `bldopt_manifest_path`: package's `Cargo.toml` path relative to the
-    /// git repo root. Set only when the workspace is a clean git checkout.
-    bldopt_manifest_path: Option<String>,
-    /// `bldopt_package`: cargo package name being built.
-    bldopt_package: Option<String>,
-    /// `bldopt_profile`: cargo profile (e.g. `release`).
-    bldopt_profile: Option<String>,
-    /// `bldopt_optimize`: present (with value `true`) iff `--optimize` was used.
-    bldopt_optimize: bool,
+    /// `bldopt`: shell-style build flags that deviate from the SEP's
+    /// baseline default cargo invocation. Each element is one flag (e.g.
+    /// `--profile=release`, `--features=foo,bar`, `--no-default-features`).
+    /// Embedded as a repeating `bldopt` meta key, one entry per element.
+    bldopt: Vec<String>,
 }
 
 enum GitState {

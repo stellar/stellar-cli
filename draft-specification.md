@@ -6,224 +6,177 @@ Title: Soroban Contract Build Reproducibility and Verification
 Author: Leigh McCulloch <@leighmcculloch>
 Status: Draft
 Created: 2026-05-01
-Updated: 2026-05-01
-Version: 0.1.0
+Updated: 2026-05-09
+Version: 0.2.0
 Discussion: TBD
 ```
 
 ## Simple Summary
 
-Standardize the metadata embedded in Soroban contract wasm artifacts so that any third party can reproducibly rebuild a contract from source and verify the on-chain artifact byte-for-byte against the claimed source.
+Define a shared vocabulary for the build environment information needed to reproduce a Soroban contract's wasm bytes from source. The vocabulary is a small set of named fields with stable meanings; this SEP does not prescribe how the fields are produced, stored, or consumed.
 
-This SEP describes a *rebuild-based* verification path. It is complementary to [SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md), which describes an *attestation-based* path (relying on signed evidence from a trusted CI environment instead of an independent rebuild). The two approaches address the same trust question with different operational and trust trade-offs; a single wasm can carry meta supporting either, both, or neither.
+Complementary to [SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md), which uses signed CI attestations instead of independent rebuild. The two address the same trust question with different trade-offs and can coexist on the same contract.
 
 ## Dependencies
 
-- [SEP-46](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0046.md) — Contract Meta. Defines the `contractmetav0` Wasm custom section that this SEP populates with reproducibility entries.
-- [SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md) — Soroban Smart Contracts Build Verification (informative). Defines an attestation-based verification mechanism. SEP-55 also defines a `source_repo` meta key.
+- [SEP-46](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0046.md): Contract Meta. Defines the `contractmetav0` Wasm custom section that this SEP's fields can be embedded in (one of several possible storage venues).
+- [SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md): Soroban Smart Contracts Build Verification (informative). Defines an attestation-based verification mechanism. SEP-55 also defines a `source_repo` field.
 
 ## Motivation
 
-Today, when a contract is deployed to mainnet, the on-chain artifact is opaque bytes. A user wishing to evaluate the contract has no programmatic way to confirm that those bytes were built from a particular source tree. Anyone *can* rebuild a contract and compare hashes, but the build environment — host OS, container image, rust toolchain version, cargo features, profile, manifest path — is not recorded anywhere on-chain or in the wasm itself. Without a standard set of inputs to the rebuild, two well-intentioned verifiers can produce different bytes from the same source and reach different conclusions.
+Today, when a contract is deployed to mainnet, the on-chain artifact is opaque bytes. A user wishing to evaluate the contract has no programmatic way to confirm that those bytes were built from a particular source tree. Anyone *can* rebuild a contract and compare hashes, but the build environment required to reproduce a build (host OS, container image, the toolchain inside it) is not well defined and is not recorded anywhere. Without a standard vocabulary about what is required to reproduce a build, two well-intentioned verifiers do not have a shared understanding for how to build the same source to reach the same conclusion.
 
-This SEP closes that gap by:
-
-1. Defining a stable set of meta entries that build tooling embeds in every reproducible build — enough information that a verifier can stand up a matching build environment.
-2. Defining a deterministic verification algorithm — rebuild from the recorded environment, sha256, compare.
-
-[SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md) addresses the same trust question via a different mechanism: the build CI signs an attestation, and verifiers check the attestation rather than rebuilding. Rebuild-based verification (this SEP) requires no trust in a particular CI but demands a deterministic build environment; attestation-based verification (SEP-55) accepts trust in the attesting CI but demands no rebuild. The two are not mutually exclusive — a builder can publish meta supporting both, and a verifier can pick whichever path best fits their threat model.
+[SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md) addresses the same trust question via a different mechanism: the build CI signs an attestation, and verifiers check the attestation rather than rebuilding. The vocabulary defined here supports rebuild-based verification (no trust in a particular CI, but a deterministic build environment is required), while SEP-55 supports attestation-based verification (trust in the attesting CI, but no rebuild). The two are not mutually exclusive; a contract can carry meta supporting both, and verifiers pick whichever path best fits their threat model.
 
 ## Abstract
 
-A reproducible Soroban contract build embeds a set of meta entries in the wasm's `contractmetav0` custom section — the toolchain version (`rsver`), the build cli's identity (`cliver`), the container image used (`bldimg`), the source repository and commit (`source_repo`, `source_rev`), and the per-package build options (`bldopt_*`). A verifier reads those entries, reconstructs the build environment, rebuilds, and compares the resulting wasm's sha256 to the original. This SEP defines the entries and the algorithm; it does not prescribe specific tooling.
+This SEP defines and demonstrates:
+
+1. The build environment information that must be known to reliably reproduce a build.
+1. A set of meta entries that contracts can embed to communicate that build information.
+1. A set of meta entries that contracts can embed to communicate the source identity.
+1. How those values can be used to prepare reproducible builds with today's tooling.
+
+Altogether these things are what a third party needs to reproduce the wasm bytes.
+
+This SEP should inspire tooling such as the [stellar-cli] to automate this process, block explorers to display verification outcomes, and the creation of verification registries.
+
+[stellar-cli]: https://github.com/stellar/stellar-cli
 
 ## Specification
 
-### 1. Build meta entries
+The vocabulary has two groups: §1 captures *how* the contract was built, §2 captures *what was built*. Each field has a stable name and a value format; producers SHOULD use these names verbatim so consumers can interpret them uniformly across storage venues. Values are ASCII strings; values that fail their format regex are not conformant.
 
-A reproducible build embeds the following entries in the wasm's `contractmetav0` custom section. Each entry is a `ScMetaEntry::ScMetaV0` with a UTF-8 `key` and UTF-8 `val`. Values that fail their format regex below are not considered conformant.
+### 1. Build environment fields
 
-The `required` column indicates whether an entry must be present to claim a given build class (see §2). "Optional" entries are never required by this SEP, but are recommended where applicable because they enable additional verification paths.
+These fields describe the environment in which the wasm was compiled. They are the inputs a verifier needs to set up a matching environment before rebuilding.
 
-| key | required | description | format regex |
-|---|---|---|---|
-| `cliver` | Class A & B | Build cli version + git rev. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?#([0-9a-f]{40}(-dirty)?)?$` |
-| `rsver` | Class A & B | Resolved rustc version used for the build. | `^\d+\.\d+\.\d+(-[A-Za-z0-9.+-]+)?$` |
-| `bldimg` | Class A only | Fully-qualified container image used for the build, pinned by digest. Absent for host-local (Class B) builds. | `^[^@\s]+@sha256:[0-9a-f]{64}$` |
-| `source_repo` | Optional | HTTPS URL of the source repository's origin. Recorded when the build tooling can determine it (e.g. a clean git checkout with an `origin` remote); enables self-served verification (the verifier fetches source from this URL). May be absent when source is delivered through another channel — see Appendix A.3. | `^https?://\S+$` |
-| `source_rev` | Optional | Full 40-char SHA-1 of the source commit (`HEAD`). Recorded under the same conditions as `source_repo`. | `^[0-9a-f]{40}$` |
-| `bldopt_manifest_path` | Class A & B | Path to the package's `Cargo.toml` relative to the repository root. | `^([^/\s]+/)*Cargo\.toml$` |
-| `bldopt_package` | Class A & B | Cargo package name being built. | `^[A-Za-z][A-Za-z0-9_-]*$` |
-| `bldopt_profile` | Class A & B | Cargo profile (e.g. `release`). | `^[A-Za-z][A-Za-z0-9_-]*$` |
-| `bldopt_optimize` | Optional | Present and equal to `true` iff post-build wasm optimization (`wasm-opt`) was applied. | `^true$` |
+| key | description | format regex |
+|---|---|---|
+| `bldimg` | Fully-qualified container image used for the build, pinned by digest. The image bundles the rust toolchain and any other build-time dependencies, so pinning the image transitively pins the toolchain. The digest MUST reference a single-architecture manifest, not a multi-arch manifest list (a.k.a. fat manifest); a multi-arch digest resolves to different concrete images depending on the puller's host architecture, which defeats the pin. An optional tag MAY appear before the digest (e.g. `repo/image:tag@sha256:...`) but is informational; the digest alone determines what is pulled. | `^[^@\s:]+(?::[^@\s]+)?@sha256:[0-9a-f]{64}$` |
+| `bldopt` | A single shell-style flag passed to the build command (e.g. `--profile=release`, `--features=foo,bar`, `--no-default-features`). The entry MAY appear multiple times, once per flag. The order of entries is not significant. | `^--[A-Za-z][A-Za-z0-9_-]*(=.+)?$` |
 
-Tooling may inject additional, application-specific entries; verifiers ignore unrecognized keys.
+`bldimg` has no default; when absent it must be supplied externally to make a rebuild possible.
 
-### 2. Build classes
+`bldopt` entries describe how the build command was invoked, interpreted relative to a baseline default `stellar contract build` invocation for the cli version in `bldimg`: cargo profile `release`, no extra features, the workspace's sole cdylib package, root `Cargo.toml`, `--target=wasm32v1-none`, `--locked`, and post-build wasm-opt. Producers SHOULD record only flags that *deviate* from this baseline; verifiers replay the recorded flags. This lets the vocabulary cover any flag the build command supports without the SEP enumerating them, so new flags require no spec revision.
 
-A wasm's reproducibility class is determined by the build-environment meta entries present. Source-delivery entries (`source_repo`, `source_rev`) are recommended but not required for any class — they enable self-served verification (the verifier fetches source from the recorded URL); when they are absent, source must be supplied to the verifier through another channel (e.g. uploaded to a verification registry; see Appendix A.3).
+The build environment fields are not expected to evolve.
 
-- **Class A — container-pinned**: all of `cliver`, `rsver`, `bldimg`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant. The build is reproducible to the bytes of `bldimg`'s pulled image content; verification produces identical bytes on any host with a working docker daemon and access to the registry.
-- **Class B — host best-effort**: all of `cliver`, `rsver`, `bldopt_manifest_path`, `bldopt_package`, `bldopt_profile` are present and conformant; `bldimg` is absent. The build was performed on the host with a non-containerized toolchain. Verification is best-effort and may produce different bytes on different hosts due to environment differences not captured in meta.
-- **Class C — non-reproducible from meta alone**: any required entry above is absent. Verification cannot be self-served from the wasm's meta. The wasm may still be verifiable through a path where the verifier obtains the missing parameters from another source (e.g. supplied by the user at submission time; see §3 and Appendix A.3) — this is the typical path for contracts deployed before this SEP, or with tooling that did not populate the meta fields.
+### 2. Source identification fields
 
-Tooling deploying to mainnet should warn when a wasm is Class B or C, and may additionally warn when `source_repo` / `source_rev` are absent (since that limits the verification paths available to consumers).
+These fields identify the source tree the wasm was built from. Producers SHOULD pick whichever combination best matches how their source is distributed; a wasm MAY carry more than one. Verifiers MAY support any subset of these mechanisms; a verifier that, say, only handles `source_repo`+`source_rev` is still conformant for the wasms it can verify.
 
-### 3. Verification algorithm
+| key | description | format regex |
+|---|---|---|
+| `source_repo` | HTTPS URL of the source repository (typically the origin remote). | `^https?://\S+$` |
+| `source_rev` | Full 40-char SHA-1 of the source commit. | `^[0-9a-f]{40}$` |
+| `tarball_url` | URL where the source tarball can be downloaded. | `^https?://\S+$` |
+| `tarball_sha256` | SHA-256 of the source tarball's bytes. | `^[0-9a-f]{64}$` |
 
-Given an on-chain or offline wasm `W`, a verifier produces a verification result as follows:
+Conformant combinations:
 
-1. Compute `sha256(W)` → `original_hash`.
-2. Parse `W`'s `contractmetav0` section. Extract the entries listed in §1.
-3. Determine the build class per §2. If Class C, verification fails: the wasm carries insufficient meta to be reproduced.
-4. Source acquisition is the verifier's responsibility. The verifier ensures the source tree is available before invoking the rebuild. When `source_repo` and `source_rev` are present, the verifier may fetch the named commit from that URL (self-served verification). When they are absent, source must come from another channel — e.g. uploaded to the verifier (see the verification-registry pattern in Appendix A.3) or already on the verifier's filesystem. This SEP does not mandate a particular source-delivery mechanism.
-5. Reconstruct the build environment:
-   - For Class A: pull `bldimg` (digest-pinned, so deterministic) and run the rebuild inside that container with the source checkout bind-mounted in. The rust toolchain inside the container MUST be the version recorded in `rsver` (e.g. via the `RUSTUP_TOOLCHAIN` environment variable when rustup is the in-image toolchain manager).
-   - For Class B: use the host rust toolchain pinned to `rsver` (e.g. via `cargo +<rsver>` when rustup is the host toolchain manager).
-6. In the reconstructed environment, perform a cargo build of the recorded package. The build MUST:
-   - target `wasm32v1-none`,
-   - use `--locked` (so `Cargo.lock` is honored verbatim),
-   - use the package's `Cargo.toml` at `bldopt_manifest_path`,
-   - target package `bldopt_package`,
-   - use cargo profile `bldopt_profile`,
-   - apply `wasm-opt` post-build optimization iff `bldopt_optimize` is present and equal to `true`,
-   - and otherwise use cargo defaults (no extra features, default dependency resolution, etc.).
-7. Locate the rebuilt wasm artifact for `bldopt_package` and compute its sha256 → `rebuilt_hash`.
-8. Verification succeeds iff `rebuilt_hash == original_hash`.
+- **`source_repo` + `source_rev`**: verifier clones the repo and checks out the named commit. Self-served when the URL is reachable.
+- **`tarball_url` + `tarball_sha256`**: verifier downloads from the URL, verifies the sha256, and extracts. Hash protects against URL drift; URL provides retrieval.
+- **`tarball_url` alone**: verifier downloads from the URL and extracts, trusting the host to serve the same bytes over time.
+- **`tarball_sha256` alone**: content-addressed. The tarball is identified by hash and obtained by whatever means the verifier has access to (e.g. an out-of-band registry or content-addressable store). No retrieval channel is specified.
 
-In a workspace with multiple cdylib packages, a verifier MAY rebuild all packages and search for any rebuilt artifact whose hash matches `original_hash`; this accommodates cases where the recorded `bldopt_package` cannot be honored verbatim.
+The source identification fields are expected to evolve as new storage mediums for source code are picked up for use.
 
-**Parameter sourcing.** Steps 5–7 require knowing the rust toolchain, the container image (if any), and the per-package build options. By default these are read from the wasm's meta as described in steps 2–3. A verifier MAY also accept these parameters from external sources — typically the user submitting the verification — and use those instead of, or in place of, missing meta. This is the only verification path available for wasms that lack the relevant meta entries (e.g. contracts deployed before this SEP, or with tooling that did not populate the meta fields). When external parameters are used, the verifier SHOULD record which values were used so consumers can evaluate the result's basis. Externally-supplied parameters MUST conform to the same regexes defined in §1.
+### 3. Where these fields live
+
+The vocabulary is independent of storage. The same field names and meanings apply whether the values are:
+
+- Embedded in the contract's `contractmetav0` custom section (per [SEP-46](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0046.md)): on-wasm, useful when metadata travels with the artifact.
+- Stored in an on-chain registry contract that maps contract id (or wasm hash) to these fields: useful for retrofitting metadata onto already-deployed contracts.
+- Held in an off-chain database, verification service, or community registry: useful for contracts deployed before this SEP, or when on-wasm metadata isn't desired.
+
+Tooling MAY combine venues; verifiers fetch fields from wherever they're available, and the deployed wasm bytes are unaffected by where the metadata lives.
 
 ## Limitations
 
-- This SEP makes the *build* reproducible. It does not make the *source* trustworthy. Verification proves the deployed bytes match a particular source tree; whether that source is correct, audited, or non-malicious is an orthogonal concern.
-- Class B (host best-effort) verification is environment-dependent. Two verifiers may legitimately disagree.
-- Verifiers depend on the integrity of the docker image registry hosting `bldimg` and on the integrity of the source host (`source_repo`). Compromise of either invalidates the verification.
-- The current `cliver` regex permits three legacy install-path renderings (clean sha, dirty sha, empty rev). A future revision of this SEP will narrow that regex once cli build tooling normalizes the rendering.
+- This SEP defines a vocabulary, and a mechanism, not a complete implementation.
+- It captures the build environment and source identity, not whether the source itself is trustworthy, audited, or non-malicious; that is an orthogonal concern.
+- Image and source retrieval depend on registries, repos, or tarball hosts whose availability the SEP cannot guarantee. Content-addressed identifiers (`bldimg`'s digest, `tarball_sha256`) protect integrity once the bytes are obtained; obtaining them is the verifier's problem.
 
 ## Design Rationale
 
-**Why digest-pin `bldimg`?** A registry tag is mutable; a content digest is not. A verifier pulling a digest is guaranteed to receive the same bytes the original builder used. Recording a tag would punt the reproducibility question to the registry's mutable state.
+**Why a vocabulary, not an algorithm?** Verification practice is still emerging across CIs, registries, on-chain indexes, and ad-hoc scripts. Locking in one workflow would close off useful directions; a shared vocabulary lets independent implementations interoperate without prescribing how any of them work.
 
-**Why allow Class B at all?** Mandating containers would lock out builders without a working daemon (CI environments without privileged docker, restricted corporate networks, hobbyists on locked-down machines). A best-effort tier with explicit "may not match" semantics is more useful than no record at all, provided consumers understand the tier difference.
+**Why `bldimg`?** A container is the main technical lever that keeps a build reproducible. Without one, the build inherits whatever the host provides (libc, system libraries, env vars, locale, paths), any of which can silently change the output bytes; the same source on two unrelated machines routinely produces different wasm. A container snaps that to a known state and `bldimg` names it. The `bldopt` entries tune the cargo invocation inside; the container itself is what makes the rebuild possible at all.
 
-**Why record `rsver`?** Cargo's wasm output is sensitive to rustc version. Without recording the toolchain, two verifiers on different default toolchains would legitimately produce different bytes from the same source. Recording `rsver` lets each verifier pin to the exact version the original build used (typically via `cargo +<rsver>` on hosts, or `RUSTUP_TOOLCHAIN` inside containers).
+**Why digest-pin `bldimg`?** A registry tag is mutable; a content digest is not. A digest also pins everything in the image (including the rust toolchain), so one field captures the full build-time stack. Variants (e.g. amd64 vs arm64) are different digests, not different fields.
 
-**Why does this SEP not define a verification result format?** Verification is a continuous activity and verifiers vary in audience, storage, and tooling preferences. Mandating a schema would over-constrain implementations whose only obligation, from this SEP's point of view, is to follow §3 faithfully. Verifiers are free to publish however suits them; consumers that aggregate across verifiers can adapt to each verifier's format.
+**Why no explicit rust version field?** The image bundles its rust install, so the digest already pins it; a separate field would be redundant and could drift. The broader principle: builds should rely on software already in the image rather than fetching or installing at build time. Even when the *nominal* version is the same, install processes drift (rustup channel manifests update, mirrors change, installer dependencies move), producing subtly different on-disk installs that compile to different bytes. Verifiers must also prevent in-source toolchain selectors (e.g. `rust-toolchain.toml`) from silently swapping the toolchain mid-build, typically by exporting `RUSTUP_TOOLCHAIN` to the image's default before invoking cargo.
 
-**Why have both this SEP and SEP-55?** They answer overlapping but distinct questions. SEP-55 (attestation-based) answers "did a particular trusted CI compile this wasm from this source?" — useful when the verifier is willing to trust the CI provider's signing infrastructure and wants to skip the cost of rebuilding. This SEP (rebuild-based) answers "does this source, compiled with the recorded environment, produce these exact bytes?" — useful when the verifier wants no third-party trust assumption beyond the source host and the container image registry. A wasm that carries meta supporting both gives consumers maximum flexibility; a verifier picks the path matching their threat model.
+**Why a single repeating `bldopt` rather than per-flag fields?** Build commands have many flags and gain new ones over time. A field per flag bloats the spec and forces a revision for each. A repeating shell-flag field reuses the build command's own vocabulary as the schema: producers record what they passed, verifiers replay what they read, the SEP enumerates nothing. Defaults are described once as a baseline; only deviations are recorded, keeping typical wasms compact.
 
-**Source-repo format alignment with SEP-55.** SEP-55 defines `source_repo` as `github:<user>/<repo>`. This SEP defines it as an HTTPS URL — the form already produced by existing build tooling. Both SEPs are draft and a future revision should converge on a single format (or define independent keys) to avoid ambiguity. Until then, tooling consuming `source_repo` should be tolerant of either form and able to derive a clone URL from each.
+**Why multiple alternative source-identification combinations?** Contract developers store and distribute their code in different ways: git, tarballs, content-addressable stores. Some can't expose source publicly at all (initially private during pre-launch review, permanently restricted to auditors, or hosted on something other than git/GitHub). The content-addressed `tarball_sha256` form covers these cases: the hash commits to specific source bytes without naming a retrieval channel, so an auditor with the bytes can verify while the public sees only the hash.
 
-**Why `bldopt_*` per-field rather than a single struct?** Meta entries are flat key-value strings. Encoding a struct (e.g. JSON) in a single value is opaque to consumers that just want one field; flat keys are inspectable with grep.
+**Source-repo format alignment with SEP-55.** SEP-55 defines `source_repo` as `github:<user>/<repo>`; this SEP defines it as an HTTPS URL. Both are draft and a future revision should converge. Until then, tooling consuming `source_repo` should be tolerant of either form.
+
+**Why have both this SEP and SEP-55?** They answer overlapping but distinct questions. SEP-55 (attestation-based) asks "did a particular trusted CI compile this wasm?", useful when the verifier trusts the CI's signing infrastructure and wants to skip rebuilding. This SEP (vocabulary-based) provides what's needed to actually rebuild and compare bytes. A contract carrying both gives consumers maximum flexibility.
 
 ## Security Concerns
 
-- **Source-host trust.** `source_repo` is a URL the verifier fetches from; a compromised host (or an attacker between verifier and host) can serve a different commit at the recorded `source_rev`. SHA-1 collisions in git are not considered practical at the time of writing but verifiers SHOULD prefer hosts that publish signed tags or commit signatures where available.
-- **Container-image trust.** A digest pin is integrity-protective only as long as the digest references a valid manifest at the registry. Registry compromise (or image deletion) breaks verification.
-- **Verifier compromise.** A verifier can publish false-positive attestations. Consumers SHOULD weigh attestations by verifier reputation and aggregate from multiple independent verifiers.
-- **Verifier non-determinism.** A verifier MUST itself be reproducible (pinned cli version, pinned base OS). A drifting verifier produces noise that consumers cannot distinguish from genuine build divergence.
-- **Meta tampering.** A malicious builder could publish a wasm with deceptive `source_repo`/`source_rev` claims that don't reproduce. Verification's value is precisely catching this case — a non-matching rebuild is a positive signal that the meta is wrong.
-- **What this does not protect against.** This SEP says nothing about the soundness of the source itself. Verified builds are necessary but not sufficient for trust.
+- **Image trust.** A digest pin protects integrity but not honesty: a malicious image can emit attacker-chosen bytes from any source. Verifiers SHOULD restrict `bldimg` to an allowlist of independently vetted images rather than trust arbitrary digests.
+- **Source-host trust.** With `source_repo` + `source_rev`, the host can serve a different commit at the recorded SHA-1 or rewrite history. Tarball-based identification (`tarball_sha256`) sidesteps this by content-addressing the source bytes; the URL becomes a retrieval hint rather than a trust anchor.
+- **Verifier honesty.** A verifier can publish false-positive results. Consumers SHOULD weigh results by verifier reputation and aggregate across independent verifiers.
+- **Verifier non-determinism.** A verifier's own toolchain is itself part of the rebuild environment. A drifting verifier produces noise indistinguishable from genuine build divergence; verifiers SHOULD pin and disclose their own environment.
+- **What this does not protect against.** The vocabulary only enables a third party to confirm that some specific source produces some specific bytes in some specific environment. It says nothing about whether that source is correct or non-malicious.
+
+## Appendix A: Reproducible build with `docker.io/stellar/stellar-cli`
+
+This appendix shows one way to produce a wasm with the vocabulary fields embedded, using `docker.io/stellar/stellar-cli`. Any image with a working rust toolchain and `stellar` as the entrypoint works the same way.
+
+**Pin the image to a digest.** A reproducible build needs a content digest, not a mutable tag. The digest can be read from Docker Hub: visit the [stellar/stellar-cli tags page](https://hub.docker.com/r/stellar/stellar-cli/tags) and copy the digest next to the desired tag and architecture. Pick the single-arch digest, not the multi-arch manifest list digest at the top of the tag entry; per §1, `bldimg` must reference a single-arch manifest.
+
+```
+$ IMAGE=docker.io/stellar/stellar-cli:26.0.0@sha256:cb2fc31...
+```
+
+**Resolve the image's rust toolchain.** Read the toolchain name from the image so it can be passed back in as `RUSTUP_TOOLCHAIN`. Without this, a `rust-toolchain.toml` in the source could cause rustup to silently switch toolchains mid-build, defeating the image pin.
+
+```
+$ RUSTUP_TOOLCHAIN=$(docker run --rm --entrypoint rustup "$IMAGE" default | cut -d' ' -f1)
+$ echo "$RUSTUP_TOOLCHAIN"
+1.85.0-x86_64-unknown-linux-gnu
+```
+
+**Build.** Bind-mount the source at `/source` and invoke `stellar contract build`, recording the vocabulary fields with `--meta`. Pass `RUSTUP_TOOLCHAIN` through with `-e` so rustup uses the image's toolchain.
+
+```
+$ docker run --rm -v "$PWD:/source" -e RUSTUP_TOOLCHAIN "$IMAGE" \
+    contract build \
+      --manifest-path=contracts/foo/Cargo.toml \
+      --optimize \
+      --meta bldimg="$IMAGE" \
+      --meta bldopt=--manifest-path=contracts/foo/Cargo.toml \
+      --meta bldopt=--optimize \
+      --meta source_repo=https://github.com/user/my-contract \
+      --meta source_rev=abc1234567890abcdef1234567890abcdef12345
+```
+
+The wasm under `target/wasm32v1-none/release/` carries those `--meta` entries in its `contractmetav0` section, plus a `bldopt` entry for each flag deviating from the baseline in §1.
+
+**Verify.** A verifier reads the recorded fields and constructs a matching `docker run`.
+
+```
+$ stellar contract info meta --wasm original.wasm
+ℹ️ Loading contract spec from file...
+Contract meta:
+ • rsver: 1.85.0 (Rust version)
+ • rssdkver: 26.0.0#abc1234... (Soroban SDK version and its commit hash)
+ • cliver: 26.0.0#def5678...
+ • bldimg: docker.io/stellar/stellar-cli@sha256:cb2fc3...
+ • bldopt: --manifest-path=contracts/foo/Cargo.toml
+ • bldopt: --optimize
+ • source_repo: https://github.com/user/my-contract
+ • source_rev: abc1234567890abcdef1234567890abcdef12345
+```
+
+The verifier obtains the source (here, by cloning `source_repo` and checking out `source_rev`) and re-runs the same `docker run` with the recorded `bldimg`, passing every recorded field back through `--meta` so the rebuilt `contractmetav0` section is byte-identical. Comparing `sha256` of the rebuilt wasm to the original is the verification result.
 
 ## Changelog
 
+* `v0.2.0` - Revised to focus on the build environment information.
 * `v0.1.0` - Initial draft.
-
-## Appendix A: Example Implementations
-
-The following implementations demonstrate the spec in practice. They are illustrative, not normative — any tool that produces conformant meta and any verifier that follows §3 satisfies this SEP.
-
-### A.1. `stellar` CLI (build and verify)
-
-The Stellar Development Foundation's `stellar` command-line tool implements both meta-embedding (at build time) and the §3 verification algorithm (via a `verify` subcommand).
-
-**Producing a Class A wasm:**
-
-```
-$ stellar contract build --backend docker
-ℹ Pulling from stellar/stellar-cli
-   Digest: sha256:cb2fc3...
-ℹ contract build --manifest-path /source/contracts/foo/Cargo.toml --profile release --locked --meta bldimg=docker.io/stellar/stellar-cli@sha256:cb2fc3...
-   Compiling foo v…
-✅ Build Complete
-
-$ stellar contract info meta --wasm target/wasm32v1-none/release/foo.wasm
-cliver=26.0.0#abc1234567890abcdef1234567890abcdef12345
-rsver=1.83.0
-bldimg=docker.io/stellar/stellar-cli@sha256:cb2fc3...
-source_repo=https://github.com/user/my-contract
-source_rev=abc1234567890abcdef1234567890abcdef12345
-bldopt_manifest_path=contracts/foo/Cargo.toml
-bldopt_package=foo
-bldopt_profile=release
-```
-
-**Verifying a deployed contract:**
-
-```
-$ stellar contract build verify --contract-id CXXX… --network mainnet
-ℹ Loading contract from network...
-ℹ Loading meta from contract...
-   Original wasm hash: 9f86d081…
-   stellar-cli version: 26.0.0#abc1234…
-   rust version: 1.83.0
-   Docker image: docker.io/stellar/stellar-cli@sha256:cb2fc3...
-   Manifest path: contracts/foo/Cargo.toml
-   Package: foo
-   Profile: release
-ℹ contract build --manifest-path /source/contracts/foo/Cargo.toml --profile release --locked --meta bldimg=...
-   Compiling foo v…
-✅ Build Complete
-✅ Verified: rebuilt foo wasm matches 9f86d081…
-```
-
-In the docker case, the `verify` subcommand pulls `bldimg` and runs the build inside it, setting `RUSTUP_TOOLCHAIN=<rsver>` so the in-container rust matches the recorded version. In the local case, it invokes `cargo +<rsver>` against the host toolchain.
-
-### A.2. CI-driven verification at scale (`contract-verifications`)
-
-The `stellar-experimental/contract-verifications` repository ([link](https://github.com/stellar-experimental/contract-verifications)) is one example of running §3 in CI. It runs a daily GitHub Actions job that walks an upstream wasm corpus, performs §3 against each entry using `stellar contract build verify`, and publishes per-wasm JSON records under version control.
-
-A minimal sketch of the same pattern:
-
-```yaml
-name: verify
-on:
-  schedule: [{ cron: '0 6 * * *' }]
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: curl -sSf https://soroban.stellar.org/install | sh
-      - run: |
-          for wasm in wasms/*.wasm; do
-            hash=$(sha256sum "$wasm" | cut -d' ' -f1)
-            test -f "results/$hash.json" && continue   # idempotency
-            stellar contract build verify --wasm "$wasm" \
-              | tee "results/$hash.json"
-          done
-      - run: git add results/ && git commit -m "verify run" && git push
-```
-
-A verifier following this pattern in production should:
-
-- pin their own verifier-tool version so their results are themselves reproducible, and disclose that version alongside each result;
-- record the original wasm sha256, the rebuilt sha256, and the verification outcome at a minimum;
-- avoid mutating published results — re-running a verification produces a new record rather than overwriting an existing one;
-- skip wasms already verified by the same verifier at the same tool version (idempotency).
-
-The choice of storage, scheduling, and record format is left to the verifier; conformance to §3 is the only thing that makes results comparable across verifiers.
-
-### A.3. Verification registry (user-supplied source and parameters)
-
-A verification registry is a service that accepts submissions from end users — at minimum a contract id or wasm hash, plus whatever source and build parameters the wasm doesn't already carry — runs §3 against each submission, and exposes the result via an API.
-
-Source delivery is flexible: the registry MAY fetch source from `source_repo` at `source_rev` when those entries are present in the wasm's meta, OR accept source uploaded directly by the submitter, OR a mix (e.g. fetch from a recorded URL but allow the submitter to override). Build parameters not present in the meta can likewise be supplied by the submitter, exercising the parameter-sourcing path described at the end of §3. A registry can therefore verify:
-
-- Wasms with full reproducibility meta — registry fetches source from the recorded URL and uses meta-supplied parameters; submitter only triggers the verification.
-- Wasms missing `source_repo` / `source_rev` — submitter provides source via upload; registry uses meta-supplied parameters.
-- Wasms missing build-environment meta entirely (Class C) — submitter provides source *and* the build parameters (e.g. by filling in a form: rust version, image, profile, manifest path). This is the typical path for contracts deployed before this SEP, or built with tooling that didn't populate meta.
-
-This pattern is well-established on other chains, where source-upload registries are the predominant verification path.
