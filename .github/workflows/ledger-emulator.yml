@@ -34,6 +34,9 @@ jobs:
       CI_TESTS: true
       TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '--test-threads=1' || '' }} # macOS has limited resources, so we run tests (that rely on `testcontainers`) with 1 thread
     steps:
+      - uses: stellar/quickstart@main
+        with:
+          tag: future
       - uses: actions/checkout@v6
 
       - uses: stellar/actions/rust-cache@main
@@ -66,6 +69,8 @@ jobs:
       - name: install optional dependencies (Linux only)
         run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
         if: runner.os == 'Linux'
+
+      - run: RUST_BACKTRACE=1 make build-test-wasms
 
       - run: RUST_BACKTRACE=1 cargo test --manifest-path cmd/crates/stellar-ledger/Cargo.toml --features "emulator-tests" -- --nocapture $TEST_THREADS
 
