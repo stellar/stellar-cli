@@ -65,7 +65,7 @@ pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");
-    std::fs::write(file, serde_json::to_string(&data)?)?;
+    crate::config::locator::write_hardened_file(&file, serde_json::to_string(&data)?.as_bytes())?;
     Ok(id)
 }
 
@@ -82,7 +82,7 @@ pub fn write_spec(hash: &str, spec_entries: &[xdr::ScSpecEntry]) -> Result<(), E
     for entry in spec_entries {
         contents.extend(entry.to_xdr(xdr::Limits::none())?);
     }
-    std::fs::write(file, contents)?;
+    crate::config::locator::write_hardened_file(&file, &contents)?;
     Ok(())
 }
 

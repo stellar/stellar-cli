@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{self},
-    io::{stdin, Cursor, IsTerminal, Write},
+    io::{stdin, Cursor, IsTerminal},
     path::PathBuf,
     process::{self},
 };
@@ -82,21 +82,12 @@ fn tmp_file(contents: &str) -> Result<(TempDir, PathBuf), Error> {
     let path = temp_dir.path().join("edit.json");
 
     #[cfg(unix)]
-    let mut file = {
-        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    {
+        use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(temp_dir.path(), fs::Permissions::from_mode(0o700))?;
-        fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(&path)?
-    };
+    }
 
-    #[cfg(not(unix))]
-    let mut file = fs::File::create(&path)?;
-
-    file.write_all(contents.as_bytes())?;
+    crate::config::locator::write_hardened_file(&path, contents.as_bytes())?;
 
     Ok((temp_dir, path))
 }
