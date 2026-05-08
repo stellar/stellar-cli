@@ -602,6 +602,7 @@ Access info about contracts
 - `meta` — Output the metadata stored in a contract
 - `env-meta` — Output the env required metadata stored in a contract
 - `build` — Output the contract build information, if available
+- `hash` — Output the SHA-256 hash of a contract's Wasm
 
 ## `stellar contract info interface`
 
@@ -734,6 +735,32 @@ If the contract has a meta entry like `source_repo=github:user/repo`, this comma
 - `--wasm <WASM>` — Wasm file path on local filesystem. Provide this OR `--wasm-hash` OR `--contract-id`
 - `--wasm-hash <WASM_HASH>` — Hash of Wasm blob on a network. Provide this OR `--wasm` OR `--contract-id`
 - `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID/alias on a network. Provide this OR `--wasm-hash` OR `--wasm`
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar contract info hash`
+
+Output the SHA-256 hash of a contract's Wasm.
+
+The hash can be computed from a local .wasm file (`--wasm`) or read from a deployed contract (`--id`). The two flags are mutually exclusive.
+
+Stellar Asset Contracts have no Wasm and therefore no hash; using `--id` against a SAC will return an error.
+
+**Usage:** `stellar contract info hash [OPTIONS] <--wasm <WASM>|--contract-id <CONTRACT_ID>>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--wasm <WASM>` — Path to a local .wasm file
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID or alias of a deployed contract
 
 ###### **RPC Options:**
 
