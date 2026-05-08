@@ -14,6 +14,7 @@ use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signatu
 use sha2::{Digest, Sha256};
 
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
+use std::io::{self, BufRead, IsTerminal};
 
 pub mod ledger;
 pub mod validation;
@@ -32,13 +33,15 @@ pub enum Error {
     MissingSignerForAddress { address: String },
     #[error(transparent)]
     TryFromSlice(#[from] std::array::TryFromSliceError),
-    #[error("Signing authorization entries that could be submitted outside the context of the transaction is not supported in the CLI:\n{auth_entry_str}")]
-    NotStrictAuthEntry { auth_entry_str: String },
     #[error("Invalid Soroban authorization entry - {reason}:\n{auth_entry_str}")]
     InvalidAuthEntry {
         reason: String,
         auth_entry_str: String,
     },
+    #[error("An authorization entry requires confirmation, but stdin is not interactive. Rerun with --force to sign anyway.")]
+    AuthEntryRequiresConfirmation,
+    #[error("signing cancelled by user")]
+    AuthRejected,
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
     #[error("Transaction envelope type not supported")]
@@ -69,6 +72,7 @@ pub async fn sign_soroban_authorizations(
     signers: &[Signer],
     signature_expiration_ledger: u32,
     network_passphrase: &str,
+    skip_approval: bool,
 ) -> Result<Option<Transaction>, Error> {
     // Check if we have exactly one operation and it's InvokeHostFunction
     let [op @ Operation {
@@ -85,30 +89,29 @@ pub async fn sign_soroban_authorizations(
     let mut auths_modified = false;
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice() {
-        let mut auth = raw_auth.clone();
         let SorobanAuthorizationEntry {
-            credentials: SorobanCredentials::Address(ref mut credentials),
+            credentials: SorobanCredentials::Address(credentials),
             ..
-        } = auth
+        } = raw_auth
         else {
             // Doesn't need special signing
-            signed_auths.push(auth);
+            signed_auths.push(raw_auth.clone());
             continue;
         };
-        let SorobanAddressCredentials { ref address, .. } = credentials;
+        let SorobanAddressCredentials { address, .. } = credentials;
 
         // Before we attempt to sign, validate the auth entry is strict
-        match validation::classify_auth_invocation(&body.host_function, &auth.root_invocation) {
+        match validation::classify_auth_invocation(&body.host_function, &raw_auth.root_invocation) {
             validation::AuthStyle::Strict => {}
             validation::AuthStyle::NonStrict => {
-                return Err(Error::NotStrictAuthEntry {
-                    auth_entry_str: format_auth_entry(&auth),
-                });
+                if !skip_approval {
+                    confirm_non_strict_authorization(raw_auth)?;
+                }
             }
             validation::AuthStyle::Invalid => {
                 return Err(Error::InvalidAuthEntry {
                     reason: "authorization entry is not expected for the transaction".to_string(),
-                    auth_entry_str: format_auth_entry(&auth),
+                    auth_entry_str: format_auth_entry(raw_auth),
                 });
             }
         }
@@ -134,7 +137,7 @@ pub async fn sign_soroban_authorizations(
         if auth_address_bytes == source_bytes {
             return Err(Error::InvalidAuthEntry {
                 reason: "transaction source account is used as credentials".to_string(),
-                auth_entry_str: format_auth_entry(&auth),
+                auth_entry_str: format_auth_entry(raw_auth),
             });
         }
 
@@ -183,6 +186,28 @@ pub async fn sign_soroban_authorizations(
     }]
     .try_into()?;
     Ok(Some(tx))
+}
+
+fn confirm_non_strict_authorization(auth: &SorobanAuthorizationEntry) -> Result<(), Error> {
+    let print = Print::new(false);
+    print.warnln(
+        "Authorization entry does not match the current contract call, and needs approval:",
+    );
+    print.println(format_auth_entry(auth));
+
+    let stdin = io::stdin();
+    if !stdin.is_terminal() {
+        return Err(Error::AuthEntryRequiresConfirmation);
+    }
+
+    print.warnln("Sign this authorization entry? (y/N)");
+    let mut response = String::new();
+    stdin.lock().read_line(&mut response)?;
+    if response.trim().eq_ignore_ascii_case("y") {
+        Ok(())
+    } else {
+        Err(Error::AuthRejected)
+    }
 }
 
 async fn sign_soroban_authorization_entry(
@@ -532,11 +557,16 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let signed_auth_tx =
-            sign_soroban_authorizations(&tx, &[signer_unused, signer], EXPIRATION_LEDGER, NETWORK)
-                .await
-                .unwrap()
-                .expect("signing modifies the transaction");
+        let signed_auth_tx = sign_soroban_authorizations(
+            &tx,
+            &[signer_unused, signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+        )
+        .await
+        .unwrap()
+        .expect("signing modifies the transaction");
 
         let OperationBody::InvokeHostFunction(body) = &signed_auth_tx.operations[0].body else {
             panic!("expected InvokeHostFunction");
@@ -557,7 +587,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_non_strict_auth_returns_error() {
+    async fn test_non_strict_auth_signs_when_allowed() {
         let signer = local_signer([1u8; 32]);
         let signer_pk = signer_pubkey(&signer);
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
@@ -571,28 +601,19 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
-        assert!(matches!(result, Err(Error::NotStrictAuthEntry { .. })));
-    }
+        let signed_auth_tx =
+            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, true)
+                .await
+                .unwrap()
+                .expect("signing modifies the transaction");
 
-    #[tokio::test]
-    async fn test_multiple_entries_with_non_strict_returns_error() {
-        let signer = local_signer([1u8; 32]);
-        let signer_pk = signer_pubkey(&signer);
-        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
-        let contract = [42u8; 32];
-        let other_contract = [99u8; 32];
-
-        let entry = address_auth(ed25519_address(signer_pk), invocation(contract, "hello"));
-        let entry_non_strict = address_auth(
-            ed25519_address(signer_pk),
-            invocation(other_contract, "hello"),
-        );
-        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
-        let tx = build_tx(source, host_fn, vec![entry, entry_non_strict]);
-
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
-        assert!(matches!(result, Err(Error::NotStrictAuthEntry { .. })));
+        let OperationBody::InvokeHostFunction(body) = &signed_auth_tx.operations[0].body else {
+            panic!("expected InvokeHostFunction");
+        };
+        let SorobanCredentials::Address(creds) = &body.auth[0].credentials else {
+            panic!("expected Address credentials");
+        };
+        assert!(!matches!(creds.signature, ScVal::Void));
     }
 
     #[tokio::test]
@@ -606,7 +627,8 @@ mod tests {
         let host_fn = HostFunction::UploadContractWasm(wasm);
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
+        let result =
+            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, false).await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
@@ -621,7 +643,8 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK).await;
+        let result =
+            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, false).await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
@@ -635,7 +658,7 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[], EXPIRATION_LEDGER, NETWORK).await;
+        let result = sign_soroban_authorizations(&tx, &[], EXPIRATION_LEDGER, NETWORK, false).await;
         assert!(matches!(result, Err(Error::MissingSignerForAddress { .. })));
     }
 

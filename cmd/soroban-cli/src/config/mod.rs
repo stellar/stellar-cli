@@ -154,10 +154,14 @@ impl Args {
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
-        Ok(
-            signer::sign_soroban_authorizations(tx, signers, seq_num, &network.network_passphrase)
-                .await?,
+        Ok(signer::sign_soroban_authorizations(
+            tx,
+            signers,
+            seq_num,
+            &network.network_passphrase,
+            self.sign_with.force,
         )
+        .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {

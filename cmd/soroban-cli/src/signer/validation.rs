@@ -8,11 +8,10 @@ use crate::xdr::{HostFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvoc
 #[derive(Debug, PartialEq, Eq)]
 pub enum AuthStyle {
     /// `root_invocation` matches the host function exactly. Safe to sign:
-    /// the entry is bound to this transaction host function and cannot be replayed.
+    /// the entry is bound to the host function.
     Strict,
-    /// `root_invocation` does not match the host function exactly. Signing this
-    /// could produce a portable authorization that could be submitted
-    /// outside the context of this transaction.
+    /// `root_invocation` does not match the host function exactly. Any transaction                                                                                                                                    
+    /// whose auth tree contains this entry could consume the resulting signature.
     NonStrict,
     /// `root_invocation` is not expected for the host function
     Invalid,

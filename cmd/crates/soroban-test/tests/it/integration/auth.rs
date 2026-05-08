@@ -138,7 +138,26 @@ async fn partial_auth_with_authorized_subcall() {
         .arg(&format!("--subcall={id2}"))
         .assert()
         .failure()
-        .stderr(predicates::str::contains("Signing authorization entries that could be submitted outside the context of the transaction is not supported in the CLI"));
+        .stderr(predicates::str::contains(
+            "An authorization entry requires confirmation",
+        ));
+
+    // with non-source signer and --force - expect success
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source=test")
+        .arg("--id")
+        .arg(&id1)
+        .arg("--force")
+        .arg("--")
+        .arg("partial_auth_sub_auth")
+        .arg("--addr=signer")
+        .arg("--val=hello")
+        .arg(&format!("--subcall={id2}"))
+        .assert()
+        .success()
+        .stdout("\"hello\"\n");
 
     // with source signer - expect success
     sandbox

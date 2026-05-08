@@ -69,6 +69,10 @@ pub struct Args {
         help_heading = HEADING_SIGNING
     )]
     pub sign_with_ledger: bool,
+
+    /// Skip confirmation prompts when signing
+    #[arg(long, help_heading = HEADING_SIGNING)]
+    pub force: bool,
 }
 
 impl Args {
