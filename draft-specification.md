@@ -68,7 +68,7 @@ These fields identify the source tree the wasm was built from. Producers SHOULD 
 
 | key | description | format regex |
 |---|---|---|
-| `source_repo` | HTTPS URL of the source repository (typically the origin remote). | `^https?://\S+$` |
+| `source_repo` | HTTPS URL of the source repository (typically the origin remote). The `github:<user>/<repo>` shorthand defined by SEP-55 is also accepted so consumers can read values produced under SEP-55; the HTTPS URL form is preferred for new wasms. | `^(https?://\S+\|github:[^/\s]+/[^/\s]+)$` |
 | `source_rev` | Full 40-char SHA-1 of the source commit. | `^[0-9a-f]{40}$` |
 | `tarball_url` | URL where the source tarball can be downloaded. | `^https?://\S+$` |
 | `tarball_sha256` | SHA-256 of the source tarball's bytes. | `^[0-9a-f]{64}$` |
@@ -79,6 +79,8 @@ Conformant combinations:
 - **`tarball_url` + `tarball_sha256`**: verifier downloads from the URL, verifies the sha256, and extracts. Hash protects against URL drift; URL provides retrieval.
 - **`tarball_url` alone**: verifier downloads from the URL and extracts, trusting the host to serve the same bytes over time.
 - **`tarball_sha256` alone**: content-addressed. The tarball is identified by hash and obtained by whatever means the verifier has access to (e.g. an out-of-band registry or content-addressable store). No retrieval channel is specified.
+
+When `source_repo` resolves to a GitHub repository, consumers implementing this SEP benefit from also implementing [SEP-55](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0055.md): they can look up and link to a build attestation for the wasm, surfacing an attestation-based result alongside the rebuild-based one.
 
 The source identification fields are expected to evolve as new storage mediums for source code are picked up for use.
 
@@ -112,7 +114,7 @@ Tooling MAY combine venues; verifiers fetch fields from wherever they're availab
 
 **Why multiple alternative source-identification combinations?** Contract developers store and distribute their code in different ways: git, tarballs, content-addressable stores. Some can't expose source publicly at all (initially private during pre-launch review, permanently restricted to auditors, or hosted on something other than git/GitHub). The content-addressed `tarball_sha256` form covers these cases: the hash commits to specific source bytes without naming a retrieval channel, so an auditor with the bytes can verify while the public sees only the hash.
 
-**Source-repo format alignment with SEP-55.** SEP-55 defines `source_repo` as `github:<user>/<repo>`; this SEP defines it as an HTTPS URL. Both are draft and a future revision should converge. Until then, tooling consuming `source_repo` should be tolerant of either form.
+**Source-repo format alignment with SEP-55.** SEP-55 defines `source_repo` as `github:<user>/<repo>`; this SEP prefers an HTTPS URL because it generalizes beyond GitHub and names the retrieval channel directly. The shorthand is still accepted so consumers can read values already produced under SEP-55; new producers are encouraged to emit the URL form.
 
 **Why have both this SEP and SEP-55?** They answer overlapping but distinct questions. SEP-55 (attestation-based) asks "did a particular trusted CI compile this wasm?", useful when the verifier trusts the CI's signing infrastructure and wants to skip rebuilding. This SEP (vocabulary-based) provides what's needed to actually rebuild and compare bytes. A contract carrying both gives consumers maximum flexibility.
 
