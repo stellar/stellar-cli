@@ -54,7 +54,7 @@ These fields describe the environment in which the wasm was compiled. They are t
 | key | description | format regex |
 |---|---|---|
 | `bldimg` | Fully-qualified container image used for the build, pinned by digest. The image bundles the rust toolchain and any other build-time dependencies, so pinning the image transitively pins the toolchain. The digest MUST reference a single-architecture manifest, not a multi-arch manifest list (a.k.a. fat manifest); a multi-arch digest resolves to different concrete images depending on the puller's host architecture, which defeats the pin. An optional tag MAY appear before the digest (e.g. `repo/image:tag@sha256:...`) but is informational; the digest alone determines what is pulled. | `^[^@\s:]+(?::[^@\s]+)?@sha256:[0-9a-f]{64}$` |
-| `bldopt` | A single shell-style flag passed to the build command (e.g. `--profile=release`, `--features=foo,bar`, `--no-default-features`). The entry MAY appear multiple times, once per flag. The order of entries is not significant. | `^--[A-Za-z][A-Za-z0-9_-]*(=.+)?$` |
+| `bldopt` | A single shell-style flag passed verbatim as one argument to the build command, as if single-quoted in a shell (e.g. `--profile=release`, `--features=foo,bar`, `--no-default-features`). For flags that take a value, the `=` form keeps the flag and its value in one argument. The entry MAY appear multiple times, once per flag. The order of entries is not significant. | `^--[A-Za-z][A-Za-z0-9_-]*(=.+)?$` |
 
 `bldimg` has no default; when absent it must be supplied externally to make a rebuild possible.
 
