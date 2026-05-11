@@ -243,7 +243,7 @@ impl Cmd {
                     {
                         let print = Print::new(global_args.quiet);
                         print.warnln(format!(
-                            "Overwriting existing alias {alias:?} that currently links to contract ID: {existing_contract}"
+                            "Overwriting existing alias '{alias}' that currently links to contract ID: {existing_contract}"
                         ));
                     }
 
