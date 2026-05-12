@@ -66,7 +66,7 @@ impl UnresolvedMuxedAccount {
     pub fn resolve_muxed_account(
         &self,
         locator: &locator::Args,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<xdr::MuxedAccount, Error> {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),

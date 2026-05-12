@@ -44,7 +44,7 @@ impl UnresolvedScAddress {
         self,
         locator: &locator::Args,
         network_passphrase: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<xdr::ScAddress, Error> {
         let alias = match self {
             UnresolvedScAddress::Resolved(addr) => return Ok(addr),

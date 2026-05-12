@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::Write,
-};
+use std::fs;
 
 use crate::{
+    commands::HEADING_TRANSACTION,
     print::Print,
     signer::{self, Signer},
     utils::deprecate_message,
@@ -59,7 +57,13 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(
+        long,
+        short = 's',
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        help_heading = HEADING_TRANSACTION
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
@@ -75,11 +79,15 @@ pub struct Args {
     pub sign_with: sign_with::Args,
 
     /// ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-    #[arg(long, env = "STELLAR_FEE")]
+    #[arg(long, env = "STELLAR_FEE", help_heading = HEADING_TRANSACTION)]
     pub fee: Option<u32>,
 
     /// Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-    #[arg(long, env = "STELLAR_INCLUSION_FEE")]
+    #[arg(
+        long,
+        env = "STELLAR_INCLUSION_FEE",
+        help_heading = HEADING_TRANSACTION
+    )]
     pub inclusion_fee: Option<u32>,
 }
 
@@ -143,12 +151,10 @@ impl Args {
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
-        Ok(signer::sign_soroban_authorizations(
-            tx,
-            signers,
-            seq_num,
-            &network.network_passphrase,
-        )?)
+        Ok(
+            signer::sign_soroban_authorizations(tx, signers, seq_num, &network.network_passphrase)
+                .await?,
+        )
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
@@ -188,7 +194,7 @@ impl Args {
         .into())
     }
 
-    pub fn hd_path(&self) -> Option<usize> {
+    pub fn hd_path(&self) -> Option<u32> {
         self.sign_with.hd_path
     }
 }
@@ -285,9 +291,8 @@ impl Config {
 
     pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
         let toml_string = toml::to_string(&self)?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path.to_path_buf())?)?;
-        file.write_all(toml_string.as_bytes())?;
+        let path = locator::ensure_directory(path.to_path_buf())?;
+        locator::write_hardened_file(&path, toml_string.as_bytes())?;
         Ok(())
     }
 }

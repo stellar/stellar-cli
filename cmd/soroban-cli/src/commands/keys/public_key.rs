@@ -11,9 +11,6 @@ pub enum Error {
 
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
-
-    #[error("--hd-path {0} is out of range for a Ledger account index")]
-    HdPathOutOfRange(usize),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -26,7 +23,7 @@ pub struct Cmd {
     /// If identity is a seed phrase use this hd path, default is 0.
     /// With --ledger this is the Ledger account index (default 0).
     #[arg(long)]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     /// Derive the address from a connected Ledger hardware wallet at
     /// `m/44'/148'/N'`, where `N` defaults to 0 and can be set with
@@ -46,9 +43,10 @@ impl Cmd {
 
     pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
         if self.ledger {
-            let raw = self.hd_path.unwrap_or(0);
-            let index: u32 = raw.try_into().map_err(|_| Error::HdPathOutOfRange(raw))?;
-            return Ok(ledger::new(index).await?.public_key().await?);
+            return Ok(ledger::new(self.hd_path.unwrap_or_default())
+                .await?
+                .public_key()
+                .await?);
         }
         let name = self
             .name

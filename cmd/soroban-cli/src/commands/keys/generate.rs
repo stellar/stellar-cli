@@ -55,7 +55,7 @@ pub struct Cmd {
     /// `--secure-store` or plain seed-phrase storage it is persisted on the identity
     /// so later commands derive the same account without re-passing the flag.
     #[arg(long)]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub network: network::Args,

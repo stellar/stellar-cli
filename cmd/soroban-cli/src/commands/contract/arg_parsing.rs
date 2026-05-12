@@ -93,25 +93,25 @@ fn running_cmd() -> String {
     format!("{} --", args.join(" "))
 }
 
-pub async fn build_host_function_parameters(
+pub fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true).await
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
 }
 
-pub async fn build_constructor_parameters(
+pub fn build_constructor_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false).await
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false)
 }
 
-async fn build_host_function_parameters_with_filter(
+fn build_host_function_parameters_with_filter(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
@@ -122,7 +122,7 @@ async fn build_host_function_parameters_with_filter(
     let cmd = build_clap_command(&spec, filter_constructor)?;
     let (function, matches_) = parse_command_matches(cmd, slop)?;
     let func = get_function_spec(&spec, &function)?;
-    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config).await?;
+    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
 
     Ok((function, spec, invoke_args, signers))
@@ -187,7 +187,7 @@ fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Er
     })
 }
 
-async fn parse_function_arguments(
+fn parse_function_arguments(
     func: &ScSpecFunctionV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
@@ -197,13 +197,13 @@ async fn parse_function_arguments(
     let mut signers = Vec::<Signer>::new();
 
     for i in func.inputs.iter() {
-        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args).await?;
+        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args)?;
     }
 
     Ok((parsed_args, signers))
 }
 
-async fn parse_single_argument(
+fn parse_single_argument(
     input: &stellar_xdr::curr::ScSpecFunctionInputV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
@@ -234,7 +234,7 @@ async fn parse_single_argument(
             ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
         ) {
             let trimmed_s = s.trim_matches('"');
-            if let Some(signer) = resolve_signer(trimmed_s, config).await {
+            if let Some(signer) = resolve_signer(trimmed_s, config) {
                 signers.push(signer);
             }
         }
@@ -464,10 +464,10 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
+fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
     let print = Print::new(false);
-    let signer = secret.signer(config.hd_path(), print).await.ok()?;
+    let signer = secret.signer(config.hd_path(), print).ok()?;
     Some(signer)
 }
 

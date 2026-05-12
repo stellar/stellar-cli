@@ -6,7 +6,9 @@ use stellar_strkey::ed25519::{PrivateKey, PublicKey};
 
 use crate::{
     print::Print,
-    signer::{self, ledger, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind},
+    signer::{
+        self, ledger::LedgerEntry, secure_store, LocalKey, SecureStoreEntry, Signer, SignerKind,
+    },
     utils,
 };
 
@@ -32,12 +34,8 @@ pub enum Error {
     SecureStoreDoesNotRevealSecretKey,
     #[error(transparent)]
     Ledger(#[from] signer::ledger::Error),
-    #[error(
-        "--hd-path {requested} does not match the path stored on this Ledger identity ({cached})"
-    )]
-    LedgerHdPathMismatch { cached: usize, requested: usize },
-    #[error("--hd-path {0} is out of range for a Ledger account index")]
-    HdPathOutOfRange(usize),
+    #[error("--hd-path is fixed at the time a Ledger identity is added; pass `--ledger --hd-path N` to inspect another path on the device")]
+    LedgerHdPathFixed,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -73,7 +71,7 @@ pub enum Secret {
         // intended account without re-passing the flag. Optional for backwards
         // compatibility with files written before this field existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     },
     // Hardware-wallet identity. The required `hardware` field tags the device
     // kind (currently only `ledger`) and disambiguates this variant under
@@ -84,7 +82,7 @@ pub enum Secret {
         hardware: HardwareKind,
         public_key: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     },
     SecureStore {
         entry_name: String,
@@ -94,7 +92,7 @@ pub enum Secret {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         public_key: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     },
 }
 
@@ -153,7 +151,7 @@ impl From<SeedPhrase> for Secret {
 }
 
 impl Secret {
-    pub fn private_key(&self, index: Option<usize>) -> Result<PrivateKey, Error> {
+    pub fn private_key(&self, index: Option<u32>) -> Result<PrivateKey, Error> {
         Ok(match self {
             Secret::SecretKey { secret_key } => PrivateKey::from_string(secret_key)?,
             Secret::SeedPhrase {
@@ -161,7 +159,7 @@ impl Secret {
                 hd_path,
             } => PrivateKey::from_payload(
                 &sep5::SeedPhrase::from_str(seed_phrase)?
-                    .from_path_index(index.or(*hd_path).unwrap_or_default(), None)?
+                    .from_path_index(index.or(*hd_path).unwrap_or_default() as usize, None)?
                     .private()
                     .0,
             )?,
@@ -172,7 +170,7 @@ impl Secret {
         })
     }
 
-    pub fn public_key(&self, index: Option<usize>) -> Result<PublicKey, Error> {
+    pub fn public_key(&self, index: Option<u32>) -> Result<PublicKey, Error> {
         match self {
             Secret::SecureStore {
                 entry_name,
@@ -186,15 +184,9 @@ impl Secret {
                 }
                 Ok(secure_store::get_public_key(entry_name, effective)?)
             }
-            Secret::Ledger {
-                public_key,
-                hd_path: cached_hd_path,
-                ..
-            } => {
-                let cached = cached_hd_path.unwrap_or_default();
-                let requested = index.unwrap_or(cached);
-                if cached != requested {
-                    return Err(Error::LedgerHdPathMismatch { cached, requested });
+            Secret::Ledger { public_key, .. } => {
+                if index.is_some() {
+                    return Err(Error::LedgerHdPathFixed);
                 }
                 Ok(PublicKey::from_string(public_key)?)
             }
@@ -207,7 +199,7 @@ impl Secret {
         }
     }
 
-    pub async fn signer(&self, hd_path: Option<usize>, print: Print) -> Result<Signer, Error> {
+    pub fn signer(&self, hd_path: Option<u32>, print: Print) -> Result<Signer, Error> {
         let kind = match self {
             Secret::SecretKey { .. } | Secret::SeedPhrase { .. } => {
                 let key = self.key_pair(hd_path)?;
@@ -215,14 +207,16 @@ impl Secret {
             }
             Secret::Ledger {
                 hardware: HardwareKind::Ledger,
+                public_key,
                 hd_path: cached_hd_path,
-                ..
             } => {
-                let effective = hd_path.or(*cached_hd_path).unwrap_or_default();
-                let hd_path: u32 = effective
-                    .try_into()
-                    .map_err(|_| Error::HdPathOutOfRange(effective))?;
-                SignerKind::Ledger(ledger::new(hd_path).await?)
+                if hd_path.is_some() {
+                    return Err(Error::LedgerHdPathFixed);
+                }
+                SignerKind::Ledger(LedgerEntry {
+                    hd_path: cached_hd_path.unwrap_or_default(),
+                    public_key: Some(PublicKey::from_string(public_key)?),
+                })
             }
             Secret::SecureStore {
                 entry_name,
@@ -242,7 +236,7 @@ impl Secret {
         Ok(Signer { kind, print })
     }
 
-    pub fn key_pair(&self, index: Option<usize>) -> Result<ed25519_dalek::SigningKey, Error> {
+    pub fn key_pair(&self, index: Option<u32>) -> Result<ed25519_dalek::SigningKey, Error> {
         Ok(utils::into_signing_key(&self.private_key(index)?))
     }
 
@@ -257,8 +251,8 @@ impl Secret {
 // since the rest of the codebase uses `unwrap_or_default()` for hd_path.
 fn cached_public_key(
     cached: Option<&str>,
-    cached_hd_path: Option<usize>,
-    requested_hd_path: Option<usize>,
+    cached_hd_path: Option<u32>,
+    requested_hd_path: Option<u32>,
 ) -> Option<PublicKey> {
     if cached_hd_path.unwrap_or_default() != requested_hd_path.unwrap_or_default() {
         return None;
@@ -526,32 +520,35 @@ mod tests {
     }
 
     #[test]
-    fn test_ledger_public_key_rejects_mismatched_hd_path() {
-        // Caller asks for a different account index than the one cached on
-        // disk; returning the cached key would leak the wrong address.
+    fn test_ledger_public_key_rejects_caller_hd_path() {
+        // The hd-path on a Ledger alias is fixed at `keys add` time; any
+        // caller-supplied --hd-path should error rather than silently using
+        // the cached value or attempting to override it. Discovery on other
+        // paths goes through `--ledger --hd-path N` instead.
         let secret = Secret::Ledger {
             hardware: HardwareKind::Ledger,
             public_key: TEST_PUBLIC_KEY.to_string(),
             hd_path: Some(5),
         };
         assert!(matches!(
+            secret.public_key(Some(5)).unwrap_err(),
+            Error::LedgerHdPathFixed,
+        ));
+        assert!(matches!(
             secret.public_key(Some(7)).unwrap_err(),
-            Error::LedgerHdPathMismatch {
-                cached: 5,
-                requested: 7
-            },
+            Error::LedgerHdPathFixed,
         ));
     }
 
     #[test]
-    fn test_ledger_public_key_treats_none_and_zero_as_equivalent() {
+    fn test_ledger_public_key_uses_cached_path_when_caller_passes_none() {
         let secret = Secret::Ledger {
             hardware: HardwareKind::Ledger,
             public_key: TEST_PUBLIC_KEY.to_string(),
-            hd_path: None,
+            hd_path: Some(5),
         };
         assert_eq!(
-            secret.public_key(Some(0)).unwrap().to_string(),
+            secret.public_key(None).unwrap().to_string(),
             TEST_PUBLIC_KEY
         );
     }

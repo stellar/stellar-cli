@@ -143,3 +143,22 @@ pub async fn fetch_from_wasm_hash(hash: Hash, network: &Network) -> Result<Vec<u
     let client = network.rpc_client()?;
     Ok(get_remote_wasm_from_hash(&client, &hash).await?)
 }
+
+pub async fn fetch_wasm_hash_from_contract(
+    stellar_strkey::Contract(contract_id): &stellar_strkey::Contract,
+    network: &Network,
+) -> Result<Hash, Error> {
+    tracing::trace!(?network);
+    let client = network.rpc_client()?;
+    client
+        .verify_network_passphrase(Some(&network.network_passphrase))
+        .await?;
+    let data_entry = client.get_contract_data(contract_id).await?;
+    if let ScVal::ContractInstance(contract) = &data_entry.val {
+        return match &contract.executable {
+            ContractExecutable::Wasm(hash) => Ok(hash.clone()),
+            ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+        };
+    }
+    Err(UnexpectedContractToken(Box::new(data_entry)))
+}

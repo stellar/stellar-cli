@@ -647,6 +647,7 @@ async fn get_ledger_metadata_from_archive(
     }
 
     fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+    let _ = crate::config::locator::set_hardened_permissions(&cache_path);
 
     print.clear_previous_line();
     print.globeln(format!("Downloaded ledger headers for ledger {ledger}"));
@@ -760,6 +761,7 @@ async fn cache_bucket(
         }
 
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+        let _ = crate::config::locator::set_hardened_permissions(&cache_path);
     }
     Ok(cache_path)
 }

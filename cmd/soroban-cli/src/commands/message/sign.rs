@@ -5,7 +5,7 @@ use clap::Parser;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    commands::global,
+    commands::{global, HEADING_SIGNING},
     config::{locator, secret},
     print::Print,
     signer::{self, Signer},
@@ -57,12 +57,17 @@ pub struct Cmd {
 
     // @dev: Ledger and Lab don't support signing arbitrary messages yet. Once they do, use `sign_with::Args` here.
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
-    #[arg(long, env = "STELLAR_SIGN_WITH_KEY", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "STELLAR_SIGN_WITH_KEY",
+        hide_env_values = true,
+        help_heading = HEADING_SIGNING
+    )]
     pub sign_with_key: String,
 
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_SIGNING)]
     /// If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub locator: locator::Args,
@@ -80,11 +85,11 @@ impl Cmd {
         let secret = self
             .locator
             .get_secret_key_with_hd_path(key_or_name, self.hd_path)?;
-        let signer = secret.signer(self.hd_path, print.clone()).await?;
+        let signer = secret.signer(self.hd_path, print.clone())?;
         let public_key = signer.get_public_key()?;
 
         // Encode signature as base64
-        let signature_base64 = sep_53_sign(&message_bytes, signer)?;
+        let signature_base64 = sep_53_sign(&message_bytes, signer).await?;
 
         print.infoln(format!("Signer: {public_key}"));
         println!("{signature_base64}");
@@ -121,14 +126,14 @@ impl Cmd {
 /// Sign the given message bytes with the provided signer, returning the base64-encoded signature.
 ///
 /// Expects the message bytes to be the raw message (without SEP-53 prefix).
-fn sep_53_sign(message_bytes: &[u8], signer: Signer) -> Result<String, Error> {
+async fn sep_53_sign(message_bytes: &[u8], signer: Signer) -> Result<String, Error> {
     // Create SEP-53 payload
     let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
     payload.extend_from_slice(SEP53_PREFIX.as_bytes());
     payload.extend_from_slice(message_bytes);
     let hash: [u8; 32] = Sha256::digest(&payload).into();
 
-    let signature = signer.sign_payload(hash)?;
+    let signature = signer.sign_payload(hash).await?;
 
     Ok(BASE64.encode(signature.to_bytes()))
 }
@@ -172,8 +177,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_sign_simple() {
+    #[tokio::test]
+    async fn test_sign_simple() {
         // SEP-53 - test case 1
         let message = "Hello, World!".to_string();
         let expected_signature = "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
@@ -189,13 +194,13 @@ mod tests {
         let signer = build_signer_for_test_key();
 
         let message_bytes = cmd.get_message_bytes().unwrap();
-        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).await.unwrap();
 
         assert_eq!(signature_base64, expected_signature);
     }
 
-    #[test]
-    fn test_sign_japanese() {
+    #[tokio::test]
+    async fn test_sign_japanese() {
         // SEP-53 - test case 2
         let message = "こんにちは、世界！".to_string();
         let expected_signature = "CDU265Xs8y3OWbB/56H9jPgUss5G9A0qFuTqH2zs2YDgTm+++dIfmAEceFqB7bhfN3am59lCtDXrCtwH2k1GBA==";
@@ -211,13 +216,13 @@ mod tests {
         let signer = build_signer_for_test_key();
 
         let message_bytes = cmd.get_message_bytes().unwrap();
-        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).await.unwrap();
 
         assert_eq!(signature_base64, expected_signature);
     }
 
-    #[test]
-    fn test_sign_base64() {
+    #[tokio::test]
+    async fn test_sign_base64() {
         // SEP-53 - test case 3
         let message = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=".to_string();
         let expected_signature = "VA1+7hefNwv2NKScH6n+Sljj15kLAge+M2wE7fzFOf+L0MMbssA1mwfJZRyyrhBORQRle10X1Dxpx+UOI4EbDQ==";
@@ -233,7 +238,7 @@ mod tests {
         let signer = build_signer_for_test_key();
 
         let message_bytes = cmd.get_message_bytes().unwrap();
-        let signature_base64 = sep_53_sign(&message_bytes, signer).unwrap();
+        let signature_base64 = sep_53_sign(&message_bytes, signer).await.unwrap();
 
         assert_eq!(signature_base64, expected_signature);
     }
