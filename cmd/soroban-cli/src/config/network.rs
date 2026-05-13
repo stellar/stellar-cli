@@ -221,7 +221,12 @@ impl Network {
         } else {
             let client = self.rpc_client()?;
             let network = client.get_network().await?;
-            tracing::debug!("network {network:?}");
+            tracing::debug!(
+                "network passphrase={:?} protocol_version={} friendbot_url={:?}",
+                network.passphrase,
+                network.protocol_version,
+                network.friendbot_url.as_deref().map(redact_url),
+            );
             let url = client.friendbot_url().await?;
             tracing::debug!("URL {}", redact_url(&url));
             let mut url = Url::from_str(&url).map_err(|e| {
@@ -727,14 +732,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn helper_url_invalid_friendbot_url_error_redacts_password() {
+    async fn helper_url_returned_credentialed_url_is_redactable_at_display_sinks() {
         // Non-LOCAL passphrase branch: helper_url asks the RPC for the friendbot URL.
-        // We return a credentialed-but-syntactically-invalid friendbot URL so the
-        // subsequent Url::from_str fails and constructs Error::InvalidUrl from the
-        // friendbot string. Even though the URL is unparseable, the friendbot URL
-        // shape we return *is* parseable when run through redact_url's URL parser
-        // (port is in range, host has no whitespace) — a separate concern; here we
-        // just verify the sink runs the value through the helper.
+        // The mocked RPC returns a parseable URL carrying userinfo, so Url::from_str
+        // succeeds and helper_url returns Ok(url). The InvalidUrl branch is therefore
+        // not exercised here — driving it would require an unparseable URL, which by
+        // design leaks unchanged (see PR discussion). This test only documents that
+        // the parseable URL returned from helper_url can be safely run through
+        // redact_url at any subsequent display sink.
         let mut server = Server::new_async().await;
         let _mock = server
             .mock("POST", "/")
@@ -765,19 +770,12 @@ mod tests {
             network_passphrase: passphrase::TESTNET.to_string(),
             rpc_headers: Vec::new(),
         };
-        // helper_url itself returns Ok(url) when the RPC-returned friendbot URL
-        // parses; we just confirm the password survives round-trip into the
-        // returned Url (the leak surface is in the tracing line which we cover
-        // by ensuring redact_url is called there — verified by inspection).
         let returned = network
             .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
             .await
             .expect("helper_url should accept a parseable credentialed friendbot URL");
-        // Sanity: the redaction is only at the display sinks; the actual Url
-        // returned still carries the password (callers need it to authenticate).
+        // The Url returned still carries the password — callers need it to authenticate.
         assert_eq!(returned.password(), Some("supersecret"));
-        // What we DO assert is that running it through redact_url — as the
-        // tracing line will — produces a redacted string.
         let redacted_for_display = redact_url(returned.as_str());
         assert!(
             !redacted_for_display.contains("supersecret"),

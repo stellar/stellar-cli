@@ -132,7 +132,12 @@ impl std::fmt::Display for DatedAction {
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
             Action::Send { response } => response.status.clone(),
         };
-        write!(f, "{id} {} {status} {datetime} {uri} ", a.type_str())
+        write!(
+            f,
+            "{id} {} {status} {datetime} {} ",
+            a.type_str(),
+            redact_url(uri.as_str()),
+        )
     }
 }
 
