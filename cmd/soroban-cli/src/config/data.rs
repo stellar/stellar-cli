@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use url::Url;
 
-use super::network::redact_rpc_url;
+use crate::utils::url::redact_url;
 use crate::xdr::{self, WriteXdr};
 
 #[derive(thiserror::Error, Debug)]
@@ -61,7 +61,7 @@ pub fn bucket_dir() -> Result<std::path::PathBuf, Error> {
 pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     let data = Data {
         action,
-        rpc_url: redact_rpc_url(rpc_url.as_str()),
+        rpc_url: redact_url(rpc_url.as_str()),
     };
     let id = ulid::Ulid::new();
     let file = actions_dir()?.join(id.to_string()).with_extension("json");

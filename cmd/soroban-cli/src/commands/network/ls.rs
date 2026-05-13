@@ -47,7 +47,7 @@ impl Cmd {
 
                 format!(
                     "Name: {name}\nRPC url: {rpc_url}\nRPC headers:{headers}\nNetwork passphrase: {passphrase}",
-                    rpc_url = crate::config::network::redact_rpc_url(&network.rpc_url),
+                    rpc_url = crate::utils::url::redact_url(&network.rpc_url),
                     passphrase = network.network_passphrase,
                 )
             })

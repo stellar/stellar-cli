@@ -9,11 +9,12 @@ use crate::{
     config::{
         self, data,
         locator::{self, KeyType},
-        network::{redact_rpc_url, Network, DEFAULTS as DEFAULT_NETWORKS},
+        network::{Network, DEFAULTS as DEFAULT_NETWORKS},
     },
     print::Print,
     rpc,
     upgrade_check::has_available_upgrade,
+    utils::url::redact_url,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -100,7 +101,7 @@ async fn print_network(
 
     print.globeln(format!(
         "{prefix} {name:?} ({})",
-        redact_rpc_url(&network.rpc_url)
+        redact_url(&network.rpc_url)
     ));
     print.blankln(format!("protocol {}", version_info.protocol_version));
     print.blankln(format!("rpc {}", version_info.version));
@@ -123,7 +124,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
         if print_network(true, print, &name, &network).await.is_err() {
             print.warnln(format!(
                 "Default network {name:?} ({}) is unreachable",
-                redact_rpc_url(&network.rpc_url)
+                redact_url(&network.rpc_url)
             ));
         }
     }
@@ -133,7 +134,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
             if print_network(false, print, name, &network).await.is_err() {
                 print.warnln(format!(
                     "Network {name:?} ({}) is unreachable",
-                    redact_rpc_url(&network.rpc_url)
+                    redact_url(&network.rpc_url)
                 ));
             }
         }
