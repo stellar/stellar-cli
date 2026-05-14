@@ -9,7 +9,7 @@ use crate::commands::contract::invoke::Error::ArgParsing;
 use crate::commands::contract::Error::{Deploy, Invoke};
 use crate::commands::Error::Contract;
 use crate::config::{locator::cli_config_file, Config};
-use crate::print::Print;
+use crate::print::{self, Print};
 use crate::upgrade_check::upgrade_check;
 use crate::{commands, env_vars, Root};
 use std::error::Error;
@@ -43,6 +43,8 @@ pub async fn main() {
             std::process::exit(1);
         }
     });
+
+    print::set_quiet(root.global_args.quiet);
 
     // Now use root to setup the logger
     if let Some(level) = root.global_args.log_level() {

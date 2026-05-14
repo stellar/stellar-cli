@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::sync::OnceLock;
 use std::{env, fmt::Display};
 
 use crate::xdr::{Error as XdrError, Transaction};
@@ -6,6 +7,21 @@ use crate::xdr::{Error as XdrError, Transaction};
 use crate::{
     config::network::Network, utils::explorer_url_for_transaction, utils::transaction_hash,
 };
+
+static QUIET: OnceLock<bool> = OnceLock::new();
+
+/// Record whether `--quiet` was passed on the command line. Called once from
+/// `cli::main` after parsing so resolvers running deep in the call stack can
+/// honor the global flag without it being threaded through every signature.
+pub fn set_quiet(quiet: bool) {
+    let _ = QUIET.set(quiet);
+}
+
+/// Read the recorded `--quiet` flag, defaulting to `false` if [`set_quiet`]
+/// hasn't run yet (e.g. in unit tests that don't go through `cli::main`).
+pub fn is_quiet() -> bool {
+    *QUIET.get().unwrap_or(&false)
+}
 
 #[derive(Clone)]
 pub struct Print {

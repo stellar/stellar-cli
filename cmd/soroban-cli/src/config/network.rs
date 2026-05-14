@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Once;
 use stellar_strkey::ed25519::PublicKey;
 use url::Url;
 
 use super::locator;
+use crate::print::{self, Print};
 use crate::utils::http;
 use crate::{
     commands::HEADING_RPC,
@@ -38,8 +40,6 @@ STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
         "network passphrase is used but rpc-url is missing, use `--rpc-url` or `STELLAR_RPC_URL`"
     )]
     MissingRpcUrl,
-    #[error("cannot use both `--rpc-url` and `--network`")]
-    CannotUseBothRpcAndNetwork,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -96,21 +96,49 @@ pub struct Args {
     pub network: Option<String>,
 }
 
+// Emits the network-precedence warning at most once per process so commands
+// that call `Args::get` multiple times (e.g. sign + sign_fee_bump) don't spam
+// the user. Honors the global `--quiet` flag recorded in `cli::main`.
+fn warn_if_overridden(network: &str, rpc_url: Option<&str>, network_passphrase: Option<&str>) {
+    static WARN_ONCE: Once = Once::new();
+    let ignored = match (rpc_url.is_some(), network_passphrase.is_some()) {
+        (true, true) => {
+            "--rpc-url / STELLAR_RPC_URL and --network-passphrase / STELLAR_NETWORK_PASSPHRASE"
+        }
+        (true, false) => "--rpc-url / STELLAR_RPC_URL",
+        (false, true) => "--network-passphrase / STELLAR_NETWORK_PASSPHRASE",
+        (false, false) => return,
+    };
+    WARN_ONCE.call_once(|| {
+        Print::new(print::is_quiet()).warnln(format!(
+            "--network={network} takes precedence; ignoring {ignored}"
+        ));
+    });
+}
+
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
+        // A named network always resolves via the on-disk config, ignoring any
+        // rpc-url / passphrase that may have been picked up from env vars. This
+        // is what lets `--network foo` win over a stray STELLAR_RPC_URL in
+        // `.env`. Conflicts typed entirely on the CLI fall through here too;
+        // the explicit name takes precedence.
         match (
             self.network.as_deref(),
             self.rpc_url.clone(),
             self.network_passphrase.clone(),
         ) {
+            (Some(network), rpc_url, network_passphrase) => {
+                warn_if_overridden(network, rpc_url.as_deref(), network_passphrase.as_deref());
+                Ok(locator.read_network(network)?)
+            }
             (None, None, None) => {
                 // Fall back to testnet as the default network if no config default is set
                 Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
             }
-            (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
-            (_, None, Some(_)) => Err(Error::MissingRpcUrl),
-            (Some(network), None, None) => Ok(locator.read_network(network)?),
-            (_, Some(rpc_url), Some(network_passphrase)) => {
+            (None, Some(_), None) => Err(Error::MissingNetworkPassphrase),
+            (None, None, Some(_)) => Err(Error::MissingRpcUrl),
+            (None, Some(rpc_url), Some(network_passphrase)) => {
                 let rpc_headers = self
                     .rpc_headers
                     .iter()
@@ -724,5 +752,25 @@ mod tests {
     fn redact_rpc_url_returns_input_when_unparseable() {
         let bad = "not a url";
         assert_eq!(redact_rpc_url(bad), bad);
+    }
+
+    #[tokio::test]
+    async fn network_name_wins_over_rpc_tuple() {
+        use crate::test_utils::with_env_set;
+
+        let tmp = tempfile::tempdir().unwrap();
+        with_env_set("STELLAR_CONFIG_HOME", tmp.path(), || {
+            let args = Args {
+                network: Some("testnet".to_string()),
+                rpc_url: Some("http://other.example.com:59999".to_string()),
+                network_passphrase: Some("Some Other Passphrase".to_string()),
+                rpc_headers: Vec::new(),
+            };
+
+            let result = args.get(&locator::Args::default()).unwrap();
+
+            assert_eq!(result.rpc_url, "https://soroban-testnet.stellar.org");
+            assert_eq!(result.network_passphrase, passphrase::TESTNET);
+        });
     }
 }

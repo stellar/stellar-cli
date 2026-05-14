@@ -143,3 +143,62 @@ async fn network_info_includes_id_in_json_output() {
         "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
     );
 }
+
+// TestEnv pre-sets STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE on every
+// command, so any invocation that adds `--network local` already exercises the
+// cross-source precedence path. The local network is bundled (no `network add`
+// required) and points at the running sandbox, so the warning fires before any
+// RPC call needs to succeed.
+#[tokio::test]
+async fn network_flag_warns_when_env_rpc_url_present() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args(["info", "--network", "local"])
+        .assert()
+        .stderr(predicate::str::contains(
+            "--network=local takes precedence; ignoring --rpc-url / STELLAR_RPC_URL and --network-passphrase / STELLAR_NETWORK_PASSPHRASE",
+        ));
+}
+
+#[tokio::test]
+async fn network_flag_warning_lists_only_set_overrides() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args(["info", "--network", "local"])
+        .env_remove("STELLAR_NETWORK_PASSPHRASE")
+        .assert()
+        .stderr(
+            predicate::str::contains("ignoring --rpc-url / STELLAR_RPC_URL").and(
+                predicate::str::contains("--network-passphrase / STELLAR_NETWORK_PASSPHRASE").not(),
+            ),
+        );
+}
+
+#[tokio::test]
+async fn network_flag_warning_fires_for_env_only_network() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .arg("info")
+        .env("STELLAR_NETWORK", "local")
+        .assert()
+        .stderr(predicate::str::contains(
+            "--network=local takes precedence; ignoring",
+        ));
+}
+
+#[tokio::test]
+async fn network_flag_warning_suppressed_by_quiet() {
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("network")
+        .args(["--quiet", "info", "--network", "local"])
+        .assert()
+        .stderr(predicate::str::contains("takes precedence").not());
+}
