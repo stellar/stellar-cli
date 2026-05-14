@@ -68,6 +68,18 @@ Use contracts like a CLI:
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
     stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+
+CONFIGURATION
+
+Most commands read their network and source account from three sources, applied in this order of precedence (highest first):
+
+    1. CLI flags         e.g. --network, --rpc-url, --source
+    2. Environment vars  shell env, including values loaded from a `.env` file in the current directory (e.g. STELLAR_NETWORK, STELLAR_RPC_URL, STELLAR_ACCOUNT)
+    3. `use` defaults    set via `stellar network use NAME` and `stellar keys use NAME`, loaded as env vars at startup
+
+Run `stellar env` to see every active setting and where it came from.
+
+Network resolution has one extra rule: if a network name is set from any source, the named configuration is loaded from disk and any rpc-url/network-passphrase from any source is ignored. A warning is printed when this happens — pass `--quiet` to suppress it.
 ";
 
 #[derive(Parser, Debug)]

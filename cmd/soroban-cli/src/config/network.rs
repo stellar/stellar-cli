@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Once;
 use stellar_strkey::ed25519::PublicKey;
 use url::Url;
 
 use super::locator;
+use crate::print::{self, Print};
 use crate::utils::http;
 use crate::{
     commands::HEADING_RPC,
@@ -94,6 +96,26 @@ pub struct Args {
     pub network: Option<String>,
 }
 
+// Emits the network-precedence warning at most once per process so commands
+// that call `Args::get` multiple times (e.g. sign + sign_fee_bump) don't spam
+// the user. Honors the global `--quiet` flag recorded in `cli::main`.
+fn warn_if_overridden(network: &str, rpc_url: Option<&str>, network_passphrase: Option<&str>) {
+    static WARN_ONCE: Once = Once::new();
+    let ignored = match (rpc_url.is_some(), network_passphrase.is_some()) {
+        (true, true) => {
+            "--rpc-url / STELLAR_RPC_URL and --network-passphrase / STELLAR_NETWORK_PASSPHRASE"
+        }
+        (true, false) => "--rpc-url / STELLAR_RPC_URL",
+        (false, true) => "--network-passphrase / STELLAR_NETWORK_PASSPHRASE",
+        (false, false) => return,
+    };
+    WARN_ONCE.call_once(|| {
+        Print::new(print::is_quiet()).warnln(format!(
+            "--network={network} takes precedence; ignoring {ignored}"
+        ));
+    });
+}
+
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
         // A named network always resolves via the on-disk config, ignoring any
@@ -106,7 +128,10 @@ impl Args {
             self.rpc_url.clone(),
             self.network_passphrase.clone(),
         ) {
-            (Some(network), _, _) => Ok(locator.read_network(network)?),
+            (Some(network), rpc_url, network_passphrase) => {
+                warn_if_overridden(network, rpc_url.as_deref(), network_passphrase.as_deref());
+                Ok(locator.read_network(network)?)
+            }
             (None, None, None) => {
                 // Fall back to testnet as the default network if no config default is set
                 Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
