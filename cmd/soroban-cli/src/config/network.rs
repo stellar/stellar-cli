@@ -38,8 +38,6 @@ STELLAR_NETWORK, STELLAR_RPC_URL and STELLAR_NETWORK_PASSPHRASE"#
         "network passphrase is used but rpc-url is missing, use `--rpc-url` or `STELLAR_RPC_URL`"
     )]
     MissingRpcUrl,
-    #[error("cannot use both `--rpc-url` and `--network`")]
-    CannotUseBothRpcAndNetwork,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]
@@ -98,19 +96,24 @@ pub struct Args {
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
+        // A named network always resolves via the on-disk config, ignoring any
+        // rpc-url / passphrase that may have been picked up from env vars. This
+        // is what lets `--network foo` win over a stray STELLAR_RPC_URL in
+        // `.env`. Conflicts typed entirely on the CLI fall through here too;
+        // the explicit name takes precedence.
         match (
             self.network.as_deref(),
             self.rpc_url.clone(),
             self.network_passphrase.clone(),
         ) {
+            (Some(network), _, _) => Ok(locator.read_network(network)?),
             (None, None, None) => {
                 // Fall back to testnet as the default network if no config default is set
                 Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
             }
-            (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
-            (_, None, Some(_)) => Err(Error::MissingRpcUrl),
-            (Some(network), None, None) => Ok(locator.read_network(network)?),
-            (_, Some(rpc_url), Some(network_passphrase)) => {
+            (None, Some(_), None) => Err(Error::MissingNetworkPassphrase),
+            (None, None, Some(_)) => Err(Error::MissingRpcUrl),
+            (None, Some(rpc_url), Some(network_passphrase)) => {
                 let rpc_headers = self
                     .rpc_headers
                     .iter()
@@ -724,5 +727,25 @@ mod tests {
     fn redact_rpc_url_returns_input_when_unparseable() {
         let bad = "not a url";
         assert_eq!(redact_rpc_url(bad), bad);
+    }
+
+    #[tokio::test]
+    async fn network_name_wins_over_rpc_tuple() {
+        use crate::test_utils::with_env_set;
+
+        let tmp = tempfile::tempdir().unwrap();
+        with_env_set("STELLAR_CONFIG_HOME", tmp.path(), || {
+            let args = Args {
+                network: Some("testnet".to_string()),
+                rpc_url: Some("http://other.example.com:59999".to_string()),
+                network_passphrase: Some("Some Other Passphrase".to_string()),
+                rpc_headers: Vec::new(),
+            };
+
+            let result = args.get(&locator::Args::default()).unwrap();
+
+            assert_eq!(result.rpc_url, "https://soroban-testnet.stellar.org");
+            assert_eq!(result.network_passphrase, passphrase::TESTNET);
+        });
     }
 }
