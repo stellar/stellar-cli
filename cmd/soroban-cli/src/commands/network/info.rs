@@ -2,6 +2,7 @@ use sha2::{Digest, Sha256};
 
 use crate::commands::global;
 use crate::config::network;
+use crate::utils::url::redact_url;
 use crate::{config, print, rpc};
 
 #[derive(thiserror::Error, Debug)]
@@ -93,7 +94,7 @@ impl Cmd {
             build_timestamp: version_result.build_timestamp,
             captive_core_version: version_result.captive_core_version,
             protocol_version: network_result.protocol_version,
-            friendbot_url: network_result.friendbot_url,
+            friendbot_url: network_result.friendbot_url.map(|u| redact_url(&u)),
             passphrase: network_result.passphrase,
         };
 
