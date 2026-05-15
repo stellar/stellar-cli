@@ -142,14 +142,14 @@ async fn partial_auth_with_authorized_subcall() {
             "An authorization entry requires confirmation",
         ));
 
-    // with non-source signer and --force - expect success
+    // with non-source signer and --auto-sign - expect success
     sandbox
         .new_assert_cmd("contract")
         .arg("invoke")
         .arg("--source=test")
         .arg("--id")
         .arg(&id1)
-        .arg("--force")
+        .arg("--auto-sign")
         .arg("--")
         .arg("partial_auth_sub_auth")
         .arg("--addr=signer")

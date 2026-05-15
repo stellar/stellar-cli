@@ -38,7 +38,7 @@ pub enum Error {
         reason: String,
         auth_entry_str: String,
     },
-    #[error("An authorization entry requires confirmation, but stdin is not interactive. Rerun with --force to sign anyway.")]
+    #[error("An authorization entry requires confirmation, but stdin is not interactive. Rerun with --auto-sign to sign anyway.")]
     AuthEntryRequiresConfirmation,
     #[error("signing cancelled by user")]
     AuthRejected,
@@ -73,6 +73,7 @@ pub async fn sign_soroban_authorizations(
     signature_expiration_ledger: u32,
     network_passphrase: &str,
     skip_approval: bool,
+    print: &Print,
 ) -> Result<Option<Transaction>, Error> {
     // Check if we have exactly one operation and it's InvokeHostFunction
     let [op @ Operation {
@@ -104,9 +105,7 @@ pub async fn sign_soroban_authorizations(
         match validation::classify_auth_invocation(&body.host_function, &raw_auth.root_invocation) {
             validation::AuthStyle::Strict => {}
             validation::AuthStyle::NonStrict => {
-                if !skip_approval {
-                    confirm_non_strict_authorization(raw_auth)?;
-                }
+                handle_non_strict_authorization(raw_auth, skip_approval, print)?;
             }
             validation::AuthStyle::Invalid => {
                 return Err(Error::InvalidAuthEntry {
@@ -145,6 +144,7 @@ pub async fn sign_soroban_authorizations(
         for s in signers {
             if auth_address_bytes == &s.get_public_key()?.0 {
                 signer = Some(s);
+                break;
             }
         }
 
@@ -188,7 +188,26 @@ pub async fn sign_soroban_authorizations(
     Ok(Some(tx))
 }
 
+/// Handle a non-strict auth entry. Under `--auto-sign` (`skip_approval`), log
+/// the entry through `Print` so the relaxed policy leaves an audit trail that
+/// the user can silence with `--quiet`. Otherwise, prompt the user
+/// interactively for approval.
+fn handle_non_strict_authorization(
+    auth: &SorobanAuthorizationEntry,
+    skip_approval: bool,
+    print: &Print,
+) -> Result<(), Error> {
+    if skip_approval {
+        print.warnln("Signing authorization entry without approval (--auto-sign):");
+        print.println(format_auth_entry(auth));
+        Ok(())
+    } else {
+        confirm_non_strict_authorization(auth)
+    }
+}
+
 fn confirm_non_strict_authorization(auth: &SorobanAuthorizationEntry) -> Result<(), Error> {
+    // ignore quiet flag here as we are prompting the user
     let print = Print::new(false);
     print.warnln(
         "Authorization entry does not match the current contract call, and needs approval:",
@@ -563,6 +582,7 @@ mod tests {
             EXPIRATION_LEDGER,
             NETWORK,
             false,
+            &Print::new(true),
         )
         .await
         .unwrap()
@@ -601,11 +621,17 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let signed_auth_tx =
-            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, true)
-                .await
-                .unwrap()
-                .expect("signing modifies the transaction");
+        let signed_auth_tx = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            true,
+            &Print::new(true),
+        )
+        .await
+        .unwrap()
+        .expect("signing modifies the transaction");
 
         let OperationBody::InvokeHostFunction(body) = &signed_auth_tx.operations[0].body else {
             panic!("expected InvokeHostFunction");
@@ -627,8 +653,15 @@ mod tests {
         let host_fn = HostFunction::UploadContractWasm(wasm);
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result =
-            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, false).await;
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
@@ -643,8 +676,15 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result =
-            sign_soroban_authorizations(&tx, &[signer], EXPIRATION_LEDGER, NETWORK, false).await;
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
         assert!(matches!(result, Err(Error::InvalidAuthEntry { .. })));
     }
 
@@ -658,7 +698,15 @@ mod tests {
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
 
-        let result = sign_soroban_authorizations(&tx, &[], EXPIRATION_LEDGER, NETWORK, false).await;
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
         assert!(matches!(result, Err(Error::MissingSignerForAddress { .. })));
     }
 

@@ -162,7 +162,7 @@ Deploy builtin Soroban Asset Contract
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -435,7 +435,7 @@ If no keys are specified the contract itself is extended.
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -495,7 +495,7 @@ Deploy a wasm contract
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -586,7 +586,7 @@ Deploy normal Wasm Contract
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -859,7 +859,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -912,7 +912,7 @@ Install a WASM file to the ledger without creating a contract instance
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -969,7 +969,7 @@ stellar contract invoke ... -- --help
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -1077,7 +1077,7 @@ If no keys are specificed the contract itself is restored.
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -1941,7 +1941,7 @@ Transfer XLM balance to another account and remove source account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -1977,7 +1977,7 @@ Begin sponsoring future reserves for another account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2013,7 +2013,7 @@ Bump sequence number to invalidate older transactions
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2052,7 +2052,7 @@ Create, update, or delete a trustline
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2088,7 +2088,7 @@ Claim a claimable balance by its balance ID
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2126,7 +2126,7 @@ Clawback an asset from an account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2162,7 +2162,7 @@ Clawback a claimable balance by its balance ID
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2201,7 +2201,7 @@ Create and fund a new account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2245,7 +2245,7 @@ Create a claimable balance that can be claimed by specified accounts
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2284,7 +2284,7 @@ Create a passive sell offer on the Stellar DEX
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2316,7 +2316,7 @@ End sponsoring future reserves
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2361,7 +2361,7 @@ Deposit assets into a liquidity pool
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2400,7 +2400,7 @@ Withdraw assets from a liquidity pool
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2442,7 +2442,7 @@ Create, update, or delete a buy offer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2479,7 +2479,7 @@ Set, modify, or delete account data entries
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2521,7 +2521,7 @@ Create, update, or delete a sell offer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2562,7 +2562,7 @@ Send a payment with a different asset using path finding, specifying the send am
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2603,7 +2603,7 @@ Send a payment with a different asset using path finding, specifying the receive
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2644,7 +2644,7 @@ Send asset to destination account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2686,7 +2686,7 @@ Revoke sponsorship of a ledger entry or signer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2737,7 +2737,7 @@ Set account options like flags, signers, and home domain
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2780,7 +2780,7 @@ Configure authorization and trustline flags for an asset
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2864,7 +2864,7 @@ Transfer XLM balance to another account and remove source account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2905,7 +2905,7 @@ Begin sponsoring future reserves for another account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2946,7 +2946,7 @@ Bump sequence number to invalidate older transactions
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -2990,7 +2990,7 @@ Create, update, or delete a trustline
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3031,7 +3031,7 @@ Claim a claimable balance by its balance ID
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3074,7 +3074,7 @@ Clawback an asset from an account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3115,7 +3115,7 @@ Clawback a claimable balance by its balance ID
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3159,7 +3159,7 @@ Create and fund a new account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3208,7 +3208,7 @@ Create a claimable balance that can be claimed by specified accounts
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3252,7 +3252,7 @@ Create a passive sell offer on the Stellar DEX
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3292,7 +3292,7 @@ End sponsoring future reserves
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3342,7 +3342,7 @@ Deposit assets into a liquidity pool
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3386,7 +3386,7 @@ Withdraw assets from a liquidity pool
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3433,7 +3433,7 @@ Create, update, or delete a buy offer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3475,7 +3475,7 @@ Set, modify, or delete account data entries
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3522,7 +3522,7 @@ Create, update, or delete a sell offer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3568,7 +3568,7 @@ Send a payment with a different asset using path finding, specifying the receive
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3614,7 +3614,7 @@ Send a payment with a different asset using path finding, specifying the send am
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3660,7 +3660,7 @@ Send asset to destination account
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3707,7 +3707,7 @@ Revoke sponsorship of a ledger entry or signer
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3763,7 +3763,7 @@ Set account options like flags, signers, and home domain
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3811,7 +3811,7 @@ Configure authorization and trustline flags for an asset
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 
@@ -3868,7 +3868,7 @@ Sign a transaction envelope appending the signature to the envelope
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ## `stellar tx simulate`
 
@@ -3901,7 +3901,7 @@ Simulate a transaction envelope from stdin
 - `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
-- `--force` — Skip confirmation prompts when signing
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ###### **Transaction Options:**
 

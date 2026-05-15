@@ -68,7 +68,7 @@ where
     // Sign all auth entries. Each entry is validated against the transaction's
     // host function inside `sign_soroban_authorizations` before being signed.
     if let Some(tx) = config
-        .sign_soroban_authorizations(&txn, auth_signers)
+        .sign_soroban_authorizations(&txn, auth_signers, &print)
         .await?
     {
         *txn = tx;

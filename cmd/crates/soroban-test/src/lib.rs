@@ -278,7 +278,7 @@ impl TestEnv {
                 hd_path: None,
                 sign_with_lab: false,
                 sign_with_ledger: false,
-                force: false,
+                auto_sign: false,
             },
             fee: None,
             inclusion_fee: None,

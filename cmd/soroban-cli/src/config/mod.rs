@@ -146,6 +146,7 @@ impl Args {
         &self,
         tx: &Transaction,
         signers: &[Signer],
+        print: &Print,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
@@ -156,7 +157,8 @@ impl Args {
             signers,
             seq_num,
             &network.network_passphrase,
-            self.sign_with.force,
+            self.sign_with.auto_sign,
+            print,
         )
         .await?)
     }

@@ -1,8 +1,10 @@
 use std::fmt::Write;
 
 use crate::xdr::{
-    AccountId, InvokeContractArgs, PublicKey, ScAddress, SorobanAuthorizationEntry,
-    SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Uint256,
+    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+    CreateContractArgs, CreateContractArgsV2, Hash, InvokeContractArgs, PublicKey, ScAddress,
+    ScVal, SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
+    SorobanCredentials, Uint256, VecM,
 };
 
 /// Format a single auth entry for display.
@@ -60,15 +62,77 @@ fn format_invocation(
                 }
             }
         }
-        SorobanAuthorizedFunction::CreateContractHostFn(_)
-        | SorobanAuthorizedFunction::CreateContractV2HostFn(_) => {
+        SorobanAuthorizedFunction::CreateContractHostFn(CreateContractArgs {
+            contract_id_preimage,
+            executable,
+        }) => {
             let _ = writeln!(result, "{prefix}  CreateContract");
+            format_create_contract(contract_id_preimage, executable, None, &prefix, result);
+        }
+        SorobanAuthorizedFunction::CreateContractV2HostFn(CreateContractArgsV2 {
+            contract_id_preimage,
+            executable,
+            constructor_args,
+        }) => {
+            let _ = writeln!(result, "{prefix}  CreateContractV2");
+            format_create_contract(
+                contract_id_preimage,
+                executable,
+                Some(constructor_args),
+                &prefix,
+                result,
+            );
         }
     }
 
     for (i, sub) in invocation.sub_invocations.iter().enumerate() {
         let sub_label = format!("Sub-invocation #{i}:");
         format_invocation(sub, indent + 1, &sub_label, result);
+    }
+}
+
+/// Format the body of a `CreateContract` / `CreateContractV2` auth entry: the
+/// id preimage (source + salt, or asset), the executable (wasm hash or
+/// stellar asset), and — for V2 — any constructor args. Indented two levels
+/// below `prefix` so it sits under the `CreateContract` header line.
+fn format_create_contract(
+    preimage: &ContractIdPreimage,
+    executable: &ContractExecutable,
+    constructor_args: Option<&VecM<ScVal>>,
+    prefix: &str,
+    result: &mut String,
+) {
+    match preimage {
+        ContractIdPreimage::Address(ContractIdPreimageFromAddress {
+            address,
+            salt: Uint256(salt_bytes),
+        }) => {
+            let _ = writeln!(result, "{prefix}    From: {}", format_address(address));
+            let _ = writeln!(result, "{prefix}    Salt: {}", hex::encode(salt_bytes));
+        }
+        ContractIdPreimage::Asset(asset) => {
+            let _ = writeln!(result, "{prefix}    Asset: {asset:?}");
+        }
+    }
+    match executable {
+        ContractExecutable::Wasm(Hash(bytes)) => {
+            let _ = writeln!(result, "{prefix}    Wasm: {}", hex::encode(bytes));
+        }
+        ContractExecutable::StellarAsset => {
+            let _ = writeln!(result, "{prefix}    Executable: StellarAsset");
+        }
+    }
+    if let Some(args) = constructor_args {
+        if !args.is_empty() {
+            let _ = writeln!(result, "{prefix}    Constructor Args:");
+            for arg in args.iter() {
+                let _ = writeln!(
+                    result,
+                    "{prefix}      {}",
+                    soroban_spec_tools::to_string(arg).unwrap_or(String::from("<unable to parse>"))
+                );
+            }
+        }
     }
 }
 

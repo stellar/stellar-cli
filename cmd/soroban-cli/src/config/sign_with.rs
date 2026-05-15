@@ -70,9 +70,9 @@ pub struct Args {
     )]
     pub sign_with_ledger: bool,
 
-    /// Skip confirmation prompts when signing
+    /// Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries.
     #[arg(long, help_heading = HEADING_SIGNING)]
-    pub force: bool,
+    pub auto_sign: bool,
 }
 
 impl Args {
