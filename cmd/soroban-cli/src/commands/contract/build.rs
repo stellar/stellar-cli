@@ -116,6 +116,8 @@ pub struct BuildArgs {
     pub optimize: bool,
 }
 
+// Manual impl so `optimize` defaults to `true`, matching the CLI default.
+// `#[derive(Default)]` would set it to `false`.
 impl Default for BuildArgs {
     fn default() -> Self {
         Self {

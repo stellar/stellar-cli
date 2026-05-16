@@ -206,8 +206,6 @@ fn check_wasm_target(print: &Print) {
 }
 
 fn check_optional_features(print: &Print) {
-    print.checkln("Wasm optimization");
-
     #[cfg(feature = "additional-libs")]
     {
         print.checkln("Secure store (OS keyring)");
