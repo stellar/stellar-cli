@@ -344,8 +344,8 @@ impl Cmd {
                 #[cfg(not(feature = "additional-libs"))]
                 if self.build_args.optimize {
                     print.warnln(
-                        "Optimization disabled because stellar-cli was installed without the `additional-libs` feature. \
-                         Reinstall the `stellar-cli` with `additional-libs` to enable the optimization."
+                        "Optimization skipped: stellar-cli was installed without the `additional-libs` feature. \
+                         Reinstall with `--features additional-libs` to enable."
                     );
                 }
 
