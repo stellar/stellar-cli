@@ -107,7 +107,7 @@ pub struct BuildArgs {
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
 
-    /// Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable.
+    /// Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature.
     #[arg(
         long,
         default_value_t = true,
