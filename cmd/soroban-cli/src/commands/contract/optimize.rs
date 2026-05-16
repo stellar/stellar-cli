@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::{fmt::Debug, path::PathBuf};
+#[cfg(feature = "additional-libs")]
 use wasm_opt::{Feature, OptimizationError, OptimizationOptions};
 
 use crate::wasm;
@@ -21,19 +22,31 @@ pub enum Error {
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
 
+    #[cfg(feature = "additional-libs")]
     #[error("optimization error: {0}")]
     OptimizationError(OptimizationError),
+
+    #[cfg(not(feature = "additional-libs"))]
+    #[error("must install with \"additional-libs\" feature.")]
+    Install,
 
     #[error("--wasm-out cannot be used with --wasm option when passing multiple files")]
     MultipleFilesOutput,
 }
 
 impl Cmd {
+    #[cfg(not(feature = "additional-libs"))]
+    pub fn run(&self) -> Result<(), Error> {
+        Err(Error::Install)
+    }
+
+    #[cfg(feature = "additional-libs")]
     pub fn run(&self) -> Result<(), Error> {
         optimize(false, self.wasm.clone(), self.wasm_out.clone())
     }
 }
 
+#[cfg(feature = "additional-libs")]
 pub fn optimize(
     quiet: bool,
     wasm: Vec<PathBuf>,

@@ -208,6 +208,7 @@ fn check_wasm_target(print: &Print) {
 fn check_optional_features(print: &Print) {
     #[cfg(feature = "additional-libs")]
     {
+        print.checkln("Wasm optimization");
         print.checkln("Secure store (OS keyring)");
         print.checkln("Ledger hardware wallet");
     }
@@ -217,6 +218,7 @@ fn check_optional_features(print: &Print) {
         print.warnln(
             "The following features are disabled until `--features additional-libs` is used:",
         );
+        print.blankln("- Wasm optimization");
         print.blankln("- Secure store (OS keyring)");
         print.blankln("- Ledger hardware wallet");
     }

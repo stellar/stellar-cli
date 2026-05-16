@@ -31,7 +31,7 @@ doctest = false
 
 [features]
 default = ["additional-libs"]
-additional-libs = ["dep:keyring", "dep:stellar-ledger"]
+additional-libs = ["dep:wasm-opt", "dep:keyring", "dep:stellar-ledger"]
 emulator-tests = ["stellar-ledger/emulator-tests"]
 
 [dependencies]
@@ -80,7 +80,7 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "stream",
 ] }
 regex = "1.6.0"
-wasm-opt = { version = "0.116.1" }
+wasm-opt = { version = "0.116.1", optional = true }
 chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
 toml = { workspace = true }
