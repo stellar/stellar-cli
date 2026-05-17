@@ -128,7 +128,7 @@ serde_with = "3.11.0"
 rustc_version = "0.4.1"
 
 [build-dependencies]
-crate-git-revision = "0.0.6"
+crate-git-revision = "0.0.8"
 serde.workspace = true
 thiserror.workspace = true
 

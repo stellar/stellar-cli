@@ -383,7 +383,11 @@ To view the commands that will be executed, without executing them, use the --pr
   If ommitted, wasm files are written only to the cargo target directory.
 
 - `--locked` — Assert that `Cargo.lock` will remain unchanged
-- `--optimize` — Optimize the generated wasm
+- `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
 
 ###### **Other:**
 
@@ -476,7 +480,11 @@ Deploy a wasm contract
   Default value: `false`
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
-- `--optimize` — Optimize the generated wasm
+- `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
 
 ###### **RPC Options:**
 
@@ -840,7 +848,11 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
-- `--optimize` — Optimize the generated wasm
+- `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
 
 ###### **RPC Options:**
 
@@ -893,7 +905,11 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
-- `--optimize` — Optimize the generated wasm
+- `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
 
 ###### **RPC Options:**
 
