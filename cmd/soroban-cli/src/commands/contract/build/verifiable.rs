@@ -358,7 +358,7 @@ fn enforce_clean_tree(source_root: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn bldimg_regex() -> Regex {
+pub(crate) fn bldimg_regex() -> Regex {
     Regex::new(r"^(?:localhost(?::\d+)?|[^\s@/]*[.:][^\s@/]*)/[^\s@]+@sha256:[0-9a-f]{64}$")
         .unwrap()
 }

@@ -98,6 +98,7 @@ Tools for smart contract developers
 - `optimize` — ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 - `read` — Print the current value of a contract-data ledger entry
 - `restore` — Restore an evicted value for a contract-data legder entry
+- `verify` — Verify that a contract's WASM reproduces from the build metadata it records, per SEP-58. Either pass a contract id/alias via `--id` (the WASM is fetched from the network) or a local file via `--wasm`
 
 ## `stellar contract asset`
 
@@ -1150,6 +1151,30 @@ If no keys are specificed the contract itself is restored.
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+
+## `stellar contract verify`
+
+Verify that a contract's WASM reproduces from the build metadata it records, per SEP-58. Either pass a contract id/alias via `--id` (the WASM is fetched from the network) or a local file via `--wasm`
+
+**Usage:** `stellar contract verify [OPTIONS]`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <CONTRACT_ID>` — Contract id or alias to fetch the WASM from the network
+- `--wasm <WASM>` — Local WASM file to verify, instead of fetching from the network
+- `--tarball-url <TARBALL_URL>` — Local tarball file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `tarball_sha256` (no `tarball_url`). Accepts http(s) URLs or local file paths
+- `--trust` — Bypass interactive confirmation when the WASM's bldimg is not in the default trust list, or when the source is a tarball (tarballs are never default-trusted)
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar doctor`
 
