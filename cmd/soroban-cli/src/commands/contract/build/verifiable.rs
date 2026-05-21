@@ -130,15 +130,17 @@ pub async fn run(
         }
     }
 
-    if !cmd.locked {
-        print.infoln("--verifiable implies --locked");
-    }
-
     // Stage 2: local filesystem + git, no network. Resolve the workspace root
     // first so the (optional) `--source-rev` git cross-check has a path to
     // anchor on.
     let workspace_root = resolve_workspace_root(cmd)?;
     let source_ids = validate_source_ids(cmd, &workspace_root)?;
+
+    // Defer the info banner until every validation has passed, so it doesn't
+    // appear right before an error.
+    if !cmd.locked {
+        print.infoln("--verifiable implies --locked");
+    }
 
     // Stage 3: docker.
     let docker = cmd
