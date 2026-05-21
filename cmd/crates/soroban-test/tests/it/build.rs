@@ -993,3 +993,85 @@ fn build_always_injects_cli_version() {
         "CLI version should not be empty"
     );
 }
+
+// `--verifiable` cannot accept reserved `--meta` keys that the cli writes itself.
+#[test]
+fn verifiable_meta_conflict_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+        .arg("--meta")
+        .arg("bldimg=not-allowed")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("reserved key: bldimg"));
+}
+
+// `--image` must be content-addressed; tag-only refs are rejected.
+#[test]
+fn verifiable_image_must_be_digest_pinned() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli:latest")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must be digest-pinned"));
+}
+
+// A dirty git tree breaks the verifiability property because `source_rev` would
+// record a commit whose bytes don't match the produced WASM. Hard fail.
+#[test]
+fn verifiable_dirty_tree_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let workspace = dir_path.join("workspace");
+
+    // Bootstrap a clean git tree at the workspace root, then dirty it so the
+    // verifiable path's dirty-check trips before docker is touched.
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(&workspace)
+            .env("GIT_AUTHOR_NAME", "Test")
+            .env("GIT_AUTHOR_EMAIL", "test@example.com")
+            .env("GIT_COMMITTER_NAME", "Test")
+            .env("GIT_COMMITTER_EMAIL", "test@example.com")
+            .status()
+            .unwrap();
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "init"]);
+    std::fs::write(workspace.join("dirty.txt"), b"uncommitted").unwrap();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(workspace.join("contracts").join("add"))
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("dirty").or(predicate::str::contains("clean tree")));
+}

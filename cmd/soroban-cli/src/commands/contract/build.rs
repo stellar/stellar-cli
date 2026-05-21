@@ -20,10 +20,12 @@ use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{global, version},
+    commands::{container, global, version},
     print::Print,
     wasm,
 };
+
+pub mod verifiable;
 
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]
@@ -95,6 +97,22 @@ pub struct Cmd {
     /// Print commands to build without executing them
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
+
+    /// Build inside a trusted Docker container and record SEP-58 metadata
+    /// (`bldimg`, `source_rev`, `bldopt`) so the resulting WASM can be
+    /// reproduced and verified by third parties. Implies `--locked`.
+    /// Requires a clean git working tree.
+    #[arg(long, help_heading = "Verifiable")]
+    pub verifiable: bool,
+
+    /// Override the auto-selected container image used by `--verifiable`.
+    /// Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`.
+    /// Tag-only refs are rejected because SEP-58 requires content addressing.
+    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    pub image: Option<String>,
+
+    #[command(flatten)]
+    pub container_args: container::shared::Args,
 
     #[command(flatten)]
     pub build_args: BuildArgs,
@@ -204,6 +222,9 @@ pub enum Error {
 
     #[error("wasm parsing error: {0}")]
     WasmParsing(String),
+
+    #[error(transparent)]
+    Verifiable(#[from] verifiable::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -222,6 +243,9 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
+            verifiable: false,
+            image: None,
+            container_args: container::shared::Args { docker_host: None },
             build_args: BuildArgs::default(),
         }
     }
@@ -230,8 +254,13 @@ impl Default for Cmd {
 impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
+
+        if self.verifiable {
+            return verifiable::run(self, global_args, &print).await;
+        }
+
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;

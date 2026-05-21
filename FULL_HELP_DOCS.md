@@ -384,6 +384,7 @@ To view the commands that will be executed, without executing them, use the --pr
   If ommitted, wasm files are written only to the cargo target directory.
 
 - `--locked` — Assert that `Cargo.lock` will remain unchanged
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -393,6 +394,11 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+###### **Verifiable:**
+
+- `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_rev`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
+- `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
 
 ## `stellar contract extend`
 
