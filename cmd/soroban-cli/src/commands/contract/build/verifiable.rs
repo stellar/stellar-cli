@@ -77,7 +77,7 @@ pub enum Error {
     )]
     ReservedMetaKey { key: String },
 
-    #[error("container build exited with status {status}. To reproduce manually:\n  docker run --rm -v {mount}:/source {image} contract build {args}")]
+    #[error("container build exited with status {status}. To reproduce manually:\n  docker run --rm -v {mount}:/source {image} {args}")]
     ContainerExit {
         status: i64,
         image: String,
