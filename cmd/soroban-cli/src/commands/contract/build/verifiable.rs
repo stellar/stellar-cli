@@ -119,7 +119,7 @@ pub async fn run(
         .map_err(Error::DockerConnection)?;
     let image_ref = resolve_image(cmd, &docker, print).await?;
 
-    let (forwarded_args, bldopts) = build_forwarded_args(cmd);
+    let (forwarded_args, bldopts) = build_forwarded_args(cmd, &workspace_root);
     let metadata_args = build_metadata_args(&image_ref, &source_rev, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
@@ -192,47 +192,51 @@ fn git_source_rev(workspace_root: &Path, print: &Print) -> Result<String, Error>
 }
 
 /// The flags forwarded to the container's `stellar contract build`, plus the
-/// bldopt strings recorded into SEP-58 metadata. `--locked` is always present.
-fn build_forwarded_args(cmd: &Cmd) -> (Vec<String>, Vec<String>) {
+/// bldopt strings recorded into SEP-58 metadata. Every build-affecting flag
+/// becomes one bldopt entry so a verifier can replay the same invocation.
+/// `--locked` is always present. `manifest_path` (when set) is recorded
+/// relative to the workspace root so it's valid inside `/source`.
+fn build_forwarded_args(cmd: &Cmd, workspace_root: &Path) -> (Vec<String>, Vec<String>) {
     let mut forwarded: Vec<String> = Vec::new();
     let mut bldopts: Vec<String> = Vec::new();
 
-    forwarded.push("--locked".to_string());
-    bldopts.push("--locked".to_string());
+    let mut record = |arg: String| {
+        forwarded.push(arg.clone());
+        bldopts.push(arg);
+    };
 
+    record("--locked".to_string());
+
+    if let Some(path) = &cmd.manifest_path {
+        let abs = std::path::absolute(path).unwrap_or_else(|_| path.clone());
+        let rel = abs
+            .strip_prefix(workspace_root)
+            .map(Path::to_path_buf)
+            .unwrap_or(abs);
+        record(format!("--manifest-path={}", rel.display()));
+    }
     if cmd.profile != "release" {
-        let s = format!("--profile={}", cmd.profile);
-        forwarded.push(s.clone());
-        bldopts.push(s);
+        record(format!("--profile={}", cmd.profile));
     }
     if let Some(features) = &cmd.features {
-        let s = format!("--features={features}");
-        forwarded.push(s.clone());
-        bldopts.push(s);
+        record(format!("--features={features}"));
     }
     if cmd.all_features {
-        forwarded.push("--all-features".to_string());
-        bldopts.push("--all-features".to_string());
+        record("--all-features".to_string());
     }
     if cmd.no_default_features {
-        forwarded.push("--no-default-features".to_string());
-        bldopts.push("--no-default-features".to_string());
+        record("--no-default-features".to_string());
     }
     if let Some(pkg) = &cmd.package {
-        let s = format!("--package={pkg}");
-        forwarded.push(s.clone());
-        bldopts.push(s);
+        record(format!("--package={pkg}"));
     }
-
-    // User-supplied --meta entries (none of which can collide with reserved keys
-    // because we already errored on that).
     for (k, v) in &cmd.build_args.meta {
-        forwarded.push("--meta".to_string());
-        forwarded.push(format!("{k}={v}"));
+        // Use the `--meta=key=value` form so each option is a single token,
+        // matching how clap re-parses on the container side.
+        record(format!("--meta={k}={v}"));
     }
-
     if !cmd.build_args.optimize {
-        forwarded.push("--optimize=false".to_string());
+        record("--optimize=false".to_string());
     }
 
     (forwarded, bldopts)
@@ -565,10 +569,14 @@ fn collect_built_contracts(
 mod tests {
     use super::*;
 
+    fn ws() -> &'static Path {
+        Path::new("/tmp/ws")
+    }
+
     #[test]
     fn build_forwarded_args_defaults() {
         let cmd = Cmd::default();
-        let (forwarded, bldopts) = build_forwarded_args(&cmd);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
         assert_eq!(forwarded, vec!["--locked".to_string()]);
         assert_eq!(bldopts, vec!["--locked".to_string()]);
     }
@@ -580,12 +588,38 @@ mod tests {
             package: Some("contract-a".to_string()),
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
         assert!(forwarded.contains(&"--features=a,b".to_string()));
         assert!(forwarded.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--features=a,b".to_string()));
         assert!(bldopts.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--locked".to_string()));
+    }
+
+    #[test]
+    fn build_forwarded_args_records_meta_optimize_and_manifest() {
+        let cmd = Cmd {
+            manifest_path: Some(PathBuf::from("/tmp/ws/contracts/add/Cargo.toml")),
+            build_args: super::super::BuildArgs {
+                meta: vec![
+                    ("home_domain".to_string(), "fnando.com".to_string()),
+                    ("author".to_string(), "alice".to_string()),
+                ],
+                optimize: false,
+            },
+            ..Cmd::default()
+        };
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
+        assert!(forwarded.contains(&"--meta=home_domain=fnando.com".to_string()));
+        assert!(forwarded.contains(&"--meta=author=alice".to_string()));
+        assert!(forwarded.contains(&"--optimize=false".to_string()));
+        assert!(forwarded.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
+        // Same set is captured into bldopts so a verifier can replay every
+        // build-affecting flag.
+        assert!(bldopts.contains(&"--meta=home_domain=fnando.com".to_string()));
+        assert!(bldopts.contains(&"--meta=author=alice".to_string()));
+        assert!(bldopts.contains(&"--optimize=false".to_string()));
+        assert!(bldopts.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
     }
 
     #[test]
