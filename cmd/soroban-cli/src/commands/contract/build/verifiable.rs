@@ -350,7 +350,7 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
     })
 }
 
-fn bldimg_regex() -> Regex {
+pub(crate) fn bldimg_regex() -> Regex {
     Regex::new(r"^(?:localhost(?::\d+)?|[^\s@/]*[.:][^\s@/]*)/[^\s@]+@sha256:[0-9a-f]{64}$")
         .unwrap()
 }
