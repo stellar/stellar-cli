@@ -30,6 +30,12 @@ const HUB_TAGS_URL: &str =
     "https://hub.docker.com/v2/repositories/stellar/stellar-cli/tags/?page_size=100";
 const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_rev", "bldopt"];
 
+/// First cli release that accepts `--optimize=false` as an explicit value
+/// (added by commit `b17d3f0b`). Containers older than this only accept bare
+/// `--optimize`; we probe the container's `stellar version --only-version` to
+/// pick the right syntax for `--optimize=false`.
+const OPTIMIZE_NEW_SYNTAX_MIN: &str = "26.1.0";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("⛔ failed to connect to docker: {0}")]
@@ -119,7 +125,17 @@ pub async fn run(
         .map_err(Error::DockerConnection)?;
     let image_ref = resolve_image(cmd, &docker, print).await?;
 
-    let (forwarded_args, bldopts) = build_forwarded_args(cmd, &workspace_root);
+    // Only probe the container's cli version when we need to pick between
+    // `--optimize=false` (new syntax) and not-forwarded-at-all (old default).
+    // Bare `--optimize` is universally accepted, so the true path skips this.
+    let supports_explicit_optimize_false = if cmd.build_args.optimize {
+        true
+    } else {
+        probe_supports_optimize_false_syntax(&image_ref, &docker, print).await
+    };
+
+    let (forwarded_args, bldopts) =
+        build_forwarded_args(cmd, &workspace_root, supports_explicit_optimize_false);
     let metadata_args = build_metadata_args(&image_ref, &source_rev, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
@@ -196,7 +212,16 @@ fn git_source_rev(workspace_root: &Path, print: &Print) -> Result<String, Error>
 /// becomes one bldopt entry so a verifier can replay the same invocation.
 /// `--locked` is always present. `manifest_path` (when set) is recorded
 /// relative to the workspace root so it's valid inside `/source`.
-fn build_forwarded_args(cmd: &Cmd, workspace_root: &Path) -> (Vec<String>, Vec<String>) {
+///
+/// `supports_explicit_optimize_false`: whether the container's cli accepts
+/// `--optimize=false`. When false, the optimize=false case records the flag
+/// in bldopt but does not forward it (the older container's cli default of
+/// `false` already produces the desired state).
+fn build_forwarded_args(
+    cmd: &Cmd,
+    workspace_root: &Path,
+    supports_explicit_optimize_false: bool,
+) -> (Vec<String>, Vec<String>) {
     let mut forwarded: Vec<String> = Vec::new();
     let mut bldopts: Vec<String> = Vec::new();
 
@@ -235,7 +260,14 @@ fn build_forwarded_args(cmd: &Cmd, workspace_root: &Path) -> (Vec<String>, Vec<S
         // matching how clap re-parses on the container side.
         record(format!("--meta={k}={v}"));
     }
-    if !cmd.build_args.optimize {
+
+    // `--optimize` true is recorded as a bare flag (universally accepted).
+    // `--optimize=false` is only emitted when the container's cli accepts it
+    // (added in `b17d3f0b`); on older containers, false is the default and
+    // we record/forward nothing — passing `--optimize=false` there would fail.
+    if cmd.build_args.optimize {
+        record("--optimize".to_string());
+    } else if supports_explicit_optimize_false {
         record("--optimize=false".to_string());
     }
 
@@ -421,6 +453,75 @@ fn format_available(tags: &[PublishedTag], current_cli: &str) -> (String, String
     (available_for_cli, all_grouped)
 }
 
+/// Probe the container's `stellar` binary for its self-reported version with
+/// `stellar version --only-version`. Returns true if the parsed version is
+/// at or above the cutoff where `--optimize=false` was accepted. On any
+/// probe failure (network, unparseable output, missing subcommand), returns
+/// false — the conservative assumption that the container is old.
+async fn probe_supports_optimize_false_syntax(
+    image_ref: &str,
+    docker: &Docker,
+    print: &Print,
+) -> bool {
+    match probe_cli_version(image_ref, docker).await {
+        Ok(v) => {
+            let cutoff = Version::parse(OPTIMIZE_NEW_SYNTAX_MIN).unwrap();
+            v >= cutoff
+        }
+        Err(e) => {
+            print.warnln(format!(
+                "could not probe container cli version ({e}); assuming pre-{OPTIMIZE_NEW_SYNTAX_MIN} syntax"
+            ));
+            false
+        }
+    }
+}
+
+async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, Error> {
+    let config = ContainerCreateBody {
+        image: Some(image_ref.to_string()),
+        cmd: Some(vec!["version".to_string(), "--only-version".to_string()]),
+        attach_stdout: Some(true),
+        attach_stderr: Some(true),
+        host_config: Some(HostConfig {
+            auto_remove: Some(true),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let created = docker
+        .create_container(None::<CreateContainerOptions>, config)
+        .await?;
+    let attached = docker
+        .attach_container(
+            &created.id,
+            Some(AttachContainerOptions {
+                stdout: true,
+                stderr: true,
+                stream: true,
+                ..Default::default()
+            }),
+        )
+        .await?;
+    docker
+        .start_container(&created.id, None::<StartContainerOptions>)
+        .await?;
+
+    let mut stdout = String::new();
+    let mut output = attached.output;
+    while let Some(chunk) = output.next().await {
+        if let Ok(bollard::container::LogOutput::StdOut { message }) = chunk {
+            stdout.push_str(&String::from_utf8_lossy(&message));
+        }
+    }
+
+    let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
+    while wait.next().await.is_some() {}
+
+    Version::parse(stdout.trim())
+        .map_err(|e| Error::TagListUnavailable(format!("unparseable version {stdout:?}: {e}")))
+}
+
 async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
@@ -576,9 +677,16 @@ mod tests {
     #[test]
     fn build_forwarded_args_defaults() {
         let cmd = Cmd::default();
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
-        assert_eq!(forwarded, vec!["--locked".to_string()]);
-        assert_eq!(bldopts, vec!["--locked".to_string()]);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        // Default optimize=true → bare `--optimize` recorded + forwarded.
+        assert_eq!(
+            forwarded,
+            vec!["--locked".to_string(), "--optimize".to_string()]
+        );
+        assert_eq!(
+            bldopts,
+            vec!["--locked".to_string(), "--optimize".to_string()]
+        );
     }
 
     #[test]
@@ -588,7 +696,7 @@ mod tests {
             package: Some("contract-a".to_string()),
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
         assert!(forwarded.contains(&"--features=a,b".to_string()));
         assert!(forwarded.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--features=a,b".to_string()));
@@ -597,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn build_forwarded_args_records_meta_optimize_and_manifest() {
+    fn build_forwarded_args_records_meta_and_manifest() {
         let cmd = Cmd {
             manifest_path: Some(PathBuf::from("/tmp/ws/contracts/add/Cargo.toml")),
             build_args: super::super::BuildArgs {
@@ -605,21 +713,47 @@ mod tests {
                     ("home_domain".to_string(), "fnando.com".to_string()),
                     ("author".to_string(), "alice".to_string()),
                 ],
+                optimize: true,
+            },
+            ..Cmd::default()
+        };
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        assert!(forwarded.contains(&"--meta=home_domain=fnando.com".to_string()));
+        assert!(forwarded.contains(&"--meta=author=alice".to_string()));
+        assert!(forwarded.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
+        assert!(bldopts.contains(&"--meta=home_domain=fnando.com".to_string()));
+        assert!(bldopts.contains(&"--meta=author=alice".to_string()));
+        assert!(bldopts.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
+    }
+
+    #[test]
+    fn build_forwarded_args_optimize_false_new_container() {
+        let cmd = Cmd {
+            build_args: super::super::BuildArgs {
+                meta: vec![],
                 optimize: false,
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws());
-        assert!(forwarded.contains(&"--meta=home_domain=fnando.com".to_string()));
-        assert!(forwarded.contains(&"--meta=author=alice".to_string()));
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
         assert!(forwarded.contains(&"--optimize=false".to_string()));
-        assert!(forwarded.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
-        // Same set is captured into bldopts so a verifier can replay every
-        // build-affecting flag.
-        assert!(bldopts.contains(&"--meta=home_domain=fnando.com".to_string()));
-        assert!(bldopts.contains(&"--meta=author=alice".to_string()));
         assert!(bldopts.contains(&"--optimize=false".to_string()));
-        assert!(bldopts.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
+    }
+
+    #[test]
+    fn build_forwarded_args_optimize_false_old_container() {
+        let cmd = Cmd {
+            build_args: super::super::BuildArgs {
+                meta: vec![],
+                optimize: false,
+            },
+            ..Cmd::default()
+        };
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), false);
+        // Old container's default is already false; record nothing.
+        // Passing `--optimize=false` to a pre-26.1.0 cli would fail.
+        assert!(!forwarded.iter().any(|a| a.starts_with("--optimize")));
+        assert!(!bldopts.iter().any(|a| a.starts_with("--optimize")));
     }
 
     #[test]
