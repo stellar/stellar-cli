@@ -399,6 +399,10 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_rev`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
 - `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
+- `--source-repo <SOURCE_REPO>` — SEP-58 source identification: HTTPS URL (or `github:user/repo`) of the source repository. Must be passed together with `--source-rev`
+- `--source-rev <SOURCE_REV>` — SEP-58 source identification: 40-char SHA-1 of the source commit. The local workspace must be a git repo at this exact SHA with a clean working tree. Must be passed together with `--source-repo`
+- `--tarball-url <TARBALL_URL>` — SEP-58 source identification: URL where the source tarball can be downloaded
+- `--tarball-sha256 <TARBALL_SHA256>` — SEP-58 source identification: SHA-256 of the source tarball bytes
 
 ## `stellar contract extend`
 

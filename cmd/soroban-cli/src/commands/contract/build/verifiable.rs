@@ -44,8 +44,8 @@ pub enum Error {
     #[error(transparent)]
     Bollard(#[from] bollard::errors::Error),
 
-    #[error("--image must be digest-pinned (got {value}); SEP-58 requires content-addressed images. Pass docker.io/stellar/stellar-cli@sha256:<digest>")]
-    ImageNotDigestPinned { value: String },
+    #[error("--image value {value:?} does not match the SEP-58 bldimg format `<registry-host>/<repo>@sha256:<64-hex>`. Examples: docker.io/stellar/stellar-cli@sha256:<64-hex>, localhost:5000/foo@sha256:<64-hex>. Tag-only refs and implicit Docker-Hub short refs are not accepted.")]
+    BldimgFormat { value: String },
 
     #[error("could not determine the running rustc version: {0}")]
     RustcVersion(String),
@@ -74,7 +74,7 @@ pub enum Error {
     },
 
     #[error(
-        "git working tree at {path} is dirty. Verifiable builds require a clean tree so the recorded source_rev matches the WASM bytes. Commit or stash your changes and try again."
+        "git working tree at {path} is dirty. --source-rev requires a clean tree so the recorded source_rev matches the WASM bytes. Commit or stash your changes and try again."
     )]
     GitDirty { path: PathBuf },
 
@@ -82,6 +82,27 @@ pub enum Error {
         "the cli sets bldimg, source_rev, and bldopt automatically when --verifiable is used; remove them from --meta. Got reserved key: {key}"
     )]
     ReservedMetaKey { key: String },
+
+    #[error("--verifiable requires a SEP-58 source-identification combination. Pass one of: (--source-repo + --source-rev), (--tarball-url and/or --tarball-sha256).")]
+    MissingSourceId,
+
+    #[error("--source-rev value {value:?} does not match the SEP-58 source_rev format `^[0-9a-f]{{40}}$` (full 40-char SHA-1 of the source commit).")]
+    SourceRevFormat { value: String },
+
+    #[error("--source-repo value {value:?} does not match the SEP-58 source_repo format `^(https?://\\S+|github:[^/\\s]+/[^/\\s]+)$`.")]
+    SourceRepoFormat { value: String },
+
+    #[error("--tarball-url value {value:?} does not match the SEP-58 tarball_url format `^https?://\\S+$`.")]
+    TarballUrlFormat { value: String },
+
+    #[error("--tarball-sha256 value {value:?} does not match the SEP-58 tarball_sha256 format `^[0-9a-f]{{64}}$`.")]
+    TarballSha256Format { value: String },
+
+    #[error("--source-rev requires a git workspace at {path}; `git rev-parse HEAD` failed there.")]
+    SourceRevNotGitRepo { path: PathBuf },
+
+    #[error("--source-rev {claimed} does not match local HEAD {head}. Commit, switch, or pass the correct rev.")]
+    SourceRevHeadMismatch { claimed: String, head: String },
 
     #[error("container build exited with status {status}. To reproduce manually:\n  docker run --rm -v {mount}:/source {image} {args}")]
     ContainerExit {
@@ -104,8 +125,8 @@ pub async fn run(
         }
     }
     if let Some(img) = &cmd.image {
-        if !img.contains("@sha256:") {
-            return Err(Error::ImageNotDigestPinned { value: img.clone() }.into());
+        if !bldimg_regex().is_match(img) {
+            return Err(Error::BldimgFormat { value: img.clone() }.into());
         }
     }
 
@@ -113,9 +134,11 @@ pub async fn run(
         print.infoln("--verifiable implies --locked");
     }
 
-    // Stage 2: local filesystem + git, no network.
+    // Stage 2: local filesystem + git, no network. Resolve the workspace root
+    // first so the (optional) `--source-rev` git cross-check has a path to
+    // anchor on.
     let workspace_root = resolve_workspace_root(cmd)?;
-    let source_rev = git_source_rev(&workspace_root, print)?;
+    let source_ids = validate_source_ids(cmd, &workspace_root)?;
 
     // Stage 3: docker.
     let docker = cmd
@@ -136,7 +159,7 @@ pub async fn run(
 
     let (forwarded_args, bldopts) =
         build_forwarded_args(cmd, &workspace_root, supports_explicit_optimize_false);
-    let metadata_args = build_metadata_args(&image_ref, &source_rev, &bldopts);
+    let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
     run_in_container(
@@ -162,32 +185,91 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
     Ok(md.workspace_root.into_std_path_buf())
 }
 
-fn git_source_rev(workspace_root: &Path, print: &Print) -> Result<String, Error> {
-    // Probe with rev-parse first to detect "not a git repo".
-    let rev = Command::new("git")
+/// Source-identification fields, gathered from the corresponding CLI flags
+/// after validation. Each is `Some` only when the user passed the flag and the
+/// value matched the SEP-58 format regex. The four fields cannot all be
+/// `None` — `validate_source_ids` rejects that case.
+#[derive(Debug, Default, Clone)]
+struct SourceIds {
+    source_repo: Option<String>,
+    source_rev: Option<String>,
+    tarball_url: Option<String>,
+    tarball_sha256: Option<String>,
+}
+
+fn validate_source_ids(cmd: &Cmd, workspace_root: &Path) -> Result<SourceIds, Error> {
+    let ids = SourceIds {
+        source_repo: cmd.source_repo.clone(),
+        source_rev: cmd.source_rev.clone(),
+        tarball_url: cmd.tarball_url.clone(),
+        tarball_sha256: cmd.tarball_sha256.clone(),
+    };
+
+    if ids.source_repo.is_none()
+        && ids.source_rev.is_none()
+        && ids.tarball_url.is_none()
+        && ids.tarball_sha256.is_none()
+    {
+        return Err(Error::MissingSourceId);
+    }
+
+    if let Some(v) = &ids.source_rev {
+        if !source_rev_regex().is_match(v) {
+            return Err(Error::SourceRevFormat { value: v.clone() });
+        }
+    }
+
+    if let Some(v) = &ids.source_repo {
+        if !source_repo_regex().is_match(v) {
+            return Err(Error::SourceRepoFormat { value: v.clone() });
+        }
+    }
+
+    if let Some(v) = &ids.tarball_url {
+        if !tarball_url_regex().is_match(v) {
+            return Err(Error::TarballUrlFormat { value: v.clone() });
+        }
+    }
+
+    if let Some(v) = &ids.tarball_sha256 {
+        if !tarball_sha256_regex().is_match(v) {
+            return Err(Error::TarballSha256Format { value: v.clone() });
+        }
+    }
+
+    if let Some(claimed) = &ids.source_rev {
+        cross_check_source_rev_against_git(workspace_root, claimed)?;
+    }
+
+    Ok(ids)
+}
+
+fn cross_check_source_rev_against_git(workspace_root: &Path, claimed: &str) -> Result<(), Error> {
+    let rev_out = Command::new("git")
         .arg("-C")
         .arg(workspace_root)
         .arg("rev-parse")
         .arg("HEAD")
-        .output();
-    let rev = match rev {
-        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        Ok(_) => {
-            print.warnln(format!(
-                "{} is not a git repository; recording empty source_rev (verifiability is degraded).",
-                workspace_root.display()
-            ));
-            return Ok(String::new());
-        }
-        Err(e) => {
-            return Err(Error::GitInvoke {
-                path: workspace_root.to_path_buf(),
-                source: e,
-            })
-        }
-    };
+        .output()
+        .map_err(|e| Error::GitInvoke {
+            path: workspace_root.to_path_buf(),
+            source: e,
+        })?;
 
-    // Dirty check.
+    if !rev_out.status.success() {
+        return Err(Error::SourceRevNotGitRepo {
+            path: workspace_root.to_path_buf(),
+        });
+    }
+
+    let head = String::from_utf8_lossy(&rev_out.stdout).trim().to_string();
+    if head != claimed {
+        return Err(Error::SourceRevHeadMismatch {
+            claimed: claimed.to_string(),
+            head,
+        });
+    }
+
     let status = Command::new("git")
         .arg("-C")
         .arg(workspace_root)
@@ -198,13 +280,35 @@ fn git_source_rev(workspace_root: &Path, print: &Print) -> Result<String, Error>
             path: workspace_root.to_path_buf(),
             source: e,
         })?;
+
     if !status.stdout.is_empty() {
         return Err(Error::GitDirty {
             path: workspace_root.to_path_buf(),
         });
     }
 
-    Ok(rev)
+    Ok(())
+}
+
+fn bldimg_regex() -> Regex {
+    Regex::new(r"^(?:localhost(?::\d+)?|[^\s@/]*[.:][^\s@/]*)/[^\s@]+@sha256:[0-9a-f]{64}$")
+        .unwrap()
+}
+
+fn source_rev_regex() -> Regex {
+    Regex::new(r"^[0-9a-f]{40}$").unwrap()
+}
+
+fn source_repo_regex() -> Regex {
+    Regex::new(r"^(https?://\S+|github:[^/\s]+/[^/\s]+)$").unwrap()
+}
+
+fn tarball_url_regex() -> Regex {
+    Regex::new(r"^https?://\S+$").unwrap()
+}
+
+fn tarball_sha256_regex() -> Regex {
+    Regex::new(r"^[0-9a-f]{64}$").unwrap()
 }
 
 /// The flags forwarded to the container's `stellar contract build`, plus the
@@ -274,16 +378,33 @@ fn build_forwarded_args(
     (forwarded, bldopts)
 }
 
-fn build_metadata_args(image_ref: &str, source_rev: &str, bldopts: &[String]) -> Vec<String> {
+fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> Vec<String> {
     let mut out = Vec::new();
-    for (k, v) in [("bldimg", image_ref), ("source_rev", source_rev)] {
+
+    let push = |out: &mut Vec<String>, key: &str, val: &str| {
         out.push("--meta".to_string());
-        out.push(format!("{k}={v}"));
+        out.push(format!("{key}={val}"));
+    };
+
+    push(&mut out, "bldimg", image_ref);
+
+    if let Some(v) = &ids.source_repo {
+        push(&mut out, "source_repo", v);
     }
+    if let Some(v) = &ids.source_rev {
+        push(&mut out, "source_rev", v);
+    }
+    if let Some(v) = &ids.tarball_url {
+        push(&mut out, "tarball_url", v);
+    }
+    if let Some(v) = &ids.tarball_sha256 {
+        push(&mut out, "tarball_sha256", v);
+    }
+
     for o in bldopts {
-        out.push("--meta".to_string());
-        out.push(format!("bldopt={o}"));
+        push(&mut out, "bldopt", o);
     }
+
     out
 }
 
@@ -296,8 +417,8 @@ fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<Stri
 
 pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<String, Error> {
     if let Some(s) = &cmd.image {
-        if !s.contains("@sha256:") {
-            return Err(Error::ImageNotDigestPinned { value: s.clone() });
+        if !bldimg_regex().is_match(s) {
+            return Err(Error::BldimgFormat { value: s.clone() });
         }
         return Ok(s.clone());
     }
@@ -756,25 +877,205 @@ mod tests {
         assert!(!bldopts.iter().any(|a| a.starts_with("--optimize")));
     }
 
+    fn pairs(args: &[String]) -> Vec<(&str, &str)> {
+        args.chunks(2)
+            .map(|c| (c[0].as_str(), c[1].as_str()))
+            .collect()
+    }
+
     #[test]
-    fn build_metadata_args_orders_keys() {
+    fn build_metadata_args_source_repo_and_rev() {
+        let ids = SourceIds {
+            source_repo: Some("https://github.com/foo/bar".to_string()),
+            source_rev: Some("a".repeat(40)),
+            tarball_url: None,
+            tarball_sha256: None,
+        };
         let m = build_metadata_args(
             "docker.io/stellar/stellar-cli@sha256:abc",
-            "deadbeef",
+            &ids,
             &["--locked".to_string(), "--features=a".to_string()],
         );
-        // bldimg, source_rev, then bldopts in order.
-        let pairs: Vec<(&str, &str)> = m
-            .chunks(2)
-            .map(|c| (c[0].as_str(), c[1].as_str()))
-            .collect();
+        let p = pairs(&m);
+        // bldimg first; source-ids only for what's set; bldopts last.
         assert_eq!(
-            pairs[0],
+            p[0],
             ("--meta", "bldimg=docker.io/stellar/stellar-cli@sha256:abc")
         );
-        assert_eq!(pairs[1], ("--meta", "source_rev=deadbeef"));
-        assert_eq!(pairs[2], ("--meta", "bldopt=--locked"));
-        assert_eq!(pairs[3], ("--meta", "bldopt=--features=a"));
+        assert_eq!(p[1], ("--meta", "source_repo=https://github.com/foo/bar"));
+        assert_eq!(p[2].0, "--meta");
+        assert!(p[2].1.starts_with("source_rev="));
+        assert_eq!(p[3], ("--meta", "bldopt=--locked"));
+        assert_eq!(p[4], ("--meta", "bldopt=--features=a"));
+        // No tarball entries emitted when those fields are None.
+        assert!(!m.iter().any(|s| s.starts_with("tarball_")));
+    }
+
+    #[test]
+    fn build_metadata_args_tarball_url_only() {
+        let ids = SourceIds {
+            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
+            ..SourceIds::default()
+        };
+        let m = build_metadata_args("docker.io/stellar/stellar-cli@sha256:abc", &ids, &[]);
+        assert!(m
+            .iter()
+            .any(|s| s == "tarball_url=https://example.com/foo.tar.gz"));
+        assert!(!m.iter().any(|s| s.starts_with("source_")));
+        assert!(!m.iter().any(|s| s.starts_with("tarball_sha256=")));
+    }
+
+    #[test]
+    fn build_metadata_args_tarball_pair() {
+        let ids = SourceIds {
+            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
+            tarball_sha256: Some("f".repeat(64)),
+            ..SourceIds::default()
+        };
+        let m = build_metadata_args("docker.io/stellar/stellar-cli@sha256:abc", &ids, &[]);
+        assert!(m
+            .iter()
+            .any(|s| s == "tarball_url=https://example.com/foo.tar.gz"));
+        assert!(m
+            .iter()
+            .any(|s| s == &format!("tarball_sha256={}", "f".repeat(64))));
+    }
+
+    #[test]
+    fn validate_source_ids_missing_all_errors() {
+        let cmd = Cmd::default();
+        let err = validate_source_ids(&cmd, ws()).unwrap_err();
+        assert!(matches!(err, Error::MissingSourceId));
+    }
+
+    #[test]
+    fn validate_source_ids_rejects_bad_source_rev_format() {
+        let cmd = Cmd {
+            source_repo: Some("https://github.com/foo/bar".to_string()),
+            source_rev: Some("not-a-sha".to_string()),
+            ..Cmd::default()
+        };
+        let err = validate_source_ids(&cmd, ws()).unwrap_err();
+        assert!(matches!(err, Error::SourceRevFormat { .. }));
+    }
+
+    #[test]
+    fn validate_source_ids_rejects_bad_source_repo_format() {
+        let cmd = Cmd {
+            source_repo: Some("foo/bar".to_string()), // missing scheme
+            source_rev: Some("a".repeat(40)),
+            ..Cmd::default()
+        };
+        let err = validate_source_ids(&cmd, ws()).unwrap_err();
+        assert!(matches!(err, Error::SourceRepoFormat { .. }));
+    }
+
+    #[test]
+    fn validate_source_ids_rejects_bad_tarball_url() {
+        let cmd = Cmd {
+            tarball_url: Some("ftp://example.com/foo.tar.gz".to_string()),
+            ..Cmd::default()
+        };
+        let err = validate_source_ids(&cmd, ws()).unwrap_err();
+        assert!(matches!(err, Error::TarballUrlFormat { .. }));
+    }
+
+    #[test]
+    fn validate_source_ids_rejects_short_tarball_sha256() {
+        let cmd = Cmd {
+            tarball_sha256: Some("abc".to_string()),
+            ..Cmd::default()
+        };
+        let err = validate_source_ids(&cmd, ws()).unwrap_err();
+        assert!(matches!(err, Error::TarballSha256Format { .. }));
+    }
+
+    #[test]
+    fn validate_source_ids_accepts_tarball_url_alone() {
+        let cmd = Cmd {
+            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
+            ..Cmd::default()
+        };
+        let ids = validate_source_ids(&cmd, ws()).unwrap();
+        assert_eq!(
+            ids.tarball_url.as_deref(),
+            Some("https://example.com/foo.tar.gz")
+        );
+        assert!(ids.source_repo.is_none());
+        assert!(ids.source_rev.is_none());
+        assert!(ids.tarball_sha256.is_none());
+    }
+
+    #[test]
+    fn validate_source_ids_accepts_tarball_sha256_alone() {
+        let cmd = Cmd {
+            tarball_sha256: Some("f".repeat(64)),
+            ..Cmd::default()
+        };
+        let ids = validate_source_ids(&cmd, ws()).unwrap();
+        assert_eq!(
+            ids.tarball_sha256.as_deref(),
+            Some("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        );
+    }
+
+    #[test]
+    fn bldimg_regex_accepts_docker_hub_full_ref() {
+        assert!(bldimg_regex().is_match(&format!(
+            "docker.io/stellar/stellar-cli@sha256:{}",
+            "a".repeat(64)
+        )));
+    }
+
+    #[test]
+    fn bldimg_regex_accepts_localhost_registry() {
+        assert!(bldimg_regex().is_match(&format!("localhost:5000/foo@sha256:{}", "0".repeat(64))));
+    }
+
+    #[test]
+    fn bldimg_regex_rejects_implicit_hub_short_ref() {
+        // Implicit Docker Hub short ref: no registry host prefix.
+        assert!(!bldimg_regex().is_match(&format!("stellar/stellar-cli@sha256:{}", "a".repeat(64))));
+    }
+
+    #[test]
+    fn bldimg_regex_rejects_tag_only() {
+        assert!(!bldimg_regex().is_match("docker.io/stellar/stellar-cli:latest"));
+    }
+
+    #[test]
+    fn bldimg_regex_rejects_short_sha() {
+        assert!(!bldimg_regex().is_match("docker.io/stellar/stellar-cli@sha256:abc"));
+    }
+
+    #[test]
+    fn source_rev_regex_matches_40_hex() {
+        assert!(source_rev_regex().is_match(&"a".repeat(40)));
+        assert!(!source_rev_regex().is_match(&"a".repeat(39)));
+        assert!(!source_rev_regex().is_match(&"A".repeat(40))); // upper-case rejected
+    }
+
+    #[test]
+    fn source_repo_regex_accepts_https_and_github_shorthand() {
+        assert!(source_repo_regex().is_match("https://github.com/foo/bar"));
+        assert!(source_repo_regex().is_match("http://example.com/foo.git"));
+        assert!(source_repo_regex().is_match("github:foo/bar"));
+        assert!(!source_repo_regex().is_match("foo/bar"));
+        assert!(!source_repo_regex().is_match("git@github.com:foo/bar.git"));
+    }
+
+    #[test]
+    fn tarball_url_regex_accepts_http_only() {
+        assert!(tarball_url_regex().is_match("https://example.com/foo.tar.gz"));
+        assert!(tarball_url_regex().is_match("http://example.com/foo.tar.gz"));
+        assert!(!tarball_url_regex().is_match("ftp://example.com/foo.tar.gz"));
+    }
+
+    #[test]
+    fn tarball_sha256_regex_matches_64_hex() {
+        assert!(tarball_sha256_regex().is_match(&"f".repeat(64)));
+        assert!(!tarball_sha256_regex().is_match(&"f".repeat(63)));
+        assert!(!tarball_sha256_regex().is_match(&"F".repeat(64)));
     }
 
     #[test]

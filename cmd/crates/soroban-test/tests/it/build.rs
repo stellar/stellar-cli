@@ -994,6 +994,41 @@ fn build_always_injects_cli_version() {
     );
 }
 
+const ZERO_DIGEST: &str =
+    "docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
+// Convenience: drive a git command in a fixture directory.
+fn git_in(dir: &Path, args: &[&str]) {
+    std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "Test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.com")
+        .env("GIT_COMMITTER_NAME", "Test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.com")
+        .status()
+        .unwrap();
+}
+
+// Init a tempdir copy of the workspace fixture and return the workspace path.
+fn fresh_workspace() -> (TempDir, PathBuf) {
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    fs_extra::dir::copy(&fixture_path, temp.path(), &CopyOptions::new()).unwrap();
+    let workspace = temp.path().join("workspace");
+    (temp, workspace)
+}
+
+fn git_head(dir: &Path) -> String {
+    let out = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(dir)
+        .output()
+        .unwrap();
+    String::from_utf8(out.stdout).unwrap().trim().to_string()
+}
+
 // `--verifiable` cannot accept reserved `--meta` keys that the cli writes itself.
 #[test]
 fn verifiable_meta_conflict_errors() {
@@ -1007,7 +1042,9 @@ fn verifiable_meta_conflict_errors() {
         .arg("build")
         .arg("--verifiable")
         .arg("--image")
-        .arg("docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+        .arg(ZERO_DIGEST)
+        .arg("--tarball-url")
+        .arg("https://example.com/foo.tar.gz")
         .arg("--meta")
         .arg("bldimg=not-allowed")
         .assert()
@@ -1015,7 +1052,7 @@ fn verifiable_meta_conflict_errors() {
         .stderr(predicate::str::contains("reserved key: bldimg"));
 }
 
-// `--image` must be content-addressed; tag-only refs are rejected.
+// `--image` is validated against the SEP-58 bldimg regex; tag-only refs fail.
 #[test]
 fn verifiable_image_must_be_digest_pinned() {
     let sandbox = TestEnv::default();
@@ -1029,39 +1066,118 @@ fn verifiable_image_must_be_digest_pinned() {
         .arg("--verifiable")
         .arg("--image")
         .arg("docker.io/stellar/stellar-cli:latest")
+        .arg("--tarball-url")
+        .arg("https://example.com/foo.tar.gz")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("must be digest-pinned"));
+        .stderr(predicate::str::contains("bldimg format"));
 }
 
-// A dirty git tree breaks the verifiability property because `source_rev` would
-// record a commit whose bytes don't match the produced WASM. Hard fail.
+// SEP-58 bldimg requires an explicit registry host (e.g. `docker.io/...`).
+// Implicit Docker-Hub-style short refs are rejected.
 #[test]
-fn verifiable_dirty_tree_errors() {
+fn verifiable_image_requires_explicit_registry_host() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
-    let temp = TempDir::new().unwrap();
-    let dir_path = temp.path();
-    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
-    let workspace = dir_path.join("workspace");
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
 
-    // Bootstrap a clean git tree at the workspace root, then dirty it so the
-    // verifiable path's dirty-check trips before docker is touched.
-    let git = |args: &[&str]| {
-        std::process::Command::new("git")
-            .args(args)
-            .current_dir(&workspace)
-            .env("GIT_AUTHOR_NAME", "Test")
-            .env("GIT_AUTHOR_EMAIL", "test@example.com")
-            .env("GIT_COMMITTER_NAME", "Test")
-            .env("GIT_COMMITTER_EMAIL", "test@example.com")
-            .status()
-            .unwrap();
-    };
-    git(&["init", "-q", "-b", "main"]);
-    git(&["add", "-A"]);
-    git(&["commit", "-q", "-m", "init"]);
+    let short_ref = format!("stellar/stellar-cli@sha256:{}", "0".repeat(64));
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(short_ref)
+        .arg("--tarball-url")
+        .arg("https://example.com/foo.tar.gz")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("bldimg format"));
+}
+
+// `--verifiable` without any source-identification flag must error.
+#[test]
+fn verifiable_requires_source_id() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("source-identification"));
+}
+
+// `--source-rev` value must match the 40-hex regex.
+#[test]
+fn verifiable_source_rev_format_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-repo")
+        .arg("https://github.com/foo/bar")
+        .arg("--source-rev")
+        .arg("not-a-sha")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("source_rev format"));
+}
+
+// `--source-rev` is cross-checked against local git HEAD; a mismatch is a hard
+// fail before docker is touched.
+#[test]
+fn verifiable_source_rev_must_match_head() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let bogus = "a".repeat(40);
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(workspace.join("contracts").join("add"))
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-repo")
+        .arg("https://github.com/foo/bar")
+        .arg("--source-rev")
+        .arg(bogus)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("does not match local HEAD"));
+}
+
+// A dirty git tree under `--source-rev` is a hard fail (the recorded rev would
+// not describe the bytes built).
+#[test]
+fn verifiable_dirty_tree_errors_with_source_rev() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+    let head = git_head(&workspace);
+    // Dirty the tree after committing so HEAD matches but status is non-empty.
     std::fs::write(workspace.join("dirty.txt"), b"uncommitted").unwrap();
 
     sandbox
@@ -1070,7 +1186,11 @@ fn verifiable_dirty_tree_errors() {
         .arg("build")
         .arg("--verifiable")
         .arg("--image")
-        .arg("docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+        .arg(ZERO_DIGEST)
+        .arg("--source-repo")
+        .arg("https://github.com/foo/bar")
+        .arg("--source-rev")
+        .arg(head)
         .assert()
         .failure()
         .stderr(predicate::str::contains("dirty").or(predicate::str::contains("clean tree")));
