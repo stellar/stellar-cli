@@ -111,6 +111,48 @@ pub struct Cmd {
     #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
     pub image: Option<String>,
 
+    /// SEP-58 source identification: HTTPS URL (or `github:user/repo`) of the
+    /// source repository. Must be passed together with `--source-rev`.
+    #[arg(
+        long,
+        requires = "verifiable",
+        requires = "source_rev",
+        conflicts_with_all = ["tarball_url", "tarball_sha256"],
+        help_heading = "Verifiable"
+    )]
+    pub source_repo: Option<String>,
+
+    /// SEP-58 source identification: 40-char SHA-1 of the source commit. The
+    /// local workspace must be a git repo at this exact SHA with a clean
+    /// working tree. Must be passed together with `--source-repo`.
+    #[arg(
+        long,
+        requires = "verifiable",
+        requires = "source_repo",
+        conflicts_with_all = ["tarball_url", "tarball_sha256"],
+        help_heading = "Verifiable"
+    )]
+    pub source_rev: Option<String>,
+
+    /// SEP-58 source identification: URL where the source tarball can be
+    /// downloaded.
+    #[arg(
+        long,
+        requires = "verifiable",
+        conflicts_with_all = ["source_repo", "source_rev"],
+        help_heading = "Verifiable"
+    )]
+    pub tarball_url: Option<String>,
+
+    /// SEP-58 source identification: SHA-256 of the source tarball bytes.
+    #[arg(
+        long,
+        requires = "verifiable",
+        conflicts_with_all = ["source_repo", "source_rev"],
+        help_heading = "Verifiable"
+    )]
+    pub tarball_sha256: Option<String>,
+
     #[command(flatten)]
     pub container_args: container::shared::Args,
 
@@ -245,6 +287,10 @@ impl Default for Cmd {
             print_commands_only: false,
             verifiable: false,
             image: None,
+            source_repo: None,
+            source_rev: None,
+            tarball_url: None,
+            tarball_sha256: None,
             container_args: container::shared::Args { docker_host: None },
             build_args: BuildArgs::default(),
         }
