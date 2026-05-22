@@ -425,13 +425,13 @@ fn require_trust(
                     value: value.to_string(),
                 });
             }
-            confirm_interactively(kind, value)
+            confirm_interactively(kind, value, print)
         }
     }
 }
 
-fn confirm_interactively(kind: TrustKind, value: &str) -> Result<(), Error> {
-    let prompt = match kind {
+fn confirm_interactively(kind: TrustKind, value: &str, print: &Print) -> Result<(), Error> {
+    let context = match kind {
         TrustKind::Bldimg => format!(
             "Image {value} is not in the default trust list (only docker.io/stellar/stellar-cli is trusted by default)."
         ),
@@ -439,8 +439,8 @@ fn confirm_interactively(kind: TrustKind, value: &str) -> Result<(), Error> {
             "Tarball source {value} is not trusted by default. Tarballs always require confirmation."
         ),
     };
-    eprintln!("{prompt}");
-    eprint!("Trust this {kind} and continue? [y/N] ");
+    print.warnln(context);
+    print.question(format!("Trust this {kind} and continue? [y/N] "));
     std::io::stderr().flush().ok();
     let mut line = String::new();
     std::io::stdin()
