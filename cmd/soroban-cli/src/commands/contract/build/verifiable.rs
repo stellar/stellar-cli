@@ -467,6 +467,11 @@ pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<
         if !bldimg_regex().is_match(s) {
             return Err(Error::BldimgFormat { value: s.clone() });
         }
+        // Always pull, even when the digest is user-supplied. Docker requires
+        // the image to be locally present before `create_container` will
+        // accept it, and the user typically expects the cli to fetch
+        // whatever they asked for.
+        pull_image(docker, s, print).await?;
         return Ok(s.clone());
     }
 
