@@ -483,11 +483,18 @@ async fn pull_image(
     );
     while let Some(item) = stream.try_next().await? {
         if let Some(status) = item.status {
-            if status.contains("Pulling from")
-                || status.contains("Digest")
-                || status.contains("Status")
-            {
-                print.infoln(status);
+            // The docker daemon emits short status lines like:
+            //   "Pulling from <repo>"
+            //   "Digest: sha256:<hex>"
+            //   "Status: Image is up to date for <ref>"
+            // Stand-alone "Digest" reads as an orphan. Rewrite each line so
+            // it makes sense outside the docker-pull context.
+            if let Some(repo) = status.strip_prefix("Pulling from ") {
+                print.infoln(format!("Pulling image {repo}"));
+            } else if let Some(digest) = status.strip_prefix("Digest: ") {
+                print.infoln(format!("Image digest: {digest}"));
+            } else if let Some(rest) = status.strip_prefix("Status: ") {
+                print.infoln(format!("Image: {rest}"));
             }
         }
     }
