@@ -230,18 +230,16 @@ impl Cmd {
         let wasm_bytes = self.fetch_wasm().await?;
         let meta = extract_metadata(&wasm_bytes)?;
 
-        print.infoln(format!("bldimg: {}", meta.bldimg));
-
+        print.infoln(format!("Build image: {}", meta.bldimg));
         if let Some(v) = &meta.source_uri {
-            print.infoln(format!("source_uri: {v}"));
+            print.infoln(format!("Source URI: {v}"));
         }
-
         if let Some(v) = &meta.source_sha256 {
-            print.infoln(format!("source_sha256: {v}"));
+            print.infoln(format!("Source SHA-256: {v}"));
         }
 
         if !meta.bldopts.is_empty() {
-            print.infoln(format!("bldopt entries ({}):", meta.bldopts.len()));
+            print.infoln(format!("Build options ({}):", meta.bldopts.len()));
             for o in &meta.bldopts {
                 print.blankln(format!("  • {o}"));
             }
@@ -416,7 +414,7 @@ fn require_trust(
         TrustDecision::Trusted => Ok(()),
         TrustDecision::Overridden => {
             print.warnln(format!(
-                "trusting {kind} {value} because --trust was passed"
+                "Trusting {kind} {value} because --trust was passed"
             ));
             Ok(())
         }
@@ -491,10 +489,9 @@ async fn materialize_source(
 
     print.infoln(format!("Fetching source code from {source}"));
     let bytes = fetch_tarball_bytes(&source).await?;
-
     if let Some(expected) = &meta.source_sha256 {
         verify_source_sha256(&bytes, expected)?;
-        print.checkln("source code sha256 matches");
+        print.checkln("Source SHA-256 matches");
     }
     extract_tarball(&bytes, target)?;
     Ok(())
