@@ -125,6 +125,12 @@ pub enum Error {
     #[error("creating tempdir: {0}")]
     TempDir(std::io::Error),
 
+    #[error("hardening permissions on {path}: {source}")]
+    ChmodMaterialized {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
     #[error(transparent)]
     Verifiable(#[from] verifiable::Error),
 
@@ -502,6 +508,16 @@ async fn materialize_source(
         print.checkln("Source SHA-256 matches");
     }
     extract_tarball(&bytes, target)?;
+
+    // Tighten the freshly materialized tree to 0o700 / 0o600 before docker
+    // sees it. Uses the same per-path helper the cli already applies to its
+    // config dirs (one source of truth for what "hardened" means).
+    crate::config::locator::enforce_hardened_tree(target).map_err(|e| {
+        Error::ChmodMaterialized {
+            path: target.to_path_buf(),
+            source: e,
+        }
+    })?;
     Ok(())
 }
 
