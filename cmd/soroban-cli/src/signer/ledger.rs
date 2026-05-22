@@ -1,4 +1,6 @@
-use crate::xdr::{self, OperationBody, Transaction, TransactionEnvelope};
+use crate::xdr;
+#[cfg(feature = "additional-libs")]
+use crate::xdr::{OperationBody, Transaction, TransactionEnvelope};
 
 pub use ledger_impl::*;
 
@@ -7,6 +9,7 @@ pub use ledger_impl::*;
 // `Hash Signing` enabled in app settings); sending `SIGN_TX` (0x04) for them
 // ends up at the same UX as `SIGN_TX_HASH` (0x08) but with extra device-side
 // parsing churn, so the CLI sends the hash directly.
+#[cfg(feature = "additional-libs")]
 pub(super) fn is_soroban_tx(tx: &Transaction) -> bool {
     tx.operations.iter().any(|op| {
         matches!(
@@ -18,6 +21,7 @@ pub(super) fn is_soroban_tx(tx: &Transaction) -> bool {
     })
 }
 
+#[cfg(feature = "additional-libs")]
 pub(super) fn is_soroban_tx_env(tx_env: &TransactionEnvelope) -> bool {
     match tx_env {
         TransactionEnvelope::Tx(v1) => is_soroban_tx(&v1.tx),
