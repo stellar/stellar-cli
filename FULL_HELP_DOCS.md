@@ -383,7 +383,6 @@ To view the commands that will be executed, without executing them, use the --pr
   If ommitted, wasm files are written only to the cargo target directory.
 
 - `--locked` — Assert that `Cargo.lock` will remain unchanged
-- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -402,6 +401,7 @@ To view the commands that will be executed, without executing them, use the --pr
 - `--source-rev <SOURCE_REV>` — SEP-58 source identification: 40-char SHA-1 of the source commit. The local workspace must be a git repo at this exact SHA with a clean working tree. Must be passed together with `--source-repo`
 - `--tarball-url <TARBALL_URL>` — SEP-58 source identification: URL where the source tarball can be downloaded
 - `--tarball-sha256 <TARBALL_SHA256>` — SEP-58 source identification: SHA-256 of the source tarball bytes
+- `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by `--verifiable`
 
 ## `stellar contract extend`
 
