@@ -149,7 +149,6 @@ where
     /// Sign a Stellar transaction with the account on the Ledger device
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
-    #[allow(clippy::missing_panics_doc)]
     pub async fn sign_transaction(
         &self,
         hd_path: impl Into<HdPath>,
@@ -167,7 +166,6 @@ where
     /// Sign a Stellar fee-bump transaction with the account on the Ledger device.
     /// # Errors
     /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
-    #[allow(clippy::missing_panics_doc)]
     pub async fn sign_fee_bump_transaction(
         &self,
         hd_path: impl Into<HdPath>,
