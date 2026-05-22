@@ -926,6 +926,37 @@ mod tests {
     }
 
     #[test]
+    fn expand_source_repo_rewrites_github_shorthand() {
+        assert_eq!(
+            expand_source_repo("github:foo/bar"),
+            "https://github.com/foo/bar"
+        );
+    }
+
+    #[test]
+    fn expand_source_repo_passes_through_https() {
+        assert_eq!(
+            expand_source_repo("https://github.com/foo/bar"),
+            "https://github.com/foo/bar"
+        );
+        assert_eq!(
+            expand_source_repo("https://gitlab.com/foo/bar.git"),
+            "https://gitlab.com/foo/bar.git"
+        );
+    }
+
+    #[test]
+    fn expand_source_repo_does_not_expand_malformed_github() {
+        // Missing the `/repo` suffix; the regex won't match so we pass through.
+        assert_eq!(expand_source_repo("github:foo"), "github:foo");
+        // Extra path component; same.
+        assert_eq!(
+            expand_source_repo("github:foo/bar/baz"),
+            "github:foo/bar/baz"
+        );
+    }
+
+    #[test]
     fn build_container_command_replays_bldopts_and_re_records_meta() {
         let meta = ExtractedMetadata {
             bldimg: good_bldimg(),
