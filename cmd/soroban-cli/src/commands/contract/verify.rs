@@ -1,6 +1,8 @@
+use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use regex::Regex;
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
@@ -87,6 +89,70 @@ pub enum Error {
 
     #[error("the WASM records `source_rev` but not `source_repo`; SEP-58 requires both together")]
     SourceRevWithoutRepo,
+
+    #[error("{kind} {value:?} is not in the default trust list, and stdin is not a terminal so we can't ask. Re-run with --trust to proceed.")]
+    TrustRequired { kind: TrustKind, value: String },
+
+    #[error("user declined to trust the {kind}; aborting")]
+    TrustDeclined { kind: TrustKind },
+
+    #[error("reading stdin: {0}")]
+    Stdin(std::io::Error),
+}
+
+/// What kind of source is being trust-checked. Affects the default-trust
+/// decision and shapes the prompt + error wording.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrustKind {
+    Bldimg,
+    Tarball,
+}
+
+impl std::fmt::Display for TrustKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TrustKind::Bldimg => write!(f, "bldimg"),
+            TrustKind::Tarball => write!(f, "tarball"),
+        }
+    }
+}
+
+/// Resolution of a single trust check before any I/O happens. Pure function of
+/// the input — the run() side decides what to do with each variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrustDecision {
+    /// The value matches the default trust list for its kind. Proceed silently.
+    Trusted,
+    /// The value is not trusted by default, but `--trust` was passed. Proceed
+    /// (and the caller may want to log).
+    Overridden,
+    /// Not trusted; the caller must prompt (TTY) or fail (non-TTY).
+    NeedsConfirmation,
+}
+
+/// SEP-58 places no defaults on which images are trustworthy; we hardcode the
+/// canonical `docker.io/stellar/stellar-cli` repo (digest-pinned) as the only
+/// default-trusted image. Any other image — including mirrors and forks —
+/// requires explicit confirmation.
+const TRUSTED_BLDIMG_REGEX_STR: &str = r"^docker\.io/stellar/stellar-cli@sha256:[0-9a-f]{64}$";
+
+fn trusted_bldimg_regex() -> Regex {
+    Regex::new(TRUSTED_BLDIMG_REGEX_STR).unwrap()
+}
+
+/// Pure trust decision; no I/O. Tarball sources are never default-trusted.
+pub fn trust_decision(value: &str, kind: TrustKind, trust_flag: bool) -> TrustDecision {
+    let default_trusted = match kind {
+        TrustKind::Bldimg => trusted_bldimg_regex().is_match(value),
+        TrustKind::Tarball => false,
+    };
+    if default_trusted {
+        TrustDecision::Trusted
+    } else if trust_flag {
+        TrustDecision::Overridden
+    } else {
+        TrustDecision::NeedsConfirmation
+    }
 }
 
 /// SEP-58 metadata extracted from a contract's `contractmetav0` section.
@@ -131,7 +197,25 @@ impl Cmd {
             }
         }
 
+        // bldimg trust check is always required.
+        require_trust(self.trust, TrustKind::Bldimg, &meta.bldimg, &print)?;
+
+        // Tarball source: trust the URL we will actually fetch from (either the
+        // value the WASM recorded, or the user's `--tarball-url` override).
+        if let Some(url) = self.effective_tarball_url(&meta) {
+            require_trust(self.trust, TrustKind::Tarball, &url, &print)?;
+        }
+
         Ok(())
+    }
+
+    /// The tarball URL we'll actually retrieve from: the cli override if set,
+    /// otherwise the value recorded in the WASM. Returns `None` for git-source
+    /// builds (which aren't trust-checked here).
+    fn effective_tarball_url(&self, meta: &ExtractedMetadata) -> Option<String> {
+        self.tarball_url
+            .clone()
+            .or_else(|| meta.tarball_url.clone())
     }
 
     async fn fetch_wasm(&self) -> Result<Vec<u8>, Error> {
@@ -248,6 +332,64 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         tarball_sha256,
         bldopts,
     })
+}
+
+/// Apply the trust decision: silent-OK, log-and-OK on override, or
+/// prompt-vs-fail on `NeedsConfirmation` depending on whether stdin is a TTY.
+fn require_trust(
+    trust_flag: bool,
+    kind: TrustKind,
+    value: &str,
+    print: &Print,
+) -> Result<(), Error> {
+    match trust_decision(value, kind, trust_flag) {
+        TrustDecision::Trusted => Ok(()),
+        TrustDecision::Overridden => {
+            print.warnln(format!(
+                "trusting {kind} {value} because --trust was passed"
+            ));
+            Ok(())
+        }
+        TrustDecision::NeedsConfirmation => {
+            if !std::io::stdin().is_terminal() {
+                return Err(Error::TrustRequired {
+                    kind,
+                    value: value.to_string(),
+                });
+            }
+            confirm_interactively(kind, value)
+        }
+    }
+}
+
+fn confirm_interactively(kind: TrustKind, value: &str) -> Result<(), Error> {
+    let prompt = match kind {
+        TrustKind::Bldimg => format!(
+            "Image {value} is not in the default trust list (only docker.io/stellar/stellar-cli is trusted by default)."
+        ),
+        TrustKind::Tarball => format!(
+            "Tarball source {value} is not trusted by default. Tarballs always require confirmation."
+        ),
+    };
+    eprintln!("{prompt}");
+    eprint!("Trust this {kind} and continue? [y/N] ");
+    std::io::stderr().flush().ok();
+    let mut line = String::new();
+    std::io::stdin()
+        .read_line(&mut line)
+        .map_err(Error::Stdin)?;
+    if parse_yes(&line) {
+        Ok(())
+    } else {
+        Err(Error::TrustDeclined { kind })
+    }
+}
+
+/// Accepts y / Y / yes / YES / Yes (case-insensitive). Anything else, including
+/// the empty string, is "no" — trust prompts default to declined.
+pub fn parse_yes(answer: &str) -> bool {
+    let a = answer.trim();
+    a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
 
 // These mirror the regex strings used in verifiable.rs. They're kept here only
@@ -438,5 +580,83 @@ mod tests {
         let wasm = empty_wasm_module(); // no contractmetav0 section
         let err = extract_metadata(&wasm).unwrap_err();
         assert!(matches!(err, Error::NoMeta));
+    }
+
+    #[test]
+    fn trust_decision_bldimg_canonical_is_trusted() {
+        let img = format!("docker.io/stellar/stellar-cli@sha256:{}", "a".repeat(64));
+        assert_eq!(
+            trust_decision(&img, TrustKind::Bldimg, false),
+            TrustDecision::Trusted
+        );
+        assert_eq!(
+            trust_decision(&img, TrustKind::Bldimg, true),
+            TrustDecision::Trusted
+        );
+    }
+
+    #[test]
+    fn trust_decision_bldimg_other_registry_needs_confirmation() {
+        let img = format!("ghcr.io/stellar/stellar-cli@sha256:{}", "a".repeat(64));
+        assert_eq!(
+            trust_decision(&img, TrustKind::Bldimg, false),
+            TrustDecision::NeedsConfirmation
+        );
+        assert_eq!(
+            trust_decision(&img, TrustKind::Bldimg, true),
+            TrustDecision::Overridden
+        );
+    }
+
+    #[test]
+    fn trust_decision_bldimg_other_repo_on_dockerhub_needs_confirmation() {
+        // Same registry but different repo (fork) — not trusted.
+        let img = format!("docker.io/fnando/stellar-cli@sha256:{}", "a".repeat(64));
+        assert_eq!(
+            trust_decision(&img, TrustKind::Bldimg, false),
+            TrustDecision::NeedsConfirmation
+        );
+    }
+
+    #[test]
+    fn trust_decision_tarball_always_needs_confirmation() {
+        assert_eq!(
+            trust_decision(
+                "https://github.com/foo/bar.tar.gz",
+                TrustKind::Tarball,
+                false
+            ),
+            TrustDecision::NeedsConfirmation
+        );
+        assert_eq!(
+            trust_decision("/local/foo.tar.gz", TrustKind::Tarball, false),
+            TrustDecision::NeedsConfirmation
+        );
+    }
+
+    #[test]
+    fn trust_decision_tarball_override_with_trust() {
+        assert_eq!(
+            trust_decision(
+                "https://github.com/foo/bar.tar.gz",
+                TrustKind::Tarball,
+                true
+            ),
+            TrustDecision::Overridden
+        );
+    }
+
+    #[test]
+    fn parse_yes_accepts_all_case_variants() {
+        for yes in ["y", "Y", "yes", "YES", "Yes", "yEs", " y ", "yes\n"] {
+            assert!(parse_yes(yes), "{yes:?} should be yes");
+        }
+    }
+
+    #[test]
+    fn parse_yes_rejects_anything_else() {
+        for no in ["", "n", "N", "no", "NO", "x", "yup", "yeah", " "] {
+            assert!(!parse_yes(no), "{no:?} should not be yes");
+        }
     }
 }
