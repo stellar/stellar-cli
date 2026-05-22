@@ -427,12 +427,15 @@ fn require_trust(
                     value: value.to_string(),
                 });
             }
-            confirm_interactively(kind, value, print)
+            confirm_interactively(kind, value)
         }
     }
 }
 
-fn confirm_interactively(kind: TrustKind, value: &str, print: &Print) -> Result<(), Error> {
+fn confirm_interactively(kind: TrustKind, value: &str) -> Result<(), Error> {
+    // Trust prompts must be visible even under `--quiet` so the user can see
+    // what they're agreeing to. Use a dedicated Print that ignores the flag.
+    let print = Print::new(false);
     let context = match kind {
         TrustKind::Bldimg => format!(
             "Image {value} is not in the default trust list (only docker.io/stellar/stellar-cli is trusted by default)."
