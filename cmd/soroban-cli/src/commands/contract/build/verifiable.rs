@@ -166,12 +166,17 @@ pub async fn run(
     let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
+    // Always stream the container's cargo output during `contract build
+    // --verifiable`, matching how a non-verifiable `contract build` shows
+    // cargo output by default. The verify-side caller gates this on
+    // `--verbose` because verifications are run as part of pipelines.
     run_in_container(
         &image_ref,
         &workspace_root,
         &container_cmd_args,
         &docker,
         print,
+        true,
     )
     .await?;
 
@@ -653,6 +658,7 @@ async fn run_in_container(
     container_cmd: &[String],
     docker: &Docker,
     print: &Print,
+    verbose: bool,
 ) -> Result<(), Error> {
     let bind = format!("{}:/source", workspace_root.display());
     let config = ContainerCreateBody {
@@ -700,8 +706,10 @@ async fn run_in_container(
                 bollard::container::LogOutput::StdOut { message }
                 | bollard::container::LogOutput::StdErr { message },
             ) => {
-                let s = String::from_utf8_lossy(&message);
-                print.blankln(s.trim_end());
+                if verbose {
+                    let s = String::from_utf8_lossy(&message);
+                    print.blankln(s.trim_end());
+                }
             }
             Ok(_) => {}
             Err(e) => return Err(e.into()),
