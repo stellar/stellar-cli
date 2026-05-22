@@ -55,6 +55,8 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 httpmock = { workspace = true }
 reqwest = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
 
 [features]
 default = []
