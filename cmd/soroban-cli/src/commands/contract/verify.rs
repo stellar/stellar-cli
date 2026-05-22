@@ -245,6 +245,15 @@ impl Cmd {
             }
         }
 
+        // Catch the no-retrieval-channel case before any trust prompts so a
+        // doomed run errors immediately instead of asking the user to trust
+        // an image we won't end up using.
+        let has_git_source = meta.source_repo.is_some() && meta.source_rev.is_some();
+        let has_tarball_url = self.tarball_url.is_some() || meta.tarball_url.is_some();
+        if !has_git_source && !has_tarball_url {
+            return Err(Error::TarballUrlRequired);
+        }
+
         // bldimg trust check is always required.
         require_trust(self.trust, TrustKind::Bldimg, &meta.bldimg, &print)?;
 
