@@ -527,7 +527,7 @@ fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> 
     out
 }
 
-fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
+pub(crate) fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
     let mut args = vec!["contract".to_string(), "build".to_string()];
     args.extend_from_slice(forwarded);
     args.extend_from_slice(metadata);
@@ -862,7 +862,7 @@ async fn wait_for_termination_signal() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_in_container(
+pub(crate) async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],

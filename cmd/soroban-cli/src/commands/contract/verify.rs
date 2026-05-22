@@ -9,8 +9,9 @@ use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
 use crate::{
     commands::{
+        container,
         contract::build::verifiable::{
-            bldimg_regex, source_uri_regex, source_sha256_regex
+            self, bldimg_regex, source_sha256_regex, source_uri_regex,
         },
         global,
     },
@@ -47,6 +48,9 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: network::Args,
+
+    #[command(flatten)]
+    pub container_args: container::shared::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -119,6 +123,35 @@ pub enum Error {
 
     #[error("creating tempdir: {0}")]
     TempDir(std::io::Error),
+
+    #[error(transparent)]
+    Verifiable(#[from] verifiable::Error),
+
+    #[error(transparent)]
+    Bollard(#[from] bollard::errors::Error),
+
+    #[error(transparent)]
+    DockerConnection(#[from] container::shared::Error),
+
+    #[error("could not find a rebuilt WASM under {target}")]
+    NoRebuiltWasm { target: PathBuf },
+
+    #[error("multiple rebuilt WASMs under {target}; pass --package=... in the bldopt entries to disambiguate. Found: {found}")]
+    AmbiguousRebuiltWasm { target: PathBuf, found: String },
+
+    #[error("reading rebuilt wasm {path}: {source}")]
+    ReadRebuilt {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("verification failed: rebuilt bytes do not match the original.\n  original: {original_size} bytes, sha256={original_hash}\n  rebuilt:  {rebuilt_size} bytes, sha256={rebuilt_hash}")]
+    VerificationMismatch {
+        original_hash: String,
+        original_size: usize,
+        rebuilt_hash: String,
+        rebuilt_size: usize,
+    },
 }
 
 /// What kind of source is being trust-checked. Affects the default-trust
@@ -222,10 +255,9 @@ impl Cmd {
             require_trust(self.trust, TrustKind::Tarball, &url, &print)?;
         }
 
-        // Materialize the recorded source into a tempdir so the next step
-        // (the rebuild — to land in a follow-up commit) can bind-mount it.
-        // The TempDir keeps the directory alive only for this scope; the
-        // rebuild needs to happen before we return.
+        // Materialize the recorded source into a tempdir so the rebuild can
+        // bind-mount it. TempDir lives across the rebuild + comparison and
+        // cleans up on drop.
         let workdir = tempfile::TempDir::new().map_err(Error::TempDir)?;
         materialize_source(&meta, self.source_uri.as_deref(), workdir.path(), &print).await?;
         print.checkln(format!(
@@ -233,7 +265,46 @@ impl Cmd {
             workdir.path().display()
         ));
 
-        Ok(())
+        // Rebuild in the recorded bldimg.
+        let docker = self.container_args.connect_to_docker(&print).await?;
+        verifiable::pull_image(&docker, &meta.bldimg, &print).await?;
+        let container_cmd = build_container_command(&meta);
+        verifiable::run_in_container(
+            &meta.bldimg,
+            workdir.path(),
+            &[container_cmd],
+            &[],
+            &docker,
+            &print,
+            false,
+        )
+        .await?;
+
+        // Locate the rebuilt WASM. The cargo target dir lives under the bind-
+        // mounted /source, which we mapped to `workdir`.
+        let rebuilt_path = find_rebuilt_wasm(workdir.path(), &meta)?;
+        let rebuilt = std::fs::read(&rebuilt_path).map_err(|e| Error::ReadRebuilt {
+            path: rebuilt_path.clone(),
+            source: e,
+        })?;
+
+        // Compare.
+        let original_hash = format!("{:x}", Sha256::digest(&wasm_bytes));
+        let rebuilt_hash = format!("{:x}", Sha256::digest(&rebuilt));
+        if original_hash == rebuilt_hash && wasm_bytes.len() == rebuilt.len() {
+            print.checkln(format!(
+                "verified: {} bytes, sha256={original_hash}",
+                wasm_bytes.len()
+            ));
+            Ok(())
+        } else {
+            Err(Error::VerificationMismatch {
+                original_hash,
+                original_size: wasm_bytes.len(),
+                rebuilt_hash,
+                rebuilt_size: rebuilt.len(),
+            })
+        }
     }
 
     /// The tarball URL we'll actually retrieve from: the cli override if set,
@@ -471,6 +542,108 @@ fn extract_tarball(bytes: &[u8], target: &Path) -> Result<(), Error> {
         path: target.to_path_buf(),
         source: e,
     })
+}
+
+/// Compose the argv we hand to the container's `stellar contract build` so
+/// that:
+///   - the bldopts from the original build become flags (each entry is one
+///     token, ready for clap), AND
+///   - bldimg / source-ids / bldopt are re-recorded as `--meta` entries so
+///     the rebuilt WASM has identical metadata to the original.
+///
+/// cliver is intentionally not re-injected — the container's stellar adds it
+/// automatically, and it will match the original's iff `bldimg` resolves to
+/// the same container.
+fn build_container_command(meta: &ExtractedMetadata) -> Vec<String> {
+    let mut forwarded: Vec<String> = meta.bldopts.clone();
+    let mut metadata: Vec<String> = Vec::new();
+
+    let mut push_meta = |k: &str, v: &str| {
+        metadata.push("--meta".to_string());
+        metadata.push(format!("{k}={v}"));
+    };
+    push_meta("bldimg", &meta.bldimg);
+    if let Some(v) = &meta.source_uri {
+        push_meta("source_uri", v);
+    }
+    if let Some(v) = &meta.source_sha256 {
+        push_meta("source_sha256", v);
+    }
+    for o in &meta.bldopts {
+        push_meta("bldopt", o);
+    }
+
+    // `--locked` is always sent — even if the original somehow lacked it (a
+    // non-conformant build), the verifier insists on a locked rebuild so
+    // dependency drift can't move bytes underneath us.
+    if !forwarded.iter().any(|a| a == "--locked") {
+        forwarded.insert(0, "--locked".to_string());
+    }
+
+    verifiable::compose_container_args(&forwarded, &metadata)
+}
+
+/// Locate the rebuilt WASM under `workdir`. The container writes to
+/// `<workdir>/target/wasm32v1-none/release/<pkg>.wasm` (or `wasm32-unknown-unknown/release`
+/// for older toolchains; check both). If a `--package=<name>` bldopt was
+/// recorded, prefer that file.
+fn find_rebuilt_wasm(workdir: &Path, meta: &ExtractedMetadata) -> Result<PathBuf, Error> {
+    let preferred_pkg = meta
+        .bldopts
+        .iter()
+        .find_map(|opt| opt.strip_prefix("--package=").map(|s| s.replace('-', "_")));
+
+    let candidates = [
+        workdir.join("target/wasm32v1-none/release"),
+        workdir.join("target/wasm32-unknown-unknown/release"),
+    ];
+
+    let mut found: Vec<PathBuf> = Vec::new();
+    for dir in &candidates {
+        if !dir.is_dir() {
+            continue;
+        }
+        for entry in std::fs::read_dir(dir).map_err(|e| Error::ReadRebuilt {
+            path: dir.clone(),
+            source: e,
+        })? {
+            let p = entry
+                .map_err(|e| Error::ReadRebuilt {
+                    path: dir.clone(),
+                    source: e,
+                })?
+                .path();
+            if p.extension().and_then(|s| s.to_str()) == Some("wasm") {
+                found.push(p);
+            }
+        }
+    }
+
+    if let Some(pkg) = &preferred_pkg {
+        let want = format!("{pkg}.wasm");
+        if let Some(p) = found.iter().find(|p| {
+            p.file_name()
+                .and_then(|s| s.to_str())
+                .is_some_and(|n| n == want)
+        }) {
+            return Ok(p.clone());
+        }
+    }
+
+    match found.len() {
+        0 => Err(Error::NoRebuiltWasm {
+            target: workdir.join("target"),
+        }),
+        1 => Ok(found.into_iter().next().unwrap()),
+        _ => Err(Error::AmbiguousRebuiltWasm {
+            target: workdir.join("target"),
+            found: found
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        }),
+    }
 }
 
 // These mirror the regex strings used in verifiable.rs. They're kept here only
@@ -744,5 +917,126 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, Error::SourceUriRequired));
+    }
+
+    #[test]
+    fn build_container_command_replays_bldopts_and_re_records_meta() {
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec![
+                "--locked".to_string(),
+                "--meta=home_domain=fnando.com".to_string(),
+                "--optimize".to_string(),
+            ],
+        };
+        let cmd = build_container_command(&meta);
+
+        // Subcommand prefix.
+        assert_eq!(&cmd[..2], &["contract".to_string(), "build".to_string()]);
+
+        // Bldopts are forwarded verbatim as flags to the inner `stellar contract build`.
+        assert!(cmd.contains(&"--locked".to_string()));
+        assert!(cmd.contains(&"--meta=home_domain=fnando.com".to_string()));
+        assert!(cmd.contains(&"--optimize".to_string()));
+
+        // bldimg and source-ids are re-recorded as `--meta`.
+        assert!(cmd
+            .windows(2)
+            .any(|w| w[0] == "--meta" && w[1] == format!("bldimg={}", good_bldimg())));
+        assert!(cmd
+            .windows(2)
+            .any(|w| w[0] == "--meta" && w[1] == "source_uri=https://github.com/foo/bar"));
+
+        // Every bldopt is also re-recorded as a `bldopt=` meta so the rebuilt
+        // WASM mirrors the original's entries.
+        assert!(cmd
+            .windows(2)
+            .any(|w| w[0] == "--meta" && w[1] == "bldopt=--locked"));
+    }
+
+    #[test]
+    fn build_container_command_injects_locked_when_missing() {
+        // A non-conformant origin might not have --locked in bldopts. Verify
+        // forces it anyway so dependency drift cannot move bytes.
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec!["--meta=author=alice".to_string()],
+        };
+        let cmd = build_container_command(&meta);
+        let locked_count = cmd.iter().filter(|s| *s == "--locked").count();
+        assert_eq!(
+            locked_count, 1,
+            "expected exactly one --locked, got {locked_count} in {cmd:?}"
+        );
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_picks_single() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec![],
+        };
+        let p = find_rebuilt_wasm(dir.path(), &meta).unwrap();
+        assert!(p.ends_with("hello.wasm"));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_disambiguates_by_package() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+        std::fs::write(release.join("other_thing.wasm"), b"x").unwrap();
+
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec!["--package=other-thing".to_string()],
+        };
+        let p = find_rebuilt_wasm(dir.path(), &meta).unwrap();
+        assert!(p.ends_with("other_thing.wasm"));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_errors_when_ambiguous_without_package() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+        std::fs::write(release.join("other.wasm"), b"x").unwrap();
+
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec![],
+        };
+        let err = find_rebuilt_wasm(dir.path(), &meta).unwrap_err();
+        assert!(matches!(err, Error::AmbiguousRebuiltWasm { .. }));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_errors_when_none() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec![],
+        };
+        let err = find_rebuilt_wasm(dir.path(), &meta).unwrap_err();
+        assert!(matches!(err, Error::NoRebuiltWasm { .. }));
     }
 }

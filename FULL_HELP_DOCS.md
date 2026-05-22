@@ -1179,6 +1179,7 @@ Verify that a contract's WASM reproduces from the build metadata it records, per
 - `--wasm <WASM>` — Local WASM file to verify, instead of fetching from the network
 - `--tarball-url <TARBALL_URL>` — Local tarball file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `tarball_sha256` (no `tarball_url`). Accepts http(s) URLs or local file paths
 - `--trust` — Bypass interactive confirmation when the WASM's bldimg is not in the default trust list, or when the source is a tarball (tarballs are never default-trusted)
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 
 ###### **RPC Options:**
 

@@ -5465,6 +5465,7 @@ dependencies = [
  "tracing-subscriber",
  "ulid",
  "url",
+ "walkdir",
  "wasm-gen",
  "wasm-opt",
  "wasmparser 0.116.1",
