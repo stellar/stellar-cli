@@ -299,7 +299,7 @@ impl Cmd {
         let rebuilt_hash = format!("{:x}", Sha256::digest(&rebuilt));
         if original_hash == rebuilt_hash && wasm_bytes.len() == rebuilt.len() {
             result_print.checkln(format!(
-                "verified: {} bytes, sha256={original_hash}",
+                "Verified: {} bytes, sha256={original_hash}",
                 wasm_bytes.len()
             ));
             Ok(())
