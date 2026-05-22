@@ -12,4 +12,5 @@ mod plugin;
 mod rpc_provider;
 mod strkey;
 mod util;
+mod verify;
 mod version;
