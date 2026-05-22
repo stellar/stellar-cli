@@ -375,7 +375,10 @@ mod test {
     use crate::{test_network_hash, Error, LedgerSigner};
 
     use stellar_xdr::curr::{
-        Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
+        FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Limits, Memo,
+        MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
+        TransactionSignaturePayload, TransactionSignaturePayloadTaggedTransaction,
+        TransactionV1Envelope, VecM, WriteXdr,
     };
 
     fn ledger(server: &MockServer) -> LedgerSigner<Emulator> {
@@ -481,6 +484,105 @@ mod test {
             hex::encode(response),
             "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e"
         );
+
+        mock_request_1.assert();
+        mock_request_2.assert();
+    }
+
+    #[tokio::test]
+    async fn test_sign_fee_bump_tx() {
+        // Wraps the Payment from `test_sign_tx` in a FeeBumpTransaction and
+        // signs the outer envelope. Exercises the new `sign_fee_bump_transaction`
+        // path, which differs from `sign_transaction` only in the
+        // TaggedTransaction discriminator (`TxFeeBump` vs `Tx`); the chunking
+        // and APDU framing are shared via `sign_tagged_transaction`.
+
+        let fake_acct = [0; 32];
+        let inner_tx = Transaction {
+            source_account: MuxedAccount::Ed25519(Uint256(fake_acct)),
+            fee: 100,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::Text("Stellar".as_bytes().try_into().unwrap()),
+            ext: TransactionExt::V0,
+            operations: [Operation {
+                source_account: Some(MuxedAccount::Ed25519(Uint256(fake_acct))),
+                body: OperationBody::Payment(PaymentOp {
+                    destination: MuxedAccount::Ed25519(Uint256(fake_acct)),
+                    asset: xdr::Asset::Native,
+                    amount: 100,
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+        };
+
+        let fee_source = [1u8; 32];
+        let fee_bump_tx = FeeBumpTransaction {
+            fee_source: MuxedAccount::Ed25519(Uint256(fee_source)),
+            fee: 200,
+            inner_tx: FeeBumpTransactionInnerTx::Tx(TransactionV1Envelope {
+                tx: inner_tx,
+                signatures: VecM::default(),
+            }),
+            ext: FeeBumpTransactionExt::V0,
+        };
+
+        // Build the expected APDU chunks the same way `sign_tagged_transaction`
+        // does, so the mock can match exact request bodies.
+        let payload = TransactionSignaturePayload {
+            network_id: test_network_hash(),
+            tagged_transaction: TransactionSignaturePayloadTaggedTransaction::TxFeeBump(
+                fee_bump_tx.clone(),
+            ),
+        };
+        let payload_bytes = payload.to_xdr(Limits::none()).unwrap();
+        let mut data = vec![super::HD_PATH_ELEMENTS_COUNT];
+        // HD path for index 0: m/44'/148'/0' (hardened).
+        data.extend_from_slice(&[0x80, 0, 0, 0x2c, 0x80, 0, 0, 0x94, 0x80, 0, 0, 0]);
+        data.extend(&payload_bytes);
+        let chunks: Vec<Vec<u8>> = data
+            .chunks(super::CHUNK_SIZE as usize)
+            .map(<[u8]>::to_vec)
+            .collect();
+        assert_eq!(
+            chunks.len(),
+            2,
+            "fee-bump payload should split into two SIGN_TX chunks"
+        );
+        let apdu1 = format!("e0040080{:02x}{}", chunks[0].len(), hex::encode(&chunks[0]));
+        let apdu2 = format!("e0048000{:02x}{}", chunks[1].len(), hex::encode(&chunks[1]));
+
+        let expected_sig = "5c2f8eb41e11ab922800071990a25cf9713cc6e7c43e50e0780ddc4c0c6da50c784609ef14c528a12f520d8ea9343b49083f59c51e3f28af8c62b3edeaade60e";
+
+        let server = MockServer::start();
+        let mock_request_1 = server.mock(|when, then| {
+            when.method(POST)
+                .path("/")
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .json_body(json!({ "apduHex": apdu1 }));
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body(json!({ "data": "9000" }));
+        });
+        let mock_request_2 = server.mock(|when, then| {
+            when.method(POST)
+                .path("/")
+                .header("accept", "application/json")
+                .header("content-type", "application/json")
+                .json_body(json!({ "apduHex": apdu2 }));
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body(json!({ "data": format!("{expected_sig}9000") }));
+        });
+
+        let ledger = ledger(&server);
+        let response = ledger
+            .sign_fee_bump_transaction(0, fee_bump_tx, test_network_hash())
+            .await
+            .unwrap();
+        assert_eq!(hex::encode(response), expected_sig);
 
         mock_request_1.assert();
         mock_request_2.assert();
