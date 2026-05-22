@@ -139,7 +139,7 @@ pub async fn run(
     // Defer the info banner until every validation has passed, so it doesn't
     // appear right before an error.
     if !cmd.locked {
-        print.infoln("--verifiable implies --locked");
+        print.infoln("Implying --locked because --verifiable was passed");
     }
 
     // Stage 3: docker.
@@ -600,7 +600,7 @@ async fn probe_supports_optimize_false_syntax(
         }
         Err(e) => {
             print.warnln(format!(
-                "could not probe container cli version ({e}); assuming pre-{OPTIMIZE_NEW_SYNTAX_MIN} syntax"
+                "Could not probe container cli version ({e}); assuming pre-{OPTIMIZE_NEW_SYNTAX_MIN} syntax"
             ));
             false
         }
