@@ -1,7 +1,6 @@
 use crate::{
     log::format_auth_entry,
     signer::ledger::LedgerEntry,
-    utils::fee_bump_transaction_hash,
     xdr::{
         self, AccountId, DecoratedSignature, FeeBumpTransactionEnvelope, Hash, HashIdPreimage,
         HashIdPreimageSorobanAuthorization, Limits, MuxedAccount, Operation, OperationBody,
@@ -13,7 +12,7 @@ use crate::{
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
-use crate::{config::network::Network, print::Print, utils::transaction_hash};
+use crate::{config::network::Network, print::Print, utils::transaction_env_hash};
 use std::io::{self, BufRead, IsTerminal};
 
 pub mod ledger;
@@ -316,6 +315,9 @@ impl Signer {
         tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
+        if matches!(tx_env, TransactionEnvelope::TxV0(_)) {
+            return Err(Error::UnsupportedTransactionEnvelopeType);
+        }
         let decorated_signature = self.produce_signature(tx_env, network).await?;
         match tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
@@ -372,28 +374,16 @@ impl Signer {
                 .map_err(Error::from),
             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
             SignerKind::Local(key) => {
-                let tx_hash = tx_env_hash(tx_env, &network.network_passphrase)?;
+                let tx_hash = transaction_env_hash(tx_env, &network.network_passphrase)?;
                 self.print.infoln(format_signing_message(tx_env, tx_hash));
                 key.sign_tx_hash(tx_hash)
             }
             SignerKind::SecureStore(entry) => {
-                let tx_hash = tx_env_hash(tx_env, &network.network_passphrase)?;
+                let tx_hash = transaction_env_hash(tx_env, &network.network_passphrase)?;
                 self.print.infoln(format_signing_message(tx_env, tx_hash));
                 entry.sign_tx_hash(tx_hash)
             }
         }
-    }
-}
-
-fn tx_env_hash(tx_env: &TransactionEnvelope, network_passphrase: &str) -> Result<[u8; 32], Error> {
-    match tx_env {
-        TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) => {
-            Ok(transaction_hash(tx, network_passphrase)?)
-        }
-        TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, .. }) => {
-            Ok(fee_bump_transaction_hash(tx, network_passphrase)?)
-        }
-        TransactionEnvelope::TxV0(_) => Err(Error::UnsupportedTransactionEnvelopeType),
     }
 }
 
