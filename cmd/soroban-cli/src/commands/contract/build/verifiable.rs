@@ -527,7 +527,7 @@ fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> 
     out
 }
 
-fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
+pub(crate) fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
     let mut args = vec!["contract".to_string(), "build".to_string()];
     args.extend_from_slice(forwarded);
     args.extend_from_slice(metadata);
@@ -583,7 +583,7 @@ pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<
     Ok(digest)
 }
 
-async fn pull_image(
+pub(crate) async fn pull_image(
     docker: &Docker,
     tag: &str,
     print: &Print,
@@ -861,7 +861,7 @@ fn escape_container_args(cmd: &[String]) -> String {
         .join(" ")
 }
 
-async fn run_in_container(
+pub(crate) async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],
