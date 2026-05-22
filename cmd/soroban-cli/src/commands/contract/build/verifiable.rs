@@ -537,7 +537,10 @@ async fn pull_image(
             } else if let Some(digest) = status.strip_prefix("Digest: ") {
                 print.infoln(format!("Image digest: {digest}"));
             } else if let Some(rest) = status.strip_prefix("Status: ") {
-                print.infoln(format!("Image: {rest}"));
+                // Docker's status text already starts with "Image …" or
+                // "Downloaded …", so we forward it verbatim instead of
+                // prepending another "Image:".
+                print.infoln(rest);
             }
         }
     }
