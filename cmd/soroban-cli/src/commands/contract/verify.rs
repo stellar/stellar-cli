@@ -1,16 +1,16 @@
 use std::io::{IsTerminal, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use regex::Regex;
+use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 
 use crate::{
     commands::{
         contract::build::verifiable::{
-            bldimg_regex, source_repo_regex, source_rev_regex, tarball_sha256_regex,
-            tarball_url_regex,
+            bldimg_regex, source_uri_regex, source_sha256_regex
         },
         global,
     },
@@ -30,11 +30,11 @@ pub struct Cmd {
     #[arg(long)]
     pub wasm: Option<PathBuf>,
 
-    /// Local tarball file or http(s) URL to use as the source when the WASM's
-    /// recorded SEP-58 metadata has only `tarball_sha256` (no `tarball_url`).
+    /// Local source code file or http(s) URL to use as the source when the WASM's
+    /// recorded SEP-58 metadata has only `source_sha256` (no `source_uri`).
     /// Accepts http(s) URLs or local file paths.
     #[arg(long)]
-    pub tarball_url: Option<String>,
+    pub source_uri: Option<String>,
 
     /// Bypass interactive confirmation when the WASM's bldimg is not in the
     /// default trust list, or when the source is a tarball (tarballs are
@@ -75,8 +75,8 @@ pub enum Error {
     #[error("the WASM's contractmetav0 does not record a `bldimg` entry; cannot verify")]
     MissingBldimg,
 
-    #[error("the WASM's contractmetav0 does not record any SEP-58 source-identification entry (source_repo+source_rev, tarball_url, or tarball_sha256); cannot verify")]
-    MissingSourceId,
+    #[error("the WASM's contractmetav0 does not record a `source_sha256` entry; cannot verify")]
+    MissingSourceSha256,
 
     #[error(
         "the WASM's `{field}` value {value:?} does not match the SEP-58 format regex `{regex}`"
@@ -87,9 +87,6 @@ pub enum Error {
         regex: &'static str,
     },
 
-    #[error("the WASM records `source_rev` but not `source_repo`; SEP-58 requires both together")]
-    SourceRevWithoutRepo,
-
     #[error("{kind} {value:?} is not in the default trust list, and stdin is not a terminal so we can't ask. Re-run with --trust to proceed.")]
     TrustRequired { kind: TrustKind, value: String },
 
@@ -98,6 +95,30 @@ pub enum Error {
 
     #[error("reading stdin: {0}")]
     Stdin(std::io::Error),
+
+    #[error("the WASM records only `source_sha256` (no `source_uri`). Pass `--source-uri URL_OR_PATH` to provide retrieval.")]
+    SourceUriRequired,
+
+    #[error("downloading {url}: {source}")]
+    SourceDownload { url: String, source: reqwest::Error },
+
+    #[error("reading local source code {path}: {source}")]
+    SourceRead {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("source code sha256 mismatch: expected {expected}, got {actual}")]
+    SourceHashMismatch { expected: String, actual: String },
+
+    #[error("extracting source code into {path}: {source}")]
+    SourceExtract {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("creating tempdir: {0}")]
+    TempDir(std::io::Error),
 }
 
 /// What kind of source is being trust-checked. Affects the default-trust
@@ -163,10 +184,8 @@ pub fn trust_decision(value: &str, kind: TrustKind, trust_flag: bool) -> TrustDe
 #[derive(Debug, Clone)]
 pub struct ExtractedMetadata {
     pub bldimg: String,
-    pub source_repo: Option<String>,
-    pub source_rev: Option<String>,
-    pub tarball_url: Option<String>,
-    pub tarball_sha256: Option<String>,
+    pub source_uri: Option<String>,
+    pub source_sha256: Option<String>,
     pub bldopts: Vec<String>,
 }
 
@@ -178,18 +197,15 @@ impl Cmd {
         let meta = extract_metadata(&wasm_bytes)?;
 
         print.infoln(format!("bldimg: {}", meta.bldimg));
-        if let Some(v) = &meta.source_repo {
-            print.infoln(format!("source_repo: {v}"));
+
+        if let Some(v) = &meta.source_uri {
+            print.infoln(format!("source_uri: {v}"));
         }
-        if let Some(v) = &meta.source_rev {
-            print.infoln(format!("source_rev: {v}"));
+
+        if let Some(v) = &meta.source_sha256 {
+            print.infoln(format!("source_sha256: {v}"));
         }
-        if let Some(v) = &meta.tarball_url {
-            print.infoln(format!("tarball_url: {v}"));
-        }
-        if let Some(v) = &meta.tarball_sha256 {
-            print.infoln(format!("tarball_sha256: {v}"));
-        }
+
         if !meta.bldopts.is_empty() {
             print.infoln(format!("bldopt entries ({}):", meta.bldopts.len()));
             for o in &meta.bldopts {
@@ -201,21 +217,33 @@ impl Cmd {
         require_trust(self.trust, TrustKind::Bldimg, &meta.bldimg, &print)?;
 
         // Tarball source: trust the URL we will actually fetch from (either the
-        // value the WASM recorded, or the user's `--tarball-url` override).
-        if let Some(url) = self.effective_tarball_url(&meta) {
+        // value the WASM recorded, or the user's `--source-uri` override).
+        if let Some(url) = self.effective_source_uri(&meta) {
             require_trust(self.trust, TrustKind::Tarball, &url, &print)?;
         }
+
+        // Materialize the recorded source into a tempdir so the next step
+        // (the rebuild — to land in a follow-up commit) can bind-mount it.
+        // The TempDir keeps the directory alive only for this scope; the
+        // rebuild needs to happen before we return.
+        let workdir = tempfile::TempDir::new().map_err(Error::TempDir)?;
+        materialize_source(&meta, self.source_uri.as_deref(), workdir.path(), &print).await?;
+        print.checkln(format!(
+            "Source materialized at {}",
+            workdir.path().display()
+        ));
 
         Ok(())
     }
 
     /// The tarball URL we'll actually retrieve from: the cli override if set,
-    /// otherwise the value recorded in the WASM. Returns `None` for git-source
-    /// builds (which aren't trust-checked here).
-    fn effective_tarball_url(&self, meta: &ExtractedMetadata) -> Option<String> {
-        self.tarball_url
+    /// otherwise the value recorded in the WASM. Returns `None` when neither
+    /// records a `source_uri` (only `source_sha256` is set), in which case
+    /// there's nothing to trust-check here.
+    fn effective_source_uri(&self, meta: &ExtractedMetadata) -> Option<String> {
+        self.source_uri
             .clone()
-            .or_else(|| meta.tarball_url.clone())
+            .or_else(|| meta.source_uri.clone())
     }
 
     async fn fetch_wasm(&self) -> Result<Vec<u8>, Error> {
@@ -233,8 +261,8 @@ impl Cmd {
 }
 
 /// Walk the WASM's `contractmetav0` entries and pull out the SEP-58 fields we
-/// need to drive a rebuild. Errors when `bldimg` is absent or when no source
-/// identification is recorded, since neither has a sensible default.
+/// need to drive a rebuild. Errors when `bldimg` or `source_sha256` is absent,
+/// since neither has a sensible default. `source_uri` is optional.
 pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
     let spec = Spec::new(wasm)?;
     if spec.meta.is_empty() {
@@ -242,10 +270,8 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
     }
 
     let mut bldimg: Option<String> = None;
-    let mut source_repo: Option<String> = None;
-    let mut source_rev: Option<String> = None;
-    let mut tarball_url: Option<String> = None;
-    let mut tarball_sha256: Option<String> = None;
+    let mut source_uri: Option<String> = None;
+    let mut source_sha256: Option<String> = None;
     let mut bldopts: Vec<String> = Vec::new();
 
     for entry in &spec.meta {
@@ -254,10 +280,8 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         let v = val.to_string();
         match k.as_str() {
             "bldimg" => bldimg = Some(v),
-            "source_repo" => source_repo = Some(v),
-            "source_rev" => source_rev = Some(v),
-            "tarball_url" => tarball_url = Some(v),
-            "tarball_sha256" => tarball_sha256 = Some(v),
+            "source_uri" => source_uri = Some(v),
+            "source_sha256" => source_sha256 = Some(v),
             "bldopt" => bldopts.push(v),
             _ => {} // cliver and any user --meta are intentionally ignored
         }
@@ -272,64 +296,33 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         });
     }
 
-    if let Some(v) = &source_rev {
-        if !source_rev_regex().is_match(v) {
+    if let Some(v) = &source_uri {
+        if !source_uri_regex().is_match(v) {
             return Err(Error::MetaFormat {
-                field: "source_rev",
+                field: "source_uri",
                 value: v.clone(),
-                regex: SOURCE_REV_REGEX_STR,
+                regex: SOURCE_URL_REGEX_STR,
             });
         }
     }
-    if let Some(v) = &source_repo {
-        if !source_repo_regex().is_match(v) {
+    if let Some(v) = &source_sha256 {
+        if !source_sha256_regex().is_match(v) {
             return Err(Error::MetaFormat {
-                field: "source_repo",
+                field: "source_sha256",
                 value: v.clone(),
-                regex: SOURCE_REPO_REGEX_STR,
-            });
-        }
-    }
-    if let Some(v) = &tarball_url {
-        if !tarball_url_regex().is_match(v) {
-            return Err(Error::MetaFormat {
-                field: "tarball_url",
-                value: v.clone(),
-                regex: TARBALL_URL_REGEX_STR,
-            });
-        }
-    }
-    if let Some(v) = &tarball_sha256 {
-        if !tarball_sha256_regex().is_match(v) {
-            return Err(Error::MetaFormat {
-                field: "tarball_sha256",
-                value: v.clone(),
-                regex: TARBALL_SHA256_REGEX_STR,
+                regex: SOURCE_SHA256_REGEX_STR,
             });
         }
     }
 
-    // SEP-58 lists `source_repo+source_rev` as a conformant combination. We
-    // refuse `source_rev` without `source_repo` here so the user sees a
-    // pointed error rather than a downstream "can't clone repo" surprise.
-    if source_rev.is_some() && source_repo.is_none() {
-        return Err(Error::SourceRevWithoutRepo);
-    }
-
-    if source_repo.is_none()
-        && source_rev.is_none()
-        && tarball_url.is_none()
-        && tarball_sha256.is_none()
-    {
-        return Err(Error::MissingSourceId);
+    if source_sha256.is_none() {
+        return Err(Error::MissingSourceSha256);
     }
 
     Ok(ExtractedMetadata {
         bldimg,
-        source_repo,
-        source_rev,
-        tarball_url,
-        tarball_sha256,
+        source_uri,
+        source_sha256,
         bldopts,
     })
 }
@@ -392,15 +385,101 @@ pub fn parse_yes(answer: &str) -> bool {
     a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
 
+/// Materialize the recorded source tree into `target`. Picks the path based on
+/// what the WASM recorded:
+///   - source_uri (with optional sha256) → download/read, optional sha-check,
+///     extract via `tar`
+///   - source_sha256 only → require `--source-uri` on the cli and use it as
+///     the retrieval channel
+///
+/// `source_uri_override` is the cli's `--source-uri` flag value; when set, it
+/// wins over whatever the WASM recorded, and may be an http(s) URL or a local
+/// file path.
+async fn materialize_source(
+    meta: &ExtractedMetadata,
+    source_uri_override: Option<&str>,
+    target: &Path,
+    print: &Print,
+) -> Result<(), Error> {
+    let tarball_source = source_uri_override
+        .map(str::to_string)
+        .or_else(|| meta.source_uri.clone());
+    let Some(source) = tarball_source else {
+        // No source_uri anywhere — only source_sha256 is set.
+        return Err(Error::SourceUriRequired);
+    };
+
+    print.infoln(format!("Fetching source code from {source}"));
+    let bytes = fetch_tarball_bytes(&source).await?;
+
+    if let Some(expected) = &meta.source_sha256 {
+        verify_source_sha256(&bytes, expected)?;
+        print.checkln("source code sha256 matches");
+    }
+    extract_tarball(&bytes, target)?;
+    Ok(())
+}
+
+/// Retrieve the tarball bytes. `source` is either an `http(s)://` URL or a
+/// local file path. The split is by prefix, not by attempting both — keeps
+/// behavior predictable.
+async fn fetch_tarball_bytes(source: &str) -> Result<Vec<u8>, Error> {
+    if source.starts_with("http://") || source.starts_with("https://") {
+        let resp = reqwest::get(source)
+            .await
+            .map_err(|e| Error::SourceDownload {
+                url: source.to_string(),
+                source: e,
+            })?;
+        let bytes = resp
+            .error_for_status()
+            .map_err(|e| Error::SourceDownload {
+                url: source.to_string(),
+                source: e,
+            })?
+            .bytes()
+            .await
+            .map_err(|e| Error::SourceDownload {
+                url: source.to_string(),
+                source: e,
+            })?;
+        Ok(bytes.to_vec())
+    } else {
+        std::fs::read(source).map_err(|e| Error::SourceRead {
+            path: PathBuf::from(source),
+            source: e,
+        })
+    }
+}
+
+fn verify_source_sha256(bytes: &[u8], expected: &str) -> Result<(), Error> {
+    let actual = format!("{:x}", Sha256::digest(bytes));
+    if actual.eq_ignore_ascii_case(expected) {
+        Ok(())
+    } else {
+        Err(Error::SourceHashMismatch {
+            expected: expected.to_string(),
+            actual,
+        })
+    }
+}
+
+fn extract_tarball(bytes: &[u8], target: &Path) -> Result<(), Error> {
+    let gz = flate2::read::GzDecoder::new(bytes);
+    let mut archive = tar::Archive::new(gz);
+    archive.unpack(target).map_err(|e| Error::SourceExtract {
+        path: target.to_path_buf(),
+        source: e,
+    })
+}
+
 // These mirror the regex strings used in verifiable.rs. They're kept here only
 // so `Error::MetaFormat` can render the regex back to the user as part of the
 // error message. The actual matching uses the helpers from verifiable.rs.
 const BLDIMG_REGEX_STR: &str =
     r"^(?:localhost(?::\d+)?|[^\s@/]*[.:][^\s@/]*)/[^\s@]+@sha256:[0-9a-f]{64}$";
-const SOURCE_REV_REGEX_STR: &str = r"^[0-9a-f]{40}$";
-const SOURCE_REPO_REGEX_STR: &str = r"^(https?://\S+|github:[^/\s]+/[^/\s]+)$";
-const TARBALL_URL_REGEX_STR: &str = r"^https?://\S+$";
-const TARBALL_SHA256_REGEX_STR: &str = r"^[0-9a-f]{64}$";
+const SOURCE_URL_REGEX_STR: &str = r"^https?://\S+$";
+const SOURCE_SHA256_REGEX_STR: &str = r"^[0-9a-f]{64}$";
 
 #[cfg(test)]
 mod tests {
@@ -439,61 +518,27 @@ mod tests {
     }
 
     #[test]
-    fn extract_metadata_happy_path_git_source() {
-        let wasm = make_wasm_with_meta(&[
-            ("bldimg", &good_bldimg()),
-            ("source_repo", "https://github.com/foo/bar"),
-            ("source_rev", &"b".repeat(40)),
-            ("bldopt", "--locked"),
-            ("bldopt", "--meta=home_domain=fnando.com"),
-            ("home_domain", "fnando.com"),
-            ("cliver", "26.0.0#abcdef"),
-        ]);
-        let meta = extract_metadata(&wasm).unwrap();
-        assert_eq!(meta.bldimg, good_bldimg());
-        assert_eq!(
-            meta.source_repo.as_deref(),
-            Some("https://github.com/foo/bar")
-        );
-        assert_eq!(meta.source_rev.as_deref(), Some("b".repeat(40).as_str()));
-        assert_eq!(
-            meta.bldopts,
-            vec![
-                "--locked".to_string(),
-                "--meta=home_domain=fnando.com".to_string()
-            ]
-        );
-        assert!(meta.tarball_url.is_none());
-        assert!(meta.tarball_sha256.is_none());
-    }
-
-    #[test]
     fn extract_metadata_happy_path_tarball_pair() {
         let wasm = make_wasm_with_meta(&[
             ("bldimg", &good_bldimg()),
-            ("tarball_url", "https://example.com/src.tar.gz"),
-            ("tarball_sha256", &"f".repeat(64)),
+            ("source_uri", "https://example.com/src.tar.gz"),
+            ("source_sha256", &"f".repeat(64)),
             ("bldopt", "--locked"),
         ]);
         let meta = extract_metadata(&wasm).unwrap();
         assert_eq!(
-            meta.tarball_url.as_deref(),
+            meta.source_uri.as_deref(),
             Some("https://example.com/src.tar.gz")
         );
         assert_eq!(
-            meta.tarball_sha256.as_deref(),
+            meta.source_sha256.as_deref(),
             Some("f".repeat(64).as_str())
         );
-        assert!(meta.source_repo.is_none());
-        assert!(meta.source_rev.is_none());
     }
 
     #[test]
     fn extract_metadata_missing_bldimg_errors() {
-        let wasm = make_wasm_with_meta(&[
-            ("source_repo", "https://github.com/foo/bar"),
-            ("source_rev", &"b".repeat(40)),
-        ]);
+        let wasm = make_wasm_with_meta(&[("source_sha256", &"b".repeat(64))]);
         let err = extract_metadata(&wasm).unwrap_err();
         assert!(matches!(err, Error::MissingBldimg));
     }
@@ -502,23 +547,14 @@ mod tests {
     fn extract_metadata_missing_source_id_errors() {
         let wasm = make_wasm_with_meta(&[("bldimg", &good_bldimg())]);
         let err = extract_metadata(&wasm).unwrap_err();
-        assert!(matches!(err, Error::MissingSourceId));
-    }
-
-    #[test]
-    fn extract_metadata_source_rev_without_repo_errors() {
-        let wasm =
-            make_wasm_with_meta(&[("bldimg", &good_bldimg()), ("source_rev", &"b".repeat(40))]);
-        let err = extract_metadata(&wasm).unwrap_err();
-        assert!(matches!(err, Error::SourceRevWithoutRepo));
+        assert!(matches!(err, Error::MissingSourceSha256));
     }
 
     #[test]
     fn extract_metadata_bad_bldimg_format_errors() {
         let wasm = make_wasm_with_meta(&[
             ("bldimg", "stellar/stellar-cli@sha256:abc"), // implicit hub + short
-            ("source_repo", "https://github.com/foo/bar"),
-            ("source_rev", &"b".repeat(40)),
+            ("source_sha256", &"b".repeat(64)),
         ]);
         let err = extract_metadata(&wasm).unwrap_err();
         assert!(matches!(
@@ -531,30 +567,13 @@ mod tests {
     }
 
     #[test]
-    fn extract_metadata_bad_source_rev_format_errors() {
-        let wasm = make_wasm_with_meta(&[
-            ("bldimg", &good_bldimg()),
-            ("source_repo", "https://github.com/foo/bar"),
-            ("source_rev", "not-a-sha"),
-        ]);
+    fn extract_metadata_bad_source_sha256_format_errors() {
+        let wasm = make_wasm_with_meta(&[("bldimg", &good_bldimg()), ("source_sha256", "abc")]);
         let err = extract_metadata(&wasm).unwrap_err();
         assert!(matches!(
             err,
             Error::MetaFormat {
-                field: "source_rev",
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn extract_metadata_bad_tarball_sha256_format_errors() {
-        let wasm = make_wasm_with_meta(&[("bldimg", &good_bldimg()), ("tarball_sha256", "abc")]);
-        let err = extract_metadata(&wasm).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::MetaFormat {
-                field: "tarball_sha256",
+                field: "source_sha256",
                 ..
             }
         ));
@@ -564,8 +583,7 @@ mod tests {
     fn extract_metadata_ignores_cliver_and_user_meta() {
         let wasm = make_wasm_with_meta(&[
             ("bldimg", &good_bldimg()),
-            ("source_repo", "https://github.com/foo/bar"),
-            ("source_rev", &"b".repeat(40)),
+            ("source_sha256", &"b".repeat(64)),
             ("cliver", "26.0.0#abcdef"),
             ("home_domain", "fnando.com"),
             ("author", "alice"),
@@ -658,5 +676,73 @@ mod tests {
         for no in ["", "n", "N", "no", "NO", "x", "yup", "yeah", " "] {
             assert!(!parse_yes(no), "{no:?} should not be yes");
         }
+    }
+
+    #[test]
+    fn verify_source_sha256_matches() {
+        let bytes = b"hello, sep-58";
+        let digest = format!("{:x}", Sha256::digest(bytes));
+        verify_source_sha256(bytes, &digest).unwrap();
+        // Case-insensitive: SEP-58 mandates lowercase but be lenient on input.
+        verify_source_sha256(bytes, &digest.to_ascii_uppercase()).unwrap();
+    }
+
+    #[test]
+    fn verify_source_sha256_mismatch_errors() {
+        let bytes = b"hello, sep-58";
+        let bogus = "0".repeat(64);
+        let err = verify_source_sha256(bytes, &bogus).unwrap_err();
+        assert!(matches!(err, Error::SourceHashMismatch { .. }));
+    }
+
+    /// Build a tiny in-memory tar.gz with a single file and confirm extraction
+    /// drops the file at the expected path. Exercises the pure-Rust pipeline
+    /// (no shelling out, so this passes on Windows too).
+    #[test]
+    fn extract_tarball_unpacks_into_target() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        let mut tar_bytes = Vec::new();
+        {
+            let mut builder = tar::Builder::new(&mut tar_bytes);
+            let payload = b"contents";
+            let mut header = tar::Header::new_gnu();
+            header.set_path("hello.txt").unwrap();
+            header.set_size(payload.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append(&header, &payload[..]).unwrap();
+            builder.finish().unwrap();
+        }
+
+        let mut gz = Vec::new();
+        {
+            let mut enc = GzEncoder::new(&mut gz, Compression::default());
+            enc.write_all(&tar_bytes).unwrap();
+            enc.finish().unwrap();
+        }
+
+        let dir = tempfile::TempDir::new().unwrap();
+        extract_tarball(&gz, dir.path()).unwrap();
+        let extracted = std::fs::read(dir.path().join("hello.txt")).unwrap();
+        assert_eq!(extracted, b"contents");
+    }
+
+    #[tokio::test]
+    async fn materialize_source_errors_when_only_source_sha256() {
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: None,
+            source_sha256: Some("f".repeat(64)),
+            bldopts: Vec::new(),
+        };
+        let dir = tempfile::TempDir::new().unwrap();
+        let print = Print::new(true);
+        let err = materialize_source(&meta, None, dir.path(), &print)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, Error::SourceUriRequired));
     }
 }

@@ -363,11 +363,11 @@ pub(crate) fn bldimg_regex() -> Regex {
         .unwrap()
 }
 
-fn source_sha256_regex() -> Regex {
+pub(crate) fn source_sha256_regex() -> Regex {
     Regex::new(r"^[0-9a-f]{64}$").unwrap()
 }
 
-fn source_uri_regex() -> Regex {
+pub(crate) fn source_uri_regex() -> Regex {
     Regex::new(r"^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$").unwrap()
 }
 
