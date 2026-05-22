@@ -316,12 +316,9 @@ impl Signer {
         tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        match &tx_env {
+        let decorated_signature = self.produce_signature(tx_env, network).await?;
+        match tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-                let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
-                self.print
-                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash)));
-                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -330,12 +327,6 @@ impl Signer {
                 }))
             }
             TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, signatures }) => {
-                let tx_hash = fee_bump_transaction_hash(tx, &network.network_passphrase)?;
-                self.print.infoln(format!(
-                    "Signing fee bump transaction: {}",
-                    hex::encode(tx_hash),
-                ));
-                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
@@ -369,19 +360,49 @@ impl Signer {
         }
     }
 
-    async fn sign_tx_hash(
+    async fn produce_signature(
         &self,
-        tx_hash: [u8; 32],
         tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<DecoratedSignature, Error> {
         match &self.kind {
-            SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
+            SignerKind::Ledger(ledger) => ledger
+                .sign_tx_env(tx_env, &network.network_passphrase, &self.print)
+                .await
+                .map_err(Error::from),
             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
-            SignerKind::Ledger(ledger) => ledger.sign_tx_hash(tx_hash).await.map_err(Error::from),
-            SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash),
+            SignerKind::Local(key) => {
+                let tx_hash = tx_env_hash(tx_env, &network.network_passphrase)?;
+                self.print.infoln(format_signing_message(tx_env, tx_hash));
+                key.sign_tx_hash(tx_hash)
+            }
+            SignerKind::SecureStore(entry) => {
+                let tx_hash = tx_env_hash(tx_env, &network.network_passphrase)?;
+                self.print.infoln(format_signing_message(tx_env, tx_hash));
+                entry.sign_tx_hash(tx_hash)
+            }
         }
     }
+}
+
+fn tx_env_hash(tx_env: &TransactionEnvelope, network_passphrase: &str) -> Result<[u8; 32], Error> {
+    match tx_env {
+        TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) => {
+            Ok(transaction_hash(tx, network_passphrase)?)
+        }
+        TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, .. }) => {
+            Ok(fee_bump_transaction_hash(tx, network_passphrase)?)
+        }
+        TransactionEnvelope::TxV0(_) => Err(Error::UnsupportedTransactionEnvelopeType),
+    }
+}
+
+fn format_signing_message(tx_env: &TransactionEnvelope, tx_hash: [u8; 32]) -> String {
+    let label = match tx_env {
+        TransactionEnvelope::TxFeeBump(_) => "fee bump transaction",
+        _ => "transaction",
+    };
+    format!("Signing {label}: {}", hex::encode(tx_hash))
 }
 
 pub struct LocalKey {

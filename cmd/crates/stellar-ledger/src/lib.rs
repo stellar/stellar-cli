@@ -12,7 +12,7 @@ pub use ledger_transport_hid::TransportNativeHID;
 use std::vec;
 use stellar_strkey::DecodeError;
 use stellar_xdr::curr::{
-    self as xdr, Hash, Limits, Transaction, TransactionSignaturePayload,
+    self as xdr, FeeBumpTransaction, Hash, Limits, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
 
@@ -156,7 +156,38 @@ where
         transaction: Transaction,
         network_id: Hash,
     ) -> Result<Vec<u8>, Error> {
-        let tagged_transaction = TransactionSignaturePayloadTaggedTransaction::Tx(transaction);
+        self.sign_tagged_transaction(
+            hd_path,
+            TransactionSignaturePayloadTaggedTransaction::Tx(transaction),
+            network_id,
+        )
+        .await
+    }
+
+    /// Sign a Stellar fee-bump transaction with the account on the Ledger device.
+    /// # Errors
+    /// Returns an error if there is an issue with connecting with the device or signing the given tx on the device
+    #[allow(clippy::missing_panics_doc)]
+    pub async fn sign_fee_bump_transaction(
+        &self,
+        hd_path: impl Into<HdPath>,
+        transaction: FeeBumpTransaction,
+        network_id: Hash,
+    ) -> Result<Vec<u8>, Error> {
+        self.sign_tagged_transaction(
+            hd_path,
+            TransactionSignaturePayloadTaggedTransaction::TxFeeBump(transaction),
+            network_id,
+        )
+        .await
+    }
+
+    async fn sign_tagged_transaction(
+        &self,
+        hd_path: impl Into<HdPath>,
+        tagged_transaction: TransactionSignaturePayloadTaggedTransaction,
+        network_id: Hash,
+    ) -> Result<Vec<u8>, Error> {
         let signature_payload = TransactionSignaturePayload {
             network_id,
             tagged_transaction,

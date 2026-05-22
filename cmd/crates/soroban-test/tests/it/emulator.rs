@@ -5,15 +5,21 @@ use std::sync::Arc;
 
 use stellar_ledger::emulator_test_support::*;
 
-use soroban_cli::{
-    tx::builder::TxExt,
-    xdr::{self, Limits, OperationBody, ReadXdr, TransactionEnvelope, WriteXdr},
+use soroban_cli::xdr::{
+    self, Limits, ReadXdr, TransactionEnvelope, TransactionV1Envelope, VecM, WriteXdr,
 };
 
 use test_case::test_case;
 
 const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 
+// Sign a classic Payment envelope with a Ledger identity end-to-end. After the
+// blind-signing fix the CLI sends the full `TransactionSignaturePayload` to the
+// device via APDU `INS=0x04` (SIGN_TX), so the user approves the parsed
+// operation — not a hex hash. The Speculos approval flow used here
+// (`approve_tx_signature`) and the transaction shape mirror stellar-ledger's
+// `test_sign_tx`, whose Speculos click counts are calibrated for this exact
+// Payment + memo layout.
 #[test_case("nanos", 0; "when the device is NanoS")]
 #[test_case("nanox", 1; "when the device is NanoX")]
 #[test_case("nanosp", 2; "when the device is NanoS Plus")]
@@ -27,23 +33,41 @@ async fn test_signer(ledger_device_model: &str, hd_path: u32) {
     let ledger = ledger(host_port).await;
 
     let key = ledger.get_public_key(&hd_path.into()).await.unwrap();
-
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key.0).unwrap();
-    let body: OperationBody =
-        (&soroban_cli::commands::tx::new::bump_sequence::Args { bump_to: 100 }).into();
-    let operation = xdr::Operation {
-        body,
-        source_account: None,
-    };
+
+    let destination = stellar_strkey::ed25519::PublicKey::from_string(
+        "GCKUD4BHIYSAYHU7HBB5FDSW6CSYH3GSOUBPWD2KE7KNBERP4BSKEJDV",
+    )
+    .unwrap();
     let source_account = xdr::MuxedAccount::Ed25519(key.0.into());
-    let tx_env: TransactionEnvelope =
-        xdr::Transaction::new_tx(source_account, 100, 100, operation).into();
-    let tx_env = tx_env.to_xdr_base64(Limits::none()).unwrap();
+    let tx = xdr::Transaction {
+        source_account: source_account.clone(),
+        fee: 100,
+        seq_num: xdr::SequenceNumber(1),
+        cond: xdr::Preconditions::None,
+        memo: xdr::Memo::Text("Stellar".try_into().unwrap()),
+        ext: xdr::TransactionExt::V0,
+        operations: [xdr::Operation {
+            source_account: Some(source_account),
+            body: xdr::OperationBody::Payment(xdr::PaymentOp {
+                destination: xdr::MuxedAccount::Ed25519(destination.0.into()),
+                asset: xdr::Asset::Native,
+                amount: 100,
+            }),
+        }]
+        .try_into()
+        .unwrap(),
+    };
+    let tx_env: TransactionEnvelope = TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx,
+        signatures: VecM::default(),
+    });
+    let tx_env_b64 = tx_env.to_xdr_base64(Limits::none()).unwrap();
 
     let hash: xdr::Hash = sandbox
         .new_assert_cmd("tx")
         .arg("hash")
-        .write_stdin(tx_env.as_bytes())
+        .write_stdin(tx_env_b64.as_bytes())
         .assert()
         .success()
         .stdout_as_str()
@@ -52,6 +76,7 @@ async fn test_signer(ledger_device_model: &str, hd_path: u32) {
 
     let sign = tokio::task::spawn_blocking({
         let sandbox = Arc::clone(&sandbox);
+        let tx_env_b64 = tx_env_b64.clone();
 
         move || {
             sandbox
@@ -60,7 +85,7 @@ async fn test_signer(ledger_device_model: &str, hd_path: u32) {
                 .arg("--sign-with-ledger")
                 .arg("--hd-path")
                 .arg(hd_path.to_string())
-                .write_stdin(tx_env.as_bytes())
+                .write_stdin(tx_env_b64.as_bytes())
                 .env("SPECULOS_PORT", host_port.to_string())
                 .env("RUST_LOGS", "trace")
                 .assert()
@@ -69,7 +94,7 @@ async fn test_signer(ledger_device_model: &str, hd_path: u32) {
         }
     });
 
-    let approve = tokio::task::spawn(approve_tx_hash_signature(
+    let approve = tokio::task::spawn(approve_tx_signature(
         ui_host_port,
         ledger_device_model.to_string(),
     ));
