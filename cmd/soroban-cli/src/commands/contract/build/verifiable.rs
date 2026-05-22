@@ -143,8 +143,10 @@ pub async fn run(
     }
 
     // Stage 3: docker.
-    let docker = cmd
-        .container_args
+    let docker_args = crate::commands::container::shared::Args {
+        docker_host: cmd.docker_host.clone(),
+    };
+    let docker = docker_args
         .connect_to_docker(print)
         .await
         .map_err(Error::DockerConnection)?;

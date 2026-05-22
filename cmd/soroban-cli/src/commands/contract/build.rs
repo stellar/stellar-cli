@@ -20,7 +20,7 @@ use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{container, global, version},
+    commands::{global, version},
     print::Print,
     wasm,
 };
@@ -153,8 +153,9 @@ pub struct Cmd {
     )]
     pub tarball_sha256: Option<String>,
 
-    #[command(flatten)]
-    pub container_args: container::shared::Args,
+    /// Override the default docker host used by `--verifiable`.
+    #[arg(short = 'd', long, env = "DOCKER_HOST", help_heading = "Verifiable")]
+    pub docker_host: Option<String>,
 
     #[command(flatten)]
     pub build_args: BuildArgs,
@@ -291,7 +292,7 @@ impl Default for Cmd {
             source_rev: None,
             tarball_url: None,
             tarball_sha256: None,
-            container_args: container::shared::Args { docker_host: None },
+            docker_host: None,
             build_args: BuildArgs::default(),
         }
     }
