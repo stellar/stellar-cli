@@ -43,14 +43,15 @@ pub struct Cmd {
     #[arg(long)]
     pub trust: bool,
 
+    /// Override the default docker host used by the rebuild.
+    #[arg(short = 'd', long, env = "DOCKER_HOST")]
+    pub docker_host: Option<String>,
+
     #[command(flatten)]
     pub locator: locator::Args,
 
     #[command(flatten)]
     pub network: network::Args,
-
-    #[command(flatten)]
-    pub container_args: container::shared::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -266,7 +267,10 @@ impl Cmd {
         ));
 
         // Rebuild in the recorded bldimg.
-        let docker = self.container_args.connect_to_docker(&print).await?;
+        let docker_args = container::shared::Args {
+            docker_host: self.docker_host.clone(),
+        };
+        let docker = docker_args.connect_to_docker(&print).await?;
         verifiable::pull_image(&docker, &meta.bldimg, &print).await?;
         let container_cmd = build_container_command(&meta);
         verifiable::run_in_container(
