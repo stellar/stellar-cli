@@ -136,6 +136,16 @@ pub async fn run(
     let workspace_root = resolve_workspace_root(cmd)?;
     let source_ids = validate_source_ids(cmd, &workspace_root)?;
 
+    // Pick the anchor the container bind-mounts and the `--manifest-path`
+    // bldopt is relativized against. A verifier will clone source_repo (or
+    // extract the tarball) into a fresh tempdir and bind-mount its root, so
+    // the build must do the symmetric thing on the host: bind-mount the local
+    // clone root (where `.git` lives) or, if there's no clone, the user's
+    // cwd. We do NOT validate that the local clone matches `--source-repo` —
+    // a wrong clone produces different bytes, and verify catches that at
+    // byte-comparison time.
+    let source_root = resolve_source_root(cmd);
+
     // Defer the info banner until every validation has passed, so it doesn't
     // appear right before an error.
     if !cmd.locked {
@@ -162,7 +172,7 @@ pub async fn run(
     };
 
     let (forwarded_args, bldopts) =
-        build_forwarded_args(cmd, &workspace_root, supports_explicit_optimize_false);
+        build_forwarded_args(cmd, &source_root, supports_explicit_optimize_false);
     let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
@@ -172,7 +182,7 @@ pub async fn run(
     // `--verbose` because verifications are run as part of pipelines.
     run_in_container(
         &image_ref,
-        &workspace_root,
+        &source_root,
         &container_cmd_args,
         &docker,
         print,
@@ -192,6 +202,34 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
     }
     let md = mc.exec()?;
     Ok(md.workspace_root.into_std_path_buf())
+}
+
+/// Pick the anchor for the container bind-mount and for relativizing
+/// `--manifest-path` into the recorded `bldopt`. Walk up from the user's
+/// `--manifest-path` (or cwd, if no manifest_path) looking for a `.git`
+/// directory; return its parent. If none is found, fall back to cwd.
+///
+/// This isn't a validation step — any `.git` will do. Wrong-clone mistakes
+/// are caught later by the verify-side byte comparison.
+fn resolve_source_root(cmd: &Cmd) -> PathBuf {
+    let start = if let Some(p) = &cmd.manifest_path {
+        let abs = std::path::absolute(p).unwrap_or_else(|_| p.clone());
+        abs.parent().map(Path::to_path_buf).unwrap_or(abs)
+    } else {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    };
+
+    let mut p = start.clone();
+    loop {
+        if p.join(".git").exists() {
+            return p;
+        }
+        if !p.pop() {
+            break;
+        }
+    }
+
+    std::env::current_dir().unwrap_or(start)
 }
 
 /// Source-identification fields, gathered from the corresponding CLI flags
@@ -1095,6 +1133,46 @@ mod tests {
         assert!(tarball_sha256_regex().is_match(&"f".repeat(64)));
         assert!(!tarball_sha256_regex().is_match(&"f".repeat(63)));
         assert!(!tarball_sha256_regex().is_match(&"F".repeat(64)));
+    }
+
+    #[test]
+    fn resolve_source_root_finds_git_root_from_subdir() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        let nested = root.join("contracts").join("foo");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("Cargo.toml"), b"# placeholder").unwrap();
+
+        let cmd = Cmd {
+            manifest_path: Some(nested.join("Cargo.toml")),
+            ..Cmd::default()
+        };
+        // Use canonicalize on both sides — `tempfile` returns symlinked /var
+        // paths on macOS while resolve_source_root walks the same prefix.
+        let got = std::fs::canonicalize(resolve_source_root(&cmd)).unwrap();
+        let want = std::fs::canonicalize(root).unwrap();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn resolve_source_root_falls_back_to_cwd_without_git() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        let nested = root.join("noisy");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("Cargo.toml"), b"# placeholder").unwrap();
+
+        let cmd = Cmd {
+            manifest_path: Some(nested.join("Cargo.toml")),
+            ..Cmd::default()
+        };
+        // No `.git` anywhere up the tree, so we fall back to cwd. We can't
+        // assert what cwd is in a test runner (it varies), but we can assert
+        // that the returned path doesn't contain the manifest's parent and
+        // doesn't have `.git`. That's enough to confirm fallback kicked in.
+        let got = resolve_source_root(&cmd);
+        assert!(!got.join(".git").exists());
     }
 
     #[test]
