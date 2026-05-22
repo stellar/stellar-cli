@@ -224,8 +224,8 @@ pub struct ExtractedMetadata {
 }
 
 impl Cmd {
-    pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
-        let print = Print::new(false);
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = Print::new(global_args.quiet);
 
         let wasm_bytes = self.fetch_wasm().await?;
         let meta = extract_metadata(&wasm_bytes)?;
@@ -280,7 +280,7 @@ impl Cmd {
             &[],
             &docker,
             &print,
-            false,
+            global_args.verbose || global_args.very_verbose,
         )
         .await?;
 
@@ -292,11 +292,13 @@ impl Cmd {
             source: e,
         })?;
 
-        // Compare.
+        // Compare. The final result is always shown, even under `--quiet`,
+        // via a dedicated Print that ignores the quiet flag.
+        let result_print = Print::new(false);
         let original_hash = format!("{:x}", Sha256::digest(&wasm_bytes));
         let rebuilt_hash = format!("{:x}", Sha256::digest(&rebuilt));
         if original_hash == rebuilt_hash && wasm_bytes.len() == rebuilt.len() {
-            print.checkln(format!(
+            result_print.checkln(format!(
                 "verified: {} bytes, sha256={original_hash}",
                 wasm_bytes.len()
             ));
