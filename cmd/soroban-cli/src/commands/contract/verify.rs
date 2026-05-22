@@ -608,9 +608,23 @@ fn find_rebuilt_wasm(workdir: &Path, meta: &ExtractedMetadata) -> Result<PathBuf
         .iter()
         .find_map(|opt| opt.strip_prefix("--package=").map(|s| s.replace('-', "_")));
 
+    // Cargo's `target/` lives next to the manifest's workspace root, which
+    // may be a subdirectory of `workdir` when `--manifest-path=…` was
+    // recorded (e.g. `hello_world/Cargo.toml` in a multi-crate repo). Anchor
+    // the search at the manifest's parent dir, falling back to `workdir`.
+    let target_base = meta
+        .bldopts
+        .iter()
+        .find_map(|opt| {
+            opt.strip_prefix("--manifest-path=")
+                .and_then(|p| Path::new(p).parent().map(Path::to_path_buf))
+                .filter(|p| !p.as_os_str().is_empty())
+        })
+        .map_or_else(|| workdir.to_path_buf(), |sub| workdir.join(sub));
+
     let candidates = [
-        workdir.join("target/wasm32v1-none/release"),
-        workdir.join("target/wasm32-unknown-unknown/release"),
+        target_base.join("target/wasm32v1-none/release"),
+        target_base.join("target/wasm32-unknown-unknown/release"),
     ];
 
     let mut found: Vec<PathBuf> = Vec::new();
@@ -647,11 +661,11 @@ fn find_rebuilt_wasm(workdir: &Path, meta: &ExtractedMetadata) -> Result<PathBuf
 
     match found.len() {
         0 => Err(Error::NoRebuiltWasm {
-            target: workdir.join("target"),
+            target: target_base.join("target"),
         }),
         1 => Ok(found.into_iter().next().unwrap()),
         _ => Err(Error::AmbiguousRebuiltWasm {
-            target: workdir.join("target"),
+            target: target_base.join("target"),
             found: found
                 .iter()
                 .map(|p| p.display().to_string())
