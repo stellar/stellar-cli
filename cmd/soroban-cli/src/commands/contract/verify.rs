@@ -247,11 +247,10 @@ impl Cmd {
 
         // Catch the no-retrieval-channel case before any trust prompts so a
         // doomed run errors immediately instead of asking the user to trust
-        // an image we won't end up using.
-        let has_git_source = meta.source_repo.is_some() && meta.source_rev.is_some();
-        let has_tarball_url = self.tarball_url.is_some() || meta.tarball_url.is_some();
-        if !has_git_source && !has_tarball_url {
-            return Err(Error::TarballUrlRequired);
+        // an image we won't end up using. With only `source_sha256` recorded
+        // and no `--source-uri` override, there's nowhere to fetch from.
+        if self.effective_source_uri(&meta).is_none() {
+            return Err(Error::SourceUriRequired);
         }
 
         // bldimg trust check is always required.
@@ -946,37 +945,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, Error::SourceUriRequired));
-    }
-
-    #[test]
-    fn expand_source_repo_rewrites_github_shorthand() {
-        assert_eq!(
-            expand_source_repo("github:foo/bar"),
-            "https://github.com/foo/bar"
-        );
-    }
-
-    #[test]
-    fn expand_source_repo_passes_through_https() {
-        assert_eq!(
-            expand_source_repo("https://github.com/foo/bar"),
-            "https://github.com/foo/bar"
-        );
-        assert_eq!(
-            expand_source_repo("https://gitlab.com/foo/bar.git"),
-            "https://gitlab.com/foo/bar.git"
-        );
-    }
-
-    #[test]
-    fn expand_source_repo_does_not_expand_malformed_github() {
-        // Missing the `/repo` suffix; the regex won't match so we pass through.
-        assert_eq!(expand_source_repo("github:foo"), "github:foo");
-        // Extra path component; same.
-        assert_eq!(
-            expand_source_repo("github:foo/bar/baz"),
-            "github:foo/bar/baz"
-        );
     }
 
     #[test]
