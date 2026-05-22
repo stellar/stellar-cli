@@ -7,7 +7,7 @@ pub use ledger_impl::*;
 // `Hash Signing` enabled in app settings); sending `SIGN_TX` (0x04) for them
 // ends up at the same UX as `SIGN_TX_HASH` (0x08) but with extra device-side
 // parsing churn, so the CLI sends the hash directly.
-pub fn is_soroban_tx(tx: &Transaction) -> bool {
+pub(super) fn is_soroban_tx(tx: &Transaction) -> bool {
     tx.operations.iter().any(|op| {
         matches!(
             op.body,
@@ -18,7 +18,7 @@ pub fn is_soroban_tx(tx: &Transaction) -> bool {
     })
 }
 
-pub fn is_soroban_tx_env(tx_env: &TransactionEnvelope) -> bool {
+pub(super) fn is_soroban_tx_env(tx_env: &TransactionEnvelope) -> bool {
     match tx_env {
         TransactionEnvelope::Tx(v1) => is_soroban_tx(&v1.tx),
         TransactionEnvelope::TxFeeBump(fb) => {
