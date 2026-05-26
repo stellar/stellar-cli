@@ -5,6 +5,7 @@ use soroban_cli::{
 use soroban_test::{AssertExt, TestEnv, Wasm};
 use std::fmt::Display;
 
+pub const AUTH: &Wasm = &Wasm::Custom("test-wasms", "test_auth");
 pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");

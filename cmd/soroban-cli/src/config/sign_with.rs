@@ -69,6 +69,10 @@ pub struct Args {
         help_heading = HEADING_SIGNING
     )]
     pub sign_with_ledger: bool,
+
+    /// Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries.
+    #[arg(long, help_heading = HEADING_SIGNING)]
+    pub auto_sign: bool,
 }
 
 impl Args {

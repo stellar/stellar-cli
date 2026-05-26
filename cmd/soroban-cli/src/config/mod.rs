@@ -146,15 +146,21 @@ impl Args {
         &self,
         tx: &Transaction,
         signers: &[Signer],
+        print: &Print,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
-        Ok(
-            signer::sign_soroban_authorizations(tx, signers, seq_num, &network.network_passphrase)
-                .await?,
+        Ok(signer::sign_soroban_authorizations(
+            tx,
+            signers,
+            seq_num,
+            &network.network_passphrase,
+            self.sign_with.auto_sign,
+            print,
         )
+        .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
