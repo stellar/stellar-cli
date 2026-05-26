@@ -447,9 +447,10 @@ impl Cmd {
             .contract_ids
             .iter()
             .map(|id| {
-                Ok(id
-                    .resolve_contract_id(&self.locator, &network.network_passphrase)?
-                    .to_string())
+                Ok(format!(
+                    "{}",
+                    id.resolve_contract_id(&self.locator, &network.network_passphrase)?
+                ))
             })
             .collect::<Result<Vec<_>, Error>>()?;
 

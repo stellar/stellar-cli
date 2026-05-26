@@ -41,6 +41,8 @@ pub enum Error {
     NoInterfacePresent(),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+    #[error(transparent)]
+    Generate(#[from] soroban_spec_rust::GenerateError),
 }
 
 impl Cmd {
@@ -73,7 +75,7 @@ impl Cmd {
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
             // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };

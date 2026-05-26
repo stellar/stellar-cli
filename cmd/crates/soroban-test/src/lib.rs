@@ -292,10 +292,12 @@ impl TestEnv {
 
     /// Returns the private key corresponding to the test keys's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
-        self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
-            .private_key()
-            .unwrap()
-            .to_string()
+        format!(
+            "{}",
+            self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
+                .private_key()
+                .unwrap()
+        )
     }
 
     /// Copy the contents of the current `TestEnv` to another `TestEnv`

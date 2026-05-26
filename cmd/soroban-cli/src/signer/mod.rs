@@ -126,8 +126,10 @@ pub async fn sign_soroban_authorizations(
                 // This address is for a contract. This means we're using a custom
                 // smart-contract account. Currently the CLI doesn't support that yet.
                 return Err(Error::MissingSignerForAddress {
-                    address: stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                        .to_string(),
+                    address: format!(
+                        "{}",
+                        stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
+                    ),
                 });
             }
         };
@@ -162,10 +164,12 @@ pub async fn sign_soroban_authorizations(
             }
             None => {
                 return Err(Error::MissingSignerForAddress {
-                    address: stellar_strkey::Strkey::PublicKeyEd25519(
-                        stellar_strkey::ed25519::PublicKey(*auth_address_bytes),
-                    )
-                    .to_string(),
+                    address: format!(
+                        "{}",
+                        stellar_strkey::Strkey::PublicKeyEd25519(
+                            stellar_strkey::ed25519::PublicKey(*auth_address_bytes),
+                        )
+                    ),
                 });
             }
         }

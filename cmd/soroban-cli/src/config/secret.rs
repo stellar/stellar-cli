@@ -130,7 +130,7 @@ impl FromStr for Secret {
 impl From<PrivateKey> for Secret {
     fn from(value: PrivateKey) -> Self {
         Secret::SecretKey {
-            secret_key: value.to_string(),
+            secret_key: format!("{value}"),
         }
     }
 }
