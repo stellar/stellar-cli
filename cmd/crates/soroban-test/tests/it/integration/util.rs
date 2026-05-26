@@ -103,7 +103,7 @@ pub async fn deploy_contract(
             commands::txn_result::TxnEnvelopeResult::Res(_) => todo!(),
         },
     }
-    res.into_result().unwrap().to_string()
+    format!("{}", res.into_result().unwrap())
 }
 
 pub async fn extend_contract(sandbox: &TestEnv, id: &str) {

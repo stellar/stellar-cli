@@ -108,7 +108,10 @@ async fn set_options() {
     assert_eq!(100, after.signers[0].weight);
     assert_eq!(alice, after.signers[0].key.to_string());
     let xdr::PublicKey::PublicKeyTypeEd25519(xdr::Uint256(key)) = after.inflation_dest.unwrap().0;
-    assert_eq!(alice, stellar_strkey::ed25519::PublicKey(key).to_string());
+    assert_eq!(
+        alice,
+        format!("{}", stellar_strkey::ed25519::PublicKey(key))
+    );
     assert_eq!("test.com", after.home_domain.to_string());
     sandbox
         .new_assert_cmd("tx")
