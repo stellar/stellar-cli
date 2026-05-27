@@ -94,7 +94,8 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-windows:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
+    # TODO: restore before merge
+    # if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/')
     strategy:
       fail-fast: false
       matrix:
