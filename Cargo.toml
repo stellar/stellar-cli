@@ -21,25 +21,25 @@ exclude = [
 ]
 
 [workspace.package]
-version = "26.0.0"
+version = "26.1.0"
 rust-version = "1.93.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
-version = "=26.0.0"
+version = "=26.1.0"
 path = "cmd/soroban-cli"
 default-features = false
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "26.0.0"
+version = "26.1.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "26.0.0"
+version = "26.1.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.stellar-ledger]
-version = "=26.0.0"
+version = "=26.1.0"
 path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
