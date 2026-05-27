@@ -60,7 +60,7 @@ mod secure_store_impl {
             .from_path_index(hd_path.unwrap_or_default() as usize, None)?
             .public()
             .0;
-        let public_key = PublicKey(public_key_bytes).to_string();
+        let public_key = format!("{}", PublicKey(public_key_bytes));
 
         Ok(Secret::SecureStore {
             entry_name,

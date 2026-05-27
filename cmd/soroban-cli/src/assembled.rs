@@ -425,7 +425,7 @@ mod tests {
         };
         assert_eq!(
             SOURCE.to_string(),
-            stellar_strkey::ed25519::PublicKey(address.0).to_string()
+            format!("{}", stellar_strkey::ed25519::PublicKey(address.0))
         );
     }
 

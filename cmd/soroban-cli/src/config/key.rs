@@ -177,7 +177,7 @@ mod test {
     }
     #[test]
     fn secret_key() {
-        let secret_key = stellar_strkey::ed25519::PrivateKey([0; 32]).to_string();
+        let secret_key = format!("{}", stellar_strkey::ed25519::PrivateKey([0; 32]));
         let secret = Secret::SecretKey { secret_key };
         let key = Key::Secret(secret);
         round_trip(&key);

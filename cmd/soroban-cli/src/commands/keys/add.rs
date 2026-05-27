@@ -128,7 +128,7 @@ impl Cmd {
             .await?;
         Ok(Secret::Ledger {
             hardware: HardwareKind::Ledger,
-            public_key: public_key.to_string(),
+            public_key: format!("{public_key}"),
             hd_path: self.hd_path,
         })
     }

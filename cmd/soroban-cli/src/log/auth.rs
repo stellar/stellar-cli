@@ -140,11 +140,18 @@ fn format_create_contract(
 fn format_address(address: &ScAddress) -> String {
     match address {
         ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(bytes)))) => {
-            stellar_strkey::Strkey::PublicKeyEd25519(stellar_strkey::ed25519::PublicKey(*bytes))
-                .to_string()
+            format!(
+                "{}",
+                stellar_strkey::Strkey::PublicKeyEd25519(stellar_strkey::ed25519::PublicKey(
+                    *bytes
+                ))
+            )
         }
         ScAddress::Contract(stellar_xdr::curr::ContractId(stellar_xdr::curr::Hash(bytes))) => {
-            stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*bytes)).to_string()
+            format!(
+                "{}",
+                stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*bytes))
+            )
         }
         _ => format!("{address:?}"),
     }

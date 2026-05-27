@@ -332,7 +332,7 @@ impl Args {
             let pk = secure_store::get_public_key(entry_name, effective)?;
             let migrated = Key::Secret(Secret::SecureStore {
                 entry_name: entry_name.clone(),
-                public_key: Some(pk.to_string()),
+                public_key: Some(format!("{pk}")),
                 hd_path: effective,
             });
             // Best-effort write-back: if persistence fails we still return the
@@ -479,7 +479,7 @@ impl Args {
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
         data.ids
-            .insert(network_passphrase.into(), contract_id.to_string());
+            .insert(network_passphrase.into(), format!("{contract_id}"));
 
         let content = serde_json::to_string(&data)?;
         write_hardened_file(&path, content.as_bytes())?;
