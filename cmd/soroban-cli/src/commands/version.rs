@@ -5,13 +5,13 @@ use std::fmt::Debug;
 #[group(skip)]
 pub struct Cmd {
     /// Print only the version.
-    #[arg(long)]
+    #[arg(long, group = "only")]
     only_version: bool,
     /// Print only the major version.
-    #[arg(long)]
+    #[arg(long, group = "only")]
     only_version_major: bool,
     /// Print only the commit sha.
-    #[arg(long)]
+    #[arg(long, group = "only")]
     only_commit: bool,
 }
 
