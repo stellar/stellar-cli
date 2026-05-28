@@ -10,6 +10,9 @@ pub struct Cmd {
     /// Print only the major version.
     #[arg(long)]
     only_version_major: bool,
+    /// Print only the commit sha.
+    #[arg(long)]
+    only_commit: bool,
 }
 
 impl Cmd {
@@ -19,6 +22,8 @@ impl Cmd {
             println!("{}", pkg());
         } else if self.only_version_major {
             println!("{}", major());
+        } else if self.only_commit {
+            println!("{}", git());
         } else {
             println!("stellar {}", long());
         }
