@@ -4502,6 +4502,7 @@ Print version information
 
 - `--only-version` — Print only the version
 - `--only-version-major` — Print only the major version
+- `--only-commit` — Print only the commit sha
 
 ## `stellar plugin`
 
