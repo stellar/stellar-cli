@@ -3,7 +3,7 @@ FROM rust:latest
 RUN rustup target add wasm32v1-none
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libudev1 libssl3 && \
+    apt-get install -y --no-install-recommends ca-certificates libdbus-1-3 libssl3 libudev1 && \
     rm -rf /var/lib/apt/lists/*
 
 ARG TARGETARCH
