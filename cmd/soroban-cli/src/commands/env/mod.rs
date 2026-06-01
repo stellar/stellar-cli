@@ -19,7 +19,7 @@ pub struct Cmd {
 
     /// Whether to reveal the value of concealed env vars. By default, concealed env vars are
     /// hidden behind a placeholder value.
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     pub reveal: bool,
 
     #[command(flatten)]

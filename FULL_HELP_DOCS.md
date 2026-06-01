@@ -1201,8 +1201,6 @@ If there are no environment variables in use, prints the defaults.
 
 - `--reveal` — Whether to reveal the value of concealed env vars. By default, concealed env vars are hidden behind a placeholder value
 
-  Default value: `false`
-
 ## `stellar keys`
 
 Create and manage identities including keys and addresses
