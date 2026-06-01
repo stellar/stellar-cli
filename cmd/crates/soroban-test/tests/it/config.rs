@@ -776,6 +776,23 @@ fn env_does_not_display_secret_key() {
 }
 
 #[test]
+fn env_does_display_secret_key_when_reveal_is_provided() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .arg("--reveal")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains(
+            "STELLAR_SECRET_KEY=SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        ))
+        .success();
+}
+
+#[test]
 fn env_single_concealed_key_returns_empty() {
     let sandbox = TestEnv::default();
     sandbox
@@ -787,6 +804,21 @@ fn env_single_concealed_key_returns_empty() {
         )
         .assert()
         .stdout("")
+        .success();
+}
+
+#[test]
+fn env_single_is_returned_when_using_reveal() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .args(["STELLAR_SECRET_KEY", "--reveal"])
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n")
         .success();
 }
 

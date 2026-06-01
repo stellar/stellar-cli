@@ -1181,7 +1181,7 @@ Prints to stdout in a format that can be used as .env file. Environment variable
 
 By default, secret values are concealed. To display them, use `--reveal`.
 
-Pass a name to get the value of a single environment variable. Its raw value is printed unescaped, suitable for command substitution. Concealed variables print nothing unless `--reveal` is passed.
+Pass a name to get the value of a single environment variable. Its value is printed without shell quoting (control characters are neutralized), suitable for command substitution. Concealed variables print nothing unless `--reveal` is passed.
 
 If there are no environment variables in use, prints the defaults.
 

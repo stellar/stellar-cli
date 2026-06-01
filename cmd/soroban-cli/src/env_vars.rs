@@ -45,9 +45,9 @@ const VISIBLE: &[&str] = &[
     "SIGN_WITH_LEDGER",
 ];
 
-/// Returns true if the key is one of the supported env vars that should be shown in `stellar env`.
-/// Uses an allow list approach to avoid showing any env vars that are not explicitly supported,
-/// even if they start with the expected prefix.
+/// Returns true if the key should be concealed in `stellar env` output, i.e. it is not in the
+/// allow list of vars that are safe to display. Using an allow list ensures unknown vars are
+/// concealed by default, even if they start with the expected prefix.
 pub fn is_concealed(key: &str) -> bool {
     let name = key
         .strip_prefix("STELLAR_")
