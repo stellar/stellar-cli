@@ -3,8 +3,10 @@ use crate::{
     config::locator::{self},
     env_vars,
     print::Print,
+    utils::escape_control_characters,
 };
 use clap::Parser;
+use shell_escape::escape;
 
 #[allow(clippy::doc_markdown)]
 #[derive(Debug, Parser)]
@@ -14,6 +16,11 @@ pub struct Cmd {
     /// E.g.: $ stellar env STELLAR_ACCOUNT
     #[arg()]
     pub name: Option<String>,
+
+    /// Whether to reveal the value of concealed env vars. By default, concealed env vars are
+    /// hidden behind a placeholder value.
+    #[arg(long, default_value_t = false)]
+    pub reveal: bool,
 
     #[command(flatten)]
     pub config_locator: locator::Args,
@@ -32,16 +39,20 @@ impl Cmd {
         let supported = env_vars::prefixed("STELLAR");
 
         for key in supported {
-            if let Some(v) = EnvVar::get(&key) {
+            if let Some(mut v) = EnvVar::get(&key) {
+                if self.reveal {
+                    v.reveal();
+                }
+
                 vars.push(v);
             }
         }
 
         // If a specific name is given, just print that one value
         if let Some(name) = &self.name {
-            if env_vars::is_concealed(name) {
-                if let Some(v) = vars.iter().find(|v| &v.key == name) {
-                    println!("{}", v.value);
+            if let Some(v) = vars.iter().find(|v| &v.key == name) {
+                if v.is_revealed() {
+                    println!("{}", escape_control_characters(&v.value));
                 }
             }
 
@@ -70,6 +81,7 @@ struct EnvVar {
     key: String,
     value: String,
     source: String,
+    reveal: bool,
 }
 
 impl EnvVar {
@@ -84,15 +96,25 @@ impl EnvVar {
                 key: key.to_string(),
                 value,
                 source,
+                reveal: false,
             });
         }
 
         None
     }
 
+    fn reveal(&mut self) {
+        self.reveal = true;
+    }
+
+    fn is_revealed(&self) -> bool {
+        self.reveal || !env_vars::is_concealed(&self.key)
+    }
+
     fn str(&self) -> String {
-        if env_vars::is_concealed(&self.key) {
-            format!("{}={}", self.key, self.value)
+        if self.is_revealed() {
+            let value = escape(escape_control_characters(&self.value).into());
+            format!("{}={value}", self.key)
         } else {
             format!("# {}=<concealed>", self.key)
         }

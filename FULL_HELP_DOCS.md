@@ -1179,7 +1179,9 @@ Prints the environment variables
 
 Prints to stdout in a format that can be used as .env file. Environment variables have precedence over defaults.
 
-Pass a name to get the value of a single environment variable.
+By default, secret values are concealed. To display them, use `--reveal`.
+
+Pass a name to get the value of a single environment variable. Its raw value is printed unescaped, suitable for command substitution. Concealed variables print nothing unless `--reveal` is passed.
 
 If there are no environment variables in use, prints the defaults.
 
@@ -1194,6 +1196,12 @@ If there are no environment variables in use, prints the defaults.
 ###### **Global Options:**
 
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--reveal` — Whether to reveal the value of concealed env vars. By default, concealed env vars are hidden behind a placeholder value
+
+  Default value: `false`
 
 ## `stellar keys`
 

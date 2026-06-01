@@ -29,7 +29,6 @@ pub fn unprefixed() -> Vec<&'static str> {
 /// Unprefixed names of env vars that are safe to display in plain text.
 const VISIBLE: &[&str] = &[
     "ACCOUNT",
-    "ARCHIVE_URL",
     "CONFIG_HOME",
     "CONTRACT_ID",
     "DATA_HOME",
@@ -41,7 +40,6 @@ const VISIBLE: &[&str] = &[
     "NO_CACHE",
     "NO_UPDATE_CHECK",
     "OPERATION_SOURCE_ACCOUNT",
-    "RPC_URL",
     "SEND",
     "SIGN_WITH_LAB",
     "SIGN_WITH_LEDGER",
@@ -55,7 +53,7 @@ pub fn is_concealed(key: &str) -> bool {
         .strip_prefix("STELLAR_")
         .or_else(|| key.strip_prefix("SOROBAN_"))
         .unwrap_or(key);
-    VISIBLE.contains(&name)
+    !VISIBLE.contains(&name)
 }
 
 pub fn prefixed(key: &str) -> Vec<String> {
