@@ -31,7 +31,10 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
-use crate::{config::address::UnresolvedMuxedAccount, utils::http};
+use crate::{
+    config::address::UnresolvedMuxedAccount,
+    utils::{http, url::redact_url},
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Output {
@@ -559,7 +562,10 @@ async fn get_history(
     };
     let history_url = Url::from_str(&history_url).unwrap();
 
-    print.globeln(format!("Downloading history {history_url}"));
+    print.globeln(format!(
+        "Downloading history {}",
+        redact_url(history_url.as_str())
+    ));
 
     let response = http::client()
         .get(history_url.as_str())
@@ -589,7 +595,10 @@ async fn get_history(
         .map_err(Error::ReadHistoryHttpStream)?;
 
     print.clear_previous_line();
-    print.globeln(format!("Downloaded history {}", &history_url));
+    print.globeln(format!(
+        "Downloaded history {}",
+        redact_url(history_url.as_str())
+    ));
 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
 }
@@ -608,9 +617,13 @@ async fn get_ledger_metadata_from_archive(
         "{archive_url}/ledger/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/ledger-{ledger_hex}.xdr.gz"
     );
 
-    print.globeln(format!("Downloading ledger headers {ledger_url}"));
-
     let ledger_url = Url::from_str(&ledger_url).map_err(Error::ParsingBucketUrl)?;
+
+    print.globeln(format!(
+        "Downloading ledger headers {}",
+        redact_url(ledger_url.as_str())
+    ));
+
     let response = http::client()
         .get(ledger_url.as_str())
         .send()
