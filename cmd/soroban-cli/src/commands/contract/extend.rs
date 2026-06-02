@@ -285,11 +285,17 @@ impl Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
+            if entry.entries.is_empty() {
+                return Err(Error::LedgerEntryNotFound);
+            }
             let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
 
             return Ok(TxnResult::Res(extension));
         }
 
+        if changes.len() < 2 {
+            return Err(Error::LedgerEntryNotFound);
+        }
         match (&changes[0], &changes[1]) {
             (
                 LedgerEntryChange::State(_),
