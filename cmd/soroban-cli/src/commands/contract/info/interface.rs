@@ -54,11 +54,10 @@ impl Cmd {
             shared::Contract::Wasm { wasm_bytes } => {
                 let spec = Spec::new(&wasm_bytes)?;
 
-                if spec.env_meta_base64.is_none() {
-                    return Err(NoInterfacePresent());
-                }
+                let base64 = spec.spec_base64.ok_or(NoInterfacePresent())?;
+                let _ = spec.env_meta_base64.ok_or(NoInterfacePresent())?;
 
-                (spec.spec_base64.unwrap(), spec.spec)
+                (base64, spec.spec)
             }
             shared::Contract::StellarAssetContract => {
                 Spec::spec_to_base64(stellar_asset_spec::xdr())?
