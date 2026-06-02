@@ -54,8 +54,9 @@ impl Cmd {
             shared::Contract::Wasm { wasm_bytes } => {
                 let spec = Spec::new(&wasm_bytes)?;
 
-                let base64 = spec.spec_base64.ok_or(NoInterfacePresent())?;
-                let _ = spec.env_meta_base64.ok_or(NoInterfacePresent())?;
+                let Some(base64) = spec.spec_base64 else {
+                    return Err(NoInterfacePresent());
+                };
 
                 (base64, spec.spec)
             }
