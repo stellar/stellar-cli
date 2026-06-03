@@ -496,6 +496,12 @@ Deploy a wasm contract
 - `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
+- `--auth-mode <AUTH_MODE>` — Set the authorization mode for transaction simulation. When unset, the RPC default is used: record with the root mode if no authorization entries exist, otherwise enforce the provided entries. Should only be set for `InvokeHostFunction` transactions
+
+  Possible values:
+  - `enforce`: Validate the authorization entries already on the transaction
+  - `root`: Record authorization entries, requiring each to be rooted at the transaction's top-level operation
+  - `non-root`: Record all authorization entries, including non-root entries
 
 ###### **Signing Options:**
 
@@ -864,6 +870,12 @@ Install a WASM file to the ledger without creating a contract instance
 - `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
+- `--auth-mode <AUTH_MODE>` — Set the authorization mode for transaction simulation. When unset, the RPC default is used: record with the root mode if no authorization entries exist, otherwise enforce the provided entries. Should only be set for `InvokeHostFunction` transactions
+
+  Possible values:
+  - `enforce`: Validate the authorization entries already on the transaction
+  - `root`: Record authorization entries, requiring each to be rooted at the transaction's top-level operation
+  - `non-root`: Record all authorization entries, including non-root entries
 
 ###### **Signing Options:**
 
@@ -921,6 +933,12 @@ Install a WASM file to the ledger without creating a contract instance
 - `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
+- `--auth-mode <AUTH_MODE>` — Set the authorization mode for transaction simulation. When unset, the RPC default is used: record with the root mode if no authorization entries exist, otherwise enforce the provided entries. Should only be set for `InvokeHostFunction` transactions
+
+  Possible values:
+  - `enforce`: Validate the authorization entries already on the transaction
+  - `root`: Record authorization entries, requiring each to be rooted at the transaction's top-level operation
+  - `non-root`: Record all authorization entries, including non-root entries
 
 ###### **Signing Options:**
 
@@ -978,6 +996,12 @@ stellar contract invoke ... -- --help
 - `--instructions <INSTRUCTIONS>` — ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
 - `--instruction-leeway <INSTRUCTION_LEEWAY>` — Allow this many extra instructions when budgeting resources with transaction simulation
 - `--cost` — Output the cost execution to stderr
+- `--auth-mode <AUTH_MODE>` — Set the authorization mode for transaction simulation. When unset, the RPC default is used: record with the root mode if no authorization entries exist, otherwise enforce the provided entries. Should only be set for `InvokeHostFunction` transactions
+
+  Possible values:
+  - `enforce`: Validate the authorization entries already on the transaction
+  - `root`: Record authorization entries, requiring each to be rooted at the transaction's top-level operation
+  - `non-root`: Record all authorization entries, including non-root entries
 
 ###### **Signing Options:**
 
@@ -3916,6 +3940,12 @@ Simulate a transaction envelope from stdin
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+- `--auth-mode <AUTH_MODE>` — Set the authorization mode for transaction simulation. When unset, the RPC default is used: record with the root mode if no authorization entries exist, otherwise enforce the provided entries. Should only be set for `InvokeHostFunction` transactions
+
+  Possible values:
+  - `enforce`: Validate the authorization entries already on the transaction
+  - `root`: Record authorization entries, requiring each to be rooted at the transaction's top-level operation
+  - `non-root`: Record all authorization entries, including non-root entries
 
 ###### **Signing Options:**
 
