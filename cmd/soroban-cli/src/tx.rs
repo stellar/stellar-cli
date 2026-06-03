@@ -30,12 +30,14 @@ pub const ONE_XLM: i64 = 10_000_000;
 ///
 /// # Errors
 /// If any step of the process fails (simulation, signing, sending)
+#[allow(clippy::too_many_arguments)]
 pub async fn sim_sign_and_send_tx<E>(
     client: &soroban_rpc::Client,
     tx: &Transaction,
     config: &config::Args,
     resources: &resources::Args,
     auth_signers: &[Signer],
+    auth_mode: Option<soroban_rpc::AuthMode>,
     quiet: bool,
     no_cache: bool,
 ) -> Result<GetTransactionResponse, E>
@@ -55,6 +57,7 @@ where
         tx,
         resources.resource_config(),
         resources.resource_fee,
+        auth_mode,
     )
     .await?;
     let assembled = resources.apply_to_assembled_txn(txn);

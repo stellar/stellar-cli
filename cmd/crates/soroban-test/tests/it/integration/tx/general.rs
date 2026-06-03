@@ -30,7 +30,7 @@ async fn simulate() {
         .assert()
         .success()
         .stdout_as_str();
-    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx, None, None)
+    let assembled = simulate_and_assemble_transaction(&sandbox.client(), &tx, None, None, None)
         .await
         .unwrap();
     let txn_env: TransactionEnvelope = assembled.transaction().clone().into();
@@ -38,6 +38,48 @@ async fn simulate() {
         txn_env.to_xdr_base64(Limits::none()).unwrap(),
         assembled_str
     );
+}
+
+#[tokio::test]
+async fn simulate_auth_modes() {
+    let sandbox = &TestEnv::new();
+    let xdr_base64_build_only = deploy_contract(
+        sandbox,
+        HELLO_WORLD,
+        DeployOptions {
+            kind: DeployKind::BuildOnly,
+            salt: Some(String::from("B")),
+            ..Default::default()
+        },
+    )
+    .await;
+
+    // The unset default and the recording modes assemble the deployer
+    // authorization the CreateContract op requires.
+    for args in [
+        &[][..],
+        &["--auth-mode=root"][..],
+        &["--auth-mode=non-root"][..],
+    ] {
+        sandbox
+            .new_assert_cmd("tx")
+            .arg("simulate")
+            .args(args)
+            .write_stdin(xdr_base64_build_only.as_bytes())
+            .assert()
+            .success();
+    }
+
+    // `enforce` only validates authorization already present on the envelope.
+    // The build-only envelope has none, so it cannot authorize the deploy.
+    sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .arg("--auth-mode=enforce")
+        .write_stdin(xdr_base64_build_only.as_bytes())
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Auth, InvalidAction"));
 }
 
 fn test_tx_string(sandbox: &TestEnv) -> String {

@@ -66,6 +66,8 @@ pub struct Cmd {
     pub alias: Option<AliasName>,
     #[command(flatten)]
     pub resources: resources::Args,
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
@@ -314,6 +316,7 @@ impl Cmd {
                     wasm: Some(wasm.clone()),
                     config: config.clone(),
                     resources: self.resources.clone(),
+                    auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
@@ -415,8 +418,17 @@ impl Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
-            .await?;
+        sim_sign_and_send_tx::<Error>(
+            &client,
+            &txn,
+            config,
+            &self.resources,
+            &[],
+            self.auth_mode.to_rpc(),
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);

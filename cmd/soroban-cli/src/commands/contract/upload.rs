@@ -41,6 +41,9 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: crate::resources::Args,
 
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
+
     /// Path to wasm binary. When omitted inside a Cargo workspace, builds the
     /// project automatically. Required when outside a Cargo workspace.
     #[arg(long)]
@@ -295,6 +298,7 @@ impl Cmd {
             config,
             &self.resources,
             &[],
+            self.auth_mode.to_rpc(),
             quiet,
             no_cache,
         )
