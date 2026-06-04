@@ -13,7 +13,6 @@ RUN apt-get update && \
     pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
-ARG TARGETARCH
 ARG STELLAR_CLI_REV
 RUN cargo install --locked \
         --git https://github.com/stellar/stellar-cli.git \
