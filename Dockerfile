@@ -3,15 +3,25 @@ FROM rust:latest
 RUN rustup target add wasm32v1-none
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates libdbus-1-3 libssl3 libudev1 && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    git \
+    libdbus-1-dev \
+    libssl-dev \
+    libudev-dev \
+    pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
-ARG TARGETARCH
-COPY stellar-${TARGETARCH}/stellar /usr/local/bin/stellar
-RUN chmod +x /usr/local/bin/stellar
+ARG STELLAR_CLI_REV
+RUN cargo install --locked \
+        --git https://github.com/stellar/stellar-cli.git \
+        --rev "${STELLAR_CLI_REV}" \
+        stellar-cli
 
 ENV STELLAR_CONFIG_HOME=/config
 ENV STELLAR_DATA_HOME=/data
+ENV STELLAR_NO_UPDATE_CHECK=1
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
