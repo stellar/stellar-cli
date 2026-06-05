@@ -5,7 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "The git ref to build from (branch, tag, or commit SHA)."
+        description: "Source revision to compile the CLI from (branch, tag, or commit SHA)."
+        type: string
+        required: true
+        default: main
+      dockerfile_ref:
+        description: "The Dockerfile that will be used (branch, tag, or commit SHA)."
         type: string
         required: true
         default: main
@@ -20,31 +25,43 @@ env:
   REGISTRY_IMAGE: stellar/stellar-cli
 
 jobs:
-  # Resolve the ref to a single immutable SHA and compute the Docker tags once,
-  # so both platform builds and the published manifest refer to one commit even
-  # if the branch advances while the workflow runs.
+  # Resolve the source and Dockerfile refs to immutable SHAs and compute the
+  # Docker tags once, so every platform build and the published manifest agree
+  # on one source commit and one build recipe even if a branch advances while
+  # the workflow runs. The Dockerfile is decoupled from the source so an old
+  # release tag can be built with the current recipe.
   prepare:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
+      source_sha: ${{ steps.resolve.outputs.source_sha }}
+      dockerfile_sha: ${{ steps.resolve.outputs.dockerfile_sha }}
       tags: ${{ steps.resolve.outputs.tags }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check out source ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
-          fetch-depth: 0
+          path: source
 
-      # Resolve the ref to a SHA and compute Docker tags.
+      - name: Check out Dockerfile ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.dockerfile_ref || 'main' }}
+          path: dockerfile
+
+      # Resolve both refs to SHAs and compute Docker tags from the source ref.
       # - Version tag (e.g. v1.2.3): push versioned + latest tags.
-      # - Any other ref: push a tag for the resolved commit SHA.
-      - name: Resolve ref and tags
+      # - Any other ref: push a tag for the resolved source commit SHA.
+      - name: Resolve refs and tags
         id: resolve
         run: |
           ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
-          sha="$(git rev-parse HEAD)"
-          echo "sha=${sha}" >> $GITHUB_OUTPUT
+          source_sha="$(git -C source rev-parse HEAD)"
+          dockerfile_sha="$(git -C dockerfile rev-parse HEAD)"
+          echo "source_sha=${source_sha}" >> $GITHUB_OUTPUT
+          echo "dockerfile_sha=${dockerfile_sha}" >> $GITHUB_OUTPUT
 
           if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             version="${ref#v}"
@@ -53,7 +70,7 @@ jobs:
             echo "::error::Release tag '${ref}' is not a valid version tag (expected vX.Y.Z)."
             exit 1
           else
-            echo "tags=-t ${REGISTRY_IMAGE}:${sha}" >> $GITHUB_OUTPUT
+            echo "tags=-t ${REGISTRY_IMAGE}:${source_sha}" >> $GITHUB_OUTPUT
           fi
 
   # Build each platform on a native runner and push the image by digest.
@@ -78,7 +95,7 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ needs.prepare.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.dockerfile_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
@@ -96,7 +113,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           build-args: |
-            STELLAR_CLI_REV=${{ needs.prepare.outputs.sha }}
+            STELLAR_CLI_REV=${{ needs.prepare.outputs.source_sha }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
@@ -123,7 +140,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ needs.prepare.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.dockerfile_sha }}
 
       - name: Download digests
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
