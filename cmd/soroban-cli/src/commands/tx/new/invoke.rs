@@ -16,7 +16,7 @@ pub struct Cmd {
 #[derive(Debug, clap::Args, Clone)]
 #[allow(clippy::struct_excessive_bools, clippy::doc_markdown)]
 pub struct Args {
-    /// Base-64 InvokeContractArgs envelope XDR or file containing XDR to decode.
+    /// InvokeHostFunctionOp base64 XDR or file containing XDR to decode.
     #[arg(long)]
     pub xdr: OsString,
 }
