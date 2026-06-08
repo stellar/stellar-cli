@@ -69,7 +69,9 @@ runs:
         # Download to a file (rather than piping straight into tar) so that
         # curl's retries can safely restart a transfer without corrupting the
         # tar stream. Retry on transient network failures with backoff so a
-        # single blip doesn't fail the whole job.
+        # single blip doesn't fail the whole job. Use a fixed local filename
+        # so the download path never depends on the (untrusted) version string.
+        archive="$RUNNER_TEMP/stellar-cli.tar.gz"
         curl -fL \
           --retry 5 \
           --retry-delay 5 \
@@ -77,9 +79,9 @@ runs:
           --retry-all-errors \
           --connect-timeout 30 \
           --max-time 300 \
-          -o "$RUNNER_TEMP/$file" \
+          -o "$archive" \
           "$url"
-        tar xvz -C $HOME/.local/bin -f "$RUNNER_TEMP/$file"
+        tar xvz -C $HOME/.local/bin -f "$archive"
 
     - name: Verify binary against attestation
       shell: bash
