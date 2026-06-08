@@ -84,20 +84,7 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         version="${{ steps.version.outputs.version }}"
-        attempts=5
-        delay=5
-        for attempt in $(seq 1 "$attempts"); do
-          if subject="$(gh attestation verify ~/.local/bin/${{ env.stellar_binary }} --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"; then
-            break
-          fi
-          if [[ "$attempt" -eq "$attempts" ]]; then
-            echo "Attestation verification failed after $attempts attempts" >&2
-            exit 1
-          fi
-          echo "Attestation verification attempt $attempt failed; retrying in ${delay}s" >&2
-          sleep "$delay"
-          delay=$((delay * 2))
-        done
+        subject="$(gh attestation verify ~/.local/bin/${{ env.stellar_binary }} --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"
         echo "Found subject: $subject" >&2
         expected_subject="https://github.com/stellar/stellar-cli/.github/workflows/binaries.yml@refs/tags/v$version"
         echo "Expected subject: $expected_subject" >&2
