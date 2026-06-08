@@ -66,11 +66,6 @@ runs:
         file="stellar-cli-$version-$os_arch.tar.gz"
         url="https://github.com/stellar/stellar-cli/releases/download/v$version/$file"
         echo "$url"
-        # Download to a file (rather than piping straight into tar) so that
-        # curl's retries can safely restart a transfer without corrupting the
-        # tar stream. Retry on transient network failures with backoff so a
-        # single blip doesn't fail the whole job. Use a fixed local filename
-        # so the download path never depends on the (untrusted) version string.
         archive="$RUNNER_TEMP/stellar-cli.tar.gz"
         curl -fL \
           --retry 5 \
@@ -89,8 +84,6 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         version="${{ steps.version.outputs.version }}"
-        # gh attestation verify hits the network, so retry on transient
-        # failures with exponential backoff before giving up.
         attempts=5
         delay=5
         for attempt in $(seq 1 "$attempts"); do
