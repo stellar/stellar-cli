@@ -66,7 +66,20 @@ runs:
         file="stellar-cli-$version-$os_arch.tar.gz"
         url="https://github.com/stellar/stellar-cli/releases/download/v$version/$file"
         echo "$url"
-        curl -fL "$url" | tar xvz -C $HOME/.local/bin
+        # Download to a file (rather than piping straight into tar) so that
+        # curl's retries can safely restart a transfer without corrupting the
+        # tar stream. Retry on transient network failures with backoff so a
+        # single blip doesn't fail the whole job.
+        curl -fL \
+          --retry 5 \
+          --retry-delay 5 \
+          --retry-connrefused \
+          --retry-all-errors \
+          --connect-timeout 30 \
+          --max-time 300 \
+          -o "$RUNNER_TEMP/$file" \
+          "$url"
+        tar xvz -C $HOME/.local/bin -f "$RUNNER_TEMP/$file"
 
     - name: Verify binary against attestation
       shell: bash
@@ -74,7 +87,22 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         version="${{ steps.version.outputs.version }}"
-        subject="$(gh attestation verify ~/.local/bin/${{ env.stellar_binary }} --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"
+        # gh attestation verify hits the network, so retry on transient
+        # failures with exponential backoff before giving up.
+        attempts=5
+        delay=5
+        for attempt in $(seq 1 "$attempts"); do
+          if subject="$(gh attestation verify ~/.local/bin/${{ env.stellar_binary }} --repo stellar/stellar-cli --format json -q '.[].verificationResult.signature.certificate.subjectAlternativeName')"; then
+            break
+          fi
+          if [[ "$attempt" -eq "$attempts" ]]; then
+            echo "Attestation verification failed after $attempts attempts" >&2
+            exit 1
+          fi
+          echo "Attestation verification attempt $attempt failed; retrying in ${delay}s" >&2
+          sleep "$delay"
+          delay=$((delay * 2))
+        done
         echo "Found subject: $subject" >&2
         expected_subject="https://github.com/stellar/stellar-cli/.github/workflows/binaries.yml@refs/tags/v$version"
         echo "Expected subject: $expected_subject" >&2
