@@ -1,0 +1,17 @@
+# FFI bridge manifest for stellar-cli.
+#
+# stellar-cli is a pure-Rust Cargo workspace; there is no C++ side, so no
+# cross-language bridges are stitched into static routes here. The runtime
+# still requires this file to exist (referenced from
+# `static_analysis.bridge_manifest` in objective.toml), so it is committed as
+# an empty manifest with the schema documented for future reference.
+#
+# Schema (when bridges exist):
+#   [[bridge]]
+#   name = "<bridge-name>"          # stable identifier (used in route bridge_edges)
+#   source_symbol = "<lang-a-fn>"   # the call site on the source language side
+#   target_symbol = "<lang-b-fn>"   # the entry point on the target language side
+#   source_language = "rust"        # "rust" | "cpp" | …
+#   target_language = "cpp"
+
+bridges = []

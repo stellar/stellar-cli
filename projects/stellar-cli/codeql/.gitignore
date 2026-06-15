@@ -1,0 +1,9 @@
+# Build artifacts. The pack source is tracked; cache/builds are not.
+__pycache__/
+*.pyc
+*.bqrs
+codeql-csv/
+# CodeQL database / cache (also covered by repo-root .gitignore but explicit
+# here so the pack subtree is self-documenting).
+db/
+*.sqlite

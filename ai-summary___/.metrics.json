@@ -1,0 +1,31 @@
+{
+  "dispatch_paths": 0,
+  "hypothesis_viable": 0,
+  "hypothesis_not_viable": 0,
+  "review_viable": 0,
+  "review_not_viable": 0,
+  "poc_viable": 0,
+  "poc_not_viable": 0,
+  "final_review_viable": 0,
+  "final_review_not_viable": 0,
+  "final_review_revisions": 0,
+  "condensations": 0,
+  "publishes": 0,
+  "agent_failures": 0,
+  "agent_timeouts": 0,
+  "total_spawned": 2,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cache_read_tokens": 0,
+  "per_subsystem": {},
+  "per_model": {},
+  "tokens_by_stage": {},
+  "tokens_by_model": {},
+  "by_phase": {},
+  "agent_durations": [],
+  "costs": {
+    "providers": {},
+    "total_cost": 0.0
+  },
+  "frontier": {}
+}

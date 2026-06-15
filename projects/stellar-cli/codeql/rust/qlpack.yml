@@ -1,0 +1,6 @@
+name: stellar/stellar-cli-rust
+version: 0.0.1
+library: false
+extractor: rust
+dependencies:
+  codeql/rust-all: "*"
