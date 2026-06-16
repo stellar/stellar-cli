@@ -8,7 +8,7 @@ use std::{
 };
 use stellar_xdr::curr::ScSpecEntry;
 
-use super::generate;
+use super::{generate, sanitize_string, validate_npm_package_name};
 
 static PROJECT_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src/project_template");
 
@@ -52,6 +52,14 @@ impl Project {
         network_passphrase: Option<&str>,
         spec: &[ScSpecEntry],
     ) -> std::io::Result<()> {
+        validate_npm_package_name(contract_name).map_err(|e| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "output directory name '{contract_name}' is not a valid npm package name: {e}"
+                ),
+            )
+        })?;
         self.replace_placeholder_patterns(contract_name, contract_id, rpc_url, network_passphrase)?;
         self.append_index_ts(spec, contract_id, network_passphrase)
     }
@@ -87,7 +95,12 @@ impl Project {
             ),
         ];
         let root: &Path = self.as_ref();
-        ["package.json", "README.md", "src/index.ts"]
+
+        // Handle package.json with proper JSON serialization
+        replace_package_json(root, contract_name)?;
+
+        // Handle non-JSON files with string replacement
+        ["README.md", "src/index.ts"]
             .into_iter()
             .try_for_each(|file_name| {
                 let file = &root.join(file_name);
@@ -128,6 +141,8 @@ impl Project {
             NETWORK_PASSPHRASE_STANDALONE => "standalone",
             _ => "unknown",
         };
+        let network_passphrase = sanitize_string(network_passphrase);
+        let contract_id = sanitize_string(contract_id);
         format!(
             r#"export const networks = {{
   {network}: {{
@@ -137,6 +152,38 @@ impl Project {
 }} as const"#
         )
     }
+}
+
+fn replace_package_json(root: &Path, contract_name: &str) -> std::io::Result<()> {
+    let file = root.join("package.json");
+    let contents = fs::read_to_string(&file)?;
+    let mut json: serde_json::Value = serde_json::from_str(&contents).map_err(|e| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("failed to parse package.json template: {e}"),
+        )
+    })?;
+
+    if let Some(obj) = json.as_object_mut() {
+        obj.insert(
+            "name".to_string(),
+            serde_json::Value::String(contract_name.to_string()),
+        );
+    } else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "package.json template must be a JSON object",
+        ));
+    }
+
+    let serialized = serde_json::to_string_pretty(&json).map_err(|e| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("failed to serialize package.json: {e}"),
+        )
+    })?;
+    // Append trailing newline to match standard formatting
+    fs::write(&file, format!("{serialized}\n"))
 }
 
 #[cfg(test)]
@@ -187,6 +234,72 @@ mod test {
         std::fs::create_dir_all(&root).unwrap();
         let _: Project = init(&root).unwrap();
         println!("Updated Snapshot!");
+    }
+
+    #[test]
+    fn test_package_json_name_is_set_correctly() {
+        let temp_dir = TempDir::new().unwrap();
+        let _project = init(temp_dir.path()).unwrap();
+        let pkg_json_path = temp_dir.path().join("package.json");
+        let contents = fs::read_to_string(&pkg_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&contents).unwrap();
+        assert_eq!(json["name"], "test_custom_types");
+        let obj = json.as_object().unwrap();
+        let expected_keys = [
+            "version",
+            "name",
+            "type",
+            "exports",
+            "typings",
+            "scripts",
+            "dependencies",
+            "devDependencies",
+        ];
+        for key in expected_keys {
+            assert!(
+                obj.contains_key(key),
+                "missing expected key in package.json: {key}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_init_rejects_invalid_contract_name() {
+        let temp_dir = TempDir::new().unwrap();
+        let p: Project = temp_dir.path().to_path_buf().try_into().unwrap();
+        let spec = soroban_spec::read::from_wasm(EXAMPLE_WASM).unwrap();
+        let result = p.init(
+            r#"foo","optionalDependencies":{"evil":"1"},"z":""#,
+            Some("CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"),
+            Some("https://rpc-futurenet.stellar.org:443"),
+            Some("Test SDF Future Network ; October 2022"),
+            &spec,
+        );
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(err.to_string().contains("not a valid npm package name"));
+    }
+
+    #[test]
+    fn test_format_networks_object_sanitizes_inputs() {
+        let malicious_passphrase =
+            r#"Test SDF Network", }}; console.log("pwned"); const x = {{ a: ""#;
+        let malicious_contract_id = r#"CABC"; import("evil"); //"#;
+        let result = Project::format_networks_object(
+            Some(malicious_contract_id),
+            Some(malicious_passphrase),
+        );
+        assert!(
+            !result.contains(r#"console.log("pwned")"#),
+            "network_passphrase was not sanitized: {result}"
+        );
+        assert!(
+            !result.contains(r#"import("evil")"#),
+            "contract_id was not sanitized: {result}"
+        );
+        assert!(result.contains(r#"console.log(\"pwned\")"#));
+        assert!(result.contains(r#"import(\"evil\")"#));
     }
 
     fn assert_dirs_equal<P: AsRef<Path>>(dir1: P, dir2: P) {

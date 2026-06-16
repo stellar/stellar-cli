@@ -37,7 +37,6 @@ emulator-tests = ["stellar-ledger/emulator-tests"]
 [dependencies]
 stellar-xdr = { workspace = true, features = ["cli"] }
 soroban-spec = { workspace = true }
-soroban-spec-json = { workspace = true }
 soroban-spec-rust = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-spec-typescript = { workspace = true }
@@ -80,13 +79,12 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "blocking",
     "stream",
 ] }
-jsonrpsee-http-client = "0.20.1"
-jsonrpsee-core = "0.20.1"
 regex = "1.6.0"
 wasm-opt = { version = "0.116.1", optional = true }
 chrono = { version = "0.4.27", features = ["serde"] }
 rpassword = "7.2.0"
 toml = { workspace = true }
+indexmap = { version = "2.7", features = ["serde"] }
 itertools = "0.10.5"
 shlex = "1.1.0"
 sep5 = { workspace = true }
@@ -128,10 +126,9 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
-prettytable = "0.10.0"
 
 [build-dependencies]
-crate-git-revision = "0.0.6"
+crate-git-revision = "0.0.8"
 serde.workspace = true
 thiserror.workspace = true
 
@@ -142,3 +139,4 @@ assert_fs = "1.0.7"
 predicates = { workspace = true }
 walkdir = "2.5.0"
 mockito = "1.5.0"
+serial_test = "3.0.0"

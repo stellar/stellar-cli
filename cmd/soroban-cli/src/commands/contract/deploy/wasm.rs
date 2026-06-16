@@ -1,10 +1,15 @@
-use crate::commands::contract::deploy::utils::alias_validator;
-use crate::resources;
 use std::array::TryFromSliceError;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::num::ParseIntError;
 
+use clap::Parser;
+use rand::Rng;
+use soroban_spec_tools::contract as contract_spec;
+
+use crate::config::address::AliasName;
+use crate::resources;
+use crate::tx::sim_sign_and_send_tx;
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
@@ -12,16 +17,14 @@ use crate::xdr::{
     Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
     VecM, WriteXdr,
 };
-use clap::Parser;
-use rand::Rng;
 
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::{self, arg_parsing, id::wasm::get_contract_id, upload},
+        contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -29,19 +32,20 @@ use crate::{
     utils::{self, rpc::get_remote_wasm_from_hash},
     wasm,
 };
-use soroban_spec_tools::contract as contract_spec;
 
 pub const CONSTRUCTOR_FUNCTION_NAME: &str = "__constructor";
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
     clap::ArgGroup::new("wasm_src")
-        .required(true)
+        .required(false)
         .args(&["wasm", "wasm_hash"]),
 ))]
 #[group(skip)]
 pub struct Cmd {
-    /// WASM file to deploy
+    /// WASM file to deploy. When neither --wasm nor --wasm-hash is provided
+    /// inside a Cargo workspace, builds the project automatically. One of
+    /// --wasm or --wasm-hash is required when outside a Cargo workspace.
     #[arg(long, group = "wasm_src")]
     pub wasm: Option<std::path::PathBuf>,
     /// Hash of the already installed/deployed WASM file
@@ -58,16 +62,21 @@ pub struct Cmd {
     /// The alias that will be used to save the contract's id.
     /// Whenever used, `--alias` will always overwrite the existing contract id
     /// configuration without asking for confirmation.
-    #[arg(long, value_parser = clap::builder::ValueParser::new(alias_validator))]
-    pub alias: Option<String>,
+    #[arg(long)]
+    pub alias: Option<AliasName>,
     #[command(flatten)]
     pub resources: resources::Args,
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
+    /// Package to build when auto-building without --wasm
+    #[arg(long, help_heading = "Build Options", conflicts_with = "wasm_src")]
+    pub package: Option<String>,
+    #[command(flatten)]
+    pub build_args: build::BuildArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -84,9 +93,6 @@ pub enum Error {
     #[error("xdr processing error: {0}")]
     Xdr(#[from] XdrError),
 
-    #[error("jsonrpc error: {0}")]
-    JsonRpc(#[from] jsonrpsee_core::Error),
-
     #[error("cannot parse salt: {salt}")]
     CannotParseSalt { salt: String },
 
@@ -102,7 +108,7 @@ pub enum Error {
         error: stellar_strkey::DecodeError,
     },
 
-    #[error("Must provide either --wasm or --wash-hash")]
+    #[error("Must provide either --wasm or --wasm-hash")]
     WasmNotProvided,
 
     #[error(transparent)]
@@ -146,32 +152,102 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    Build(#[from] build::Error),
+
+    #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
+    NoBuildableContracts,
+
+    #[error("--alias is not supported when deploying multiple contracts; aliases are derived from package names automatically")]
+    AliasNotSupported,
+
+    #[error("--salt is not supported when deploying multiple contracts")]
+    SaltNotSupported,
+
+    #[error("constructor arguments are not supported when deploying multiple contracts")]
+    ConstructorArgsNotSupported,
+
+    #[error("--build-only is not supported without --wasm or --wasm-hash")]
+    BuildOnlyNotSupported,
+
+    #[error(
+        "--wasm or --wasm-hash is required when not in a Cargo workspace; no Cargo.toml found"
+    )]
+    NotInCargoProject,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let res = self
-            .execute(&self.config, global_args.quiet, global_args.no_cache)
+        if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
+            return Err(Error::BuildOnlyNotSupported);
+        }
+
+        let built_contracts = self.resolve_contracts(global_args)?;
+
+        // When --wasm-hash is used, no built contracts are returned.
+        // Deploy directly with the hash.
+        if built_contracts.is_empty() {
+            Self::run_single(self, global_args).await?;
+        } else {
+            if built_contracts.len() > 1 {
+                if self.alias.is_some() {
+                    return Err(Error::AliasNotSupported);
+                }
+
+                if self.salt.is_some() {
+                    return Err(Error::SaltNotSupported);
+                }
+
+                if !self.slop.is_empty() {
+                    return Err(Error::ConstructorArgsNotSupported);
+                }
+            }
+
+            for contract in &built_contracts {
+                let mut cmd = self.clone();
+                cmd.wasm = Some(contract.path.clone());
+
+                // When auto-building and no explicit --alias, use the
+                // package name as alias.
+                if cmd.alias.is_none() && !contract.name.is_empty() {
+                    if let Ok(alias) = contract.name.parse::<AliasName>() {
+                        cmd.alias = Some(alias);
+                    }
+                }
+
+                Self::run_single(&cmd, global_args).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn run_single(cmd: &Cmd, global_args: &global::Args) -> Result<(), Error> {
+        let res = cmd
+            .execute(&cmd.config, global_args.quiet, global_args.no_cache)
             .await?
             .to_envelope();
-        match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
-            TxnEnvelopeResult::Res(contract) => {
-                let network = self.config.get_network()?;
 
-                if let Some(alias) = self.alias.clone() {
-                    if let Some(existing_contract) = self
+        match res {
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::none())?);
+            }
+            TxnEnvelopeResult::Res(contract) => {
+                let network = cmd.config.get_network()?;
+
+                if let Some(alias) = cmd.alias.clone() {
+                    if let Some(existing_contract) = cmd
                         .config
                         .locator
                         .get_contract_id(&alias, &network.network_passphrase)?
                     {
                         let print = Print::new(global_args.quiet);
                         print.warnln(format!(
-                            "Overwriting existing alias {alias:?} that currently links to contract ID: {existing_contract}"
+                            "Overwriting existing alias '{alias}' that currently links to contract ID: {existing_contract}"
                         ));
                     }
 
-                    self.config.locator.save_contract_id(
+                    cmd.config.locator.save_contract_id(
                         &network.network_passphrase,
                         &contract,
                         &alias,
@@ -182,6 +258,41 @@ impl Cmd {
             }
         }
         Ok(())
+    }
+
+    fn resolve_contracts(
+        &self,
+        global_args: &global::Args,
+    ) -> Result<Vec<build::BuiltContract>, Error> {
+        // If --wasm is explicitly provided, use it (no package name available)
+        if let Some(wasm) = &self.wasm {
+            return Ok(vec![build::BuiltContract {
+                name: String::new(),
+                path: wasm.clone(),
+            }]);
+        }
+
+        // If --wasm-hash is provided, no WASM file paths needed
+        if self.wasm_hash.is_some() {
+            return Ok(vec![]);
+        }
+
+        // Neither provided: auto-build
+        let build_cmd = build::Cmd {
+            package: self.package.clone(),
+            build_args: self.build_args.clone(),
+            ..build::Cmd::default()
+        };
+        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+            build::Error::Metadata(_) => Error::NotInCargoProject,
+            other => other.into(),
+        })?;
+
+        if contracts.is_empty() {
+            return Err(Error::NoBuildableContracts);
+        }
+
+        Ok(contracts)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -198,12 +309,15 @@ impl Cmd {
             let hash = if is_build {
                 wasm::Args { wasm: wasm.clone() }.hash()?
             } else {
+                print.infoln("Uploading contract WASM…");
                 upload::Cmd {
-                    wasm: wasm::Args { wasm: wasm.clone() },
+                    wasm: Some(wasm.clone()),
                     config: config.clone(),
                     resources: self.resources.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
+                    package: None,
+                    build_args: build::BuildArgs::default(),
                 }
                 .execute(config, quiet, no_cache)
                 .await?
@@ -227,7 +341,7 @@ impl Cmd {
                 .0,
         );
 
-        print.infoln(format!("Using wasm hash {wasm_hash}").as_str());
+        print.infoln(format!("Deploying contract using wasm hash {wasm_hash}").as_str());
 
         let network = config.get_network()?;
         let salt: [u8; 32] = match &self.salt {
@@ -239,7 +353,7 @@ impl Cmd {
         };
 
         let client = network.rpc_client()?;
-        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
@@ -271,8 +385,7 @@ impl Cmd {
                         &slop,
                         &entries,
                         config,
-                    )
-                    .await?
+                    )?
                     .2,
                 )
             }
@@ -302,34 +415,12 @@ impl Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        print.infoln("Simulating deploy transaction…");
-
-        let assembled = simulate_and_assemble_transaction(
-            &client,
-            &txn,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
-        )
-        .await?;
-        let assembled = self.resources.apply_to_assembled_txn(assembled);
-        let txn = Box::new(assembled.transaction().clone());
-
-        print.log_transaction(&txn, &network, true)?;
-        let signed_txn = &config.sign(*txn, quiet).await?;
-        print.globeln("Submitting deploy transaction…");
-
-        let get_txn_resp = client.send_transaction_polling(signed_txn).await?;
-
-        self.resources.print_cost_info(&get_txn_resp)?;
-
-        if !no_cache {
-            data::write(get_txn_resp.clone().try_into()?, &network.rpc_uri()?)?;
-        }
+        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
+            .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
         }
-
         print.checkln("Deployed!");
 
         Ok(TxnResult::Res(contract_id))

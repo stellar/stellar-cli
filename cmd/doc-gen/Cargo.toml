@@ -11,6 +11,9 @@ edition = "2021"
 rust-version.workspace = true
 publish = false
 
+[features]
+additional-libs = ["soroban-cli/additional-libs"]
+
 [dependencies]
 soroban-cli = { workspace = true }
 # clap-markdown from https://github.com/ConnorGray/clap-markdown/pull/48

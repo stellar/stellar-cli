@@ -7,7 +7,7 @@ use std::error::Error;
 use std::io::IsTerminal;
 use std::time::Duration;
 
-const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
+const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_hours(24); // 1 day
 const CRATES_IO_API_URL: &str = "https://crates.io/api/v1/crates/";
 const NO_UPDATE_CHECK_ENV_VAR: &str = "STELLAR_NO_UPDATE_CHECK";
 

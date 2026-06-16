@@ -272,15 +272,13 @@ impl TestEnv {
                 network: None,
             },
             source_account: account.parse().unwrap(),
-            locator: config::locator::Args {
-                global: false,
-                config_dir,
-            },
+            locator: config::locator::Args { config_dir },
             sign_with: config::sign_with::Args {
                 sign_with_key: None,
                 hd_path: None,
                 sign_with_lab: false,
                 sign_with_ledger: false,
+                auto_sign: false,
             },
             fee: None,
             inclusion_fee: None,
@@ -292,21 +290,14 @@ impl TestEnv {
         &self.temp_dir
     }
 
-    /// Returns the public key corresponding to the test keys's `hd_path`
-    pub async fn test_address(&self, hd_path: usize) -> String {
-        self.cmd::<keys::public_key::Cmd>(&format!("--hd-path={hd_path}"))
-            .public_key()
-            .await
-            .unwrap()
-            .to_string()
-    }
-
     /// Returns the private key corresponding to the test keys's `hd_path`
     pub fn test_show(&self, hd_path: usize) -> String {
-        self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
-            .private_key()
-            .unwrap()
-            .to_string()
+        format!(
+            "{}",
+            self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
+                .private_key()
+                .unwrap()
+        )
     }
 
     /// Copy the contents of the current `TestEnv` to another `TestEnv`

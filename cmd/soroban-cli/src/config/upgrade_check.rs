@@ -1,8 +1,8 @@
 use crate::config::locator;
 use chrono::{DateTime, Utc};
-use jsonrpsee_core::Serialize;
 use semver::Version;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 use std::fs;
 
@@ -61,7 +61,7 @@ impl UpgradeCheck {
 
         let path = locator::ensure_directory(path)?;
         let data = serde_json::to_string(self).map_err(|_| locator::Error::ConfigSerialization)?;
-        fs::write(&path, data)
+        locator::write_hardened_file(&path, data.as_bytes())
             .map_err(|error| locator::Error::UpgradeCheckWriteFailed { path, error })
     }
 }
@@ -69,13 +69,18 @@ impl UpgradeCheck {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
 
     #[test]
+    #[serial]
     fn test_upgrade_check_load_save() {
-        // Set the `XDG_DATA_HOME` environment variable to a temporary directory
+        // Use `STELLAR_DATA_HOME` (cross-platform, highest priority) so that
+        // any `STELLAR_DATA_HOME` or `XDG_DATA_HOME` leaked by parallel tests
+        // cannot shadow our temp dir.
         let temp_dir = tempfile::tempdir().unwrap();
-        env::set_var("XDG_DATA_HOME", temp_dir.path());
+        env::remove_var("XDG_DATA_HOME");
+        env::set_var("STELLAR_DATA_HOME", temp_dir.path());
         // Test default loading
         let default_check = UpgradeCheck::load().unwrap();
         assert_eq!(default_check, UpgradeCheck::default());
@@ -94,5 +99,22 @@ mod tests {
         saved_check.save().unwrap();
         let loaded_check = UpgradeCheck::load().unwrap();
         assert_eq!(loaded_check, saved_check);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    #[serial]
+    fn test_upgrade_check_save_uses_0600_permissions() {
+        use crate::test_utils::with_env_set;
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        with_env_set("STELLAR_DATA_HOME", temp_dir.path(), || {
+            UpgradeCheck::default().save().unwrap();
+
+            let path = project_dir().unwrap().data_dir().join(FILE_NAME);
+            let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "expected 0600, got {mode:o}");
+        });
     }
 }

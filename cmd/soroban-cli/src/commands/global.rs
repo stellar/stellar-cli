@@ -36,10 +36,6 @@ pub struct Args {
     #[arg(long, visible_alias = "vv", global = true, help_heading = HEADING_GLOBAL)]
     pub very_verbose: bool,
 
-    /// ⚠️ Deprecated, use `stellar plugin ls`. List installed plugins. E.g. `stellar-hello`
-    #[arg(long)]
-    pub list: bool,
-
     /// Do not cache your simulations and transactions
     #[arg(long, env = "STELLAR_NO_CACHE", global = true, help_heading = HEADING_GLOBAL)]
     pub no_cache: bool,

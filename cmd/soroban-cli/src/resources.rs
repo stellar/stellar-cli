@@ -1,5 +1,3 @@
-use std::io::stderr;
-
 use soroban_rpc::GetTransactionResponse;
 
 use crate::assembled::Assembled;
@@ -11,7 +9,7 @@ use crate::commands::HEADING_RPC;
 #[group(skip)]
 pub struct Args {
     /// Set the fee for smart contract resource consumption, in stroops. 1 stroop = 0.0000001 xlm. Overrides the simulated resource fee
-    #[arg(long, env = "STELLAR_RESOURCE_FEE", value_parser = clap::value_parser!(i64).range(0..u32::MAX.into()), help_heading = HEADING_RPC)]
+    #[arg(long, env = "STELLAR_RESOURCE_FEE", value_parser = clap::value_parser!(i64).range(0..i64::MAX), help_heading = HEADING_RPC)]
     pub resource_fee: Option<i64>,
     /// ⚠️ Deprecated, use `--instruction-leeway` to increase instructions. Number of instructions to allocate for the transaction
     #[arg(long, help_heading = HEADING_RPC)]
@@ -46,7 +44,7 @@ impl Args {
 
         let fee_table = FeeTable::new_from_transaction_response(res)?;
 
-        fee_table.table().print(&mut stderr())?;
+        eprint!("{}", fee_table.table());
 
         Ok(())
     }

@@ -29,7 +29,7 @@ pub struct Cmd {
 
     /// If identity is a seed phrase use this hd path, default is 0
     #[arg(long, conflicts_with = "phrase")]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub locator: locator::Args,
@@ -49,7 +49,7 @@ impl Cmd {
     pub fn seed_phrase(&self) -> Result<String, Error> {
         let key = self.locator.read_identity(&self.name)?;
 
-        if let Key::Secret(Secret::SeedPhrase { seed_phrase }) = key {
+        if let Key::Secret(Secret::SeedPhrase { seed_phrase, .. }) = key {
             Ok(seed_phrase)
         } else {
             Err(Error::UnknownSeedPhrase)

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::{
-    fs::{create_dir_all, metadata, write, Metadata},
+    fs::{create_dir_all, metadata, write},
     io,
     path::{Path, PathBuf},
     str,
@@ -9,7 +9,7 @@ use std::{
 use clap::Parser;
 use rust_embed::RustEmbed;
 
-use crate::{commands::global, print};
+use crate::{commands::global, config::address::ContractName, print};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -21,7 +21,7 @@ pub struct Cmd {
         default_value = "hello-world",
         long_help = "An optional flag to specify a new contract's name."
     )]
-    pub name: String,
+    pub name: ContractName,
 
     #[arg(long, long_help = "Overwrite all existing files.")]
     pub overwrite: bool,
@@ -158,10 +158,7 @@ impl Runner {
     }
 
     fn file_exists(file_path: &Path) -> bool {
-        metadata(file_path)
-            .as_ref()
-            .map(Metadata::is_file)
-            .unwrap_or(false)
+        metadata(file_path).is_ok_and(|m| m.is_file())
     }
 
     fn create_dir_all(path: &Path) -> Result<(), Error> {
@@ -191,7 +188,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "hello_world".to_string(),
+                name: "hello_world".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),
@@ -209,7 +206,7 @@ mod tests {
         let runner = Runner {
             args: Cmd {
                 project_path: project_dir.to_string_lossy().to_string(),
-                name: "contract2".to_string(),
+                name: "contract2".parse().unwrap(),
                 overwrite: false,
             },
             print: print::Print::new(false),

@@ -1,3 +1,4 @@
+use crate::color::{green, red};
 use soroban_rpc::GetTransactionResponse;
 
 use crate::{
@@ -66,7 +67,12 @@ impl Args {
     }
 
     pub fn print_tx_summary(tx: &GetTransactionResponse) {
-        println!("Transaction Status: {}", tx.status);
+        let status = if tx.status == "SUCCESS" {
+            green(&tx.status)
+        } else {
+            red(&tx.status)
+        };
+        println!("Transaction Status: {status}");
         if let Some(ledger) = tx.ledger {
             println!("Transaction Ledger: {ledger}");
         }

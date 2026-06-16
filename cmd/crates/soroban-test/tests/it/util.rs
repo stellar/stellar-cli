@@ -18,15 +18,14 @@ pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
     let secret = match kind {
         SecretKind::Seed => Secret::SeedPhrase {
             seed_phrase: data.to_string(),
+            hd_path: None,
         },
         SecretKind::Key => Secret::SecretKey {
             secret_key: data.to_string(),
         },
     };
 
-    KeyType::Identity
-        .write(name, &secret, &dir.join(".soroban"))
-        .unwrap();
+    KeyType::Identity.write(name, &secret, dir).unwrap();
 }
 
 pub fn add_test_id(dir: &Path) -> String {
@@ -40,7 +39,7 @@ pub fn add_test_id(dir: &Path) -> String {
     name.to_owned()
 }
 
-pub const DEFAULT_SEED_PHRASE: &str =
+pub const GENERATED_SEED_PHRASE: &str =
     "coral light army gather adapt blossom school alcohol coral light army giggle";
 
 pub async fn invoke_custom(

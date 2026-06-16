@@ -2,6 +2,7 @@ use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
     log::extract_events,
+    tx::sim_sign_and_send_tx,
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
         LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
@@ -15,11 +16,11 @@ use stellar_strkey::DecodeError;
 
 use crate::commands::tx::fetch;
 use crate::{
-    assembled::simulate_and_assemble_transaction,
     commands::{
         contract::extend,
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
@@ -46,7 +47,7 @@ pub struct Cmd {
     pub resources: crate::resources::Args,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -165,7 +166,10 @@ impl Cmd {
         tracing::trace!(?network);
         let entry_keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account().await?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         let account_details = client
@@ -203,22 +207,18 @@ impl Cmd {
         if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
-        let assembled = simulate_and_assemble_transaction(
+
+        let res = sim_sign_and_send_tx::<Error>(
             &client,
             &tx,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
+            config,
+            &self.resources,
+            &[],
+            quiet,
+            no_cache,
         )
         .await?;
 
-        let tx = assembled.transaction().clone();
-        let res = client
-            .send_transaction_polling(&config.sign(tx, quiet).await?)
-            .await?;
-        self.resources.print_cost_info(&res)?;
-        if !no_cache {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
         let meta = res
             .result_meta
             .as_ref()

@@ -1,0 +1,198 @@
+---
+name: Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Source revision to compile the CLI from (branch, tag, or commit SHA)."
+        type: string
+        required: true
+        default: main
+      dockerfile_ref:
+        description: "The Dockerfile that will be used (branch, tag, or commit SHA)."
+        type: string
+        required: true
+        default: main
+  release:
+    types: [published]
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REGISTRY_IMAGE: stellar/stellar-cli
+
+jobs:
+  # Resolve the source and Dockerfile refs to immutable SHAs and compute the
+  # Docker tags once, so every platform build and the published manifest agree
+  # on one source commit and one build recipe even if a branch advances while
+  # the workflow runs. The Dockerfile is decoupled from the source so an old
+  # release tag can be built with the current recipe.
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      source_sha: ${{ steps.resolve.outputs.source_sha }}
+      dockerfile_sha: ${{ steps.resolve.outputs.dockerfile_sha }}
+      tags: ${{ steps.resolve.outputs.tags }}
+    steps:
+      - name: Check out source ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          path: source
+          fetch-depth: 0
+
+      - name: Check out Dockerfile ref
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.dockerfile_ref || 'main' }}
+          path: dockerfile
+
+      # Resolve both refs to SHAs and compute Docker tags from the source ref.
+      # - Highest version tag (e.g. v1.2.3): push versioned + latest tags.
+      # - Older version tag: push only the versioned tag, so :latest never
+      #   moves back to an older line (e.g. a 25.x patch after 26.x ships).
+      # - Any other ref: push a tag for the resolved source commit SHA.
+      - name: Resolve refs and tags
+        id: resolve
+        run: |
+          ref="${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}"
+          source_sha="$(git -C source rev-parse HEAD)"
+          dockerfile_sha="$(git -C dockerfile rev-parse HEAD)"
+          echo "source_sha=${source_sha}" >> $GITHUB_OUTPUT
+          echo "dockerfile_sha=${dockerfile_sha}" >> $GITHUB_OUTPUT
+
+          if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            version="${ref#v}"
+            highest="$(git -C source tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)"
+            if [[ -z "$highest" ]]; then
+              echo "::error::Could not determine the highest version tag."
+              exit 1
+            fi
+            if [[ "$ref" == "$highest" ]]; then
+              echo "tags=-t ${REGISTRY_IMAGE}:${version} -t ${REGISTRY_IMAGE}:latest" >> $GITHUB_OUTPUT
+            else
+              echo "tags=-t ${REGISTRY_IMAGE}:${version}" >> $GITHUB_OUTPUT
+            fi
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "::error::Release tag '${ref}' is not a valid version tag (expected vX.Y.Z)."
+            exit 1
+          else
+            echo "tags=-t ${REGISTRY_IMAGE}:${source_sha}" >> $GITHUB_OUTPUT
+          fi
+
+  # Build each platform on a native runner and push the image by digest.
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            platform: linux/amd64
+          - runs-on: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+    steps:
+      - name: Set platform pair
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.dockerfile_sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            STELLAR_CLI_REV=${{ needs.prepare.outputs.source_sha }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Combine the per-platform digests into a single multi-arch manifest list
+  # and push it under the final tags.
+  merge:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.dockerfile_sha }}
+
+      - name: Download digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          TAGS: ${{ needs.prepare.outputs.tags }}
+        run: |
+          docker buildx imagetools create ${TAGS} \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      - name: Update Docker Hub description
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          TOKEN=$(jq -n --arg u "$DOCKERHUB_USERNAME" --arg p "$DOCKERHUB_TOKEN" \
+            '{username: $u, password: $p}' | \
+            curl -s -X POST "https://hub.docker.com/v2/users/login/" \
+              -H "Content-Type: application/json" \
+              -d @- \
+            | jq -r .token)
+
+          jq -n --arg desc "$(cat ./docker/README.md)" '{"full_description": $desc}' | \
+            curl -s -X PATCH "https://hub.docker.com/v2/repositories/stellar/stellar-cli/" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -d @-

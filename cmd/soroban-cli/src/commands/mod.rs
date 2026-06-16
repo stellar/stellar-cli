@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use clap::{error::ErrorKind, CommandFactory, FromArgMatches, Parser};
 
-use crate::{config, print::Print, utils::deprecate_message};
+use crate::config;
 
 pub mod cache;
 pub mod cfg;
@@ -26,9 +26,11 @@ pub mod version;
 
 pub mod txn_result;
 
-pub const HEADING_RPC: &str = "Options (RPC)";
-pub const HEADING_ARCHIVE: &str = "Options (Archive)";
-pub const HEADING_GLOBAL: &str = "Options (Global)";
+pub const HEADING_RPC: &str = "RPC Options";
+pub const HEADING_ARCHIVE: &str = "Archive Options";
+pub const HEADING_GLOBAL: &str = "Global Options";
+pub const HEADING_SIGNING: &str = "Signing Options";
+pub const HEADING_TRANSACTION: &str = "Transaction Options";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
@@ -86,21 +88,12 @@ pub struct Root {
 
 impl Root {
     pub fn new() -> Result<Self, Error> {
-        Self::try_parse().map_err(|e| {
-            if std::env::args().any(|s| s == "--list") {
-                let print = Print::new(std::env::args().any(|s| s == "--quiet" || s == "-q"));
-                deprecate_message(print, "--list", "Use `stellar plugin ls` instead.");
-                let _ = plugin::ls::Cmd.run();
-                std::process::exit(0);
-            }
-
-            match e.kind() {
-                ErrorKind::InvalidSubcommand => match plugin::default::run() {
-                    Ok(()) => Error::Clap(e),
-                    Err(e) => Error::PluginDefault(e),
-                },
-                _ => Error::Clap(e),
-            }
+        Self::try_parse().map_err(|e| match e.kind() {
+            ErrorKind::InvalidSubcommand => match plugin::default::run() {
+                Ok(()) => Error::Clap(e),
+                Err(e) => Error::PluginDefault(e),
+            },
+            _ => Error::Clap(e),
         })
     }
 
@@ -113,16 +106,6 @@ impl Root {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
-        let print = Print::new(self.global_args.quiet);
-
-        if self.global_args.locator.global {
-            deprecate_message(
-                print,
-                "--global",
-                "Global configuration is now the default behavior.",
-            );
-        }
-
         match &mut self.cmd {
             Cmd::Completion(completion) => completion.run(),
             Cmd::Plugin(plugin) => plugin.run(&self.global_args).await?,
@@ -174,7 +157,11 @@ pub enum Cmd {
     /// Prints to stdout in a format that can be used as .env file. Environment
     /// variables have precedence over defaults.
     ///
-    /// Pass a name to get the value of a single environment variable.
+    /// By default, secret values are concealed. To display them, use `--reveal`.
+    ///
+    /// Pass a name to get the value of a single environment variable. Its value is printed without
+    /// shell quoting (control characters are neutralized), suitable for command substitution.
+    /// Concealed variables print nothing unless `--reveal` is passed.
     ///
     /// If there are no environment variables in use, prints the defaults.
     Env(env::Cmd),

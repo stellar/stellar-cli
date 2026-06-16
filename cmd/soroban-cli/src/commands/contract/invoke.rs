@@ -5,9 +5,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{Parser, ValueEnum};
-use soroban_rpc::{
-    Client, GetTransactionResponse, SimulateHostFunctionResult, SimulateTransactionResponse,
-};
+use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -15,6 +13,7 @@ use super::arg_parsing;
 use crate::commands::tx::fetch;
 use crate::log::extract_events;
 use crate::print::Print;
+use crate::tx::sim_sign_and_send_tx;
 use crate::utils::deprecate_message;
 use crate::{
     assembled::{simulate_transaction, Assembled},
@@ -23,6 +22,7 @@ use crate::{
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
@@ -69,7 +69,7 @@ pub struct Cmd {
     pub send: Send,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -275,7 +275,7 @@ impl Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
 
         let client = network.rpc_client()?;
@@ -286,7 +286,6 @@ impl Cmd {
             quiet,
             verbose: false,
             very_verbose: false,
-            list: false,
             no_cache,
         };
 
@@ -301,7 +300,7 @@ impl Cmd {
         .map_err(Error::from)?;
 
         let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
         let (function, spec, host_function_params, signers) = params;
 
@@ -329,7 +328,7 @@ impl Cmd {
                 .await?;
 
             client
-                .get_account(&config.source_account().await?.to_string())
+                .get_account(&config.source_account()?.to_string())
                 .await?
         } else {
             if should_send == ShouldSend::DefaultNo {
@@ -346,7 +345,10 @@ impl Cmd {
             let events = sim_res.events()?;
 
             crate::log::event::all(&events);
-            crate::log::event::contract(&events, &print);
+            // Note: Only events from the invoked contract will be decoded with named parameters.
+            // Events emitted by other contracts (e.g., token transfers during a swap) will
+            // fall back to raw format since we only have the spec for the invoked contract.
+            crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
             return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
         };
@@ -365,59 +367,25 @@ impl Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let txn = simulate_and_enhance(
+        let res = sim_sign_and_send_tx::<Error>(
             &client,
             &tx,
-            self.resources.resource_config(),
-            self.resources.resource_fee,
-            &spec,
-            &function,
+            config,
+            &self.resources,
+            &signers,
+            quiet,
+            no_cache,
         )
         .await?;
-        let assembled = self.resources.apply_to_assembled_txn(txn);
-        let mut txn = Box::new(assembled.transaction().clone());
-        let sim_res = assembled.sim_response();
-
-        if !no_cache {
-            data::write(sim_res.clone().into(), &network.rpc_uri()?)?;
-        }
-
-        // Need to sign all auth entries
-        if let Some(tx) = config.sign_soroban_authorizations(&txn, &signers).await? {
-            *txn = tx;
-        }
-
-        let signed_tx = config.sign(*txn, quiet).await?;
-        let hash = client.send_transaction(&signed_tx).await?;
-
-        let res = match client.get_transaction_polling(&hash, None).await {
-            Ok(res) => res,
-            Err(e) => {
-                // For submission failures, extract the contract error code
-                if matches!(&e, rpc::Error::TransactionSubmissionFailed(_)) {
-                    if let Ok(response) = client.get_transaction(&hash).await {
-                        if let Some(err) =
-                            enhance_error_from_meta(&response, &e.to_string(), &spec, &function)
-                        {
-                            return Err(err);
-                        }
-                    }
-                }
-                return Err(Error::Rpc(e));
-            }
-        };
-
-        self.resources.print_cost_info(&res)?;
-
-        if !no_cache {
-            data::write(res.clone().try_into()?, &network.rpc_uri()?)?;
-        }
 
         let return_value = res.return_value()?;
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
         crate::log::event::all(&events);
-        crate::log::event::contract(&events, &print);
+        // Note: Only events from the invoked contract will be decoded with named parameters.
+        // Events emitted by other contracts (e.g., token transfers during a swap) will
+        // fall back to raw format since we only have the spec for the invoked contract.
+        crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
         Ok(output_to_string(&spec, &return_value, &function)?)
     }
@@ -577,18 +545,6 @@ fn extract_contract_error_from_events(events: &[DiagnosticEvent]) -> Option<u32>
         }
     }
     None
-}
-
-fn enhance_error_from_meta(
-    response: &GetTransactionResponse,
-    rpc_error_msg: &str,
-    spec: &soroban_spec_tools::Spec,
-    function: &str,
-) -> Option<Error> {
-    let Ok(ScVal::Error(ScError::Contract(code))) = response.return_value() else {
-        return None;
-    };
-    build_enhanced_error(code, rpc_error_msg, spec, function)
 }
 
 fn build_enhanced_error(

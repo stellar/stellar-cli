@@ -1,6 +1,6 @@
 use itertools::Itertools;
-use jsonrpsee_http_client::HeaderMap;
 use phf::phf_map;
+use reqwest::header::HeaderMap;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -10,7 +10,7 @@ use stellar_strkey::ed25519::PublicKey;
 use url::Url;
 
 use super::locator;
-use crate::utils::http;
+use crate::utils::{http, url::redact_url};
 use crate::{
     commands::HEADING_RPC,
     rpc::{self, Client},
@@ -76,9 +76,9 @@ pub struct Args {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
+        hide_env_values = true,
     )]
-    pub rpc_headers: Vec<(String, String)>,
+    pub rpc_headers: Vec<String>,
     /// Network passphrase to sign the transaction sent to the rpc server
     #[arg(
         long = "network-passphrase",
@@ -110,16 +110,23 @@ impl Args {
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
-            (_, Some(rpc_url), Some(network_passphrase)) => Ok(Network {
-                rpc_url,
-                rpc_headers: self.rpc_headers.clone(),
-                network_passphrase,
-            }),
+            (_, Some(rpc_url), Some(network_passphrase)) => {
+                let rpc_headers = self
+                    .rpc_headers
+                    .iter()
+                    .map(|h| parse_http_header(h))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Network {
+                    rpc_url,
+                    rpc_headers,
+                    network_passphrase,
+                })
+            }
         }
     }
 }
 
-#[derive(Debug, clap::Args, Serialize, Deserialize, Clone)]
+#[derive(clap::Args, Serialize, Deserialize, Clone)]
 #[group(skip)]
 pub struct Network {
     /// RPC server endpoint
@@ -137,7 +144,8 @@ pub struct Network {
         num_args = 1,
         action = clap::ArgAction::Append,
         value_delimiter = '\n',
-        value_parser = parse_http_header,
+        value_parser = accept_raw_rpc_header,
+        hide_env_values = true,
     )]
     pub rpc_headers: Vec<(String, String)>,
     /// Network passphrase to sign the transaction sent to the rpc server
@@ -149,6 +157,21 @@ pub struct Network {
     pub network_passphrase: String,
 }
 
+impl std::fmt::Debug for Network {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let concealed: Vec<(&str, &str)> = self
+            .rpc_headers
+            .iter()
+            .map(|(k, _)| (k.as_str(), "<concealed>"))
+            .collect();
+        f.debug_struct("Network")
+            .field("rpc_url", &redact_url(&self.rpc_url))
+            .field("rpc_headers", &concealed)
+            .field("network_passphrase", &self.network_passphrase)
+            .finish()
+    }
+}
+
 fn parse_http_header(header: &str) -> Result<(String, String), Error> {
     let header_components = header.splitn(2, ':');
 
@@ -157,18 +180,39 @@ fn parse_http_header(header: &str) -> Result<(String, String), Error> {
         .next_tuple()
         .ok_or_else(|| Error::InvalidHeader)?;
 
-    // Check that the headers are properly formatted
     HeaderName::from_str(key)?;
     HeaderValue::from_str(value)?;
 
     Ok((key.to_string(), value.to_string()))
 }
 
+/// Clap value_parser for `Network::rpc_headers` that always succeeds, deferring
+/// validation to application code so clap never echoes the raw value in error messages.
+#[allow(clippy::unnecessary_wraps)]
+fn accept_raw_rpc_header(header: &str) -> Result<(String, String), std::convert::Infallible> {
+    match header.split_once(':') {
+        Some((key, value)) => Ok((key.trim().to_string(), value.trim().to_string())),
+        None => Ok((String::new(), header.to_string())),
+    }
+}
+
+fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
+    for (key, value) in headers {
+        HeaderName::from_str(key).map_err(|_| Error::InvalidHeader)?;
+        HeaderValue::from_str(value).map_err(|_| Error::InvalidHeader)?;
+    }
+    Ok(())
+}
+
 impl Network {
+    pub fn validate_headers(&self) -> Result<(), Error> {
+        validate_rpc_headers(&self.rpc_headers)
+    }
+
     pub async fn helper_url(&self, addr: &str) -> Result<Url, Error> {
         tracing::debug!("address {addr:?}");
-        let rpc_url =
-            Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))?;
+        let rpc_url = Url::from_str(&self.rpc_url)
+            .map_err(|_| Error::InvalidUrl(redact_url(&self.rpc_url)))?;
         if self.network_passphrase.as_str() == passphrase::LOCAL {
             let mut local_url = rpc_url;
             local_url.set_path("/friendbot");
@@ -177,12 +221,17 @@ impl Network {
         } else {
             let client = self.rpc_client()?;
             let network = client.get_network().await?;
-            tracing::debug!("network {network:?}");
+            tracing::debug!(
+                "network passphrase={:?} protocol_version={} friendbot_url={:?}",
+                network.passphrase,
+                network.protocol_version,
+                network.friendbot_url.as_deref().map(redact_url),
+            );
             let url = client.friendbot_url().await?;
-            tracing::debug!("URL {url:?}");
+            tracing::debug!("URL {}", redact_url(&url));
             let mut url = Url::from_str(&url).map_err(|e| {
                 tracing::error!("{e}");
-                Error::InvalidUrl(url.clone())
+                Error::InvalidUrl(redact_url(&url))
             })?;
             url.query_pairs_mut().append_pair("addr", addr);
             Ok(url)
@@ -192,13 +241,13 @@ impl Network {
     #[allow(clippy::similar_names)]
     pub async fn fund_address(&self, addr: &PublicKey) -> Result<(), Error> {
         let uri = self.helper_url(&addr.to_string()).await?;
-        tracing::debug!("URL {uri:?}");
+        tracing::debug!("URL {}", redact_url(uri.as_str()));
         let response = http::client().get(uri.as_str()).send().await?;
 
         let request_successful = response.status().is_success();
         let body = response.bytes().await?;
         let res = serde_json::from_slice::<serde_json::Value>(&body)
-            .map_err(|e| Error::FailedToParseJSON(uri.to_string(), e))?;
+            .map_err(|e| Error::FailedToParseJSON(redact_url(uri.as_str()), e))?;
         tracing::debug!("{res:#?}");
         if !request_successful {
             if let Some(detail) = res.get("detail").and_then(Value::as_str) {
@@ -219,7 +268,7 @@ impl Network {
     }
 
     pub fn rpc_uri(&self) -> Result<Url, Error> {
-        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(self.rpc_url.clone()))
+        Url::from_str(&self.rpc_url).map_err(|_| Error::InvalidUrl(redact_url(&self.rpc_url)))
     }
 
     pub fn rpc_client(&self) -> Result<Client, Error> {
@@ -234,7 +283,7 @@ impl Network {
 
         rpc::Client::new_with_headers(&self.rpc_url, header_map).map_err(|e| match e {
             rpc::Error::InvalidRpcUrl(..) | rpc::Error::InvalidRpcUrlFromUriParts(..) => {
-                Error::InvalidUrl(self.rpc_url.clone())
+                Error::InvalidUrl(redact_url(&self.rpc_url))
             }
             other => Error::Rpc(other),
         })
@@ -535,5 +584,202 @@ mod tests {
         } else {
             env::remove_var("STELLAR_CONFIG_HOME");
         }
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_accepted_by_clap_without_error() {
+        use crate::test_utils::with_env_guard;
+        use clap::Parser;
+
+        #[derive(clap::Parser)]
+        struct TestCmd {
+            #[command(flatten)]
+            args: Args,
+        }
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        with_env_guard(&["STELLAR_RPC_HEADERS"], || {
+            std::env::set_var("STELLAR_RPC_HEADERS", secret);
+            let result = TestCmd::try_parse_from(["stellar"]);
+            assert!(
+                result.is_ok(),
+                "Clap must accept malformed RPC headers without error — validation is deferred to application code to prevent secrets from being echoed in clap error messages"
+            );
+        });
+    }
+
+    #[test]
+    fn test_validate_headers_rejects_missing_colon_without_exposing_value() {
+        // Simulates what accept_raw_rpc_header stores when no ':' is present.
+        let network = Network {
+            rpc_url: "http://localhost:8000".to_string(),
+            network_passphrase: "Test".to_string(),
+            rpc_headers: vec![(
+                String::new(),
+                "Authorization Bearer secret_token_xyz".to_string(),
+            )],
+        };
+
+        let result = network.validate_headers();
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert_eq!(
+            error_msg,
+            "invalid HTTP header: must be in the form 'key:value'"
+        );
+        assert!(
+            !error_msg.contains("secret_token_xyz"),
+            "Error must not expose the raw header value, got: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_malformed_rpc_header_app_error_does_not_expose_value() {
+        use super::super::locator;
+
+        let secret = "Authorization Bearer secret_poc_token_12345";
+        let args = Args {
+            rpc_url: Some("https://example.com".to_string()),
+            rpc_headers: vec![secret.to_string()],
+            network_passphrase: Some("Test SDF Network ; September 2015".to_string()),
+            network: None,
+        };
+
+        let result = args.get(&locator::Args::default());
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            !error_msg.contains("secret_poc_token_12345"),
+            "Application error must not expose secret header value, got: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_header_values() {
+        let network = Network {
+            rpc_url: "http://localhost:8000/rpc".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: vec![
+                ("Authorization".to_string(), "Bearer secret123".to_string()),
+                ("X-Api-Key".to_string(), "mykey".to_string()),
+            ],
+        };
+        assert_eq!(
+            format!("{network:?}"),
+            r#"Network { rpc_url: "http://localhost:8000/rpc", rpc_headers: [("Authorization", "<concealed>"), ("X-Api-Key", "<concealed>")], network_passphrase: "Test Network" }"#
+        );
+    }
+
+    #[test]
+    fn test_debug_conceals_rpc_url_password() {
+        let network = Network {
+            rpc_url: "https://alice:supersecret@rpc.example.com/soroban".to_string(),
+            network_passphrase: "Test Network".to_string(),
+            rpc_headers: Vec::new(),
+        };
+        let rendered = format!("{network:?}");
+        assert!(
+            !rendered.contains("supersecret"),
+            "password leaked into Debug output: {rendered}"
+        );
+        assert!(
+            rendered.contains("alice:redacted"),
+            "expected `alice:redacted` in Debug output: {rendered}"
+        );
+    }
+
+    #[tokio::test]
+    async fn fund_address_failed_to_parse_json_does_not_leak_credentialed_rpc_url() {
+        let mut server = Server::new_async().await;
+        // Friendbot returns a non-JSON body so serde_json::from_slice fails,
+        // triggering Error::FailedToParseJSON at the line we want to verify.
+        let _mock = server
+            .mock("GET", mockito::Matcher::Any)
+            .with_status(200)
+            .with_body("not valid json")
+            .create_async()
+            .await;
+
+        let host_port = server
+            .url()
+            .strip_prefix("http://")
+            .expect("mockito url starts with http://")
+            .to_string();
+        let credentialed_rpc_url = format!("http://alice:supersecret@{host_port}");
+
+        let network = Network {
+            rpc_url: credentialed_rpc_url,
+            network_passphrase: passphrase::LOCAL.to_string(),
+            rpc_headers: Vec::new(),
+        };
+
+        let addr =
+            PublicKey::from_string("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+                .unwrap();
+        let err = network
+            .fund_address(&addr)
+            .await
+            .expect_err("fund_address must return Err when friendbot replies with non-JSON body");
+        let rendered = err.to_string();
+        assert!(
+            !rendered.contains("supersecret"),
+            "password leaked into error display: {rendered}"
+        );
+        assert!(
+            rendered.contains("alice:redacted"),
+            "expected `alice:redacted` placeholder in error display: {rendered}"
+        );
+    }
+
+    #[tokio::test]
+    async fn helper_url_returned_credentialed_url_is_redactable_at_display_sinks() {
+        // Non-LOCAL passphrase branch: helper_url asks the RPC for the friendbot URL.
+        // The mocked RPC returns a parseable URL carrying userinfo, so Url::from_str
+        // succeeds and helper_url returns Ok(url). The InvalidUrl branch is therefore
+        // not exercised here — driving it would require an unparseable URL, which by
+        // design leaks unchanged (see PR discussion). This test only documents that
+        // the parseable URL returned from helper_url can be safely run through
+        // redact_url at any subsequent display sink.
+        let mut server = Server::new_async().await;
+        let _mock = server
+            .mock("POST", "/")
+            .with_body_from_request(|req| {
+                let body: Value = serde_json::from_slice(req.body().unwrap()).unwrap();
+                let id = body["id"].clone();
+                // Returned friendbot URL has userinfo + is parseable by url::Url.
+                // Url::from_str inside helper_url accepts it, so the InvalidUrl
+                // path at line 239 isn't exercised. Instead the URL flows into
+                // the tracing line and (after fund_address) into FailedToParseJSON.
+                json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "friendbotUrl": "https://alice:supersecret@friendbot.example/",
+                        "passphrase": passphrase::TESTNET.to_string(),
+                        "protocolVersion": 21,
+                    }
+                })
+                .to_string()
+                .into()
+            })
+            .create_async()
+            .await;
+
+        let network = Network {
+            rpc_url: server.url(),
+            network_passphrase: passphrase::TESTNET.to_string(),
+            rpc_headers: Vec::new(),
+        };
+        let returned = network
+            .helper_url("GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI")
+            .await
+            .expect("helper_url should accept a parseable credentialed friendbot URL");
+        // The Url returned still carries the password — callers need it to authenticate.
+        assert_eq!(returned.password(), Some("supersecret"));
+        let redacted_for_display = redact_url(returned.as_str());
+        assert!(
+            !redacted_for_display.contains("supersecret"),
+            "redact_url failed to redact a parseable friendbot URL: {redacted_for_display}"
+        );
     }
 }

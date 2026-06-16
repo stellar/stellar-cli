@@ -20,7 +20,7 @@ use stellar_xdr::curr::{
     ScAddress, ScContractInstance, ScVal,
 };
 use tokio::fs::OpenOptions;
-use tokio::io::BufReader;
+use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
 use tokio_util::io::StreamReader;
 use url::Url;
 
@@ -31,7 +31,10 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
-use crate::{config::address::UnresolvedMuxedAccount, utils::http};
+use crate::{
+    config::address::UnresolvedMuxedAccount,
+    utils::{http, url::redact_url},
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Output {
@@ -168,6 +171,9 @@ pub enum Error {
 
     #[error("corrupted bucket file: expected hash {expected}, got {actual}")]
     CorruptedBucket { expected: String, actual: String },
+
+    #[error("decompressed size exceeds maximum of {max}")]
+    DecompressedSizeLimitExceeded { max: ByteSize },
 }
 
 /// Checkpoint frequency is usually 64 ledgers, but in local test nets it'll
@@ -175,6 +181,12 @@ pub enum Error {
 /// at, so it is hardcoded at 64, and this value is used only to help the user
 /// select good ledger numbers when they select one that doesn't exist.
 const CHECKPOINT_FREQUENCY: u32 = 64;
+
+/// Maximum decompressed size for bucket files (10 GiB).
+const MAX_BUCKET_DECOMPRESSED_SIZE: u64 = 10 * 1024 * 1024 * 1024;
+
+/// Maximum decompressed size for ledger header files (100 MiB).
+const MAX_LEDGER_HEADER_DECOMPRESSED_SIZE: u64 = 100 * 1024 * 1024;
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
@@ -350,7 +362,7 @@ impl Cmd {
                         continue;
                     };
 
-                    match &val.data {
+                    let include = match &val.data {
                         LedgerEntryData::ConfigSetting(ConfigSettingEntry::StateArchival(
                             state_archival,
                         )) => {
@@ -371,14 +383,12 @@ impl Cmd {
                                     ScVal::ContractInstance(ScContractInstance {
                                         executable: ContractExecutable::Wasm(hash),
                                         ..
-                                    }) => {
-                                        if !current.wasm_hashes.contains(hash) {
-                                            next.wasm_hashes.insert(hash.clone());
-                                            print.infoln(format!(
-                                                "Adding wasm {} to search",
-                                                hex::encode(hash)
-                                            ));
-                                        }
+                                    }) if !current.wasm_hashes.contains(hash) => {
+                                        next.wasm_hashes.insert(hash.clone());
+                                        print.infoln(format!(
+                                            "Adding wasm {} to search",
+                                            hex::encode(hash)
+                                        ));
                                     }
                                     ScVal::ContractInstance(ScContractInstance {
                                         executable: ContractExecutable::StellarAsset,
@@ -409,10 +419,12 @@ impl Cmd {
                         }
                         _ => false,
                     };
-                    snapshot
-                        .ledger_entries
-                        .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
-                    count_saved += 1;
+                    if include {
+                        snapshot
+                            .ledger_entries
+                            .push((Box::new(key), (Box::new(val), Some(u32::MAX))));
+                        count_saved += 1;
+                    }
                 }
                 if count_saved > 0 {
                     print.infoln(format!("Found {count_saved} entries"));
@@ -478,9 +490,7 @@ impl Cmd {
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account_sync(&self, address: &str) -> Option<AccountId> {
         let address: UnresolvedMuxedAccount = address.parse().ok()?;
-        let muxed_account = address
-            .resolve_muxed_account_sync(&self.locator, None)
-            .ok()?;
+        let muxed_account = address.resolve_muxed_account(&self.locator, None).ok()?;
         Some(muxed_account.account_id())
     }
 
@@ -497,6 +507,35 @@ impl Cmd {
             )))
         })
     }
+}
+
+/// Copy decompressed data from `reader` to `writer`, enforcing a maximum
+/// decompressed size. Returns an error if the decompressed output exceeds
+/// `max_bytes`.
+async fn copy_with_limit<R: AsyncRead + Unpin, W: tokio::io::AsyncWrite + Unpin>(
+    reader: R,
+    writer: &mut W,
+    max_bytes: u64,
+) -> Result<(), Error> {
+    let mut limited = reader.take(max_bytes);
+    tokio::io::copy(&mut limited, writer)
+        .await
+        .map_err(Error::StreamingBucket)?;
+
+    // If the underlying reader still has data, the limit was exceeded.
+    let mut decoder = limited.into_inner();
+    let mut overflow = [0u8; 1];
+    if decoder
+        .read(&mut overflow)
+        .await
+        .map_err(Error::StreamingBucket)?
+        > 0
+    {
+        return Err(Error::DecompressedSizeLimitExceeded {
+            max: ByteSize(max_bytes),
+        });
+    }
+    Ok(())
 }
 
 fn ledger_to_path_components(ledger: u32) -> (String, String, String, String) {
@@ -523,7 +562,10 @@ async fn get_history(
     };
     let history_url = Url::from_str(&history_url).unwrap();
 
-    print.globeln(format!("Downloading history {history_url}"));
+    print.globeln(format!(
+        "Downloading history {}",
+        redact_url(history_url.as_str())
+    ));
 
     let response = http::client()
         .get(history_url.as_str())
@@ -553,7 +595,10 @@ async fn get_history(
         .map_err(Error::ReadHistoryHttpStream)?;
 
     print.clear_previous_line();
-    print.globeln(format!("Downloaded history {}", &history_url));
+    print.globeln(format!(
+        "Downloaded history {}",
+        redact_url(history_url.as_str())
+    ));
 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
 }
@@ -572,9 +617,13 @@ async fn get_ledger_metadata_from_archive(
         "{archive_url}/ledger/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/ledger-{ledger_hex}.xdr.gz"
     );
 
-    print.globeln(format!("Downloading ledger headers {ledger_url}"));
-
     let ledger_url = Url::from_str(&ledger_url).map_err(Error::ParsingBucketUrl)?;
+
+    print.globeln(format!(
+        "Downloading ledger headers {}",
+        redact_url(ledger_url.as_str())
+    ));
+
     let response = http::client()
         .get(ledger_url.as_str())
         .send()
@@ -595,7 +644,7 @@ async fn get_ledger_metadata_from_archive(
         .map(|result| result.map_err(std::io::Error::other));
     let stream_reader = StreamReader::new(stream);
     let buf_reader = BufReader::new(stream_reader);
-    let mut decoder = GzipDecoder::new(buf_reader);
+    let decoder = GzipDecoder::new(buf_reader);
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -605,11 +654,13 @@ async fn get_ledger_metadata_from_archive(
         .await
         .map_err(Error::WriteOpeningCachedBucket)?;
 
-    tokio::io::copy(&mut decoder, &mut file)
-        .await
-        .map_err(Error::StreamingBucket)?;
+    if let Err(e) = copy_with_limit(decoder, &mut file, MAX_LEDGER_HEADER_DECOMPRESSED_SIZE).await {
+        let _ = fs::remove_file(&dl_path);
+        return Err(e);
+    }
 
     fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+    let _ = crate::config::locator::set_hardened_permissions(&cache_path);
 
     print.clear_previous_line();
     print.globeln(format!("Downloaded ledger headers for ledger {ledger}"));
@@ -707,7 +758,7 @@ async fn cache_bucket(
             .map(|result| result.map_err(std::io::Error::other));
         let stream_reader = StreamReader::new(stream);
         let buf_reader = BufReader::new(stream_reader);
-        let mut decoder = GzipDecoder::new(buf_reader);
+        let decoder = GzipDecoder::new(buf_reader);
         let dl_path = cache_path.with_extension("dl");
         let mut file = OpenOptions::new()
             .create(true)
@@ -716,10 +767,14 @@ async fn cache_bucket(
             .open(&dl_path)
             .await
             .map_err(Error::WriteOpeningCachedBucket)?;
-        tokio::io::copy(&mut decoder, &mut file)
-            .await
-            .map_err(Error::StreamingBucket)?;
+
+        if let Err(e) = copy_with_limit(decoder, &mut file, MAX_BUCKET_DECOMPRESSED_SIZE).await {
+            let _ = fs::remove_file(&dl_path);
+            return Err(e);
+        }
+
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+        let _ = crate::config::locator::set_hardened_permissions(&cache_path);
     }
     Ok(cache_path)
 }
@@ -737,4 +792,36 @@ struct History {
 struct HistoryBucket {
     curr: String,
     snap: String,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_copy_with_limit_under_limit() {
+        let input: &[u8] = b"hello";
+        let mut output = Vec::new();
+        copy_with_limit(input, &mut output, 10).await.unwrap();
+        assert_eq!(output, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_copy_with_limit_exact_limit() {
+        let input: &[u8] = b"hello";
+        let mut output = Vec::new();
+        copy_with_limit(input, &mut output, 5).await.unwrap();
+        assert_eq!(output, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_copy_with_limit_over_limit() {
+        let input: &[u8] = b"hello world, this exceeds the limit";
+        let mut output = Vec::new();
+        let err = copy_with_limit(input, &mut output, 10).await.unwrap_err();
+        assert!(
+            matches!(err, Error::DecompressedSizeLimitExceeded { .. }),
+            "expected DecompressedSizeLimitExceeded, got: {err}"
+        );
+    }
 }

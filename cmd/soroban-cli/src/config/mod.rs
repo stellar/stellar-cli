@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::Write,
-};
+use std::fs;
 
 use crate::{
+    commands::HEADING_TRANSACTION,
     print::Print,
     signer::{self, Signer},
     utils::deprecate_message,
-    xdr::{self, SequenceNumber, Transaction, TransactionEnvelope, TransactionV1Envelope, VecM},
+    xdr::{
+        self, FeeBumpTransaction, FeeBumpTransactionEnvelope, SequenceNumber, Transaction,
+        TransactionEnvelope, TransactionV1Envelope, VecM,
+    },
     Pwd,
 };
 use network::Network;
@@ -23,6 +24,7 @@ pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
 pub mod upgrade_check;
+pub mod utils;
 
 use crate::config::locator::cli_config_file;
 pub use address::UnresolvedMuxedAccount;
@@ -55,7 +57,13 @@ pub struct Args {
     #[command(flatten)]
     pub network: network::Args,
 
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
+    #[arg(
+        long,
+        short = 's',
+        visible_alias = "source",
+        env = "STELLAR_ACCOUNT",
+        help_heading = HEADING_TRANSACTION
+    )]
     /// Account that where transaction originates from. Alias `source`.
     /// Can be an identity (--source alice), a public key (--source GDKW...),
     /// a muxed account (--source MDA…), a secret key (--source SC36…),
@@ -71,27 +79,24 @@ pub struct Args {
     pub sign_with: sign_with::Args,
 
     /// ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
-    #[arg(long, env = "STELLAR_FEE")]
+    #[arg(long, env = "STELLAR_FEE", help_heading = HEADING_TRANSACTION)]
     pub fee: Option<u32>,
 
     /// Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
-    #[arg(long, env = "STELLAR_INCLUSION_FEE")]
+    #[arg(
+        long,
+        env = "STELLAR_INCLUSION_FEE",
+        help_heading = HEADING_TRANSACTION
+    )]
     pub inclusion_fee: Option<u32>,
 }
 
 impl Args {
     // TODO: Replace PublicKey with MuxedAccount once https://github.com/stellar/rs-stellar-xdr/pull/396 is merged.
-    pub async fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
+    pub fn source_account(&self) -> Result<xdr::MuxedAccount, Error> {
         Ok(self
             .source_account
-            .resolve_muxed_account(&self.locator, self.hd_path())
-            .await?)
-    }
-
-    pub async fn source_signer(&self) -> Result<Signer, Error> {
-        let print = Print::new(true);
-        let secret = &self.source_account.resolve_secret(&self.locator)?;
-        Ok(secret.signer(None, print).await?)
+            .resolve_muxed_account(&self.locator, self.hd_path())?)
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
@@ -116,23 +121,46 @@ impl Args {
             .await?)
     }
 
+    pub async fn sign_fee_bump(
+        &self,
+        tx: FeeBumpTransaction,
+        quiet: bool,
+    ) -> Result<TransactionEnvelope, Error> {
+        let tx_env = TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        Ok(self
+            .sign_with
+            .sign_tx_env(
+                &tx_env,
+                &self.locator,
+                &self.network.get(&self.locator)?,
+                quiet,
+                Some(&self.source_account),
+            )
+            .await?)
+    }
+
     pub async fn sign_soroban_authorizations(
         &self,
         tx: &Transaction,
         signers: &[Signer],
+        print: &Print,
     ) -> Result<Option<Transaction>, Error> {
         let network = self.get_network()?;
-        let source_signer = self.source_signer().await?;
         let client = network.rpc_client()?;
         let latest_ledger = client.get_latest_ledger().await?.sequence;
         let seq_num = latest_ledger + 60; // ~ 5 min
         Ok(signer::sign_soroban_authorizations(
             tx,
-            &source_signer,
             signers,
             seq_num,
             &network.network_passphrase,
-        )?)
+            self.sign_with.auto_sign,
+            print,
+        )
+        .await?)
     }
 
     pub fn get_network(&self) -> Result<Network, Error> {
@@ -172,7 +200,7 @@ impl Args {
         .into())
     }
 
-    pub fn hd_path(&self) -> Option<usize> {
+    pub fn hd_path(&self) -> Option<u32> {
         self.sign_with.hd_path
     }
 }
@@ -213,10 +241,14 @@ pub struct Defaults {
 
 impl Config {
     pub fn new() -> Result<Config, locator::Error> {
-        let path = cli_config_file()?;
+        Self::load(&cli_config_file()?)
+    }
 
+    pub fn load(path: &std::path::Path) -> Result<Config, locator::Error> {
         if path.exists() {
-            let data = fs::read_to_string(&path).map_err(|_| locator::Error::FileRead { path })?;
+            let data = fs::read_to_string(path).map_err(|_| locator::Error::FileRead {
+                path: path.to_path_buf(),
+            })?;
             Ok(toml::from_str(&data)?)
         } else {
             Ok(Config::default())
@@ -260,12 +292,13 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<(), locator::Error> {
-        let toml_string = toml::to_string(&self)?;
-        let path = cli_config_file()?;
-        // Depending on the platform, this function may fail if the full directory path does not exist
-        let mut file = File::create(locator::ensure_directory(path)?)?;
-        file.write_all(toml_string.as_bytes())?;
+        self.save_to(&cli_config_file()?)
+    }
 
+    pub fn save_to(&self, path: &std::path::Path) -> Result<(), locator::Error> {
+        let toml_string = toml::to_string(&self)?;
+        let path = locator::ensure_directory(path.to_path_buf())?;
+        locator::write_hardened_file(&path, toml_string.as_bytes())?;
         Ok(())
     }
 }

@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+  "contracts/*",
+]
+
+[workspace.dependencies]
+soroban-sdk = { version = "25.2.0", features = ["experimental_spec_shaking_v2"] }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true

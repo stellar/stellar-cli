@@ -17,7 +17,6 @@ use soroban_spec::read::{from_wasm, FromWasmError};
 
 pub mod boilerplate;
 mod types;
-pub mod wrapper;
 
 #[derive(thiserror::Error, Debug)]
 pub enum GenerateFromFileError {
@@ -126,10 +125,10 @@ pub fn generate(spec: &[ScSpecEntry]) -> String {
     // Filter out function entries with names that start with "__" and partition the results
     for entry in &collected {
         match entry {
-            Entry::Function { name, inputs, .. } if name == "__constructor" => {
-                if !inputs.is_empty() {
-                    constructor_args = Some(inputs.clone());
-                }
+            Entry::Function { name, inputs, .. }
+                if name == "__constructor" && !inputs.is_empty() =>
+            {
+                constructor_args = Some(inputs.clone());
             }
             _ => {}
         }
@@ -409,11 +408,73 @@ fn sanitize_identifier(name: &str) -> String {
 }
 
 /// Escape a string for use in a TypeScript string literal
-fn sanitize_string(s: &str) -> String {
+pub(crate) fn sanitize_string(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
         .replace('\r', "\\r")
+}
+
+/// Validate that a string is a valid npm package name.
+///
+/// Valid names must:
+/// - Be non-empty and at most 214 characters
+/// - Contain only lowercase alphanumeric characters, hyphens, dots, and underscores
+/// - Not start with a dot or underscore
+///
+/// Scoped names (e.g. `@scope/name`) are also accepted.
+pub fn validate_npm_package_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("npm package name must not be empty".to_string());
+    }
+    if name.len() > 214 {
+        return Err(format!(
+            "npm package name must be at most 214 characters, got {}",
+            name.len()
+        ));
+    }
+
+    // Handle scoped packages like @scope/name
+    let name_to_check = if let Some(rest) = name.strip_prefix('@') {
+        match rest.split_once('/') {
+            Some((scope, pkg)) => {
+                if scope.is_empty() || pkg.is_empty() {
+                    return Err(format!(
+                        "scoped npm package name '{name}' must have non-empty scope and package"
+                    ));
+                }
+                validate_npm_name_segment(scope)?;
+                pkg
+            }
+            None => {
+                return Err(format!(
+                    "scoped npm package name '{name}' must contain a '/'"
+                ));
+            }
+        }
+    } else {
+        name
+    };
+
+    validate_npm_name_segment(name_to_check)
+}
+
+fn validate_npm_name_segment(segment: &str) -> Result<(), String> {
+    if segment.starts_with('.') || segment.starts_with('_') {
+        return Err(format!(
+            "npm package name segment '{segment}' must not start with '.' or '_'"
+        ));
+    }
+    if let Some(c) = segment
+        .chars()
+        .find(|c| !matches!(c, 'a'..='z' | '0'..='9' | '-' | '.' | '_'))
+    {
+        return Err(format!(
+            "npm package name segment '{segment}' contains invalid character '{c}'. \
+             Only lowercase alphanumeric characters, hyphens, dots, and underscores are allowed"
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -664,5 +725,42 @@ mod tests {
         let result = parse_arg_to_scval(&input);
         assert!(!result.contains(DOC_TEST));
         assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_validate_npm_package_name_valid() {
+        assert!(validate_npm_package_name("my-contract").is_ok());
+        assert!(validate_npm_package_name("foo.bar").is_ok());
+        assert!(validate_npm_package_name("a123").is_ok());
+        assert!(validate_npm_package_name("test_custom_types").is_ok());
+        assert!(validate_npm_package_name("@scope/my-pkg").is_ok());
+    }
+
+    #[test]
+    fn test_validate_npm_package_name_invalid() {
+        // Empty
+        assert!(validate_npm_package_name("").is_err());
+        // Leading dot
+        assert!(validate_npm_package_name(".hidden").is_err());
+        // Leading underscore
+        assert!(validate_npm_package_name("_private").is_err());
+        // Uppercase
+        assert!(validate_npm_package_name("MyContract").is_err());
+        // Special characters
+        assert!(validate_npm_package_name("foo\"bar").is_err());
+        assert!(validate_npm_package_name("foo bar").is_err());
+        assert!(validate_npm_package_name("foo{bar}").is_err());
+        // JSON injection payload
+        assert!(
+            validate_npm_package_name(r#"foo","optionalDependencies":{"evil":"1"},"z":""#).is_err()
+        );
+        // Too long (215 chars)
+        assert!(validate_npm_package_name(&"a".repeat(215)).is_err());
+        // Exactly 214 is ok
+        assert!(validate_npm_package_name(&"a".repeat(214)).is_ok());
+        // Bad scoped names
+        assert!(validate_npm_package_name("@/pkg").is_err());
+        assert!(validate_npm_package_name("@scope/").is_err());
+        assert!(validate_npm_package_name("@scope").is_err());
     }
 }

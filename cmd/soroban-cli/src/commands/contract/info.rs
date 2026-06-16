@@ -4,6 +4,7 @@ use crate::commands::global;
 
 pub mod build;
 pub mod env_meta;
+pub mod hash;
 pub mod interface;
 pub mod meta;
 pub mod shared;
@@ -56,6 +57,15 @@ pub enum Cmd {
     /// If the contract has a meta entry like `source_repo=github:user/repo`, this command will try
     /// to fetch the attestation information for the WASM file.
     Build(build::Cmd),
+
+    /// Output the SHA-256 hash of a contract's Wasm.
+    ///
+    /// The hash can be computed from a local .wasm file (`--wasm`) or read from a deployed
+    /// contract (`--id`). The two flags are mutually exclusive.
+    ///
+    /// Stellar Asset Contracts have no Wasm and therefore no hash; using `--id` against a
+    /// SAC will return an error.
+    Hash(hash::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -71,6 +81,9 @@ pub enum Error {
 
     #[error(transparent)]
     Build(#[from] build::Error),
+
+    #[error(transparent)]
+    Hash(#[from] hash::Error),
 }
 
 impl Cmd {
@@ -80,6 +93,7 @@ impl Cmd {
             Cmd::Meta(meta) => meta.run(global_args).await?,
             Cmd::EnvMeta(env_meta) => env_meta.run(global_args).await?,
             Cmd::Build(build) => build.run(global_args).await?,
+            Cmd::Hash(hash) => hash.run(global_args).await?,
         }
 
         Ok(())

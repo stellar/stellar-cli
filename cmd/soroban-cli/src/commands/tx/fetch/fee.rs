@@ -1,4 +1,5 @@
 use super::args;
+use crate::color::gray;
 use crate::{
     commands::global,
     config::network,
@@ -9,10 +10,6 @@ use crate::{
     },
 };
 use clap::Parser;
-use prettytable::{
-    format::{FormatBuilder, LinePosition, LineSeparator, TableFormat},
-    Cell, Row, Table,
-};
 use serde::{Deserialize, Serialize};
 use soroban_rpc::GetTransactionResponse;
 
@@ -66,8 +63,23 @@ const FEE_PROPOSED_TITLE: &str = "Fee Proposed";
 const INCLUSION_FEE_TITLE: &str = "Inclusion Fee";
 const NON_REFUNDABLE_TITLE: &str = "Non-Refundable";
 const REFUNDABLE_TITLE: &str = "Refundable";
-const NON_REFUNDABLE_COMPONENTS: &str = "\n\ncpu instructions\nstorage read/write\ntx size";
-const REFUNDABLE_COMPONENTS: &str = "\n\nreturn value\nstorage rent\nevents";
+fn non_refundable_components() -> String {
+    format!(
+        "\n\n{}\n{}\n{}",
+        gray("cpu instructions"),
+        gray("storage read/write"),
+        gray("tx size")
+    )
+}
+
+fn refundable_components() -> String {
+    format!(
+        "\n\n{}\n{}\n{}",
+        gray("return value"),
+        gray("storage rent"),
+        gray("events")
+    )
+}
 
 //charged
 const FEE_CHARGED_TITLE: &str = "Fee Charged";
@@ -266,111 +278,245 @@ impl FeeTable {
         self.proposed.fee - self.charged.fee
     }
 
-    pub fn table(&self) -> Table {
-        let mut table = Table::new();
-        table.set_format(Self::table_format());
+    pub fn table(&self) -> String {
+        let mut rows = self.proposed_rows();
+        rows.push(vec![("👆 Proposed Fee  👇 Final Fee".to_string(), 4, true)]);
+        rows.extend(self.charged_rows());
+        render_span_table(&rows, 4)
+    }
 
-        // Proposed
-        table.add_row(Row::new(vec![Cell::new(&format!(
-            "{FEE_PROPOSED_TITLE}: {}",
-            self.proposed.fee
-        ))
-        .with_hspan(4)]));
+    fn proposed_rows(&self) -> Vec<Vec<(String, usize, bool)>> {
+        vec![
+            vec![(
+                format!("{FEE_PROPOSED_TITLE}: {}", self.proposed.fee),
+                4,
+                false,
+            )],
+            vec![
+                (
+                    format!("{INCLUSION_FEE_TITLE}: {}", self.proposed.inclusion_fee),
+                    1,
+                    false,
+                ),
+                (
+                    format!("{RESOURCE_FEE_TITLE}: {}", self.proposed.resource_fee),
+                    3,
+                    false,
+                ),
+            ],
+            vec![
+                (
+                    format!("{INCLUSION_FEE_TITLE}: {}", self.proposed.inclusion_fee),
+                    1,
+                    false,
+                ),
+                (
+                    format!(
+                        "{NON_REFUNDABLE_TITLE}: {}{}",
+                        self.charged.non_refundable_resource_fee,
+                        non_refundable_components()
+                    ),
+                    1,
+                    false,
+                ),
+                (
+                    format!(
+                        "{REFUNDABLE_TITLE}: {}{}",
+                        self.estimated_refunded_resource_fee(),
+                        refundable_components()
+                    ),
+                    2,
+                    false,
+                ),
+            ],
+        ]
+    }
 
-        table.add_row(Row::new(vec![
-            Cell::new(&format!(
-                "{}: {}",
-                INCLUSION_FEE_TITLE, self.proposed.inclusion_fee
-            )),
-            Cell::new(&format!(
-                "{RESOURCE_FEE_TITLE}: {}",
-                self.proposed.resource_fee
-            ))
-            .with_hspan(3),
-        ]));
-
-        table.add_row(Row::new(vec![
-            Cell::new(&format!(
-                "{}: {}",
-                INCLUSION_FEE_TITLE, self.proposed.inclusion_fee
-            )),
-            Cell::new(&format!(
-                "{NON_REFUNDABLE_TITLE}: {}{}",
-                self.charged.non_refundable_resource_fee, NON_REFUNDABLE_COMPONENTS
-            )),
-            Cell::new(&format!(
-                "{REFUNDABLE_TITLE}: {}{}",
-                self.estimated_refunded_resource_fee(),
-                REFUNDABLE_COMPONENTS
-            ))
-            .with_hspan(2),
-        ]));
-
-        // Info
-        table.add_row(Row::new(vec![Cell::new("👆 Proposed Fee  👇 Final Fee")
-            .style_spec("c")
-            .with_hspan(4)]));
-
-        // Fees Charged
+    fn charged_rows(&self) -> Vec<Vec<(String, usize, bool)>> {
+        let refunded = format!("{REFUNDED_TITLE}: {}", self.refunded());
+        let mut rows = Vec::new();
         if self.should_include_resource_fees() {
-            table.add_row(Row::new(vec![
-                Cell::new(&format!(
-                    "{INCLUSION_FEE_CHARGED_TITLE}: {}",
-                    self.charged.inclusion_fee
-                )),
-                Cell::new(&format!(
-                    "{NON_REFUNDABLE_CHARGED_TITLE}: {}",
-                    self.charged.non_refundable_resource_fee
-                )),
-                Cell::new(&format!(
-                    "{REFUNDABLE_CHARGED_TITLE}: {}",
-                    self.charged.refundable_resource_fee
-                )),
-                Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
-            ]));
-
-            table.add_row(Row::new(vec![
-                Cell::new(&format!(
-                    "{INCLUSION_FEE_CHARGED_TITLE}: {}",
-                    self.charged.inclusion_fee
-                )),
-                Cell::new(&format!(
-                    "{}: {}",
-                    RESOURCE_FEE_CHARGED_TITLE, self.charged.resource_fee
-                ))
-                .with_hspan(2),
-                Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
-            ]));
+            rows.push(vec![
+                (
+                    format!(
+                        "{INCLUSION_FEE_CHARGED_TITLE}: {}",
+                        self.charged.inclusion_fee
+                    ),
+                    1,
+                    false,
+                ),
+                (
+                    format!(
+                        "{NON_REFUNDABLE_CHARGED_TITLE}: {}",
+                        self.charged.non_refundable_resource_fee
+                    ),
+                    1,
+                    false,
+                ),
+                (
+                    format!(
+                        "{REFUNDABLE_CHARGED_TITLE}: {}",
+                        self.charged.refundable_resource_fee
+                    ),
+                    1,
+                    false,
+                ),
+                (refunded.clone(), 1, false),
+            ]);
+            rows.push(vec![
+                (
+                    format!(
+                        "{INCLUSION_FEE_CHARGED_TITLE}: {}",
+                        self.charged.inclusion_fee
+                    ),
+                    1,
+                    false,
+                ),
+                (
+                    format!(
+                        "{RESOURCE_FEE_CHARGED_TITLE}: {}",
+                        self.charged.resource_fee
+                    ),
+                    2,
+                    false,
+                ),
+                (refunded.clone(), 1, false),
+            ]);
         }
-
-        table.add_row(Row::new(vec![
-            Cell::new(&format!("{FEE_CHARGED_TITLE}: {}", self.charged.fee)).with_hspan(3),
-            Cell::new(&format!("{REFUNDED_TITLE}: {}", self.refunded())),
-        ]));
-
-        table
+        rows.push(vec![
+            (
+                format!("{FEE_CHARGED_TITLE}: {}", self.charged.fee),
+                3,
+                false,
+            ),
+            (refunded, 1, false),
+        ]);
+        rows
     }
 
     pub fn print(&self) {
-        self.table().printstd();
+        print!("{}", self.table());
+    }
+}
+
+// Each row is a list of (content, col_span, centered).
+// All rows share the same n_cols logical columns.
+fn render_span_table(rows: &[Vec<(String, usize, bool)>], n_cols: usize) -> String {
+    const PAD: usize = 1;
+
+    let widths = span_col_widths(rows, n_cols, PAD);
+    let inner: usize = widths.iter().sum::<usize>() + (n_cols - 1);
+
+    let border = |l: char, r: char| format!("{l}{}{r}\n", "─".repeat(inner));
+
+    let mut out = border('┌', '┐');
+
+    for (i, row) in rows.iter().enumerate() {
+        let cells: Vec<(Vec<&str>, usize, bool)> = row
+            .iter()
+            .map(|(s, span, c)| (s.lines().collect(), *span, *c))
+            .collect();
+
+        let height = cells.iter().map(|(ls, _, _)| ls.len()).max().unwrap_or(1);
+
+        for line_i in 0..height {
+            out.push('│');
+            let mut col = 0;
+            for (lines, span, centered) in &cells {
+                let cw: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let text = lines.get(line_i).copied().unwrap_or("");
+                let tw = str_display_width(text);
+
+                if *centered {
+                    let space = cw.saturating_sub(tw + 2 * PAD);
+                    let lpad = PAD + space / 2;
+                    let rpad = cw.saturating_sub(lpad + tw);
+                    out.push_str(&" ".repeat(lpad));
+                    out.push_str(text);
+                    out.push_str(&" ".repeat(rpad));
+                } else {
+                    out.push(' ');
+                    out.push_str(text);
+                    out.push_str(&" ".repeat(cw.saturating_sub(1 + tw)));
+                }
+
+                col += span;
+                if col < n_cols {
+                    out.push('│');
+                }
+            }
+            out.push_str("│\n");
+        }
+
+        let (l, r) = if i == rows.len() - 1 {
+            ('└', '┘')
+        } else {
+            ('├', '┤')
+        };
+        out.push_str(&border(l, r));
     }
 
-    fn table_format() -> TableFormat {
-        FormatBuilder::new()
-            .column_separator('│')
-            .borders('│')
-            .separators(&[LinePosition::Top], LineSeparator::new('─', '─', '┌', '┐'))
-            .separators(
-                &[LinePosition::Intern],
-                LineSeparator::new('─', '─', '├', '┤'),
-            )
-            .separators(
-                &[LinePosition::Bottom],
-                LineSeparator::new('─', '─', '└', '┘'),
-            )
-            .padding(1, 1)
-            .build()
+    out
+}
+
+fn span_col_widths(rows: &[Vec<(String, usize, bool)>], n_cols: usize, pad: usize) -> Vec<usize> {
+    let mut widths = vec![0usize; n_cols];
+
+    // First pass: single-column cells set minimum widths.
+    for row in rows {
+        let mut col = 0;
+        for (content, span, _) in row {
+            if *span == 1 {
+                let w = content.lines().map(str_display_width).max().unwrap_or(0);
+                widths[col] = widths[col].max(w + 2 * pad);
+            }
+            col += span;
+        }
     }
+
+    // Second pass: spanning cells expand the last column in their span if needed.
+    for row in rows {
+        let mut col = 0;
+        for (content, span, _) in row {
+            if *span > 1 && col + span <= n_cols {
+                let available: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let needed = content.lines().map(str_display_width).max().unwrap_or(0) + 2 * pad;
+                if needed > available {
+                    widths[col + span - 1] += needed - available;
+                }
+            }
+            col += span;
+        }
+    }
+
+    widths
+}
+
+// Returns the display width of a string, counting wide chars (emoji, CJK) as 2
+// and skipping ANSI escape sequences.
+fn str_display_width(s: &str) -> usize {
+    let mut width = 0;
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            for c2 in chars.by_ref() {
+                if c2 == 'm' {
+                    break;
+                }
+            }
+        } else {
+            width += match c as u32 {
+                0x1100..=0x115F
+                | 0x2E80..=0x303F
+                | 0x3041..=0x33FF
+                | 0xFF00..=0xFF60
+                | 0xFFE0..=0xFFE6
+                | 0x1F000..=0x1FFFF => 2,
+                _ => 1,
+            };
+        }
+    }
+    width
 }
 
 #[cfg(test)]

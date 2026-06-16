@@ -47,7 +47,7 @@ pub async fn click(ui_host_port: u16, url: &str) {
         let current_events = get_emulator_events(ui_host_port).await;
 
         if !(previous_events == current_events) {
-            screen_has_changed = true
+            screen_has_changed = true;
         }
     }
 

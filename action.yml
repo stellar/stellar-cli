@@ -66,7 +66,17 @@ runs:
         file="stellar-cli-$version-$os_arch.tar.gz"
         url="https://github.com/stellar/stellar-cli/releases/download/v$version/$file"
         echo "$url"
-        curl -fL "$url" | tar xvz -C $HOME/.local/bin
+        archive="$RUNNER_TEMP/stellar-cli.tar.gz"
+        curl -fL \
+          --retry 5 \
+          --retry-delay 5 \
+          --retry-connrefused \
+          --retry-all-errors \
+          --connect-timeout 30 \
+          --max-time 300 \
+          -o "$archive" \
+          "$url"
+        tar xvz -C $HOME/.local/bin -f "$archive"
 
     - name: Verify binary against attestation
       shell: bash

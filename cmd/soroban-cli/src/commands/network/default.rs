@@ -1,4 +1,4 @@
-use crate::{commands::global, print::Print};
+use crate::{commands::global, config::address::NetworkName, print::Print};
 
 use super::locator;
 
@@ -12,7 +12,7 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {
     /// Set the default network name.
-    pub name: String,
+    pub name: NetworkName,
 
     #[command(flatten)]
     pub config_locator: locator::Args,

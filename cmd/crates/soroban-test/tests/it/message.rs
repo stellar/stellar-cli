@@ -175,3 +175,52 @@ async fn sep_53_sign_message_and_verify_with_alias() {
         .assert()
         .failure();
 }
+
+#[test]
+fn message_sign_does_not_leak_secret_in_error_output() {
+    let sandbox = TestEnv::default();
+    let malformed =
+        "kite urban olympic result lunch box duck abandon abandon abandon abandon about";
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", "hello", "--sign-with-key", malformed])
+        .assert()
+        .failure();
+
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(malformed),
+        "stderr must not contain the raw signing key, got: {stderr:?}"
+    );
+}
+
+#[test]
+fn message_sign_does_not_echo_message_to_stderr() {
+    let sandbox = TestEnv::default();
+    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+    let secret_message = "TOP_SECRET_TOKEN_abc123_DO_NOT_LEAK";
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", secret_message, "--sign-with-key", secret_key])
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(secret_message),
+        "stderr must not echo the message (arg input), got: {stderr:?}"
+    );
+
+    let output = sandbox
+        .new_assert_cmd("message")
+        .write_stdin(secret_message)
+        .args(["sign", "--sign-with-key", secret_key])
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&output.get_output().stderr).into_owned();
+    assert!(
+        !stderr.contains(secret_message),
+        "stderr must not echo the message (stdin input), got: {stderr:?}"
+    );
+}
