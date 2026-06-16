@@ -20,4 +20,4 @@ jobs:
     steps:
       - uses: stellar/stellar-cli@main
         with:
-          version: v23.1.4
+          version: v26.1.0
