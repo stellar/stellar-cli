@@ -76,7 +76,7 @@ runs:
           --max-time 300 \
           -o "$archive" \
           "$url"
-        tar xvz -C $HOME/.local/bin -f "$archive"
+        tar xvz -C "$HOME/.local/bin" < "$archive"
 
     - name: Verify binary against attestation
       shell: bash
