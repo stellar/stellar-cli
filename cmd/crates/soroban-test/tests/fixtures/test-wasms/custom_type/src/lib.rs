@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, vec, Address, Bytes, BytesN,
-    Duration, Env, Map, String, Symbol, Timepoint, Val, Vec, I256, U256,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, vec,
+    Address, Bytes, BytesN, Duration, Env, Map, String, Symbol, Timepoint, Val, Vec, I256, U256,
 };
 
 #[contract]
@@ -87,6 +87,14 @@ impl Contract {
             Ok(u32_)
         } else {
             Err(Error::NumberMustBeOdd)
+        }
+    }
+
+    pub fn panic_on_even(env: Env, u32_: u32) -> Result<u32, Error> {
+        if u32_ % 2 == 1 {
+            Ok(u32_)
+        } else {
+            panic_with_error!(&env, Error::NumberMustBeOdd)
         }
     }
 
