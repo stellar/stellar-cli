@@ -653,11 +653,16 @@ fn insert_detail_after_error_code(msg: &str, detail: &str) -> String {
 }
 
 fn extract_contract_error_from_error_msg(msg: &str) -> Option<u32> {
+    static CONTRACT_ERROR_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+
     let first_line = msg.lines().next().unwrap_or(msg);
-    let marker = "Error(Contract, #";
-    let start = first_line.find(marker)? + marker.len();
-    let end = first_line[start..].find(')')?;
-    first_line[start..start + end].parse::<u32>().ok()
+    let re = CONTRACT_ERROR_RE.get_or_init(|| {
+        regex::Regex::new(r"Error\(Contract, #([0-9]+)\)")
+            .expect("contract error regex must compile")
+    });
+    re.captures(first_line)
+        .and_then(|captures| captures.get(1))
+        .and_then(|code| code.as_str().parse::<u32>().ok())
 }
 
 fn has_write(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
