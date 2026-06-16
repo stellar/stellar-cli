@@ -1299,9 +1299,9 @@ dependencies = [
 
 [[package]]
 name = "crate-git-revision"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc5d11b410b589fe36ce78c1360ed33afea05e702eeec82575b28fcec4cf8ffb"
+checksum = "54851b5b3f24621804b1cded2820975623c205e3055d2d44031cdb1237339ac8"
 dependencies = [
  "serde",
  "serde_derive",
@@ -5393,7 +5393,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "crate-git-revision 0.0.8",
+ "crate-git-revision 0.0.9",
  "csv",
  "directories",
  "dotenvy",
