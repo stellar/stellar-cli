@@ -6,13 +6,16 @@ use stellar_xdr::curr::{
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope, VecM, WriteXdr,
 };
 
-use soroban_rpc::{Error, LogEvents, LogResources, ResourceConfig, SimulateTransactionResponse};
+use soroban_rpc::{
+    AuthMode, Error, LogEvents, LogResources, ResourceConfig, SimulateTransactionResponse,
+};
 
 pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
     resource_config: Option<ResourceConfig>,
     resource_fee: Option<i64>,
+    auth_mode: Option<AuthMode>,
 ) -> Result<Assembled, Error> {
     let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
         tx: tx.clone(),
@@ -25,7 +28,7 @@ pub async fn simulate_and_assemble_transaction(
     );
 
     let sim_res = client
-        .next_simulate_transaction_envelope(&envelope, None, resource_config)
+        .next_simulate_transaction_envelope(&envelope, auth_mode, resource_config)
         .await?;
     tracing::trace!("{sim_res:#?}");
 

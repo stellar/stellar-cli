@@ -171,8 +171,18 @@ impl Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        sim_sign_and_send_tx::<Error>(&client, &tx, config, &self.resources, &[], quiet, no_cache)
-            .await?;
+        sim_sign_and_send_tx::<Error>(
+            &client,
+            &tx,
+            config,
+            &self.resources,
+            &[],
+            // Asset wrapping cannot accept simulateTransaction authMode.
+            None,
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);

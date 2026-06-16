@@ -66,6 +66,9 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: crate::resources::Args,
 
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
+
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
@@ -163,6 +166,9 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
 }
 
 impl From<Infallible> for Error {
@@ -246,6 +252,7 @@ impl Cmd {
             &tx,
             self.resources.resource_config(),
             self.resources.resource_fee,
+            self.auth_mode.to_rpc(),
         )
         .await?)
     }
@@ -257,6 +264,8 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
@@ -362,6 +371,7 @@ impl Cmd {
             config,
             &self.resources,
             &signers,
+            self.auth_mode.to_rpc(),
             quiet,
             no_cache,
         )
