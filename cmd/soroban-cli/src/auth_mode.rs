@@ -7,6 +7,14 @@
 
 use clap::ValueEnum;
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(
+        "--auth-mode=enforce requires a transaction with existing authorization entries; use a different auth mode when building new transactions"
+    )]
+    EnforceRequiresExistingAuth,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum AuthMode {
     /// Validate the authorization entries already on the transaction.
@@ -44,7 +52,8 @@ pub struct Args {
     /// Set the authorization mode for transaction simulation. When unset, the RPC
     /// default is used: record with the root mode if no authorization entries
     /// exist, otherwise enforce the provided entries. Should only be set for
-    /// `InvokeHostFunction` transactions.
+    /// `InvokeHostFunction` transactions. The `enforce` mode is for simulating
+    /// transactions that already contain authorization entries.
     #[arg(
         long,
         env = "STELLAR_AUTH_MODE",
@@ -56,6 +65,13 @@ pub struct Args {
 impl Args {
     pub fn to_rpc(&self) -> Option<soroban_rpc::AuthMode> {
         self.auth_mode.map(AuthMode::to_rpc)
+    }
+
+    pub fn validate_not_enforce(&self) -> Result<(), Error> {
+        if matches!(self.auth_mode, Some(AuthMode::Enforce)) {
+            return Err(Error::EnforceRequiresExistingAuth);
+        }
+        Ok(())
     }
 }
 
@@ -90,5 +106,31 @@ mod tests {
             AuthMode::NonRoot.to_rpc(),
             soroban_rpc::AuthMode::RecordAllowNonRoot
         ));
+    }
+
+    #[test]
+    fn validate_not_enforce_requires_recording_mode() {
+        assert!(matches!(
+            Args {
+                auth_mode: Some(AuthMode::Enforce)
+            }
+            .validate_not_enforce(),
+            Err(Error::EnforceRequiresExistingAuth)
+        ));
+    }
+
+    #[test]
+    fn validate_not_enforce_allows_recording_modes() {
+        assert!(Args {
+            auth_mode: Some(AuthMode::Root)
+        }
+        .validate_not_enforce()
+        .is_ok());
+        assert!(Args {
+            auth_mode: Some(AuthMode::NonRoot)
+        }
+        .validate_not_enforce()
+        .is_ok());
+        assert!(Args::default().validate_not_enforce().is_ok());
     }
 }

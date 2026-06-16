@@ -120,6 +120,9 @@ pub enum Error {
     #[error(transparent)]
     Build(#[from] build::Error),
 
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
+
     #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
     NoBuildableContracts,
 
@@ -135,6 +138,8 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         if self.build_only && self.wasm.is_none() {
             return Err(Error::BuildOnlyNotSupported);
         }
@@ -207,6 +212,8 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<Hash>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = Print::new(quiet);
         let wasm_path = wasm_path.to_path_buf();
         let wasm_args = wasm::Args {

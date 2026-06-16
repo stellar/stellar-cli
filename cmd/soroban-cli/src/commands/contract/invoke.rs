@@ -166,6 +166,9 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
 }
 
 impl From<Infallible> for Error {
@@ -261,6 +264,8 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = print::Print::new(quiet);
         let network = config.get_network()?;
 

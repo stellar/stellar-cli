@@ -177,6 +177,7 @@ impl Cmd {
             config,
             &self.resources,
             &[],
+            // Asset wrapping cannot accept simulateTransaction authMode.
             None,
             quiet,
             no_cache,
