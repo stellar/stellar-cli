@@ -255,3 +255,24 @@ async fn constructor_auth_with_non_source_signer() {
         .failure()
         .stderr(predicates::str::contains("Auth, InvalidAction"));
 }
+
+#[tokio::test]
+async fn constructor_non_root_auth_mode_signs_non_source_signer() {
+    let sandbox = &TestEnv::new();
+    new_account(sandbox, "signer");
+
+    // The constructor's `addr.require_auth()` is a non-root (sub-invocation)
+    // with non-source signer and --auto-sign - expect success
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--source=test")
+        .arg("--wasm")
+        .arg(AUTH.path())
+        .arg("--auth-mode=non-root")
+        .arg("--auto-sign")
+        .arg("--")
+        .arg("--addr=signer")
+        .assert()
+        .success();
+}

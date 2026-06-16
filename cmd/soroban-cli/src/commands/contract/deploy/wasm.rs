@@ -383,25 +383,24 @@ impl Cmd {
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
-        let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
-            if func.inputs.is_empty() {
-                None
-            } else {
-                let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
-                slop.extend_from_slice(&self.slop);
-                Some(
-                    arg_parsing::build_constructor_parameters(
+        let (constructor_params, constructor_signers) =
+            if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
+                if func.inputs.is_empty() {
+                    (None, vec![])
+                } else {
+                    let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+                    slop.extend_from_slice(&self.slop);
+                    let (_, _, invoke_args, signers) = arg_parsing::build_constructor_parameters(
                         &stellar_strkey::Contract(contract_id.0),
                         &slop,
                         &entries,
                         config,
-                    )?
-                    .2,
-                )
-            }
-        } else {
-            None
-        };
+                    )?;
+                    (Some(invoke_args), signers)
+                }
+            } else {
+                (None, vec![])
+            };
 
         // For network operations, verify the network passphrase
         client
@@ -430,7 +429,7 @@ impl Cmd {
             &txn,
             config,
             &self.resources,
-            &[],
+            &constructor_signers,
             self.auth_mode.to_rpc(),
             quiet,
             no_cache,
