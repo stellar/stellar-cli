@@ -10,8 +10,9 @@ use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
 use crate::{
     commands::{
         container,
-        contract::build::verifiable::{
-            self, bldimg_regex, source_sha256_regex, source_uri_regex,
+        contract::build::{
+            source_archive,
+            verifiable::{self, bldimg_regex, source_sha256_regex, source_uri_regex},
         },
         global,
     },
@@ -116,20 +117,17 @@ pub enum Error {
     #[error("source code sha256 mismatch: expected {expected}, got {actual}")]
     SourceHashMismatch { expected: String, actual: String },
 
-    #[error("extracting source code into {path}: {source}")]
+    #[error("reading extracted source at {path}: {source}")]
     SourceExtract {
         path: PathBuf,
         source: std::io::Error,
     },
 
-    #[error("creating tempdir: {0}")]
-    TempDir(std::io::Error),
+    #[error("source archive at {path} does not contain exactly one top-level directory (found {count}); SEP-58 requires the source be wrapped in a single directory")]
+    SourceArchiveLayout { path: PathBuf, count: usize },
 
-    #[error("hardening permissions on {path}: {source}")]
-    ChmodMaterialized {
-        path: PathBuf,
-        source: std::io::Error,
-    },
+    #[error(transparent)]
+    SourceArchive(#[from] source_archive::Error),
 
     #[error(transparent)]
     Verifiable(#[from] verifiable::Error),
@@ -269,10 +267,9 @@ impl Cmd {
         }
 
         // Materialize the recorded source into a tempdir so the rebuild can
-        // bind-mount it. TempDir lives across the rebuild + comparison and
+        // bind-mount it. The TempDir lives across the rebuild + comparison and
         // cleans up on drop.
-        let workdir = tempfile::TempDir::new().map_err(Error::TempDir)?;
-        materialize_source(&meta, self.source_uri.as_deref(), workdir.path(), &print).await?;
+        let workdir = materialize_source(&meta, self.source_uri.as_deref(), &print).await?;
         print.checkln(format!(
             "Source materialized at {}",
             workdir.path().display()
@@ -284,12 +281,18 @@ impl Cmd {
         };
         let docker = docker_args.connect_to_docker(&print).await?;
         verifiable::pull_image(&docker, &meta.bldimg, &print).await?;
-        let container_cmd = build_container_command(&meta);
+        let (container_cmd, env) = build_container_command(&meta);
+
+        // SEP-58 requires the source be wrapped in a single top-level directory
+        // (the cli names it `source/`, but the spec doesn't fix the name), so
+        // the build's working tree is that wrapper dir under `workdir`.
+        let source_root = locate_extracted_source_root(workdir.path())?;
+
         verifiable::run_in_container(
             &meta.bldimg,
-            workdir.path(),
+            &source_root,
             &[container_cmd],
-            &[],
+            &env,
             &docker,
             &print,
             global_args.verbose || global_args.very_verbose,
@@ -297,8 +300,8 @@ impl Cmd {
         .await?;
 
         // Locate the rebuilt WASM. The cargo target dir lives under the bind-
-        // mounted /source, which we mapped to `workdir`.
-        let rebuilt_path = find_rebuilt_wasm(workdir.path(), &meta)?;
+        // mounted /source, which we mapped to `source_root`.
+        let rebuilt_path = find_rebuilt_wasm(&source_root, &meta)?;
         let rebuilt = std::fs::read(&rebuilt_path).map_err(|e| Error::ReadRebuilt {
             path: rebuilt_path.clone(),
             source: e,
@@ -330,9 +333,7 @@ impl Cmd {
     /// records a `source_uri` (only `source_sha256` is set), in which case
     /// there's nothing to trust-check here.
     fn effective_source_uri(&self, meta: &ExtractedMetadata) -> Option<String> {
-        self.source_uri
-            .clone()
-            .or_else(|| meta.source_uri.clone())
+        self.source_uri.clone().or_else(|| meta.source_uri.clone())
     }
 
     async fn fetch_wasm(&self) -> Result<Vec<u8>, Error> {
@@ -477,22 +478,19 @@ pub fn parse_yes(answer: &str) -> bool {
     a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
 
-/// Materialize the recorded source tree into `target`. Picks the path based on
-/// what the WASM recorded:
-///   - source_uri (with optional sha256) → download/read, optional sha-check,
-///     extract via `tar`
-///   - source_sha256 only → require `--source-uri` on the cli and use it as
-///     the retrieval channel
+/// Materialize the recorded source tree into a fresh, permission-hardened
+/// tempdir and return the guard. The retrieval channel is the cli's
+/// `--source-uri` flag (when set) or the WASM's recorded `source_uri`; either
+/// may be an http(s) URL or a local file path. When the bytes are present, the
+/// optional `source_sha256` is checked before extraction.
 ///
-/// `source_uri_override` is the cli's `--source-uri` flag value; when set, it
-/// wins over whatever the WASM recorded, and may be an http(s) URL or a local
-/// file path.
+/// Extraction (under the data dir, hardened) is shared with `build
+/// --verifiable` via `source_archive::extract_into_hardened_tempdir`.
 async fn materialize_source(
     meta: &ExtractedMetadata,
     source_uri_override: Option<&str>,
-    target: &Path,
     print: &Print,
-) -> Result<(), Error> {
+) -> Result<tempfile::TempDir, Error> {
     let tarball_source = source_uri_override
         .map(str::to_string)
         .or_else(|| meta.source_uri.clone());
@@ -507,18 +505,10 @@ async fn materialize_source(
         verify_source_sha256(&bytes, expected)?;
         print.checkln("Source SHA-256 matches");
     }
-    extract_tarball(&bytes, target)?;
-
-    // Tighten the freshly materialized tree to 0o700 / 0o600 before docker
-    // sees it. Uses the same per-path helper the cli already applies to its
-    // config dirs (one source of truth for what "hardened" means).
-    crate::config::locator::enforce_hardened_tree(target).map_err(|e| {
-        Error::ChmodMaterialized {
-            path: target.to_path_buf(),
-            source: e,
-        }
-    })?;
-    Ok(())
+    Ok(source_archive::extract_into_hardened_tempdir(
+        &bytes,
+        "verify-src-",
+    )?)
 }
 
 /// Retrieve the tarball bytes. `source` is either an `http(s)://` URL or a
@@ -565,43 +555,70 @@ fn verify_source_sha256(bytes: &[u8], expected: &str) -> Result<(), Error> {
     }
 }
 
-fn extract_tarball(bytes: &[u8], target: &Path) -> Result<(), Error> {
-    let gz = flate2::read::GzDecoder::new(bytes);
-    let mut archive = tar::Archive::new(gz);
-    archive.unpack(target).map_err(|e| Error::SourceExtract {
-        path: target.to_path_buf(),
-        source: e,
-    })
+/// SEP-58 requires the source archive wrap everything in a single top-level
+/// directory (the cli names it `source/`, but the spec leaves the name open),
+/// so after extraction the build tree is that lone directory under `workdir`.
+/// Return it, erroring if the archive doesn't have exactly one top-level dir.
+fn locate_extracted_source_root(workdir: &Path) -> Result<PathBuf, Error> {
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(workdir)
+        .map_err(|source| Error::SourceExtract {
+            path: workdir.to_path_buf(),
+            source,
+        })?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|p| p.is_dir())
+        .collect();
+
+    match dirs.len() {
+        1 => Ok(dirs.remove(0)),
+        count => Err(Error::SourceArchiveLayout {
+            path: workdir.to_path_buf(),
+            count,
+        }),
+    }
 }
 
-/// Compose the argv we hand to the container's `stellar contract build` so
-/// that:
+/// Compose the argv we hand to the container's `stellar contract build`, plus
+/// the env vars to apply via docker `-e`, so that:
 ///   - the bldopts from the original build become flags (each entry is one
 ///     token, ready for clap), AND
 ///   - bldimg / source-ids / bldopt are re-recorded as `--meta` entries so
 ///     the rebuilt WASM has identical metadata to the original.
 ///
+/// `--env=` bldopts are NOT forwarded as build flags: the original build
+/// applied them via docker `-e` (recording them as `bldopt` only), so we replay
+/// them the same way. The recorded value is shell-escaped, so we unescape it
+/// back to a raw `NAME=VALUE` for docker `-e`. They're still re-recorded as
+/// `bldopt` meta so the rebuilt WASM's metadata matches the original.
+///
 /// cliver is intentionally not re-injected — the container's stellar adds it
 /// automatically, and it will match the original's iff `bldimg` resolves to
 /// the same container.
-fn build_container_command(meta: &ExtractedMetadata) -> Vec<String> {
-    let mut forwarded: Vec<String> = meta.bldopts.clone();
-    let mut metadata: Vec<String> = Vec::new();
-
-    let mut push_meta = |k: &str, v: &str| {
-        metadata.push("--meta".to_string());
-        metadata.push(format!("{k}={v}"));
-    };
-    push_meta("bldimg", &meta.bldimg);
-    if let Some(v) = &meta.source_uri {
-        push_meta("source_uri", v);
-    }
-    if let Some(v) = &meta.source_sha256 {
-        push_meta("source_sha256", v);
-    }
+fn build_container_command(meta: &ExtractedMetadata) -> (Vec<String>, Vec<String>) {
+    let mut forwarded: Vec<String> = Vec::new();
+    let mut env: Vec<String> = Vec::new();
     for o in &meta.bldopts {
-        push_meta("bldopt", o);
+        if let Some(rest) = o.strip_prefix("--env=") {
+            // The bldopt value is shell-escaped (e.g. `--env=B='a b'`); shell-split
+            // it back to a single raw `NAME=VALUE` token for docker `-e`.
+            if let Some(kv) =
+                shlex::split(rest).and_then(|mut v| (v.len() == 1).then(|| v.remove(0)))
+            {
+                env.push(kv);
+            }
+        } else {
+            forwarded.push(o.clone());
+        }
     }
+
+    // Re-record bldimg / source-ids / every bldopt as `--meta`, reusing the
+    // exact composition `build --verifiable` used, so the rebuilt WASM's
+    // metadata matches the original byte-for-byte.
+    let ids = verifiable::SourceIds {
+        source_uri: meta.source_uri.clone(),
+        source_sha256: meta.source_sha256.clone(),
+    };
+    let metadata = verifiable::build_metadata_args(&meta.bldimg, &ids, &meta.bldopts);
 
     // `--locked` is always sent — even if the original somehow lacked it (a
     // non-conformant build), the verifier insists on a locked rebuild so
@@ -610,7 +627,10 @@ fn build_container_command(meta: &ExtractedMetadata) -> Vec<String> {
         forwarded.insert(0, "--locked".to_string());
     }
 
-    verifiable::compose_container_args(&forwarded, &metadata)
+    (
+        verifiable::compose_container_args(&forwarded, &metadata),
+        env,
+    )
 }
 
 /// Locate the rebuilt WASM under `workdir`. The container writes to
@@ -747,10 +767,7 @@ mod tests {
             meta.source_uri.as_deref(),
             Some("https://example.com/src.tar.gz")
         );
-        assert_eq!(
-            meta.source_sha256.as_deref(),
-            Some("f".repeat(64).as_str())
-        );
+        assert_eq!(meta.source_sha256.as_deref(), Some("f".repeat(64).as_str()));
     }
 
     #[test]
@@ -912,41 +929,6 @@ mod tests {
         assert!(matches!(err, Error::SourceHashMismatch { .. }));
     }
 
-    /// Build a tiny in-memory tar.gz with a single file and confirm extraction
-    /// drops the file at the expected path. Exercises the pure-Rust pipeline
-    /// (no shelling out, so this passes on Windows too).
-    #[test]
-    fn extract_tarball_unpacks_into_target() {
-        use flate2::write::GzEncoder;
-        use flate2::Compression;
-        use std::io::Write;
-
-        let mut tar_bytes = Vec::new();
-        {
-            let mut builder = tar::Builder::new(&mut tar_bytes);
-            let payload = b"contents";
-            let mut header = tar::Header::new_gnu();
-            header.set_path("hello.txt").unwrap();
-            header.set_size(payload.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            builder.append(&header, &payload[..]).unwrap();
-            builder.finish().unwrap();
-        }
-
-        let mut gz = Vec::new();
-        {
-            let mut enc = GzEncoder::new(&mut gz, Compression::default());
-            enc.write_all(&tar_bytes).unwrap();
-            enc.finish().unwrap();
-        }
-
-        let dir = tempfile::TempDir::new().unwrap();
-        extract_tarball(&gz, dir.path()).unwrap();
-        let extracted = std::fs::read(dir.path().join("hello.txt")).unwrap();
-        assert_eq!(extracted, b"contents");
-    }
-
     #[tokio::test]
     async fn materialize_source_errors_when_only_source_sha256() {
         let meta = ExtractedMetadata {
@@ -955,11 +937,8 @@ mod tests {
             source_sha256: Some("f".repeat(64)),
             bldopts: Vec::new(),
         };
-        let dir = tempfile::TempDir::new().unwrap();
         let print = Print::new(true);
-        let err = materialize_source(&meta, None, dir.path(), &print)
-            .await
-            .unwrap_err();
+        let err = materialize_source(&meta, None, &print).await.unwrap_err();
         assert!(matches!(err, Error::SourceUriRequired));
     }
 
@@ -973,9 +952,11 @@ mod tests {
                 "--locked".to_string(),
                 "--meta=home_domain=fnando.com".to_string(),
                 "--optimize".to_string(),
+                "--env=A=1".to_string(),
+                "--env=B='this is very nice'".to_string(),
             ],
         };
-        let cmd = build_container_command(&meta);
+        let (cmd, env) = build_container_command(&meta);
 
         // Subcommand prefix.
         assert_eq!(&cmd[..2], &["contract".to_string(), "build".to_string()]);
@@ -985,6 +966,14 @@ mod tests {
         assert!(cmd.contains(&"--meta=home_domain=fnando.com".to_string()));
         assert!(cmd.contains(&"--optimize".to_string()));
 
+        // `--env=` bldopts are applied via docker `-e` (unescaped), never
+        // forwarded as build flags.
+        assert!(!cmd.iter().any(|a| a.starts_with("--env=")));
+        assert_eq!(
+            env,
+            vec!["A=1".to_string(), "B=this is very nice".to_string()]
+        );
+
         // bldimg and source-ids are re-recorded as `--meta`.
         assert!(cmd
             .windows(2)
@@ -993,11 +982,14 @@ mod tests {
             .windows(2)
             .any(|w| w[0] == "--meta" && w[1] == "source_uri=https://github.com/foo/bar"));
 
-        // Every bldopt is also re-recorded as a `bldopt=` meta so the rebuilt
-        // WASM mirrors the original's entries.
+        // Every bldopt — including the `--env=` ones — is re-recorded as a
+        // `bldopt=` meta so the rebuilt WASM mirrors the original's entries.
         assert!(cmd
             .windows(2)
             .any(|w| w[0] == "--meta" && w[1] == "bldopt=--locked"));
+        assert!(cmd
+            .windows(2)
+            .any(|w| w[0] == "--meta" && w[1] == "bldopt=--env=A=1"));
     }
 
     #[test]
@@ -1010,7 +1002,7 @@ mod tests {
             source_sha256: Some("b".repeat(64)),
             bldopts: vec!["--meta=author=alice".to_string()],
         };
-        let cmd = build_container_command(&meta);
+        let (cmd, _env) = build_container_command(&meta);
         let locked_count = cmd.iter().filter(|s| *s == "--locked").count();
         assert_eq!(
             locked_count, 1,

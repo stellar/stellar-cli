@@ -18,7 +18,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     commands::{container::shared::Error as ConnectionError, global},
-    config::{data, locator::enforce_hardened_tree},
+    config::data,
     print::Print,
 };
 
@@ -252,9 +252,9 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
 /// `--source-sha256` or computed from the generated archive). `source_uri` is
 /// `Some` only when the user passed `--source-uri`.
 #[derive(Debug, Default, Clone)]
-struct SourceIds {
-    source_uri: Option<String>,
-    source_sha256: Option<String>,
+pub(crate) struct SourceIds {
+    pub(crate) source_uri: Option<String>,
+    pub(crate) source_sha256: Option<String>,
 }
 
 /// Format-validate the user-supplied source flags. Both are optional under
@@ -319,23 +319,7 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
 
     // Extract and harden, then build from the extracted copy so the WASM is
     // produced from exactly the archived bytes.
-    //
-    // Extract under the data dir, NOT the OS temp dir: on macOS `$TMPDIR` lives
-    // under /var/folders, which container VMs (Docker Desktop, Colima, …) don't
-    // share by default, so a bind mount of it would be empty inside the
-    // container. The data dir lives under the user's home, which is shared.
-    let base = data::data_local_dir()?;
-    std::fs::create_dir_all(&base).map_err(|source| source_archive::Error::ArchiveWrite {
-        path: base.clone(),
-        source,
-    })?;
-    let tmp = tempfile::Builder::new()
-        .prefix("verifiable-src-")
-        .tempdir_in(&base)
-        .map_err(source_archive::Error::ArchiveExtract)?;
-    source_archive::unpack_targz(&bytes, tmp.path())?;
-    enforce_hardened_tree(tmp.path()).map_err(source_archive::Error::ArchiveExtract)?;
-
+    let tmp = source_archive::extract_into_hardened_tempdir(&bytes, "verifiable-src-")?;
     let extracted_root = tmp.path().to_path_buf();
     Ok(ArchiveResult {
         source_sha256: computed,
@@ -499,7 +483,11 @@ fn build_forwarded_args(
     (forwarded, bldopts)
 }
 
-fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> Vec<String> {
+pub(crate) fn build_metadata_args(
+    image_ref: &str,
+    ids: &SourceIds,
+    bldopts: &[String],
+) -> Vec<String> {
     let mut out = Vec::new();
 
     let push = |out: &mut Vec<String>, key: &str, val: &str| {
