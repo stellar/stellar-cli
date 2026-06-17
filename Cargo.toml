@@ -46,39 +46,33 @@ path = "cmd/crates/stellar-ledger"
 [workspace.dependencies.stellar-xdr]
 version = "27.0.0"
 
-# Dependencies from the rs-soroban-sdk repo (main branch until the p27 release):
-[workspace.dependencies.soroban-spec]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
-
-[workspace.dependencies.soroban-spec-rust]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
-
-[workspace.dependencies.soroban-sdk]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
-
+# Dependencies from the rs-stellar-env repo:
 [workspace.dependencies.soroban-env-host]
 version = "27.0.0"
 
+# Dependencies from the rs-soroban-sdk repo:
+[workspace.dependencies.soroban-spec]
+version = "27.0.0-rc.1"
+
+[workspace.dependencies.soroban-spec-rust]
+version = "27.0.0-rc.1"
+
+[workspace.dependencies.soroban-sdk]
+version = "27.0.0-rc.1"
+
 [workspace.dependencies.soroban-token-sdk]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.stellar-asset-spec]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-git = "https://github.com/stellar/rs-soroban-sdk"
-branch = "main"
+version = "27.0.0-rc.1"
 
-# Dependencies from the rs-stellar-rpc-client repo (main branch until the p27 release):
+# Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-git = "https://github.com/stellar/rs-stellar-rpc-client"
-branch = "main"
+version = "27.0.0"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
