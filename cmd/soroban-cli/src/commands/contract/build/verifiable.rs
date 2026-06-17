@@ -485,8 +485,18 @@ fn git_archive_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
 }
 
 /// Tar the working tree under `source_root`, skipping denylisted path
-/// components, with entries sorted and headers normalized (deterministic mode)
-/// so the bytes are reproducible. Each entry is prefixed with `source/`.
+/// components. Each entry is prefixed with `source/`.
+///
+/// The output is reproducible, following GNU tar's reproducibility guidance
+/// (<https://www.gnu.org/software/tar/manual/html_section/Reproducibility.html>)
+/// with the portable equivalents available via the `tar` crate (the system
+/// `tar` can't be relied on — macOS ships bsdtar, which lacks `--sort`,
+/// `--mtime`, `--pax-option`, …): entries are sorted by name (`--sort=name`)
+/// using locale-independent path ordering (`LC_ALL=C`), and `HeaderMode::Deterministic`
+/// zeroes mtime (`--mtime`/`--clamp-mtime`), sets uid/gid to 0 with empty owner
+/// names (`--owner=0 --group=0 --numeric-owner`), and normalizes mode
+/// (`--mode=go+u,go-w`). ustar headers carry no atime/ctime or tar PID. The gzip
+/// wrapper (see `gzip`) is likewise deterministic.
 fn walk_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
     let mut files: Vec<PathBuf> = Vec::new();
     let walk = WalkDir::new(source_root)
@@ -1482,6 +1492,11 @@ mod tests {
         assert!(!dest.path().join("source/target").exists());
         assert!(!dest.path().join("source/.git").exists());
         assert_eq!(hex::encode(Sha256::digest(&bytes)).len(), 64);
+
+        // Reproducible: a second run over the same tree yields identical bytes
+        // (sorted entries + zeroed header fields + deterministic gzip).
+        let again = build_source_archive(root, &print).unwrap();
+        assert_eq!(bytes, again);
     }
 
     #[test]
