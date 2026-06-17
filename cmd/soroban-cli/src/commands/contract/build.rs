@@ -99,9 +99,9 @@ pub struct Cmd {
     pub print_commands_only: bool,
 
     /// Build inside a trusted Docker container and record SEP-58 metadata
-    /// (`bldimg`, `source_rev`, `bldopt`) so the resulting WASM can be
-    /// reproduced and verified by third parties. Implies `--locked`.
-    /// Requires a clean git working tree.
+    /// (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting
+    /// WASM can be reproduced and verified by third parties. Implies
+    /// `--locked`. Requires a clean git working tree.
     #[arg(long, help_heading = "Verifiable")]
     pub verifiable: bool,
 
@@ -111,47 +111,38 @@ pub struct Cmd {
     #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
     pub image: Option<String>,
 
-    /// SEP-58 source identification: HTTPS URL (or `github:user/repo`) of the
-    /// source repository. Must be passed together with `--source-rev`.
-    #[arg(
-        long,
-        requires = "verifiable",
-        requires = "source_rev",
-        conflicts_with_all = ["tarball_url", "tarball_sha256"],
-        help_heading = "Verifiable"
-    )]
-    pub source_repo: Option<String>,
+    /// SEP-58 source identification: SHA-256 of the source archive/tree
+    /// (recorded as the `source_sha256` meta entry). Required with
+    /// `--verifiable` unless `--archive` is used, which generates the archive
+    /// and computes this for you.
+    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    pub source_sha256: Option<String>,
 
-    /// SEP-58 source identification: 40-char SHA-1 of the source commit. The
-    /// local workspace must be a git repo at this exact SHA with a clean
-    /// working tree. Must be passed together with `--source-repo`.
+    /// SEP-58 source identification: URI where the source can be obtained, e.g.
+    /// `https://example.com/src.tar.gz` (recorded as the `source_uri` meta
+    /// entry). Optional; when set it must accompany `--source-sha256`.
     #[arg(
         long,
         requires = "verifiable",
-        requires = "source_repo",
-        conflicts_with_all = ["tarball_url", "tarball_sha256"],
+        requires = "source_sha256",
         help_heading = "Verifiable"
     )]
-    pub source_rev: Option<String>,
+    pub source_uri: Option<String>,
 
-    /// SEP-58 source identification: URL where the source tarball can be
-    /// downloaded.
+    /// Generate a source archive for the verifiable build, then build from it
+    /// and record its SHA-256 as the SEP-58 `source_sha256` meta entry. Pass a
+    /// path to choose where the gzipped tarball is written; with no path it
+    /// goes to the data dir's `archives/`. In a git repo the archive is
+    /// `git archive HEAD`; otherwise the working directory is archived minus a
+    /// built-in denylist (.git, .svn, .hg, target/, node_modules/, .DS_Store).
     #[arg(
         long,
+        num_args = 0..=1,
+        require_equals = true,
         requires = "verifiable",
-        conflicts_with_all = ["source_repo", "source_rev"],
         help_heading = "Verifiable"
     )]
-    pub tarball_url: Option<String>,
-
-    /// SEP-58 source identification: SHA-256 of the source tarball bytes.
-    #[arg(
-        long,
-        requires = "verifiable",
-        conflicts_with_all = ["source_repo", "source_rev"],
-        help_heading = "Verifiable"
-    )]
-    pub tarball_sha256: Option<String>,
+    pub archive: Option<Option<std::path::PathBuf>>,
 
     /// Override the default docker host used by `--verifiable`.
     #[arg(short = 'd', long, env = "DOCKER_HOST", help_heading = "Verifiable")]
@@ -288,10 +279,9 @@ impl Default for Cmd {
             print_commands_only: false,
             verifiable: false,
             image: None,
-            source_repo: None,
-            source_rev: None,
-            tarball_url: None,
-            tarball_sha256: None,
+            source_sha256: None,
+            source_uri: None,
+            archive: None,
             docker_host: None,
             build_args: BuildArgs::default(),
         }
@@ -622,10 +612,7 @@ impl Cmd {
             &wasm_bytes
         };
 
-        print.blankln(format!(
-            "Wasm File: {path} ({size_description})",
-            path = rel_path.display()
-        ));
+        print.blankln(format!("Wasm File: {path}", path = rel_path.display()));
 
         print.blankln(format!("Wasm Hash: {}", hex::encode(Sha256::digest(bytes))));
         print.blankln(format!("Wasm Size: {size_description}"));

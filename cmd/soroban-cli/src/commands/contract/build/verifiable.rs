@@ -1,4 +1,5 @@
 use std::{
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -17,9 +18,12 @@ use futures_util::{StreamExt, TryStreamExt};
 use regex::Regex;
 use semver::Version;
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
+use walkdir::WalkDir;
 
 use crate::{
     commands::{container::shared::Error as ConnectionError, global},
+    config::{data, locator::enforce_hardened_tree},
     print::Print,
 };
 
@@ -28,7 +32,37 @@ use super::{BuiltContract, Cmd, WASM_TARGET};
 const REGISTRY: &str = "docker.io/stellar/stellar-cli";
 const HUB_TAGS_URL: &str =
     "https://hub.docker.com/v2/repositories/stellar/stellar-cli/tags/?page_size=100";
-const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_rev", "bldopt"];
+const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_uri", "source_sha256", "bldopt"];
+
+/// Top-level names excluded when archiving a non-git working directory (we have
+/// no tracked-files list to consult, so fall back to a fixed denylist of VCS
+/// metadata, build/cache/transient dirs, and editor/OS/AI-assistant junk).
+/// Matched against each path component, so a directory like `target/` prunes
+/// its whole subtree.
+const ARCHIVE_DENYLIST: &[&str] = &[
+    // version control
+    ".git",
+    ".svn",
+    ".hg",
+    // build output / dependencies
+    "target",
+    "node_modules",
+    // transient
+    "log",
+    "logs",
+    "tmp",
+    "temp",
+    // OS / editor junk
+    ".DS_Store",
+    "Thumbs.db",
+    ".idea",
+    ".vscode",
+    // AI assistant dirs
+    ".claude",
+    ".cursor",
+    ".windsurf",
+    ".aider",
+];
 
 /// First cli release that accepts `--optimize=false` as an explicit value
 /// (added by commit `b17d3f0b`). Containers older than this only accept bare
@@ -74,35 +108,41 @@ pub enum Error {
     },
 
     #[error(
-        "git working tree at {path} is dirty. --source-rev requires a clean tree so the recorded source_rev matches the WASM bytes. Commit or stash your changes and try again."
+        "git working tree at {path} is dirty. --verifiable requires a clean tree so the recorded source_sha256 matches the WASM bytes. Commit or stash your changes and try again."
     )]
     GitDirty { path: PathBuf },
 
     #[error(
-        "the cli sets bldimg, source_rev, and bldopt automatically when --verifiable is used; remove them from --meta. Got reserved key: {key}"
+        "the cli sets bldimg, source_uri, source_sha256, and bldopt automatically when --verifiable is used; remove them from --meta. Got reserved key: {key}"
     )]
     ReservedMetaKey { key: String },
 
-    #[error("--verifiable requires a SEP-58 source-identification combination. Pass one of: (--source-repo + --source-rev), (--tarball-url and/or --tarball-sha256).")]
-    MissingSourceId,
+    #[error("--verifiable requires --source-sha256 (the SEP-58 source_sha256: 64-char hex SHA-256 of the source), or --archive to generate the source archive and compute it. --source-uri is optional.")]
+    MissingSourceSha256,
 
-    #[error("--source-rev value {value:?} does not match the SEP-58 source_rev format `^[0-9a-f]{{40}}$` (full 40-char SHA-1 of the source commit).")]
-    SourceRevFormat { value: String },
+    #[error("--source-sha256 value {value:?} does not match the SEP-58 source_sha256 format `^[0-9a-f]{{64}}$` (64-char lower-case hex).")]
+    SourceSha256Format { value: String },
 
-    #[error("--source-repo value {value:?} does not match the SEP-58 source_repo format `^(https?://\\S+|github:[^/\\s]+/[^/\\s]+)$`.")]
-    SourceRepoFormat { value: String },
+    #[error("--source-uri value {value:?} does not match the SEP-58 source_uri format `^[a-zA-Z][a-zA-Z0-9+.-]*:\\S+$` (a URI with a scheme, e.g. https://example.com/src.tar.gz).")]
+    SourceUriFormat { value: String },
 
-    #[error("--tarball-url value {value:?} does not match the SEP-58 tarball_url format `^https?://\\S+$`.")]
-    TarballUrlFormat { value: String },
+    #[error("--source-sha256 {provided} does not match the SHA-256 of the generated archive {computed}. Omit --source-sha256 to record the computed value, or fix the value.")]
+    SourceSha256Mismatch { provided: String, computed: String },
 
-    #[error("--tarball-sha256 value {value:?} does not match the SEP-58 tarball_sha256 format `^[0-9a-f]{{64}}$`.")]
-    TarballSha256Format { value: String },
+    #[error("`git archive` failed in {path}: {stderr}")]
+    GitArchive { path: PathBuf, stderr: String },
 
-    #[error("--source-rev requires a git workspace at {path}; `git rev-parse HEAD` failed there.")]
-    SourceRevNotGitRepo { path: PathBuf },
+    #[error("could not write source archive to {path}: {source}")]
+    ArchiveWrite {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 
-    #[error("--source-rev {claimed} does not match local HEAD {head}. Commit, switch, or pass the correct rev.")]
-    SourceRevHeadMismatch { claimed: String, head: String },
+    #[error("could not extract source archive: {0}")]
+    ArchiveExtract(std::io::Error),
+
+    #[error(transparent)]
+    Data(#[from] data::Error),
 
     #[error("container build exited with status {status}. To reproduce manually:\n  docker run --rm -v {mount}:/source {image} {args}")]
     ContainerExit {
@@ -130,21 +170,57 @@ pub async fn run(
         }
     }
 
-    // Stage 2: local filesystem + git, no network. Resolve the workspace root
-    // first so the (optional) `--source-rev` git cross-check has a path to
-    // anchor on.
+    // Stage 2: local filesystem + git, no network.
     let workspace_root = resolve_workspace_root(cmd)?;
-    let source_ids = validate_source_ids(cmd, &workspace_root)?;
+    validate_source_formats(cmd)?;
 
-    // Pick the anchor the container bind-mounts and the `--manifest-path`
-    // bldopt is relativized against. A verifier will clone source_repo (or
-    // extract the tarball) into a fresh tempdir and bind-mount its root, so
-    // the build must do the symmetric thing on the host: bind-mount the local
-    // clone root (where `.git` lives) or, if there's no clone, the user's
-    // cwd. We do NOT validate that the local clone matches `--source-repo` —
-    // a wrong clone produces different bytes, and verify catches that at
-    // byte-comparison time.
+    // Pick the anchor for the local source: the `--manifest-path` bldopt is
+    // relativized against it, and (when `--archive` is not used) it's also what
+    // gets bind-mounted into the container. We do NOT validate that it matches
+    // source_uri — a wrong source produces different bytes, and verify catches
+    // that at byte-comparison time.
     let source_root = resolve_source_root(cmd);
+
+    // A dirty working tree would make the recorded source_sha256 fail to
+    // describe the bytes actually built, so refuse to proceed. Skipped when
+    // the source root isn't a git repo (we can't check, e.g. archive sources).
+    enforce_clean_tree(&source_root)?;
+
+    // Resolve the recorded source_sha256 and the directory the container mounts
+    // at /source. With `--archive`, the CLI builds the source archive, records
+    // its hash, and builds from the *extracted* archive (in a hardened tempdir)
+    // so the WASM is produced from exactly the bytes that were hashed. Without
+    // it, the user supplies --source-sha256 and we mount the working tree.
+    let resolved = match &cmd.archive {
+        Some(_) => {
+            let a = resolve_archive(cmd, &source_root, print)?;
+            // The extracted `source/` dir mirrors `source_root` exactly and is
+            // both the container mount and the tree the build writes `target/`
+            // into, so it's what `collect_built_contracts` resolves artifacts
+            // against.
+            let mount_root = a.extracted_root.join("source");
+            ResolvedSource {
+                source_sha256: a.source_sha256,
+                extracted_root: Some(mount_root.clone()),
+                mount_root,
+                _tmp: Some(a.tmp),
+            }
+        }
+        None => ResolvedSource {
+            source_sha256: cmd
+                .source_sha256
+                .clone()
+                .ok_or(Error::MissingSourceSha256)?,
+            mount_root: source_root.clone(),
+            extracted_root: None,
+            _tmp: None,
+        },
+    };
+
+    let source_ids = SourceIds {
+        source_uri: cmd.source_uri.clone(),
+        source_sha256: Some(resolved.source_sha256.clone()),
+    };
 
     // Defer the info banner until every validation has passed, so it doesn't
     // appear right before an error.
@@ -171,8 +247,20 @@ pub async fn run(
         probe_supports_optimize_false_syntax(&image_ref, &docker, print).await
     };
 
-    let (forwarded_args, bldopts) =
-        build_forwarded_args(cmd, &source_root, supports_explicit_optimize_false);
+    let package = resolve_build_package(cmd)?;
+    if cmd.package.is_none() {
+        if let Some(pkg) = &package {
+            print.infoln(format!(
+                "Inferred --package={pkg} and using it as a build option."
+            ));
+        }
+    }
+    let (forwarded_args, bldopts) = build_forwarded_args(
+        cmd,
+        &source_root,
+        package.as_deref(),
+        supports_explicit_optimize_false,
+    );
     let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
     let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
 
@@ -182,7 +270,7 @@ pub async fn run(
     // `--verbose` because verifications are run as part of pipelines.
     run_in_container(
         &image_ref,
-        &source_root,
+        &resolved.mount_root,
         &container_cmd_args,
         &docker,
         print,
@@ -191,7 +279,18 @@ pub async fn run(
     .await?;
 
     let _ = global_args;
-    collect_built_contracts(cmd, &workspace_root, print)
+    let _ = workspace_root;
+    collect_built_contracts(cmd, &source_root, resolved.extracted_root.as_deref(), print)
+}
+
+/// The recorded `source_sha256`, the directory bind-mounted at `/source`, and
+/// (when `--archive` is used) the extracted-archive root plus its tempdir guard
+/// — held so the temp dir outlives the container build and artifact collection.
+struct ResolvedSource {
+    source_sha256: String,
+    mount_root: PathBuf,
+    extracted_root: Option<PathBuf>,
+    _tmp: Option<tempfile::TempDir>,
 }
 
 fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
@@ -209,7 +308,7 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
 /// `--manifest-path` (or cwd, if no manifest_path) looking for a `.git`
 /// directory; return its parent. If none is found, fall back to cwd.
 ///
-/// This isn't a validation step — any `.git` will do. Wrong-clone mistakes
+/// This isn't a validation step — any `.git` will do. Wrong-source mistakes
 /// are caught later by the verify-side byte comparison.
 fn resolve_source_root(cmd: &Cmd) -> PathBuf {
     let start = if let Some(p) = &cmd.manifest_path {
@@ -232,105 +331,258 @@ fn resolve_source_root(cmd: &Cmd) -> PathBuf {
     std::env::current_dir().unwrap_or(start)
 }
 
-/// Source-identification fields, gathered from the corresponding CLI flags
-/// after validation. Each is `Some` only when the user passed the flag and the
-/// value matched the SEP-58 format regex. The four fields cannot all be
-/// `None` — `validate_source_ids` rejects that case.
+/// Source-identification fields recorded as SEP-58 meta. `source_sha256` is
+/// always `Some` by the time these are built in `run()` (resolved from
+/// `--source-sha256` or computed from the generated archive). `source_uri` is
+/// `Some` only when the user passed `--source-uri`.
 #[derive(Debug, Default, Clone)]
 struct SourceIds {
-    source_repo: Option<String>,
-    source_rev: Option<String>,
-    tarball_url: Option<String>,
-    tarball_sha256: Option<String>,
+    source_uri: Option<String>,
+    source_sha256: Option<String>,
 }
 
-fn validate_source_ids(cmd: &Cmd, workspace_root: &Path) -> Result<SourceIds, Error> {
-    let ids = SourceIds {
-        source_repo: cmd.source_repo.clone(),
-        source_rev: cmd.source_rev.clone(),
-        tarball_url: cmd.tarball_url.clone(),
-        tarball_sha256: cmd.tarball_sha256.clone(),
+/// Format-validate the user-supplied source flags. Requiredness is enforced in
+/// `run()` (it depends on whether `--archive` is used), not here.
+fn validate_source_formats(cmd: &Cmd) -> Result<(), Error> {
+    if let Some(sha) = &cmd.source_sha256 {
+        if !source_sha256_regex().is_match(sha) {
+            return Err(Error::SourceSha256Format { value: sha.clone() });
+        }
+    }
+    if let Some(uri) = &cmd.source_uri {
+        if !source_uri_regex().is_match(uri) {
+            return Err(Error::SourceUriFormat { value: uri.clone() });
+        }
+    }
+    Ok(())
+}
+
+/// Outcome of `--archive`: the generated archive's SHA-256 and the directory it
+/// was extracted into (held alive by `tmp`).
+struct ArchiveResult {
+    source_sha256: String,
+    extracted_root: PathBuf,
+    tmp: tempfile::TempDir,
+}
+
+/// Build the source archive, record its hash, write it out, and extract it into
+/// a permission-hardened tempdir that the container then builds from.
+fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<ArchiveResult, Error> {
+    let bytes = build_source_archive(source_root, print)?;
+    let computed = hex::encode(Sha256::digest(&bytes));
+
+    // If the user pinned a hash, it must match what we produced.
+    if let Some(provided) = &cmd.source_sha256 {
+        if provided != &computed {
+            return Err(Error::SourceSha256Mismatch {
+                provided: provided.clone(),
+                computed,
+            });
+        }
+    }
+
+    // `Some(Some(path))` → write there; `Some(None)` → content-addressed name
+    // under the managed archives dir.
+    let out_path = match &cmd.archive {
+        Some(Some(p)) => p.clone(),
+        Some(None) => data::archives_dir()?.join(format!("{computed}.tar.gz")),
+        None => unreachable!("resolve_archive is only called when --archive is set"),
     };
-
-    if ids.source_repo.is_none()
-        && ids.source_rev.is_none()
-        && ids.tarball_url.is_none()
-        && ids.tarball_sha256.is_none()
-    {
-        return Err(Error::MissingSourceId);
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|source| Error::ArchiveWrite {
+            path: out_path.clone(),
+            source,
+        })?;
     }
+    std::fs::write(&out_path, &bytes).map_err(|source| Error::ArchiveWrite {
+        path: out_path.clone(),
+        source,
+    })?;
+    print.infoln(format!(
+        "Wrote source archive {} (source_sha256 {computed})",
+        out_path.display()
+    ));
 
-    if let Some(v) = &ids.source_rev {
-        if !source_rev_regex().is_match(v) {
-            return Err(Error::SourceRevFormat { value: v.clone() });
-        }
-    }
+    // Extract and harden, then build from the extracted copy so the WASM is
+    // produced from exactly the archived bytes.
+    //
+    // Extract under the data dir, NOT the OS temp dir: on macOS `$TMPDIR` lives
+    // under /var/folders, which container VMs (Docker Desktop, Colima, …) don't
+    // share by default, so a bind mount of it would be empty inside the
+    // container. The data dir lives under the user's home, which is shared.
+    let base = data::data_local_dir()?;
+    std::fs::create_dir_all(&base).map_err(|source| Error::ArchiveWrite {
+        path: base.clone(),
+        source,
+    })?;
+    let tmp = tempfile::Builder::new()
+        .prefix("verifiable-src-")
+        .tempdir_in(&base)
+        .map_err(Error::ArchiveExtract)?;
+    unpack_targz(&bytes, tmp.path())?;
+    enforce_hardened_tree(tmp.path()).map_err(Error::ArchiveExtract)?;
 
-    if let Some(v) = &ids.source_repo {
-        if !source_repo_regex().is_match(v) {
-            return Err(Error::SourceRepoFormat { value: v.clone() });
-        }
-    }
-
-    if let Some(v) = &ids.tarball_url {
-        if !tarball_url_regex().is_match(v) {
-            return Err(Error::TarballUrlFormat { value: v.clone() });
-        }
-    }
-
-    if let Some(v) = &ids.tarball_sha256 {
-        if !tarball_sha256_regex().is_match(v) {
-            return Err(Error::TarballSha256Format { value: v.clone() });
-        }
-    }
-
-    if let Some(claimed) = &ids.source_rev {
-        cross_check_source_rev_against_git(workspace_root, claimed)?;
-    }
-
-    Ok(ids)
+    let extracted_root = tmp.path().to_path_buf();
+    Ok(ArchiveResult {
+        source_sha256: computed,
+        extracted_root,
+        tmp,
+    })
 }
 
-fn cross_check_source_rev_against_git(workspace_root: &Path, claimed: &str) -> Result<(), Error> {
-    let rev_out = Command::new("git")
+/// Whether `source_root` is inside a git work tree.
+fn is_git_repo(source_root: &Path) -> bool {
+    Command::new("git")
         .arg("-C")
-        .arg(workspace_root)
+        .arg(source_root)
         .arg("rev-parse")
+        .arg("--is-inside-work-tree")
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// Produce the gzipped source tarball bytes. Entries are rooted under a
+/// top-level `source/` prefix (so the archive extracts to a `source/` dir,
+/// mirroring the container's `/source` mount). In a git repo this is `git
+/// archive HEAD` (the committed tree); otherwise the working directory is
+/// walked and tarred, skipping `ARCHIVE_DENYLIST` entries, after warning.
+fn build_source_archive(source_root: &Path, print: &Print) -> Result<Vec<u8>, Error> {
+    let tar = if is_git_repo(source_root) {
+        git_archive_tar(source_root)?
+    } else {
+        print.warnln(format!(
+            "{} is not a git repository; archiving the working directory. Inspect the generated archive to confirm its contents.",
+            source_root.display(),
+        ));
+        walk_tar(source_root)?
+    };
+    gzip(&tar)
+}
+
+/// `git archive --format=tar --prefix=source/ HEAD`, returning the tar bytes.
+fn git_archive_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(source_root)
+        .arg("archive")
+        .arg("--format=tar")
+        .arg("--prefix=source/")
         .arg("HEAD")
         .output()
-        .map_err(|e| Error::GitInvoke {
-            path: workspace_root.to_path_buf(),
-            source: e,
+        .map_err(|source| Error::GitInvoke {
+            path: source_root.to_path_buf(),
+            source,
         })?;
-
-    if !rev_out.status.success() {
-        return Err(Error::SourceRevNotGitRepo {
-            path: workspace_root.to_path_buf(),
+    if !out.status.success() {
+        return Err(Error::GitArchive {
+            path: source_root.to_path_buf(),
+            stderr: String::from_utf8_lossy(&out.stderr).trim().to_string(),
         });
     }
+    Ok(out.stdout)
+}
 
-    let head = String::from_utf8_lossy(&rev_out.stdout).trim().to_string();
-    if head != claimed {
-        return Err(Error::SourceRevHeadMismatch {
-            claimed: claimed.to_string(),
-            head,
-        });
+/// Tar the working tree under `source_root`, skipping denylisted path
+/// components, with entries sorted and headers normalized (deterministic mode)
+/// so the bytes are reproducible. Each entry is prefixed with `source/`.
+fn walk_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
+    let mut files: Vec<PathBuf> = Vec::new();
+    let walk = WalkDir::new(source_root)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_entry(|e| !is_denylisted(e.file_name()));
+    for entry in walk {
+        let entry = entry.map_err(|e| Error::ArchiveWrite {
+            path: source_root.to_path_buf(),
+            source: e.into(),
+        })?;
+        if entry.file_type().is_file() {
+            files.push(entry.path().to_path_buf());
+        }
     }
+    files.sort();
 
+    let mut builder = tar::Builder::new(Vec::new());
+    builder.mode(tar::HeaderMode::Deterministic);
+    for path in &files {
+        let rel = path.strip_prefix(source_root).unwrap_or(path);
+        let name = Path::new("source").join(rel);
+        let mut f = std::fs::File::open(path).map_err(|source| Error::ArchiveWrite {
+            path: path.clone(),
+            source,
+        })?;
+        builder
+            .append_file(&name, &mut f)
+            .map_err(|source| Error::ArchiveWrite {
+                path: path.clone(),
+                source,
+            })?;
+    }
+    builder.into_inner().map_err(|source| Error::ArchiveWrite {
+        path: source_root.to_path_buf(),
+        source,
+    })
+}
+
+/// A path component is denylisted if it equals a denylist entry, or — for
+/// dotted entries, which double as extension filters (e.g. `.swp`, `.log`) — if
+/// it ends with that entry. Plain names (`target`, `node_modules`) match
+/// exactly only, so `mytarget` is not excluded.
+fn is_denylisted(name: &std::ffi::OsStr) -> bool {
+    let name = name.to_string_lossy();
+    ARCHIVE_DENYLIST
+        .iter()
+        .any(|d| name == *d || (d.starts_with('.') && name.ends_with(d)))
+}
+
+/// Gzip with a default (mtime-zeroed) header so the same tar bytes always hash
+/// the same.
+fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
+    let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    enc.write_all(bytes).map_err(|source| Error::ArchiveWrite {
+        path: PathBuf::new(),
+        source,
+    })?;
+    enc.finish().map_err(|source| Error::ArchiveWrite {
+        path: PathBuf::new(),
+        source,
+    })
+}
+
+/// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`, so
+/// they land at `<dest>/source/…`.
+fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
+    let dec = flate2::read::GzDecoder::new(bytes);
+    tar::Archive::new(dec)
+        .unpack(dest)
+        .map_err(Error::ArchiveExtract)
+}
+
+/// Refuse to run a verifiable build against a dirty git working tree: the
+/// bind-mounted source must match the recorded source_sha256 for the build to
+/// be reproducible. When the source root isn't a git repo (e.g. an extracted
+/// archive) we can't check, so we proceed — the user owns the source_sha256
+/// they pass, and verify catches a mismatch at byte-comparison time.
+fn enforce_clean_tree(source_root: &Path) -> Result<(), Error> {
     let status = Command::new("git")
         .arg("-C")
-        .arg(workspace_root)
+        .arg(source_root)
         .arg("status")
         .arg("--porcelain")
         .output()
         .map_err(|e| Error::GitInvoke {
-            path: workspace_root.to_path_buf(),
+            path: source_root.to_path_buf(),
             source: e,
         })?;
 
+    // Not a git repo (or git refused): can't verify cleanliness, proceed.
+    if !status.status.success() {
+        return Ok(());
+    }
+
     if !status.stdout.is_empty() {
         return Err(Error::GitDirty {
-            path: workspace_root.to_path_buf(),
+            path: source_root.to_path_buf(),
         });
     }
 
@@ -342,20 +594,45 @@ fn bldimg_regex() -> Regex {
         .unwrap()
 }
 
-fn source_rev_regex() -> Regex {
-    Regex::new(r"^[0-9a-f]{40}$").unwrap()
-}
-
-fn source_repo_regex() -> Regex {
-    Regex::new(r"^(https?://\S+|github:[^/\s]+/[^/\s]+)$").unwrap()
-}
-
-fn tarball_url_regex() -> Regex {
-    Regex::new(r"^https?://\S+$").unwrap()
-}
-
-fn tarball_sha256_regex() -> Regex {
+fn source_sha256_regex() -> Regex {
     Regex::new(r"^[0-9a-f]{64}$").unwrap()
+}
+
+fn source_uri_regex() -> Regex {
+    Regex::new(r"^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$").unwrap()
+}
+
+/// Resolve the package to pin as `--package`. An explicit `--package` wins.
+/// Otherwise, when the workspace builds exactly one cdylib by default, return
+/// its name so the recorded bldopt is reproducible even if the workspace's
+/// default members change later. Returns `None` when the selection is
+/// ambiguous (zero or multiple default cdylibs) — the build then keeps cargo's
+/// default behavior of building them all, which `--package` can't express
+/// (the container's flag is singular).
+fn resolve_build_package(cmd: &Cmd) -> Result<Option<String>, Error> {
+    if cmd.package.is_some() {
+        return Ok(cmd.package.clone());
+    }
+    let mut mc = MetadataCommand::new();
+    mc.no_deps();
+    if let Some(p) = &cmd.manifest_path {
+        mc.manifest_path(p);
+    }
+    let md = mc.exec().map_err(Error::Metadata)?;
+    let mut names: Vec<String> = md
+        .packages
+        .iter()
+        .filter(|p| md.workspace_default_members.contains(&p.id))
+        .filter(|p| {
+            p.targets
+                .iter()
+                .any(|t| t.crate_types.iter().any(|c| c == "cdylib"))
+        })
+        .map(|p| p.name.clone())
+        .collect();
+    names.sort();
+    names.dedup();
+    Ok((names.len() == 1).then(|| names.remove(0)))
 }
 
 /// The flags forwarded to the container's `stellar contract build`, plus the
@@ -371,6 +648,7 @@ fn tarball_sha256_regex() -> Regex {
 fn build_forwarded_args(
     cmd: &Cmd,
     workspace_root: &Path,
+    package: Option<&str>,
     supports_explicit_optimize_false: bool,
 ) -> (Vec<String>, Vec<String>) {
     let mut forwarded: Vec<String> = Vec::new();
@@ -403,7 +681,10 @@ fn build_forwarded_args(
     if cmd.no_default_features {
         record("--no-default-features".to_string());
     }
-    if let Some(pkg) = &cmd.package {
+    // Always pin the package when it can be resolved (explicit `--package`, or
+    // a workspace that builds exactly one cdylib by default) so the recorded
+    // bldopt stays reproducible even if workspace default members change later.
+    if let Some(pkg) = package {
         record(format!("--package={pkg}"));
     }
     for (k, v) in &cmd.build_args.meta {
@@ -435,17 +716,11 @@ fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> 
 
     push(&mut out, "bldimg", image_ref);
 
-    if let Some(v) = &ids.source_repo {
-        push(&mut out, "source_repo", v);
+    if let Some(v) = &ids.source_uri {
+        push(&mut out, "source_uri", v);
     }
-    if let Some(v) = &ids.source_rev {
-        push(&mut out, "source_rev", v);
-    }
-    if let Some(v) = &ids.tarball_url {
-        push(&mut out, "tarball_url", v);
-    }
-    if let Some(v) = &ids.tarball_sha256 {
-        push(&mut out, "tarball_sha256", v);
+    if let Some(v) = &ids.source_sha256 {
+        push(&mut out, "source_sha256", v);
     }
 
     for o in bldopts {
@@ -797,9 +1072,16 @@ async fn run_in_container(
     Ok(())
 }
 
+/// Collect the built WASM artifacts. Package names and the host target dir come
+/// from host `cargo metadata`. `extracted_root` is set when the build ran
+/// against an extracted archive (step: `--archive`): the artifacts then live
+/// under that tree's target dir and must be copied out before its tempdir
+/// drops. `source_root` is the host source root the extracted tree mirrors, so
+/// the target dir's position relative to it carries over.
 fn collect_built_contracts(
     cmd: &Cmd,
-    workspace_root: &Path,
+    source_root: &Path,
+    extracted_root: Option<&Path>,
     _print: &Print,
 ) -> Result<Vec<BuiltContract>, super::Error> {
     let mut mc = MetadataCommand::new();
@@ -808,7 +1090,15 @@ fn collect_built_contracts(
         mc.manifest_path(p);
     }
     let md = mc.exec().map_err(Error::Metadata)?;
-    let target_dir = md.target_directory.as_std_path();
+    let host_target = md.target_directory.as_std_path();
+
+    // Where the build actually wrote artifacts. For an extracted-archive build
+    // that's `<extracted>/<host_target relative to source_root>`; otherwise the
+    // host target dir (the working tree was bind-mounted directly).
+    let src_target = match extracted_root {
+        Some(er) => er.join(host_target.strip_prefix(source_root).unwrap_or(host_target)),
+        None => host_target.to_path_buf(),
+    };
 
     let mut out = Vec::new();
     for p in &md.packages {
@@ -827,28 +1117,39 @@ fn collect_built_contracts(
             continue;
         }
         let wasm_name = p.name.replace('-', "_");
-        let path = Path::new(target_dir)
-            .join(WASM_TARGET)
+        let rel = Path::new(WASM_TARGET)
             .join(&cmd.profile)
             .join(format!("{wasm_name}.wasm"));
-        if let Some(out_dir) = &cmd.out_dir {
-            let dest = out_dir.join(format!("{wasm_name}.wasm"));
-            if path.exists() {
-                std::fs::create_dir_all(out_dir).map_err(super::Error::CreatingOutDir)?;
-                std::fs::copy(&path, &dest).map_err(super::Error::CopyingWasmFile)?;
-                out.push(BuiltContract {
-                    name: p.name.clone(),
-                    path: dest,
-                });
-                continue;
+        let src = src_target.join(&rel);
+
+        // Destination: --out-dir wins; else if the build ran in a tempdir, copy
+        // into the host target dir so the artifact survives; else leave in
+        // place (the working tree was mounted, so it's already on the host).
+        let dest = if let Some(out_dir) = &cmd.out_dir {
+            Some(out_dir.join(format!("{wasm_name}.wasm")))
+        } else if extracted_root.is_some() {
+            Some(host_target.join(&rel))
+        } else {
+            None
+        };
+
+        let path = match dest {
+            Some(dest) if src.exists() => {
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(super::Error::CreatingOutDir)?;
+                }
+                std::fs::copy(&src, &dest).map_err(super::Error::CopyingWasmFile)?;
+                dest
             }
-        }
+            // Source missing: report the intended dest (matches prior leniency).
+            Some(dest) => dest,
+            None => src,
+        };
         out.push(BuiltContract {
             name: p.name.clone(),
             path,
         });
     }
-    let _ = workspace_root;
     Ok(out)
 }
 
@@ -863,7 +1164,7 @@ mod tests {
     #[test]
     fn build_forwarded_args_defaults() {
         let cmd = Cmd::default();
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
         // Default optimize=true → bare `--optimize` recorded + forwarded.
         assert_eq!(
             forwarded,
@@ -882,12 +1183,31 @@ mod tests {
             package: Some("contract-a".to_string()),
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
         assert!(forwarded.contains(&"--features=a,b".to_string()));
         assert!(forwarded.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--features=a,b".to_string()));
         assert!(bldopts.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--locked".to_string()));
+    }
+
+    #[test]
+    fn build_forwarded_args_records_resolved_package_when_unspecified() {
+        // No `--package` on the cmd, but the caller resolved one (single
+        // default cdylib); it must still be forwarded and recorded.
+        let cmd = Cmd::default();
+        assert!(cmd.package.is_none());
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), Some("hello-world"), true);
+        assert!(forwarded.contains(&"--package=hello-world".to_string()));
+        assert!(bldopts.contains(&"--package=hello-world".to_string()));
+    }
+
+    #[test]
+    fn build_forwarded_args_omits_package_when_unresolved() {
+        let cmd = Cmd::default();
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), None, true);
+        assert!(!forwarded.iter().any(|a| a.starts_with("--package")));
+        assert!(!bldopts.iter().any(|a| a.starts_with("--package")));
     }
 
     #[test]
@@ -903,7 +1223,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
         assert!(forwarded.contains(&"--meta=home_domain=fnando.com".to_string()));
         assert!(forwarded.contains(&"--meta=author=alice".to_string()));
         assert!(forwarded.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
@@ -921,7 +1241,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), true);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
         assert!(forwarded.contains(&"--optimize=false".to_string()));
         assert!(bldopts.contains(&"--optimize=false".to_string()));
     }
@@ -935,7 +1255,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), false);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), false);
         // Old container's default is already false; record nothing.
         // Passing `--optimize=false` to a pre-26.1.0 cli would fail.
         assert!(!forwarded.iter().any(|a| a.starts_with("--optimize")));
@@ -949,12 +1269,10 @@ mod tests {
     }
 
     #[test]
-    fn build_metadata_args_source_repo_and_rev() {
+    fn build_metadata_args_uri_and_sha256() {
         let ids = SourceIds {
-            source_repo: Some("https://github.com/foo/bar".to_string()),
-            source_rev: Some("a".repeat(40)),
-            tarball_url: None,
-            tarball_sha256: None,
+            source_uri: Some("https://example.com/src.tar.gz".to_string()),
+            source_sha256: Some("a".repeat(64)),
         };
         let m = build_metadata_args(
             "docker.io/stellar/stellar-cli@sha256:abc",
@@ -962,126 +1280,171 @@ mod tests {
             &["--locked".to_string(), "--features=a".to_string()],
         );
         let p = pairs(&m);
-        // bldimg first; source-ids only for what's set; bldopts last.
+        // bldimg first; source_uri then source_sha256; bldopts last.
         assert_eq!(
             p[0],
             ("--meta", "bldimg=docker.io/stellar/stellar-cli@sha256:abc")
         );
-        assert_eq!(p[1], ("--meta", "source_repo=https://github.com/foo/bar"));
+        assert_eq!(
+            p[1],
+            ("--meta", "source_uri=https://example.com/src.tar.gz")
+        );
         assert_eq!(p[2].0, "--meta");
-        assert!(p[2].1.starts_with("source_rev="));
+        assert!(p[2].1.starts_with("source_sha256="));
         assert_eq!(p[3], ("--meta", "bldopt=--locked"));
         assert_eq!(p[4], ("--meta", "bldopt=--features=a"));
-        // No tarball entries emitted when those fields are None.
-        assert!(!m.iter().any(|s| s.starts_with("tarball_")));
     }
 
     #[test]
-    fn build_metadata_args_tarball_url_only() {
+    fn build_metadata_args_sha256_only_omits_uri() {
         let ids = SourceIds {
-            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
+            source_sha256: Some("f".repeat(64)),
             ..SourceIds::default()
         };
         let m = build_metadata_args("docker.io/stellar/stellar-cli@sha256:abc", &ids, &[]);
         assert!(m
             .iter()
-            .any(|s| s == "tarball_url=https://example.com/foo.tar.gz"));
-        assert!(!m.iter().any(|s| s.starts_with("source_")));
-        assert!(!m.iter().any(|s| s.starts_with("tarball_sha256=")));
+            .any(|s| s == &format!("source_sha256={}", "f".repeat(64))));
+        assert!(!m.iter().any(|s| s.starts_with("source_uri=")));
     }
 
     #[test]
-    fn build_metadata_args_tarball_pair() {
-        let ids = SourceIds {
-            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
-            tarball_sha256: Some("f".repeat(64)),
-            ..SourceIds::default()
-        };
-        let m = build_metadata_args("docker.io/stellar/stellar-cli@sha256:abc", &ids, &[]);
-        assert!(m
-            .iter()
-            .any(|s| s == "tarball_url=https://example.com/foo.tar.gz"));
-        assert!(m
-            .iter()
-            .any(|s| s == &format!("tarball_sha256={}", "f".repeat(64))));
-    }
-
-    #[test]
-    fn validate_source_ids_missing_all_errors() {
-        let cmd = Cmd::default();
-        let err = validate_source_ids(&cmd, ws()).unwrap_err();
-        assert!(matches!(err, Error::MissingSourceId));
-    }
-
-    #[test]
-    fn validate_source_ids_rejects_bad_source_rev_format() {
+    fn validate_source_formats_rejects_bad_sha256() {
         let cmd = Cmd {
-            source_repo: Some("https://github.com/foo/bar".to_string()),
-            source_rev: Some("not-a-sha".to_string()),
+            source_sha256: Some("not-a-sha".to_string()),
             ..Cmd::default()
         };
-        let err = validate_source_ids(&cmd, ws()).unwrap_err();
-        assert!(matches!(err, Error::SourceRevFormat { .. }));
+        let err = validate_source_formats(&cmd).unwrap_err();
+        assert!(matches!(err, Error::SourceSha256Format { .. }));
     }
 
     #[test]
-    fn validate_source_ids_rejects_bad_source_repo_format() {
+    fn validate_source_formats_rejects_bad_uri() {
         let cmd = Cmd {
-            source_repo: Some("foo/bar".to_string()), // missing scheme
-            source_rev: Some("a".repeat(40)),
+            source_uri: Some("not a uri".to_string()), // no scheme
+            source_sha256: Some("a".repeat(64)),
             ..Cmd::default()
         };
-        let err = validate_source_ids(&cmd, ws()).unwrap_err();
-        assert!(matches!(err, Error::SourceRepoFormat { .. }));
+        let err = validate_source_formats(&cmd).unwrap_err();
+        assert!(matches!(err, Error::SourceUriFormat { .. }));
     }
 
     #[test]
-    fn validate_source_ids_rejects_bad_tarball_url() {
+    fn validate_source_formats_accepts_valid_and_absent() {
+        // Both absent is fine here — requiredness is enforced in run().
+        validate_source_formats(&Cmd::default()).unwrap();
         let cmd = Cmd {
-            tarball_url: Some("ftp://example.com/foo.tar.gz".to_string()),
+            source_uri: Some("https://example.com/src.tar.gz".to_string()),
+            source_sha256: Some("f".repeat(64)),
             ..Cmd::default()
         };
-        let err = validate_source_ids(&cmd, ws()).unwrap_err();
-        assert!(matches!(err, Error::TarballUrlFormat { .. }));
+        validate_source_formats(&cmd).unwrap();
     }
 
     #[test]
-    fn validate_source_ids_rejects_short_tarball_sha256() {
-        let cmd = Cmd {
-            tarball_sha256: Some("abc".to_string()),
-            ..Cmd::default()
-        };
-        let err = validate_source_ids(&cmd, ws()).unwrap_err();
-        assert!(matches!(err, Error::TarballSha256Format { .. }));
+    fn is_denylisted_matches_names_and_dotted_suffixes() {
+        use std::ffi::OsStr;
+        // exact name matches
+        assert!(is_denylisted(OsStr::new("target")));
+        assert!(is_denylisted(OsStr::new(".git")));
+        assert!(is_denylisted(OsStr::new(".DS_Store")));
+        // plain names match exactly only
+        assert!(!is_denylisted(OsStr::new("mytarget")));
+        assert!(!is_denylisted(OsStr::new("targets")));
+        // dotted entries also match as suffix (extension-style)
+        assert!(is_denylisted(OsStr::new("backup.git")));
+        // unrelated files pass through
+        assert!(!is_denylisted(OsStr::new("Cargo.toml")));
+        assert!(!is_denylisted(OsStr::new("lib.rs")));
+    }
+
+    // Initialize a git repo at `root` with one commit of everything present.
+    #[cfg(unix)]
+    fn git_init_commit(root: &Path) {
+        for args in [
+            &["init", "-q", "-b", "main"][..],
+            &["add", "-A"][..],
+            &["commit", "-q", "-m", "init"][..],
+        ] {
+            let ok = Command::new("git")
+                .arg("-C")
+                .arg(root)
+                .args(args)
+                .env("GIT_AUTHOR_NAME", "T")
+                .env("GIT_AUTHOR_EMAIL", "t@e.x")
+                .env("GIT_COMMITTER_NAME", "T")
+                .env("GIT_COMMITTER_EMAIL", "t@e.x")
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok);
+        }
     }
 
     #[test]
-    fn validate_source_ids_accepts_tarball_url_alone() {
-        let cmd = Cmd {
-            tarball_url: Some("https://example.com/foo.tar.gz".to_string()),
-            ..Cmd::default()
-        };
-        let ids = validate_source_ids(&cmd, ws()).unwrap();
-        assert_eq!(
-            ids.tarball_url.as_deref(),
-            Some("https://example.com/foo.tar.gz")
-        );
-        assert!(ids.source_repo.is_none());
-        assert!(ids.source_rev.is_none());
-        assert!(ids.tarball_sha256.is_none());
+    #[cfg(unix)]
+    fn build_source_archive_git_is_prefixed_and_deterministic() {
+        use std::os::unix::fs::PermissionsExt;
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
+        git_init_commit(root);
+
+        let a = build_source_archive(root, &print).unwrap();
+        let b = build_source_archive(root, &print).unwrap();
+        assert!(!a.is_empty());
+        assert_eq!(a, b, "same commit should produce identical bytes");
+
+        let sha = hex::encode(Sha256::digest(&a));
+        assert_eq!(sha.len(), 64);
+
+        // Unpack and confirm the `source/` prefix + hardened perms.
+        let dest = tempfile::TempDir::new().unwrap();
+        unpack_targz(&a, dest.path()).unwrap();
+        assert!(dest.path().join("source/Cargo.toml").exists());
+        assert!(dest.path().join("source/src/lib.rs").exists());
+
+        enforce_hardened_tree(dest.path()).unwrap();
+        let file_mode = std::fs::metadata(dest.path().join("source/Cargo.toml"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        let dir_mode = std::fs::metadata(dest.path().join("source"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(file_mode, 0o600);
+        assert_eq!(dir_mode, 0o700);
     }
 
     #[test]
-    fn validate_source_ids_accepts_tarball_sha256_alone() {
-        let cmd = Cmd {
-            tarball_sha256: Some("f".repeat(64)),
-            ..Cmd::default()
-        };
-        let ids = validate_source_ids(&cmd, ws()).unwrap();
-        assert_eq!(
-            ids.tarball_sha256.as_deref(),
-            Some("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-        );
+    fn build_source_archive_non_git_excludes_denylist() {
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
+        // Planted dirs that must be excluded.
+        std::fs::create_dir_all(root.join("target/debug")).unwrap();
+        std::fs::write(root.join("target/debug/x"), b"junk").unwrap();
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git/config"), b"junk").unwrap();
+
+        let bytes = build_source_archive(root, &print).unwrap();
+        let dest = tempfile::TempDir::new().unwrap();
+        unpack_targz(&bytes, dest.path()).unwrap();
+
+        assert!(dest.path().join("source/Cargo.toml").exists());
+        assert!(dest.path().join("source/src/lib.rs").exists());
+        assert!(!dest.path().join("source/target").exists());
+        assert!(!dest.path().join("source/.git").exists());
+        assert_eq!(hex::encode(Sha256::digest(&bytes)).len(), 64);
     }
 
     #[test]
@@ -1114,33 +1477,20 @@ mod tests {
     }
 
     #[test]
-    fn source_rev_regex_matches_40_hex() {
-        assert!(source_rev_regex().is_match(&"a".repeat(40)));
-        assert!(!source_rev_regex().is_match(&"a".repeat(39)));
-        assert!(!source_rev_regex().is_match(&"A".repeat(40))); // upper-case rejected
+    fn source_sha256_regex_matches_64_hex() {
+        assert!(source_sha256_regex().is_match(&"f".repeat(64)));
+        assert!(!source_sha256_regex().is_match(&"f".repeat(63)));
+        assert!(!source_sha256_regex().is_match(&"F".repeat(64))); // upper-case rejected
     }
 
     #[test]
-    fn source_repo_regex_accepts_https_and_github_shorthand() {
-        assert!(source_repo_regex().is_match("https://github.com/foo/bar"));
-        assert!(source_repo_regex().is_match("http://example.com/foo.git"));
-        assert!(source_repo_regex().is_match("github:foo/bar"));
-        assert!(!source_repo_regex().is_match("foo/bar"));
-        assert!(!source_repo_regex().is_match("git@github.com:foo/bar.git"));
-    }
-
-    #[test]
-    fn tarball_url_regex_accepts_http_only() {
-        assert!(tarball_url_regex().is_match("https://example.com/foo.tar.gz"));
-        assert!(tarball_url_regex().is_match("http://example.com/foo.tar.gz"));
-        assert!(!tarball_url_regex().is_match("ftp://example.com/foo.tar.gz"));
-    }
-
-    #[test]
-    fn tarball_sha256_regex_matches_64_hex() {
-        assert!(tarball_sha256_regex().is_match(&"f".repeat(64)));
-        assert!(!tarball_sha256_regex().is_match(&"f".repeat(63)));
-        assert!(!tarball_sha256_regex().is_match(&"F".repeat(64)));
+    fn source_uri_regex_accepts_any_scheme() {
+        assert!(source_uri_regex().is_match("https://example.com/src.tar.gz"));
+        assert!(source_uri_regex().is_match("http://example.com/foo.git"));
+        assert!(source_uri_regex().is_match("ipfs://Qm...abc"));
+        assert!(source_uri_regex().is_match("github:foo/bar"));
+        assert!(!source_uri_regex().is_match("foo/bar")); // no scheme
+        assert!(!source_uri_regex().is_match("https://has space")); // whitespace
     }
 
     #[test]
@@ -1196,7 +1546,7 @@ mod tests {
 
     #[test]
     fn reserved_meta_keys_list() {
-        for key in ["bldimg", "source_rev", "bldopt"] {
+        for key in ["bldimg", "source_uri", "source_sha256", "bldopt"] {
             assert!(RESERVED_META_KEYS.contains(&key));
         }
     }
