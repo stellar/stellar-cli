@@ -109,9 +109,9 @@ pub fn contract_id_from_str(
             // strkey failed, try to parse it as a hex string, for backwards compatibility.
             stellar_strkey::Contract(
                 soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
-                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?
+                    .map_err(|_| stellar_strkey::DecodeError::InvalidPayloadLength)?
                     .try_into()
-                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?,
+                    .map_err(|_| stellar_strkey::DecodeError::InvalidPayloadLength)?,
             )
         },
     )

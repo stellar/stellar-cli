@@ -1870,7 +1870,7 @@ dependencies = [
  "embedded-io-async",
  "futures-sink",
  "futures-util",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]
@@ -2453,6 +2453,17 @@ checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
  "hash32",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
+ "zeroize",
 ]
 
 [[package]]
@@ -5442,7 +5453,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.17",
  "stellar-xdr",
  "strsim",
  "strum 0.17.1",
@@ -5654,7 +5665,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.17",
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
@@ -5709,7 +5720,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.17",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5830,7 +5841,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sha2 0.10.9",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.17",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5880,14 +5891,26 @@ version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "084afcb0d458c3d5d5baa2d294b18f881e62cc258ef539d8fdf68be7dbe45520"
 dependencies = [
- "clap",
  "crate-git-revision 0.0.6",
  "data-encoding",
- "heapless",
+ "heapless 0.8.0",
+]
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0247b168bdee20244445e3d9cdea697dde6211e88742dd04acfd1b498661e936"
+dependencies = [
+ "clap",
+ "crate-git-revision 0.0.9",
+ "data-encoding",
+ "heapless 0.9.3",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]

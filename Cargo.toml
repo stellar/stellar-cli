@@ -75,7 +75,7 @@ version = "26.0.0"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
-stellar-strkey = "0.0.16"
+stellar-strkey = "0.0.17"
 sep5 = "0.1.0"
 base64 = "0.21.2"
 thiserror = "1.0.46"
