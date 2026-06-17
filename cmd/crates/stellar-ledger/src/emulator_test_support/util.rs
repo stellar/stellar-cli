@@ -192,20 +192,29 @@ pub async fn get_emulator_events_with_retries(
     }
 }
 
-pub async fn approve_tx_hash_signature(ui_host_port: u16, device_model: String) {
+pub async fn approve_tx_hash_signature(ui_host_port: u16, _device_model: String) {
     wait_for_review_transaction_text(ui_host_port).await;
-    let number_of_right_clicks = if device_model == "nanos" { 10 } else { 6 };
-    for _ in 0..number_of_right_clicks {
-        click(ui_host_port, "button/right").await;
-    }
-
-    click(ui_host_port, "button/both").await;
+    advance_to_approve_and_confirm(ui_host_port).await;
 }
 
-pub async fn approve_tx_signature(ui_host_port: u16, device_model: String) {
-    let number_of_right_clicks = if device_model == "nanos" { 17 } else { 11 };
-    for _ in 0..number_of_right_clicks {
+pub async fn approve_tx_signature(ui_host_port: u16, _device_model: String) {
+    wait_for_review_transaction_text(ui_host_port).await;
+    advance_to_approve_and_confirm(ui_host_port).await;
+}
+
+// Right-click through the device review screens until the on-screen text
+// shows "Approve", then click both buttons to confirm. Replaces hard-coded
+// click counts that needed recalibration for every change in transaction
+// shape, device model, or app version.
+async fn advance_to_approve_and_confirm(ui_host_port: u16) {
+    const MAX_CLICKS: usize = 50;
+    for _ in 0..MAX_CLICKS {
+        let events = get_emulator_events(ui_host_port).await;
+        if events.iter().any(|event| event.text == "Approve") {
+            click(ui_host_port, "button/both").await;
+            return;
+        }
         click(ui_host_port, "button/right").await;
     }
-    click(ui_host_port, "button/both").await;
+    panic!("Approve screen not reached after {MAX_CLICKS} right-clicks");
 }

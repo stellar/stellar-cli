@@ -1,7 +1,6 @@
 use crate::{
     log::format_auth_entry,
     signer::ledger::LedgerEntry,
-    utils::fee_bump_transaction_hash,
     xdr::{
         self, AccountId, DecoratedSignature, FeeBumpTransactionEnvelope, Hash, HashIdPreimage,
         HashIdPreimageSorobanAuthorization, Limits, MuxedAccount, Operation, OperationBody,
@@ -13,7 +12,7 @@ use crate::{
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
-use crate::{config::network::Network, print::Print, utils::transaction_hash};
+use crate::{config::network::Network, print::Print, utils::transaction_env_hash};
 use std::io::{self, BufRead, IsTerminal};
 
 pub mod ledger;
@@ -320,12 +319,12 @@ impl Signer {
         tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<TransactionEnvelope, Error> {
-        match &tx_env {
+        if matches!(tx_env, TransactionEnvelope::TxV0(_)) {
+            return Err(Error::UnsupportedTransactionEnvelopeType);
+        }
+        let decorated_signature = self.produce_signature(tx_env, network).await?;
+        match tx_env {
             TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-                let tx_hash = transaction_hash(tx, &network.network_passphrase)?;
-                self.print
-                    .infoln(format!("Signing transaction: {}", hex::encode(tx_hash)));
-                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::Tx(TransactionV1Envelope {
@@ -334,12 +333,6 @@ impl Signer {
                 }))
             }
             TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, signatures }) => {
-                let tx_hash = fee_bump_transaction_hash(tx, &network.network_passphrase)?;
-                self.print.infoln(format!(
-                    "Signing fee bump transaction: {}",
-                    hex::encode(tx_hash),
-                ));
-                let decorated_signature = self.sign_tx_hash(tx_hash, tx_env, network).await?;
                 let mut sigs = signatures.clone().into_vec();
                 sigs.push(decorated_signature);
                 Ok(TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope {
@@ -373,19 +366,37 @@ impl Signer {
         }
     }
 
-    async fn sign_tx_hash(
+    async fn produce_signature(
         &self,
-        tx_hash: [u8; 32],
         tx_env: &TransactionEnvelope,
         network: &Network,
     ) -> Result<DecoratedSignature, Error> {
         match &self.kind {
-            SignerKind::Local(key) => key.sign_tx_hash(tx_hash),
+            SignerKind::Ledger(ledger) => ledger
+                .sign_tx_env(tx_env, &network.network_passphrase, &self.print)
+                .await
+                .map_err(Error::from),
             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
-            SignerKind::Ledger(ledger) => ledger.sign_tx_hash(tx_hash).await.map_err(Error::from),
-            SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash),
+            SignerKind::Local(key) => {
+                let tx_hash = transaction_env_hash(tx_env, &network.network_passphrase)?;
+                self.print.infoln(format_signing_message(tx_env, tx_hash));
+                key.sign_tx_hash(tx_hash)
+            }
+            SignerKind::SecureStore(entry) => {
+                let tx_hash = transaction_env_hash(tx_env, &network.network_passphrase)?;
+                self.print.infoln(format_signing_message(tx_env, tx_hash));
+                entry.sign_tx_hash(tx_hash)
+            }
         }
     }
+}
+
+fn format_signing_message(tx_env: &TransactionEnvelope, tx_hash: [u8; 32]) -> String {
+    let label = match tx_env {
+        TransactionEnvelope::TxFeeBump(_) => "fee bump transaction",
+        _ => "transaction",
+    };
+    format!("Signing {label}: {}", hex::encode(tx_hash))
 }
 
 pub struct LocalKey {

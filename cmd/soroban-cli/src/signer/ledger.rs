@@ -1,6 +1,37 @@
 use crate::xdr;
+#[cfg(feature = "additional-libs")]
+use crate::xdr::{OperationBody, Transaction, TransactionEnvelope};
 
 pub use ledger_impl::*;
+
+// Operations the Ledger Stellar app cannot pretty-print. When any of these
+// appears in the envelope, the device falls into hash-signing mode (requires
+// `Hash Signing` enabled in app settings); sending `SIGN_TX` (0x04) for them
+// ends up at the same UX as `SIGN_TX_HASH` (0x08) but with extra device-side
+// parsing churn, so the CLI sends the hash directly.
+#[cfg(feature = "additional-libs")]
+pub(super) fn is_soroban_tx(tx: &Transaction) -> bool {
+    tx.operations.iter().any(|op| {
+        matches!(
+            op.body,
+            OperationBody::InvokeHostFunction(_)
+                | OperationBody::ExtendFootprintTtl(_)
+                | OperationBody::RestoreFootprint(_),
+        )
+    })
+}
+
+#[cfg(feature = "additional-libs")]
+pub(super) fn is_soroban_tx_env(tx_env: &TransactionEnvelope) -> bool {
+    match tx_env {
+        TransactionEnvelope::Tx(v1) => is_soroban_tx(&v1.tx),
+        TransactionEnvelope::TxFeeBump(fb) => {
+            let xdr::FeeBumpTransactionInnerTx::Tx(inner) = &fb.tx.inner_tx;
+            is_soroban_tx(&inner.tx)
+        }
+        TransactionEnvelope::TxV0(_) => false,
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,15 +47,26 @@ pub enum Error {
 
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+
+    #[error("Transaction envelope type not supported for Ledger signing")]
+    UnsupportedTransactionEnvelopeType,
 }
 
 #[cfg(feature = "additional-libs")]
 mod ledger_impl {
-    use super::Error;
-    use crate::xdr::{DecoratedSignature, Hash, Signature, SignatureHint, Transaction};
+    use super::{is_soroban_tx_env, Error};
+    use crate::{
+        print::Print,
+        utils::transaction_env_hash,
+        xdr::{
+            DecoratedSignature, Hash, Signature, SignatureHint, TransactionEnvelope,
+            TransactionV1Envelope,
+        },
+    };
     use ed25519_dalek::Signature as Ed25519Signature;
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
+    use stellar_xdr::curr::FeeBumpTransactionEnvelope;
 
     #[cfg(not(feature = "emulator-tests"))]
     pub type LedgerType = Ledger<stellar_ledger::TransportNativeHID>;
@@ -41,22 +83,67 @@ mod ledger_impl {
     }
 
     impl LedgerEntry {
-        pub async fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+        // Sign a transaction envelope on the Ledger device.
+        //
+        // Classic envelopes are clear-signed (APDU SIGN_TX, 0x04): the full
+        // `TransactionSignaturePayload` is sent so the device parses and
+        // displays each operation for verification.
+        //
+        // Soroban envelopes (envelopes containing `InvokeHostFunction`,
+        // `ExtendFootprintTtl`, or `RestoreFootprint`) are blind-signed (APDU
+        // SIGN_TX_HASH, 0x08): the Ledger Stellar app cannot pretty-print
+        // those operations, so the device shows the transaction hash and
+        // requires `Hash Signing` enabled in app settings.
+        pub async fn sign_tx_env(
+            &self,
+            tx_env: &TransactionEnvelope,
+            network_passphrase: &str,
+            print: &Print,
+        ) -> Result<DecoratedSignature, Error> {
             let live = new(self.hd_path).await?;
             let key = match self.public_key {
                 Some(pk) => pk,
                 None => live.public_key().await?,
             };
             let hint = SignatureHint(key.0[28..].try_into()?);
-            let signature = Signature(
+
+            let signature_bytes = if is_soroban_tx_env(tx_env) {
+                let tx_hash = transaction_env_hash(tx_env, network_passphrase)?;
+                print.infoln(format!(
+                    "Approve the transaction {} on your Ledger device…",
+                    hex::encode(tx_hash),
+                ));
                 live.signer
                     .sign_transaction_hash(live.index, &tx_hash)
                     .await?
-                    .try_into()?,
-            );
-            Ok(DecoratedSignature { hint, signature })
+            } else {
+                print.infoln("Approve the transaction on your Ledger device…");
+                let network_id = Hash(Sha256::digest(network_passphrase).into());
+                match tx_env {
+                    TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) => {
+                        live.signer
+                            .sign_transaction(live.index, tx.clone(), network_id)
+                            .await?
+                    }
+                    TransactionEnvelope::TxFeeBump(FeeBumpTransactionEnvelope { tx, .. }) => {
+                        live.signer
+                            .sign_fee_bump_transaction(live.index, tx.clone(), network_id)
+                            .await?
+                    }
+                    TransactionEnvelope::TxV0(_) => {
+                        return Err(Error::UnsupportedTransactionEnvelopeType);
+                    }
+                }
+            };
+
+            Ok(DecoratedSignature {
+                hint,
+                signature: Signature(signature_bytes.try_into()?),
+            })
         }
 
+        // Blind-sign a 32-byte payload. Used for Soroban authorization-entry
+        // preimage digests, which have no on-device pretty-print.
         pub async fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
             let live = new(self.hd_path).await?;
             let bytes = live
@@ -102,22 +189,6 @@ mod ledger_impl {
     }
 
     impl<T: Exchange> Ledger<T> {
-        pub async fn sign_transaction(
-            &self,
-            tx: Transaction,
-            network_passphrase: &str,
-        ) -> Result<DecoratedSignature, Error> {
-            let network_id = Hash(Sha256::digest(network_passphrase).into());
-            let signature = self
-                .signer
-                .sign_transaction(self.index, tx, network_id)
-                .await?;
-            let key = self.public_key().await?;
-            let hint = SignatureHint(key.0[28..].try_into()?);
-            let signature = Signature(signature.try_into()?);
-            Ok(DecoratedSignature { hint, signature })
-        }
-
         pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
             Ok(self.signer.get_public_key(&self.index.into()).await?)
         }
@@ -127,7 +198,10 @@ mod ledger_impl {
 #[cfg(not(feature = "additional-libs"))]
 mod ledger_impl {
     use super::Error;
-    use crate::xdr::{DecoratedSignature, Transaction};
+    use crate::{
+        print::Print,
+        xdr::{DecoratedSignature, TransactionEnvelope},
+    };
     use ed25519_dalek::Signature as Ed25519Signature;
     use std::marker::PhantomData;
 
@@ -145,7 +219,12 @@ mod ledger_impl {
 
     impl LedgerEntry {
         #[allow(clippy::unused_async)]
-        pub async fn sign_tx_hash(&self, _tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+        pub async fn sign_tx_env(
+            &self,
+            _tx_env: &TransactionEnvelope,
+            _network_passphrase: &str,
+            _print: &Print,
+        ) -> Result<DecoratedSignature, Error> {
             Err(Error::FeatureNotEnabled)
         }
 
@@ -161,15 +240,6 @@ mod ledger_impl {
     }
 
     impl<T: Exchange> Ledger<T> {
-        #[allow(clippy::unused_async)]
-        pub async fn sign_transaction(
-            &self,
-            _tx: Transaction,
-            _network_passphrase: &str,
-        ) -> Result<DecoratedSignature, Error> {
-            Err(Error::FeatureNotEnabled)
-        }
-
         #[allow(clippy::unused_async)]
         pub async fn public_key(&self) -> Result<stellar_strkey::ed25519::PublicKey, Error> {
             Err(Error::FeatureNotEnabled)
