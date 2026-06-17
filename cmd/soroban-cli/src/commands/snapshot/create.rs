@@ -14,7 +14,7 @@ use std::{
     str::FromStr,
     time::{Duration, Instant},
 };
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, AccountId, Asset, BucketEntry, ConfigSettingEntry, ContractExecutable, Frame,
     Hash, LedgerEntryData, LedgerHeaderHistoryEntry, LedgerKey, Limited, Limits, ReadXdr,
     ScAddress, ScContractInstance, ScVal,
@@ -498,7 +498,7 @@ impl Cmd {
     // C-address or a contract alias.
     fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
         address.parse().ok().or_else(|| {
-            Some(ScAddress::Contract(stellar_xdr::curr::ContractId(
+            Some(ScAddress::Contract(stellar_xdr::ContractId(
                 self.locator
                     .resolve_contract_id(address, network_passphrase)
                     .ok()?

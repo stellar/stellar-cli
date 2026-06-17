@@ -12,8 +12,15 @@ pub fn format_auth_entry(entry: &SorobanAuthorizationEntry) -> String {
     let mut result = String::from("  Auth Entry:\n");
 
     match &entry.credentials {
-        SorobanCredentials::Address(creds) => {
+        SorobanCredentials::Address(creds) | SorobanCredentials::AddressV2(creds) => {
             let _ = writeln!(result, "    Signer: {}", format_address(&creds.address));
+        }
+        SorobanCredentials::AddressWithDelegates(creds) => {
+            let _ = writeln!(
+                result,
+                "    Signer: {}",
+                format_address(&creds.address_credentials.address)
+            );
         }
         SorobanCredentials::SourceAccount => {
             result.push_str("    Signer: <source account>\n");
@@ -147,7 +154,7 @@ fn format_address(address: &ScAddress) -> String {
                 ))
             )
         }
-        ScAddress::Contract(stellar_xdr::curr::ContractId(stellar_xdr::curr::Hash(bytes))) => {
+        ScAddress::Contract(stellar_xdr::ContractId(stellar_xdr::Hash(bytes))) => {
             format!(
                 "{}",
                 stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*bytes))

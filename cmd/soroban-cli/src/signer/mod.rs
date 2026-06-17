@@ -122,7 +122,7 @@ pub async fn sign_soroban_authorizations(
             ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
             ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
-            ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(c))) => {
+            ScAddress::Contract(stellar_xdr::ContractId(Hash(c))) => {
                 // This address is for a contract. This means we're using a custom
                 // smart-contract account. Currently the CLI doesn't support that yet.
                 return Err(Error::MissingSignerForAddress {
@@ -498,7 +498,7 @@ mod tests {
 
     fn invoke_args(contract: [u8; 32], fn_name: &str) -> InvokeContractArgs {
         InvokeContractArgs {
-            contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract))),
+            contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(contract))),
             function_name: ScSymbol(fn_name.try_into().unwrap()),
             args: VecM::default(),
         }

@@ -12,7 +12,7 @@ use crate::{
     xdr,
 };
 
-use stellar_xdr::curr::ContractId;
+use stellar_xdr::ContractId;
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[command(group(

@@ -57,11 +57,11 @@ impl UnresolvedScAddress {
                 eprintln!(
                     "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
                 );
-                Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+                Ok(xdr::ScAddress::Contract(stellar_xdr::ContractId(
                     xdr::Hash(contract.0),
                 )))
             }
-            (Ok(contract), _) => Ok(xdr::ScAddress::Contract(stellar_xdr::curr::ContractId(
+            (Ok(contract), _) => Ok(xdr::ScAddress::Contract(stellar_xdr::ContractId(
                 xdr::Hash(contract.0),
             ))),
             (_, Ok(key)) => Ok(xdr::ScAddress::Account(

@@ -15,7 +15,7 @@ use std::{
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
@@ -190,7 +190,7 @@ pub enum Error {
     CargoConfiguration(String),
 
     #[error(transparent)]
-    Xdr(#[from] stellar_xdr::curr::Error),
+    Xdr(#[from] stellar_xdr::Error),
 
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
@@ -818,7 +818,7 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
 /// to a single occurrence.
 #[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
-    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
+    entries: Vec<stellar_xdr::ScSpecEntry>,
     markers: &HashSet<soroban_spec::shaking::Marker>,
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();

@@ -4,7 +4,7 @@ use std::{
     io::{self, Cursor},
 };
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion,
     ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
     ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,

@@ -5,7 +5,7 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
 };
-use stellar_xdr::curr::{ContractDataEntry, ContractExecutable, ScVal};
+use stellar_xdr::{ContractDataEntry, ContractExecutable, ScVal};
 
 use crate::{
     config::{

@@ -6,7 +6,7 @@
 use std::path::Path;
 
 pub(crate) use soroban_rpc as rpc;
-pub use stellar_xdr::curr as xdr;
+pub use stellar_xdr as xdr;
 
 mod cli;
 pub use cli::main;

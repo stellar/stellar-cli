@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 use serde_json::{json, Value};
-use stellar_xdr::curr::{
+use stellar_xdr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
     Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
     ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
@@ -1480,7 +1480,7 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::curr::{Duration, ScMap, ScSpecTypeBytesN, TimePoint};
+    use stellar_xdr::{Duration, ScMap, ScSpecTypeBytesN, TimePoint};
 
     const CUSTOM_TYPES_WASM: &[u8] =
         include_bytes!("../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm");
@@ -2331,7 +2331,7 @@ mod tests {
             name: ScSymbol(name.try_into().unwrap()),
             prefix_topics: VecM::default(),
             params: VecM::default(),
-            data_format: stellar_xdr::curr::ScSpecEventDataFormat::SingleValue,
+            data_format: stellar_xdr::ScSpecEventDataFormat::SingleValue,
         }
     }
 

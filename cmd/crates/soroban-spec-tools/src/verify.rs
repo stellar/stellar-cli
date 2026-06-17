@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     ScSpecEntry, ScSpecTypeDef as ScType, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
     ScSpecUdtUnionCaseV0,
 };
@@ -215,7 +215,7 @@ fn collect_udt_names(type_def: &ScType) -> Vec<String> {
 mod tests {
     use std::str::FromStr;
 
-    use stellar_xdr::curr::{
+    use stellar_xdr::{
         ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
         ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScSymbol, StringM,
     };
@@ -237,7 +237,7 @@ mod tests {
             name: StringM::from_str(name).unwrap(),
             fields: field_types
                 .into_iter()
-                .map(|(fname, ftype)| stellar_xdr::curr::ScSpecUdtStructFieldV0 {
+                .map(|(fname, ftype)| stellar_xdr::ScSpecUdtStructFieldV0 {
                     doc: StringM::default(),
                     name: StringM::from_str(fname).unwrap(),
                     type_: ftype,
@@ -254,7 +254,7 @@ mod tests {
             name: ScSymbol(name.try_into().unwrap()),
             inputs: inputs
                 .into_iter()
-                .map(|(n, t)| stellar_xdr::curr::ScSpecFunctionInputV0 {
+                .map(|(n, t)| stellar_xdr::ScSpecFunctionInputV0 {
                     doc: StringM::default(),
                     name: StringM::from_str(n).unwrap(),
                     type_: t,

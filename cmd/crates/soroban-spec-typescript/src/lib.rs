@@ -9,7 +9,7 @@ use std::{fs, io};
 use crate::types::Type;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
-use stellar_xdr::curr::{Limits, ScSpecEntry, WriteXdr};
+use stellar_xdr::{Limits, ScSpecEntry, WriteXdr};
 
 use types::{Entry, ErrorEnumCase};
 
@@ -25,7 +25,7 @@ pub enum GenerateFromFileError {
     #[error("sha256 does not match, expected: {expected}")]
     VerifySha256 { expected: String },
     #[error("parsing contract spec: {0}")]
-    Parse(stellar_xdr::curr::Error),
+    Parse(stellar_xdr::Error),
     #[error("getting contract spec: {0}")]
     GetSpec(FromWasmError),
 }

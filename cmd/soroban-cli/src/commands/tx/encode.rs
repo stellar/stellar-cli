@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 use std::ffi::OsString;
-use stellar_xdr::{cli::Channel, curr::TypeVariant};
+use stellar_xdr::TypeVariant;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -60,7 +60,7 @@ impl Cmd {
             input_format: self.input_format.into(),
             output_format: self.output_format.into(),
         };
-        cmd.run(&Channel::Curr)?;
+        cmd.run()?;
         Ok(())
     }
 }
