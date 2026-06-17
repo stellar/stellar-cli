@@ -19,6 +19,7 @@ use std::{
 
 use ignore::WalkBuilder;
 
+use crate::config::{data, locator::enforce_hardened_tree};
 use crate::print::Print;
 
 /// Names that usually shouldn't end up in a source archive — VCS metadata of
@@ -74,6 +75,9 @@ pub enum Error {
 
     #[error("could not extract source archive: {0}")]
     ArchiveExtract(std::io::Error),
+
+    #[error(transparent)]
+    Data(#[from] data::Error),
 }
 
 /// The source tree's root: always the current working directory. The archive is
@@ -299,6 +303,37 @@ pub(crate) fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
     tar::Archive::new(dec)
         .unpack(dest)
         .map_err(Error::ArchiveExtract)
+}
+
+/// Create a fresh temp directory, unpack the gzipped source tarball `bytes` into
+/// it, harden its permissions, and return the guard (the tree lives at its
+/// `path()`). Shared by `build --verifiable` (builds from the extracted copy)
+/// and `verify` (rebuilds from it); `prefix` names the dir so the two are
+/// distinguishable on disk.
+///
+/// The temp dir is created under `<data dir>/tmp`, NOT the OS temp dir: on macOS
+/// `$TMPDIR` lives under /var/folders, which container VMs (Docker Desktop,
+/// Colima, …) don't share by default, so a bind mount of it would be empty
+/// inside the container. The data dir lives under the user's home, which is
+/// shared. Corralling every extraction under a single `tmp/` keeps a leftover
+/// from an interrupted run isolated in one obviously-disposable place rather
+/// than loose alongside `archives/`.
+pub(crate) fn extract_into_hardened_tempdir(
+    bytes: &[u8],
+    prefix: &str,
+) -> Result<tempfile::TempDir, Error> {
+    let base = data::data_local_dir()?.join("tmp");
+    std::fs::create_dir_all(&base).map_err(|source| Error::ArchiveWrite {
+        path: base.clone(),
+        source,
+    })?;
+    let tmp = tempfile::Builder::new()
+        .prefix(prefix)
+        .tempdir_in(&base)
+        .map_err(Error::ArchiveExtract)?;
+    unpack_targz(bytes, tmp.path())?;
+    enforce_hardened_tree(tmp.path()).map_err(Error::ArchiveExtract)?;
+    Ok(tmp)
 }
 
 #[cfg(test)]
