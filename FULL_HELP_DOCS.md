@@ -395,12 +395,11 @@ To view the commands that will be executed, without executing them, use the --pr
 
 ###### **Verifiable:**
 
-- `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_rev`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
+- `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
 - `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
-- `--source-repo <SOURCE_REPO>` — SEP-58 source identification: HTTPS URL (or `github:user/repo`) of the source repository. Must be passed together with `--source-rev`
-- `--source-rev <SOURCE_REV>` — SEP-58 source identification: 40-char SHA-1 of the source commit. The local workspace must be a git repo at this exact SHA with a clean working tree. Must be passed together with `--source-repo`
-- `--tarball-url <TARBALL_URL>` — SEP-58 source identification: URL where the source tarball can be downloaded
-- `--tarball-sha256 <TARBALL_SHA256>` — SEP-58 source identification: SHA-256 of the source tarball bytes
+- `--source-sha256 <SOURCE_SHA256>` — SEP-58 source identification: SHA-256 of the source archive/tree (recorded as the `source_sha256` meta entry). Required with `--verifiable` unless `--archive` is used, which generates the archive and computes this for you
+- `--source-uri <SOURCE_URI>` — SEP-58 source identification: URI where the source can be obtained, e.g. `https://example.com/src.tar.gz` (recorded as the `source_uri` meta entry). Optional; when set it must accompany `--source-sha256`
+- `--archive <ARCHIVE>` — Generate a source archive for the verifiable build, then build from it and record its SHA-256 as the SEP-58 `source_sha256` meta entry. Pass a path to choose where the gzipped tarball is written; with no path it goes to the data dir's `archives/`. In a git repo the archive is `git archive HEAD`; otherwise the working directory is archived minus a built-in denylist (.git, .svn, .hg, target/, node_modules/, .DS_Store)
 - `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by `--verifiable`
 
 ## `stellar contract extend`
