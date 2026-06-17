@@ -66,6 +66,8 @@ pub struct Cmd {
     pub alias: Option<AliasName>,
     #[command(flatten)]
     pub resources: resources::Args,
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
@@ -156,6 +158,9 @@ pub enum Error {
     #[error(transparent)]
     Build(#[from] build::Error),
 
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
+
     #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
     NoBuildableContracts,
 
@@ -179,6 +184,8 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
             return Err(Error::BuildOnlyNotSupported);
         }
@@ -303,6 +310,8 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = Print::new(quiet);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let is_build = self.build_only;
@@ -314,6 +323,7 @@ impl Cmd {
                     wasm: Some(wasm.clone()),
                     config: config.clone(),
                     resources: self.resources.clone(),
+                    auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
@@ -373,25 +383,24 @@ impl Cmd {
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
-        let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
-            if func.inputs.is_empty() {
-                None
-            } else {
-                let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
-                slop.extend_from_slice(&self.slop);
-                Some(
-                    arg_parsing::build_constructor_parameters(
+        let (constructor_params, constructor_signers) =
+            if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
+                if func.inputs.is_empty() {
+                    (None, vec![])
+                } else {
+                    let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+                    slop.extend_from_slice(&self.slop);
+                    let (_, _, invoke_args, signers) = arg_parsing::build_constructor_parameters(
                         &stellar_strkey::Contract(contract_id.0),
                         &slop,
                         &entries,
                         config,
-                    )?
-                    .2,
-                )
-            }
-        } else {
-            None
-        };
+                    )?;
+                    (Some(invoke_args), signers)
+                }
+            } else {
+                (None, vec![])
+            };
 
         // For network operations, verify the network passphrase
         client
@@ -415,8 +424,17 @@ impl Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
-            .await?;
+        sim_sign_and_send_tx::<Error>(
+            &client,
+            &txn,
+            config,
+            &self.resources,
+            &constructor_signers,
+            self.auth_mode.to_rpc(),
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);

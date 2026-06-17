@@ -214,6 +214,9 @@ impl Cmd {
             config,
             &self.resources,
             &[],
+            // Footprint restore is not an InvokeHostFunction op, so the RPC does
+            // not accept an auth mode.
+            None,
             quiet,
             no_cache,
         )

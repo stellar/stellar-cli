@@ -36,6 +36,9 @@ pub struct Cmd {
     /// Allow this many extra instructions when budgeting resources during transaction simulation
     #[arg(long)]
     pub instruction_leeway: Option<u64>,
+
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
 }
 
 impl Cmd {
@@ -58,7 +61,14 @@ impl Cmd {
         let resource_config = self
             .instruction_leeway
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
-        let tx = simulate_and_assemble_transaction(&client, &tx, resource_config, None).await?;
+        let tx = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            resource_config,
+            None,
+            self.auth_mode.to_rpc(),
+        )
+        .await?;
         if let Some(fee_bump_fee) = tx.fee_bump_fee() {
             print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
         }
