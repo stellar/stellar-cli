@@ -204,10 +204,18 @@ pub async fn run(
     // `--verbose` because verifications are run as part of pipelines. All
     // per-package builds run in one container so the crates download, compiled
     // deps, and target/ are shared.
+    let env: Vec<String> = cmd
+        .build_args
+        .env
+        .iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect();
+
     run_in_container(
         &image_ref,
         &resolved.mount_root,
         &container_cmds,
+        &env,
         &docker,
         print,
         true,
@@ -415,12 +423,26 @@ fn build_forwarded_args(
     let mut forwarded: Vec<String> = Vec::new();
     let mut bldopts: Vec<String> = Vec::new();
 
-    let mut record = |arg: String| {
-        forwarded.push(arg.clone());
-        bldopts.push(arg);
+    // Record a build option. `None` means a bare flag (`--locked`); `Some(v)`
+    // means `--flag=v`. The forwarded copy keeps the value raw (the container
+    // gets it as argv, and `compose_shell_command` re-escapes it for the
+    // multi-package `sh -c`); the bldopt copy shell-escapes the value once, here
+    // at the source, so every recorded option is valid shell on its own and no
+    // consumer has to split a flag from its value later. For `key=value`
+    // payloads (`--meta`, `--env`) the key goes in `key` (`--meta=home_domain`)
+    // and only the value is escaped, keeping `--env=B='nice value'` rather than
+    // `'--env=B=nice value'`.
+    let mut record = |key: &str, value: Option<&str>| {
+        if let Some(v) = value {
+            forwarded.push(format!("{key}={v}"));
+            bldopts.push(format!("{key}={}", shell_escape::escape(v.into())));
+        } else {
+            forwarded.push(key.to_string());
+            bldopts.push(key.to_string());
+        }
     };
 
-    record("--locked".to_string());
+    record("--locked", None);
 
     if let Some(path) = &cmd.manifest_path {
         let abs = std::path::absolute(path).unwrap_or_else(|_| path.clone());
@@ -428,30 +450,28 @@ fn build_forwarded_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        record(format!("--manifest-path={}", rel.display()));
+        record("--manifest-path", Some(rel.display().to_string().as_str()));
     }
     if cmd.profile != "release" {
-        record(format!("--profile={}", cmd.profile));
+        record("--profile", Some(cmd.profile.as_str()));
     }
     if let Some(features) = &cmd.features {
-        record(format!("--features={features}"));
+        record("--features", Some(features.as_str()));
     }
     if cmd.all_features {
-        record("--all-features".to_string());
+        record("--all-features", None);
     }
     if cmd.no_default_features {
-        record("--no-default-features".to_string());
+        record("--no-default-features", None);
     }
     // Always pin the package when it can be resolved (explicit `--package`, or
     // a workspace that builds exactly one cdylib by default) so the recorded
     // bldopt stays reproducible even if workspace default members change later.
     if let Some(pkg) = package {
-        record(format!("--package={pkg}"));
+        record("--package", Some(pkg));
     }
     for (k, v) in &cmd.build_args.meta {
-        // Use the `--meta=key=value` form so each option is a single token,
-        // matching how clap re-parses on the container side.
-        record(format!("--meta={k}={v}"));
+        record(&format!("--meta={k}"), Some(v.as_str()));
     }
 
     // `--optimize` true is recorded as a bare flag (universally accepted).
@@ -459,9 +479,21 @@ fn build_forwarded_args(
     // (added in `b17d3f0b`); on older containers, false is the default and
     // we record/forward nothing — passing `--optimize=false` there would fail.
     if cmd.build_args.optimize {
-        record("--optimize".to_string());
+        record("--optimize", None);
     } else if supports_explicit_optimize_false {
-        record("--optimize=false".to_string());
+        record("--optimize", Some("false"));
+    }
+
+    // Build env vars are applied via docker `-e` (see run_in_container), not as
+    // arguments to the inner `stellar contract build`, so they're recorded as
+    // bldopts only — never forwarded. A verifier replays them with `--env`. The
+    // value is escaped (the name is a validated identifier) so the recorded
+    // option stays valid shell.
+    for (name, value) in &cmd.build_args.env {
+        bldopts.push(format!(
+            "--env={name}={}",
+            shell_escape::escape(value.as_str().into())
+        ));
     }
 
     (forwarded, bldopts)
@@ -484,6 +516,10 @@ fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> 
         push(&mut out, "source_sha256", v);
     }
 
+    // bldopts already arrive as valid shell (escaped at the source in
+    // `build_forwarded_args`), so they're recorded verbatim: a verifier
+    // reconstructs the build by joining the recorded values and running them
+    // through a shell.
     for o in bldopts {
         push(&mut out, "bldopt", o);
     }
@@ -758,15 +794,36 @@ fn compose_shell_command(cmds: &[Vec<String>]) -> String {
         .join(" && ")
 }
 
+/// Shell-escape each token of a single-package container command so a value
+/// with spaces (a `--meta` value, or an `--env=` recorded as a `bldopt`)
+/// survives when the reproduce line is copy-pasted into a shell. The
+/// single-package path runs the image's default `stellar` entrypoint directly,
+/// so there's no `sh -c` wrapper as in `compose_shell_command`.
+fn escape_container_args(cmd: &[String]) -> String {
+    cmd.iter()
+        .map(|tok| shell_escape::escape(tok.into()).into_owned())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],
+    env: &[String],
     docker: &Docker,
     print: &Print,
     verbose: bool,
 ) -> Result<(), Error> {
     let bind = format!("{}:/source", workspace_root.display());
+
+    // `-e KEY=VALUE` flags for the reproduce command, mirroring the env passed
+    // to the container below.
+    let mut env_flags = String::new();
+    for e in env {
+        env_flags.push_str(" -e ");
+        env_flags.push_str(&shell_escape::escape(e.as_str().into()));
+    }
 
     // One package → run the image's default `stellar` entrypoint directly.
     // Several → override the entrypoint to a shell and chain the builds so they
@@ -774,7 +831,7 @@ async fn run_in_container(
     let (entrypoint, cmd, reproduce) = if container_cmds.len() > 1 {
         let chain = compose_shell_command(container_cmds);
         let reproduce = format!(
-            "docker run --rm -v {bind} --entrypoint /bin/sh {image_ref} -c {}",
+            "docker run --rm -v {bind}{env_flags} --entrypoint /bin/sh {image_ref} -c {}",
             shell_escape::escape(chain.clone().into())
         );
         (
@@ -784,7 +841,10 @@ async fn run_in_container(
         )
     } else {
         let cmd = container_cmds.first().cloned().unwrap_or_default();
-        let reproduce = format!("docker run --rm -v {bind} {image_ref} {}", cmd.join(" "));
+        let reproduce = format!(
+            "docker run --rm -v {bind}{env_flags} {image_ref} {}",
+            escape_container_args(&cmd)
+        );
         (None, cmd, reproduce)
     };
 
@@ -792,6 +852,7 @@ async fn run_in_container(
         image: Some(image_ref.to_string()),
         entrypoint,
         cmd: Some(cmd),
+        env: (!env.is_empty()).then(|| env.to_vec()),
         working_dir: Some("/source".to_string()),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
@@ -806,6 +867,9 @@ async fn run_in_container(
     print.infoln(format!(
         "Running verifiable build in {image_ref} (mount {bind})"
     ));
+    if verbose {
+        print.infoln(format!("Running: {reproduce}"));
+    }
 
     let created = docker
         .create_container(None::<CreateContainerOptions>, config)
@@ -1015,6 +1079,7 @@ mod tests {
                     ("home_domain".to_string(), "fnando.com".to_string()),
                     ("author".to_string(), "alice".to_string()),
                 ],
+                env: vec![],
                 optimize: true,
             },
             ..Cmd::default()
@@ -1029,10 +1094,31 @@ mod tests {
     }
 
     #[test]
+    fn build_forwarded_args_records_env_as_bldopt_only() {
+        let cmd = Cmd {
+            build_args: super::super::BuildArgs {
+                env: vec![
+                    ("FOO".to_string(), "bar".to_string()),
+                    ("BAZ".to_string(), "qux".to_string()),
+                ],
+                ..super::super::BuildArgs::default()
+            },
+            ..Cmd::default()
+        };
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        // Env vars are applied via docker `-e`, so they're recorded as bldopts
+        // for the verifier but never forwarded as build arguments.
+        assert!(bldopts.contains(&"--env=FOO=bar".to_string()));
+        assert!(bldopts.contains(&"--env=BAZ=qux".to_string()));
+        assert!(!forwarded.iter().any(|a| a.starts_with("--env")));
+    }
+
+    #[test]
     fn build_forwarded_args_optimize_false_new_container() {
         let cmd = Cmd {
             build_args: super::super::BuildArgs {
                 meta: vec![],
+                env: vec![],
                 optimize: false,
             },
             ..Cmd::default()
@@ -1047,6 +1133,7 @@ mod tests {
         let cmd = Cmd {
             build_args: super::super::BuildArgs {
                 meta: vec![],
+                env: vec![],
                 optimize: false,
             },
             ..Cmd::default()
@@ -1089,6 +1176,39 @@ mod tests {
         assert!(p[2].1.starts_with("source_sha256="));
         assert_eq!(p[3], ("--meta", "bldopt=--locked"));
         assert_eq!(p[4], ("--meta", "bldopt=--features=a"));
+    }
+
+    #[test]
+    fn build_forwarded_args_escapes_bldopt_values_as_shell() {
+        // Values with shell metacharacters are escaped at the source so each
+        // recorded bldopt is valid shell on its own. Only the value side is
+        // quoted: `--env=B='this is very nice'`, never `'--env=B=this is very
+        // nice'` (which would quote the flag and key too).
+        let cmd = Cmd {
+            features: Some("a,b".to_string()),
+            build_args: super::super::BuildArgs {
+                meta: vec![("note".to_string(), "added on build".to_string())],
+                env: vec![
+                    ("B".to_string(), "this is very nice".to_string()),
+                    ("C".to_string(), "it's a \"trap\"".to_string()),
+                ],
+                optimize: true,
+            },
+            ..Cmd::default()
+        };
+        let (_forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+
+        // The flag and key stay outside the quotes; only the value is escaped.
+        assert!(bldopts.contains(&"--env=B='this is very nice'".to_string()));
+        assert!(bldopts.contains(&"--meta=note='added on build'".to_string()));
+        // No-metacharacter values stay verbatim.
+        assert!(bldopts.contains(&"--features=a,b".to_string()));
+
+        // Every recorded bldopt is valid shell that parses back to one argv token.
+        for o in &bldopts {
+            let tokens = shlex::split(o).expect("each bldopt must be valid shell");
+            assert_eq!(tokens.len(), 1, "{o} must be a single shell token");
+        }
     }
 
     #[test]
@@ -1233,6 +1353,33 @@ mod tests {
         assert!(
             s.contains("'note=added on build'") || s.contains("\"note=added on build\""),
             "expected the spaced value to be quoted, got: {s}"
+        );
+    }
+
+    #[test]
+    fn escape_container_args_quotes_spaced_tokens() {
+        // An `--env=` recorded as a bldopt carries the env value verbatim, so a
+        // spaced value lands in a single `--meta bldopt=…` token. The reproduce
+        // line must quote it so a copy-paste round-trips back to one argv token.
+        let cmd = vec![
+            "contract".to_string(),
+            "build".to_string(),
+            "--package=hello-world".to_string(),
+            "--meta".to_string(),
+            "bldopt=--env=B=this is very nice".to_string(),
+        ];
+        let s = escape_container_args(&cmd);
+        let tokens = shlex::split(&s).expect("reproduce args must be valid shell");
+        assert_eq!(
+            tokens,
+            vec![
+                "contract",
+                "build",
+                "--package=hello-world",
+                "--meta",
+                "bldopt=--env=B=this is very nice",
+            ],
+            "spaced token must survive a shlex round-trip as one argument"
         );
     }
 }
