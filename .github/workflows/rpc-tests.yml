@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: stellar/quickstart@main
         with:
-          tag: future
+          tag: nightly
           protocol_version: 27
       - uses: actions/checkout@v6
       - uses: stellar/actions/rust-cache@main
