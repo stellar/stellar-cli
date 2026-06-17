@@ -130,7 +130,7 @@ impl FromStr for Secret {
 impl From<PrivateKey> for Secret {
     fn from(value: PrivateKey) -> Self {
         Secret::SecretKey {
-            secret_key: format!("{value}"),
+            secret_key: format!("{}", value.as_unredacted()),
         }
     }
 }
@@ -285,7 +285,7 @@ mod tests {
 
         assert!(matches!(secret, Secret::SecretKey { .. }));
         assert_eq!(public_key.to_string(), TEST_PUBLIC_KEY);
-        assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
+        assert_eq!(private_key.as_unredacted().to_string(), TEST_SECRET_KEY);
     }
 
     #[test]
@@ -296,7 +296,7 @@ mod tests {
 
         assert!(matches!(secret, Secret::SeedPhrase { .. }));
         assert_eq!(public_key.to_string(), TEST_PUBLIC_KEY);
-        assert_eq!(private_key.to_string(), TEST_SECRET_KEY);
+        assert_eq!(private_key.as_unredacted().to_string(), TEST_SECRET_KEY);
     }
 
     #[test]
@@ -463,7 +463,7 @@ mod tests {
         let pk = secret.public_key(Some(0)).unwrap();
         let sk = secret.private_key(Some(0)).unwrap();
         assert_eq!(pk.to_string(), TEST_PUBLIC_KEY);
-        assert_eq!(sk.to_string(), TEST_SECRET_KEY);
+        assert_eq!(sk.as_unredacted().to_string(), TEST_SECRET_KEY);
     }
 
     #[test]

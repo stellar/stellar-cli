@@ -13,7 +13,7 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let root_key = self.args.root_key()?;
         let private_key = PrivateKey::from_payload(&root_key)?;
-        println!("{private_key}");
+        println!("{}", private_key.as_unredacted());
         Ok(())
     }
 }
