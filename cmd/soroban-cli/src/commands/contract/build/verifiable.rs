@@ -1,8 +1,4 @@
-use std::{
-    io::Write,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
 use bollard::{
     models::ContainerCreateBody,
@@ -19,7 +15,6 @@ use regex::Regex;
 use semver::Version;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use walkdir::WalkDir;
 
 use crate::{
     commands::{container::shared::Error as ConnectionError, global},
@@ -27,42 +22,12 @@ use crate::{
     print::Print,
 };
 
-use super::{BuiltContract, Cmd, WASM_TARGET};
+use super::{source_archive, BuiltContract, Cmd, WASM_TARGET};
 
 const REGISTRY: &str = "docker.io/stellar/stellar-cli";
 const HUB_TAGS_URL: &str =
     "https://hub.docker.com/v2/repositories/stellar/stellar-cli/tags/?page_size=100";
 const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_uri", "source_sha256", "bldopt"];
-
-/// Top-level names excluded when archiving a non-git working directory (we have
-/// no tracked-files list to consult, so fall back to a fixed denylist of VCS
-/// metadata, build/cache/transient dirs, and editor/OS/AI-assistant junk).
-/// Matched against each path component, so a directory like `target/` prunes
-/// its whole subtree.
-const ARCHIVE_DENYLIST: &[&str] = &[
-    // version control
-    ".git",
-    ".svn",
-    ".hg",
-    // build output / dependencies
-    "target",
-    "node_modules",
-    // transient
-    "log",
-    "logs",
-    "tmp",
-    "temp",
-    // OS / editor junk
-    ".DS_Store",
-    "Thumbs.db",
-    ".idea",
-    ".vscode",
-    // AI assistant dirs
-    ".claude",
-    ".cursor",
-    ".windsurf",
-    ".aider",
-];
 
 /// First cli release that accepts `--optimize=false` as an explicit value
 /// (added by commit `b17d3f0b`). Containers older than this only accept bare
@@ -101,11 +66,8 @@ pub enum Error {
     #[error("cargo metadata failed: {0}")]
     Metadata(#[from] cargo_metadata::Error),
 
-    #[error("could not read git state at {path}: {source}")]
-    GitInvoke {
-        path: PathBuf,
-        source: std::io::Error,
-    },
+    #[error(transparent)]
+    SourceArchive(#[from] source_archive::Error),
 
     #[error(
         "git working tree at {path} is dirty. --verifiable requires a clean tree so the recorded source_sha256 matches the WASM bytes. Commit or stash your changes and try again."
@@ -117,9 +79,6 @@ pub enum Error {
     )]
     ReservedMetaKey { key: String },
 
-    #[error("--verifiable requires --source-sha256 (the SEP-58 source_sha256: 64-char hex SHA-256 of the source), or --archive to generate the source archive and compute it. --source-uri is optional.")]
-    MissingSourceSha256,
-
     #[error("--source-sha256 value {value:?} does not match the SEP-58 source_sha256 format `^[0-9a-f]{{64}}$` (64-char lower-case hex).")]
     SourceSha256Format { value: String },
 
@@ -128,18 +87,6 @@ pub enum Error {
 
     #[error("--source-sha256 {provided} does not match the SHA-256 of the generated archive {computed}. Omit --source-sha256 to record the computed value, or fix the value.")]
     SourceSha256Mismatch { provided: String, computed: String },
-
-    #[error("`git archive` failed in {path}: {stderr}")]
-    GitArchive { path: PathBuf, stderr: String },
-
-    #[error("could not write source archive to {path}: {source}")]
-    ArchiveWrite {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-
-    #[error("could not extract source archive: {0}")]
-    ArchiveExtract(std::io::Error),
 
     #[error(transparent)]
     Data(#[from] data::Error),
@@ -174,42 +121,29 @@ pub async fn run(
     // gets bind-mounted into the container. We do NOT validate that it matches
     // source_uri — a wrong source produces different bytes, and verify catches
     // that at byte-comparison time.
-    let source_root = resolve_source_root(cmd);
+    let source_root = source_archive::resolve_source_root(cmd.manifest_path.as_deref());
 
     // A dirty working tree would make the recorded source_sha256 fail to
     // describe the bytes actually built, so refuse to proceed. Skipped when
     // the source root isn't a git repo (we can't check, e.g. archive sources).
     enforce_clean_tree(&source_root)?;
 
-    // Resolve the recorded source_sha256 and the directory the container mounts
-    // at /source. With `--archive`, the CLI builds the source archive, records
-    // its hash, and builds from the *extracted* archive (in a hardened tempdir)
-    // so the WASM is produced from exactly the bytes that were hashed. Without
-    // it, the user supplies --source-sha256 and we mount the working tree.
-    let resolved = match &cmd.archive {
-        Some(_) => {
-            let a = resolve_archive(cmd, &source_root, print)?;
-            // The extracted `source/` dir mirrors `source_root` exactly and is
-            // both the container mount and the tree the build writes `target/`
-            // into, so it's what `collect_built_contracts` resolves artifacts
-            // against.
-            let mount_root = a.extracted_root.join("source");
-            ResolvedSource {
-                source_sha256: a.source_sha256,
-                extracted_root: Some(mount_root.clone()),
-                mount_root,
-                _tmp: Some(a.tmp),
-            }
+    // Always build the source archive, record its hash, and build from the
+    // *extracted* archive (in a hardened tempdir) so the WASM is produced from
+    // exactly the bytes that were hashed. A `--source-sha256` passed by the user
+    // is treated as a pin and validated against the computed hash.
+    let resolved = {
+        let a = resolve_archive(cmd, &source_root, print)?;
+        // The extracted `source/` dir mirrors `source_root` exactly and is both
+        // the container mount and the tree the build writes `target/` into, so
+        // it's what `collect_built_contracts` resolves artifacts against.
+        let mount_root = a.extracted_root.join("source");
+        ResolvedSource {
+            source_sha256: a.source_sha256,
+            extracted_root: Some(mount_root.clone()),
+            mount_root,
+            _tmp: Some(a.tmp),
         }
-        None => ResolvedSource {
-            source_sha256: cmd
-                .source_sha256
-                .clone()
-                .ok_or(Error::MissingSourceSha256)?,
-            mount_root: source_root.clone(),
-            extracted_root: None,
-            _tmp: None,
-        },
     };
 
     let source_ids = SourceIds {
@@ -285,9 +219,9 @@ pub async fn run(
     collect_built_contracts(cmd, &source_root, resolved.extracted_root.as_deref(), print)
 }
 
-/// The recorded `source_sha256`, the directory bind-mounted at `/source`, and
-/// (when `--archive` is used) the extracted-archive root plus its tempdir guard
-/// — held so the temp dir outlives the container build and artifact collection.
+/// The recorded `source_sha256`, the directory bind-mounted at `/source`, the
+/// extracted-archive root, and its tempdir guard — held so the temp dir
+/// outlives the container build and artifact collection.
 struct ResolvedSource {
     source_sha256: String,
     mount_root: PathBuf,
@@ -305,34 +239,6 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
     Ok(md.workspace_root.into_std_path_buf())
 }
 
-/// Pick the anchor for the container bind-mount and for relativizing
-/// `--manifest-path` into the recorded `bldopt`. Walk up from the user's
-/// `--manifest-path` (or cwd, if no manifest_path) looking for a `.git`
-/// directory; return its parent. If none is found, fall back to cwd.
-///
-/// This isn't a validation step — any `.git` will do. Wrong-source mistakes
-/// are caught later by the verify-side byte comparison.
-fn resolve_source_root(cmd: &Cmd) -> PathBuf {
-    let start = if let Some(p) = &cmd.manifest_path {
-        let abs = std::path::absolute(p).unwrap_or_else(|_| p.clone());
-        abs.parent().map(Path::to_path_buf).unwrap_or(abs)
-    } else {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    };
-
-    let mut p = start.clone();
-    loop {
-        if p.join(".git").exists() {
-            return p;
-        }
-        if !p.pop() {
-            break;
-        }
-    }
-
-    std::env::current_dir().unwrap_or(start)
-}
-
 /// Source-identification fields recorded as SEP-58 meta. `source_sha256` is
 /// always `Some` by the time these are built in `run()` (resolved from
 /// `--source-sha256` or computed from the generated archive). `source_uri` is
@@ -343,8 +249,9 @@ struct SourceIds {
     source_sha256: Option<String>,
 }
 
-/// Format-validate the user-supplied source flags. Requiredness is enforced in
-/// `run()` (it depends on whether `--archive` is used), not here.
+/// Format-validate the user-supplied source flags. Both are optional under
+/// `--verifiable`; `--source-sha256`, when present, is validated as a pin in
+/// `resolve_archive`.
 fn validate_source_formats(cmd: &Cmd) -> Result<(), Error> {
     if let Some(sha) = &cmd.source_sha256 {
         if !source_sha256_regex().is_match(sha) {
@@ -359,7 +266,7 @@ fn validate_source_formats(cmd: &Cmd) -> Result<(), Error> {
     Ok(())
 }
 
-/// Outcome of `--archive`: the generated archive's SHA-256 and the directory it
+/// Outcome of archiving: the generated archive's SHA-256 and the directory it
 /// was extracted into (held alive by `tmp`).
 struct ArchiveResult {
     source_sha256: String,
@@ -367,10 +274,12 @@ struct ArchiveResult {
     tmp: tempfile::TempDir,
 }
 
-/// Build the source archive, record its hash, write it out, and extract it into
-/// a permission-hardened tempdir that the container then builds from.
+/// Build the source archive, record its hash, write it to the managed archives
+/// dir (content-addressed, so the bytes are available to upload for
+/// `--source-uri`), and extract it into a permission-hardened tempdir that the
+/// container then builds from.
 fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<ArchiveResult, Error> {
-    let bytes = build_source_archive(source_root, print)?;
+    let bytes = source_archive::build_source_archive(source_root, print, true)?;
     let computed = hex::encode(Sha256::digest(&bytes));
 
     // If the user pinned a hash, it must match what we produced.
@@ -383,20 +292,15 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
         }
     }
 
-    // `Some(Some(path))` → write there; `Some(None)` → content-addressed name
-    // under the managed archives dir.
-    let out_path = match &cmd.archive {
-        Some(Some(p)) => p.clone(),
-        Some(None) => data::archives_dir()?.join(format!("{computed}.tar.gz")),
-        None => unreachable!("resolve_archive is only called when --archive is set"),
-    };
+    // Content-addressed name under the managed archives dir.
+    let out_path = data::archives_dir()?.join(format!("{computed}.tar.gz"));
     if let Some(parent) = out_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| Error::ArchiveWrite {
+        std::fs::create_dir_all(parent).map_err(|source| source_archive::Error::ArchiveWrite {
             path: out_path.clone(),
             source,
         })?;
     }
-    std::fs::write(&out_path, &bytes).map_err(|source| Error::ArchiveWrite {
+    std::fs::write(&out_path, &bytes).map_err(|source| source_archive::Error::ArchiveWrite {
         path: out_path.clone(),
         source,
     })?;
@@ -413,16 +317,16 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
     // share by default, so a bind mount of it would be empty inside the
     // container. The data dir lives under the user's home, which is shared.
     let base = data::data_local_dir()?;
-    std::fs::create_dir_all(&base).map_err(|source| Error::ArchiveWrite {
+    std::fs::create_dir_all(&base).map_err(|source| source_archive::Error::ArchiveWrite {
         path: base.clone(),
         source,
     })?;
     let tmp = tempfile::Builder::new()
         .prefix("verifiable-src-")
         .tempdir_in(&base)
-        .map_err(Error::ArchiveExtract)?;
-    unpack_targz(&bytes, tmp.path())?;
-    enforce_hardened_tree(tmp.path()).map_err(Error::ArchiveExtract)?;
+        .map_err(source_archive::Error::ArchiveExtract)?;
+    source_archive::unpack_targz(&bytes, tmp.path())?;
+    enforce_hardened_tree(tmp.path()).map_err(source_archive::Error::ArchiveExtract)?;
 
     let extracted_root = tmp.path().to_path_buf();
     Ok(ArchiveResult {
@@ -432,172 +336,17 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
     })
 }
 
-/// Whether `source_root` is inside a git work tree.
-fn is_git_repo(source_root: &Path) -> bool {
-    Command::new("git")
-        .arg("-C")
-        .arg(source_root)
-        .arg("rev-parse")
-        .arg("--is-inside-work-tree")
-        .output()
-        .is_ok_and(|o| o.status.success())
-}
-
-/// Produce the gzipped source tarball bytes. Entries are rooted under a
-/// top-level `source/` prefix (so the archive extracts to a `source/` dir,
-/// mirroring the container's `/source` mount). In a git repo this is `git
-/// archive HEAD` (the committed tree); otherwise the working directory is
-/// walked and tarred, skipping `ARCHIVE_DENYLIST` entries, after warning.
-fn build_source_archive(source_root: &Path, print: &Print) -> Result<Vec<u8>, Error> {
-    let tar = if is_git_repo(source_root) {
-        git_archive_tar(source_root)?
-    } else {
-        print.warnln(format!(
-            "{} is not a git repository; archiving the working directory. Inspect the generated archive to confirm its contents.",
-            source_root.display(),
-        ));
-        walk_tar(source_root)?
-    };
-    gzip(&tar)
-}
-
-/// `git archive --format=tar --prefix=source/ HEAD`, returning the tar bytes.
-fn git_archive_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(source_root)
-        .arg("archive")
-        .arg("--format=tar")
-        .arg("--prefix=source/")
-        .arg("HEAD")
-        .output()
-        .map_err(|source| Error::GitInvoke {
-            path: source_root.to_path_buf(),
-            source,
-        })?;
-    if !out.status.success() {
-        return Err(Error::GitArchive {
-            path: source_root.to_path_buf(),
-            stderr: String::from_utf8_lossy(&out.stderr).trim().to_string(),
-        });
-    }
-    Ok(out.stdout)
-}
-
-/// Tar the working tree under `source_root`, skipping denylisted path
-/// components. Each entry is prefixed with `source/`.
-///
-/// The output is reproducible, following GNU tar's reproducibility guidance
-/// (<https://www.gnu.org/software/tar/manual/html_section/Reproducibility.html>)
-/// with the portable equivalents available via the `tar` crate (the system
-/// `tar` can't be relied on — macOS ships bsdtar, which lacks `--sort`,
-/// `--mtime`, `--pax-option`, …): entries are sorted by name (`--sort=name`)
-/// using locale-independent path ordering (`LC_ALL=C`), and `HeaderMode::Deterministic`
-/// zeroes mtime (`--mtime`/`--clamp-mtime`), sets uid/gid to 0 with empty owner
-/// names (`--owner=0 --group=0 --numeric-owner`), and normalizes mode
-/// (`--mode=go+u,go-w`). ustar headers carry no atime/ctime or tar PID. The gzip
-/// wrapper (see `gzip`) is likewise deterministic.
-fn walk_tar(source_root: &Path) -> Result<Vec<u8>, Error> {
-    let mut files: Vec<PathBuf> = Vec::new();
-    let walk = WalkDir::new(source_root)
-        .sort_by_file_name()
-        .into_iter()
-        .filter_entry(|e| !is_denylisted(e.file_name()));
-    for entry in walk {
-        let entry = entry.map_err(|e| Error::ArchiveWrite {
-            path: source_root.to_path_buf(),
-            source: e.into(),
-        })?;
-        if entry.file_type().is_file() {
-            files.push(entry.path().to_path_buf());
-        }
-    }
-    files.sort();
-
-    let mut builder = tar::Builder::new(Vec::new());
-    builder.mode(tar::HeaderMode::Deterministic);
-    for path in &files {
-        let rel = path.strip_prefix(source_root).unwrap_or(path);
-        let name = Path::new("source").join(rel);
-        let mut f = std::fs::File::open(path).map_err(|source| Error::ArchiveWrite {
-            path: path.clone(),
-            source,
-        })?;
-        builder
-            .append_file(&name, &mut f)
-            .map_err(|source| Error::ArchiveWrite {
-                path: path.clone(),
-                source,
-            })?;
-    }
-    builder.into_inner().map_err(|source| Error::ArchiveWrite {
-        path: source_root.to_path_buf(),
-        source,
-    })
-}
-
-/// A path component is denylisted if it equals a denylist entry, or — for
-/// dotted entries, which double as extension filters (e.g. `.swp`, `.log`) — if
-/// it ends with that entry. Plain names (`target`, `node_modules`) match
-/// exactly only, so `mytarget` is not excluded.
-fn is_denylisted(name: &std::ffi::OsStr) -> bool {
-    let name = name.to_string_lossy();
-    ARCHIVE_DENYLIST
-        .iter()
-        .any(|d| name == *d || (d.starts_with('.') && name.ends_with(d)))
-}
-
-/// Gzip with a default (mtime-zeroed) header so the same tar bytes always hash
-/// the same.
-fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-    enc.write_all(bytes).map_err(|source| Error::ArchiveWrite {
-        path: PathBuf::new(),
-        source,
-    })?;
-    enc.finish().map_err(|source| Error::ArchiveWrite {
-        path: PathBuf::new(),
-        source,
-    })
-}
-
-/// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`, so
-/// they land at `<dest>/source/…`.
-fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
-    let dec = flate2::read::GzDecoder::new(bytes);
-    tar::Archive::new(dec)
-        .unpack(dest)
-        .map_err(Error::ArchiveExtract)
-}
-
 /// Refuse to run a verifiable build against a dirty git working tree: the
 /// bind-mounted source must match the recorded source_sha256 for the build to
 /// be reproducible. When the source root isn't a git repo (e.g. an extracted
 /// archive) we can't check, so we proceed — the user owns the source_sha256
 /// they pass, and verify catches a mismatch at byte-comparison time.
 fn enforce_clean_tree(source_root: &Path) -> Result<(), Error> {
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(source_root)
-        .arg("status")
-        .arg("--porcelain")
-        .output()
-        .map_err(|e| Error::GitInvoke {
-            path: source_root.to_path_buf(),
-            source: e,
-        })?;
-
-    // Not a git repo (or git refused): can't verify cleanliness, proceed.
-    if !status.status.success() {
-        return Ok(());
-    }
-
-    if !status.stdout.is_empty() {
+    if source_archive::tree_is_dirty(source_root)? {
         return Err(Error::GitDirty {
             path: source_root.to_path_buf(),
         });
     }
-
     Ok(())
 }
 
@@ -1389,117 +1138,6 @@ mod tests {
     }
 
     #[test]
-    fn is_denylisted_matches_names_and_dotted_suffixes() {
-        use std::ffi::OsStr;
-        // exact name matches
-        assert!(is_denylisted(OsStr::new("target")));
-        assert!(is_denylisted(OsStr::new(".git")));
-        assert!(is_denylisted(OsStr::new(".DS_Store")));
-        // plain names match exactly only
-        assert!(!is_denylisted(OsStr::new("mytarget")));
-        assert!(!is_denylisted(OsStr::new("targets")));
-        // dotted entries also match as suffix (extension-style)
-        assert!(is_denylisted(OsStr::new("backup.git")));
-        // unrelated files pass through
-        assert!(!is_denylisted(OsStr::new("Cargo.toml")));
-        assert!(!is_denylisted(OsStr::new("lib.rs")));
-    }
-
-    // Initialize a git repo at `root` with one commit of everything present.
-    #[cfg(unix)]
-    fn git_init_commit(root: &Path) {
-        for args in [
-            &["init", "-q", "-b", "main"][..],
-            &["add", "-A"][..],
-            &["commit", "-q", "-m", "init"][..],
-        ] {
-            let ok = Command::new("git")
-                .arg("-C")
-                .arg(root)
-                .args(args)
-                .env("GIT_AUTHOR_NAME", "T")
-                .env("GIT_AUTHOR_EMAIL", "t@e.x")
-                .env("GIT_COMMITTER_NAME", "T")
-                .env("GIT_COMMITTER_EMAIL", "t@e.x")
-                .status()
-                .unwrap()
-                .success();
-            assert!(ok);
-        }
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn build_source_archive_git_is_prefixed_and_deterministic() {
-        use std::os::unix::fs::PermissionsExt;
-        let print = Print::new(true);
-        let temp = tempfile::TempDir::new().unwrap();
-        let root = temp.path();
-        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
-        git_init_commit(root);
-
-        let a = build_source_archive(root, &print).unwrap();
-        let b = build_source_archive(root, &print).unwrap();
-        assert!(!a.is_empty());
-        assert_eq!(a, b, "same commit should produce identical bytes");
-
-        let sha = hex::encode(Sha256::digest(&a));
-        assert_eq!(sha.len(), 64);
-
-        // Unpack and confirm the `source/` prefix + hardened perms.
-        let dest = tempfile::TempDir::new().unwrap();
-        unpack_targz(&a, dest.path()).unwrap();
-        assert!(dest.path().join("source/Cargo.toml").exists());
-        assert!(dest.path().join("source/src/lib.rs").exists());
-
-        enforce_hardened_tree(dest.path()).unwrap();
-        let file_mode = std::fs::metadata(dest.path().join("source/Cargo.toml"))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        let dir_mode = std::fs::metadata(dest.path().join("source"))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(file_mode, 0o600);
-        assert_eq!(dir_mode, 0o700);
-    }
-
-    #[test]
-    fn build_source_archive_non_git_excludes_denylist() {
-        let print = Print::new(true);
-        let temp = tempfile::TempDir::new().unwrap();
-        let root = temp.path();
-        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
-        // Planted dirs that must be excluded.
-        std::fs::create_dir_all(root.join("target/debug")).unwrap();
-        std::fs::write(root.join("target/debug/x"), b"junk").unwrap();
-        std::fs::create_dir_all(root.join(".git")).unwrap();
-        std::fs::write(root.join(".git/config"), b"junk").unwrap();
-
-        let bytes = build_source_archive(root, &print).unwrap();
-        let dest = tempfile::TempDir::new().unwrap();
-        unpack_targz(&bytes, dest.path()).unwrap();
-
-        assert!(dest.path().join("source/Cargo.toml").exists());
-        assert!(dest.path().join("source/src/lib.rs").exists());
-        assert!(!dest.path().join("source/target").exists());
-        assert!(!dest.path().join("source/.git").exists());
-        assert_eq!(hex::encode(Sha256::digest(&bytes)).len(), 64);
-
-        // Reproducible: a second run over the same tree yields identical bytes
-        // (sorted entries + zeroed header fields + deterministic gzip).
-        let again = build_source_archive(root, &print).unwrap();
-        assert_eq!(bytes, again);
-    }
-
-    #[test]
     fn bldimg_regex_accepts_docker_hub_full_ref() {
         assert!(bldimg_regex().is_match(&format!(
             "docker.io/stellar/stellar-cli@sha256:{}",
@@ -1543,46 +1181,6 @@ mod tests {
         assert!(source_uri_regex().is_match("github:foo/bar"));
         assert!(!source_uri_regex().is_match("foo/bar")); // no scheme
         assert!(!source_uri_regex().is_match("https://has space")); // whitespace
-    }
-
-    #[test]
-    fn resolve_source_root_finds_git_root_from_subdir() {
-        let temp = tempfile::TempDir::new().unwrap();
-        let root = temp.path();
-        std::fs::create_dir_all(root.join(".git")).unwrap();
-        let nested = root.join("contracts").join("foo");
-        std::fs::create_dir_all(&nested).unwrap();
-        std::fs::write(nested.join("Cargo.toml"), b"# placeholder").unwrap();
-
-        let cmd = Cmd {
-            manifest_path: Some(nested.join("Cargo.toml")),
-            ..Cmd::default()
-        };
-        // Use canonicalize on both sides — `tempfile` returns symlinked /var
-        // paths on macOS while resolve_source_root walks the same prefix.
-        let got = std::fs::canonicalize(resolve_source_root(&cmd)).unwrap();
-        let want = std::fs::canonicalize(root).unwrap();
-        assert_eq!(got, want);
-    }
-
-    #[test]
-    fn resolve_source_root_falls_back_to_cwd_without_git() {
-        let temp = tempfile::TempDir::new().unwrap();
-        let root = temp.path();
-        let nested = root.join("noisy");
-        std::fs::create_dir_all(&nested).unwrap();
-        std::fs::write(nested.join("Cargo.toml"), b"# placeholder").unwrap();
-
-        let cmd = Cmd {
-            manifest_path: Some(nested.join("Cargo.toml")),
-            ..Cmd::default()
-        };
-        // No `.git` anywhere up the tree, so we fall back to cwd. We can't
-        // assert what cwd is in a test runner (it varies), but we can assert
-        // that the returned path doesn't contain the manifest's parent and
-        // doesn't have `.git`. That's enough to confirm fallback kicked in.
-        let got = resolve_source_root(&cmd);
-        assert!(!got.join(".git").exists());
     }
 
     #[test]

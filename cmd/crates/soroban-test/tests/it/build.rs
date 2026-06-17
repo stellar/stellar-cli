@@ -1088,13 +1088,16 @@ fn verifiable_image_requires_explicit_registry_host() {
         .stderr(predicate::str::contains("bldimg format"));
 }
 
-// `--verifiable` with neither `--source-sha256` nor `--archive` must error.
-// Run in a fresh (non-git) workspace so the clean-tree check is skipped and the
-// missing-source error is what surfaces.
+// `--verifiable` always generates the source archive (and computes
+// source_sha256) before the docker stage, so the "Wrote source archive" line
+// appears even though the build then fails to reach a real image.
 #[test]
-fn verifiable_requires_source_sha256() {
+fn verifiable_always_writes_source_archive() {
     let sandbox = TestEnv::default();
     let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
 
     sandbox
         .new_assert_cmd("contract")
@@ -1105,37 +1108,109 @@ fn verifiable_requires_source_sha256() {
         .arg(ZERO_DIGEST)
         .assert()
         .failure()
-        .stderr(predicate::str::contains("--source-sha256"));
+        .stderr(
+            predicate::str::contains("Wrote source archive")
+                .and(predicate::str::contains("source_sha256")),
+        );
 }
 
-// `--archive` generates the source archive (and computes source_sha256) before
-// the docker stage, so the file is written even though the build then fails to
-// reach a real image.
+// `contract archive --out` writes the gzipped tarball and prints its
+// source_sha256.
 #[test]
-fn verifiable_archive_writes_source_archive() {
+fn contract_archive_writes_out() {
     let sandbox = TestEnv::default();
     let (temp, workspace) = fresh_workspace();
     git_in(&workspace, &["init", "-q", "-b", "main"]);
     git_in(&workspace, &["add", "-A"]);
     git_in(&workspace, &["commit", "-q", "-m", "init"]);
 
-    let archive_path = temp.path().join("src.tar.gz");
+    let out = temp.path().join("src.tar.gz");
 
     sandbox
         .new_assert_cmd("contract")
-        .current_dir(workspace.join("contracts").join("add"))
-        .arg("build")
-        .arg("--verifiable")
-        .arg("--image")
-        .arg(ZERO_DIGEST)
-        .arg(format!("--archive={}", archive_path.display()))
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
         .assert()
-        .failure();
+        .success()
+        .stderr(
+            predicate::str::contains("Wrote source archive")
+                .and(predicate::str::contains("source_sha256")),
+        );
+
+    assert!(out.exists(), "the archive should be written to --out");
+    assert!(
+        std::fs::metadata(&out).unwrap().len() > 0,
+        "the archive should not be empty"
+    );
+}
+
+// `contract archive --dry-run` lists the archived entries and the
+// source_sha256 without writing any file.
+#[test]
+fn contract_archive_dry_run_lists_entries() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let out = temp.path().join("should-not-exist.tar.gz");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--dry-run")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("source/Cargo.toml"))
+        .stderr(predicate::str::contains("source_sha256"));
+
+    assert!(!out.exists(), "--dry-run must not write an archive");
+}
+
+// `--out-file` must name a gzipped tarball (.tar.gz / .tgz).
+#[test]
+fn contract_archive_rejects_bad_out_file_extension() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let out = temp.path().join("src.zip");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(".tar.gz or .tgz"));
 
     assert!(
-        archive_path.exists(),
-        "source archive should be written before the docker stage"
+        !out.exists(),
+        "no archive should be written on a bad extension"
     );
+}
+
+// `--out-file` is required unless `--dry-run` is passed.
+#[test]
+fn contract_archive_requires_out_file_without_dry_run() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--out-file"));
 }
 
 // `--source-sha256` value must match the 64-hex regex.
