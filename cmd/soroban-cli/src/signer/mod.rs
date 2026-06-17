@@ -255,7 +255,8 @@ async fn sign_soroban_authorization_entry(
     let (credentials, is_v2) = match &mut auth.credentials {
         SorobanCredentials::Address(credentials) => (credentials, false),
         SorobanCredentials::AddressV2(credentials) => (credentials, true),
-        // Doesn't need special signing (SourceAccount / AddressWithDelegates).
+        // SourceAccount does not need special signing
+        // AddressWithDelegates is not supported yet, and a warning is emitted earlier
         _ => return Ok(auth),
     };
 
