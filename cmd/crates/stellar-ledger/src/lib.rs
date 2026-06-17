@@ -11,7 +11,7 @@ pub use ledger_transport_hid::TransportNativeHID;
 
 use std::vec;
 use stellar_strkey::DecodeError;
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, Hash, Limits, Transaction, TransactionSignaturePayload,
     TransactionSignaturePayloadTaggedTransaction, WriteXdr,
 };
@@ -345,7 +345,7 @@ mod test {
 
     use crate::{test_network_hash, Error, LedgerSigner};
 
-    use stellar_xdr::curr::{
+    use stellar_xdr::{
         Memo, MuxedAccount, PaymentOp, Preconditions, SequenceNumber, TransactionExt,
     };
 

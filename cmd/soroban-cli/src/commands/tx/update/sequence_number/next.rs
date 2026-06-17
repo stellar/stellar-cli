@@ -1,4 +1,4 @@
-use stellar_xdr::curr::MuxedAccount;
+use stellar_xdr::MuxedAccount;
 
 use crate::{
     commands::{

@@ -33,7 +33,7 @@ testcontainers = { workspace = true, optional = true }
 
 [dependencies.stellar-xdr]
 workspace = true
-features = ["curr", "std", "serde"]
+features = ["std", "serde"]
 
 [dev-dependencies]
 env_logger = "0.11.3"

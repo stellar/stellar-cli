@@ -45,7 +45,7 @@ pub enum Error {
     #[error(transparent)]
     Spec(#[from] soroban_spec_tools::Error),
     #[error(transparent)]
-    StellarXdr(#[from] stellar_xdr::curr::Error),
+    StellarXdr(#[from] stellar_xdr::Error),
 }
 
 impl Cmd {

@@ -9,7 +9,6 @@ use std::{
 use tempfile::TempDir;
 
 use serde_json::json;
-use stellar_xdr::curr;
 
 use crate::{commands::global, print::Print};
 
@@ -24,7 +23,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error(transparent)]
-    StellarXdr(#[from] stellar_xdr::curr::Error),
+    StellarXdr(#[from] stellar_xdr::Error),
 
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
@@ -51,7 +50,7 @@ impl Cmd {
             let mut input = String::new();
             stdin().read_line(&mut input)?;
             let input = input.trim();
-            xdr_to_json::<curr::TransactionEnvelope>(input)?
+            xdr_to_json::<stellar_xdr::TransactionEnvelope>(input)?
         };
 
         let (_temp_dir, path) = tmp_file(&json)?;
@@ -61,7 +60,7 @@ impl Cmd {
         open_editor(&print, &editor, &path)?;
 
         let contents = fs::read_to_string(&path)?;
-        let xdr = json_to_xdr::<curr::TransactionEnvelope>(&contents)?;
+        let xdr = json_to_xdr::<stellar_xdr::TransactionEnvelope>(&contents)?;
 
         println!("{xdr}");
 
@@ -149,9 +148,9 @@ fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Err
 
 fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
-    T: curr::ReadXdr + serde::Serialize,
+    T: stellar_xdr::ReadXdr + serde::Serialize,
 {
-    let tx = T::from_xdr_base64(xdr_string, curr::Limits::none())?;
+    let tx = T::from_xdr_base64(xdr_string, stellar_xdr::Limits::none())?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
     schema["$schema"] = json!(schema_url());
     let json = serde_json::to_string_pretty(&schema)?;
@@ -161,7 +160,7 @@ where
 
 fn json_to_xdr<T>(json_string: &str) -> Result<String, Error>
 where
-    T: serde::de::DeserializeOwned + curr::WriteXdr,
+    T: serde::de::DeserializeOwned + stellar_xdr::WriteXdr,
 {
     let mut schema: serde_json::Value = serde_json::from_str(json_string)?;
 
@@ -174,10 +173,10 @@ where
     let value: T = serde_json::from_str(json_string.as_str())?;
     let mut data = Vec::new();
     let cursor = Cursor::new(&mut data);
-    let mut limit = curr::Limited::new(cursor, curr::Limits::none());
+    let mut limit = stellar_xdr::Limited::new(cursor, stellar_xdr::Limits::none());
     value.write_xdr(&mut limit)?;
 
-    Ok(value.to_xdr_base64(curr::Limits::none())?)
+    Ok(value.to_xdr_base64(stellar_xdr::Limits::none())?)
 }
 
 fn default_json() -> String {

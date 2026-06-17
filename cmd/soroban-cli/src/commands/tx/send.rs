@@ -7,8 +7,6 @@ use crate::{
     config::{self, locator, network},
 };
 
-use stellar_xdr::curr;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -22,7 +20,7 @@ pub enum Error {
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
     #[error("xdr processing error: {0}")]
-    Xdr(#[from] curr::Error),
+    Xdr(#[from] stellar_xdr::Error),
 }
 
 #[derive(Debug, clap::Parser, Clone)]

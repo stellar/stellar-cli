@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, Hash, LedgerFootprint, Limits, OperationBody, ReadXdr, SorobanAuthorizationEntry,
     SorobanAuthorizedFunction, SorobanResources, SorobanTransactionData, Transaction,
     TransactionEnvelope, TransactionExt, TransactionSignaturePayload,
@@ -290,7 +290,7 @@ mod tests {
 
     use soroban_rpc::SimulateHostFunctionResultRaw;
     use stellar_strkey::ed25519::PublicKey as Ed25519PublicKey;
-    use stellar_xdr::curr::{
+    use stellar_xdr::{
         AccountId, ChangeTrustAsset, ChangeTrustOp, Hash, HostFunction, InvokeContractArgs,
         InvokeHostFunctionOp, LedgerFootprint, Memo, MuxedAccount, Operation, Preconditions,
         PublicKey, ScAddress, ScSymbol, ScVal, SequenceNumber, SorobanAuthorizedFunction,
@@ -328,9 +328,7 @@ mod tests {
             }),
             root_invocation: SorobanAuthorizedInvocation {
                 function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-                    contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(
-                        [0; 32],
-                    ))),
+                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
                     function_name: ScSymbol("fn".try_into().unwrap()),
                     args: VecM::default(),
                 }),
@@ -362,7 +360,7 @@ mod tests {
                 source_account: None,
                 body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                     host_function: HostFunction::InvokeContract(InvokeContractArgs {
-                        contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(
+                        contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(
                             [0x0; 32],
                         ))),
                         function_name: ScSymbol::default(),

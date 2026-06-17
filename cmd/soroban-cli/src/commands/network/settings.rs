@@ -2,7 +2,7 @@ use crate::config::network;
 use crate::print::Print;
 use crate::{commands::global, config};
 use semver::Version;
-use stellar_xdr::curr::{
+use stellar_xdr::{
     ConfigSettingId, ConfigUpgradeSet, LedgerEntryData, LedgerKey, LedgerKeyConfigSetting, Limits,
     WriteXdr as _,
 };
@@ -14,7 +14,7 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
-    Xdr(#[from] stellar_xdr::curr::Error),
+    Xdr(#[from] stellar_xdr::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]

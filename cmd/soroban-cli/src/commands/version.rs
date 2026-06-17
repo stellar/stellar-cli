@@ -54,8 +54,8 @@ pub fn long() -> String {
         format!("{}{git_rev}", pkg()),
         format!(
             "stellar-xdr {} ({})
-xdr curr ({})",
-            xdr.pkg, xdr.rev, xdr.xdr_curr,
+xdr ({})",
+            xdr.pkg, xdr.rev, xdr.xdr,
         ),
     ]
     .join("\n")

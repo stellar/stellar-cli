@@ -10,7 +10,7 @@ use super::{http_transport::Emulator, speculos::Speculos};
 
 use std::{collections::HashMap, time::Duration};
 
-use stellar_xdr::curr::Hash;
+use stellar_xdr::Hash;
 
 use testcontainers::{core::ContainerPort, runners::AsyncRunner, ContainerAsync, ImageExt};
 use tokio::time::sleep;
