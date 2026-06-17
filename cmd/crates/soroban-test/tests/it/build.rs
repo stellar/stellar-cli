@@ -69,6 +69,47 @@ fn build_package_by_current_dir() {
         ));
 }
 
+// `--env` is repeatable and sets env vars on the local cargo process; they
+// surface in the printed command in --print-commands-only.
+#[test]
+fn build_with_env_vars() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .arg("--env")
+        .arg("FOO=bar")
+        .arg("--env")
+        .arg("BAZ=qux")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("FOO=bar").and(predicate::str::contains("BAZ=qux")));
+}
+
+// An invalid `--env` name is rejected before building.
+#[test]
+fn build_rejects_invalid_env_name() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--print-commands-only")
+        .arg("--env")
+        .arg("1FOO=bar")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "not a valid environment variable name",
+        ));
+}
+
 #[test]
 fn build_with_locked() {
     let sandbox = TestEnv::default();

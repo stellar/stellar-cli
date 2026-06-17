@@ -146,6 +146,18 @@ pub struct BuildArgs {
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
 
+    /// Set an environment variable for the build (repeatable), e.g.
+    /// `--env NAME=VALUE`. It's set on the build process; for a verifiable build
+    /// it's passed to the container and recorded as a `bldopt`, so avoid secrets
+    /// there.
+    #[arg(
+        long = "env",
+        num_args = 1,
+        value_parser = parse_env_arg,
+        action = clap::ArgAction::Append
+    )]
+    pub env: Vec<(String, String)>,
+
     /// Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature.
     #[arg(
         long,
@@ -163,6 +175,7 @@ impl Default for BuildArgs {
     fn default() -> Self {
         Self {
             meta: Vec::new(),
+            env: Vec::new(),
             optimize: true,
         }
     }
@@ -177,6 +190,35 @@ pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
         .ok_or_else(|| Error::MetaArg("must be in the form 'key=value'".to_string()))?;
 
     Ok((key.to_string(), value.to_string()))
+}
+
+/// Parse a `--env NAME=VALUE` argument. The name must be a valid environment
+/// variable name (`[A-Za-z_][A-Za-z0-9_]*`, no surrounding whitespace); the
+/// value is kept verbatim, since the shell has already resolved any quoting and
+/// env values can carry significant whitespace.
+pub fn parse_env_arg(s: &str) -> Result<(String, String), Error> {
+    let (name, value) = s
+        .split_once('=')
+        .ok_or_else(|| Error::EnvArg(format!("{s:?} must be in the form 'NAME=VALUE'")))?;
+
+    if !is_valid_env_name(name) {
+        return Err(Error::EnvArg(format!(
+            "{name:?} is not a valid environment variable name (expected [A-Za-z_][A-Za-z0-9_]*)"
+        )));
+    }
+
+    Ok((name.to_string(), value.to_string()))
+}
+
+/// Whether `name` is a valid environment variable name: a leading letter or
+/// underscore followed by letters, digits, or underscores.
+fn is_valid_env_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -219,6 +261,9 @@ pub enum Error {
 
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
+
+    #[error("invalid env entry: {0}")]
+    EnvArg(String),
 
     #[error(
         "use a rust version other than 1.81, 1.82, 1.83 or 1.91.0 to build contracts (got {0})"
@@ -347,6 +392,11 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            // User-supplied build env vars (--env NAME=VALUE).
+            for (name, value) in &self.build_args.env {
+                cmd.env(name, value);
+            }
 
             let cmd_str = serialize_command(&cmd);
 
@@ -910,5 +960,50 @@ mod tests {
             tokens.iter().any(|t| t == raw_arg),
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
+    }
+
+    #[test]
+    fn parse_env_arg_parses_name_value() {
+        assert_eq!(
+            parse_env_arg("FOO=bar").unwrap(),
+            ("FOO".to_string(), "bar".to_string())
+        );
+        assert_eq!(
+            parse_env_arg("_FOO_BAR2=bar").unwrap(),
+            ("_FOO_BAR2".to_string(), "bar".to_string())
+        );
+        // Only the first `=` splits; the value keeps the rest verbatim.
+        assert_eq!(
+            parse_env_arg("FOO=a=b=c").unwrap(),
+            ("FOO".to_string(), "a=b=c".to_string())
+        );
+        // An empty value is allowed.
+        assert_eq!(
+            parse_env_arg("FOO=").unwrap(),
+            ("FOO".to_string(), String::new())
+        );
+        // The value is kept verbatim (the shell already handled quoting), so
+        // significant whitespace survives.
+        assert_eq!(
+            parse_env_arg("FOO= 1 ").unwrap(),
+            ("FOO".to_string(), " 1 ".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_env_arg_rejects_invalid() {
+        for bad in [
+            "FOO",         // no `=`
+            "=bar",        // empty name
+            "  FOO  = 1 ", // whitespace in name
+            "1FOO=x",      // leading digit
+            "FO-O=x",      // invalid char
+            "FOO BAR=x",   // space in name
+        ] {
+            assert!(
+                matches!(parse_env_arg(bad).unwrap_err(), Error::EnvArg(_)),
+                "expected {bad:?} to be rejected"
+            );
+        }
     }
 }
