@@ -196,7 +196,7 @@ fn parse_function_arguments(
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
     let mut signers = Vec::<Signer>::new();
 
-    for i in func.inputs.iter() {
+    for i in &func.inputs {
         parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args)?;
     }
 
@@ -797,7 +797,7 @@ fn resolve_aliases_in_udt(
                     }
                 }
                 serde_json::Value::Object(obj) => {
-                    for field in strukt.fields.iter() {
+                    for field in &strukt.fields {
                         let key = field.name.to_utf8_string_lossy();
                         if let Some(field_val) = obj.get_mut(key.as_str()) {
                             mutated |=

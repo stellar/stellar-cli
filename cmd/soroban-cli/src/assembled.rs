@@ -325,9 +325,7 @@ mod tests {
             }),
             root_invocation: SorobanAuthorizedInvocation {
                 function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(
-                        [0; 32],
-                    ))),
+                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
                     function_name: ScSymbol("fn".try_into().unwrap()),
                     args: VecM::default(),
                 }),

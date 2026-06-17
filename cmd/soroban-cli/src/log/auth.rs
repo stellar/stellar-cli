@@ -59,7 +59,7 @@ fn format_invocation(
             let _ = writeln!(result, "{prefix}  Fn: {fn_name}");
             if !args.is_empty() {
                 let _ = writeln!(result, "{prefix}  Args:");
-                for arg in args.iter() {
+                for arg in args {
                     let _ = writeln!(
                         result,
                         "{prefix}    {}",
@@ -132,7 +132,7 @@ fn format_create_contract(
     if let Some(args) = constructor_args {
         if !args.is_empty() {
             let _ = writeln!(result, "{prefix}    Constructor Args:");
-            for arg in args.iter() {
+            for arg in args {
                 let _ = writeln!(
                     result,
                     "{prefix}      {}",
