@@ -22,14 +22,18 @@ pub struct Cmd {
     /// Contract ID to fetch
     #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
     pub contract_id: Option<config::UnresolvedContract>,
+
     /// Wasm to fetch
     #[arg(long = "wasm-hash", conflicts_with = "contract_id")]
     pub wasm_hash: Option<String>,
+
     /// Where to write output otherwise stdout is used
     #[arg(long, short = 'o')]
     pub out_file: Option<std::path::PathBuf>,
+
     #[command(flatten)]
     pub locator: locator::Args,
+
     #[command(flatten)]
     pub network: network::Args,
 }

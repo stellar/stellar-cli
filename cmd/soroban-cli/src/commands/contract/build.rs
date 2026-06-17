@@ -25,6 +25,7 @@ use crate::{
     wasm,
 };
 
+pub(crate) mod source_archive;
 pub mod verifiable;
 
 /// A built WASM artifact with its package name and file path.
@@ -111,10 +112,11 @@ pub struct Cmd {
     #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
     pub image: Option<String>,
 
-    /// SEP-58 source identification: SHA-256 of the source archive/tree
-    /// (recorded as the `source_sha256` meta entry). Required with
-    /// `--verifiable` unless `--archive` is used, which generates the archive
-    /// and computes this for you.
+    /// SEP-58 source identification: SHA-256 of the source archive
+    /// (recorded as the `source_sha256` meta entry). Optional with
+    /// `--verifiable`: the archive is always generated and its SHA-256 computed
+    /// for you. When supplied it's treated as a pin — the build fails if it
+    /// doesn't match the generated archive.
     #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
     pub source_sha256: Option<String>,
 
@@ -128,21 +130,6 @@ pub struct Cmd {
         help_heading = "Verifiable"
     )]
     pub source_uri: Option<String>,
-
-    /// Generate a source archive for the verifiable build, then build from it
-    /// and record its SHA-256 as the SEP-58 `source_sha256` meta entry. Pass a
-    /// path to choose where the gzipped tarball is written; with no path it
-    /// goes to the data dir's `archives/`. In a git repo the archive is
-    /// `git archive HEAD`; otherwise the working directory is archived minus a
-    /// built-in denylist (.git, .svn, .hg, target/, node_modules/, .DS_Store).
-    #[arg(
-        long,
-        num_args = 0..=1,
-        require_equals = true,
-        requires = "verifiable",
-        help_heading = "Verifiable"
-    )]
-    pub archive: Option<Option<std::path::PathBuf>>,
 
     /// Override the default docker host used by `--verifiable`.
     #[arg(short = 'd', long, env = "DOCKER_HOST", help_heading = "Verifiable")]
@@ -281,7 +268,6 @@ impl Default for Cmd {
             image: None,
             source_sha256: None,
             source_uri: None,
-            archive: None,
             docker_host: None,
             build_args: BuildArgs::default(),
         }
