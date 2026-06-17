@@ -68,6 +68,7 @@ pub enum Error {
 ///
 /// If a SorobanAuthorizationEntry needs signing, but a signature cannot be produced for it,
 /// return an Error
+#[allow(clippy::too_many_lines)]
 pub async fn sign_soroban_authorizations(
     raw: &Transaction,
     signers: &[Signer],
