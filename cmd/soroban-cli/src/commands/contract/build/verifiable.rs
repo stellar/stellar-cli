@@ -144,13 +144,8 @@ pub enum Error {
     #[error(transparent)]
     Data(#[from] data::Error),
 
-    #[error("container build exited with status {status}. To reproduce manually:\n  docker run --rm -v {mount}:/source {image} {args}")]
-    ContainerExit {
-        status: i64,
-        image: String,
-        mount: String,
-        args: String,
-    },
+    #[error("container build exited with status {status}. To reproduce manually:\n  {command}")]
+    ContainerExit { status: i64, command: String },
 }
 
 pub async fn run(
@@ -247,31 +242,38 @@ pub async fn run(
         probe_supports_optimize_false_syntax(&image_ref, &docker, print).await
     };
 
-    let package = resolve_build_package(cmd)?;
-    if cmd.package.is_none() {
-        if let Some(pkg) = &package {
-            print.infoln(format!(
-                "Inferred --package={pkg} and using it as a build option."
-            ));
-        }
+    // Build once per package, each with its own `--package` forwarded and
+    // recorded as a `bldopt`, so every WASM is independently reproducible. With
+    // no explicit `--package` the targets are inferred like a regular build.
+    let packages = resolve_build_packages(cmd)?;
+    if cmd.package.is_none() && !packages.is_empty() {
+        print.infoln(format!("Inferred packages: {}", packages.join(", ")));
     }
-    let (forwarded_args, bldopts) = build_forwarded_args(
-        cmd,
-        &source_root,
-        package.as_deref(),
-        supports_explicit_optimize_false,
-    );
-    let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
-    let container_cmd_args = compose_container_args(&forwarded_args, &metadata_args);
+    let targets: Vec<Option<&str>> = if packages.is_empty() {
+        vec![None]
+    } else {
+        packages.iter().map(|p| Some(p.as_str())).collect()
+    };
+    let container_cmds: Vec<Vec<String>> = targets
+        .iter()
+        .map(|target| {
+            let (forwarded_args, bldopts) =
+                build_forwarded_args(cmd, &source_root, *target, supports_explicit_optimize_false);
+            let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
+            compose_container_args(&forwarded_args, &metadata_args)
+        })
+        .collect();
 
     // Always stream the container's cargo output during `contract build
     // --verifiable`, matching how a non-verifiable `contract build` shows
     // cargo output by default. The verify-side caller gates this on
-    // `--verbose` because verifications are run as part of pipelines.
+    // `--verbose` because verifications are run as part of pipelines. All
+    // per-package builds run in one container so the crates download, compiled
+    // deps, and target/ are shared.
     run_in_container(
         &image_ref,
         &resolved.mount_root,
-        &container_cmd_args,
+        &container_cmds,
         &docker,
         print,
         true,
@@ -602,16 +604,16 @@ fn source_uri_regex() -> Regex {
     Regex::new(r"^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$").unwrap()
 }
 
-/// Resolve the package to pin as `--package`. An explicit `--package` wins.
-/// Otherwise, when the workspace builds exactly one cdylib by default, return
-/// its name so the recorded bldopt is reproducible even if the workspace's
-/// default members change later. Returns `None` when the selection is
-/// ambiguous (zero or multiple default cdylibs) — the build then keeps cargo's
-/// default behavior of building them all, which `--package` can't express
-/// (the container's flag is singular).
-fn resolve_build_package(cmd: &Cmd) -> Result<Option<String>, Error> {
-    if cmd.package.is_some() {
-        return Ok(cmd.package.clone());
+/// Resolve every package the build will produce, so each can be pinned with its
+/// own `--package` (and recorded as a `bldopt`) — making each WASM independently
+/// reproducible even if the workspace's default members change later. An
+/// explicit `--package` wins; otherwise infer the default-member cdylibs exactly
+/// like a regular `stellar contract build` does. May be empty (no cdylib default
+/// members), in which case the caller falls back to a single no-`--package`
+/// build.
+fn resolve_build_packages(cmd: &Cmd) -> Result<Vec<String>, Error> {
+    if let Some(pkg) = &cmd.package {
+        return Ok(vec![pkg.clone()]);
     }
     let mut mc = MetadataCommand::new();
     mc.no_deps();
@@ -632,7 +634,7 @@ fn resolve_build_package(cmd: &Cmd) -> Result<Option<String>, Error> {
         .collect();
     names.sort();
     names.dedup();
-    Ok((names.len() == 1).then(|| names.remove(0)))
+    Ok(names)
 }
 
 /// The flags forwarded to the container's `stellar contract build`, plus the
@@ -980,18 +982,57 @@ async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, 
         .map_err(|e| Error::TagListUnavailable(format!("unparseable version {stdout:?}: {e}")))
 }
 
+/// Render the per-package `stellar contract build …` commands into a single
+/// `sh -c` script (`stellar … && stellar …`), shell-escaping every token so meta
+/// values with spaces survive. Used when more than one package is built so they
+/// share one container (and its crates download / compiled deps / `target/`).
+fn compose_shell_command(cmds: &[Vec<String>]) -> String {
+    cmds.iter()
+        .map(|cmd| {
+            std::iter::once("stellar")
+                .chain(cmd.iter().map(String::as_str))
+                .map(|tok| shell_escape::escape(tok.into()).into_owned())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect::<Vec<_>>()
+        .join(" && ")
+}
+
 async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
-    container_cmd: &[String],
+    container_cmds: &[Vec<String>],
     docker: &Docker,
     print: &Print,
     verbose: bool,
 ) -> Result<(), Error> {
     let bind = format!("{}:/source", workspace_root.display());
+
+    // One package → run the image's default `stellar` entrypoint directly.
+    // Several → override the entrypoint to a shell and chain the builds so they
+    // all run in this one container.
+    let (entrypoint, cmd, reproduce) = if container_cmds.len() > 1 {
+        let chain = compose_shell_command(container_cmds);
+        let reproduce = format!(
+            "docker run --rm -v {bind} --entrypoint /bin/sh {image_ref} -c {}",
+            shell_escape::escape(chain.clone().into())
+        );
+        (
+            Some(vec!["/bin/sh".to_string(), "-c".to_string()]),
+            vec![chain],
+            reproduce,
+        )
+    } else {
+        let cmd = container_cmds.first().cloned().unwrap_or_default();
+        let reproduce = format!("docker run --rm -v {bind} {image_ref} {}", cmd.join(" "));
+        (None, cmd, reproduce)
+    };
+
     let config = ContainerCreateBody {
         image: Some(image_ref.to_string()),
-        cmd: Some(container_cmd.to_vec()),
+        entrypoint,
+        cmd: Some(cmd),
         working_dir: Some("/source".to_string()),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
@@ -1051,18 +1092,14 @@ async fn run_in_container(
             Ok(r) => {
                 return Err(Error::ContainerExit {
                     status: r.status_code,
-                    image: image_ref.to_string(),
-                    mount: workspace_root.display().to_string(),
-                    args: container_cmd.join(" "),
+                    command: reproduce.clone(),
                 });
             }
             Err(bollard::errors::Error::DockerContainerWaitError { code: 0, .. }) => {}
             Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => {
                 return Err(Error::ContainerExit {
                     status: code,
-                    image: image_ref.to_string(),
-                    mount: workspace_root.display().to_string(),
-                    args: container_cmd.join(" "),
+                    command: reproduce.clone(),
                 });
             }
             Err(e) => return Err(e.into()),
@@ -1549,5 +1586,40 @@ mod tests {
         for key in ["bldimg", "source_uri", "source_sha256", "bldopt"] {
             assert!(RESERVED_META_KEYS.contains(&key));
         }
+    }
+
+    #[test]
+    fn compose_shell_command_chains_and_escapes() {
+        let a = vec![
+            "contract".to_string(),
+            "build".to_string(),
+            "--package=another".to_string(),
+            "--meta".to_string(),
+            "home_domain=fnando.com".to_string(),
+        ];
+        let b = vec![
+            "contract".to_string(),
+            "build".to_string(),
+            "--package=hello-world".to_string(),
+        ];
+        let s = compose_shell_command(&[a, b]);
+        assert_eq!(
+            s,
+            "stellar contract build --package=another --meta home_domain=fnando.com \
+             && stellar contract build --package=hello-world"
+        );
+
+        // A meta value with a space must be quoted so it stays one token.
+        let c = vec![
+            "contract".to_string(),
+            "build".to_string(),
+            "--meta".to_string(),
+            "note=added on build".to_string(),
+        ];
+        let s = compose_shell_command(&[c]);
+        assert!(
+            s.contains("'note=added on build'") || s.contains("\"note=added on build\""),
+            "expected the spaced value to be quoted, got: {s}"
+        );
     }
 }
