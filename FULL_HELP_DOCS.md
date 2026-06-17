@@ -1177,7 +1177,8 @@ Verify that a contract's WASM reproduces from the build metadata it records, per
 
 - `--id <CONTRACT_ID>` — Contract id or alias to fetch the WASM from the network
 - `--wasm <WASM>` — Local WASM file to verify, instead of fetching from the network
-- `--tarball-url <TARBALL_URL>` — Local tarball file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `tarball_sha256` (no `tarball_url`). Accepts http(s) URLs or local file paths
+- `--wasm-hash <WASM_HASH>` — WASM hash (hex) to fetch the WASM from the network
+- `--source-uri <SOURCE_URI>` — Local source code file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `source_sha256` (no `source_uri`). Accepts http(s) URLs or local file paths
 - `--trust` — Bypass interactive confirmation when the WASM's bldimg is not in the default trust list, or when the source is a tarball (tarballs are never default-trusted)
 - `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by the rebuild
 
