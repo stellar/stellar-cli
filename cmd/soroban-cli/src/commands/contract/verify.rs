@@ -5,7 +5,7 @@ use clap::Parser;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::Spec;
-use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
+use stellar_xdr::{Hash, ScMetaEntry, ScMetaV0};
 
 use crate::{
     commands::{
@@ -25,12 +25,20 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Contract id or alias to fetch the WASM from the network.
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID", conflicts_with = "wasm")]
+    #[arg(
+        long = "id",
+        env = "STELLAR_CONTRACT_ID",
+        conflicts_with_all = ["wasm", "wasm_hash"]
+    )]
     pub contract_id: Option<config::UnresolvedContract>,
 
     /// Local WASM file to verify, instead of fetching from the network.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "wasm_hash")]
     pub wasm: Option<PathBuf>,
+
+    /// WASM hash (hex) to fetch the WASM from the network.
+    #[arg(long = "wasm-hash")]
+    pub wasm_hash: Option<String>,
 
     /// Local source code file or http(s) URL to use as the source when the WASM's
     /// recorded SEP-58 metadata has only `source_sha256` (no `source_uri`).
@@ -57,8 +65,11 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("must pass exactly one of --id or --wasm")]
+    #[error("must pass exactly one of --id, --wasm, or --wasm-hash")]
     MissingInput,
+
+    #[error("invalid wasm hash {0:?}: expected 64 hex characters")]
+    InvalidWasmHash(String),
 
     #[error("reading wasm {0}: {1}")]
     ReadWasm(PathBuf, std::io::Error),
@@ -337,16 +348,24 @@ impl Cmd {
     }
 
     async fn fetch_wasm(&self) -> Result<Vec<u8>, Error> {
-        match (&self.contract_id, &self.wasm) {
-            (Some(id), None) => {
-                let network = self.network.get(&self.locator)?;
-                let resolved =
-                    id.resolve_contract_id(&self.locator, &network.network_passphrase)?;
-                Ok(wasm::fetch_from_contract(&resolved, &network).await?)
-            }
-            (None, Some(path)) => std::fs::read(path).map_err(|e| Error::ReadWasm(path.clone(), e)),
-            _ => Err(Error::MissingInput),
+        // Clap keeps these three mutually exclusive, so at most one is set.
+        if let Some(path) = &self.wasm {
+            return std::fs::read(path).map_err(|e| Error::ReadWasm(path.clone(), e));
         }
+        if let Some(id) = &self.contract_id {
+            let network = self.network.get(&self.locator)?;
+            let resolved = id.resolve_contract_id(&self.locator, &network.network_passphrase)?;
+            return Ok(wasm::fetch_from_contract(&resolved, &network).await?);
+        }
+        if let Some(wasm_hash) = &self.wasm_hash {
+            let network = self.network.get(&self.locator)?;
+            let bytes: [u8; 32] = hex::decode(wasm_hash)
+                .ok()
+                .and_then(|b| b.try_into().ok())
+                .ok_or_else(|| Error::InvalidWasmHash(wasm_hash.clone()))?;
+            return Ok(wasm::fetch_from_wasm_hash(Hash(bytes), &network).await?);
+        }
+        Err(Error::MissingInput)
     }
 }
 
@@ -722,7 +741,7 @@ const SOURCE_SHA256_REGEX_STR: &str = r"^[0-9a-f]{64}$";
 mod tests {
     use super::*;
     use std::io::Cursor;
-    use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, WriteXdr};
+    use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, WriteXdr};
 
     fn make_wasm_with_meta(entries: &[(&str, &str)]) -> Vec<u8> {
         let xdr = encode_meta(entries);
