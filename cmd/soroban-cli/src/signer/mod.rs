@@ -91,15 +91,21 @@ pub async fn sign_soroban_authorizations(
     let mut auths_modified = false;
     let mut signed_auths = Vec::with_capacity(body.auth.len());
     for raw_auth in body.auth.as_slice() {
-        let SorobanAuthorizationEntry {
-            credentials:
-                SorobanCredentials::Address(credentials) | SorobanCredentials::AddressV2(credentials),
-            ..
-        } = raw_auth
-        else {
-            // Doesn't need special signing (SourceAccount / AddressWithDelegates)
-            signed_auths.push(raw_auth.clone());
-            continue;
+        let credentials = match &raw_auth.credentials {
+            SorobanCredentials::Address(credentials)
+            | SorobanCredentials::AddressV2(credentials) => credentials,
+            SorobanCredentials::AddressWithDelegates(_) => {
+                print.warnln(
+                    "Skipping auth entry with delegated signers: not supported yet; entry left unsigned.",
+                );
+                signed_auths.push(raw_auth.clone());
+                continue;
+            }
+            // Source account is authorized by the transaction signature itself; nothing to sign here.
+            SorobanCredentials::SourceAccount => {
+                signed_auths.push(raw_auth.clone());
+                continue;
+            }
         };
         let SorobanAddressCredentials { address, .. } = credentials;
 
