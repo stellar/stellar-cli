@@ -5029,7 +5029,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -5453,7 +5453,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.17",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "strsim",
  "strum 0.17.1",
@@ -5665,7 +5665,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 0.0.17",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
@@ -5720,7 +5720,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.17",
+ "stellar-strkey 0.0.18",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5841,7 +5841,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sha2 0.10.9",
- "stellar-strkey 0.0.17",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5898,9 +5898,8 @@ dependencies = [
 
 [[package]]
 name = "stellar-strkey"
-version = "0.0.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0247b168bdee20244445e3d9cdea697dde6211e88742dd04acfd1b498661e936"
+version = "0.0.18"
+source = "git+https://github.com/stellar/rs-stellar-strkey?rev=73bf43778a4acad5e7b3589f54a5ec3607c4b7b1#73bf43778a4acad5e7b3589f54a5ec3607c4b7b1"
 dependencies = [
  "clap",
  "crate-git-revision 0.0.9",
