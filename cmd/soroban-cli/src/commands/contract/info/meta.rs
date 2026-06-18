@@ -9,7 +9,7 @@ use clap::Parser;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 use soroban_spec_tools::sanitize;
-use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
+use stellar_xdr::{ScMetaEntry, ScMetaV0};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {

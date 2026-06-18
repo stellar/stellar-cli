@@ -79,7 +79,7 @@ mod tests {
 
     fn host_fn_invoke(contract: [u8; 32], fn_name: &str, args: &[ScVal]) -> HostFunction {
         HostFunction::InvokeContract(InvokeContractArgs {
-            contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract))),
+            contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(contract))),
             function_name: ScSymbol(fn_name.try_into().unwrap()),
             args: args.try_into().unwrap(),
         })
@@ -103,9 +103,7 @@ mod tests {
     ) -> SorobanAuthorizedInvocation {
         SorobanAuthorizedInvocation {
             function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-                contract_address: ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(
-                    contract,
-                ))),
+                contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(contract))),
                 function_name: ScSymbol(fn_name.try_into().unwrap()),
                 args: args.to_vec().try_into().unwrap(),
             }),

@@ -361,7 +361,7 @@ pub mod args {
 pub mod rpc {
     use crate::xdr;
     use soroban_rpc::{Client, Error};
-    use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
+    use stellar_xdr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 
     pub async fn get_remote_wasm_from_hash(client: &Client, hash: &Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
@@ -424,7 +424,7 @@ mod tests {
     #[test]
     fn test_verify_wasm_hash_matching() {
         use sha2::{Digest, Sha256};
-        use stellar_xdr::curr::Hash;
+        use stellar_xdr::Hash;
 
         let wasm_bytes = b"\0asm fake wasm content";
         let correct_hash = Hash(Sha256::digest(wasm_bytes).into());
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_verify_wasm_hash_mismatch() {
-        use stellar_xdr::curr::Hash;
+        use stellar_xdr::Hash;
 
         let wasm_bytes = b"\0asm fake wasm content";
         let wrong_hash = Hash([0xAB; 32]);

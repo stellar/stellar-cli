@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
 use std::fmt::Debug;
-use stellar_xdr::curr::{ScMetaEntry, ScMetaV0};
+use stellar_xdr::{ScMetaEntry, ScMetaV0};
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]

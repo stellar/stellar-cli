@@ -81,7 +81,7 @@ fn show_data_path(print: &Print) -> Result<(), Error> {
 fn show_xdr_version(print: &Print) {
     let xdr = stellar_xdr::VERSION;
 
-    print.infoln(format!("XDR version: {}", xdr.xdr_curr));
+    print.infoln(format!("XDR version: {}", xdr.xdr));
 }
 
 async fn print_network(

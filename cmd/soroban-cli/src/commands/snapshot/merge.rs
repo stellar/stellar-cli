@@ -1,7 +1,7 @@
 use clap::Parser;
 use soroban_ledger_snapshot::LedgerSnapshot;
 use std::{collections::HashMap, path::PathBuf};
-use stellar_xdr::curr::LedgerKey;
+use stellar_xdr::LedgerKey;
 
 use crate::{commands::global, print};
 
@@ -21,7 +21,7 @@ fn merge_snapshots(snapshots: Vec<LedgerSnapshot>) -> LedgerSnapshot {
     let max_entry_ttl = last_snapshot.max_entry_ttl;
 
     // Use a HashMap to track entries by key, with last-wins semantics
-    let mut merged_entries: HashMap<LedgerKey, (Box<stellar_xdr::curr::LedgerEntry>, Option<u32>)> =
+    let mut merged_entries: HashMap<LedgerKey, (Box<stellar_xdr::LedgerEntry>, Option<u32>)> =
         HashMap::new();
 
     // Iterate through snapshots in order, so later entries override earlier ones
