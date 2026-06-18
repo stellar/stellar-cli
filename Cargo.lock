@@ -1989,7 +1989,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4347,7 +4347,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.0",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4721,7 +4721,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5029,7 +5029,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 0.0.16",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -5899,7 +5899,8 @@ dependencies = [
 [[package]]
 name = "stellar-strkey"
 version = "0.0.18"
-source = "git+https://github.com/stellar/rs-stellar-strkey?rev=73bf43778a4acad5e7b3589f54a5ec3607c4b7b1#73bf43778a4acad5e7b3589f54a5ec3607c4b7b1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f34ff61c0ca6f1c2b4169e8d1633417bd9225f58b6175e4e317204565d16277"
 dependencies = [
  "clap",
  "crate-git-revision 0.0.9",
@@ -6124,7 +6125,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.8",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
