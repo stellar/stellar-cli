@@ -777,6 +777,61 @@ async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, 
         .map_err(|e| Error::TagListUnavailable(format!("unparseable version {stdout:?}: {e}")))
 }
 
+/// Probe the image for the toolchain rustup uses by default, so it can be
+/// pinned via `RUSTUP_TOOLCHAIN` (see `run_in_container`). Overrides the
+/// entrypoint to run `rustup show active-toolchain` and returns the toolchain
+/// name — the first whitespace-delimited token, dropping any trailing
+/// `(default)` marker (e.g. `1.93.0-x86_64-unknown-linux-gnu`). Returns `None`
+/// on any failure (e.g. an image without rustup), so the build proceeds without
+/// the pin rather than failing.
+async fn probe_active_toolchain(image_ref: &str, docker: &Docker) -> Option<String> {
+    let config = ContainerCreateBody {
+        image: Some(image_ref.to_string()),
+        entrypoint: Some(vec!["rustup".to_string()]),
+        cmd: Some(vec!["show".to_string(), "active-toolchain".to_string()]),
+        attach_stdout: Some(true),
+        attach_stderr: Some(true),
+        host_config: Some(HostConfig {
+            auto_remove: Some(true),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let created = docker
+        .create_container(None::<CreateContainerOptions>, config)
+        .await
+        .ok()?;
+    let attached = docker
+        .attach_container(
+            &created.id,
+            Some(AttachContainerOptions {
+                stdout: true,
+                stderr: true,
+                stream: true,
+                ..Default::default()
+            }),
+        )
+        .await
+        .ok()?;
+    docker
+        .start_container(&created.id, None::<StartContainerOptions>)
+        .await
+        .ok()?;
+
+    let mut stdout = String::new();
+    let mut output = attached.output;
+    while let Some(chunk) = output.next().await {
+        if let Ok(bollard::container::LogOutput::StdOut { message }) = chunk {
+            stdout.push_str(&String::from_utf8_lossy(&message));
+        }
+    }
+
+    let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
+    while wait.next().await.is_some() {}
+
+    stdout.split_whitespace().next().map(str::to_string)
+}
+
 /// Render the per-package `stellar contract build …` commands into a single
 /// `sh -c` script (`stellar … && stellar …`), shell-escaping every token so meta
 /// values with spaces survive. Used when more than one package is built so they
@@ -817,10 +872,22 @@ async fn run_in_container(
 ) -> Result<(), Error> {
     let bind = format!("{}:/source", workspace_root.display());
 
+    // Pin rustup to the image's own toolchain (per SEP-58): without this, a
+    // `rust-toolchain.toml` in the source could make rustup switch toolchains
+    // mid-build, defeating the digest-pinned image. Probe the image for its
+    // active toolchain and pass it through with `-e`, unless the caller already
+    // set RUSTUP_TOOLCHAIN. Skipped silently when the image has no rustup.
+    let mut env = env.to_vec();
+    if !env.iter().any(|e| e.starts_with("RUSTUP_TOOLCHAIN=")) {
+        if let Some(toolchain) = probe_active_toolchain(image_ref, docker).await {
+            env.push(format!("RUSTUP_TOOLCHAIN={toolchain}"));
+        }
+    }
+
     // `-e KEY=VALUE` flags for the reproduce command, mirroring the env passed
     // to the container below.
     let mut env_flags = String::new();
-    for e in env {
+    for e in &env {
         env_flags.push_str(" -e ");
         env_flags.push_str(&shell_escape::escape(e.as_str().into()));
     }
@@ -852,7 +919,7 @@ async fn run_in_container(
         image: Some(image_ref.to_string()),
         entrypoint,
         cmd: Some(cmd),
-        env: (!env.is_empty()).then(|| env.to_vec()),
+        env: (!env.is_empty()).then(|| env.clone()),
         working_dir: Some("/source".to_string()),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
@@ -908,24 +975,27 @@ async fn run_in_container(
         }
     }
 
-    let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
+    wait_for_container_exit(docker, &created.id, &reproduce).await
+}
+
+/// Block until the container exits, mapping a non-zero exit code (whether
+/// reported as a successful wait or as a `DockerContainerWaitError`) to
+/// `ContainerExit` carrying the reproduce command.
+async fn wait_for_container_exit(docker: &Docker, id: &str, reproduce: &str) -> Result<(), Error> {
+    let mut wait = docker.wait_container(id, None::<WaitContainerOptions>);
     while let Some(item) = wait.next().await {
-        match item {
-            Ok(r) if r.status_code == 0 => {}
-            Ok(r) => {
-                return Err(Error::ContainerExit {
-                    status: r.status_code,
-                    command: reproduce.clone(),
-                });
-            }
-            Err(bollard::errors::Error::DockerContainerWaitError { code: 0, .. }) => {}
-            Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => {
-                return Err(Error::ContainerExit {
-                    status: code,
-                    command: reproduce.clone(),
-                });
-            }
+        // Both a successful wait and a `DockerContainerWaitError` carry an exit
+        // code; normalize to it (other errors are genuine failures).
+        let status = match item {
+            Ok(r) => r.status_code,
+            Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => code,
             Err(e) => return Err(e.into()),
+        };
+        if status != 0 {
+            return Err(Error::ContainerExit {
+                status,
+                command: reproduce.to_string(),
+            });
         }
     }
 
