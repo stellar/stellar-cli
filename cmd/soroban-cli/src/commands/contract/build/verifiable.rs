@@ -70,11 +70,6 @@ pub enum Error {
     SourceArchive(#[from] source_archive::Error),
 
     #[error(
-        "git working tree at {path} is dirty. --verifiable requires a clean tree so the recorded source_sha256 matches the WASM bytes. Commit or stash your changes and try again."
-    )]
-    GitDirty { path: PathBuf },
-
-    #[error(
         "the cli sets bldimg, source_uri, source_sha256, and bldopt automatically when --verifiable is used; remove them from --meta. Got reserved key: {key}"
     )]
     ReservedMetaKey { key: String },
@@ -116,17 +111,18 @@ pub async fn run(
     let workspace_root = resolve_workspace_root(cmd)?;
     validate_source_formats(cmd)?;
 
-    // Pick the anchor for the local source: the `--manifest-path` bldopt is
-    // relativized against it, and (when `--archive` is not used) it's also what
-    // gets bind-mounted into the container. We do NOT validate that it matches
-    // source_uri — a wrong source produces different bytes, and verify catches
-    // that at byte-comparison time.
-    let source_root = source_archive::resolve_source_root(cmd.manifest_path.as_deref());
+    // The source root is the current working directory: it's bind-mounted into
+    // the container and the `--manifest-path` bldopt is relativized against it.
+    // Run from the project/workspace root you want built. We do NOT validate that
+    // it matches source_uri — a wrong source produces different bytes, and verify
+    // catches that at byte-comparison time.
+    let source_root = source_archive::resolve_source_root();
 
-    // A dirty working tree would make the recorded source_sha256 fail to
-    // describe the bytes actually built, so refuse to proceed. Skipped when
-    // the source root isn't a git repo (we can't check, e.g. archive sources).
-    enforce_clean_tree(&source_root)?;
+    // The archive is the working tree, so refuse a dirty repo: a verifiable build
+    // should be deliberate, off a committed state, not whatever happens to be on
+    // disk. Skipped when the source root isn't a git repo (we can't check, e.g.
+    // archive sources).
+    source_archive::ensure_clean_tree(&source_root, print).map_err(Error::from)?;
 
     // Always build the source archive, record its hash, and build from the
     // *extracted* archive (in a hardened tempdir) so the WASM is produced from
@@ -342,20 +338,6 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
         extracted_root,
         tmp,
     })
-}
-
-/// Refuse to run a verifiable build against a dirty git working tree: the
-/// bind-mounted source must match the recorded source_sha256 for the build to
-/// be reproducible. When the source root isn't a git repo (e.g. an extracted
-/// archive) we can't check, so we proceed — the user owns the source_sha256
-/// they pass, and verify catches a mismatch at byte-comparison time.
-fn enforce_clean_tree(source_root: &Path) -> Result<(), Error> {
-    if source_archive::tree_is_dirty(source_root)? {
-        return Err(Error::GitDirty {
-            path: source_root.to_path_buf(),
-        });
-    }
-    Ok(())
 }
 
 fn bldimg_regex() -> Regex {

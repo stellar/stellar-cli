@@ -129,7 +129,7 @@ whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
 tar = "0.4.40"
-walkdir = "2.5.0"
+ignore = "0.4.26"
 
 [build-dependencies]
 crate-git-revision = "0.0.9"
