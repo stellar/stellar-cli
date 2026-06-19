@@ -353,7 +353,6 @@ Generate the reproducible source archive used by verifiable builds
 ###### **Options:**
 
 - `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
-- `--manifest-path <MANIFEST_PATH>` — Path to Cargo.toml, used to locate the source root (its enclosing git repository, or the working directory)
 - `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
 
 ## `stellar contract build`
@@ -4170,7 +4169,7 @@ Encode a transaction envelope from JSON to XDR
 
 Decode and encode XDR
 
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4182,14 +4181,6 @@ Decode and encode XDR
 - `generate` — Generate XDR values
 - `xfile` — Preprocess XDR .x files
 - `version` — Print version information
-
-###### **Arguments:**
-
-- `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
 
 ## `stellar xdr types`
 

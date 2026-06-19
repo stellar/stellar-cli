@@ -19,20 +19,15 @@ const ARCHIVE_EXTENSIONS: &[&str] = &[".tar.gz", ".tgz"];
 /// handy for confirming the contents before a verifiable build, or for
 /// producing the archive to host at a `--source-uri`.
 ///
-/// In a git repo the archive is `git archive HEAD` (the committed tree);
-/// otherwise the working directory is archived minus a built-in denylist (.git,
-/// target/, node_modules/, .DS_Store, …).
+/// The archive is the current working directory, honoring the project's
+/// `.gitignore` and `.ignore` files (the `.git` directory itself is always
+/// skipped). Run this from the project (or workspace) root you want archived.
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     /// Where to write the gzipped tarball. Required unless `--dry-run` is used.
     #[arg(long, short = 'o', required_unless_present = "dry_run")]
     pub out_file: Option<PathBuf>,
-
-    /// Path to Cargo.toml, used to locate the source root (its enclosing git
-    /// repository, or the working directory).
-    #[arg(long)]
-    pub manifest_path: Option<PathBuf>,
 
     /// List the entries that would be archived and the computed source_sha256,
     /// without writing any file.
@@ -55,18 +50,12 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
-        let source_root = source_archive::resolve_source_root(self.manifest_path.as_deref());
+        let source_root = source_archive::resolve_source_root();
 
-        // The git path archives HEAD, so uncommitted changes are silently
-        // excluded. Warn (don't fail — this is an inspect/generate tool, not a
-        // build) so the printed source_sha256 isn't mistaken for the working
-        // tree's.
-        if source_archive::tree_is_dirty(&source_root)? {
-            print.warnln(format!(
-                "git working tree at {} is dirty; the archive reflects HEAD only and excludes uncommitted changes.",
-                source_root.display(),
-            ));
-        }
+        // The archive is the working tree, so a dirty repo would bake uncommitted
+        // changes into the bytes and the printed source_sha256 — refuse it, so the
+        // hash always corresponds to a committed state (matching --verifiable).
+        source_archive::ensure_clean_tree(&source_root, &print)?;
 
         // The dry-run listing itself reveals the contents, so skip the
         // "not a git repository" warning there.

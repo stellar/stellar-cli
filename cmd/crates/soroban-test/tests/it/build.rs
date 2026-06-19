@@ -1254,6 +1254,36 @@ fn contract_archive_requires_out_file_without_dry_run() {
         .stderr(predicate::str::contains("--out-file"));
 }
 
+// A dirty git tree is a hard fail for `contract archive` too, matching
+// `--verifiable`: the source_sha256 must describe a committed state.
+#[test]
+fn contract_archive_dirty_tree_errors() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+    // Dirty the tree after committing so status is non-empty.
+    std::fs::write(workspace.join("dirty.txt"), b"uncommitted").unwrap();
+
+    let out = temp.path().join("src.tar.gz");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("dirty"));
+
+    assert!(
+        !out.exists(),
+        "no archive should be written for a dirty tree"
+    );
+}
+
 // `--source-sha256` value must match the 64-hex regex.
 #[test]
 fn verifiable_source_sha256_format_errors() {
