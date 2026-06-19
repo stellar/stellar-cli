@@ -160,6 +160,7 @@ create_print_functions!(event, eventln, "📅");
 create_print_functions!(blank, blankln, "  ");
 create_print_functions!(gear, gearln, "⚙️");
 create_print_functions!(dir, dirln, "📁");
+create_print_functions!(question, questionln, "❓");
 
 #[cfg(test)]
 mod tests {

@@ -17,6 +17,7 @@ pub mod read;
 pub mod restore;
 pub mod spec_verify;
 pub mod upload;
+pub mod verify;
 
 use crate::{commands::global, print::Print, utils::deprecate_message};
 
@@ -104,6 +105,11 @@ pub enum Cmd {
     // run as part of `contract build` so for a general user this is not needed.
     #[command(name = "spec-verify", hide = true)]
     SpecVerify(spec_verify::Cmd),
+
+    /// Verify that a contract's WASM reproduces from the build metadata it
+    /// records, per SEP-58. Either pass a contract id/alias via `--id` (the
+    /// WASM is fetched from the network) or a local file via `--wasm`.
+    Verify(verify::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -161,6 +167,9 @@ pub enum Error {
 
     #[error(transparent)]
     SpecVerify(#[from] spec_verify::Error),
+
+    #[error(transparent)]
+    Verify(#[from] verify::Error),
 }
 
 impl Cmd {
@@ -210,6 +219,7 @@ impl Cmd {
             Cmd::Read(read) => read.run().await?,
             Cmd::Restore(restore) => restore.run(global_args).await?,
             Cmd::SpecVerify(spec_verify) => spec_verify.run(global_args)?,
+            Cmd::Verify(verify) => verify.run(global_args).await?,
         }
         Ok(())
     }

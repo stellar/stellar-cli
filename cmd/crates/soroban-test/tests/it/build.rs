@@ -1289,13 +1289,39 @@ fn verifiable_source_uri_format_errors() {
         .arg("--verifiable")
         .arg("--image")
         .arg(ZERO_DIGEST)
-        .arg("--source-sha256")
-        .arg("a".repeat(64))
         .arg("--source-uri")
         .arg("not a uri")
         .assert()
         .failure()
         .stderr(predicate::str::contains("source_uri format"));
+}
+
+// `--source-uri` does not require `--source-sha256`: the archive is generated
+// and its source_sha256 computed regardless, so a source-uri-only build gets
+// past validation and writes the archive (then fails reaching a real image).
+#[test]
+fn verifiable_source_uri_without_sha256_is_allowed() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(workspace.join("contracts").join("add"))
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-uri")
+        .arg("https://example.com/src.tar.gz")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("Wrote source archive")
+                .and(predicate::str::contains("source_sha256")),
+        );
 }
 
 // A dirty git tree is a hard fail under `--verifiable` (the recorded
