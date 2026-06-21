@@ -19,7 +19,7 @@ jobs:
   build-cli:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
@@ -34,7 +34,7 @@ jobs:
     outputs:
       dirs: ${{ steps.dirs.outputs.dirs }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: OpenZeppelin/stellar-contracts
       - id: dirs
@@ -55,7 +55,7 @@ jobs:
         experimental_spec_shaking_v2: [true, false]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: OpenZeppelin/stellar-contracts
       - uses: actions/download-artifact@v8.0.1
