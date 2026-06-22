@@ -3,9 +3,10 @@ pub mod wasm;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
-    /// Deploy builtin Soroban Asset Contract
+    /// Derive the contract id for a builtin Stellar Asset Contract
     Asset(asset::Cmd),
-    /// Deploy normal Wasm Contract
+
+    /// Derive the contract id for a Wasm contract
     Wasm(wasm::Cmd),
 }
 
@@ -13,6 +14,7 @@ pub enum Cmd {
 pub enum Error {
     #[error(transparent)]
     Asset(#[from] asset::Error),
+
     #[error(transparent)]
     Wasm(#[from] wasm::Error),
 }
@@ -23,6 +25,7 @@ impl Cmd {
             Cmd::Asset(asset) => asset.run()?,
             Cmd::Wasm(wasm) => wasm.run()?,
         }
+
         Ok(())
     }
 }
