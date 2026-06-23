@@ -35,7 +35,7 @@ jobs:
         with:
           tag: nightly
           protocol_version: 27
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run:

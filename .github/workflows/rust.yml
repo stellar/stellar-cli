@@ -40,7 +40,7 @@ jobs:
         check: [advisories, bans, licenses, sources]
     continue-on-error: ${{ matrix.check == 'advisories' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe
         with:
           command: check ${{ matrix.check }}
@@ -48,7 +48,7 @@ jobs:
   check:
     runs-on: ubuntu-latest-8-cores
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: stellar/actions/rust-cache@main
       - run: sudo apt update && sudo apt install -y libudev-dev libdbus-1-dev
       - run: rustup update
@@ -68,7 +68,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -87,7 +87,7 @@ jobs:
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
@@ -104,7 +104,7 @@ jobs:
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.sys.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/build-and-test
         with:
           target: ${{ matrix.sys.target }}
