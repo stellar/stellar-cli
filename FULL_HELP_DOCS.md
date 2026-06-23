@@ -549,12 +549,12 @@ Generate the contract id for a given contract or asset
 
 ###### **Subcommands:**
 
-- `asset` — Deploy builtin Soroban Asset Contract
-- `wasm` — Deploy normal Wasm Contract
+- `asset` — Derive the contract id for a builtin Stellar Asset Contract
+- `wasm` — Derive the contract id for a Wasm contract
 
 ## `stellar contract id asset`
 
-Deploy builtin Soroban Asset Contract
+Derive the contract id for a builtin Stellar Asset Contract
 
 **Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET>`
 
@@ -575,7 +575,7 @@ Deploy builtin Soroban Asset Contract
 
 ## `stellar contract id wasm`
 
-Deploy normal Wasm Contract
+Derive the contract id for a Wasm contract
 
 **Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
 
