@@ -8,6 +8,12 @@ the cached key may be stale — check the correct device is connected / the alia
 hd-path is right, or re-add the key"
     )]
     SignatureMismatch { public_key: String },
+
+    #[error("the cached public key {public_key} is not a valid ed25519 public key")]
+    InvalidPublicKey { public_key: String },
+
+    #[error("the signer returned a malformed ed25519 signature ({len} bytes, expected 64)")]
+    InvalidSignature { len: usize },
 }
 
 /// Verify that `signature` over `message` was produced by the secret key
@@ -22,12 +28,16 @@ pub fn verify_signature(
     signature: &[u8],
 ) -> Result<(), Error> {
     use ed25519_dalek::{Signature, VerifyingKey};
-    let mismatch = || Error::SignatureMismatch {
+    let vk = VerifyingKey::from_bytes(&public_key.0).map_err(|_| Error::InvalidPublicKey {
         public_key: format!("{public_key}"),
-    };
-    let vk = VerifyingKey::from_bytes(&public_key.0).map_err(|_| mismatch())?;
-    let sig = Signature::from_slice(signature).map_err(|_| mismatch())?;
-    vk.verify_strict(message, &sig).map_err(|_| mismatch())
+    })?;
+    let sig = Signature::from_slice(signature).map_err(|_| Error::InvalidSignature {
+        len: signature.len(),
+    })?;
+    vk.verify_strict(message, &sig)
+        .map_err(|_| Error::SignatureMismatch {
+            public_key: format!("{public_key}"),
+        })
 }
 
 /// Classification of an `Address`-credential auth entry's relationship to the
@@ -186,6 +196,12 @@ mod tests {
         assert!(matches!(
             verify_signature(&public_key, &message, &tampered),
             Err(Error::SignatureMismatch { .. })
+        ));
+
+        // A wrong-length signature is reported as malformed, not as a mismatch.
+        assert!(matches!(
+            verify_signature(&public_key, &message, &signature[..63]),
+            Err(Error::InvalidSignature { len: 63 })
         ));
     }
 
