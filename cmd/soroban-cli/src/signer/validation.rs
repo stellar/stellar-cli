@@ -1,5 +1,35 @@
 use crate::xdr::{HostFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvocation};
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error(
+        "the produced signature does not match the cached public key {public_key}; \
+the cached key may be stale — check the correct device is connected / the alias's \
+hd-path is right, or re-add the key"
+    )]
+    SignatureMismatch { public_key: String },
+}
+
+/// Verify that `signature` over `message` was produced by the secret key
+/// corresponding to `public_key`. Used as a post-sign drift guard for
+/// cached-pubkey signers (Ledger / Secure Store): the signature is produced on a
+/// live device/keychain while the hint and embedded public key are derived from a
+/// cached value, so a stale cache yields a transaction the network silently
+/// rejects. This catches that locally with a clear error.
+pub fn verify_signature(
+    public_key: &stellar_strkey::ed25519::PublicKey,
+    message: &[u8; 32],
+    signature: &[u8],
+) -> Result<(), Error> {
+    use ed25519_dalek::{Signature, VerifyingKey};
+    let mismatch = || Error::SignatureMismatch {
+        public_key: format!("{public_key}"),
+    };
+    let vk = VerifyingKey::from_bytes(&public_key.0).map_err(|_| mismatch())?;
+    let sig = Signature::from_slice(signature).map_err(|_| mismatch())?;
+    vk.verify_strict(message, &sig).map_err(|_| mismatch())
+}
+
 /// Classification of an `Address`-credential auth entry's relationship to the
 /// transaction's host function.
 ///
@@ -123,6 +153,40 @@ mod tests {
             }),
             sub_invocations: VecM::default(),
         }
+    }
+
+    #[test]
+    fn test_verify_signature_roundtrip() {
+        use ed25519_dalek::{ed25519::signature::Signer as _, SigningKey};
+
+        let signing_key = SigningKey::from_bytes(&[7u8; 32]);
+        let public_key =
+            ed25519::PublicKey::from_payload(signing_key.verifying_key().as_bytes()).unwrap();
+        let message = [42u8; 32];
+        let signature = signing_key.sign(&message).to_bytes();
+
+        // Matching key + untampered signature verifies.
+        verify_signature(&public_key, &message, &signature).unwrap();
+
+        // A different public key is rejected.
+        let cached_pk = ed25519::PublicKey::from_payload(
+            SigningKey::from_bytes(&[9u8; 32])
+                .verifying_key()
+                .as_bytes(),
+        )
+        .unwrap();
+        assert!(matches!(
+            verify_signature(&cached_pk, &message, &signature),
+            Err(Error::SignatureMismatch { .. })
+        ));
+
+        // A tampered signature is rejected.
+        let mut tampered = signature;
+        tampered[0] ^= 0xff;
+        assert!(matches!(
+            verify_signature(&public_key, &message, &tampered),
+            Err(Error::SignatureMismatch { .. })
+        ));
     }
 
     #[test]
