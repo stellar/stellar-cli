@@ -16,6 +16,9 @@ pub enum Error {
 
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
+
+    #[error(transparent)]
+    Validation(#[from] crate::signer::validation::Error),
 }
 
 #[cfg(feature = "additional-libs")]
@@ -47,13 +50,17 @@ mod ledger_impl {
                 Some(pk) => pk,
                 None => live.public_key().await?,
             };
+            let sig_bytes = live
+                .signer
+                .sign_transaction_hash(live.index, &tx_hash)
+                .await?;
+            // Only the cached-pubkey path can drift; the cacheless path fetched the
+            // key live from the same device that just signed.
+            if self.public_key.is_some() {
+                crate::signer::validation::verify_signature(&key, &tx_hash, &sig_bytes)?;
+            }
             let hint = SignatureHint(key.0[28..].try_into()?);
-            let signature = Signature(
-                live.signer
-                    .sign_transaction_hash(live.index, &tx_hash)
-                    .await?
-                    .try_into()?,
-            );
+            let signature = Signature(sig_bytes.try_into()?);
             Ok(DecoratedSignature { hint, signature })
         }
 
@@ -63,6 +70,9 @@ mod ledger_impl {
                 .signer
                 .sign_transaction_hash(live.index, &payload)
                 .await?;
+            if let Some(pk) = self.public_key {
+                crate::signer::validation::verify_signature(&pk, &payload, &bytes)?;
+            }
             Ok(Ed25519Signature::from_bytes(bytes.as_slice().try_into()?))
         }
     }
