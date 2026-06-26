@@ -1,20 +1,14 @@
-use bollard::query_parameters::LogsOptions;
-use futures_util::TryStreamExt;
-
-use crate::{
-    commands::{container::shared::Error as ConnectionError, global},
-    print,
-};
+use crate::commands::{container::shared::Error as ConnectionError, global};
 
 use super::shared::{Args, Name};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    ConnectionError(#[from] ConnectionError),
+    Docker(#[from] ConnectionError),
 
-    #[error("⛔ ️Failed to tail container: {0}")]
-    TailContainerError(#[from] bollard::errors::Error),
+    #[error("failed to tail container logs")]
+    TailContainerError,
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -28,24 +22,22 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = print::Print::new(global_args.quiet);
+    pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
         let container_name = Name(self.name.clone()).get_internal_container_name();
-        let docker = self.container_args.connect_to_docker(&print).await?;
-        let logs_stream = &mut docker.logs(
-            &container_name,
-            Some(LogsOptions {
-                follow: true,
-                stdout: true,
-                stderr: true,
-                tail: "all".to_owned(),
-                ..Default::default()
-            }),
-        );
 
-        while let Some(log) = logs_stream.try_next().await? {
-            print!("{log}");
+        // Stream logs straight to the terminal by inheriting stdio.
+        let status = self
+            .container_args
+            .docker_command()
+            .args(["logs", "-f", "--tail", "all", &container_name])
+            .status()
+            .await
+            .map_err(ConnectionError::from)?;
+
+        if !status.success() {
+            return Err(Error::TailContainerError);
         }
+
         Ok(())
     }
 }
