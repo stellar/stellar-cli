@@ -39,13 +39,14 @@ impl Args {
             .unwrap_or_default()
     }
 
-    /// Builds a `docker` command, setting `DOCKER_HOST` in the process environment when a
-    /// `--docker-host` (or `DOCKER_HOST` env) override is provided. Host resolution is otherwise
+    /// Builds a `docker` command, passing a `-H <host>` override when a `--docker-host` (or
+    /// `DOCKER_HOST` env) value is provided. The `-H` flag outranks `DOCKER_CONTEXT`, so the
+    /// override is honored even when a docker context is active. Host resolution is otherwise
     /// left to the docker CLI itself.
     pub(crate) fn docker_command(&self) -> Command {
         let mut cmd = Command::new("docker");
         if let Some(host) = &self.docker_host {
-            cmd.env("DOCKER_HOST", host);
+            cmd.args(["-H", host]);
         }
         cmd
     }

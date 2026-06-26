@@ -114,8 +114,12 @@ impl Runner {
         let mut cmd = self.args.container_args.docker_command();
         cmd.args(["pull", image]).stdout(Stdio::piped());
 
-        let Ok(mut child) = cmd.spawn() else {
-            return self.warn_image_fetch(image);
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            // Let the main `docker run` invocation surface the "is docker installed?" hint
+            // rather than warning about a failed image fetch.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => return self.warn_image_fetch(image),
         };
 
         if let Some(stdout) = child.stdout.take() {
