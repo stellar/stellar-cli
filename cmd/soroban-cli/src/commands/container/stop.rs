@@ -1,25 +1,20 @@
 use crate::{
-    commands::{container::shared::Error as BollardConnectionError, global},
+    commands::{container::shared::Error as ConnectionError, global},
     print,
 };
-use bollard::query_parameters::StopContainerOptions;
 
 use super::shared::{Args, Name};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("⛔ Failed to connect to docker: {0}")]
-    DockerConnectionFailed(#[from] BollardConnectionError),
+    #[error(transparent)]
+    Docker(#[from] ConnectionError),
 
-    #[error("⛔ Container {container_name} not found")]
-    ContainerNotFound {
-        container_name: String,
-        #[source]
-        source: bollard::errors::Error,
-    },
+    #[error("container {container_name} not found")]
+    ContainerNotFound { container_name: String },
 
-    #[error("⛔ Failed to stop container: {0}")]
-    ContainerStopFailed(#[from] bollard::errors::Error),
+    #[error("failed to stop container: {0}")]
+    ContainerStopFailed(String),
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -36,31 +31,29 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone());
-        let docker = self.container_args.connect_to_docker(&print).await?;
 
         print.infoln(format!(
             "Stopping {} container",
             container_name.get_external_container_name()
         ));
 
-        docker
-            .stop_container(
-                &container_name.get_internal_container_name(),
-                None::<StopContainerOptions>,
-            )
+        let output = self
+            .container_args
+            .docker_command()
+            .args(["stop", &container_name.get_internal_container_name()])
+            .output()
             .await
-            .map_err(|e| {
-                let msg = e.to_string();
+            .map_err(ConnectionError::from)?;
 
-                if msg.contains("No such container") {
-                    Error::ContainerNotFound {
-                        container_name: container_name.get_external_container_name(),
-                        source: e,
-                    }
-                } else {
-                    Error::ContainerStopFailed(e)
-                }
-            })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("No such container") {
+                return Err(Error::ContainerNotFound {
+                    container_name: container_name.get_external_container_name(),
+                });
+            }
+            return Err(Error::ContainerStopFailed(stderr.trim().to_string()));
+        }
 
         print.checkln("Container stopped");
 
