@@ -116,7 +116,9 @@ impl Cmd {
             io::stdin().read_to_string(&mut buffer)?;
             // Remove trailing newline if present. The raw path signs the exact
             // bytes provided, so it keeps the newline the shell may have added.
-            if !self.raw && buffer.ends_with('\n') {
+            // With --base64 the payload is the decoded bytes, so the base64 text
+            // (and any shell newline) is still trimmed before decoding.
+            if (!self.raw || self.base64) && buffer.ends_with('\n') {
                 buffer.pop();
                 if buffer.ends_with('\r') {
                     buffer.pop();

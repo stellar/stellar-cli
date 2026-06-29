@@ -262,6 +262,41 @@ async fn raw_sign_preserves_stdin_trailing_newline() {
     assert_ne!(stdin_sig.trim(), trimmed_sig.trim());
 }
 
+#[tokio::test]
+async fn raw_sign_base64_stdin_trims_wrapper_newline() {
+    let sandbox = &TestEnv::new();
+
+    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+    let base64_payload = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=";
+
+    // With --base64 the payload is the decoded bytes, so a trailing newline on
+    // the base64 stdin text must still be trimmed before decoding.
+    let stdin_sig = sandbox
+        .new_assert_cmd("message")
+        .write_stdin(format!("{base64_payload}\n"))
+        .args(["sign", "--sign-with-key", secret_key, "--raw", "--base64"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Same payload passed as an argument (no stdin newline) must match.
+    let arg_sig = sandbox
+        .new_assert_cmd("message")
+        .args([
+            "sign",
+            base64_payload,
+            "--sign-with-key",
+            secret_key,
+            "--raw",
+            "--base64",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(stdin_sig.trim(), arg_sig.trim());
+}
+
 #[test]
 fn message_sign_does_not_leak_secret_in_error_output() {
     let sandbox = TestEnv::default();

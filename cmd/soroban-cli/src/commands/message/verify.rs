@@ -133,8 +133,10 @@ impl Cmd {
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
             // Remove trailing newline if present. The raw path verifies the
-            // exact bytes provided, mirroring `message sign --raw`.
-            if !self.raw && buffer.ends_with('\n') {
+            // exact bytes provided, mirroring `message sign --raw`. With --base64
+            // the payload is the decoded bytes, so the base64 text (and any shell
+            // newline) is still trimmed before decoding.
+            if (!self.raw || self.base64) && buffer.ends_with('\n') {
                 buffer.pop();
                 if buffer.ends_with('\r') {
                     buffer.pop();
