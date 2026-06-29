@@ -225,6 +225,43 @@ async fn raw_sign_message_and_verify() {
         .failure();
 }
 
+#[tokio::test]
+async fn raw_sign_preserves_stdin_trailing_newline() {
+    let sandbox = &TestEnv::new();
+
+    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+
+    // Signing exact bytes with a trailing newline (positional arg, no trimming).
+    let arg_sig = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", "payload\n", "--sign-with-key", secret_key, "--raw"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // The same bytes over stdin must produce the same signature: the raw path
+    // must not strip the trailing newline.
+    let stdin_sig = sandbox
+        .new_assert_cmd("message")
+        .write_stdin("payload\n")
+        .args(["sign", "--sign-with-key", secret_key, "--raw"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(arg_sig.trim(), stdin_sig.trim());
+
+    // And it must differ from signing the trimmed "payload" bytes.
+    let trimmed_sig = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", "payload", "--sign-with-key", secret_key, "--raw"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_ne!(stdin_sig.trim(), trimmed_sig.trim());
+}
+
 #[test]
 fn message_sign_does_not_leak_secret_in_error_output() {
     let sandbox = TestEnv::default();

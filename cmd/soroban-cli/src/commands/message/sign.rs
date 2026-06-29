@@ -114,8 +114,9 @@ impl Cmd {
             // Read from stdin
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
-            // Remove trailing newline if present
-            if buffer.ends_with('\n') {
+            // Remove trailing newline if present. The raw path signs the exact
+            // bytes provided, so it keeps the newline the shell may have added.
+            if !self.raw && buffer.ends_with('\n') {
                 buffer.pop();
                 if buffer.ends_with('\r') {
                     buffer.pop();
