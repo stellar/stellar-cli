@@ -407,8 +407,7 @@ impl Signer {
         match &self.kind {
             SignerKind::Local(local_key) => Ok(local_key.key.sign(data)),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_data(data),
-            SignerKind::Ledger(_) => Err(Error::ArbitraryDataSigningNotSupported),
-            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
+            SignerKind::Ledger(_) | SignerKind::Lab => Err(Error::ArbitraryDataSigningNotSupported),
         }
     }
 
