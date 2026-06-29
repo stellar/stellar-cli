@@ -176,6 +176,55 @@ async fn sep_53_sign_message_and_verify_with_alias() {
         .failure();
 }
 
+#[tokio::test]
+async fn raw_sign_message_and_verify() {
+    let sandbox = &TestEnv::new();
+
+    let message = "challenge-1:abc123";
+    let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
+    let public_key = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
+
+    // --raw signs the exact bytes (no SEP-53 prefix/hash) and outputs hex.
+    let signature = sandbox
+        .new_assert_cmd("message")
+        .args(["sign", message, "--sign-with-key", secret_key, "--raw"])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let signature = signature.trim();
+    assert_eq!(signature.len(), 128, "raw signature is 128 hex chars");
+    assert!(signature.chars().all(|c| c.is_ascii_hexdigit()));
+
+    sandbox
+        .new_assert_cmd("message")
+        .args([
+            "verify",
+            message,
+            "--raw",
+            "--signature",
+            signature,
+            "--public-key",
+            public_key,
+        ])
+        .assert()
+        .success();
+
+    // The raw signature must not validate on the SEP-53 path (it has no prefix
+    // or hashing), so verifying without --raw fails.
+    sandbox
+        .new_assert_cmd("message")
+        .args([
+            "verify",
+            message,
+            "--signature",
+            signature,
+            "--public-key",
+            public_key,
+        ])
+        .assert()
+        .failure();
+}
+
 #[test]
 fn message_sign_does_not_leak_secret_in_error_output() {
     let sandbox = TestEnv::default();

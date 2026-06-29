@@ -53,6 +53,8 @@ pub enum Error {
     Open(#[from] std::io::Error),
     #[error("Returning a signature from Lab is not yet supported; Transaction can be found and submitted in lab")]
     ReturningSignatureFromLab,
+    #[error("Signing arbitrary data is not supported for this signer")]
+    ArbitraryDataSigningNotSupported,
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
     #[error(transparent)]
@@ -397,6 +399,19 @@ impl Signer {
         }
     }
 
+    /// Sign arbitrary-length data directly with ed25519, without any prefix or
+    /// hashing. Unlike `sign_payload`, which expects a fixed 32-byte digest,
+    /// this signs the exact bytes provided. Ledger and Lab signers do not
+    /// support this.
+    pub fn sign_data(&self, data: &[u8]) -> Result<Ed25519Signature, Error> {
+        match &self.kind {
+            SignerKind::Local(local_key) => Ok(local_key.key.sign(data)),
+            SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_data(data),
+            SignerKind::Ledger(_) => Err(Error::ArbitraryDataSigningNotSupported),
+            SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
+        }
+    }
+
     async fn sign_tx_hash(
         &self,
         tx_hash: [u8; 32],
@@ -478,6 +493,12 @@ impl SecureStoreEntry {
 
     pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
+        let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
+        Ok(sig)
+    }
+
+    pub fn sign_data(&self, data: &[u8]) -> Result<Ed25519Signature, Error> {
+        let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, data)?;
         let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
         Ok(sig)
     }
