@@ -9,6 +9,8 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] network::Error),
     #[error(transparent)]
+    Rpc(#[from] crate::rpc::Error),
+    #[error(transparent)]
     Serde(#[from] serde_json::Error),
 }
 
@@ -46,28 +48,28 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let output = Output::new(self.output.into(), global_args.quiet);
-        let result = self.config.get_network()?.rpc_client()?.get_health().await;
 
-        match result {
-            Ok(resp) => {
-                output.readable(|print| {
-                    if resp.status.eq_ignore_ascii_case("healthy") {
-                        print.checkln("Healthy");
-                    } else {
-                        print.warnln(format!("Status: {}", resp.status));
-                    }
-                    print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
-                });
-                output.json_value(&resp)?;
-            }
+        // On failure, surface "Unhealthy" for humans then propagate the error so
+        // the process exits non-zero and the top-level handler renders it (as the
+        // structured JSON envelope in JSON mode). A reachable-but-unhealthy node
+        // instead returns `Ok` with a status, handled below.
+        let resp = match self.config.get_network()?.rpc_client()?.get_health().await {
+            Ok(resp) => resp,
             Err(err) => {
-                output.readable(|print| {
-                    print.errorln("Unhealthy");
-                    print.errorln(format!("failed to fetch network health: {err}"));
-                });
-                output.json_value(&crate::output::error_json(&err))?;
+                output.readable(|print| print.errorln("Unhealthy"));
+                return Err(err.into());
             }
-        }
+        };
+
+        output.readable(|print| {
+            if resp.status.eq_ignore_ascii_case("healthy") {
+                print.checkln("Healthy");
+            } else {
+                print.warnln(format!("Status: {}", resp.status));
+            }
+            print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
+        });
+        output.json_value(&resp)?;
 
         Ok(())
     }

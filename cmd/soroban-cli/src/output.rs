@@ -9,8 +9,10 @@
 //! * [`Output::json`] / [`Output::json_value`] run only in JSON mode and write
 //!   the final machine-readable result to stdout.
 //!
-//! Output is never buffered: each call writes immediately, so long-running
-//! operations stream progress to the terminal instead of holding it silently.
+//! `Output` adds no buffering of its own: each call writes straight to
+//! stdout/stderr as it happens rather than accumulating a buffer to flush at the
+//! end, so long-running operations don't hold their progress back. (The OS may
+//! still buffer a redirected or piped stream, as usual.)
 
 use serde::Serialize;
 
