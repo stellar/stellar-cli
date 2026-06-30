@@ -20,6 +20,7 @@ mod env_vars;
 pub mod get_spec;
 pub mod key;
 pub mod log;
+pub mod output;
 pub mod print;
 pub mod resources;
 pub mod signer;

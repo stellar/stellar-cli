@@ -1,6 +1,6 @@
 use crate::commands::global;
-use crate::config::network;
-use crate::{config, print};
+use crate::config::{self, network};
+use crate::output::{Format, Output};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -23,6 +23,16 @@ pub enum OutputFormat {
     JsonFormatted,
 }
 
+impl From<OutputFormat> for Format {
+    fn from(value: OutputFormat) -> Self {
+        match value {
+            OutputFormat::Text => Format::Readable,
+            OutputFormat::Json => Format::Json,
+            OutputFormat::JsonFormatted => Format::JsonFormatted,
+        }
+    }
+}
+
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -35,25 +45,27 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = print::Print::new(global_args.quiet);
+        let output = Output::new(self.output.into(), global_args.quiet);
         let result = self.config.get_network()?.rpc_client()?.get_health().await;
 
         match result {
-            Ok(resp) => match self.output {
-                OutputFormat::Text => {
+            Ok(resp) => {
+                output.readable(|print| {
                     if resp.status.eq_ignore_ascii_case("healthy") {
                         print.checkln("Healthy");
                     } else {
                         print.warnln(format!("Status: {}", resp.status));
                     }
                     print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
-                }
-                OutputFormat::Json => println!("{}", serde_json::to_string(&resp)?),
-                OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&resp)?),
-            },
+                });
+                output.json_value(&resp)?;
+            }
             Err(err) => {
-                print.errorln("Unhealthy");
-                print.errorln(format!("failed to fetch network health: {err}"));
+                output.readable(|print| {
+                    print.errorln("Unhealthy");
+                    print.errorln(format!("failed to fetch network health: {err}"));
+                });
+                output.json_value(&crate::output::error_json(&err))?;
             }
         }
 
