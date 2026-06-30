@@ -50,6 +50,42 @@ fn set_and_remove_network() {
     });
 }
 
+// When `--output json*` is requested, a failing command must render a
+// structured `{ "error": { "message": … } }` envelope on stdout and exit
+// non-zero, so machine consumers can parse the failure and still detect it via
+// the exit code. An unreachable RPC is a representative, network-free failure.
+#[test]
+fn json_output_renders_structured_errors_and_exits_non_zero() {
+    let sandbox = TestEnv::default();
+
+    for format in ["json", "json-formatted"] {
+        let stdout = sandbox
+            .new_assert_cmd("network")
+            .arg("health")
+            .args([
+                "--rpc-url=http://127.0.0.1:1",
+                "--network-passphrase",
+                LOCAL_NETWORK_PASSPHRASE,
+                &format!("--output={format}"),
+            ])
+            .assert()
+            .failure()
+            .stdout_as_str();
+
+        let value: serde_json::Value = serde_json::from_str(&stdout)
+            .unwrap_or_else(|e| panic!("invalid JSON ({format}): {e}\n{stdout}"));
+
+        assert!(
+            value
+                .get("error")
+                .and_then(|error| error.get("message"))
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "expected an `error.message` string ({format}), got: {stdout}"
+        );
+    }
+}
+
 fn add_network(sandbox: &TestEnv, name: &str) {
     sandbox
         .new_assert_cmd("network")

@@ -5413,6 +5413,7 @@ dependencies = [
  "humantime",
  "indexmap 2.11.0",
  "itertools 0.10.5",
+ "jsonrpsee-types",
  "keyring",
  "mockito",
  "num-bigint",
