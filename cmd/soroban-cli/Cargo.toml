@@ -107,7 +107,6 @@ shell-escape = "0.1.5"
 tempfile = "3.8.1"
 toml_edit = { workspace = true }
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = { workspace = true }
 futures-util = "0.3.30"
 futures = "0.3.30"
 home = "0.5.9"
