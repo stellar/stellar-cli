@@ -1904,7 +1904,7 @@ dependencies = [
  "embedded-io-async",
  "futures-sink",
  "futures-util",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]
@@ -2023,7 +2023,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2481,6 +2481,17 @@ checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
  "hash32",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
+ "zeroize",
 ]
 
 [[package]]
@@ -4344,7 +4355,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.10",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4712,7 +4723,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5445,7 +5456,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "strsim",
  "strum 0.17.1",
@@ -5657,7 +5668,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "thiserror 1.0.69",
  "tokio",
@@ -5712,7 +5723,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5833,7 +5844,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sha2 0.10.9",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5883,14 +5894,26 @@ version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "084afcb0d458c3d5d5baa2d294b18f881e62cc258ef539d8fdf68be7dbe45520"
 dependencies = [
- "clap",
  "crate-git-revision 0.0.6",
  "data-encoding",
- "heapless",
+ "heapless 0.8.0",
+]
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f34ff61c0ca6f1c2b4169e8d1633417bd9225f58b6175e4e317204565d16277"
+dependencies = [
+ "clap",
+ "crate-git-revision 0.0.9",
+ "data-encoding",
+ "heapless 0.9.3",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]
@@ -6105,7 +6128,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.8",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

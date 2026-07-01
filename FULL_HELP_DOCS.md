@@ -4396,7 +4396,7 @@ Print version information
 
 Decode and encode strkey
 
-**Usage:** `stellar strkey <COMMAND>`
+**Usage:** `stellar strkey [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4405,25 +4405,25 @@ Decode and encode strkey
 - `zero` — Generate the zero strkey
 - `version` — Print version information
 
+###### **Options:**
+
+- `-q`, `--quiet` — Suppress stderr log and warning output
+
 ## `stellar strkey decode`
 
 Decode strkey
 
-**Usage:** `stellar strkey decode <STRKEY>`
+Reads the strkey from stdin.
 
-###### **Arguments:**
-
-- `<STRKEY>` — Strkey to decode
+**Usage:** `stellar strkey decode`
 
 ## `stellar strkey encode`
 
 Encode strkey
 
-**Usage:** `stellar strkey encode <JSON>`
+Reads the JSON from stdin.
 
-###### **Arguments:**
-
-- `<JSON>` — JSON for Strkey to encode
+**Usage:** `stellar strkey encode`
 
 ## `stellar strkey zero`
 
