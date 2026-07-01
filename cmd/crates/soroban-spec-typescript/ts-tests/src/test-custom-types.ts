@@ -9,7 +9,7 @@ import {
 const publicKey = root.keypair.publicKey();
 
 const contract = new Client({
-  ...networks.standalone,
+  ...networks.local,
   rpcUrl,
   allowHttp: true,
   publicKey: root.keypair.publicKey(),

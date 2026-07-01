@@ -3,7 +3,7 @@ import { rpcUrl, root, signer } from "./util.js"
 import { Client, networks } from "test-custom-types"
 
 const contract = new Client({
-  ...networks.standalone,
+  ...networks.local,
   rpcUrl,
   allowHttp: true,
   publicKey: root.keypair.publicKey(),
