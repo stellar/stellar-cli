@@ -25,6 +25,9 @@ use crate::{
     wasm,
 };
 
+pub(crate) mod source_archive;
+pub mod verifiable;
+
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]
 pub struct BuiltContract {
@@ -96,6 +99,42 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    /// Build inside a trusted Docker container and record SEP-58 metadata
+    /// (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting
+    /// WASM can be reproduced and verified by third parties. Implies
+    /// `--locked`. Requires a clean git working tree.
+    #[arg(long, help_heading = "Verifiable")]
+    pub verifiable: bool,
+
+    /// Override the auto-selected container image used by `--verifiable`.
+    /// Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`.
+    /// Tag-only refs are rejected because SEP-58 requires content addressing.
+    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    pub image: Option<String>,
+
+    /// SEP-58 source identification: SHA-256 of the source archive
+    /// (recorded as the `source_sha256` meta entry). Optional with
+    /// `--verifiable`: the archive is always generated and its SHA-256 computed
+    /// for you. When supplied it's treated as a pin — the build fails if it
+    /// doesn't match the generated archive.
+    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    pub source_sha256: Option<String>,
+
+    /// SEP-58 source identification: URI where the source can be obtained, e.g.
+    /// `https://example.com/src.tar.gz` (recorded as the `source_uri` meta
+    /// entry). Optional; when set it must accompany `--source-sha256`.
+    #[arg(
+        long,
+        requires = "verifiable",
+        requires = "source_sha256",
+        help_heading = "Verifiable"
+    )]
+    pub source_uri: Option<String>,
+
+    /// Override the default docker host used by `--verifiable`.
+    #[arg(short = 'd', long, env = "DOCKER_HOST", help_heading = "Verifiable")]
+    pub docker_host: Option<String>,
+
     #[command(flatten)]
     pub build_args: BuildArgs,
 }
@@ -106,6 +145,18 @@ pub struct BuildArgs {
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
+
+    /// Set an environment variable for the build (repeatable), e.g.
+    /// `--env NAME=VALUE`. It's set on the build process; for a verifiable build
+    /// it's passed to the container and recorded as a `bldopt`, so avoid secrets
+    /// there.
+    #[arg(
+        long = "env",
+        num_args = 1,
+        value_parser = parse_env_arg,
+        action = clap::ArgAction::Append
+    )]
+    pub env: Vec<(String, String)>,
 
     /// Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature.
     #[arg(
@@ -124,6 +175,7 @@ impl Default for BuildArgs {
     fn default() -> Self {
         Self {
             meta: Vec::new(),
+            env: Vec::new(),
             optimize: true,
         }
     }
@@ -138,6 +190,35 @@ pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
         .ok_or_else(|| Error::MetaArg("must be in the form 'key=value'".to_string()))?;
 
     Ok((key.to_string(), value.to_string()))
+}
+
+/// Parse a `--env NAME=VALUE` argument. The name must be a valid environment
+/// variable name (`[A-Za-z_][A-Za-z0-9_]*`, no surrounding whitespace); the
+/// value is kept verbatim, since the shell has already resolved any quoting and
+/// env values can carry significant whitespace.
+pub fn parse_env_arg(s: &str) -> Result<(String, String), Error> {
+    let (name, value) = s
+        .split_once('=')
+        .ok_or_else(|| Error::EnvArg(format!("{s:?} must be in the form 'NAME=VALUE'")))?;
+
+    if !is_valid_env_name(name) {
+        return Err(Error::EnvArg(format!(
+            "{name:?} is not a valid environment variable name (expected [A-Za-z_][A-Za-z0-9_]*)"
+        )));
+    }
+
+    Ok((name.to_string(), value.to_string()))
+}
+
+/// Whether `name` is a valid environment variable name: a leading letter or
+/// underscore followed by letters, digits, or underscores.
+fn is_valid_env_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -181,6 +262,9 @@ pub enum Error {
     #[error("invalid meta entry: {0}")]
     MetaArg(String),
 
+    #[error("invalid env entry: {0}")]
+    EnvArg(String),
+
     #[error(
         "use a rust version other than 1.81, 1.82, 1.83 or 1.91.0 to build contracts (got {0})"
     )]
@@ -204,6 +288,9 @@ pub enum Error {
 
     #[error("wasm parsing error: {0}")]
     WasmParsing(String),
+
+    #[error(transparent)]
+    Verifiable(#[from] verifiable::Error),
 }
 
 const WASM_TARGET: &str = "wasm32v1-none";
@@ -222,6 +309,11 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
+            verifiable: false,
+            image: None,
+            source_sha256: None,
+            source_uri: None,
+            docker_host: None,
             build_args: BuildArgs::default(),
         }
     }
@@ -230,8 +322,13 @@ impl Default for Cmd {
 impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
+
+        if self.verifiable {
+            return verifiable::run(self, global_args, &print).await;
+        }
+
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
@@ -295,6 +392,11 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI supports spec
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            // User-supplied build env vars (--env NAME=VALUE).
+            for (name, value) in &self.build_args.env {
+                cmd.env(name, value);
+            }
 
             let cmd_str = serialize_command(&cmd);
 
@@ -546,10 +648,7 @@ impl Cmd {
             &wasm_bytes
         };
 
-        print.blankln(format!(
-            "Wasm File: {path} ({size_description})",
-            path = rel_path.display()
-        ));
+        print.blankln(format!("Wasm File: {path}", path = rel_path.display()));
 
         print.blankln(format!("Wasm Hash: {}", hex::encode(Sha256::digest(bytes))));
         print.blankln(format!("Wasm Size: {size_description}"));
@@ -861,5 +960,50 @@ mod tests {
             tokens.iter().any(|t| t == raw_arg),
             "shlex round-trip failed: {raw_arg:?} not found as a single token in {tokens:?}"
         );
+    }
+
+    #[test]
+    fn parse_env_arg_parses_name_value() {
+        assert_eq!(
+            parse_env_arg("FOO=bar").unwrap(),
+            ("FOO".to_string(), "bar".to_string())
+        );
+        assert_eq!(
+            parse_env_arg("_FOO_BAR2=bar").unwrap(),
+            ("_FOO_BAR2".to_string(), "bar".to_string())
+        );
+        // Only the first `=` splits; the value keeps the rest verbatim.
+        assert_eq!(
+            parse_env_arg("FOO=a=b=c").unwrap(),
+            ("FOO".to_string(), "a=b=c".to_string())
+        );
+        // An empty value is allowed.
+        assert_eq!(
+            parse_env_arg("FOO=").unwrap(),
+            ("FOO".to_string(), String::new())
+        );
+        // The value is kept verbatim (the shell already handled quoting), so
+        // significant whitespace survives.
+        assert_eq!(
+            parse_env_arg("FOO= 1 ").unwrap(),
+            ("FOO".to_string(), " 1 ".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_env_arg_rejects_invalid() {
+        for bad in [
+            "FOO",         // no `=`
+            "=bar",        // empty name
+            "  FOO  = 1 ", // whitespace in name
+            "1FOO=x",      // leading digit
+            "FO-O=x",      // invalid char
+            "FOO BAR=x",   // space in name
+        ] {
+            assert!(
+                matches!(parse_env_arg(bad).unwrap_err(), Error::EnvArg(_)),
+                "expected {bad:?} to be rejected"
+            );
+        }
     }
 }

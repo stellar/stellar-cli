@@ -574,52 +574,66 @@ impl Pwd for Args {
     }
 }
 
-#[cfg(unix)]
-fn fix_config_permissions(root: std::path::PathBuf) {
-    use std::os::unix::fs::PermissionsExt;
-
-    let mut bad_dirs = Vec::new();
-    let mut bad_files = Vec::new();
-    let mut stack = vec![root];
-
-    while let Some(dir) = stack.pop() {
-        if let Ok(meta) = std::fs::metadata(&dir) {
-            if meta.permissions().mode() & 0o777 != 0o700 {
-                bad_dirs.push(dir.clone());
+/// Walk `root` recursively. For every regular entry whose permissions don't
+/// already match the hardened mode (0o700 for dirs, 0o600 for files), set
+/// them. Returns the dirs and files that were changed so callers can decide
+/// whether to surface a warning. Symlinks are skipped — mode bits aren't
+/// meaningful for them and `set_permissions` would follow them.
+///
+/// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
+/// on filesystem ACLs created by the higher-level APIs.
+#[allow(clippy::unnecessary_wraps)]
+pub(crate) fn enforce_hardened_tree(root: &Path) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut changed_dirs = Vec::new();
+        let mut changed_files = Vec::new();
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(p) = stack.pop() {
+            let Ok(meta) = std::fs::symlink_metadata(&p) else {
+                continue;
+            };
+            if meta.file_type().is_symlink() {
+                continue;
             }
-        }
-
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.filter_map(Result::ok) {
-                let path = entry.path();
-
-                if path.is_dir() {
-                    stack.push(path);
-                } else if let Ok(meta) = std::fs::metadata(&path) {
-                    if meta.permissions().mode() & 0o777 != 0o600 {
-                        bad_files.push(path);
+            let current = meta.permissions().mode() & 0o777;
+            if meta.is_dir() {
+                if current != 0o700 {
+                    set_hardened_permissions(&p)?;
+                    changed_dirs.push(p.clone());
+                }
+                if let Ok(entries) = std::fs::read_dir(&p) {
+                    for entry in entries.filter_map(Result::ok) {
+                        stack.push(entry.path());
                     }
                 }
+            } else if current != 0o600 {
+                set_hardened_permissions(&p)?;
+                changed_files.push(p);
             }
         }
+        Ok((changed_dirs, changed_files))
     }
+    #[cfg(not(unix))]
+    {
+        let _ = root;
+        Ok((Vec::new(), Vec::new()))
+    }
+}
+
+#[cfg(unix)]
+fn fix_config_permissions(root: std::path::PathBuf) {
+    let Ok((dirs, files)) = enforce_hardened_tree(&root) else {
+        return;
+    };
 
     let print = Print::new(false);
-
-    if !bad_dirs.is_empty() {
+    if !dirs.is_empty() {
         print.warnln("Updated config directories permissions to 0700.");
-
-        for dir in bad_dirs {
-            let _ = set_hardened_permissions(&dir);
-        }
     }
-
-    if !bad_files.is_empty() {
+    if !files.is_empty() {
         print.warnln("Updated config files permissions to 0600.");
-
-        for file in bad_files {
-            let _ = set_hardened_permissions(&file);
-        }
     }
 }
 

@@ -83,6 +83,7 @@ Tools for smart contract developers
 - `asset` — Utilities to deploy a Stellar Asset Contract or get its id
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
+- `archive` — Generate the reproducible source archive used by verifiable builds
 - `build` — Build a contract from source
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
@@ -343,6 +344,17 @@ Generate PHP bindings
 
 **Usage:** `stellar contract bindings php`
 
+## `stellar contract archive`
+
+Generate the reproducible source archive used by verifiable builds
+
+**Usage:** `stellar contract archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
+
 ## `stellar contract build`
 
 Build a contract from source
@@ -383,6 +395,7 @@ To view the commands that will be executed, without executing them, use the --pr
   If ommitted, wasm files are written only to the cargo target directory.
 
 - `--locked` — Assert that `Cargo.lock` will remain unchanged
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -392,6 +405,14 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+###### **Verifiable:**
+
+- `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
+- `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
+- `--source-sha256 <SOURCE_SHA256>` — SEP-58 source identification: SHA-256 of the source archive (recorded as the `source_sha256` meta entry). Optional with `--verifiable`: the archive is always generated and its SHA-256 computed for you. When supplied it's treated as a pin — the build fails if it doesn't match the generated archive
+- `--source-uri <SOURCE_URI>` — SEP-58 source identification: URI where the source can be obtained, e.g. `https://example.com/src.tar.gz` (recorded as the `source_uri` meta entry). Optional; when set it must accompany `--source-sha256`
+- `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by `--verifiable`
 
 ## `stellar contract extend`
 
@@ -480,6 +501,7 @@ Deploy a wasm contract
   Default value: `false`
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -854,6 +876,7 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -917,6 +940,7 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -4145,7 +4169,7 @@ Encode a transaction envelope from JSON to XDR
 
 Decode and encode XDR
 
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4157,14 +4181,6 @@ Decode and encode XDR
 - `generate` — Generate XDR values
 - `xfile` — Preprocess XDR .x files
 - `version` — Print version information
-
-###### **Arguments:**
-
-- `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
 
 ## `stellar xdr types`
 
