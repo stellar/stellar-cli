@@ -86,6 +86,63 @@ fn json_output_renders_structured_errors_and_exits_non_zero() {
     }
 }
 
+// The JSON error envelope is scoped to commands migrated to the `Output`
+// system. A command that is *not* migrated (here `ledger latest`) must keep its
+// previous failure behavior even when invoked with `--output json`: no envelope
+// on stdout, the human `error:` line on stderr, and a non-zero exit. This guards
+// against silently changing the failure contract of unmigrated commands.
+#[test]
+fn non_migrated_command_keeps_human_error_line_in_json_mode() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("ledger")
+        .arg("latest")
+        .args([
+            "--rpc-url=http://127.0.0.1:1",
+            "--network-passphrase",
+            LOCAL_NETWORK_PASSPHRASE,
+            "--output=json",
+        ])
+        .assert()
+        .failure()
+        .stdout("")
+        .stderr(predicate::str::contains("error:"));
+}
+
+// `network settings` defaults its `--output` to json, so a failure with no
+// explicit flag must still render the structured JSON envelope on stdout (and
+// exit non-zero). This is resolved by reading the parsed command's own output
+// value rather than sniffing raw args, which cannot see per-command defaults.
+#[test]
+fn migrated_command_default_json_renders_structured_error() {
+    let sandbox = TestEnv::default();
+
+    let stdout = sandbox
+        .new_assert_cmd("network")
+        .arg("settings")
+        .args([
+            "--rpc-url=http://127.0.0.1:1",
+            "--network-passphrase",
+            LOCAL_NETWORK_PASSPHRASE,
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+
+    let value: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("invalid JSON: {e}\n{stdout}"));
+
+    assert!(
+        value
+            .get("error")
+            .and_then(|error| error.get("message"))
+            .and_then(serde_json::Value::as_str)
+            .is_some(),
+        "expected an `error.message` string, got: {stdout}"
+    );
+}
+
 fn add_network(sandbox: &TestEnv, name: &str) {
     sandbox
         .new_assert_cmd("network")

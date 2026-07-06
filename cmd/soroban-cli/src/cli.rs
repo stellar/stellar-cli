@@ -94,11 +94,11 @@ pub async fn main() {
             println!("{help}");
             std::process::exit(1);
         }
-        // When JSON output is requested, render the error as JSON on stdout so
-        // machine consumers get parseable output instead of the human line. The
-        // process still exits non-zero: this is a failure, the JSON body is just
-        // a parseable representation of it.
-        if let Some(format) = output_format_from_raw_args() {
+        // When a command migrated to the `Output` system requested JSON, render
+        // the error as JSON on stdout so machine consumers get parseable output
+        // instead of the human line. The process still exits non-zero: this is a
+        // failure, the JSON body is just a parseable representation of it.
+        if let Some(format) = json_error_format(&root.cmd) {
             let output = crate::output::Output::new(format, root.global_args.quiet);
             let _ = output.json_value(&crate::output::error_json(&e));
             std::process::exit(1);
@@ -124,35 +124,25 @@ fn set_env_from_config() {
     set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
 }
 
-// Detect a JSON `--output` value from the raw args so the top-level error
-// handler can render errors as JSON. `--output` is per-command (not global), so
-// the parsed args are unavailable once an error propagates this far; we mirror
-// `config_dir_from_raw_args` and sniff the raw args instead. Returns `None` for
-// non-JSON formats (text, xdr, pretty, …), which are rendered as the human line.
-fn output_format_from_raw_args() -> Option<crate::output::Format> {
-    use std::ffi::OsStr;
-    let mut iter = std::env::args_os().peekable();
-    let format_for = |value: &str| match value {
-        "json" => Some(crate::output::Format::Json),
-        "json-formatted" => Some(crate::output::Format::JsonFormatted),
-        _ => None,
+// Resolve the effective JSON output `Format` for the top-level error handler
+// from the *parsed* command. Only commands migrated to the `Output` system
+// participate: for those, we read their own `--output` field (honoring the
+// per-command default), so a JSON failure renders as a structured envelope on
+// stdout. Non-migrated commands return `None` and keep the human error line —
+// this avoids silently changing their failure contract (and, for streaming
+// commands like `events`, avoids splicing an error object into their stdout).
+fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
+    use crate::commands::network;
+    use crate::output::Format;
+
+    let format: Format = match cmd {
+        commands::Cmd::Network(network::Cmd::Health(cmd)) => cmd.output.into(),
+        commands::Cmd::Network(network::Cmd::Info(cmd)) => cmd.output.into(),
+        commands::Cmd::Network(network::Cmd::Settings(cmd)) => cmd.output.into(),
+        _ => return None,
     };
-    while let Some(arg) = iter.next() {
-        if arg == OsStr::new("--") {
-            break;
-        }
-        if arg == OsStr::new("--output") {
-            return iter
-                .next()
-                .as_deref()
-                .and_then(OsStr::to_str)
-                .and_then(format_for);
-        }
-        if let Some(val) = arg.to_str().and_then(|s| s.strip_prefix("--output=")) {
-            return format_for(val);
-        }
-    }
-    None
+
+    matches!(format, Format::Json | Format::JsonFormatted).then_some(format)
 }
 
 fn config_dir_from_raw_args() -> Option<PathBuf> {
