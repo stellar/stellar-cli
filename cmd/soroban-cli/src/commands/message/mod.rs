@@ -15,6 +15,10 @@ pub enum Cmd {
     /// The provided message will get prefixed with "Stellar Signed Message:\n", hashed with SHA-256,
     /// and signed with the ed25519 private key.
     ///
+    /// Use --raw to instead sign the exact payload bytes directly, with no SEP-53 prefix or
+    /// SHA-256 hashing, outputting the signature as hex (for protocols that require a raw
+    /// ed25519 signature over a specific payload).
+    ///
     /// Example: stellar message sign "Hello, World!" --sign-with-key alice
     Sign(sign::Cmd),
 
@@ -23,6 +27,9 @@ pub enum Cmd {
     /// Verifies that a signature was produced by the holder of the private key
     /// corresponding to the given account public key, following the SEP-53 specification. The
     /// provided message will get prefixed with "Stellar Signed Message:\n" before verification.
+    ///
+    /// Use --raw to verify a raw signature instead: the message bytes are verified directly
+    /// (no prefix or hashing) and the signature is hex-encoded.
     ///
     /// Example: stellar message verify "Hello, World!" --signature BASE64_SIG --public-key GABC...
     Verify(verify::Cmd),
