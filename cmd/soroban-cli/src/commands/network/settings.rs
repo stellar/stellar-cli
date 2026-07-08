@@ -1,5 +1,5 @@
 use crate::config::network;
-use crate::print::Print;
+use crate::output::{Format, Output};
 use crate::{commands::global, config};
 use semver::Version;
 use stellar_xdr::{
@@ -34,6 +34,17 @@ pub enum OutputFormat {
     JsonFormatted,
 }
 
+impl From<OutputFormat> for Format {
+    fn from(value: OutputFormat) -> Self {
+        match value {
+            // Xdr is a raw, human-facing rendering handled outside the JSON path.
+            OutputFormat::Xdr => Format::Readable,
+            OutputFormat::Json => Format::Json,
+            OutputFormat::JsonFormatted => Format::JsonFormatted,
+        }
+    }
+}
+
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -50,7 +61,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = Print::new(global_args.quiet);
+        let output = Output::new(self.output.into(), global_args.quiet);
         let rpc = self.config.get_network()?.rpc_client()?;
 
         // If the network protocol version is ahead of the XDR version (which tracks the protocol
@@ -60,7 +71,9 @@ impl Cmd {
         let network_version = rpc.get_version_info().await?.protocol_version;
         let self_version = Version::parse(stellar_xdr::VERSION.pkg)?.major;
         if self_version < network_version.into() {
-            print.warnln(format!("Network protocol version is {network_version} but the stellar-cli supports {self_version}. The config fetched may not represent the complete config settings for the network. Upgrade the stellar-cli."));
+            // Diagnostic about data completeness; emitted regardless of format
+            // (to stderr) so JSON consumers reading stdout are unaffected.
+            output.print().warnln(format!("Network protocol version is {network_version} but the stellar-cli supports {self_version}. The config fetched may not represent the complete config settings for the network. Upgrade the stellar-cli."));
         }
 
         // Collect the ledger entries for all the config settings.
@@ -96,10 +109,10 @@ impl Cmd {
             updated_entry: settings.try_into().unwrap(),
         };
         match self.output {
+            // Xdr is a distinct raw rendering, handled outside the JSON path.
             OutputFormat::Xdr => println!("{}", config_upgrade_set.to_xdr_base64(Limits::none())?),
-            OutputFormat::Json => println!("{}", serde_json::to_string(&config_upgrade_set)?),
-            OutputFormat::JsonFormatted => {
-                println!("{}", serde_json::to_string_pretty(&config_upgrade_set)?);
+            OutputFormat::Json | OutputFormat::JsonFormatted => {
+                output.json_value(&config_upgrade_set)?;
             }
         }
         Ok(())
