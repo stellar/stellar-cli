@@ -21,6 +21,7 @@ pub mod message;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
+pub mod token;
 pub mod tx;
 pub mod version;
 
@@ -120,6 +121,7 @@ impl Root {
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
+            Cmd::Token(token) => token.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Message(message) => message.run(&self.global_args).await?,
@@ -185,6 +187,10 @@ pub enum Cmd {
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
     Snapshot(snapshot::Cmd),
+
+    /// Interact with SEP-41 tokens and Stellar Asset Contracts
+    #[command(subcommand)]
+    Token(token::Cmd),
 
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
@@ -268,6 +274,9 @@ pub enum Error {
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+
+    #[error(transparent)]
+    Token(#[from] token::Error),
 
     #[error(transparent)]
     Tx(#[from] tx::Error),

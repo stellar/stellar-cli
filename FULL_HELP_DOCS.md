@@ -51,6 +51,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `container` — Start local networks in containers
 - `config` — Manage CLI configuration
 - `snapshot` — Download a snapshot of a ledger from an archive
+- `token` — Interact with SEP-41 tokens and Stellar Asset Contracts
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
 - `strkey` — Decode and encode strkey
@@ -1838,6 +1839,56 @@ This allows combining snapshots from different contract deployments or manually 
 - `-o`, `--out <OUT>` — Output path for the merged snapshot
 
   Default value: `snapshot.json`
+
+## `stellar token`
+
+Interact with SEP-41 tokens and Stellar Asset Contracts
+
+**Usage:** `stellar token <COMMAND>`
+
+###### **Subcommands:**
+
+- `transfer` — Transfer tokens from one account to another
+
+## `stellar token transfer`
+
+Transfer tokens from one account to another
+
+**Usage:** `stellar token transfer [OPTIONS] --id <ID> --from <FROM> --to <TO> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account to transfer tokens from. Signs and authorizes the transfer, so it must be an identity or secret key you control
+- `--to <TO>` — Account to transfer the tokens to
+- `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON receipt
+  - `json-formatted`: Formatted (multiline) JSON receipt
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ## `stellar tx`
 
