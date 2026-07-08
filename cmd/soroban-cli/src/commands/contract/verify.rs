@@ -646,16 +646,21 @@ fn build_container_command(
     let mut forwarded: Vec<String> = Vec::new();
     let mut env: Vec<String> = Vec::new();
     for o in &meta.bldopts {
-        if let Some(rest) = o.strip_prefix("--env=") {
-            // The bldopt value is shell-escaped (e.g. `--env=B='a b'`); shell-split
-            // it back to a single raw `NAME=VALUE` token for docker `-e`.
-            if let Some(kv) =
-                shlex::split(rest).and_then(|mut v| (v.len() == 1).then(|| v.remove(0)))
-            {
-                env.push(kv);
-            }
+        // Every recorded bldopt is shell-escaped at the source (see
+        // `build_forwarded_args` in verifiable.rs) so it's valid shell on its
+        // own — e.g. `--meta=source_repo='github:foo'` or `--env=B='a b'`. The
+        // single-package rebuild hands argv straight to `stellar` with no shell,
+        // so unescape each bldopt back to the one raw argv token the original
+        // build used; otherwise the quoting leaks into the value (a quoted
+        // `--meta` value even shifts the WASM's byte size via XDR alignment).
+        let token = shlex::split(o)
+            .and_then(|mut v| (v.len() == 1).then(|| v.remove(0)))
+            .unwrap_or_else(|| o.clone());
+        if let Some(kv) = token.strip_prefix("--env=") {
+            // Applied via docker `-e` as a raw `NAME=VALUE`, never forwarded.
+            env.push(kv.to_string());
         } else {
-            forwarded.push(o.clone());
+            forwarded.push(token);
         }
     }
 
@@ -1039,6 +1044,35 @@ mod tests {
         assert!(cmd
             .windows(2)
             .any(|w| w[0] == "--meta" && w[1] == "bldopt=--env=A=1"));
+    }
+
+    #[test]
+    fn build_container_command_unescapes_quoted_meta_bldopt() {
+        // Recorded bldopts are shell-escaped at the source, so a `--meta` value
+        // with a `:` (or spaces) is stored quoted. Verify must unescape it back
+        // to the raw argv token — otherwise the literal quotes leak into the
+        // meta value and the rebuilt WASM differs from the original.
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec![
+                "--meta=source_repo='github:LayerZero-Labs/monorepo-external'".to_string(),
+            ],
+        };
+        let (cmd, _env) = build_container_command(&meta, true);
+        // The forwarded build flag is unescaped (no literal quotes reach clap).
+        assert!(
+            cmd.contains(&"--meta=source_repo=github:LayerZero-Labs/monorepo-external".to_string()),
+            "quotes must be stripped from the forwarded --meta, got {cmd:?}"
+        );
+        // The re-recorded `bldopt=` meta keeps the original escaped form verbatim
+        // so the rebuilt WASM's bldopt entry matches the original byte-for-byte.
+        assert!(
+            cmd.windows(2).any(|w| w[0] == "--meta"
+                && w[1] == "bldopt=--meta=source_repo='github:LayerZero-Labs/monorepo-external'"),
+            "the bldopt meta must round-trip the escaped original, got {cmd:?}"
+        );
     }
 
     #[test]
