@@ -254,8 +254,22 @@ impl Cmd {
         let meta = extract_metadata(&wasm_bytes)?;
 
         print.infoln(format!("Build image: {}", meta.bldimg));
-        if let Some(v) = &meta.source_uri {
-            print.infoln(format!("Source URI: {v}"));
+        // Report the source we'll actually fetch from. When `--source-uri`
+        // overrides the recorded value, show the override (and the recorded
+        // value it replaces) so the line isn't misleading.
+        match (&self.source_uri, &meta.source_uri) {
+            (Some(override_uri), Some(recorded)) => {
+                print.infoln(format!(
+                    "Source URI: {override_uri} (overrides recorded {recorded})"
+                ));
+            }
+            (Some(override_uri), None) => {
+                print.infoln(format!("Source URI: {override_uri} (override)"));
+            }
+            (None, Some(recorded)) => {
+                print.infoln(format!("Source URI: {recorded}"));
+            }
+            (None, None) => {}
         }
         if let Some(v) = &meta.source_sha256 {
             print.infoln(format!("Source SHA-256: {v}"));
