@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -6,6 +7,7 @@ use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::{Hash, ScMetaEntry, ScMetaV0};
+use walkdir::WalkDir;
 
 use crate::{
     commands::{
@@ -305,6 +307,20 @@ impl Cmd {
         // the build's working tree is that wrapper dir under `workdir`.
         let source_root = locate_extracted_source_root(workdir.path())?;
 
+        // Snapshot any WASM artifacts already present in the materialized source
+        // *before* the rebuild. A conformant source archive ships no build
+        // output, so anything here was planted; excluding these from the post-
+        // build search stops an attacker from smuggling a pre-built binary into
+        // the tarball to masquerade as the rebuild's output and spoof a match.
+        let preexisting_wasms: HashSet<PathBuf> =
+            collect_release_wasms(&source_root).into_iter().collect();
+        if !preexisting_wasms.is_empty() {
+            print.warnln(format!(
+                "Ignoring {} pre-existing WASM artifact(s) in the source; only freshly rebuilt output is trusted",
+                preexisting_wasms.len()
+            ));
+        }
+
         verifiable::run_in_container(
             &meta.bldimg,
             &source_root,
@@ -318,7 +334,7 @@ impl Cmd {
 
         // Locate the rebuilt WASM. The cargo target dir lives under the bind-
         // mounted /source, which we mapped to `source_root`.
-        let rebuilt_path = find_rebuilt_wasm(&source_root, &meta)?;
+        let rebuilt_path = find_rebuilt_wasm(&source_root, &meta, &preexisting_wasms)?;
         let rebuilt = std::fs::read(&rebuilt_path).map_err(|e| Error::ReadRebuilt {
             path: rebuilt_path.clone(),
             source: e,
@@ -666,55 +682,55 @@ fn build_container_command(
     )
 }
 
-/// Locate the rebuilt WASM under `workdir`. The container writes to
-/// `<workdir>/target/wasm32v1-none/release/<pkg>.wasm` (or `wasm32-unknown-unknown/release`
-/// for older toolchains; check both). If a `--package=<name>` bldopt was
-/// recorded, prefer that file.
-fn find_rebuilt_wasm(workdir: &Path, meta: &ExtractedMetadata) -> Result<PathBuf, Error> {
+/// The two wasm release-output suffixes cargo may write to, newest first.
+/// Older toolchains build for `wasm32-unknown-unknown`; current ones use
+/// `wasm32v1-none`. The match is deliberately the 2-component `<triple>/release`
+/// tail rather than `target/<triple>/release`: cargo's target dir is not fixed
+/// at `target/` (it can be relocated via `--target-dir`, `CARGO_TARGET_DIR`, or
+/// `build.target-dir`), but the `<triple>/release/` layout beneath it is
+/// stable. Matching the tail also excludes intermediate artifacts under
+/// `release/deps/`, whose parent ends with `release/deps`, not `.../release`.
+const WASM_RELEASE_SUFFIXES: [&str; 2] =
+    ["wasm32v1-none/release", "wasm32-unknown-unknown/release"];
+
+/// Walk `root` and return every `*.wasm` sitting directly in a
+/// `<triple>/release` output directory. The target dir's location is not fixed
+/// relative to the crate manifest — in a Cargo workspace it lives at the
+/// workspace root, which may be any ancestor of the `--manifest-path` crate —
+/// so we search the whole tree rather than guess where it is.
+fn collect_release_wasms(root: &Path) -> Vec<PathBuf> {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .map(walkdir::DirEntry::into_path)
+        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("wasm"))
+        .filter(|p| {
+            p.parent()
+                .is_some_and(|parent| WASM_RELEASE_SUFFIXES.iter().any(|s| parent.ends_with(s)))
+        })
+        .collect()
+}
+
+/// Locate the WASM produced by the container's rebuild under `source_root`.
+///
+/// Only artifacts *created by this rebuild* are eligible: any `*.wasm` present
+/// before the build (captured in `preexisting`) is excluded, so a pre-built
+/// binary planted in the source archive can't masquerade as the rebuild output.
+/// If a `--package=<name>` bldopt was recorded, prefer that file.
+fn find_rebuilt_wasm(
+    source_root: &Path,
+    meta: &ExtractedMetadata,
+    preexisting: &HashSet<PathBuf>,
+) -> Result<PathBuf, Error> {
     let preferred_pkg = meta
         .bldopts
         .iter()
         .find_map(|opt| opt.strip_prefix("--package=").map(|s| s.replace('-', "_")));
 
-    // Cargo's `target/` lives next to the manifest's workspace root, which
-    // may be a subdirectory of `workdir` when `--manifest-path=…` was
-    // recorded (e.g. `hello_world/Cargo.toml` in a multi-crate repo). Anchor
-    // the search at the manifest's parent dir, falling back to `workdir`.
-    let target_base = meta
-        .bldopts
-        .iter()
-        .find_map(|opt| {
-            opt.strip_prefix("--manifest-path=")
-                .and_then(|p| Path::new(p).parent().map(Path::to_path_buf))
-                .filter(|p| !p.as_os_str().is_empty())
-        })
-        .map_or_else(|| workdir.to_path_buf(), |sub| workdir.join(sub));
-
-    let candidates = [
-        target_base.join("target/wasm32v1-none/release"),
-        target_base.join("target/wasm32-unknown-unknown/release"),
-    ];
-
-    let mut found: Vec<PathBuf> = Vec::new();
-    for dir in &candidates {
-        if !dir.is_dir() {
-            continue;
-        }
-        for entry in std::fs::read_dir(dir).map_err(|e| Error::ReadRebuilt {
-            path: dir.clone(),
-            source: e,
-        })? {
-            let p = entry
-                .map_err(|e| Error::ReadRebuilt {
-                    path: dir.clone(),
-                    source: e,
-                })?
-                .path();
-            if p.extension().and_then(|s| s.to_str()) == Some("wasm") {
-                found.push(p);
-            }
-        }
-    }
+    let found: Vec<PathBuf> = collect_release_wasms(source_root)
+        .into_iter()
+        .filter(|p| !preexisting.contains(p))
+        .collect();
 
     if let Some(pkg) = &preferred_pkg {
         let want = format!("{pkg}.wasm");
@@ -729,11 +745,11 @@ fn find_rebuilt_wasm(workdir: &Path, meta: &ExtractedMetadata) -> Result<PathBuf
 
     match found.len() {
         0 => Err(Error::NoRebuiltWasm {
-            target: target_base.join("target"),
+            target: source_root.to_path_buf(),
         }),
         1 => Ok(found.into_iter().next().unwrap()),
         _ => Err(Error::AmbiguousRebuiltWasm {
-            target: target_base.join("target"),
+            target: source_root.to_path_buf(),
             found: found
                 .iter()
                 .map(|p| p.display().to_string())
@@ -1061,6 +1077,15 @@ mod tests {
         );
     }
 
+    fn meta_with_bldopts(bldopts: Vec<String>) -> ExtractedMetadata {
+        ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts,
+        }
+    }
+
     #[test]
     fn find_rebuilt_wasm_picks_single() {
         let dir = tempfile::TempDir::new().unwrap();
@@ -1068,13 +1093,8 @@ mod tests {
         std::fs::create_dir_all(&release).unwrap();
         std::fs::write(release.join("hello.wasm"), b"x").unwrap();
 
-        let meta = ExtractedMetadata {
-            bldimg: good_bldimg(),
-            source_uri: Some("https://github.com/foo/bar".to_string()),
-            source_sha256: Some("b".repeat(64)),
-            bldopts: vec![],
-        };
-        let p = find_rebuilt_wasm(dir.path(), &meta).unwrap();
+        let meta = meta_with_bldopts(vec![]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap();
         assert!(p.ends_with("hello.wasm"));
     }
 
@@ -1086,13 +1106,8 @@ mod tests {
         std::fs::write(release.join("hello.wasm"), b"x").unwrap();
         std::fs::write(release.join("other_thing.wasm"), b"x").unwrap();
 
-        let meta = ExtractedMetadata {
-            bldimg: good_bldimg(),
-            source_uri: Some("https://github.com/foo/bar".to_string()),
-            source_sha256: Some("b".repeat(64)),
-            bldopts: vec!["--package=other-thing".to_string()],
-        };
-        let p = find_rebuilt_wasm(dir.path(), &meta).unwrap();
+        let meta = meta_with_bldopts(vec!["--package=other-thing".to_string()]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap();
         assert!(p.ends_with("other_thing.wasm"));
     }
 
@@ -1104,26 +1119,110 @@ mod tests {
         std::fs::write(release.join("hello.wasm"), b"x").unwrap();
         std::fs::write(release.join("other.wasm"), b"x").unwrap();
 
-        let meta = ExtractedMetadata {
-            bldimg: good_bldimg(),
-            source_uri: Some("https://github.com/foo/bar".to_string()),
-            source_sha256: Some("b".repeat(64)),
-            bldopts: vec![],
-        };
-        let err = find_rebuilt_wasm(dir.path(), &meta).unwrap_err();
+        let meta = meta_with_bldopts(vec![]);
+        let err = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap_err();
         assert!(matches!(err, Error::AmbiguousRebuiltWasm { .. }));
     }
 
     #[test]
     fn find_rebuilt_wasm_errors_when_none() {
         let dir = tempfile::TempDir::new().unwrap();
-        let meta = ExtractedMetadata {
-            bldimg: good_bldimg(),
-            source_uri: Some("https://github.com/foo/bar".to_string()),
-            source_sha256: Some("b".repeat(64)),
-            bldopts: vec![],
-        };
-        let err = find_rebuilt_wasm(dir.path(), &meta).unwrap_err();
+        let meta = meta_with_bldopts(vec![]);
+        let err = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap_err();
         assert!(matches!(err, Error::NoRebuiltWasm { .. }));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_finds_target_at_workspace_root() {
+        // In a Cargo workspace the `target/` dir sits at the workspace root, not
+        // next to the crate manifest. The search must still find it when
+        // `--manifest-path` points deep into a subdirectory (the bug that
+        // motivated the tree walk).
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("blocked_message_lib.wasm"), b"x").unwrap();
+        std::fs::create_dir_all(
+            dir.path()
+                .join("contracts/message-libs/blocked-message-lib/src"),
+        )
+        .unwrap();
+
+        let meta = meta_with_bldopts(vec![
+            "--manifest-path=contracts/message-libs/blocked-message-lib/Cargo.toml".to_string(),
+            "--package=blocked-message-lib".to_string(),
+        ]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap();
+        assert!(p.ends_with("blocked_message_lib.wasm"));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_finds_relocated_target_dir() {
+        // The output dir need not be named `target/` (e.g. CARGO_TARGET_DIR).
+        // The `<triple>/release/` tail is what's stable, so a renamed dir is
+        // still found.
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("custom-out/wasm32-unknown-unknown/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+
+        let meta = meta_with_bldopts(vec![]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap();
+        assert!(p.ends_with("hello.wasm"));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_ignores_release_deps_artifacts() {
+        // Intermediate wasms under `release/deps/` are not the final artifact
+        // and must not be matched.
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        let deps = release.join("deps");
+        std::fs::create_dir_all(&deps).unwrap();
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+        std::fs::write(deps.join("hello-abc123.wasm"), b"x").unwrap();
+
+        let meta = meta_with_bldopts(vec![]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &HashSet::new()).unwrap();
+        assert!(p.ends_with("hello.wasm"));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_excludes_preexisting_injected_wasm() {
+        // An attacker ships a pre-built wasm at the output path. It's captured
+        // in the pre-build snapshot and excluded, so it can't spoof a match —
+        // leaving no eligible rebuild output.
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        let injected = release.join("hello.wasm");
+        std::fs::write(&injected, b"x").unwrap();
+
+        let preexisting: HashSet<PathBuf> = collect_release_wasms(dir.path()).into_iter().collect();
+        assert!(preexisting.contains(&injected));
+
+        let meta = meta_with_bldopts(vec![]);
+        let err = find_rebuilt_wasm(dir.path(), &meta, &preexisting).unwrap_err();
+        assert!(matches!(err, Error::NoRebuiltWasm { .. }));
+    }
+
+    #[test]
+    fn find_rebuilt_wasm_keeps_freshly_built_alongside_preexisting() {
+        // A pre-existing wasm is excluded, but a genuinely new one built next to
+        // it is still found — no false ambiguity.
+        let dir = tempfile::TempDir::new().unwrap();
+        let release = dir.path().join("target/wasm32v1-none/release");
+        std::fs::create_dir_all(&release).unwrap();
+        let old = release.join("stale.wasm");
+        std::fs::write(&old, b"x").unwrap();
+
+        let preexisting: HashSet<PathBuf> = collect_release_wasms(dir.path()).into_iter().collect();
+
+        // The rebuild then produces a fresh artifact.
+        std::fs::write(release.join("hello.wasm"), b"x").unwrap();
+
+        let meta = meta_with_bldopts(vec![]);
+        let p = find_rebuilt_wasm(dir.path(), &meta, &preexisting).unwrap();
+        assert!(p.ends_with("hello.wasm"));
     }
 }
