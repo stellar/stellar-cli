@@ -58,6 +58,12 @@ pub struct Cmd {
     #[arg(short = 'd', long, env = "DOCKER_HOST")]
     pub docker_host: Option<String>,
 
+    /// Keep the materialized source and rebuild output instead of deleting them
+    /// on exit, and print the path. Useful for debugging a byte mismatch (e.g.
+    /// diffing the rebuilt WASM's metadata against the original).
+    #[arg(long)]
+    pub keep: bool,
+
     #[command(flatten)]
     pub locator: locator::Args,
 
@@ -280,32 +286,57 @@ impl Cmd {
         }
 
         // Materialize the recorded source into a tempdir so the rebuild can
-        // bind-mount it. The TempDir lives across the rebuild + comparison and
-        // cleans up on drop.
+        // bind-mount it. Normally the TempDir cleans up on drop; with `--keep`
+        // we persist it (below) so a mismatch can be inspected afterwards.
         let workdir = materialize_source(&meta, self.source_uri.as_deref(), &print).await?;
         print.checkln(format!(
             "Source materialized at {}",
             workdir.path().display()
         ));
 
+        let result = self
+            .rebuild_and_verify(workdir.path(), &meta, &wasm_bytes, global_args, &print)
+            .await;
+
+        // Persist the build tree when asked — regardless of the outcome, so a
+        // byte mismatch (or a rebuild error) can be debugged against the kept
+        // source and rebuilt WASM. Otherwise it cleans up on drop here.
+        if self.keep {
+            let kept = workdir.keep();
+            Print::new(false).infoln(format!("Kept build directory at {}", kept.display()));
+        }
+
+        result
+    }
+
+    /// Rebuild the contract in the recorded `bldimg` and compare the freshly
+    /// built WASM against the original. Split out from `run` so the caller owns
+    /// the `TempDir` and can keep or drop it after this returns (see `--keep`).
+    async fn rebuild_and_verify(
+        &self,
+        workdir: &Path,
+        meta: &ExtractedMetadata,
+        wasm_bytes: &[u8],
+        global_args: &global::Args,
+        print: &Print,
+    ) -> Result<(), Error> {
         // Rebuild in the recorded bldimg.
         let docker_args = container::shared::Args {
             docker_host: self.docker_host.clone(),
         };
-        let docker = docker_args.connect_to_docker(&print).await?;
-        verifiable::pull_image(&docker, &meta.bldimg, &print).await?;
+        let docker = docker_args.connect_to_docker(print).await?;
+        verifiable::pull_image(&docker, &meta.bldimg, print).await?;
 
         // `--locked` was only added to `contract build` in cli 25.2.0. The
         // recorded bldimg may be older (and still valid), so probe it before
         // forcing `--locked` — passing an unknown flag would fail the rebuild.
-        let supports_locked =
-            verifiable::probe_supports_locked(&meta.bldimg, &docker, &print).await;
-        let (container_cmd, env) = build_container_command(&meta, supports_locked);
+        let supports_locked = verifiable::probe_supports_locked(&meta.bldimg, &docker, print).await;
+        let (container_cmd, env) = build_container_command(meta, supports_locked);
 
         // SEP-58 requires the source be wrapped in a single top-level directory
         // (the cli names it `source/`, but the spec doesn't fix the name), so
         // the build's working tree is that wrapper dir under `workdir`.
-        let source_root = locate_extracted_source_root(workdir.path())?;
+        let source_root = locate_extracted_source_root(workdir)?;
 
         // Snapshot any WASM artifacts already present in the materialized source
         // *before* the rebuild. A conformant source archive ships no build
@@ -327,23 +358,26 @@ impl Cmd {
             &[container_cmd],
             &env,
             &docker,
-            &print,
+            print,
             global_args.verbose || global_args.very_verbose,
         )
         .await?;
 
         // Locate the rebuilt WASM. The cargo target dir lives under the bind-
         // mounted /source, which we mapped to `source_root`.
-        let rebuilt_path = find_rebuilt_wasm(&source_root, &meta, &preexisting_wasms)?;
+        let rebuilt_path = find_rebuilt_wasm(&source_root, meta, &preexisting_wasms)?;
         let rebuilt = std::fs::read(&rebuilt_path).map_err(|e| Error::ReadRebuilt {
             path: rebuilt_path.clone(),
             source: e,
         })?;
+        if self.keep {
+            print.infoln(format!("Rebuilt WASM at {}", rebuilt_path.display()));
+        }
 
         // Compare. The final result is always shown, even under `--quiet`,
         // via a dedicated Print that ignores the quiet flag.
         let result_print = Print::new(false);
-        let original_hash = format!("{:x}", Sha256::digest(&wasm_bytes));
+        let original_hash = format!("{:x}", Sha256::digest(wasm_bytes));
         let rebuilt_hash = format!("{:x}", Sha256::digest(&rebuilt));
         if original_hash == rebuilt_hash && wasm_bytes.len() == rebuilt.len() {
             result_print.checkln(format!(

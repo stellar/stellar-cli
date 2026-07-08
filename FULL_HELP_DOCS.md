@@ -1170,6 +1170,7 @@ Verify that a contract's WASM reproduces from the build metadata it records, per
 - `--source-uri <SOURCE_URI>` — Local source code file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `source_sha256` (no `source_uri`). Accepts http(s) URLs or local file paths
 - `--trust` — Bypass interactive confirmation when the WASM's bldimg is not in the default trust list, or when the source is a tarball (tarballs are never default-trusted)
 - `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by the rebuild
+- `--keep` — Keep the materialized source and rebuild output instead of deleting them on exit, and print the path. Useful for debugging a byte mismatch (e.g. diffing the rebuilt WASM's metadata against the original)
 
 ###### **RPC Options:**
 
