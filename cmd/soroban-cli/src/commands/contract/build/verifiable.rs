@@ -147,12 +147,6 @@ pub async fn run(
         source_sha256: Some(resolved.source_sha256.clone()),
     };
 
-    // Defer the info banner until every validation has passed, so it doesn't
-    // appear right before an error.
-    if !cmd.locked {
-        print.infoln("Implying --locked because --verifiable was passed");
-    }
-
     // Stage 3: docker.
     let docker_args = crate::commands::container::shared::Args {
         docker_host: cmd.docker_host.clone(),
@@ -172,6 +166,23 @@ pub async fn run(
         probe_supports_optimize_false_syntax(&image_ref, &docker, print).await
     };
 
+    // `--locked` is implied by `--verifiable`, but it was only added to
+    // `contract build` in cli 25.2.0. Probe the image before adding it so a
+    // build against an older, still-valid bldimg doesn't fail on an unknown
+    // flag. When the flag is unavailable we drop it and warn that the rebuild
+    // can't be pinned against dependency drift.
+    let supports_locked = probe_supports_locked(&image_ref, &docker, print).await;
+    if supports_locked {
+        if !cmd.locked {
+            print.infoln("Implying --locked because --verifiable was passed");
+        }
+    } else {
+        print.warnln(
+            "The build image's `contract build` does not support --locked; \
+             building without it. Dependency drift may affect reproducibility.",
+        );
+    }
+
     // Build once per package, each with its own `--package` forwarded and
     // recorded as a `bldopt`, so every WASM is independently reproducible. With
     // no explicit `--package` the targets are inferred like a regular build.
@@ -187,8 +198,13 @@ pub async fn run(
     let container_cmds: Vec<Vec<String>> = targets
         .iter()
         .map(|target| {
-            let (forwarded_args, bldopts) =
-                build_forwarded_args(cmd, &source_root, *target, supports_explicit_optimize_false);
+            let (forwarded_args, bldopts) = build_forwarded_args(
+                cmd,
+                &source_root,
+                *target,
+                supports_explicit_optimize_false,
+                supports_locked,
+            );
             let metadata_args = build_metadata_args(&image_ref, &source_ids, &bldopts);
             compose_container_args(&forwarded_args, &metadata_args)
         })
@@ -389,8 +405,13 @@ fn resolve_build_packages(cmd: &Cmd) -> Result<Vec<String>, Error> {
 /// The flags forwarded to the container's `stellar contract build`, plus the
 /// bldopt strings recorded into SEP-58 metadata. Every build-affecting flag
 /// becomes one bldopt entry so a verifier can replay the same invocation.
-/// `--locked` is always present. `manifest_path` (when set) is recorded
-/// relative to the workspace root so it's valid inside `/source`.
+/// `manifest_path` (when set) is recorded relative to the workspace root so it's
+/// valid inside `/source`.
+///
+/// `supports_locked`: whether the container's `contract build` accepts
+/// `--locked` (added in cli 25.2.0). When false the flag is neither forwarded
+/// nor recorded, so a build against an older image doesn't fail on an unknown
+/// argument.
 ///
 /// `supports_explicit_optimize_false`: whether the container's cli accepts
 /// `--optimize=false`. When false, the optimize=false case records the flag
@@ -401,6 +422,7 @@ fn build_forwarded_args(
     workspace_root: &Path,
     package: Option<&str>,
     supports_explicit_optimize_false: bool,
+    supports_locked: bool,
 ) -> (Vec<String>, Vec<String>) {
     let mut forwarded: Vec<String> = Vec::new();
     let mut bldopts: Vec<String> = Vec::new();
@@ -424,7 +446,9 @@ fn build_forwarded_args(
         }
     };
 
-    record("--locked", None);
+    if supports_locked {
+        record("--locked", None);
+    }
 
     if let Some(path) = &cmd.manifest_path {
         let abs = std::path::absolute(path).unwrap_or_else(|_| path.clone());
@@ -714,10 +738,20 @@ async fn probe_supports_optimize_false_syntax(
     }
 }
 
-async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, Error> {
+/// Run `cmd` in a throwaway container (optionally overriding the entrypoint) and
+/// return its captured stdout. The container auto-removes; stderr is attached so
+/// the daemon streams it, but only stdout is collected. Shared by every image
+/// probe (cli version, active toolchain, flag support).
+async fn run_probe(
+    image_ref: &str,
+    docker: &Docker,
+    entrypoint: Option<Vec<String>>,
+    cmd: Vec<String>,
+) -> Result<String, Error> {
     let config = ContainerCreateBody {
         image: Some(image_ref.to_string()),
-        cmd: Some(vec!["version".to_string(), "--only-version".to_string()]),
+        entrypoint,
+        cmd: Some(cmd),
         attach_stdout: Some(true),
         attach_stderr: Some(true),
         host_config: Some(HostConfig {
@@ -755,8 +789,48 @@ async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, 
     let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
     while wait.next().await.is_some() {}
 
+    Ok(stdout)
+}
+
+async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, Error> {
+    let stdout = run_probe(
+        image_ref,
+        docker,
+        None,
+        vec!["version".to_string(), "--only-version".to_string()],
+    )
+    .await?;
     Version::parse(stdout.trim())
         .map_err(|e| Error::TagListUnavailable(format!("unparseable version {stdout:?}: {e}")))
+}
+
+/// Probe whether the container's `stellar contract build` accepts `--locked`.
+/// The flag was added in cli 25.2.0 (commit `6115b818`); older images reject it
+/// outright, which would fail the build. Rather than map versions, ask the
+/// container's own `contract build --help` whether the flag exists. On any probe
+/// failure returns false — the conservative assumption that the flag is absent,
+/// so the build proceeds without it rather than erroring.
+pub(crate) async fn probe_supports_locked(image_ref: &str, docker: &Docker, print: &Print) -> bool {
+    match run_probe(
+        image_ref,
+        docker,
+        None,
+        vec![
+            "contract".to_string(),
+            "build".to_string(),
+            "--help".to_string(),
+        ],
+    )
+    .await
+    {
+        Ok(help) => help.contains("--locked"),
+        Err(e) => {
+            print.warnln(format!(
+                "Could not probe whether the container's `contract build` supports --locked ({e}); building without it"
+            ));
+            false
+        }
+    }
 }
 
 /// Probe the image for the toolchain rustup uses by default, so it can be
@@ -767,50 +841,14 @@ async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, 
 /// on any failure (e.g. an image without rustup), so the build proceeds without
 /// the pin rather than failing.
 async fn probe_active_toolchain(image_ref: &str, docker: &Docker) -> Option<String> {
-    let config = ContainerCreateBody {
-        image: Some(image_ref.to_string()),
-        entrypoint: Some(vec!["rustup".to_string()]),
-        cmd: Some(vec!["show".to_string(), "active-toolchain".to_string()]),
-        attach_stdout: Some(true),
-        attach_stderr: Some(true),
-        host_config: Some(HostConfig {
-            auto_remove: Some(true),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-    let created = docker
-        .create_container(None::<CreateContainerOptions>, config)
-        .await
-        .ok()?;
-    let attached = docker
-        .attach_container(
-            &created.id,
-            Some(AttachContainerOptions {
-                stdout: true,
-                stderr: true,
-                stream: true,
-                ..Default::default()
-            }),
-        )
-        .await
-        .ok()?;
-    docker
-        .start_container(&created.id, None::<StartContainerOptions>)
-        .await
-        .ok()?;
-
-    let mut stdout = String::new();
-    let mut output = attached.output;
-    while let Some(chunk) = output.next().await {
-        if let Ok(bollard::container::LogOutput::StdOut { message }) = chunk {
-            stdout.push_str(&String::from_utf8_lossy(&message));
-        }
-    }
-
-    let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
-    while wait.next().await.is_some() {}
-
+    let stdout = run_probe(
+        image_ref,
+        docker,
+        Some(vec!["rustup".to_string()]),
+        vec!["show".to_string(), "active-toolchain".to_string()],
+    )
+    .await
+    .ok()?;
     stdout.split_whitespace().next().map(str::to_string)
 }
 
@@ -1076,7 +1114,8 @@ mod tests {
     #[test]
     fn build_forwarded_args_defaults() {
         let cmd = Cmd::default();
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
         // Default optimize=true → bare `--optimize` recorded + forwarded.
         assert_eq!(
             forwarded,
@@ -1089,13 +1128,27 @@ mod tests {
     }
 
     #[test]
+    fn build_forwarded_args_omits_locked_when_unsupported() {
+        // Older images (< cli 25.2.0) reject `--locked`; when the probe reports
+        // it's unsupported, the flag is neither forwarded nor recorded.
+        let cmd = Cmd::default();
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, false);
+        assert!(!forwarded.iter().any(|a| a == "--locked"));
+        assert!(!bldopts.iter().any(|a| a == "--locked"));
+        // Everything else is still recorded (default optimize=true here).
+        assert!(forwarded.contains(&"--optimize".to_string()));
+    }
+
+    #[test]
     fn build_forwarded_args_features_and_package() {
         let cmd = Cmd {
             features: Some("a,b".to_string()),
             package: Some("contract-a".to_string()),
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
         assert!(forwarded.contains(&"--features=a,b".to_string()));
         assert!(forwarded.contains(&"--package=contract-a".to_string()));
         assert!(bldopts.contains(&"--features=a,b".to_string()));
@@ -1109,7 +1162,8 @@ mod tests {
         // default cdylib); it must still be forwarded and recorded.
         let cmd = Cmd::default();
         assert!(cmd.package.is_none());
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), Some("hello-world"), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), Some("hello-world"), true, true);
         assert!(forwarded.contains(&"--package=hello-world".to_string()));
         assert!(bldopts.contains(&"--package=hello-world".to_string()));
     }
@@ -1117,7 +1171,7 @@ mod tests {
     #[test]
     fn build_forwarded_args_omits_package_when_unresolved() {
         let cmd = Cmd::default();
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), None, true);
+        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), None, true, true);
         assert!(!forwarded.iter().any(|a| a.starts_with("--package")));
         assert!(!bldopts.iter().any(|a| a.starts_with("--package")));
     }
@@ -1136,7 +1190,8 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
         assert!(forwarded.contains(&"--meta=home_domain=fnando.com".to_string()));
         assert!(forwarded.contains(&"--meta=author=alice".to_string()));
         assert!(forwarded.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
@@ -1157,7 +1212,8 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
         // Env vars are applied via docker `-e`, so they're recorded as bldopts
         // for the verifier but never forwarded as build arguments.
         assert!(bldopts.contains(&"--env=FOO=bar".to_string()));
@@ -1175,7 +1231,8 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
         assert!(forwarded.contains(&"--optimize=false".to_string()));
         assert!(bldopts.contains(&"--optimize=false".to_string()));
     }
@@ -1190,7 +1247,8 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), false);
+        let (forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), false, true);
         // Old container's default is already false; record nothing.
         // Passing `--optimize=false` to a pre-26.1.0 cli would fail.
         assert!(!forwarded.iter().any(|a| a.starts_with("--optimize")));
@@ -1248,7 +1306,8 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let (_forwarded, bldopts) = build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true);
+        let (_forwarded, bldopts) =
+            build_forwarded_args(&cmd, ws(), cmd.package.as_deref(), true, true);
 
         // The flag and key stay outside the quotes; only the value is escaped.
         assert!(bldopts.contains(&"--env=B='this is very nice'".to_string()));
