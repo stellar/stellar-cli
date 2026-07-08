@@ -292,7 +292,13 @@ impl Cmd {
         };
         let docker = docker_args.connect_to_docker(&print).await?;
         verifiable::pull_image(&docker, &meta.bldimg, &print).await?;
-        let (container_cmd, env) = build_container_command(&meta);
+
+        // `--locked` was only added to `contract build` in cli 25.2.0. The
+        // recorded bldimg may be older (and still valid), so probe it before
+        // forcing `--locked` — passing an unknown flag would fail the rebuild.
+        let supports_locked =
+            verifiable::probe_supports_locked(&meta.bldimg, &docker, &print).await;
+        let (container_cmd, env) = build_container_command(&meta, supports_locked);
 
         // SEP-58 requires the source be wrapped in a single top-level directory
         // (the cli names it `source/`, but the spec doesn't fix the name), so
@@ -613,7 +619,14 @@ fn locate_extracted_source_root(workdir: &Path) -> Result<PathBuf, Error> {
 /// cliver is intentionally not re-injected — the container's stellar adds it
 /// automatically, and it will match the original's iff `bldimg` resolves to
 /// the same container.
-fn build_container_command(meta: &ExtractedMetadata) -> (Vec<String>, Vec<String>) {
+///
+/// `supports_locked`: whether the recorded bldimg's `contract build` accepts
+/// `--locked` (added in cli 25.2.0). When false the flag is never injected, so
+/// a rebuild against an older image doesn't fail on an unknown argument.
+fn build_container_command(
+    meta: &ExtractedMetadata,
+    supports_locked: bool,
+) -> (Vec<String>, Vec<String>) {
     let mut forwarded: Vec<String> = Vec::new();
     let mut env: Vec<String> = Vec::new();
     for o in &meta.bldopts {
@@ -639,10 +652,11 @@ fn build_container_command(meta: &ExtractedMetadata) -> (Vec<String>, Vec<String
     };
     let metadata = verifiable::build_metadata_args(&meta.bldimg, &ids, &meta.bldopts);
 
-    // `--locked` is always sent — even if the original somehow lacked it (a
-    // non-conformant build), the verifier insists on a locked rebuild so
-    // dependency drift can't move bytes underneath us.
-    if !forwarded.iter().any(|a| a == "--locked") {
+    // When the image supports it, `--locked` is forced — even if the original
+    // somehow lacked it (a non-conformant build) — so the verifier insists on a
+    // locked rebuild and dependency drift can't move bytes underneath us. Older
+    // images (< cli 25.2.0) reject the flag, so it's omitted there.
+    if supports_locked && !forwarded.iter().any(|a| a == "--locked") {
         forwarded.insert(0, "--locked".to_string());
     }
 
@@ -975,7 +989,7 @@ mod tests {
                 "--env=B='this is very nice'".to_string(),
             ],
         };
-        let (cmd, env) = build_container_command(&meta);
+        let (cmd, env) = build_container_command(&meta, true);
 
         // Subcommand prefix.
         assert_eq!(&cmd[..2], &["contract".to_string(), "build".to_string()]);
@@ -1021,11 +1035,29 @@ mod tests {
             source_sha256: Some("b".repeat(64)),
             bldopts: vec!["--meta=author=alice".to_string()],
         };
-        let (cmd, _env) = build_container_command(&meta);
+        let (cmd, _env) = build_container_command(&meta, true);
         let locked_count = cmd.iter().filter(|s| *s == "--locked").count();
         assert_eq!(
             locked_count, 1,
             "expected exactly one --locked, got {locked_count} in {cmd:?}"
+        );
+    }
+
+    #[test]
+    fn build_container_command_omits_locked_when_unsupported() {
+        // Older images (< cli 25.2.0) reject `--locked`; when the probe reports
+        // it's unsupported, the flag is never forwarded — even if the original's
+        // bldopts recorded it, it still round-trips as a `bldopt` meta only.
+        let meta = ExtractedMetadata {
+            bldimg: good_bldimg(),
+            source_uri: Some("https://github.com/foo/bar".to_string()),
+            source_sha256: Some("b".repeat(64)),
+            bldopts: vec!["--optimize".to_string()],
+        };
+        let (cmd, _env) = build_container_command(&meta, false);
+        assert!(
+            !cmd.iter().any(|a| a == "--locked"),
+            "expected no forwarded --locked in {cmd:?}"
         );
     }
 
