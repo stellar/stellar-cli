@@ -240,17 +240,33 @@ pub fn trust_decision(value: &str, kind: TrustKind, trust_flag: bool) -> TrustDe
     }
 }
 
-/// SEP-58 metadata extracted from a contract's `contractmetav0` section.
+/// Meta keys the rebuild regenerates on its own, so verify must not replay them
+/// — re-passing one as `--meta` would write it twice and break byte-equality.
+/// `cliver` is re-injected by the container's CLI; `rsver`/`rssdkver` are
+/// re-embedded by the SDK when the source is recompiled. Everything else is
+/// replayed verbatim (see `ExtractedMetadata::meta_entries`).
+const REGENERATED_META_KEYS: &[&str] = &["cliver", "rsver", "rssdkver"];
+
+/// SEP-58 metadata read from a contract's `contractmetav0` section.
 ///
-/// `cliver` is intentionally not captured: the rebuild container re-injects it,
-/// so verify's job is to ensure the rebuild's cliver matches the original's
-/// (which it will when `bldimg` resolves to the same container).
+/// Verify reproduces the section by *replaying* what the WASM records rather
+/// than reconstructing it from `build`'s ordering rules: `meta_entries` holds
+/// every recorded entry, in the exact order it appears in the WASM, so the
+/// rebuild's metadata matches byte-for-byte no matter how (or by what tool) the
+/// original was produced — including WASMs authored by hand per SEP-58. The
+/// entries the rebuild regenerates itself (`REGENERATED_META_KEYS`) are excluded.
+///
+/// The typed fields (`bldimg`, `source_uri`, `source_sha256`, `bldopts`) are
+/// pulled out of the same entries only to *drive* the rebuild — pick the image,
+/// trust-check, fetch the source, and derive the forwarded build flags. They are
+/// not re-added to the `--meta` list; the replay of `meta_entries` covers them.
 #[derive(Debug, Clone)]
 pub struct ExtractedMetadata {
     pub bldimg: String,
     pub source_uri: Option<String>,
     pub source_sha256: Option<String>,
     pub bldopts: Vec<String>,
+    pub meta_entries: Vec<(String, String)>,
 }
 
 impl Cmd {
@@ -446,9 +462,12 @@ impl Cmd {
     }
 }
 
-/// Walk the WASM's `contractmetav0` entries and pull out the SEP-58 fields we
-/// need to drive a rebuild. Errors when `bldimg` or `source_sha256` is absent,
-/// since neither has a sensible default. `source_uri` is optional.
+/// Walk the WASM's `contractmetav0` entries. Every entry is captured, in order,
+/// into `meta_entries` for verbatim replay — except the keys the rebuild
+/// regenerates itself (`REGENERATED_META_KEYS`). The SEP-58 fields that drive
+/// the rebuild are pulled out of the same walk. Errors when `bldimg` or
+/// `source_sha256` is absent, since neither has a sensible default; `source_uri`
+/// is optional.
 pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
     let spec = Spec::new(wasm)?;
     if spec.meta.is_empty() {
@@ -459,6 +478,7 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
     let mut source_uri: Option<String> = None;
     let mut source_sha256: Option<String> = None;
     let mut bldopts: Vec<String> = Vec::new();
+    let mut meta_entries: Vec<(String, String)> = Vec::new();
 
     // Each of these SEP-58 fields must appear at most once. Reject duplicates
     // rather than silently taking the last: two `bldimg` entries (say a benign
@@ -478,12 +498,24 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         let ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) = entry;
         let k = key.to_string();
         let v = val.to_string();
+
+        // Entries the rebuild re-creates on its own are never replayed; passing
+        // them as `--meta` would duplicate them and break byte-equality.
+        if REGENERATED_META_KEYS.contains(&k.as_str()) {
+            continue;
+        }
+
+        // Record every other entry verbatim, in order, to replay as `--meta`.
+        // The typed fields below are additionally pulled out to drive the
+        // rebuild, but the replayed metadata always comes from `meta_entries`.
+        meta_entries.push((k.clone(), v.clone()));
+
         match k.as_str() {
             "bldimg" => set_once(&mut bldimg, "bldimg", v)?,
             "source_uri" => set_once(&mut source_uri, "source_uri", v)?,
             "source_sha256" => set_once(&mut source_sha256, "source_sha256", v)?,
             "bldopt" => bldopts.push(v),
-            _ => {} // cliver and any user --meta are intentionally ignored
+            _ => {} // user meta: carried in meta_entries for replay
         }
     }
 
@@ -524,6 +556,7 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         source_uri,
         source_sha256,
         bldopts,
+        meta_entries,
     })
 }
 
@@ -722,21 +755,25 @@ fn locate_extracted_source_root(workdir: &Path) -> Result<PathBuf, Error> {
 }
 
 /// Compose the argv we hand to the container's `stellar contract build`, plus
-/// the env vars to apply via docker `-e`, so that:
-///   - the bldopts from the original build become flags (each entry is one
-///     token, ready for clap), AND
-///   - bldimg / source-ids / bldopt are re-recorded as `--meta` entries so
-///     the rebuilt WASM has identical metadata to the original.
+/// the env vars to apply via docker `-e`.
 ///
-/// `--env=` bldopts are NOT forwarded as build flags: the original build
-/// applied them via docker `-e` (recording them as `bldopt` only), so we replay
-/// them the same way. The recorded value is shell-escaped, so we unescape it
-/// back to a raw `NAME=VALUE` for docker `-e`. They're still re-recorded as
-/// `bldopt` meta so the rebuilt WASM's metadata matches the original.
+/// The metadata is *replayed*, not reconstructed: every entry the WASM records
+/// (`meta.meta_entries`, already stripped of the keys the rebuild regenerates)
+/// is re-emitted as a `--meta key=value` in its original order, so the rebuilt
+/// `contractmetav0` mirrors the source WASM regardless of how it was produced.
+/// This keeps verify independent of `build`'s ordering rules and lets it verify
+/// WASMs authored by hand per SEP-58.
 ///
-/// cliver is intentionally not re-injected — the container's stellar adds it
-/// automatically, and it will match the original's iff `bldimg` resolves to
-/// the same container.
+/// The `bldopt` entries additionally drive the *build flags*: each is forwarded
+/// as a flag to the inner `contract build`, with two exceptions —
+///   - `--env=` bldopts are applied via docker `-e` (as the original build did),
+///     not forwarded. They're shell-escaped at the source, so we unescape back
+///     to a raw `NAME=VALUE`.
+///   - `--meta=` bldopts are NOT forwarded: the metadata they produced is
+///     already a standalone entry in `meta_entries` and replayed above, so
+///     forwarding them too would write the value twice.
+///
+/// Both are still re-recorded — via their `bldopt=` entry in `meta_entries`.
 ///
 /// `supports_locked`: whether the recorded bldimg's `contract build` accepts
 /// `--locked` (added in cli 25.2.0). When false the flag is never injected, so
@@ -753,40 +790,43 @@ fn build_container_command(
         // own — e.g. `--meta=source_repo='github:foo'` or `--env=B='a b'`. The
         // single-package rebuild hands argv straight to `stellar` with no shell,
         // so unescape each bldopt back to the one raw argv token the original
-        // build used; otherwise the quoting leaks into the value (a quoted
-        // `--meta` value even shifts the WASM's byte size via XDR alignment).
+        // build used; otherwise the quoting leaks into the value.
         let token = shlex::split(o)
             .and_then(|mut v| (v.len() == 1).then(|| v.remove(0)))
             .unwrap_or_else(|| o.clone());
         if let Some(kv) = token.strip_prefix("--env=") {
             // Applied via docker `-e` as a raw `NAME=VALUE`, never forwarded.
             env.push(kv.to_string());
+        } else if token.starts_with("--meta=") {
+            // The metadata this produced is replayed from `meta_entries`;
+            // forwarding it as a flag too would write the value twice.
         } else {
             forwarded.push(token);
         }
     }
 
-    // Re-record bldimg / source-ids / every bldopt as `--meta`, reusing the
-    // exact composition `build --verifiable` used, so the rebuilt WASM's
-    // metadata matches the original byte-for-byte.
-    let ids = verifiable::SourceIds {
-        source_uri: meta.source_uri.clone(),
-        source_sha256: meta.source_sha256.clone(),
-    };
-    let metadata = verifiable::build_metadata_args(&meta.bldimg, &ids, &meta.bldopts);
-
     // When the image supports it, `--locked` is forced — even if the original
     // somehow lacked it (a non-conformant build) — so the verifier insists on a
     // locked rebuild and dependency drift can't move bytes underneath us. Older
-    // images (< cli 25.2.0) reject the flag, so it's omitted there.
+    // images (< cli 25.2.0) reject the flag, so it's omitted there. Forcing it
+    // only affects the build (determinism); it isn't recorded as metadata, so it
+    // doesn't perturb the rebuilt `contractmetav0`.
     if supports_locked && !forwarded.iter().any(|a| a == "--locked") {
         forwarded.insert(0, "--locked".to_string());
     }
 
-    (
-        verifiable::compose_container_args(&forwarded, &metadata),
-        env,
-    )
+    // Replay every recorded meta entry verbatim, in the WASM's own order, so the
+    // rebuilt section matches the original byte-for-byte.
+    let mut metadata: Vec<String> = Vec::new();
+    for (k, v) in &meta.meta_entries {
+        metadata.push("--meta".to_string());
+        metadata.push(format!("{k}={v}"));
+    }
+
+    let mut args = vec!["contract".to_string(), "build".to_string()];
+    args.extend(forwarded);
+    args.extend(metadata);
+    (args, env)
 }
 
 /// The two wasm release-output suffixes cargo may write to, newest first.
@@ -1001,17 +1041,30 @@ mod tests {
     }
 
     #[test]
-    fn extract_metadata_ignores_cliver_and_user_meta() {
+    fn extract_metadata_captures_user_meta_and_drops_regenerated_keys() {
         let wasm = make_wasm_with_meta(&[
             ("bldimg", &good_bldimg()),
             ("source_sha256", &"b".repeat(64)),
             ("cliver", "26.0.0#abcdef"),
+            ("rsver", "1.93.0"),
+            ("rssdkver", "23.0.0"),
             ("home_domain", "fnando.com"),
             ("author", "alice"),
         ]);
         let meta = extract_metadata(&wasm).unwrap();
-        // cliver and user meta land in neither bldopts nor source-ids.
+        // User meta is not a bldopt or source-id, but it IS captured for replay.
         assert!(meta.bldopts.is_empty());
+        // The rebuild regenerates cliver/rsver/rssdkver, so they're excluded;
+        // every other entry is captured verbatim, in order, for replay.
+        assert_eq!(
+            meta.meta_entries,
+            vec![
+                ("bldimg".to_string(), good_bldimg()),
+                ("source_sha256".to_string(), "b".repeat(64)),
+                ("home_domain".to_string(), "fnando.com".to_string()),
+                ("author".to_string(), "alice".to_string()),
+            ]
+        );
     }
 
     #[test]
@@ -1123,6 +1176,7 @@ mod tests {
             source_uri: None,
             source_sha256: Some("f".repeat(64)),
             bldopts: Vec::new(),
+            meta_entries: Vec::new(),
         };
         let print = Print::new(true);
         let err = materialize_source(&meta, None, &print).await.unwrap_err();
@@ -1130,7 +1184,31 @@ mod tests {
     }
 
     #[test]
-    fn build_container_command_replays_bldopts_and_re_records_meta() {
+    fn build_container_command_replays_meta_in_order_and_forwards_build_flags() {
+        // The recorded entries as they'd appear in the WASM (cliver/rsver/etc.
+        // already excluded by extract_metadata). build_container_command must
+        // replay these verbatim, in order, and derive the build flags from the
+        // `bldopt=` entries.
+        let meta_entries = vec![
+            ("bldimg".to_string(), good_bldimg()),
+            (
+                "source_uri".to_string(),
+                "https://github.com/foo/bar".to_string(),
+            ),
+            ("source_sha256".to_string(), "b".repeat(64)),
+            ("home_domain".to_string(), "fnando.com".to_string()),
+            ("bldopt".to_string(), "--locked".to_string()),
+            (
+                "bldopt".to_string(),
+                "--meta=home_domain=fnando.com".to_string(),
+            ),
+            ("bldopt".to_string(), "--optimize".to_string()),
+            ("bldopt".to_string(), "--env=A=1".to_string()),
+            (
+                "bldopt".to_string(),
+                "--env=B='this is very nice'".to_string(),
+            ),
+        ];
         let meta = ExtractedMetadata {
             bldimg: good_bldimg(),
             source_uri: Some("https://github.com/foo/bar".to_string()),
@@ -1142,16 +1220,21 @@ mod tests {
                 "--env=A=1".to_string(),
                 "--env=B='this is very nice'".to_string(),
             ],
+            meta_entries: meta_entries.clone(),
         };
         let (cmd, env) = build_container_command(&meta, true);
 
         // Subcommand prefix.
         assert_eq!(&cmd[..2], &["contract".to_string(), "build".to_string()]);
 
-        // Bldopts are forwarded verbatim as flags to the inner `stellar contract build`.
+        // Build-affecting bldopts are forwarded as flags to the inner build.
         assert!(cmd.contains(&"--locked".to_string()));
-        assert!(cmd.contains(&"--meta=home_domain=fnando.com".to_string()));
         assert!(cmd.contains(&"--optimize".to_string()));
+
+        // `--meta=` bldopts are NOT forwarded as flags: the value is replayed as
+        // its own standalone `home_domain` entry below, so forwarding it too
+        // would write it twice.
+        assert!(!cmd.iter().any(|a| a.starts_with("--meta=")));
 
         // `--env=` bldopts are applied via docker `-e` (unescaped), never
         // forwarded as build flags.
@@ -1161,30 +1244,26 @@ mod tests {
             vec!["A=1".to_string(), "B=this is very nice".to_string()]
         );
 
-        // bldimg and source-ids are re-recorded as `--meta`.
-        assert!(cmd
+        // The `--meta` list is the recorded entries replayed verbatim, in the
+        // exact order the WASM records them.
+        let replayed: Vec<(String, String)> = cmd
             .windows(2)
-            .any(|w| w[0] == "--meta" && w[1] == format!("bldimg={}", good_bldimg())));
-        assert!(cmd
-            .windows(2)
-            .any(|w| w[0] == "--meta" && w[1] == "source_uri=https://github.com/foo/bar"));
-
-        // Every bldopt — including the `--env=` ones — is re-recorded as a
-        // `bldopt=` meta so the rebuilt WASM mirrors the original's entries.
-        assert!(cmd
-            .windows(2)
-            .any(|w| w[0] == "--meta" && w[1] == "bldopt=--locked"));
-        assert!(cmd
-            .windows(2)
-            .any(|w| w[0] == "--meta" && w[1] == "bldopt=--env=A=1"));
+            .filter(|w| w[0] == "--meta")
+            .map(|w| {
+                let (k, v) = w[1].split_once('=').unwrap();
+                (k.to_string(), v.to_string())
+            })
+            .collect();
+        assert_eq!(replayed, meta_entries);
     }
 
     #[test]
-    fn build_container_command_unescapes_quoted_meta_bldopt() {
-        // Recorded bldopts are shell-escaped at the source, so a `--meta` value
-        // with a `:` (or spaces) is stored quoted. Verify must unescape it back
-        // to the raw argv token — otherwise the literal quotes leak into the
-        // meta value and the rebuilt WASM differs from the original.
+    fn build_container_command_replays_meta_bldopt_verbatim_without_forwarding() {
+        // A `--meta=` bldopt is shell-escaped at the source (a value with a `:`
+        // or spaces is stored quoted). Verify must NOT forward it as a build
+        // flag — the value reaches the rebuilt WASM through the standalone
+        // `source_repo` entry — and the `bldopt=` entry itself is replayed
+        // verbatim so its escaped form round-trips byte-for-byte.
         let meta = ExtractedMetadata {
             bldimg: good_bldimg(),
             source_uri: Some("https://github.com/foo/bar".to_string()),
@@ -1192,15 +1271,34 @@ mod tests {
             bldopts: vec![
                 "--meta=source_repo='github:LayerZero-Labs/monorepo-external'".to_string(),
             ],
+            meta_entries: vec![
+                (
+                    "source_repo".to_string(),
+                    "github:LayerZero-Labs/monorepo-external".to_string(),
+                ),
+                (
+                    "bldopt".to_string(),
+                    "--meta=source_repo='github:LayerZero-Labs/monorepo-external'".to_string(),
+                ),
+            ],
         };
         let (cmd, _env) = build_container_command(&meta, true);
-        // The forwarded build flag is unescaped (no literal quotes reach clap).
+
+        // No `--meta=` bldopt is forwarded as a build flag.
         assert!(
-            cmd.contains(&"--meta=source_repo=github:LayerZero-Labs/monorepo-external".to_string()),
-            "quotes must be stripped from the forwarded --meta, got {cmd:?}"
+            !cmd.iter().any(|a| a.starts_with("--meta=")),
+            "--meta bldopts must not be forwarded, got {cmd:?}"
         );
-        // The re-recorded `bldopt=` meta keeps the original escaped form verbatim
-        // so the rebuilt WASM's bldopt entry matches the original byte-for-byte.
+
+        // The standalone entry carries the unescaped value to the rebuild.
+        assert!(
+            cmd.windows(2).any(|w| w[0] == "--meta"
+                && w[1] == "source_repo=github:LayerZero-Labs/monorepo-external"),
+            "the standalone meta entry must be replayed, got {cmd:?}"
+        );
+
+        // The `bldopt=` entry keeps the original escaped form verbatim so the
+        // rebuilt WASM's bldopt entry matches the original byte-for-byte.
         assert!(
             cmd.windows(2).any(|w| w[0] == "--meta"
                 && w[1] == "bldopt=--meta=source_repo='github:LayerZero-Labs/monorepo-external'"),
@@ -1217,6 +1315,10 @@ mod tests {
             source_uri: Some("https://github.com/foo/bar".to_string()),
             source_sha256: Some("b".repeat(64)),
             bldopts: vec!["--meta=author=alice".to_string()],
+            meta_entries: vec![
+                ("author".to_string(), "alice".to_string()),
+                ("bldopt".to_string(), "--meta=author=alice".to_string()),
+            ],
         };
         let (cmd, _env) = build_container_command(&meta, true);
         let locked_count = cmd.iter().filter(|s| *s == "--locked").count();
@@ -1236,6 +1338,7 @@ mod tests {
             source_uri: Some("https://github.com/foo/bar".to_string()),
             source_sha256: Some("b".repeat(64)),
             bldopts: vec!["--optimize".to_string()],
+            meta_entries: vec![("bldopt".to_string(), "--optimize".to_string())],
         };
         let (cmd, _env) = build_container_command(&meta, false);
         assert!(
@@ -1250,6 +1353,7 @@ mod tests {
             source_uri: Some("https://github.com/foo/bar".to_string()),
             source_sha256: Some("b".repeat(64)),
             bldopts,
+            meta_entries: Vec::new(),
         }
     }
 
