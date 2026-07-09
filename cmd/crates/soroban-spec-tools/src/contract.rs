@@ -193,7 +193,7 @@ fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::
         writeln!(
             f,
             "     Docs: {}",
-            &indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
+            indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
         )?;
     }
     writeln!(
