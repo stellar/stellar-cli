@@ -239,13 +239,14 @@ pub fn trust_decision(value: &str, kind: TrustKind, trust_flag: bool) -> TrustDe
     }
 }
 
-/// Best-effort list of meta keys the rebuild regenerates on its own, used only
-/// as a *fallback* when verify can't localize the CLI-injected section (no
-/// `cliver` marker — see `extract_metadata`). `cliver` is re-injected by the
-/// container's CLI; `rsver`/`rssdkver` are re-embedded by the SDK on recompile.
-/// The normal path partitions by custom section instead, which also catches
-/// arbitrary source-embedded keys (e.g. a `contractmeta!` `Description`) that
-/// no fixed list could enumerate.
+/// Meta keys the rebuild regenerates on its own, so verify must never replay
+/// them — re-passing one would write it twice and break byte-equality. `cliver`
+/// is re-injected by the container's CLI; `rsver`/`rssdkver` are re-embedded by
+/// the SDK on recompile. The section split in `extract_metadata` already keeps
+/// the SDK's own section out; this filter is applied to the chosen section as a
+/// final guard (chiefly for a degenerate single-section WASM). Source-embedded
+/// keys with arbitrary names (e.g. a `contractmeta!` `Description`) are handled
+/// by the section split, which no fixed list could enumerate.
 const REGENERATED_META_KEYS: &[&str] = &["cliver", "rsver", "rssdkver"];
 
 /// The `cliver` entry the CLI stamps into the section it injects; its presence
@@ -514,9 +515,10 @@ fn parse_meta_entries(data: &[u8]) -> Result<Vec<(String, String)>, Error> {
 /// nothing the rebuild produces for free. We therefore replay that section
 /// (minus `cliver`) and ignore the rest.
 ///
-/// Fallback: a WASM with no `cliver` (an ancient CLI, or one authored by hand
-/// per SEP-46) has no marked section to localize, so we replay every entry
-/// except the keys we know are regenerated (`REGENERATED_META_KEYS`).
+/// Fallback: a WASM with no `cliver` (a pre-v23.2.0 CLI never wrote one, and a
+/// WASM may be hand-authored per SEP-46) has no marked section, so we take the
+/// last non-empty section instead — `inject_meta` always appends after the
+/// compile-emitted sections, so the CLI section is always last.
 ///
 /// Errors when `bldimg` or `source_sha256` is absent, since neither has a
 /// sensible default; `source_uri` is optional.
@@ -526,24 +528,24 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
         return Err(Error::NoMeta);
     }
 
-    // The CLI-injected section is the one carrying `cliver`; replay it minus
-    // `cliver`. Absent that marker, fall back to a key-name filter over every
-    // section.
+    // Locate the CLI-injected section: the one carrying `cliver`, or — when no
+    // section is marked — the last non-empty one, since `inject_meta` always
+    // appends after the compile-emitted sections (the linker merges every
+    // `#[link_section = "contractmetav0"]` static — `contractmeta!` entries plus
+    // the SDK's `rsver`/`rssdkver` — into a single earlier section). Replay it,
+    // dropping the keys the rebuild regenerates itself (`REGENERATED_META_KEYS`):
+    // a well-formed CLI section holds none of them, but this guards a degenerate
+    // single-section WASM where build fields sit alongside `rsver`/`rssdkver`.
     let cli_section = sections
         .iter()
-        .position(|s| s.iter().any(|(k, _)| k == CLIVER_KEY));
-    let meta_entries: Vec<(String, String)> = match cli_section {
-        Some(i) => sections[i]
-            .iter()
-            .filter(|(k, _)| k != CLIVER_KEY)
-            .cloned()
-            .collect(),
-        None => sections
-            .into_iter()
-            .flatten()
-            .filter(|(k, _)| !REGENERATED_META_KEYS.contains(&k.as_str()))
-            .collect(),
-    };
+        .position(|s| s.iter().any(|(k, _)| k == CLIVER_KEY))
+        .or_else(|| sections.iter().rposition(|s| !s.is_empty()))
+        .expect("a non-empty section exists: the all-empty case is rejected as NoMeta above");
+    let meta_entries: Vec<(String, String)> = sections[cli_section]
+        .iter()
+        .filter(|(k, _)| !REGENERATED_META_KEYS.contains(&k.as_str()))
+        .cloned()
+        .collect();
 
     let mut bldimg: Option<String> = None;
     let mut source_uri: Option<String> = None;
@@ -1148,15 +1150,46 @@ mod tests {
     }
 
     #[test]
-    fn extract_metadata_fallback_filters_regenerated_keys_without_cliver() {
-        // No cliver anywhere (ancient CLI or hand-authored per SEP-46): there's
-        // no marked section to localize, so replay everything except the keys we
-        // know the rebuild regenerates.
+    fn extract_metadata_fallback_picks_last_section_without_cliver() {
+        // Pre-v23.2.0 (or hand-authored per SEP-46): no cliver marker anywhere.
+        // The build fields were added via plain --meta, so they're in the CLI-
+        // appended (last) section; the compile-emitted section — contractmeta!
+        // entries plus rsver/rssdkver — comes first and must be ignored, or its
+        // key1/key2 would be replayed and duplicated on rebuild.
+        let wasm = make_wasm_with_sections(&[
+            &[
+                ("key1", "val1"),
+                ("key2", "val2"),
+                ("rsver", "1.97.0"),
+                ("rssdkver", "22.0.11#abcdef"),
+            ],
+            &[
+                ("bldimg", &good_bldimg()),
+                ("source_sha256", &"b".repeat(64)),
+                ("bldopt", "--locked"),
+            ],
+        ]);
+        let meta = extract_metadata(&wasm).unwrap();
+        assert_eq!(
+            meta.meta_entries,
+            vec![
+                ("bldimg".to_string(), good_bldimg()),
+                ("source_sha256".to_string(), "b".repeat(64)),
+                ("bldopt".to_string(), "--locked".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn extract_metadata_single_section_fallback_drops_regenerated_keys() {
+        // Degenerate: only one section, no cliver, build fields embedded next to
+        // rsver/rssdkver. The last-section fallback picks it, and the guard filter
+        // still strips rsver/rssdkver so they aren't replayed and duplicated.
         let wasm = make_wasm_with_meta(&[
-            ("rsver", "1.96.0"),
-            ("rssdkver", "26.1.0#abcdef"),
             ("bldimg", &good_bldimg()),
             ("source_sha256", &"b".repeat(64)),
+            ("rsver", "1.97.0"),
+            ("rssdkver", "22.0.11#abcdef"),
             ("home_domain", "fnando.com"),
         ]);
         let meta = extract_metadata(&wasm).unwrap();
