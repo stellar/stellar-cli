@@ -101,6 +101,9 @@ pub enum Error {
     #[error("the WASM's contractmetav0 does not record a `bldimg` entry; cannot verify")]
     MissingBldimg,
 
+    #[error("the WASM's contractmetav0 records more than one `{field}` entry; refusing to verify (which value applies is ambiguous)")]
+    DuplicateMeta { field: &'static str },
+
     #[error("the WASM's contractmetav0 does not record a `source_sha256` entry; cannot verify")]
     MissingSourceSha256,
 
@@ -457,14 +460,28 @@ pub fn extract_metadata(wasm: &[u8]) -> Result<ExtractedMetadata, Error> {
     let mut source_sha256: Option<String> = None;
     let mut bldopts: Vec<String> = Vec::new();
 
+    // Each of these SEP-58 fields must appear at most once. Reject duplicates
+    // rather than silently taking the last: two `bldimg` entries (say a benign
+    // one to fool inspection and a second the cli would actually trust and
+    // rebuild in) would be a verification-bypass vector, and the same ambiguity
+    // applies to the `source_uri`/`source_sha256` that pin what gets rebuilt.
+    let set_once =
+        |slot: &mut Option<String>, field: &'static str, v: String| -> Result<(), Error> {
+            if slot.is_some() {
+                return Err(Error::DuplicateMeta { field });
+            }
+            *slot = Some(v);
+            Ok(())
+        };
+
     for entry in &spec.meta {
         let ScMetaEntry::ScMetaV0(ScMetaV0 { key, val }) = entry;
         let k = key.to_string();
         let v = val.to_string();
         match k.as_str() {
-            "bldimg" => bldimg = Some(v),
-            "source_uri" => source_uri = Some(v),
-            "source_sha256" => source_sha256 = Some(v),
+            "bldimg" => set_once(&mut bldimg, "bldimg", v)?,
+            "source_uri" => set_once(&mut source_uri, "source_uri", v)?,
+            "source_sha256" => set_once(&mut source_sha256, "source_sha256", v)?,
             "bldopt" => bldopts.push(v),
             _ => {} // cliver and any user --meta are intentionally ignored
         }
@@ -914,6 +931,37 @@ mod tests {
         let wasm = make_wasm_with_meta(&[("source_sha256", &"b".repeat(64))]);
         let err = extract_metadata(&wasm).unwrap_err();
         assert!(matches!(err, Error::MissingBldimg));
+    }
+
+    #[test]
+    fn extract_metadata_duplicate_bldimg_errors() {
+        // A second bldimg — e.g. a benign one to fool inspection plus one the
+        // cli would actually trust and rebuild in — must be rejected outright.
+        let other = format!("docker.io/attacker/evil@sha256:{}", "b".repeat(64));
+        let wasm = make_wasm_with_meta(&[
+            ("bldimg", &good_bldimg()),
+            ("bldimg", &other),
+            ("source_sha256", &"f".repeat(64)),
+        ]);
+        let err = extract_metadata(&wasm).unwrap_err();
+        assert!(matches!(err, Error::DuplicateMeta { field: "bldimg" }));
+    }
+
+    #[test]
+    fn extract_metadata_duplicate_source_ids_error() {
+        for field in ["source_uri", "source_sha256"] {
+            let wasm = make_wasm_with_meta(&[
+                ("bldimg", &good_bldimg()),
+                ("source_sha256", &"f".repeat(64)),
+                (field, "https://example.com/a.tar.gz"),
+                (field, "https://example.com/b.tar.gz"),
+            ]);
+            let err = extract_metadata(&wasm).unwrap_err();
+            assert!(
+                matches!(err, Error::DuplicateMeta { field: f } if f == field),
+                "expected DuplicateMeta for {field}, got {err:?}"
+            );
+        }
     }
 
     #[test]
