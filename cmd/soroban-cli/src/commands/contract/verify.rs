@@ -7,6 +7,7 @@ use regex::Regex;
 use sha2::{Digest, Sha256};
 use soroban_spec_tools::contract::Spec;
 use stellar_xdr::{Hash, ScMetaEntry, ScMetaV0};
+use url::Url;
 use walkdir::WalkDir;
 
 use crate::{
@@ -120,6 +121,9 @@ pub enum Error {
 
     #[error("reading stdin: {0}")]
     Stdin(std::io::Error),
+
+    #[error("source {uri:?} has an unsupported format; accepted formats are {formats}")]
+    UnsupportedSourceFormat { uri: String, formats: String },
 
     #[error("the WASM records only `source_sha256` (no `source_uri`). Pass `--source-uri URL_OR_PATH` to provide retrieval.")]
     SourceUriRequired,
@@ -588,6 +592,8 @@ async fn materialize_source(
         return Err(Error::SourceUriRequired);
     };
 
+    validate_source_format(&source)?;
+
     print.infoln(format!("Fetching source code from {source}"));
     let bytes = fetch_tarball_bytes(&source).await?;
     if let Some(expected) = &meta.source_sha256 {
@@ -598,6 +604,45 @@ async fn materialize_source(
         &bytes,
         "verify-src-",
     )?)
+}
+
+/// Extensions we accept for a source archive: the archive is always a gzipped
+/// tarball (see `source_archive`), so only these name it. Checked
+/// case-insensitively against the source's basename.
+const RECOGNIZED_SOURCE_EXTENSIONS: &[&str] = &[".tar.gz", ".tgz"];
+
+/// The last path segment of `source`, whether it's a URL or a local path. Try
+/// parsing as a URL first (so query strings and fragments are dropped); if that
+/// fails, `source` is a local path, so fall back to `Path::file_name`.
+fn source_basename(source: &str) -> String {
+    if let Ok(url) = Url::parse(source) {
+        return url
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .unwrap_or_default()
+            .to_string();
+    }
+    Path::new(source)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// Reject a `--source-uri` (or recorded `source_uri`) whose basename doesn't end
+/// in a recognized archive extension, before we bother fetching it, naming the
+/// formats we accept.
+fn validate_source_format(source: &str) -> Result<(), Error> {
+    let basename = source_basename(source).to_ascii_lowercase();
+    if RECOGNIZED_SOURCE_EXTENSIONS
+        .iter()
+        .any(|ext| basename.ends_with(ext))
+    {
+        return Ok(());
+    }
+    Err(Error::UnsupportedSourceFormat {
+        uri: source.to_string(),
+        formats: RECOGNIZED_SOURCE_EXTENSIONS.join(", "),
+    })
 }
 
 /// Retrieve the tarball bytes. `source` is either an `http(s)://` URL or a
@@ -1306,5 +1351,42 @@ mod tests {
         let meta = meta_with_bldopts(vec![]);
         let p = find_rebuilt_wasm(dir.path(), &meta, &preexisting).unwrap();
         assert!(p.ends_with("hello.wasm"));
+    }
+
+    #[test]
+    fn source_basename_strips_url_query_and_fragment() {
+        assert_eq!(
+            source_basename("https://example.com/path/src.tar.gz?token=abc#frag"),
+            "src.tar.gz"
+        );
+        assert_eq!(source_basename("https://example.com/a/b/x.tgz"), "x.tgz");
+    }
+
+    #[test]
+    fn source_basename_handles_local_paths() {
+        assert_eq!(source_basename("/tmp/foo/src.tar.gz"), "src.tar.gz");
+        assert_eq!(source_basename("./relative/src.tgz"), "src.tgz");
+        assert_eq!(source_basename("src.tar.gz"), "src.tar.gz");
+    }
+
+    #[test]
+    fn validate_source_format_accepts_recognized_extensions() {
+        validate_source_format("https://example.com/src.tar.gz").unwrap();
+        validate_source_format("/tmp/src.tgz").unwrap();
+        // Case-insensitive.
+        validate_source_format("SRC.TAR.GZ").unwrap();
+    }
+
+    #[test]
+    fn validate_source_format_rejects_unknown_formats() {
+        for source in [
+            "https://example.com/src.zip",
+            "/tmp/src.rar",
+            "src",
+            "src.gz",
+        ] {
+            let err = validate_source_format(source).unwrap_err();
+            assert!(matches!(err, Error::UnsupportedSourceFormat { .. }));
+        }
     }
 }
