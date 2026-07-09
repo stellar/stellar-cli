@@ -325,7 +325,11 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
 
     // Extract and harden, then build from the extracted copy so the WASM is
     // produced from exactly the archived bytes.
-    let tmp = source_archive::extract_into_hardened_tempdir(&bytes, "verifiable-src-")?;
+    let tmp = source_archive::extract_into_hardened_tempdir(
+        &bytes,
+        "verifiable-src-",
+        source_archive::ArchiveFormat::TarGz,
+    )?;
     let extracted_root = tmp.path().to_path_buf();
     Ok(ArchiveResult {
         source_sha256: computed,

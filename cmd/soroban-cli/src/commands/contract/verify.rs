@@ -50,8 +50,8 @@ pub struct Cmd {
     pub source_uri: Option<String>,
 
     /// Bypass interactive confirmation when the WASM's bldimg is not in the
-    /// default trust list, or when the source is a tarball (tarballs are
-    /// never default-trusted).
+    /// default trust list, or when the source is provided as an archive (source
+    /// archives are never default-trusted).
     #[arg(long)]
     pub trust: bool,
 
@@ -187,14 +187,14 @@ pub enum Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrustKind {
     Bldimg,
-    Tarball,
+    SourceArchive,
 }
 
 impl std::fmt::Display for TrustKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TrustKind::Bldimg => write!(f, "bldimg"),
-            TrustKind::Tarball => write!(f, "tarball"),
+            TrustKind::SourceArchive => write!(f, "source archive"),
         }
     }
 }
@@ -222,11 +222,11 @@ fn trusted_bldimg_regex() -> Regex {
     Regex::new(TRUSTED_BLDIMG_REGEX_STR).unwrap()
 }
 
-/// Pure trust decision; no I/O. Tarball sources are never default-trusted.
+/// Pure trust decision; no I/O. Source archives are never default-trusted.
 pub fn trust_decision(value: &str, kind: TrustKind, trust_flag: bool) -> TrustDecision {
     let default_trusted = match kind {
         TrustKind::Bldimg => trusted_bldimg_regex().is_match(value),
-        TrustKind::Tarball => false,
+        TrustKind::SourceArchive => false,
     };
     if default_trusted {
         TrustDecision::Trusted
@@ -297,10 +297,10 @@ impl Cmd {
         // bldimg trust check is always required.
         require_trust(self.trust, TrustKind::Bldimg, &meta.bldimg, &print)?;
 
-        // Tarball source: trust the URL we will actually fetch from (either the
+        // Source archive: trust the URL we will actually fetch from (either the
         // value the WASM recorded, or the user's `--source-uri` override).
         if let Some(url) = self.effective_source_uri(&meta) {
-            require_trust(self.trust, TrustKind::Tarball, &url, &print)?;
+            require_trust(self.trust, TrustKind::SourceArchive, &url, &print)?;
         }
 
         // Materialize the recorded source into a tempdir so the rebuild can
@@ -360,7 +360,7 @@ impl Cmd {
         // *before* the rebuild. A conformant source archive ships no build
         // output, so anything here was planted; excluding these from the post-
         // build search stops an attacker from smuggling a pre-built binary into
-        // the tarball to masquerade as the rebuild's output and spoof a match.
+        // the archive to masquerade as the rebuild's output and spoof a match.
         let preexisting_wasms: HashSet<PathBuf> =
             collect_release_wasms(&source_root).into_iter().collect();
         if !preexisting_wasms.is_empty() {
@@ -413,7 +413,7 @@ impl Cmd {
         }
     }
 
-    /// The tarball URL we'll actually retrieve from: the cli override if set,
+    /// The source archive URL we'll actually retrieve from: the cli override if set,
     /// otherwise the value recorded in the WASM. Returns `None` when neither
     /// records a `source_uri` (only `source_sha256` is set), in which case
     /// there's nothing to trust-check here.
@@ -546,8 +546,8 @@ fn confirm_interactively(kind: TrustKind, value: &str) -> Result<(), Error> {
         TrustKind::Bldimg => format!(
             "Image {value} is not in the default trust list (only docker.io/stellar/stellar-cli is trusted by default)."
         ),
-        TrustKind::Tarball => format!(
-            "Tarball source {value} is not trusted by default. Tarballs always require confirmation."
+        TrustKind::SourceArchive => format!(
+            "Source archive {value} is not trusted by default. Source archives always require confirmation."
         ),
     };
     print.warnln(context);
@@ -584,18 +584,18 @@ async fn materialize_source(
     source_uri_override: Option<&str>,
     print: &Print,
 ) -> Result<tempfile::TempDir, Error> {
-    let tarball_source = source_uri_override
+    let resolved_source = source_uri_override
         .map(str::to_string)
         .or_else(|| meta.source_uri.clone());
-    let Some(source) = tarball_source else {
+    let Some(source) = resolved_source else {
         // No source_uri anywhere — only source_sha256 is set.
         return Err(Error::SourceUriRequired);
     };
 
-    validate_source_format(&source)?;
+    let format = resolve_source_format(&source)?;
 
     print.infoln(format!("Fetching source code from {source}"));
-    let bytes = fetch_tarball_bytes(&source).await?;
+    let bytes = fetch_source_bytes(&source).await?;
     if let Some(expected) = &meta.source_sha256 {
         verify_source_sha256(&bytes, expected)?;
         print.checkln("Source SHA-256 matches");
@@ -603,13 +603,9 @@ async fn materialize_source(
     Ok(source_archive::extract_into_hardened_tempdir(
         &bytes,
         "verify-src-",
+        format,
     )?)
 }
-
-/// Extensions we accept for a source archive: the archive is always a gzipped
-/// tarball (see `source_archive`), so only these name it. Checked
-/// case-insensitively against the source's basename.
-const RECOGNIZED_SOURCE_EXTENSIONS: &[&str] = &[".tar.gz", ".tgz"];
 
 /// The last path segment of `source`, whether it's a URL or a local path. Try
 /// parsing as a URL first (so query strings and fragments are dropped); if that
@@ -628,27 +624,23 @@ fn source_basename(source: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Reject a `--source-uri` (or recorded `source_uri`) whose basename doesn't end
-/// in a recognized archive extension, before we bother fetching it, naming the
-/// formats we accept.
-fn validate_source_format(source: &str) -> Result<(), Error> {
-    let basename = source_basename(source).to_ascii_lowercase();
-    if RECOGNIZED_SOURCE_EXTENSIONS
-        .iter()
-        .any(|ext| basename.ends_with(ext))
-    {
-        return Ok(());
-    }
-    Err(Error::UnsupportedSourceFormat {
-        uri: source.to_string(),
-        formats: RECOGNIZED_SOURCE_EXTENSIONS.join(", "),
+/// Determine the archive format from a `--source-uri` (or recorded `source_uri`)
+/// by its basename, rejecting sources whose extension we don't recognize before
+/// we bother fetching them, naming the formats we accept.
+fn resolve_source_format(source: &str) -> Result<source_archive::ArchiveFormat, Error> {
+    let basename = source_basename(source);
+    source_archive::ArchiveFormat::from_filename(&basename).ok_or_else(|| {
+        Error::UnsupportedSourceFormat {
+            uri: source.to_string(),
+            formats: source_archive::ArchiveFormat::recognized_extensions(),
+        }
     })
 }
 
-/// Retrieve the tarball bytes. `source` is either an `http(s)://` URL or a
-/// local file path. The split is by prefix, not by attempting both — keeps
+/// Retrieve the source archive bytes. `source` is either an `http(s)://` URL or
+/// a local file path. The split is by prefix, not by attempting both — keeps
 /// behavior predictable.
-async fn fetch_tarball_bytes(source: &str) -> Result<Vec<u8>, Error> {
+async fn fetch_source_bytes(source: &str) -> Result<Vec<u8>, Error> {
     if source.starts_with("http://") || source.starts_with("https://") {
         let resp = reqwest::get(source)
             .await
@@ -902,7 +894,7 @@ mod tests {
     }
 
     #[test]
-    fn extract_metadata_happy_path_tarball_pair() {
+    fn extract_metadata_happy_path_source_pair() {
         let wasm = make_wasm_with_meta(&[
             ("bldimg", &good_bldimg()),
             ("source_uri", "https://example.com/src.tar.gz"),
@@ -1018,27 +1010,27 @@ mod tests {
     }
 
     #[test]
-    fn trust_decision_tarball_always_needs_confirmation() {
+    fn trust_decision_source_archive_always_needs_confirmation() {
         assert_eq!(
             trust_decision(
                 "https://github.com/foo/bar.tar.gz",
-                TrustKind::Tarball,
+                TrustKind::SourceArchive,
                 false
             ),
             TrustDecision::NeedsConfirmation
         );
         assert_eq!(
-            trust_decision("/local/foo.tar.gz", TrustKind::Tarball, false),
+            trust_decision("/local/foo.tar.gz", TrustKind::SourceArchive, false),
             TrustDecision::NeedsConfirmation
         );
     }
 
     #[test]
-    fn trust_decision_tarball_override_with_trust() {
+    fn trust_decision_source_archive_override_with_trust() {
         assert_eq!(
             trust_decision(
                 "https://github.com/foo/bar.tar.gz",
-                TrustKind::Tarball,
+                TrustKind::SourceArchive,
                 true
             ),
             TrustDecision::Overridden
@@ -1370,22 +1362,36 @@ mod tests {
     }
 
     #[test]
-    fn validate_source_format_accepts_recognized_extensions() {
-        validate_source_format("https://example.com/src.tar.gz").unwrap();
-        validate_source_format("/tmp/src.tgz").unwrap();
+    fn resolve_source_format_accepts_recognized_extensions() {
+        use source_archive::ArchiveFormat;
+        assert_eq!(
+            resolve_source_format("https://example.com/src.tar.gz").unwrap(),
+            ArchiveFormat::TarGz
+        );
+        assert_eq!(
+            resolve_source_format("/tmp/src.tgz").unwrap(),
+            ArchiveFormat::TarGz
+        );
+        assert_eq!(
+            resolve_source_format("https://example.com/src.zip?token=abc").unwrap(),
+            ArchiveFormat::Zip
+        );
         // Case-insensitive.
-        validate_source_format("SRC.TAR.GZ").unwrap();
+        assert_eq!(
+            resolve_source_format("SRC.TAR.GZ").unwrap(),
+            ArchiveFormat::TarGz
+        );
     }
 
     #[test]
-    fn validate_source_format_rejects_unknown_formats() {
+    fn resolve_source_format_rejects_unknown_formats() {
         for source in [
-            "https://example.com/src.zip",
-            "/tmp/src.rar",
+            "https://example.com/src.rar",
+            "/tmp/src.7z",
             "src",
             "src.gz",
         ] {
-            let err = validate_source_format(source).unwrap_err();
+            let err = resolve_source_format(source).unwrap_err();
             assert!(matches!(err, Error::UnsupportedSourceFormat { .. }));
         }
     }
