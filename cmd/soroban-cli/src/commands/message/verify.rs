@@ -78,7 +78,7 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
-        // Create the SEP-53 payload: prefix + message as utf-8 byte array
+        // Create the SEP-53 payload: prefix + message bytes (UTF-8, or raw bytes when --base64)
         let message_bytes = self.get_message_bytes()?;
         let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
         payload.extend_from_slice(SEP53_PREFIX.as_bytes());
