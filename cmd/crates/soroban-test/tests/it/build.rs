@@ -714,7 +714,7 @@ fn remap_absolute_paths() {
             .join(format!("{contract_name}.wasm"));
 
         let cargo_home = home::cargo_home().unwrap();
-        let registry_prefix = format!("{}/registry/src/", &cargo_home.display());
+        let registry_prefix = format!("{}/registry/src/", cargo_home.display());
 
         let wasm_buf = std::fs::read(wasm_path).unwrap();
         let wasm_str = String::from_utf8_lossy(&wasm_buf);

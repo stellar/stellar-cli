@@ -36,7 +36,7 @@ impl Cmd {
                 }
                 args::OutputFormat::Xdr => {
                     let result_xdr = result.to_xdr_base64(Limits::none()).unwrap();
-                    println!("{}", &result_xdr);
+                    println!("{result_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {
                     args::Args::print_tx_summary(&resp);
