@@ -55,11 +55,6 @@ pub struct Cmd {
     #[arg(long)]
     pub base64: bool,
 
-    /// Sign the raw payload bytes directly: skip the SEP-53 prefix and SHA-256
-    /// hashing, and output the signature as hex instead of base64.
-    #[arg(long)]
-    pub raw: bool,
-
     // @dev: Ledger and Lab don't support signing arbitrary messages yet. Once they do, use `sign_with::Args` here.
     /// Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path.
     #[arg(
@@ -93,17 +88,11 @@ impl Cmd {
         let signer = secret.signer(self.hd_path, print.clone())?;
         let public_key = signer.get_public_key()?;
 
-        // The raw path signs the exact bytes (no SEP-53 prefix/hash) and outputs
-        // hex; the default path follows SEP-53 and outputs base64.
-        let signature = if self.raw {
-            let sig = signer.sign_data(&message_bytes)?;
-            hex::encode(sig.to_bytes())
-        } else {
-            sep_53_sign(&message_bytes, signer).await?
-        };
+        // Encode signature as base64
+        let signature_base64 = sep_53_sign(&message_bytes, signer).await?;
 
         print.infoln(format!("Signer: {public_key}"));
-        println!("{signature}");
+        println!("{signature_base64}");
         Ok(())
     }
 
@@ -114,11 +103,8 @@ impl Cmd {
             // Read from stdin
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
-            // Remove trailing newline if present. The raw path signs the exact
-            // bytes provided, so it keeps the newline the shell may have added.
-            // With --base64 the payload is the decoded bytes, so the base64 text
-            // (and any shell newline) is still trimmed before decoding.
-            if (!self.raw || self.base64) && buffer.ends_with('\n') {
+            // Remove trailing newline if present
+            if buffer.ends_with('\n') {
                 buffer.pop();
                 if buffer.ends_with('\r') {
                     buffer.pop();
@@ -201,7 +187,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             sign_with_key: TEST_SECRET_KEY.to_string(),
             hd_path: None,
             locator: locator.clone(),
@@ -224,7 +209,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             sign_with_key: TEST_SECRET_KEY.to_string(),
             hd_path: None,
             locator: locator.clone(),
@@ -247,7 +231,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: true,
-            raw: false,
             sign_with_key: TEST_SECRET_KEY.to_string(),
             hd_path: None,
             locator: locator.clone(),
@@ -258,69 +241,6 @@ mod tests {
         let signature_base64 = sep_53_sign(&message_bytes, signer).await.unwrap();
 
         assert_eq!(signature_base64, expected_signature);
-    }
-
-    /// Sign the exact bytes with ed25519 directly, bypassing the command, so the
-    /// test asserts against an independently derived value rather than the code path under test.
-    fn raw_sign_reference(message_bytes: &[u8]) -> String {
-        use ed25519_dalek::ed25519::signature::Signer as _;
-        let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
-        let signing_key = into_signing_key(&secret.private_key(None).unwrap());
-        hex::encode(signing_key.sign(message_bytes).to_bytes())
-    }
-
-    #[tokio::test]
-    async fn test_sign_raw_matches_plain_ed25519() {
-        let message = "challenge-1:abc123";
-        let expected = raw_sign_reference(message.as_bytes());
-
-        let signer = build_signer_for_test_key();
-        let sig = signer.sign_data(message.as_bytes()).unwrap();
-        let signature_hex = hex::encode(sig.to_bytes());
-
-        assert_eq!(signature_hex, expected);
-        assert_eq!(signature_hex.len(), 128, "raw signature is 128 hex chars");
-    }
-
-    #[tokio::test]
-    async fn test_sign_raw_differs_from_sep53() {
-        // The raw path must not apply the SEP-53 prefix or SHA-256 hashing, so
-        // its signature differs from the SEP-53 signature of the same message.
-        let message_bytes = b"Hello, World!".to_vec();
-
-        let raw_sig = build_signer_for_test_key()
-            .sign_data(&message_bytes)
-            .unwrap();
-        let raw_hex = hex::encode(raw_sig.to_bytes());
-
-        let sep53 = sep_53_sign(&message_bytes, build_signer_for_test_key())
-            .await
-            .unwrap();
-        let sep53_hex = hex::encode(BASE64.decode(&sep53).unwrap());
-
-        assert_ne!(raw_hex, sep53_hex);
-    }
-
-    #[tokio::test]
-    async fn test_sign_raw_with_base64_input() {
-        // `--raw` and `--base64` are orthogonal: decode the message from base64,
-        // then raw-sign the resulting bytes.
-        let message = "2zZDP1sa1BVBfLP7TeeMk3sUbaxAkUhBhDiNdrksaFo=".to_string();
-        let cmd = super::Cmd {
-            message: Some(message),
-            base64: true,
-            raw: true,
-            sign_with_key: TEST_SECRET_KEY.to_string(),
-            hd_path: None,
-            locator: setup_locator(),
-        };
-        let message_bytes = cmd.get_message_bytes().unwrap();
-        let expected = raw_sign_reference(&message_bytes);
-
-        let sig = build_signer_for_test_key()
-            .sign_data(&message_bytes)
-            .unwrap();
-        assert_eq!(hex::encode(sig.to_bytes()), expected);
     }
 
     #[test]
