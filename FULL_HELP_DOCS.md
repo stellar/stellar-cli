@@ -4936,8 +4936,6 @@ Sign an arbitrary message using SEP-53
 
 Signs a message following the SEP-53 specification for arbitrary message signing. The provided message will get prefixed with "Stellar Signed Message:\n", hashed with SHA-256, and signed with the ed25519 private key.
 
-Use --raw to instead sign the exact payload bytes directly, with no SEP-53 prefix or SHA-256 hashing, outputting the signature as hex (for protocols that require a raw ed25519 signature over a specific payload).
-
 Example: stellar message sign "Hello, World!" --sign-with-key alice
 
 **Usage:** `stellar message sign [OPTIONS] --sign-with-key <SIGN_WITH_KEY> [MESSAGE]`
@@ -4953,7 +4951,6 @@ Example: stellar message sign "Hello, World!" --sign-with-key alice
 ###### **Options:**
 
 - `--base64` — Treat the message as base64-encoded binary data
-- `--raw` — Sign the raw payload bytes directly: skip the SEP-53 prefix and SHA-256 hashing, and output the signature as hex instead of base64
 
 ###### **Signing Options:**
 
@@ -4965,8 +4962,6 @@ Example: stellar message sign "Hello, World!" --sign-with-key alice
 Verify a SEP-53 signed message
 
 Verifies that a signature was produced by the holder of the private key corresponding to the given account public key, following the SEP-53 specification. The provided message will get prefixed with "Stellar Signed Message:\n" before verification.
-
-Use --raw to verify a raw signature instead: the message bytes are verified directly (no prefix or hashing) and the signature is hex-encoded.
 
 Example: stellar message verify "Hello, World!" --signature BASE64_SIG --public-key GABC...
 
@@ -4983,8 +4978,7 @@ Example: stellar message verify "Hello, World!" --signature BASE64_SIG --public-
 ###### **Options:**
 
 - `--base64` — Treat the message as base64-encoded binary data
-- `--raw` — Verify a raw signature: the message bytes were signed directly, without the SEP-53 prefix or SHA-256 hashing, and `--signature` is hex-encoded
-- `-s`, `--signature <SIGNATURE>` — The signature to verify. Base64-encoded by default, or hex-encoded with `--raw`
+- `-s`, `--signature <SIGNATURE>` — The base64-encoded signature to verify
 - `-p`, `--public-key <PUBLIC_KEY>` — The public key to verify the signature against. Can be an identity (--public-key alice), a public key (--public-key GDKW...)
 - `--hd-path <HD_PATH>` — If public key identity is a seed phrase use this hd path, default is 0
 

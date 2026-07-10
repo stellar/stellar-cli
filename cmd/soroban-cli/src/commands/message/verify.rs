@@ -27,9 +27,6 @@ pub enum Error {
     Base64(#[from] base64::DecodeError),
 
     #[error(transparent)]
-    Hex(#[from] hex::FromHexError),
-
-    #[error(transparent)]
     StrKey(#[from] stellar_strkey::DecodeError),
 
     #[error(transparent)]
@@ -60,12 +57,7 @@ pub struct Cmd {
     #[arg(long)]
     pub base64: bool,
 
-    /// Verify a raw signature: the message bytes were signed directly, without
-    /// the SEP-53 prefix or SHA-256 hashing, and `--signature` is hex-encoded.
-    #[arg(long)]
-    pub raw: bool,
-
-    /// The signature to verify. Base64-encoded by default, or hex-encoded with `--raw`.
+    /// The base64-encoded signature to verify
     #[arg(long, short = 's')]
     pub signature: String,
 
@@ -86,14 +78,17 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
+        // Create the SEP-53 payload: prefix + message bytes (UTF-8, or raw bytes when --base64)
         let message_bytes = self.get_message_bytes()?;
+        let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
+        payload.extend_from_slice(SEP53_PREFIX.as_bytes());
+        payload.extend_from_slice(&message_bytes);
 
-        // Decode the signature: hex for the raw path, base64 for SEP-53.
-        let signature_bytes = if self.raw {
-            hex::decode(&self.signature)?
-        } else {
-            BASE64.decode(&self.signature)?
-        };
+        // Hash the payload with SHA-256
+        let hash: [u8; 32] = Sha256::digest(&payload).into();
+
+        // Decode the signature
+        let signature_bytes = BASE64.decode(&self.signature)?;
         if signature_bytes.len() != 64 {
             return Err(Error::InvalidSignatureLength(signature_bytes.len()));
         }
@@ -104,19 +99,8 @@ impl Cmd {
         print.infoln(format!("Verifying signature against: {public_key}"));
         let verifying_key = VerifyingKey::from_bytes(&public_key.0)?;
 
-        // The raw path verifies over the exact message bytes; the default path
-        // verifies over SHA-256(SEP-53 prefix + message).
-        let verified = if self.raw {
-            verifying_key.verify(&message_bytes, &signature).is_ok()
-        } else {
-            let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
-            payload.extend_from_slice(SEP53_PREFIX.as_bytes());
-            payload.extend_from_slice(&message_bytes);
-            let hash: [u8; 32] = Sha256::digest(&payload).into();
-            verifying_key.verify(&hash, &signature).is_ok()
-        };
-
-        if verified {
+        // Verify the signature
+        if verifying_key.verify(&hash, &signature).is_ok() {
             print.checkln("Signature valid");
             Ok(())
         } else {
@@ -132,11 +116,8 @@ impl Cmd {
             // Read from stdin
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer)?;
-            // Remove trailing newline if present. The raw path verifies the
-            // exact bytes provided, mirroring `message sign --raw`. With --base64
-            // the payload is the decoded bytes, so the base64 text (and any shell
-            // newline) is still trimmed before decoding.
-            if (!self.raw || self.base64) && buffer.ends_with('\n') {
+            // Remove trailing newline if present
+            if buffer.ends_with('\n') {
                 buffer.pop();
                 if buffer.ends_with('\r') {
                     buffer.pop();
@@ -208,7 +189,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             signature: signature.to_string(),
             public_key: TEST_PUBLIC_KEY.to_string(),
             hd_path: None,
@@ -229,7 +209,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             signature: signature.to_string(),
             public_key: TEST_PUBLIC_KEY.to_string(),
             hd_path: None,
@@ -250,7 +229,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: true,
-            raw: false,
             signature: signature.to_string(),
             public_key: TEST_PUBLIC_KEY.to_string(),
             hd_path: None,
@@ -269,7 +247,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             signature: FALSE_SIGNATURE.to_string(),
             public_key: TEST_PUBLIC_KEY.to_string(),
             hd_path: None,
@@ -289,7 +266,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some(message),
             base64: false,
-            raw: false,
             signature: signature.to_string(),
             public_key: FALSE_PUBLIC_KEY.to_string(),
             hd_path: None,
@@ -299,66 +275,12 @@ mod tests {
         assert!(successful.is_err());
     }
 
-    // Public key = GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L
-    const TEST_SECRET_KEY: &str = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
-
-    /// Hex ed25519 signature of the raw bytes, with no SEP-53 prefix or hashing.
-    fn raw_sign_hex(message_bytes: &[u8]) -> String {
-        use crate::{config::secret::Secret, utils::into_signing_key};
-        use ed25519_dalek::ed25519::signature::Signer as _;
-        use std::str::FromStr;
-        let secret = Secret::from_str(TEST_SECRET_KEY).unwrap();
-        let signing_key = into_signing_key(&secret.private_key(None).unwrap());
-        hex::encode(signing_key.sign(message_bytes).to_bytes())
-    }
-
-    #[test]
-    fn test_verify_raw_round_trip() {
-        let message = "challenge-1:abc123";
-        let signature = raw_sign_hex(message.as_bytes());
-
-        let cmd = super::Cmd {
-            message: Some(message.to_string()),
-            base64: false,
-            raw: true,
-            signature,
-            public_key: TEST_PUBLIC_KEY.to_string(),
-            hd_path: None,
-            locator: setup_locator(),
-        };
-        assert!(cmd.run(&global_args()).is_ok());
-    }
-
-    #[test]
-    fn test_verify_raw_rejects_sep53_signature() {
-        // A SEP-53 (base64) signature must not validate on the raw path: even if
-        // the hex decodes, it was produced over the prefixed+hashed payload.
-        let message = "Hello, World!";
-        let sep53_base64 = "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==";
-        let sep53_hex = hex::encode(BASE64.decode(sep53_base64).unwrap());
-
-        let cmd = super::Cmd {
-            message: Some(message.to_string()),
-            base64: false,
-            raw: true,
-            signature: sep53_hex,
-            public_key: TEST_PUBLIC_KEY.to_string(),
-            hd_path: None,
-            locator: setup_locator(),
-        };
-        assert!(matches!(
-            cmd.run(&global_args()),
-            Err(Error::VerificationFailed)
-        ));
-    }
-
     #[test]
     fn test_verify_rejects_raw_secret_key_as_public_key() {
         let secret_key = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
         let cmd = super::Cmd {
             message: Some("Hello, World!".to_string()),
             base64: false,
-            raw: false,
             signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
             public_key: secret_key.to_string(),
             hd_path: None,
@@ -378,7 +300,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some("Hello, World!".to_string()),
             base64: false,
-            raw: false,
             signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
             public_key: seed_phrase.to_string(),
             hd_path: None,
@@ -396,7 +317,6 @@ mod tests {
         let cmd = super::Cmd {
             message: Some("Hello, World!".to_string()),
             base64: false,
-            raw: false,
             signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
             public_key: "secure_store:org.stellar.cli-alice".to_string(),
             hd_path: None,
