@@ -83,7 +83,7 @@ struct Runner {
 impl Runner {
     async fn run_docker_command(&self) -> Result<(), Error> {
         self.print
-            .infoln(format!("Starting {} network", &self.network));
+            .infoln(format!("Starting {} network", self.network));
 
         let docker = self
             .args
