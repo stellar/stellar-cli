@@ -29,7 +29,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
-        let network = &self.network.get(&global_args.locator)?;
+        let network = &self.network.get_no_rpc(&global_args.locator)?;
         println!(
             "{}",
             hex::encode(transaction_hash(&tx, &network.network_passphrase)?)
