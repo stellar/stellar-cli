@@ -33,8 +33,22 @@ impl EngineSandbox {
 
     /// Installs a fake engine binary named `name` (e.g. `docker` or `container`).
     /// Each invocation appends its argv to the shared log; behavior is driven by
-    /// the `FAKE_ENGINE_MODE` env var (`ok`, `already_running`, `not_found`).
+    /// the `FAKE_ENGINE_MODE` env var (`ok`, `already_running`, `not_found`). The
+    /// stderr wording matches the real engine the binary is impersonating so the
+    /// CLI's per-engine classifiers are exercised end-to-end.
     fn install_engine(&self, name: &str) {
+        // Real-world stderr strings the CLI classifies, per engine.
+        let (already_running, not_found) = if name == "container" {
+            (
+                "Error: container with id stellar-local already exists",
+                r#"Error: internalError: "failed to stop container" (cause: "notFound: "container with ID stellar-local not found"")"#,
+            )
+        } else {
+            (
+                r#"docker: Error response from daemon: Conflict. The container name "/stellar-local" is already in use."#,
+                "Error response from daemon: No such container: stellar-local",
+            )
+        };
         let script = format!(
             r#"#!/bin/sh
 echo "{name} $@" >> "{log}"
@@ -43,14 +57,14 @@ case " $* " in
   *" run "*)
     case "$FAKE_ENGINE_MODE" in
       already_running)
-        echo 'docker: Error response from daemon: Conflict. The container name "/stellar-local" is already in use.' >&2
+        echo '{already_running}' >&2
         exit 1 ;;
       *) exit 0 ;;
     esac ;;
   *" stop "*)
     case "$FAKE_ENGINE_MODE" in
       not_found)
-        echo 'Error response from daemon: No such container: stellar-local' >&2
+        echo '{not_found}' >&2
         exit 1 ;;
       *) exit 0 ;;
     esac ;;
@@ -182,6 +196,33 @@ fn apple_engine_uses_container_binary_and_image_pull() {
         run.starts_with("container "),
         "expected container binary: {run}"
     );
+}
+
+#[test]
+fn apple_engine_reports_already_running_from_stderr() {
+    let s = EngineSandbox::new();
+    s.install_engine("container");
+
+    // The fake `container` emits Apple's `already exists` wording, so this only
+    // passes if the CLI classifies stderr with the apple-container matcher.
+    s.cmd("already_running")
+        .args(["start", "local", "--engine", "apple-container"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already running"));
+}
+
+#[test]
+fn apple_engine_reports_not_found_from_stderr() {
+    let s = EngineSandbox::new();
+    s.install_engine("container");
+
+    // The fake `container` emits Apple's `not found` wording here.
+    s.cmd("not_found")
+        .args(["stop", "local", "--engine", "apple-container"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("container local not found"));
 }
 
 #[test]
