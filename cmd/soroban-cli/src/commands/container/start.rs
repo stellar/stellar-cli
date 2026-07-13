@@ -114,6 +114,11 @@ impl Runner {
         let mut cmd = self.args.container_args.docker_command();
         cmd.args(["pull", image]).stdout(Stdio::piped());
 
+        // `docker pull` writes its progress to stderr; honor `--quiet` by discarding it.
+        if self.print.quiet {
+            cmd.stderr(Stdio::null());
+        }
+
         let mut child = match cmd.spawn() {
             Ok(child) => child,
             // Let the main `docker run` invocation surface the "is docker installed?" hint
