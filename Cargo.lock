@@ -5390,7 +5390,6 @@ dependencies = [
  "async-compression",
  "async-trait",
  "base64 0.21.7",
- "bollard",
  "bytesize",
  "cargo_metadata",
  "chrono",
@@ -5815,7 +5814,6 @@ name = "stellar-ledger"
 version = "27.0.0"
 dependencies = [
  "async-trait",
- "bollard",
  "byteorder 1.5.0",
  "ed25519-dalek",
  "env_logger",
