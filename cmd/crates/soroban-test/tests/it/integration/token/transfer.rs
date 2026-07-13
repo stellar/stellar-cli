@@ -130,3 +130,65 @@ async fn transfer_fails_when_recipient_trustline_missing() {
         .failure()
         .stderr(predicates::str::contains("trustline entry is missing"));
 }
+
+#[tokio::test]
+async fn transfer_rejects_negative_amount_before_any_rpc() {
+    let sandbox = &TestEnv::new();
+
+    // A negative amount is nonsensical and is rejected at the clap layer before
+    // any account resolution or RPC work, so this needs no funded accounts and
+    // no network — a literal destination address is enough to parse the args.
+    let recipient = "GAF4UUODFGAAMYRTF5QKUZCCZPXF3S4PRU5NS2BBRVJGX4WLRVI4ZI4Z";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer",
+            "--id",
+            "native",
+            "--to",
+            recipient,
+            "--amount=-1",
+            "--from",
+            "test",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("amount must not be negative"));
+}
+
+#[tokio::test]
+async fn transfer_json_failure_returns_error_envelope_on_stdout() {
+    let sandbox = &TestEnv::new();
+    let test = test_address(sandbox);
+    let issuer = new_account(sandbox, "issuer");
+    let recipient = new_account(sandbox, "recipient");
+    let asset = format!("USDC:{issuer}");
+
+    // Same missing-recipient-trustline failure as above, but in JSON mode: the
+    // failure must still surface as a parseable `{ "error": … }` envelope on
+    // stdout, and the trustline diagnostic must survive into that message
+    // (quiet only suppresses status logging, not the error itself).
+    add_trustline(sandbox, "test", &asset);
+    issuer_pays(sandbox, "issuer", &test, &asset, 1_000);
+    deploy_sac(sandbox, &asset, "issuer");
+
+    let stdout = sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer", "--id", &asset, "--to", &recipient, "--amount", "1", "--from", "test",
+            "--output", "json",
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+
+    let value: Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("stdout should be valid JSON, got: {stdout:?} ({e})"));
+    let message = value["error"]["message"]
+        .as_str()
+        .unwrap_or_else(|| panic!("expected an error envelope with a message, got: {value}"));
+    assert!(
+        message.contains("trustline entry is missing"),
+        "expected the trustline diagnostic in the JSON error message, got: {message}"
+    );
+}

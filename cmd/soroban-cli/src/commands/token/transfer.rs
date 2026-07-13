@@ -31,7 +31,7 @@ pub struct Cmd {
 
     /// Amount to transfer, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract).
-    #[arg(long)]
+    #[arg(long, value_parser = parse_nonneg_i128)]
     pub amount: i128,
 
     /// Format of the output.
@@ -69,6 +69,19 @@ pub enum Error {
 
     #[error("contract {0} was not found on this network")]
     ContractNotFound(String),
+}
+
+/// Parse `--amount` as a non-negative `i128`. A negative transfer amount is
+/// always invalid, so reject it at the clap layer instead of letting it reach
+/// the contract and fail as an opaque `HostError` deep in simulation.
+fn parse_nonneg_i128(value: &str) -> Result<i128, String> {
+    let amount: i128 = value
+        .parse()
+        .map_err(|_| format!("invalid amount: {value}"))?;
+    if amount < 0 {
+        return Err(format!("amount must not be negative: {value}"));
+    }
+    Ok(amount)
 }
 
 /// The machine-readable receipt of a token transfer.
