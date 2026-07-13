@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
 use crate::{
+    commands::contract::invoke,
     config::{alias::UnresolvedContract, locator},
+    get_spec,
     output::Format,
+    rpc,
     tx::builder,
     utils::contract_id_hash_from_asset,
 };
@@ -50,6 +53,28 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Asset(#[from] builder::asset::Error),
+
+    #[error(
+        "the Stellar Asset Contract {0} is not deployed on this network.\n\
+         Deploy it first with `stellar contract asset deploy --asset <ASSET>`, then retry."
+    )]
+    SacNotDeployed(String),
+
+    #[error("contract {0} was not found on this network")]
+    ContractNotFound(String),
+}
+
+impl Error {
+    /// Machine-readable discriminator for the JSON error envelope's `type` field.
+    #[must_use]
+    pub fn error_type(&self) -> &'static str {
+        match self {
+            Error::Locator(_) => "config",
+            Error::Asset(_) => "invalid_asset",
+            Error::SacNotDeployed(_) => "sac_not_deployed",
+            Error::ContractNotFound(_) => "contract_not_found",
+        }
+    }
 }
 
 impl FromStr for TokenTarget {
@@ -84,6 +109,31 @@ impl TokenTarget {
                 Ok(contract_id_hash_from_asset(&asset, network_passphrase))
             }
         }
+    }
+
+    /// If `err` is a "contract not found" failure raised while fetching the
+    /// contract spec, translate it into a token-aware error: a missing SAC for
+    /// an asset target (pointing at `contract asset deploy`), or a missing
+    /// contract for a direct id/alias. Returns `None` for any other failure so
+    /// the caller can surface the underlying invoke error unchanged.
+    #[must_use]
+    pub fn not_deployed_error(
+        &self,
+        err: &invoke::Error,
+        contract_id: &stellar_strkey::Contract,
+    ) -> Option<Error> {
+        let invoke::Error::GetSpecError(get_spec::Error::Rpc(rpc::Error::NotFound(kind, _))) = err
+        else {
+            return None;
+        };
+        if kind != "Contract" {
+            return None;
+        }
+        Some(if matches!(self, TokenTarget::Asset(_)) {
+            Error::SacNotDeployed(format!("{contract_id}"))
+        } else {
+            Error::ContractNotFound(format!("{contract_id}"))
+        })
     }
 }
 

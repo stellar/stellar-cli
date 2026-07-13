@@ -1897,6 +1897,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 ###### **Subcommands:**
 
 - `transfer` — Transfer tokens from one account to another
+- `balance` — Read the token balance of an account or contract
 
 ## `stellar token transfer`
 
@@ -1937,6 +1938,37 @@ Transfer tokens from one account to another
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token balance`
+
+Read the token balance of an account or contract
+
+**Usage:** `stellar token balance [OPTIONS] --id <ID> --account <ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--account <ACCOUNT>` — Account or contract whose balance to read
+- `--decimal` — Format the balance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON receipt
+  - `json-formatted`: Formatted (multiline) JSON receipt
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar tx`
 
