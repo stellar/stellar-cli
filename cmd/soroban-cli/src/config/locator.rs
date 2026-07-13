@@ -236,6 +236,18 @@ impl Args {
             .save_to(&path)
     }
 
+    pub fn write_default_container_engine(&self, engine: &str) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?
+            .set_container_engine(engine)
+            .save_to(&path)
+    }
+
+    pub fn unset_default_container_engine(&self) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_container_engine().save_to(&path)
+    }
+
     pub fn unset_default_identity(&self) -> Result<(), Error> {
         let path = self.global_config_path()?.join("config.toml");
         Config::load(&path)?.unset_identity().save_to(&path)

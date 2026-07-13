@@ -122,6 +122,7 @@ fn set_env_from_config() {
     set_env_value_from_config("STELLAR_ACCOUNT", config.defaults.identity);
     set_env_value_from_config("STELLAR_NETWORK", config.defaults.network);
     set_env_value_from_config("STELLAR_INCLUSION_FEE", config.defaults.inclusion_fee);
+    set_env_value_from_config("STELLAR_CONTAINER_ENGINE", config.defaults.container_engine);
 }
 
 // Resolve the effective JSON output `Format` for the top-level error handler

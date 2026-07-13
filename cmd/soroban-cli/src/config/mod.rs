@@ -237,6 +237,7 @@ pub struct Defaults {
     pub network: Option<String>,
     pub identity: Option<String>,
     pub inclusion_fee: Option<u32>,
+    pub container_engine: Option<String>,
 }
 
 impl Config {
@@ -274,6 +275,12 @@ impl Config {
     }
 
     #[must_use]
+    pub fn set_container_engine(mut self, s: &str) -> Self {
+        self.defaults.container_engine = Some(s.to_string());
+        self
+    }
+
+    #[must_use]
     pub fn unset_identity(mut self) -> Self {
         self.defaults.identity = None;
         self
@@ -288,6 +295,12 @@ impl Config {
     #[must_use]
     pub fn unset_inclusion_fee(mut self) -> Self {
         self.defaults.inclusion_fee = None;
+        self
+    }
+
+    #[must_use]
+    pub fn unset_container_engine(mut self) -> Self {
+        self.defaults.container_engine = None;
         self
     }
 
