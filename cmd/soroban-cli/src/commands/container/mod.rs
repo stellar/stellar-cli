@@ -1,7 +1,7 @@
 use crate::commands::global;
 
 pub(crate) mod logs;
-mod shared;
+pub(crate) mod shared;
 pub(crate) mod start;
 pub(crate) mod stop;
 

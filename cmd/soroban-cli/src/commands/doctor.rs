@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::process::Command;
 
 use crate::{
-    commands::global,
+    commands::{container::shared::Engine, global},
     config::{
         self, data,
         locator::{self, KeyType},
@@ -50,6 +50,7 @@ impl Cmd {
         check_rust_version(&print);
         check_wasm_target(&print);
         check_optional_features(&print);
+        check_container_engine(&print);
         show_config_path(&print, &self.config_locator)?;
         show_data_path(&print)?;
         show_xdr_version(&print);
@@ -202,6 +203,22 @@ fn check_wasm_target(print: &Print) {
         }
     } else {
         print.warnln("Could not retrieve Rust targets".to_string());
+    }
+}
+
+fn check_container_engine(print: &Print) {
+    let engine = Engine::resolved_default();
+
+    // `output()` succeeds as long as the binary spawned, regardless of exit
+    // status, so it tells us whether the engine is installed on `PATH`.
+    if Command::new(engine.program())
+        .arg("--version")
+        .output()
+        .is_ok()
+    {
+        print.checkln(format!("Container engine `{engine}` is available"));
+    } else {
+        print.warnln(format!("Container engine `{engine}` is not installed"));
     }
 }
 
