@@ -189,12 +189,6 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         self.auth_mode.validate_not_enforce()?;
 
-        // Validate the alias before building, simulating, or deploying, so a
-        // reserved alias fails fast instead of after wasted work.
-        if let Some(alias) = &self.alias {
-            crate::config::alias::validate_reserved_aliases(alias)?;
-        }
-
         if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
             return Err(Error::BuildOnlyNotSupported);
         }
@@ -247,8 +241,10 @@ impl Cmd {
     }
 
     async fn run_single(cmd: &Cmd, global_args: &global::Args) -> Result<(), Error> {
-        // Backstop for aliases derived from a package name (see `run`): a
-        // package named after a reserved alias must not deploy on-chain first.
+        // Validate the finalized alias (explicit or package-derived) at the
+        // point of use, before any on-chain work. `run` rejects a reserved
+        // package name up front to avoid a partial multi-contract deploy; this
+        // is the single guard for the single-contract and `--wasm-hash` paths.
         if let Some(alias) = &cmd.alias {
             crate::config::alias::validate_reserved_aliases(alias)?;
         }

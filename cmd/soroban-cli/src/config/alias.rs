@@ -1,24 +1,43 @@
 use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 use serde::{Deserialize, Serialize};
+use stellar_strkey::Contract;
 
 use super::locator;
+use crate::utils::contract_id_hash_from_asset;
+use crate::xdr::Asset;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Data {
     pub ids: HashMap<String, String>,
 }
 
-/// Built-in contract aliases that resolve to well-known contracts and cannot be
-/// created, overwritten, or removed by users. `native` resolves to the native
-/// asset (XLM) Stellar Asset Contract for the current network.
-pub const RESERVED_ALIASES: &[&str] = &["native"];
+/// The reserved, built-in contract alias. It resolves to the native asset (XLM)
+/// Stellar Asset Contract for the current network and cannot be created,
+/// overwritten, or removed by users.
+pub const RESERVED_ALIAS: &str = "native";
 
-/// Returns `true` if `alias` is a reserved, built-in alias that users cannot
+/// Returns `true` if `alias` is the reserved, built-in alias that users cannot
 /// create, overwrite, or remove.
 #[must_use]
 pub fn is_reserved(alias: &str) -> bool {
-    RESERVED_ALIASES.contains(&alias)
+    alias == RESERVED_ALIAS
+}
+
+/// Resolves the reserved, built-in alias to its contract for `network_passphrase`,
+/// or returns `None` if `alias` is not reserved. This is the single source of
+/// truth for what the reserved alias points to, so resolution stays consistent
+/// across `get_contract_id`, `alias show`, and `alias ls`.
+#[must_use]
+pub fn resolve_reserved(alias: &str, network_passphrase: &str) -> Option<Contract> {
+    if alias == RESERVED_ALIAS {
+        Some(contract_id_hash_from_asset(
+            &Asset::Native,
+            network_passphrase,
+        ))
+    } else {
+        None
+    }
 }
 
 /// Errors if `alias` is a reserved, built-in alias. Call this before doing any

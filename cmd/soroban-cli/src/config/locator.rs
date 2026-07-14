@@ -523,17 +523,14 @@ impl Args {
         alias: &str,
         network_passphrase: &str,
     ) -> Result<Option<Contract>, Error> {
-        // The reserved `native` alias always resolves to the built-in native
-        // asset contract. If a stored (shadowed) alias file points somewhere
-        // else, refuse to silently override it: resolving to the SAC anyway
+        // A reserved alias (e.g. `native`) always resolves to its built-in
+        // contract. If a stored (shadowed) alias file points somewhere else,
+        // refuse to silently override it: resolving to the built-in anyway
         // would misdirect the command to the wrong contract. The stored file
-        // can still be removed with `contract alias remove native`.
-        if alias == "native" {
-            let native =
-                crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
-
+        // can still be removed with `contract alias remove <name>`.
+        if let Some(reserved) = alias::resolve_reserved(alias, network_passphrase) {
             if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
-                if stored != native {
+                if stored != reserved {
                     return Err(Error::ShadowedReservedAlias {
                         alias: alias.to_owned(),
                         stored,
@@ -541,7 +538,7 @@ impl Args {
                 }
             }
 
-            return Ok(Some(native));
+            return Ok(Some(reserved));
         }
 
         self.get_stored_contract_id(alias, network_passphrase)

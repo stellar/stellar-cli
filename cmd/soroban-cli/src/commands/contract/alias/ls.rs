@@ -8,8 +8,6 @@ use std::path::Path;
 use crate::commands::config::network;
 use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
-use crate::utils::contract_id_hash_from_asset;
-use crate::xdr::Asset;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -103,14 +101,15 @@ impl Cmd {
         }
 
         for (network_passphrase, list) in &mut map {
-            list.push(AliasEntry {
-                alias: "native".to_string(),
-                contract: format!(
-                    "{}",
-                    contract_id_hash_from_asset(&Asset::Native, network_passphrase)
-                ),
-                builtin: true,
-            });
+            if let Some(contract) =
+                alias::resolve_reserved(alias::RESERVED_ALIAS, network_passphrase)
+            {
+                list.push(AliasEntry {
+                    alias: alias::RESERVED_ALIAS.to_string(),
+                    contract: format!("{contract}"),
+                    builtin: true,
+                });
+            }
 
             println!("ℹ️ Aliases available for network '{network_passphrase}'");
 
