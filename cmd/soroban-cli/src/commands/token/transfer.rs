@@ -153,6 +153,10 @@ impl Cmd {
             contract_id: UnresolvedContract::Resolved(contract_id),
             slop,
             config: config.clone(),
+            // A transfer always intends to submit. Force `Send::Yes` so a token
+            // whose `transfer` records no writes/events/auth can't be classified
+            // read-only and silently exit 0 without ever moving funds.
+            send: invoke::Send::Yes,
             ..Default::default()
         };
 
