@@ -8,7 +8,10 @@ use crate::{
         global,
         token::args::{self, OutputFormat, TokenTarget},
     },
-    config::{self, locator, network, sign_with, UnresolvedContract, UnresolvedMuxedAccount},
+    config::{
+        self, locator, network, sign_with, UnresolvedContract, UnresolvedMuxedAccount,
+        UnresolvedScAddress,
+    },
     output::Output,
 };
 
@@ -25,9 +28,10 @@ pub struct Cmd {
     #[arg(long)]
     pub from: UnresolvedMuxedAccount,
 
-    /// Account to transfer the tokens to.
+    /// Account or contract to transfer the tokens to. Accepts a `G…`/`M…`
+    /// account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub to: UnresolvedMuxedAccount,
+    pub to: UnresolvedScAddress,
 
     /// Amount to transfer, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract).
@@ -56,6 +60,8 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     Args(#[from] args::Error),
+    #[error(transparent)]
+    ScAddress(#[from] config::sc_address::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
@@ -126,10 +132,13 @@ impl Cmd {
         // SEP-41 `transfer(from, to, amount)`: `from` is the source account
         // (which also signs and authorizes), `to` is the destination.
         let from = config.source_account()?.to_string();
+        // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
+        // resolve it to an `ScAddress` and hand the strkey to the `transfer`
+        // arg, which accepts any of these destinations.
         let to = self
             .to
-            .resolve_muxed_account(&config.locator, None)
-            .map_err(config::Error::from)?
+            .clone()
+            .resolve(&config.locator, &network.network_passphrase, None)?
             .to_string();
         let amount = self.amount.to_string();
 

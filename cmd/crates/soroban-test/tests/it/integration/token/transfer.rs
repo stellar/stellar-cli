@@ -58,6 +58,38 @@ async fn transfer_native_returns_receipt_and_moves_funds() {
 }
 
 #[tokio::test]
+async fn transfer_to_contract_destination_succeeds() {
+    let sandbox = &TestEnv::new();
+
+    deploy_sac(sandbox, "native", "test");
+    let native_id = sac_id(sandbox, "native");
+
+    // Any deployed contract can hold SAC balances (no trustline needed), so use
+    // another SAC's contract id as a `C…` destination — this exercises the
+    // contract-address path that `--to` must accept.
+    let issuer = new_account(sandbox, "issuer");
+    let asset = format!("USDC:{issuer}");
+    deploy_sac(sandbox, &asset, "issuer");
+    let contract_dest = sac_id(sandbox, &asset);
+
+    let amount: i128 = 5_000_000;
+    let before = sac_balance(sandbox, &native_id, &contract_dest);
+
+    let receipt = transfer_json(sandbox, "native", &contract_dest, amount);
+    assert!(
+        receipt["tx_hash"].as_str().is_some_and(|h| !h.is_empty()),
+        "expected a non-empty tx_hash, got: {receipt}"
+    );
+
+    let after = sac_balance(sandbox, &native_id, &contract_dest);
+    assert_eq!(
+        after,
+        before + amount,
+        "contract recipient balance should increase"
+    );
+}
+
+#[tokio::test]
 async fn transfer_issued_asset_succeeds_with_deployed_sac_and_trustlines() {
     let sandbox = &TestEnv::new();
     let test = test_address(sandbox);

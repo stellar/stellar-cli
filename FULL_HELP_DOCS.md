@@ -1864,7 +1864,7 @@ Transfer tokens from one account to another
 
 - `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
 - `--from <FROM>` — Account to transfer tokens from. Signs and authorizes the transfer, so it must be an identity or secret key you control
-- `--to <TO>` — Account to transfer the tokens to
+- `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
 - `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
 - `--output <OUTPUT>` — Format of the output
 
