@@ -1114,6 +1114,24 @@ fn alias_ls_marks_preexisting_native_alias_disabled() {
 }
 
 #[test]
+fn remove_native_without_stored_file_reports_reserved() {
+    TestEnv::with_default(|sandbox| {
+        // No stored `native.json` exists (the normal case, since `alias add
+        // native` is blocked). Removal must say the alias is reserved, matching
+        // what `ls` and `show` report, not "no contract found".
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "remove", "native"])
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("reserved")
+                    .and(predicate::str::contains("no contract found").not()),
+            );
+    });
+}
+
+#[test]
 fn cannot_generate_reserved_native_key() {
     TestEnv::with_default(|sandbox| {
         sandbox

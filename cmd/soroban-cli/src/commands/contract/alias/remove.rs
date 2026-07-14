@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use clap::Parser;
 
 use crate::commands::{config::network, global};
-use crate::config::{address::AliasName, locator};
+use crate::config::{address::AliasName, alias, locator};
 use crate::print::Print;
 
 #[derive(Parser, Debug, Clone)]
@@ -47,6 +47,14 @@ impl Cmd {
             .config_locator
             .get_stored_contract_id(&self.alias, network_passphrase)?
         else {
+            // Without a stored file there's nothing to remove. For a reserved
+            // alias, say so truthfully instead of "no contract found" — `ls`
+            // and `show` both report the built-in exists, so that error would
+            // contradict them.
+            if alias::is_reserved(&self.alias) {
+                return Err(locator::Error::ContractAliasReserved(self.alias.to_string()).into());
+            }
+
             return Err(Error::NoContract {
                 alias: alias.to_string(),
                 network_passphrase: network_passphrase.into(),
