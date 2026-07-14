@@ -994,3 +994,137 @@ fn contract_alias_add_rejects_path_traversal() {
             .stderr(predicate::str::contains("Invalid name"));
     });
 }
+
+#[test]
+fn native_alias_resolves_to_native_asset_contract() {
+    TestEnv::with_default(|sandbox| {
+        let native_sac = sandbox
+            .new_assert_cmd("contract")
+            .args(["id", "asset", "--asset", "native"])
+            .assert()
+            .success()
+            .stdout_as_str();
+
+        let resolved = sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "show", "native"])
+            .assert()
+            .success()
+            .stdout_as_str();
+
+        assert_eq!(native_sac, resolved);
+    });
+}
+
+#[test]
+fn cannot_add_reserved_native_alias() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("alias")
+            .arg("add")
+            .arg("native")
+            .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn can_remove_shadowed_native_alias() {
+    TestEnv::with_default(|sandbox| {
+        // A `native` alias created before it became reserved can still be
+        // removed to clean up the shadowed file.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "remove", "native"])
+            .assert()
+            .success();
+
+        // The shadowed entry is gone; only the built-in remains.
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("(built-in)")
+                    .and(predicate::str::contains("(disabled)").not()),
+            );
+    });
+}
+
+#[test]
+fn alias_ls_always_shows_builtin_native() {
+    TestEnv::with_default(|sandbox| {
+        // A user alias makes a network group appear in the listing.
+        sandbox
+            .new_assert_cmd("contract")
+            .args([
+                "alias",
+                "add",
+                "my-token",
+                "--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+            ])
+            .assert()
+            .success();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("native:").and(predicate::str::contains("(built-in)")),
+            );
+    });
+}
+
+#[test]
+fn alias_ls_marks_preexisting_native_alias_disabled() {
+    TestEnv::with_default(|sandbox| {
+        // Simulate a `native` alias created before it became a reserved
+        // built-in. It is now shadowed and should be listed as disabled.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("(disabled)").and(predicate::str::contains("(built-in)")),
+            );
+    });
+}
+
+#[test]
+fn cannot_deploy_with_reserved_native_alias() {
+    // The reserved alias must be rejected before building, simulating, or
+    // deploying, so this fails fast without needing a network.
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("deploy")
+            .arg("--alias=native")
+            .arg("--wasm=/does/not/matter.wasm")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}

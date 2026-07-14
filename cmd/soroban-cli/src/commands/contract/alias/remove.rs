@@ -41,9 +41,11 @@ impl Cmd {
         let network = self.network.get(&self.config_locator)?;
         let network_passphrase = &network.network_passphrase;
 
+        // Use the stored value so a reserved alias reflects the shadowed file
+        // being removed, not its built-in resolution.
         let Some(contract) = self
             .config_locator
-            .get_contract_id(&self.alias, network_passphrase)?
+            .get_stored_contract_id(&self.alias, network_passphrase)?
         else {
             return Err(Error::NoContract {
                 alias: alias.to_string(),

@@ -2,12 +2,14 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
+use std::fs;
 use std::path::Path;
-use std::{fs, process};
 
 use crate::commands::config::network;
 use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
+use crate::utils::contract_id_hash_from_asset;
+use crate::xdr::Asset;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -32,6 +34,7 @@ pub enum Error {
 struct AliasEntry {
     alias: String,
     contract: String,
+    builtin: bool,
 }
 
 impl Cmd {
@@ -45,7 +48,7 @@ impl Cmd {
                         print_deprecation_warning(&config_dir);
                     }
                 }
-                Location::Global(config_dir) => Self::read_from_config_dir(&config_dir)?,
+                Location::Global(config_dir) => self.read_from_config_dir(&config_dir)?,
             }
         }
 
@@ -76,6 +79,7 @@ impl Cmd {
                     let entry = AliasEntry {
                         alias: alias.clone(),
                         contract: contract_id.clone(),
+                        builtin: false,
                     };
 
                     map.entry(network_passphrase.clone())
@@ -88,27 +92,44 @@ impl Cmd {
         Ok(map)
     }
 
-    fn read_from_config_dir(config_dir: &Path) -> Result<(), Error> {
+    fn read_from_config_dir(&self, config_dir: &Path) -> Result<(), Error> {
         let mut map = Self::collect_aliases(config_dir)?;
-        let mut found = false;
+
+        // The built-in `native` alias resolves to the native asset contract for
+        // a network, so make sure every known network is listed even when it has
+        // no stored aliases of its own.
+        for (_, network, _) in self.config_locator.list_networks_long()? {
+            map.entry(network.network_passphrase).or_default();
+        }
 
         for (network_passphrase, list) in &mut map {
+            list.push(AliasEntry {
+                alias: "native".to_string(),
+                contract: format!(
+                    "{}",
+                    contract_id_hash_from_asset(&Asset::Native, network_passphrase)
+                ),
+                builtin: true,
+            });
+
             println!("ℹ️ Aliases available for network '{network_passphrase}'");
 
             list.sort_by(|a, b| a.alias.cmp(&b.alias));
 
             for entry in list.iter() {
-                found = true;
-                println!("{}: {}", entry.alias, entry.contract);
+                let note = if entry.builtin {
+                    " (built-in)"
+                } else if alias::is_reserved(&entry.alias) {
+                    // A user alias whose name is now reserved is shadowed by the
+                    // built-in alias of the same name, so it no longer resolves.
+                    " (disabled)"
+                } else {
+                    ""
+                };
+                println!("{}: {}{note}", entry.alias, entry.contract);
             }
 
             println!();
-        }
-
-        if !found {
-            eprintln!("⚠️ No aliases defined for network");
-
-            process::exit(1);
         }
 
         Ok(())

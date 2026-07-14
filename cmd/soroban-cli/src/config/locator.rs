@@ -92,6 +92,8 @@ pub enum Error {
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
     #[error("Contract alias {0}, cannot overlap with key")]
     ContractAliasCannotOverlapWithKey(String),
+    #[error("contract alias '{0}' is reserved and cannot be added, overwritten, or removed")]
+    ContractAliasReserved(String),
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
@@ -456,6 +458,7 @@ impl Args {
         contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
+        alias::validate_reserved_aliases(alias)?;
         if self.read_identity(alias).is_ok() {
             return Err(Error::ContractAliasCannotOverlapWithKey(alias.to_owned()));
         }
@@ -493,6 +496,8 @@ impl Args {
     }
 
     pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
+        // Reserved aliases cannot be added or overwritten, but a stored file
+        // that shadows one (created before it became reserved) may be removed.
         let path = self.alias_path(alias)?;
 
         if !path.is_file() {
@@ -510,6 +515,25 @@ impl Args {
     }
 
     pub fn get_contract_id(
+        &self,
+        alias: &str,
+        network_passphrase: &str,
+    ) -> Result<Option<Contract>, Error> {
+        // The reserved `native` alias always resolves to the built-in native
+        // asset contract, regardless of any stored (shadowed) alias file.
+        if alias == "native" {
+            return Ok(Some(crate::utils::contract_id_hash_from_asset(
+                &xdr::Asset::Native,
+                network_passphrase,
+            )));
+        }
+
+        self.get_stored_contract_id(alias, network_passphrase)
+    }
+
+    /// Reads a contract id from a stored alias file, ignoring built-in reserved
+    /// aliases. Returns `None` when no matching alias file entry exists.
+    pub fn get_stored_contract_id(
         &self,
         alias: &str,
         network_passphrase: &str,
@@ -1003,6 +1027,41 @@ mod tests {
             "overwritten identity file should be 0600, got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    #[test]
+    fn save_contract_id_rejects_reserved_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let contract = "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+            .parse()
+            .unwrap();
+
+        let err = args
+            .save_contract_id("Test Network", &contract, "native")
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(alias) if alias == "native"));
+    }
+
+    #[test]
+    fn get_contract_id_resolves_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        let resolved = args
+            .get_contract_id("native", network_passphrase)
+            .unwrap()
+            .expect("native alias should resolve");
+        let expected =
+            crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
+
+        assert_eq!(resolved, expected);
     }
 
     #[test]
