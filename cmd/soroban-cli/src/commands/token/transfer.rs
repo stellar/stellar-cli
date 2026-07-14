@@ -75,6 +75,12 @@ pub enum Error {
 
     #[error("contract {0} was not found on this network")]
     ContractNotFound(String),
+
+    #[error(
+        "muxed (M…) source accounts are not yet supported for `token transfer`; \
+         use the underlying G… account as `--from` instead"
+    )]
+    MuxedSourceNotSupported,
 }
 
 /// Parse `--amount` as a non-negative `i128`. A negative transfer amount is
@@ -131,7 +137,16 @@ impl Cmd {
 
         // SEP-41 `transfer(from, to, amount)`: `from` is the source account
         // (which also signs and authorizes), `to` is the destination.
-        let from = config.source_account()?.to_string();
+        //
+        // The invoke pipeline can't source a transaction from a muxed account
+        // yet (see #2645), and a muxed strkey in the `transfer` arg is rejected
+        // mid-simulation with an opaque host error; reject it up front with a
+        // clear message instead.
+        let source_account = config.source_account()?;
+        if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
+            return Err(Error::MuxedSourceNotSupported);
+        }
+        let from = source_account.to_string();
         // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
         // resolve it to an `ScAddress` and hand the strkey to the `transfer`
         // arg, which accepts any of these destinations.
