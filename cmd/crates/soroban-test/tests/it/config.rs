@@ -1114,6 +1114,61 @@ fn alias_ls_marks_preexisting_native_alias_disabled() {
 }
 
 #[test]
+fn cannot_generate_reserved_native_key() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("generate")
+            .arg("--seed")
+            .arg("0000000000000000")
+            .arg("native")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn cannot_add_reserved_native_key() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("add")
+            .arg("native")
+            .env(
+                "STELLAR_SECRET_KEY",
+                "SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY",
+            )
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn shadowed_native_alias_errors_on_show() {
+    TestEnv::with_default(|sandbox| {
+        // A `native` alias stored before the name became reserved points at a
+        // different contract; resolving it must error rather than silently
+        // returning the native asset contract.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "show", "native"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
 fn cannot_deploy_with_reserved_native_alias() {
     // The reserved alias must be rejected before building, simulating, or
     // deploying, so this fails fast without needing a network.

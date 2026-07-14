@@ -92,8 +92,10 @@ pub enum Error {
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
     #[error("Contract alias {0}, cannot overlap with key")]
     ContractAliasCannotOverlapWithKey(String),
-    #[error("contract alias '{0}' is reserved and cannot be added, overwritten, or removed")]
+    #[error("'{0}' is reserved for the built-in native asset contract and cannot be added, overwritten, or removed")]
     ContractAliasReserved(String),
+    #[error("alias '{alias}' is reserved for the native asset contract, but a stored alias points to {stored}; remove it with `stellar contract alias remove {alias}`, or use the contract id directly")]
+    ShadowedReservedAlias { alias: String, stored: Contract },
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
@@ -193,6 +195,7 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         if let Ok(Some(_)) = self.load_contract_from_alias(name) {
             return Err(Error::KeyCannotOverlapWithContractAlias(name.to_owned()));
         }
@@ -208,6 +211,7 @@ impl Args {
     }
 
     pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         KeyType::Identity.write(name, key, &self.config_dir()?)
     }
 
@@ -520,12 +524,24 @@ impl Args {
         network_passphrase: &str,
     ) -> Result<Option<Contract>, Error> {
         // The reserved `native` alias always resolves to the built-in native
-        // asset contract, regardless of any stored (shadowed) alias file.
+        // asset contract. If a stored (shadowed) alias file points somewhere
+        // else, refuse to silently override it: resolving to the SAC anyway
+        // would misdirect the command to the wrong contract. The stored file
+        // can still be removed with `contract alias remove native`.
         if alias == "native" {
-            return Ok(Some(crate::utils::contract_id_hash_from_asset(
-                &xdr::Asset::Native,
-                network_passphrase,
-            )));
+            let native =
+                crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
+
+            if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
+                if stored != native {
+                    return Err(Error::ShadowedReservedAlias {
+                        alias: alias.to_owned(),
+                        stored,
+                    });
+                }
+            }
+
+            return Ok(Some(native));
         }
 
         self.get_stored_contract_id(alias, network_passphrase)
@@ -1062,6 +1078,67 @@ mod tests {
             crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
 
         assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn get_contract_id_errors_when_native_alias_is_shadowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // A `native` alias stored before the name became reserved, pointing at
+        // a different contract than the native asset SAC.
+        let contract_ids = dir.path().join("contract-ids");
+        std::fs::create_dir_all(&contract_ids).unwrap();
+        std::fs::write(
+            contract_ids.join("native.json"),
+            format!(
+                r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
+            ),
+        )
+        .unwrap();
+
+        let err = args
+            .get_contract_id("native", network_passphrase)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ShadowedReservedAlias { alias, .. } if alias == "native"));
+    }
+
+    #[test]
+    fn write_identity_rejects_reserved_native_name() {
+        use crate::config::secret::Secret;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let secret =
+            Secret::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+
+        let err = args.write_identity("native", &secret).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == "native"));
+    }
+
+    #[test]
+    fn write_key_rejects_reserved_native_name() {
+        use crate::config::key::Key;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let key =
+            Key::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+
+        let err = args.write_key("native", &key).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == "native"));
     }
 
     #[test]
