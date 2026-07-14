@@ -34,7 +34,7 @@ pub fn issuer_pays(sandbox: &TestEnv, issuer: &str, destination: &str, asset: &s
 /// Deploy the Stellar Asset Contract for `asset`, tolerating the case where a
 /// prior run already deployed it (the SAC is global to the network).
 pub fn deploy_sac(sandbox: &TestEnv, asset: &str, source: &str) {
-    sandbox
+    let output = sandbox
         .new_assert_cmd("contract")
         .args([
             "asset",
@@ -46,6 +46,18 @@ pub fn deploy_sac(sandbox: &TestEnv, asset: &str, source: &str) {
         ])
         .output()
         .expect("failed to run contract asset deploy");
+
+    // A clean deploy succeeds; the only failure we tolerate is the SAC already
+    // existing on this (persistent) network. Any other failure is a real bug —
+    // surface the captured stderr instead of swallowing it and misdirecting the
+    // failure two steps downstream.
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("contract already exists"),
+            "contract asset deploy failed: {stderr}"
+        );
+    }
 }
 
 /// The contract id of the SAC for `asset`.
