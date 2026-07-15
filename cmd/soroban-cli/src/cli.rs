@@ -135,10 +135,13 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
     use crate::commands::network;
     use crate::output::Format;
 
+    use crate::commands::token;
+
     let format: Format = match cmd {
         commands::Cmd::Network(network::Cmd::Health(cmd)) => cmd.output.into(),
         commands::Cmd::Network(network::Cmd::Info(cmd)) => cmd.output.into(),
         commands::Cmd::Network(network::Cmd::Settings(cmd)) => cmd.output.into(),
+        commands::Cmd::Token(token::Cmd::Transfer(cmd)) => cmd.output.into(),
         _ => return None,
     };
 
