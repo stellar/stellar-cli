@@ -1051,12 +1051,13 @@ mod tests {
         let contract = "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
             .parse()
             .unwrap();
+        let native = alias::NATIVE;
 
         let err = args
-            .save_contract_id("Test Network", &contract, "native")
+            .save_contract_id("Test Network", &contract, native)
             .unwrap_err();
 
-        assert!(matches!(err, Error::ContractAliasReserved(alias) if alias == "native"));
+        assert!(matches!(err, Error::ContractAliasReserved(alias) if alias == native));
     }
 
     #[test]
@@ -1066,9 +1067,10 @@ mod tests {
             config_dir: Some(dir.path().to_path_buf()),
         };
         let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
 
         let resolved = args
-            .get_contract_id("native", network_passphrase)
+            .get_contract_id(native, network_passphrase)
             .unwrap()
             .expect("native alias should resolve");
         let expected =
@@ -1084,13 +1086,14 @@ mod tests {
             config_dir: Some(dir.path().to_path_buf()),
         };
         let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
 
-        // A `native` alias stored before the name became reserved, pointing at
-        // a different contract than the native asset SAC.
+        // A native alias stored before the name became reserved, pointing at a
+        // different contract than the native asset SAC.
         let contract_ids = dir.path().join("contract-ids");
         std::fs::create_dir_all(&contract_ids).unwrap();
         std::fs::write(
-            contract_ids.join("native.json"),
+            contract_ids.join(format!("{native}.json")),
             format!(
                 r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
             ),
@@ -1098,10 +1101,10 @@ mod tests {
         .unwrap();
 
         let err = args
-            .get_contract_id("native", network_passphrase)
+            .get_contract_id(native, network_passphrase)
             .unwrap_err();
 
-        assert!(matches!(err, Error::ShadowedReservedAlias { alias, .. } if alias == "native"));
+        assert!(matches!(err, Error::ShadowedReservedAlias { alias, .. } if alias == native));
     }
 
     #[test]
@@ -1115,10 +1118,11 @@ mod tests {
         };
         let secret =
             Secret::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
 
-        let err = args.write_identity("native", &secret).unwrap_err();
+        let err = args.write_identity(native, &secret).unwrap_err();
 
-        assert!(matches!(err, Error::ContractAliasReserved(name) if name == "native"));
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
     }
 
     #[test]
@@ -1132,10 +1136,11 @@ mod tests {
         };
         let key =
             Key::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
 
-        let err = args.write_key("native", &key).unwrap_err();
+        let err = args.write_key(native, &key).unwrap_err();
 
-        assert!(matches!(err, Error::ContractAliasReserved(name) if name == "native"));
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
     }
 
     #[test]

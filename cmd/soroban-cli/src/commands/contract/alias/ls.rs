@@ -101,11 +101,9 @@ impl Cmd {
         }
 
         for (network_passphrase, list) in &mut map {
-            if let Some(contract) =
-                alias::resolve_reserved(alias::RESERVED_ALIAS, network_passphrase)
-            {
+            if let Some(contract) = alias::resolve_reserved(alias::NATIVE, network_passphrase) {
                 list.push(AliasEntry {
-                    alias: alias::RESERVED_ALIAS.to_string(),
+                    alias: alias::NATIVE.to_string(),
                     contract: format!("{contract}"),
                     builtin: true,
                 });

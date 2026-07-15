@@ -15,13 +15,13 @@ pub struct Data {
 /// The reserved, built-in contract alias. It resolves to the native asset (XLM)
 /// Stellar Asset Contract for the current network and cannot be created,
 /// overwritten, or removed by users.
-pub const RESERVED_ALIAS: &str = "native";
+pub const NATIVE: &str = "native";
 
 /// Returns `true` if `alias` is the reserved, built-in alias that users cannot
 /// create, overwrite, or remove.
 #[must_use]
 pub fn is_reserved(alias: &str) -> bool {
-    alias == RESERVED_ALIAS
+    alias == NATIVE
 }
 
 /// Resolves the reserved, built-in alias to its contract for `network_passphrase`,
@@ -30,7 +30,7 @@ pub fn is_reserved(alias: &str) -> bool {
 /// across `get_contract_id`, `alias show`, and `alias ls`.
 #[must_use]
 pub fn resolve_reserved(alias: &str, network_passphrase: &str) -> Option<Contract> {
-    if alias == RESERVED_ALIAS {
+    if is_reserved(alias) {
         Some(contract_id_hash_from_asset(
             &Asset::Native,
             network_passphrase,

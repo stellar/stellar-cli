@@ -570,11 +570,12 @@ mod tests {
 
     #[test]
     fn reserved_package_alias_flags_reserved_package_before_deploy() {
-        let contracts = [built("adapter"), built("native"), built("token")];
+        let native = crate::config::alias::NATIVE;
+        let contracts = [built("adapter"), built(native), built("token")];
 
         assert_eq!(
             reserved_package_alias(None, &contracts),
-            Some("native".to_string())
+            Some(native.to_string())
         );
     }
 
@@ -590,7 +591,7 @@ mod tests {
         // An explicit --alias is validated on its own path; a reserved package
         // name is irrelevant because the derived alias is never used.
         let alias = "my-contract".parse::<AliasName>().unwrap();
-        let contracts = [built("native")];
+        let contracts = [built(crate::config::alias::NATIVE)];
 
         assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
     }
