@@ -4145,7 +4145,7 @@ Encode a transaction envelope from JSON to XDR
 
 Decode and encode XDR
 
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4157,14 +4157,6 @@ Decode and encode XDR
 - `generate` — Generate XDR values
 - `xfile` — Preprocess XDR .x files
 - `version` — Print version information
-
-###### **Arguments:**
-
-- `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
 
 ## `stellar xdr types`
 

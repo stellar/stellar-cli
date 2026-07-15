@@ -98,6 +98,12 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        // Validate the alias before simulating or deploying, so a reserved alias
+        // fails fast instead of after an on-chain deploy.
+        if let Some(alias) = &self.alias {
+            crate::config::alias::validate_reserved_aliases(alias)?;
+        }
+
         let res = self
             .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?

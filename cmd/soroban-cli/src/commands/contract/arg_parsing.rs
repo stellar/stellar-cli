@@ -1159,6 +1159,30 @@ mod tests {
     const TEST_G_ADDRESS: &str = "GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS";
 
     #[test]
+    fn resolve_aliases_resolves_native_to_asset_contract_address() {
+        let ty = ScSpecTypeDef::Address;
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!("native");
+        let mutated = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert!(
+            mutated,
+            "native should resolve to the native asset contract"
+        );
+
+        let network_passphrase = config.get_network().unwrap().network_passphrase;
+        let expected = format!(
+            "{}",
+            crate::utils::contract_id_hash_from_asset(
+                &crate::xdr::Asset::Native,
+                &network_passphrase,
+            )
+        );
+        assert_eq!(value, serde_json::Value::String(expected));
+    }
+
+    #[test]
     fn resolve_aliases_in_json_walks_vec_of_address() {
         use stellar_xdr::ScSpecTypeVec;
 
