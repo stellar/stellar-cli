@@ -1711,6 +1711,8 @@ By default, when starting a testnet container, without any optional arguments, i
   - `docker`: Docker, or any Docker-compatible CLI
   - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
 
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 - `--name <NAME>` — Optional argument to specify the container name
 - `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 - `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
