@@ -11,7 +11,7 @@ use crate::{
     print,
 };
 
-use super::shared::{Args, Name};
+use super::shared::{Args, Name, RunArgs};
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
@@ -32,6 +32,9 @@ pub enum Error {
 pub struct Cmd {
     #[command(flatten)]
     pub container_args: Args,
+
+    #[command(flatten)]
+    pub run_args: RunArgs,
 
     /// Network to start. Default is `local`
     pub network: Option<Network>,
@@ -90,6 +93,7 @@ impl Runner {
             .args
             .container_args
             .run_command(&container_name, &self.args.ports_mapping);
+        self.args.run_args.apply(&mut cmd);
         cmd.arg(&image);
         // Each element of `get_container_args` is passed as a single argv token (some elements,
         // such as "--enable rpc,horizon,lab", intentionally contain spaces).

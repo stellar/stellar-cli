@@ -125,6 +125,21 @@ fn start_defaults_to_docker_and_passes_expected_args() {
 }
 
 #[test]
+fn start_passes_cpu_and_memory_limits_to_run() {
+    let s = EngineSandbox::new();
+    s.install_engine("docker");
+
+    s.cmd("ok")
+        .args(["start", "local", "--cpus", "2", "--memory", "2g"])
+        .assert()
+        .success();
+
+    let run = line_for(&s.invocations(), " run ");
+    assert!(run.contains("--cpus 2"), "run line: {run}");
+    assert!(run.contains("--memory 2g"), "run line: {run}");
+}
+
+#[test]
 fn start_passes_docker_host_as_h_flag() {
     let s = EngineSandbox::new();
     s.install_engine("docker");

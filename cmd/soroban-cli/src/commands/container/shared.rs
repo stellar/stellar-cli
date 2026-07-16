@@ -238,6 +238,45 @@ impl Args {
     }
 }
 
+/// Resource limits for commands that *run* a container (e.g. `container start`).
+/// Kept separate from [`Args`] so commands like `stop`/`logs`, which only act on
+/// an existing container, don't advertise flags they ignore. Both `--cpus` and
+/// `--memory` are accepted verbatim by docker and Apple's `container` on `run`,
+/// so the values pass through unparsed.
+#[derive(Debug, clap::Parser, Clone, Default)]
+pub struct RunArgs {
+    /// Limit the number of CPUs available to the container, e.g. `2`. A whole
+    /// number: Apple's `container` engine does not accept fractional CPUs.
+    #[arg(long)]
+    pub cpus: Option<u32>,
+
+    /// Limit the memory available to the container, e.g. `2g` or `512m`.
+    #[arg(long)]
+    pub memory: Option<String>,
+}
+
+impl RunArgs {
+    /// The resource-limit flags as `run` argv tokens (`--cpus <n>`,
+    /// `--memory <size>`); empty when no limit is set.
+    pub(crate) fn flags(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(cpus) = &self.cpus {
+            out.push("--cpus".to_string());
+            out.push(cpus.to_string());
+        }
+        if let Some(memory) = &self.memory {
+            out.push("--memory".to_string());
+            out.push(memory.clone());
+        }
+        out
+    }
+
+    /// Append the resource-limit flags to a `run` command. A no-op when unset.
+    pub(crate) fn apply(&self, cmd: &mut Command) {
+        cmd.args(self.flags());
+    }
+}
+
 #[derive(ValueEnum, Debug, Copy, Clone, PartialEq)]
 pub enum Network {
     Local,
@@ -446,5 +485,26 @@ mod test {
             r#"Error: internalError: "failed to stop container" (cause: "notFound: "container with ID stellar-local not found"")"#
         ));
         assert!(!apple.is_container_not_found("some unrelated failure"));
+    }
+
+    #[test]
+    fn run_args_flags_emit_only_set_limits() {
+        assert!(RunArgs::default().flags().is_empty());
+        assert_eq!(
+            RunArgs {
+                cpus: Some(1),
+                memory: None,
+            }
+            .flags(),
+            ["--cpus", "1"]
+        );
+        assert_eq!(
+            RunArgs {
+                cpus: Some(2),
+                memory: Some("2g".to_string()),
+            }
+            .flags(),
+            ["--cpus", "2", "--memory", "2g"]
+        );
     }
 }
