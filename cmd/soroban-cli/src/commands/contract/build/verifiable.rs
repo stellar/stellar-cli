@@ -1,23 +1,17 @@
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 
-use bollard::{
-    models::ContainerCreateBody,
-    query_parameters::{
-        AttachContainerOptions, CreateContainerOptions, CreateImageOptions, StartContainerOptions,
-        WaitContainerOptions,
-    },
-    service::HostConfig,
-    Docker,
-};
 use cargo_metadata::MetadataCommand;
-use futures_util::{StreamExt, TryStreamExt};
 use regex::Regex;
 use semver::Version;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    commands::{container::shared::Error as ConnectionError, global},
+    commands::{
+        container::shared::{self, Error as ConnectionError},
+        global,
+    },
     config::{data, locator::enforce_hardened_tree},
     print::Print,
 };
@@ -37,11 +31,8 @@ const OPTIMIZE_NEW_SYNTAX_MIN: &str = "26.1.0";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("⛔ failed to connect to docker: {0}")]
-    DockerConnection(#[from] ConnectionError),
-
     #[error(transparent)]
-    Bollard(#[from] bollard::errors::Error),
+    DockerConnection(#[from] ConnectionError),
 
     #[error("--image value {value:?} does not match the SEP-58 bldimg format `<registry-host>/<repo>@sha256:<64-hex>`. Examples: docker.io/stellar/stellar-cli@sha256:<64-hex>, localhost:5000/foo@sha256:<64-hex>. Tag-only refs and implicit Docker-Hub short refs are not accepted.")]
     BldimgFormat { value: String },
@@ -49,12 +40,12 @@ pub enum Error {
     #[error("could not determine the running rustc version: {0}")]
     RustcVersion(String),
 
-    #[error("could not pull image {tag}: {source}\n\nAvailable tags for this CLI version: {available_for_cli}\nAll published cli/rust pairs: {all_grouped}\n\nFix: install a matching rustc, or pass --image docker.io/stellar/stellar-cli@sha256:<digest> with one of the listed tags resolved to a digest.")]
+    #[error("could not pull image {tag}: {detail}\n\nAvailable tags for this CLI version: {available_for_cli}\nAll published cli/rust pairs: {all_grouped}\n\nFix: install a matching rustc, or pass --image docker.io/stellar/stellar-cli@sha256:<digest> with one of the listed tags resolved to a digest.")]
     ImageNotFound {
         tag: String,
         available_for_cli: String,
         all_grouped: String,
-        source: bollard::errors::Error,
+        detail: String,
     },
 
     #[error("could not list published images on docker hub: {0}")]
@@ -147,14 +138,15 @@ pub async fn run(
         source_sha256: Some(resolved.source_sha256.clone()),
     };
 
-    // Stage 3: docker.
-    let docker_args = crate::commands::container::shared::Args {
+    // Stage 3: docker. Every docker interaction shells out to the container
+    // engine through this `Args` (honoring `--docker-host`). Verifiable builds
+    // pin the engine to docker (`engine: None` → the default): the probes,
+    // `inspect`, and reproduce lines below are docker-specific, and SEP-58
+    // reproducibility depends on that exact toolchain.
+    let docker = shared::Args {
         docker_host: cmd.docker_host.clone(),
+        engine: None,
     };
-    let docker = docker_args
-        .connect_to_docker(print)
-        .await
-        .map_err(Error::DockerConnection)?;
     let image_ref = resolve_image(cmd, &docker, print).await?;
 
     // Only probe the container's cli version when we need to pick between
@@ -540,16 +532,20 @@ fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<Stri
     args
 }
 
-pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<String, Error> {
+pub async fn resolve_image(
+    cmd: &Cmd,
+    docker: &shared::Args,
+    print: &Print,
+) -> Result<String, Error> {
     if let Some(s) = &cmd.image {
         if !bldimg_regex().is_match(s) {
             return Err(Error::BldimgFormat { value: s.clone() });
         }
         // Always pull, even when the digest is user-supplied. Docker requires
-        // the image to be locally present before `create_container` will
-        // accept it, and the user typically expects the cli to fetch
-        // whatever they asked for.
-        pull_image(docker, s, print).await?;
+        // the image to be locally present before `docker run` will accept it,
+        // and the user typically expects the cli to fetch whatever they asked
+        // for.
+        docker.pull_image(s, print).await?;
         return Ok(s.clone());
     }
 
@@ -560,11 +556,13 @@ pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<
     let tag = format!("{REGISTRY}:{cli_v}-rust{rust_v}");
 
     print.infoln(format!("Pulling verifiable build image {tag}"));
-    let pull = pull_image(docker, &tag, print).await;
 
-    match pull {
+    match docker.pull_image(&tag, print).await {
         Ok(()) => {}
-        Err(e) => {
+        // A failed pull of the derived cli/rust tag usually means no image was
+        // published for this pair; turn it into the tag-listing hint. A missing
+        // `docker` binary (or other connection failure) propagates as-is.
+        Err(ConnectionError::PullImageFailed { stderr, .. }) => {
             let (available_for_cli, all_grouped) = match list_published_tags().await {
                 Ok(tags) => format_available(&tags, cli_v),
                 Err(list_err) => (
@@ -576,53 +574,33 @@ pub async fn resolve_image(cmd: &Cmd, docker: &Docker, print: &Print) -> Result<
                 tag,
                 available_for_cli,
                 all_grouped,
-                source: e,
+                detail: stderr,
             });
         }
+        Err(e) => return Err(Error::DockerConnection(e)),
     }
 
-    let inspect = docker.inspect_image(&tag).await?;
-    let digest = inspect
-        .repo_digests
-        .and_then(|v| v.into_iter().next())
-        .ok_or_else(|| Error::NoRepoDigest { tag: tag.clone() })?;
-    Ok(digest)
+    image_repo_digest(docker, &tag).await
 }
 
-async fn pull_image(
-    docker: &Docker,
-    tag: &str,
-    print: &Print,
-) -> Result<(), bollard::errors::Error> {
-    let mut stream = docker.create_image(
-        Some(CreateImageOptions {
-            from_image: Some(tag.to_string()),
-            ..Default::default()
-        }),
-        None,
-        None,
-    );
-    while let Some(item) = stream.try_next().await? {
-        if let Some(status) = item.status {
-            // The docker daemon emits short status lines like:
-            //   "Pulling from <repo>"
-            //   "Digest: sha256:<hex>"
-            //   "Status: Image is up to date for <ref>"
-            // Stand-alone "Digest" reads as an orphan. Rewrite each line so
-            // it makes sense outside the docker-pull context.
-            if let Some(repo) = status.strip_prefix("Pulling from ") {
-                print.infoln(format!("Pulling image {repo}"));
-            } else if let Some(digest) = status.strip_prefix("Digest: ") {
-                print.infoln(format!("Image digest: {digest}"));
-            } else if let Some(rest) = status.strip_prefix("Status: ") {
-                // Docker's status text already starts with "Image …" or
-                // "Downloaded …", so we forward it verbatim instead of
-                // prepending another "Image:".
-                print.infoln(rest);
-            }
-        }
+/// Resolve a locally-present image to its content-addressed repo digest
+/// (`<repo>@sha256:<hex>`) via `docker inspect`, so the recorded `bldimg` pins
+/// the exact bytes that were pulled rather than a mutable tag.
+async fn image_repo_digest(docker: &shared::Args, tag: &str) -> Result<String, Error> {
+    let output = docker
+        .base_command()
+        .args(["inspect", "--format", "{{index .RepoDigests 0}}", tag])
+        .output()
+        .await
+        .map_err(|e| docker.io_error(e))?;
+
+    let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !output.status.success() || digest.is_empty() || digest == "<no value>" {
+        return Err(Error::NoRepoDigest {
+            tag: tag.to_string(),
+        });
     }
-    Ok(())
+    Ok(digest)
 }
 
 #[derive(Debug, Clone)]
@@ -721,7 +699,7 @@ fn format_available(tags: &[PublishedTag], current_cli: &str) -> (String, String
 /// false — the conservative assumption that the container is old.
 async fn probe_supports_optimize_false_syntax(
     image_ref: &str,
-    docker: &Docker,
+    docker: &shared::Args,
     print: &Print,
 ) -> bool {
     match probe_cli_version(image_ref, docker).await {
@@ -738,61 +716,30 @@ async fn probe_supports_optimize_false_syntax(
     }
 }
 
-/// Run `cmd` in a throwaway container (optionally overriding the entrypoint) and
-/// return its captured stdout. The container auto-removes; stderr is attached so
-/// the daemon streams it, but only stdout is collected. Shared by every image
-/// probe (cli version, active toolchain, flag support).
+/// Run `cmd` in a throwaway `docker run --rm` container (optionally overriding
+/// the entrypoint) and return its captured stdout. Only stdout is collected;
+/// stderr and the exit status are ignored, matching how every probe treats a
+/// missing subcommand or unexpected output as "unsupported". Shared by every
+/// image probe (cli version, active toolchain, flag support).
 async fn run_probe(
     image_ref: &str,
-    docker: &Docker,
-    entrypoint: Option<Vec<String>>,
+    docker: &shared::Args,
+    entrypoint: Option<&str>,
     cmd: Vec<String>,
 ) -> Result<String, Error> {
-    let config = ContainerCreateBody {
-        image: Some(image_ref.to_string()),
-        entrypoint,
-        cmd: Some(cmd),
-        attach_stdout: Some(true),
-        attach_stderr: Some(true),
-        host_config: Some(HostConfig {
-            auto_remove: Some(true),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-    let created = docker
-        .create_container(None::<CreateContainerOptions>, config)
-        .await?;
-    let attached = docker
-        .attach_container(
-            &created.id,
-            Some(AttachContainerOptions {
-                stdout: true,
-                stderr: true,
-                stream: true,
-                ..Default::default()
-            }),
-        )
-        .await?;
-    docker
-        .start_container(&created.id, None::<StartContainerOptions>)
-        .await?;
-
-    let mut stdout = String::new();
-    let mut output = attached.output;
-    while let Some(chunk) = output.next().await {
-        if let Ok(bollard::container::LogOutput::StdOut { message }) = chunk {
-            stdout.push_str(&String::from_utf8_lossy(&message));
-        }
+    let mut command = docker.base_command();
+    command.args(["run", "--rm"]);
+    if let Some(entrypoint) = entrypoint {
+        command.args(["--entrypoint", entrypoint]);
     }
+    command.arg(image_ref);
+    command.args(&cmd);
 
-    let mut wait = docker.wait_container(&created.id, None::<WaitContainerOptions>);
-    while wait.next().await.is_some() {}
-
-    Ok(stdout)
+    let output = command.output().await.map_err(|e| docker.io_error(e))?;
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, Error> {
+async fn probe_cli_version(image_ref: &str, docker: &shared::Args) -> Result<Version, Error> {
     let stdout = run_probe(
         image_ref,
         docker,
@@ -810,7 +757,11 @@ async fn probe_cli_version(image_ref: &str, docker: &Docker) -> Result<Version, 
 /// container's own `contract build --help` whether the flag exists. On any probe
 /// failure returns false — the conservative assumption that the flag is absent,
 /// so the build proceeds without it rather than erroring.
-pub(crate) async fn probe_supports_locked(image_ref: &str, docker: &Docker, print: &Print) -> bool {
+pub(crate) async fn probe_supports_locked(
+    image_ref: &str,
+    docker: &shared::Args,
+    print: &Print,
+) -> bool {
     match run_probe(
         image_ref,
         docker,
@@ -840,11 +791,11 @@ pub(crate) async fn probe_supports_locked(image_ref: &str, docker: &Docker, prin
 /// `(default)` marker (e.g. `1.93.0-x86_64-unknown-linux-gnu`). Returns `None`
 /// on any failure (e.g. an image without rustup), so the build proceeds without
 /// the pin rather than failing.
-async fn probe_active_toolchain(image_ref: &str, docker: &Docker) -> Option<String> {
+async fn probe_active_toolchain(image_ref: &str, docker: &shared::Args) -> Option<String> {
     let stdout = run_probe(
         image_ref,
         docker,
-        Some(vec!["rustup".to_string()]),
+        Some("rustup"),
         vec!["show".to_string(), "active-toolchain".to_string()],
     )
     .await
@@ -886,7 +837,7 @@ async fn run_in_container(
     workspace_root: &Path,
     container_cmds: &[Vec<String>],
     env: &[String],
-    docker: &Docker,
+    docker: &shared::Args,
     print: &Print,
     verbose: bool,
 ) -> Result<(), Error> {
@@ -912,20 +863,18 @@ async fn run_in_container(
         env_flags.push_str(&shell_escape::escape(e.as_str().into()));
     }
 
-    // One package → run the image's default `stellar` entrypoint directly.
-    // Several → override the entrypoint to a shell and chain the builds so they
-    // all run in this one container.
-    let (entrypoint, cmd, reproduce) = if container_cmds.len() > 1 {
+    // One package → run the image's default `stellar` entrypoint directly, so
+    // `post_image` is just the `contract build …` argv. Several → override the
+    // entrypoint to a shell and chain the builds so they all run in this one
+    // container; `--entrypoint` takes only the executable, so the `-c <chain>`
+    // arguments follow the image name in `post_image`.
+    let (entrypoint, post_image, reproduce) = if container_cmds.len() > 1 {
         let chain = compose_shell_command(container_cmds);
         let reproduce = format!(
             "docker run --rm -v {bind}{env_flags} --entrypoint /bin/sh {image_ref} -c {}",
             shell_escape::escape(chain.clone().into())
         );
-        (
-            Some(vec!["/bin/sh".to_string(), "-c".to_string()]),
-            vec![chain],
-            reproduce,
-        )
+        (Some("/bin/sh"), vec!["-c".to_string(), chain], reproduce)
     } else {
         let cmd = container_cmds.first().cloned().unwrap_or_default();
         let reproduce = format!(
@@ -935,22 +884,6 @@ async fn run_in_container(
         (None, cmd, reproduce)
     };
 
-    let config = ContainerCreateBody {
-        image: Some(image_ref.to_string()),
-        entrypoint,
-        cmd: Some(cmd),
-        env: (!env.is_empty()).then(|| env.clone()),
-        working_dir: Some("/source".to_string()),
-        attach_stdout: Some(true),
-        attach_stderr: Some(true),
-        host_config: Some(HostConfig {
-            auto_remove: Some(true),
-            binds: Some(vec![bind.clone()]),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-
     print.infoln(format!(
         "Running verifiable build in {image_ref} (mount {bind})"
     ));
@@ -958,65 +891,34 @@ async fn run_in_container(
         print.infoln(format!("Running: {reproduce}"));
     }
 
-    let created = docker
-        .create_container(None::<CreateContainerOptions>, config)
-        .await?;
-
-    let attached = docker
-        .attach_container(
-            &created.id,
-            Some(AttachContainerOptions {
-                stdout: true,
-                stderr: true,
-                stream: true,
-                ..Default::default()
-            }),
-        )
-        .await?;
-
-    docker
-        .start_container(&created.id, None::<StartContainerOptions>)
-        .await?;
-
-    let mut output = attached.output;
-    while let Some(chunk) = output.next().await {
-        match chunk {
-            Ok(
-                bollard::container::LogOutput::StdOut { message }
-                | bollard::container::LogOutput::StdErr { message },
-            ) => {
-                if verbose {
-                    let s = String::from_utf8_lossy(&message);
-                    print.blankln(s.trim_end());
-                }
-            }
-            Ok(_) => {}
-            Err(e) => return Err(e.into()),
-        }
+    let mut command = docker.base_command();
+    command.args(["run", "--rm", "-v", &bind, "-w", "/source"]);
+    for e in &env {
+        command.args(["-e", e]);
     }
+    if let Some(entrypoint) = entrypoint {
+        command.args(["--entrypoint", entrypoint]);
+    }
+    command.arg(image_ref);
+    command.args(&post_image);
 
-    wait_for_container_exit(docker, &created.id, &reproduce).await
-}
+    // Stream the build's cargo output straight to the terminal when verbose
+    // (matching a non-verifiable `contract build`); otherwise discard it (the
+    // verify pipeline suppresses per-build noise). `quiet` overrides verbose.
+    let show_output = verbose && !print.quiet;
+    let (stdout, stderr) = if show_output {
+        (Stdio::inherit(), Stdio::inherit())
+    } else {
+        (Stdio::null(), Stdio::null())
+    };
+    command.stdout(stdout).stderr(stderr);
 
-/// Block until the container exits, mapping a non-zero exit code (whether
-/// reported as a successful wait or as a `DockerContainerWaitError`) to
-/// `ContainerExit` carrying the reproduce command.
-async fn wait_for_container_exit(docker: &Docker, id: &str, reproduce: &str) -> Result<(), Error> {
-    let mut wait = docker.wait_container(id, None::<WaitContainerOptions>);
-    while let Some(item) = wait.next().await {
-        // Both a successful wait and a `DockerContainerWaitError` carry an exit
-        // code; normalize to it (other errors are genuine failures).
-        let status = match item {
-            Ok(r) => r.status_code,
-            Err(bollard::errors::Error::DockerContainerWaitError { code, .. }) => code,
-            Err(e) => return Err(e.into()),
-        };
-        if status != 0 {
-            return Err(Error::ContainerExit {
-                status,
-                command: reproduce.to_string(),
-            });
-        }
+    let status = command.status().await.map_err(|e| docker.io_error(e))?;
+    if !status.success() {
+        return Err(Error::ContainerExit {
+            status: status.code().unwrap_or(-1).into(),
+            command: reproduce,
+        });
     }
 
     Ok(())

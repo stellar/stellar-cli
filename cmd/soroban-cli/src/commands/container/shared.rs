@@ -1,6 +1,8 @@
 use core::fmt;
+use std::process::Stdio;
 
 use clap::ValueEnum;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::print::Print;
@@ -20,6 +22,9 @@ pub enum Error {
         program: String,
         source: std::io::Error,
     },
+
+    #[error("could not pull image {image}: {stderr}")]
+    PullImageFailed { image: String, stderr: String },
 }
 
 /// Container runtime to shell out to.
@@ -191,7 +196,7 @@ impl Args {
     /// `--docker-host` (or `DOCKER_HOST` env) value is passed as `-H <host>`; the
     /// `-H` flag outranks `DOCKER_CONTEXT`, so the override is honored even when a
     /// docker context is active. Host resolution is otherwise left to the CLI.
-    fn base_command(&self) -> Command {
+    pub(crate) fn base_command(&self) -> Command {
         let engine = self.engine();
         let mut cmd = Command::new(engine.program());
         if engine.supports_docker_host() {
@@ -235,6 +240,59 @@ impl Args {
             Engine::AppleContainer => cmd.args(["logs", "-f", name]),
         };
         cmd
+    }
+
+    /// Pull `image`, streaming the engine's high-level status lines ("Pulling
+    /// from", "Digest", "Status") through `print`. Per-layer progress written to
+    /// stderr is captured rather than shown and surfaced only when the pull
+    /// fails, as `PullImageFailed` — callers that need to explain a failed pull
+    /// (e.g. the verifiable build's tag-listing hint) rely on that captured text.
+    /// A missing engine binary surfaces via `io_error` as `NotFound`.
+    pub(crate) async fn pull_image(&self, image: &str, print: &Print) -> Result<(), Error> {
+        let mut child = self
+            .pull_command(image)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| self.io_error(e))?;
+
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        let stream_stdout = async {
+            if let Some(stdout) = stdout {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if line.contains("Pulling from")
+                        || line.contains("Digest")
+                        || line.contains("Status")
+                    {
+                        print.infoln(line);
+                    }
+                }
+            }
+        };
+
+        let capture_stderr = async {
+            let mut buf = String::new();
+            if let Some(mut stderr) = stderr {
+                let _ = stderr.read_to_string(&mut buf).await;
+            }
+            buf
+        };
+
+        // Drain both pipes concurrently so a full stderr buffer can't deadlock
+        // the child while we're reading stdout.
+        let ((), stderr) = tokio::join!(stream_stdout, capture_stderr);
+
+        if child.wait().await.map_err(|e| self.io_error(e))?.success() {
+            Ok(())
+        } else {
+            Err(Error::PullImageFailed {
+                image: image.to_string(),
+                stderr: stderr.trim().to_string(),
+            })
+        }
     }
 }
 
@@ -458,7 +516,7 @@ mod test {
         let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
         match args(None, Some(Engine::AppleContainer)).io_error(not_found) {
             Error::NotFound { program, .. } => assert_eq!(program, "container"),
-            Error::Command { .. } => panic!("expected NotFound, got Command"),
+            other => panic!("expected NotFound, got {other:?}"),
         }
     }
 
