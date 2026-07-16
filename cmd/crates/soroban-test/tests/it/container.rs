@@ -267,6 +267,68 @@ fn warns_and_drops_docker_host_for_apple_engine() {
 }
 
 #[test]
+fn use_persists_default_engine_for_later_commands() {
+    let s = EngineSandbox::new();
+    s.install_engine("docker");
+    s.install_engine("container");
+
+    s.cmd("ok")
+        .args(["use", "apple-container"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "default container engine is set to `apple-container`",
+        ));
+
+    // A later command with no `--engine` flag and no env override honors the
+    // stored default (config -> STELLAR_CONTAINER_ENGINE -> resolution).
+    s.cmd("ok").args(["start", "local"]).assert().success();
+    assert!(line_for(&s.invocations(), " run ").starts_with("container "));
+}
+
+#[test]
+fn unset_reverts_to_docker_default() {
+    let s = EngineSandbox::new();
+    s.install_engine("docker");
+    s.install_engine("container");
+
+    s.cmd("ok")
+        .args(["use", "apple-container"])
+        .assert()
+        .success();
+    s.cmd("ok")
+        .args(["unset"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "default container engine has been unset",
+        ));
+
+    // With the default cleared and no flag/env, we fall back to docker.
+    s.cmd("ok").args(["start", "local"]).assert().success();
+    assert!(line_for(&s.invocations(), " run ").starts_with("docker "));
+}
+
+#[test]
+fn explicit_engine_overrides_stored_default() {
+    let s = EngineSandbox::new();
+    s.install_engine("docker");
+    s.install_engine("container");
+
+    s.cmd("ok")
+        .args(["use", "apple-container"])
+        .assert()
+        .success();
+
+    // The flag wins over the stored default.
+    s.cmd("ok")
+        .args(["stop", "local", "--engine", "docker"])
+        .assert()
+        .success();
+    assert!(line_for(&s.invocations(), " stop ").starts_with("docker "));
+}
+
+#[test]
 fn errors_when_engine_binary_is_missing() {
     // No engine installed on the isolated PATH.
     let s = EngineSandbox::new();
