@@ -80,15 +80,16 @@ impl Runner {
         self.print
             .infoln(format!("Starting {} network", self.network));
 
+        self.args.container_args.warn_if_host_ignored(&self.print);
+
         let image = self.get_image_name();
         self.pull_image(&image).await;
 
         let container_name = self.container_name().get_internal_container_name();
-        let mut cmd = self.args.container_args.docker_command();
-        cmd.args(["run", "-d", "--rm", "--name", &container_name]);
-        for port_mapping in &self.args.ports_mapping {
-            cmd.args(["-p", port_mapping]);
-        }
+        let mut cmd = self
+            .args
+            .container_args
+            .run_command(&container_name, &self.args.ports_mapping);
         cmd.arg(&image);
         // Each element of `get_container_args` is passed as a single argv token (some elements,
         // such as "--enable rpc,horizon,lab", intentionally contain spaces).
@@ -96,10 +97,17 @@ impl Runner {
             cmd.arg(arg);
         }
 
-        let output = cmd.output().await.map_err(ConnectionError::from)?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| self.args.container_args.io_error(e))?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("already in use") {
+            if self
+                .args
+                .container_args
+                .is_container_already_running(&stderr)
+            {
                 return Err(Error::ContainerAlreadyRunning(container_name));
             }
             return Err(Error::CreateContainerFailed(stderr.trim().to_string()));
@@ -111,8 +119,8 @@ impl Runner {
     }
 
     async fn pull_image(&self, image: &str) {
-        let mut cmd = self.args.container_args.docker_command();
-        cmd.args(["pull", image]).stdout(Stdio::piped());
+        let mut cmd = self.args.container_args.pull_command(image);
+        cmd.stdout(Stdio::piped());
 
         // `docker pull` writes its progress to stderr; honor `--quiet` by discarding it.
         if self.print.quiet {

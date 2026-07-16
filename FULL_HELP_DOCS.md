@@ -1676,6 +1676,11 @@ Get logs from a running network container
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
 
 ## `stellar container start`
 
@@ -1698,6 +1703,12 @@ By default, when starting a testnet container, without any optional arguments, i
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
 - `--name <NAME>` — Optional argument to specify the container name
 - `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 - `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
@@ -1722,6 +1733,11 @@ Stop a network container started with `stellar container start`
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
 
 ## `stellar config`
 

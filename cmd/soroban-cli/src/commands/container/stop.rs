@@ -37,17 +37,18 @@ impl Cmd {
             container_name.get_external_container_name()
         ));
 
+        self.container_args.warn_if_host_ignored(&print);
+
         let output = self
             .container_args
-            .docker_command()
-            .args(["stop", &container_name.get_internal_container_name()])
+            .stop_command(&container_name.get_internal_container_name())
             .output()
             .await
-            .map_err(ConnectionError::from)?;
+            .map_err(|e| self.container_args.io_error(e))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("No such container") {
+            if self.container_args.is_container_not_found(&stderr) {
                 return Err(Error::ContainerNotFound {
                     container_name: container_name.get_external_container_name(),
                 });

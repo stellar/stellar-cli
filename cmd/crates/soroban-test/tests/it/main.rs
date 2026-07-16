@@ -1,5 +1,7 @@
 mod build;
 mod config;
+#[cfg(unix)]
+mod container;
 #[cfg(feature = "emulator-tests")]
 mod emulator;
 mod help;

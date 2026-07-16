@@ -1,4 +1,5 @@
 use crate::commands::{container::shared::Error as ConnectionError, global};
+use crate::print;
 
 use super::shared::{Args, Name};
 
@@ -22,17 +23,19 @@ pub struct Cmd {
 }
 
 impl Cmd {
-    pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let print = print::Print::new(global_args.quiet);
         let container_name = Name(self.name.clone()).get_internal_container_name();
+
+        self.container_args.warn_if_host_ignored(&print);
 
         // Stream logs straight to the terminal by inheriting stdio.
         let status = self
             .container_args
-            .docker_command()
-            .args(["logs", "-f", "--tail", "all", &container_name])
+            .logs_command(&container_name)
             .status()
             .await
-            .map_err(ConnectionError::from)?;
+            .map_err(|e| self.container_args.io_error(e))?;
 
         if !status.success() {
             return Err(Error::TailContainerError);
