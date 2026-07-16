@@ -44,6 +44,26 @@ impl Engine {
             .unwrap_or_default()
     }
 
+    /// Whether `STELLAR_CONTAINER_ENGINE`, if set, names a known engine. An
+    /// unset var is valid (it selects the docker default). `resolved_default`
+    /// silently falls back to docker on a bad value, so `stellar doctor` probes
+    /// this first to surface the typo instead of masking it.
+    pub(crate) fn is_valid_engine() -> bool {
+        std::env::var("STELLAR_CONTAINER_ENGINE")
+            .ok()
+            .is_none_or(|value| Engine::from_str(&value, true).is_ok())
+    }
+
+    /// The engine flag values, comma-separated, for help and error text. Kept
+    /// in sync with the enum via `ValueEnum` rather than hardcoded.
+    pub(crate) fn supported_engines() -> String {
+        Engine::value_variants()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// The executable name to invoke on `PATH`.
     pub(crate) fn program(self) -> &'static str {
         match self {
@@ -253,6 +273,8 @@ impl Name {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::test_utils::with_env_guard;
+    use serial_test::serial;
 
     fn args(docker_host: Option<&str>, engine: Option<Engine>) -> Args {
         Args {
@@ -270,6 +292,28 @@ mod test {
             .get_args()
             .map(|a| a.to_string_lossy().into_owned())
             .collect()
+    }
+
+    #[test]
+    fn supported_engines_lists_flag_values() {
+        assert_eq!(Engine::supported_engines(), "docker, apple-container");
+    }
+
+    #[test]
+    #[serial]
+    fn is_valid_engine_tracks_env_var() {
+        const KEY: &str = "STELLAR_CONTAINER_ENGINE";
+
+        with_env_guard(&[KEY], || {
+            // An unset var is valid: it selects the docker default.
+            assert!(Engine::is_valid_engine());
+
+            std::env::set_var(KEY, "apple-container");
+            assert!(Engine::is_valid_engine());
+
+            std::env::set_var(KEY, "podman");
+            assert!(!Engine::is_valid_engine());
+        });
     }
 
     #[test]

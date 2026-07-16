@@ -207,6 +207,18 @@ fn check_wasm_target(print: &Print) {
 }
 
 fn check_container_engine(print: &Print) {
+    // `resolved_default` silently falls back to docker on a bad
+    // `STELLAR_CONTAINER_ENGINE`, so probe the raw value first to warn about a
+    // typo instead of reporting a phantom docker as available.
+    if !Engine::is_valid_engine() {
+        let value = std::env::var("STELLAR_CONTAINER_ENGINE").unwrap_or_default();
+        print.warnln(format!(
+            "Unknown container engine `{value}`; expected one of: {}",
+            Engine::supported_engines()
+        ));
+        return;
+    }
+
     let engine = Engine::resolved_default();
 
     // `output()` succeeds as long as the binary spawned, regardless of exit
