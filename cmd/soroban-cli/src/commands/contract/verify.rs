@@ -158,9 +158,6 @@ pub enum Error {
     Verifiable(#[from] verifiable::Error),
 
     #[error(transparent)]
-    Bollard(#[from] bollard::errors::Error),
-
-    #[error(transparent)]
     DockerConnection(#[from] container::shared::Error),
 
     #[error("could not find a rebuilt WASM under {target}")]
@@ -365,12 +362,12 @@ impl Cmd {
         global_args: &global::Args,
         print: &Print,
     ) -> Result<(), Error> {
-        // Rebuild in the recorded bldimg.
-        let docker_args = container::shared::Args {
+        // Rebuild in the recorded bldimg. Every docker interaction shells out to
+        // the `docker` CLI through this `Args` (honoring `--docker-host`).
+        let docker = container::shared::Args {
             docker_host: self.docker_host.clone(),
         };
-        let docker = docker_args.connect_to_docker(print).await?;
-        verifiable::pull_image(&docker, &meta.bldimg, print).await?;
+        docker.pull_image(&meta.bldimg, print).await?;
 
         // `--locked` was only added to `contract build` in cli 25.2.0. The
         // recorded bldimg may be older (and still valid), so probe it before
