@@ -1660,6 +1660,8 @@ Start local networks in containers
 - `logs` — Get logs from a running network container
 - `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
 - `stop` — Stop a network container started with `stellar container start`
+- `use` — Set the default container engine used by `stellar container` commands
+- `unset` — Unset the default container engine defined previously with `container use <engine>`
 
 ## `stellar container logs`
 
@@ -1740,6 +1742,34 @@ Stop a network container started with `stellar container start`
   Possible values:
   - `docker`: Docker, or any Docker-compatible CLI
   - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+## `stellar container use`
+
+Set the default container engine used by `stellar container` commands
+
+**Usage:** `stellar container use [OPTIONS] <ENGINE>`
+
+###### **Arguments:**
+
+- `<ENGINE>` — Container engine to use by default
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar container unset`
+
+Unset the default container engine defined previously with `container use <engine>`
+
+**Usage:** `stellar container unset [OPTIONS]`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar config`
 
