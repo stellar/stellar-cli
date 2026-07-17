@@ -138,15 +138,13 @@ pub async fn run(
         source_sha256: Some(resolved.source_sha256.clone()),
     };
 
-    // Stage 3: docker. Every docker interaction shells out to the container
-    // engine through this `Args` (honoring `--docker-host`). Verifiable builds
-    // pin the engine to docker (`engine: None` → the default): the probes,
-    // `inspect`, and reproduce lines below are docker-specific, and SEP-58
-    // reproducibility depends on that exact toolchain.
-    let docker = shared::Args {
-        docker_host: cmd.docker_host.clone(),
-        engine: None,
-    };
+    // Stage 3: the container engine. Every interaction shells out through these
+    // `container_args`, which select the engine binary (`--engine`/
+    // `STELLAR_CONTAINER_ENGINE`, default docker) and honor `--docker-host` where
+    // the engine supports it; `run_args` carries the build container's resource
+    // limits.
+    let docker = cmd.container_args.clone();
+    docker.warn_if_host_ignored(print);
     let image_ref = resolve_image(cmd, &docker, print).await?;
 
     // Only probe the container's cli version when we need to pick between
@@ -221,6 +219,7 @@ pub async fn run(
         &container_cmds,
         &env,
         &docker,
+        &cmd.run_args,
         print,
         true,
     )
@@ -580,27 +579,12 @@ pub async fn resolve_image(
         Err(e) => return Err(Error::DockerConnection(e)),
     }
 
-    image_repo_digest(docker, &tag).await
-}
-
-/// Resolve a locally-present image to its content-addressed repo digest
-/// (`<repo>@sha256:<hex>`) via `docker inspect`, so the recorded `bldimg` pins
-/// the exact bytes that were pulled rather than a mutable tag.
-async fn image_repo_digest(docker: &shared::Args, tag: &str) -> Result<String, Error> {
-    let output = docker
-        .base_command()
-        .args(["inspect", "--format", "{{index .RepoDigests 0}}", tag])
-        .output()
-        .await
-        .map_err(|e| docker.io_error(e))?;
-
-    let digest = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !output.status.success() || digest.is_empty() || digest == "<no value>" {
-        return Err(Error::NoRepoDigest {
-            tag: tag.to_string(),
-        });
-    }
-    Ok(digest)
+    // Pin the mutable tag to the content-addressed digest the engine resolved,
+    // so the recorded `bldimg` names the exact bytes that were pulled.
+    docker
+        .image_repo_digest(&tag)
+        .await?
+        .ok_or(Error::NoRepoDigest { tag })
 }
 
 #[derive(Debug, Clone)]
@@ -832,12 +816,14 @@ fn escape_container_args(cmd: &[String]) -> String {
         .join(" ")
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],
     env: &[String],
     docker: &shared::Args,
+    run_args: &shared::RunArgs,
     print: &Print,
     verbose: bool,
 ) -> Result<(), Error> {
@@ -863,6 +849,18 @@ async fn run_in_container(
         env_flags.push_str(&shell_escape::escape(e.as_str().into()));
     }
 
+    // Render the reproduce line against the engine binary the CLI actually ran
+    // (`docker`, `container`), so a third party can replay the exact build.
+    let program = docker.program();
+
+    // Resource limits go right after `--rm`, matching where they're applied to
+    // the spawned command below, so the reproduce line stays copy-paste faithful.
+    let mut run_flags = String::new();
+    for f in run_args.flags() {
+        run_flags.push(' ');
+        run_flags.push_str(&shell_escape::escape(f.into()));
+    }
+
     // One package → run the image's default `stellar` entrypoint directly, so
     // `post_image` is just the `contract build …` argv. Several → override the
     // entrypoint to a shell and chain the builds so they all run in this one
@@ -871,14 +869,14 @@ async fn run_in_container(
     let (entrypoint, post_image, reproduce) = if container_cmds.len() > 1 {
         let chain = compose_shell_command(container_cmds);
         let reproduce = format!(
-            "docker run --rm -v {bind}{env_flags} --entrypoint /bin/sh {image_ref} -c {}",
+            "{program} run --rm{run_flags} -v {bind}{env_flags} --entrypoint /bin/sh {image_ref} -c {}",
             shell_escape::escape(chain.clone().into())
         );
         (Some("/bin/sh"), vec!["-c".to_string(), chain], reproduce)
     } else {
         let cmd = container_cmds.first().cloned().unwrap_or_default();
         let reproduce = format!(
-            "docker run --rm -v {bind}{env_flags} {image_ref} {}",
+            "{program} run --rm{run_flags} -v {bind}{env_flags} {image_ref} {}",
             escape_container_args(&cmd)
         );
         (None, cmd, reproduce)
@@ -892,7 +890,9 @@ async fn run_in_container(
     }
 
     let mut command = docker.base_command();
-    command.args(["run", "--rm", "-v", &bind, "-w", "/source"]);
+    command.args(["run", "--rm"]);
+    run_args.apply(&mut command);
+    command.args(["-v", &bind, "-w", "/source"]);
     for e in &env {
         command.args(["-e", e]);
     }

@@ -368,6 +368,18 @@ To view the commands that will be executed, without executing them, use the --pr
 
 **Usage:** `stellar contract build [OPTIONS]`
 
+###### **Container Options:**
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
+
 ###### **Features:**
 
 - `--features <FEATURES>` — Build with the list of features activated, space or comma separated
@@ -407,13 +419,12 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
-###### **Verifiable:**
+###### **Verifiable Options:**
 
 - `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
 - `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
 - `--source-sha256 <SOURCE_SHA256>` — SEP-58 source identification: SHA-256 of the source archive (recorded as the `source_sha256` meta entry). Optional with `--verifiable`: the archive is always generated and its SHA-256 computed for you. When supplied it's treated as a pin — the build fails if it doesn't match the generated archive
 - `--source-uri <SOURCE_URI>` — SEP-58 source identification: URI where the source can be obtained, e.g. `https://example.com/src.tar.gz` (recorded as the `source_uri` meta entry). Optional; when set it must accompany `--source-sha256`
-- `-d`, `--docker-host <DOCKER_HOST>` — Override the default docker host used by `--verifiable`
 
 ## `stellar contract extend`
 

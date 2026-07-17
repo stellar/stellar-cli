@@ -20,7 +20,10 @@ use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
 use crate::{
-    commands::{global, version},
+    commands::{
+        container::shared::{Args as ContainerArgs, RunArgs as ContainerRunArgs},
+        global, version, HEADING_CONTAINER, HEADING_VERIFIABLE,
+    },
     print::Print,
     wasm,
 };
@@ -103,13 +106,13 @@ pub struct Cmd {
     /// (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting
     /// WASM can be reproduced and verified by third parties. Implies
     /// `--locked`. Requires a clean git working tree.
-    #[arg(long, help_heading = "Verifiable")]
+    #[arg(long, help_heading = HEADING_VERIFIABLE)]
     pub verifiable: bool,
 
     /// Override the auto-selected container image used by `--verifiable`.
     /// Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`.
     /// Tag-only refs are rejected because SEP-58 requires content addressing.
-    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
     pub image: Option<String>,
 
     /// SEP-58 source identification: SHA-256 of the source archive
@@ -117,7 +120,7 @@ pub struct Cmd {
     /// `--verifiable`: the archive is always generated and its SHA-256 computed
     /// for you. When supplied it's treated as a pin — the build fails if it
     /// doesn't match the generated archive.
-    #[arg(long, requires = "verifiable", help_heading = "Verifiable")]
+    #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
     pub source_sha256: Option<String>,
 
     /// SEP-58 source identification: URI where the source can be obtained, e.g.
@@ -127,16 +130,24 @@ pub struct Cmd {
         long,
         requires = "verifiable",
         requires = "source_sha256",
-        help_heading = "Verifiable"
+        help_heading = HEADING_VERIFIABLE
     )]
     pub source_uri: Option<String>,
 
-    /// Override the default docker host used by `--verifiable`.
-    #[arg(short = 'd', long, env = "DOCKER_HOST", help_heading = "Verifiable")]
-    pub docker_host: Option<String>,
-
     #[command(flatten)]
     pub build_args: BuildArgs,
+
+    // Declared last so their `next_help_heading` groups them under the Container
+    // heading without leaking it onto the ungrouped `build_args` flags above.
+    /// Container connection options (`--engine`, `--docker-host`) used by
+    /// `--verifiable`. `--docker-host` is honored only by the docker engine.
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub container_args: ContainerArgs,
+
+    /// Container resource limits (`--cpus`, `--memory`) applied to the
+    /// `--verifiable` build container.
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub run_args: ContainerRunArgs,
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
@@ -313,7 +324,8 @@ impl Default for Cmd {
             image: None,
             source_sha256: None,
             source_uri: None,
-            docker_host: None,
+            container_args: ContainerArgs::default(),
+            run_args: ContainerRunArgs::default(),
             build_args: BuildArgs::default(),
         }
     }
