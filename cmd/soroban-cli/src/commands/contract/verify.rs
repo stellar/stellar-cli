@@ -11,12 +11,12 @@ use walkdir::WalkDir;
 
 use crate::{
     commands::{
-        container,
+        container::shared::{self, Args as ContainerArgs, RunArgs as ContainerRunArgs},
         contract::build::{
             source_archive,
             verifiable::{self, bldimg_regex, source_sha256_regex, source_uri_regex},
         },
-        global,
+        global, HEADING_CONTAINER,
     },
     config::{self, locator, network},
     print::Print,
@@ -54,10 +54,6 @@ pub struct Cmd {
     #[arg(long)]
     pub trust: bool,
 
-    /// Override the default docker host used by the rebuild.
-    #[arg(short = 'd', long, env = "DOCKER_HOST")]
-    pub docker_host: Option<String>,
-
     /// Keep the materialized source and rebuild output instead of deleting them
     /// on exit, and print the path. Useful for debugging a byte mismatch (e.g.
     /// diffing the rebuilt WASM's metadata against the original).
@@ -69,6 +65,12 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: network::Args,
+
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub container_args: ContainerArgs,
+
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub run_args: ContainerRunArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -158,7 +160,7 @@ pub enum Error {
     Verifiable(#[from] verifiable::Error),
 
     #[error(transparent)]
-    DockerConnection(#[from] container::shared::Error),
+    DockerConnection(#[from] shared::Error),
 
     #[error("could not find a rebuilt WASM under {target}")]
     NoRebuiltWasm { target: PathBuf },
@@ -362,11 +364,12 @@ impl Cmd {
         global_args: &global::Args,
         print: &Print,
     ) -> Result<(), Error> {
-        // Rebuild in the recorded bldimg. Every docker interaction shells out to
-        // the `docker` CLI through this `Args` (honoring `--docker-host`).
-        let docker = container::shared::Args {
-            docker_host: self.docker_host.clone(),
-        };
+        // Rebuild in the recorded bldimg. Every interaction shells out through
+        // these `container_args`, which select the engine binary (`--engine`/
+        // `STELLAR_CONTAINER_ENGINE`, default docker) and honor `--docker-host`
+        // where the engine supports it.
+        let docker = self.container_args.clone();
+        docker.warn_if_host_ignored(print);
         docker.pull_image(&meta.bldimg, print).await?;
 
         // `--locked` was only added to `contract build` in cli 25.2.0. The
@@ -400,6 +403,7 @@ impl Cmd {
             &[container_cmd],
             &env,
             &docker,
+            &self.run_args,
             print,
             global_args.verbose || global_args.very_verbose,
         )
