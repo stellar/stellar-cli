@@ -115,13 +115,42 @@ fn start_defaults_to_docker_and_passes_expected_args() {
 
     let log = s.invocations();
     // Pulled and ran via docker (not the apple `image pull` form).
-    assert!(line_for(&log, "pull").starts_with("docker pull "));
+    let pull = line_for(&log, "pull");
+    assert!(pull.starts_with("docker pull "));
+    // Local defaults to the published `latest` tag, not the unpublished `testing` tag.
+    assert!(
+        pull.contains("docker.io/stellar/quickstart:latest"),
+        "pull line: {pull}"
+    );
     let run = line_for(&log, " run ");
     assert!(run.starts_with("docker "), "expected docker binary: {run}");
+    assert!(
+        run.contains("docker.io/stellar/quickstart:latest"),
+        "run line: {run}"
+    );
     assert!(run.contains("--name stellar-local"), "run line: {run}");
     assert!(run.contains("-p 8000:8000"), "run line: {run}");
     // No host override unless requested.
     assert!(!run.contains("-H "), "unexpected -H: {run}");
+}
+
+#[test]
+fn start_testnet_defaults_to_latest_image_tag() {
+    let s = EngineSandbox::new();
+    s.install_engine("docker");
+
+    s.cmd("ok").args(["start", "testnet"]).assert().success();
+
+    let log = s.invocations();
+    // Testnet, like local, now defaults to the published `latest` tag.
+    assert!(
+        line_for(&log, "pull").contains("docker.io/stellar/quickstart:latest"),
+        "pull line: {log}"
+    );
+    assert!(
+        line_for(&log, " run ").contains("docker.io/stellar/quickstart:latest"),
+        "run line: {log}"
+    );
 }
 
 #[test]

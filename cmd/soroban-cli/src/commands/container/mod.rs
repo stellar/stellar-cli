@@ -22,7 +22,7 @@ pub enum Cmd {
     ///
     /// By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
     ///
-    /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+    /// `docker run --rm -p 8000:8000 --name stellar stellar/quickstart:latest --testnet --enable rpc,horizon`
     Start(start::Cmd),
     /// Stop a network container started with `stellar container start`.
     Stop(stop::Cmd),
