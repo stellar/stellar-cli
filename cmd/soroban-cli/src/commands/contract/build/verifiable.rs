@@ -12,7 +12,7 @@ use crate::{
         container::shared::{self, Error as ConnectionError},
         global,
     },
-    config::{data, locator::enforce_hardened_tree},
+    config::data,
     print::Print,
 };
 
@@ -258,9 +258,9 @@ fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
 /// `--source-sha256` or computed from the generated archive). `source_uri` is
 /// `Some` only when the user passed `--source-uri`.
 #[derive(Debug, Default, Clone)]
-struct SourceIds {
-    source_uri: Option<String>,
-    source_sha256: Option<String>,
+pub(crate) struct SourceIds {
+    pub(crate) source_uri: Option<String>,
+    pub(crate) source_sha256: Option<String>,
 }
 
 /// Format-validate the user-supplied source flags. Both are optional under
@@ -325,23 +325,11 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
 
     // Extract and harden, then build from the extracted copy so the WASM is
     // produced from exactly the archived bytes.
-    //
-    // Extract under the data dir, NOT the OS temp dir: on macOS `$TMPDIR` lives
-    // under /var/folders, which container VMs (Docker Desktop, Colima, …) don't
-    // share by default, so a bind mount of it would be empty inside the
-    // container. The data dir lives under the user's home, which is shared.
-    let base = data::data_local_dir()?;
-    std::fs::create_dir_all(&base).map_err(|source| source_archive::Error::ArchiveWrite {
-        path: base.clone(),
-        source,
-    })?;
-    let tmp = tempfile::Builder::new()
-        .prefix("verifiable-src-")
-        .tempdir_in(&base)
-        .map_err(source_archive::Error::ArchiveExtract)?;
-    source_archive::unpack_targz(&bytes, tmp.path())?;
-    enforce_hardened_tree(tmp.path()).map_err(source_archive::Error::ArchiveExtract)?;
-
+    let tmp = source_archive::extract_into_hardened_tempdir(
+        &bytes,
+        "verifiable-src-",
+        source_archive::ArchiveFormat::TarGz,
+    )?;
     let extracted_root = tmp.path().to_path_buf();
     Ok(ArchiveResult {
         source_sha256: computed,
@@ -350,16 +338,16 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
     })
 }
 
-fn bldimg_regex() -> Regex {
+pub(crate) fn bldimg_regex() -> Regex {
     Regex::new(r"^(?:localhost(?::\d+)?|[^\s@/]*[.:][^\s@/]*)/[^\s@]+@sha256:[0-9a-f]{64}$")
         .unwrap()
 }
 
-fn source_sha256_regex() -> Regex {
+pub(crate) fn source_sha256_regex() -> Regex {
     Regex::new(r"^[0-9a-f]{64}$").unwrap()
 }
 
-fn source_uri_regex() -> Regex {
+pub(crate) fn source_uri_regex() -> Regex {
     Regex::new(r"^[a-zA-Z][a-zA-Z0-9+.-]*:\S+$").unwrap()
 }
 
@@ -499,7 +487,11 @@ fn build_forwarded_args(
     (forwarded, bldopts)
 }
 
-fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> Vec<String> {
+pub(crate) fn build_metadata_args(
+    image_ref: &str,
+    ids: &SourceIds,
+    bldopts: &[String],
+) -> Vec<String> {
     let mut out = Vec::new();
 
     let push = |out: &mut Vec<String>, key: &str, val: &str| {
@@ -527,7 +519,7 @@ fn build_metadata_args(image_ref: &str, ids: &SourceIds, bldopts: &[String]) -> 
     out
 }
 
-fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
+pub(crate) fn compose_container_args(forwarded: &[String], metadata: &[String]) -> Vec<String> {
     let mut args = vec!["contract".to_string(), "build".to_string()];
     args.extend_from_slice(forwarded);
     args.extend_from_slice(metadata);
@@ -862,7 +854,7 @@ async fn wait_for_termination_signal() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_in_container(
+pub(crate) async fn run_in_container(
     image_ref: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],

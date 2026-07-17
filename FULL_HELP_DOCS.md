@@ -99,6 +99,7 @@ Tools for smart contract developers
 - `optimize` — ⚠️ Deprecated, use `build --optimize`. Optimize a WASM file
 - `read` — Print the current value of a contract-data ledger entry
 - `restore` — Restore an evicted value for a contract-data legder entry
+- `verify` — Verify that a contract's WASM reproduces from the build metadata it records, per SEP-58. Either pass a contract id/alias via `--id` (the WASM is fetched from the network) or a local file via `--wasm`
 
 ## `stellar contract asset`
 
@@ -424,7 +425,7 @@ To view the commands that will be executed, without executing them, use the --pr
 - `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
 - `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
 - `--source-sha256 <SOURCE_SHA256>` — SEP-58 source identification: SHA-256 of the source archive (recorded as the `source_sha256` meta entry). Optional with `--verifiable`: the archive is always generated and its SHA-256 computed for you. When supplied it's treated as a pin — the build fails if it doesn't match the generated archive
-- `--source-uri <SOURCE_URI>` — SEP-58 source identification: URI where the source can be obtained, e.g. `https://example.com/src.tar.gz` (recorded as the `source_uri` meta entry). Optional; when set it must accompany `--source-sha256`
+- `--source-uri <SOURCE_URI>` — entry). Optional with `--verifiable`; the recorded `source_sha256` is computed from the generated archive, unless `--source-sha256` is explicitly set
 
 ## `stellar contract extend`
 
@@ -1161,6 +1162,44 @@ If no keys are specificed the contract itself is restored.
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+
+## `stellar contract verify`
+
+Verify that a contract's WASM reproduces from the build metadata it records, per SEP-58. Either pass a contract id/alias via `--id` (the WASM is fetched from the network) or a local file via `--wasm`
+
+**Usage:** `stellar contract verify [OPTIONS]`
+
+###### **Container Options:**
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <CONTRACT_ID>` — Contract id or alias to fetch the WASM from the network
+- `--wasm <WASM>` — Local WASM file to verify, instead of fetching from the network
+- `--wasm-hash <WASM_HASH>` — WASM hash (hex) to fetch the WASM from the network
+- `--source-uri <SOURCE_URI>` — Local source code file or http(s) URL to use as the source when the WASM's recorded SEP-58 metadata has only `source_sha256` (no `source_uri`). Accepts http(s) URLs or local file paths
+- `--trust` — Bypass interactive confirmation when the WASM's bldimg is not in the default trust list, or when the source is provided as an archive (source archives are never default-trusted)
+- `--keep` — Keep the materialized source and rebuild output instead of deleting them on exit, and print the path. Useful for debugging a byte mismatch (e.g. diffing the rebuilt WASM's metadata against the original)
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar doctor`
 

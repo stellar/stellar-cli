@@ -19,6 +19,7 @@ use std::{
 
 use ignore::WalkBuilder;
 
+use crate::config::{data, locator::enforce_hardened_tree};
 use crate::print::Print;
 
 /// Names that usually shouldn't end up in a source archive — VCS metadata of
@@ -74,6 +75,52 @@ pub enum Error {
 
     #[error("could not extract source archive: {0}")]
     ArchiveExtract(std::io::Error),
+
+    #[error("could not extract source archive: {0}")]
+    ZipExtract(zip::result::ZipError),
+
+    #[error(transparent)]
+    Data(#[from] data::Error),
+}
+
+/// Container formats we can extract a source tree from. This only concerns how
+/// the tree is packed for transport; the tree itself is always wrapped in a
+/// single top-level directory (SEP-58), which callers check after extraction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArchiveFormat {
+    /// Gzipped tarball — what `build --verifiable` produces.
+    TarGz,
+    /// Zip archive.
+    Zip,
+}
+
+/// Recognized archive extensions and the format each maps to, matched
+/// case-insensitively as a suffix of the archive's filename. Single source of
+/// truth for both format detection and the "accepted formats" error text.
+const ARCHIVE_EXTENSIONS: &[(&str, ArchiveFormat)] = &[
+    (".tar.gz", ArchiveFormat::TarGz),
+    (".tgz", ArchiveFormat::TarGz),
+    (".zip", ArchiveFormat::Zip),
+];
+
+impl ArchiveFormat {
+    /// The format named by `filename`'s extension, or `None` if unrecognized.
+    pub(crate) fn from_filename(filename: &str) -> Option<Self> {
+        let lower = filename.to_ascii_lowercase();
+        ARCHIVE_EXTENSIONS
+            .iter()
+            .find(|(ext, _)| lower.ends_with(ext))
+            .map(|(_, format)| *format)
+    }
+
+    /// Comma-separated list of accepted extensions, for error messages.
+    pub(crate) fn recognized_extensions() -> String {
+        ARCHIVE_EXTENSIONS
+            .iter()
+            .map(|(ext, _)| *ext)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 /// The source tree's root: always the current working directory. The archive is
@@ -301,11 +348,105 @@ pub(crate) fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
         .map_err(Error::ArchiveExtract)
 }
 
+/// Unpack a zip archive into `dest`. `ZipArchive::extract` sanitizes each
+/// entry's path (dropping anything that would escape `dest`), so a hostile
+/// archive can't write outside the tempdir.
+pub(crate) fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), Error> {
+    zip::ZipArchive::new(std::io::Cursor::new(bytes))
+        .and_then(|mut archive| archive.extract(dest))
+        .map_err(Error::ZipExtract)
+}
+
+/// Create a fresh temp directory, unpack the source archive `bytes` (in the
+/// given `format`) into it, harden its permissions, and return the guard (the
+/// tree lives at its `path()`). Shared by `build --verifiable` (builds from the
+/// extracted copy) and `verify` (rebuilds from it); `prefix` names the dir so
+/// the two are distinguishable on disk.
+///
+/// The temp dir is created under `<data dir>/tmp`, NOT the OS temp dir: on macOS
+/// `$TMPDIR` lives under /var/folders, which container VMs (Docker Desktop,
+/// Colima, …) don't share by default, so a bind mount of it would be empty
+/// inside the container. The data dir lives under the user's home, which is
+/// shared. Corralling every extraction under a single `tmp/` keeps a leftover
+/// from an interrupted run isolated in one obviously-disposable place rather
+/// than loose alongside `archives/`.
+pub(crate) fn extract_into_hardened_tempdir(
+    bytes: &[u8],
+    prefix: &str,
+    format: ArchiveFormat,
+) -> Result<tempfile::TempDir, Error> {
+    let base = data::data_local_dir()?.join("tmp");
+    std::fs::create_dir_all(&base).map_err(|source| Error::ArchiveWrite {
+        path: base.clone(),
+        source,
+    })?;
+    let tmp = tempfile::Builder::new()
+        .prefix(prefix)
+        .tempdir_in(&base)
+        .map_err(Error::ArchiveExtract)?;
+    match format {
+        ArchiveFormat::TarGz => unpack_targz(bytes, tmp.path())?,
+        ArchiveFormat::Zip => unpack_zip(bytes, tmp.path())?,
+    }
+    enforce_hardened_tree(tmp.path()).map_err(Error::ArchiveExtract)?;
+    Ok(tmp)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::locator::enforce_hardened_tree;
     use sha2::{Digest, Sha256};
+
+    #[test]
+    fn archive_format_from_filename() {
+        assert_eq!(
+            ArchiveFormat::from_filename("src.tar.gz"),
+            Some(ArchiveFormat::TarGz)
+        );
+        assert_eq!(
+            ArchiveFormat::from_filename("SRC.TGZ"),
+            Some(ArchiveFormat::TarGz)
+        );
+        assert_eq!(
+            ArchiveFormat::from_filename("src.zip"),
+            Some(ArchiveFormat::Zip)
+        );
+        assert_eq!(ArchiveFormat::from_filename("src.rar"), None);
+        assert_eq!(ArchiveFormat::from_filename("src"), None);
+        // The listed extensions are exactly what the error surfaces.
+        assert_eq!(
+            ArchiveFormat::recognized_extensions(),
+            ".tar.gz, .tgz, .zip"
+        );
+    }
+
+    #[test]
+    fn unpack_zip_round_trips() {
+        use std::io::Write;
+        // Build a small zip with a single top-level `source/` dir.
+        let mut buf = Vec::new();
+        {
+            let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+            let opts: zip::write::FileOptions<'_, ()> = zip::write::FileOptions::default();
+            zip.start_file("source/Cargo.toml", opts).unwrap();
+            zip.write_all(b"# crate").unwrap();
+            zip.start_file("source/src/lib.rs", opts).unwrap();
+            zip.write_all(b"// code").unwrap();
+            zip.finish().unwrap();
+        }
+
+        let dest = tempfile::TempDir::new().unwrap();
+        unpack_zip(&buf, dest.path()).unwrap();
+        assert_eq!(
+            std::fs::read(dest.path().join("source/Cargo.toml")).unwrap(),
+            b"# crate"
+        );
+        assert_eq!(
+            std::fs::read(dest.path().join("source/src/lib.rs")).unwrap(),
+            b"// code"
+        );
+    }
 
     #[test]
     fn is_warned_matches_names_and_dotted_suffixes() {

@@ -123,15 +123,10 @@ pub struct Cmd {
     #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
     pub source_sha256: Option<String>,
 
-    /// SEP-58 source identification: URI where the source can be obtained, e.g.
-    /// `https://example.com/src.tar.gz` (recorded as the `source_uri` meta
-    /// entry). Optional; when set it must accompany `--source-sha256`.
-    #[arg(
-        long,
-        requires = "verifiable",
-        requires = "source_sha256",
-        help_heading = HEADING_VERIFIABLE
-    )]
+    /// entry). Optional with `--verifiable`; the recorded `source_sha256` is
+    /// computed from the generated archive, unless `--source-sha256` is
+    /// explicitly set.
+    #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
     pub source_uri: Option<String>,
 
     #[command(flatten)]
