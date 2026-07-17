@@ -270,6 +270,16 @@ impl Args {
         cmd
     }
 
+    /// Immediately terminate a running container (SIGKILL), with no graceful
+    /// grace period — unlike `stop`, which waits up to 10s before force-killing.
+    /// Used to tear down a build container the instant the CLI is interrupted.
+    /// Both docker and Apple's `container` accept `kill <name>`.
+    pub(crate) fn kill_command(&self, name: &str) -> Command {
+        let mut cmd = self.base_command();
+        cmd.args(["kill", name]);
+        cmd
+    }
+
     pub(crate) fn logs_command(&self, name: &str) -> Command {
         let mut cmd = self.base_command();
         match self.engine() {

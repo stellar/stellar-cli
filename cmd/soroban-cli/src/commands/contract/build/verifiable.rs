@@ -79,6 +79,9 @@ pub enum Error {
 
     #[error("container build exited with status {status}. To reproduce manually:\n  {command}")]
     ContainerExit { status: i64, command: String },
+
+    #[error("verifiable build interrupted; stopped the build container")]
+    Interrupted,
 }
 
 pub async fn run(
@@ -816,6 +819,48 @@ fn escape_container_args(cmd: &[String]) -> String {
         .join(" ")
 }
 
+/// Resolve once the process receives any catchable signal that would otherwise
+/// terminate it, so the caller can stop the build container before exiting.
+/// `SIGKILL` can't be caught, so a `kill -9` still orphans the container —
+/// nothing in-process can prevent that. On non-Unix platforms only Ctrl-C is
+/// observable.
+#[cfg(unix)]
+async fn wait_for_termination_signal() {
+    use tokio::signal::unix::{signal, SignalKind};
+
+    // If any handler fails to install we simply never resolve on that signal;
+    // the build still runs, it just won't self-clean on that particular signal.
+    let mut sigint = signal(SignalKind::interrupt());
+    let mut sigterm = signal(SignalKind::terminate());
+    let mut sighup = signal(SignalKind::hangup());
+    let mut sigquit = signal(SignalKind::quit());
+
+    tokio::select! {
+        () = recv_signal(&mut sigint) => {},
+        () = recv_signal(&mut sigterm) => {},
+        () = recv_signal(&mut sighup) => {},
+        () = recv_signal(&mut sigquit) => {},
+    }
+}
+
+/// Await one delivery of an installed signal. When the handler failed to
+/// install, never resolves, so it drops out of the `select!` above rather than
+/// firing spuriously.
+#[cfg(unix)]
+async fn recv_signal(s: &mut std::io::Result<tokio::signal::unix::Signal>) {
+    match s {
+        Ok(s) => {
+            s.recv().await;
+        }
+        Err(_) => std::future::pending().await,
+    }
+}
+
+#[cfg(not(unix))]
+async fn wait_for_termination_signal() {
+    let _ = tokio::signal::ctrl_c().await;
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn run_in_container(
     image_ref: &str,
@@ -889,8 +934,22 @@ async fn run_in_container(
         print.infoln(format!("Running: {reproduce}"));
     }
 
+    // Name the build container so it can be stopped if the CLI is interrupted.
+    // Without a name there's no handle to target: on a termination signal the
+    // CLI process dies, but the container the daemon owns keeps running (the
+    // engine client exiting doesn't stop it, and signal-forwarding through the
+    // client is unreliable for a long cargo build). `--rm` removes it once
+    // stopped. The name is unique per invocation (pid + random) so concurrent
+    // builds don't collide, and it's kept out of the reproduce line — a fixed
+    // name there would clash on re-run.
+    let container_name = format!(
+        "stellar-verifiable-build-{}-{:08x}",
+        std::process::id(),
+        rand::random::<u32>()
+    );
+
     let mut command = docker.base_command();
-    command.args(["run", "--rm"]);
+    command.args(["run", "--rm", "--name", &container_name]);
     run_args.apply(&mut command);
     command.args(["-v", &bind, "-w", "/source"]);
     for e in &env {
@@ -913,7 +972,23 @@ async fn run_in_container(
     };
     command.stdout(stdout).stderr(stderr);
 
-    let status = command.status().await.map_err(|e| docker.io_error(e))?;
+    let mut child = command.spawn().map_err(|e| docker.io_error(e))?;
+
+    // Race the build against any catchable termination signal. On a signal,
+    // stop the named container (best-effort) so it doesn't outlive the CLI,
+    // kill the engine client we spawned, then surface the interruption.
+    let status = tokio::select! {
+        result = child.wait() => result.map_err(|e| docker.io_error(e))?,
+        () = wait_for_termination_signal() => {
+            print.warnln("Interrupted; stopping build container");
+            // `kill` (SIGKILL, immediate) rather than `stop` (SIGTERM + 10s
+            // grace): otherwise the container keeps building for the whole grace
+            // period while we block here.
+            let _ = docker.kill_command(&container_name).output().await;
+            let _ = child.start_kill();
+            return Err(Error::Interrupted);
+        }
+    };
     if !status.success() {
         return Err(Error::ContainerExit {
             status: status.code().unwrap_or(-1).into(),
