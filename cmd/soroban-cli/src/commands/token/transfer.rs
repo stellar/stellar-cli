@@ -138,9 +138,9 @@ impl Cmd {
         let config = self.config();
         let network = config.get_network()?;
 
-        let contract_id = self
+        let resolved = self
             .id
-            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
+            .resolve(&config.locator, &network.network_passphrase)?;
 
         // SEP-41 `transfer(from, to, amount)`: `from` is the source account
         // (which also signs and authorizes), `to` is the destination.
@@ -172,7 +172,7 @@ impl Cmd {
         .collect();
 
         let invoke_cmd = invoke::Cmd {
-            contract_id: UnresolvedContract::Resolved(contract_id),
+            contract_id: UnresolvedContract::Resolved(resolved.contract_id),
             slop,
             config: config.clone(),
             // A transfer always intends to submit. Force `Send::Yes` so a token
@@ -186,8 +186,8 @@ impl Cmd {
             .execute_with_receipt(&config, quiet, global_args.no_cache)
             .await
             .map_err(|e| {
-                self.id
-                    .not_deployed_error(&e, &contract_id)
+                resolved
+                    .not_deployed_error(&e)
                     .map_or(Error::Invoke(e), Error::Args)
             })?
             .into_result();

@@ -195,7 +195,7 @@ impl Cmd {
         }
         print.checkln("Deployed!");
 
-        Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)))
+        Ok(TxnResult::Res(contract_id))
     }
 }
 

@@ -8,6 +8,7 @@ use crate::{
     rpc,
     tx::builder,
     utils::contract_id_hash_from_asset,
+    xdr,
 };
 
 /// Output format shared by the `stellar token` subcommands.
@@ -44,6 +45,29 @@ pub enum TokenTarget {
     Contract(UnresolvedContract),
     /// A Stellar Asset Contract addressed by its underlying classic asset.
     Asset(builder::Asset),
+}
+
+/// The result of resolving a user-supplied token/asset reference to a contract.
+///
+/// It answers the two questions a caller needs at once: *which* contract id the
+/// reference points at, and *whether* that contract is a Stellar Asset Contract
+/// (and for which classic asset). The latter is what lets a missing contract be
+/// reported as `sac_not_deployed` (pointing at `contract asset deploy`) rather
+/// than a plain `contract_not_found`.
+#[derive(Clone, Debug)]
+pub struct ResolvedToken {
+    pub contract_id: stellar_strkey::Contract,
+    pub kind: TokenKind,
+}
+
+/// Whether a [`ResolvedToken`] is a Stellar Asset Contract (SAC) wrapping a
+/// classic asset, or a plain SEP-41 contract addressed directly.
+#[derive(Clone, Debug)]
+pub enum TokenKind {
+    /// A Stellar Asset Contract for the given classic asset.
+    Sac(xdr::Asset),
+    /// A contract addressed directly by id or alias.
+    Contract,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -94,20 +118,33 @@ impl FromStr for TokenTarget {
 }
 
 impl TokenTarget {
-    /// Resolve this target to a concrete contract id for the given network.
-    pub fn resolve_contract_id(
+    /// Resolve this target to a [`ResolvedToken`] for the given network.
+    pub fn resolve(
         &self,
         locator: &locator::Args,
         network_passphrase: &str,
-    ) -> Result<stellar_strkey::Contract, Error> {
+    ) -> Result<ResolvedToken, Error> {
         match self {
-            TokenTarget::Contract(contract) => {
-                Ok(contract.resolve_contract_id(locator, network_passphrase)?)
-            }
+            TokenTarget::Contract(contract) => Ok(ResolvedToken {
+                contract_id: contract.resolve_contract_id(locator, network_passphrase)?,
+                kind: TokenKind::Contract,
+            }),
             TokenTarget::Asset(asset) => {
                 let asset = asset.resolve(locator)?;
-                Ok(contract_id_hash_from_asset(&asset, network_passphrase))
+                Ok(ResolvedToken::sac(&asset, network_passphrase))
             }
+        }
+    }
+}
+
+impl ResolvedToken {
+    /// Resolve a classic `asset` to its Stellar Asset Contract on the network
+    /// identified by `network_passphrase`.
+    #[must_use]
+    pub fn sac(asset: &xdr::Asset, network_passphrase: &str) -> Self {
+        ResolvedToken {
+            contract_id: contract_id_hash_from_asset(asset, network_passphrase),
+            kind: TokenKind::Sac(asset.clone()),
         }
     }
 
@@ -117,11 +154,7 @@ impl TokenTarget {
     /// contract for a direct id/alias. Returns `None` for any other failure so
     /// the caller can surface the underlying invoke error unchanged.
     #[must_use]
-    pub fn not_deployed_error(
-        &self,
-        err: &invoke::Error,
-        contract_id: &stellar_strkey::Contract,
-    ) -> Option<Error> {
+    pub fn not_deployed_error(&self, err: &invoke::Error) -> Option<Error> {
         let invoke::Error::GetSpecError(get_spec::Error::Rpc(rpc::Error::NotFound(kind, _))) = err
         else {
             return None;
@@ -129,10 +162,10 @@ impl TokenTarget {
         if kind != "Contract" {
             return None;
         }
-        Some(if matches!(self, TokenTarget::Asset(_)) {
-            Error::SacNotDeployed(format!("{contract_id}"))
-        } else {
-            Error::ContractNotFound(format!("{contract_id}"))
+        let contract_id = &self.contract_id;
+        Some(match self.kind {
+            TokenKind::Sac(_) => Error::SacNotDeployed(format!("{contract_id}")),
+            TokenKind::Contract => Error::ContractNotFound(format!("{contract_id}")),
         })
     }
 }
