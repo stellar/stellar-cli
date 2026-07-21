@@ -9,8 +9,8 @@ use crate::{
         token::args::{self, OutputFormat, TokenTarget},
     },
     config::{self, locator, network, sign_with, UnresolvedContract, UnresolvedScAddress},
+    fixed_point::FixedPoint,
     output::Output,
-    print,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -58,9 +58,6 @@ pub enum Error {
 
     #[error("could not parse {what} from the contract: {value:?}")]
     ParseResult { what: &'static str, value: String },
-
-    #[error("token reports {0} decimals, which is too large to format as a decimal")]
-    UnsupportedDecimals(u32),
 }
 
 impl Error {
@@ -74,7 +71,6 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) | Error::ParseResult { .. } => "internal",
-            Error::UnsupportedDecimals(_) => "unsupported_decimals",
         }
     }
 }
@@ -150,14 +146,7 @@ impl Cmd {
                     "decimals",
                 )
                 .await?;
-            // `format_number` computes `10.pow(decimals)`, which overflows i128
-            // once decimals exceeds 38. The value comes from the contract, so
-            // reject an implausible scale rather than panic (debug) or wrap
-            // silently (release). Real SACs use 7.
-            if decimals > 38 {
-                return Err(Error::UnsupportedDecimals(decimals));
-            }
-            (print::format_number(raw, decimals), Some(decimals))
+            (FixedPoint::new(raw, decimals).to_string(), Some(decimals))
         } else {
             (raw.to_string(), None)
         };

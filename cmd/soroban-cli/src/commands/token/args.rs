@@ -35,10 +35,9 @@ impl From<OutputFormat> for Format {
 /// A `stellar token` target, resolved from the `--id` value.
 ///
 /// The shape of the value decides how it is interpreted:
-/// * `CODE:ISSUER` → a Stellar Asset Contract (SAC), resolved from the asset.
-/// * anything else → a contract, either a `C…` strkey or a saved alias. This
-///   includes `native`, which resolves through the built-in reserved alias to
-///   the native-asset SAC.
+/// * `native` or `CODE:ISSUER` → a Stellar Asset Contract (SAC), resolved from
+///   the classic asset.
+/// * anything else → a contract, either a `C…` strkey or a saved alias.
 #[derive(Clone, Debug)]
 pub enum TokenTarget {
     /// A SEP-41 contract addressed directly by id or alias.
@@ -81,10 +80,11 @@ impl FromStr for TokenTarget {
     type Err = builder::asset::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        // `CODE:ISSUER` is the classic-asset shape, resolved to a SAC.
-        // Everything else is a contract id or alias — including `native`, which
-        // resolves through the built-in reserved alias to the native-asset SAC.
-        if value.contains(':') {
+        // `native` and the `CODE:ISSUER` shape are both classic assets, resolved
+        // to their Stellar Asset Contract — so a missing SAC reports
+        // `sac_not_deployed`, not `contract_not_found`. Everything else is a
+        // contract id or a saved alias.
+        if value == "native" || value.contains(':') {
             Ok(TokenTarget::Asset(value.parse()?))
         } else {
             // `UnresolvedContract::from_str` is infallible.
@@ -145,10 +145,10 @@ mod tests {
     const CONTRACT: &str = "CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2";
 
     #[test]
-    fn native_parses_as_contract_alias() {
+    fn native_parses_as_asset() {
         assert!(matches!(
             "native".parse::<TokenTarget>().unwrap(),
-            TokenTarget::Contract(UnresolvedContract::Alias(_))
+            TokenTarget::Asset(builder::Asset::Native)
         ));
     }
 
