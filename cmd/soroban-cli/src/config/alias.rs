@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use stellar_strkey::Contract;
 
 use super::locator;
-use crate::utils::contract_id_hash_from_asset;
-use crate::xdr::Asset;
+use crate::config::token::UnresolvedToken;
+use crate::tx::builder;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Data {
@@ -29,15 +29,24 @@ pub fn is_reserved(alias: &str) -> bool {
 /// truth for what the reserved alias points to, so resolution stays consistent
 /// across `get_contract_id`, `alias show`, and `alias ls`.
 #[must_use]
-pub fn resolve_reserved(alias: &str, network_passphrase: &str) -> Option<Contract> {
-    if is_reserved(alias) {
-        Some(contract_id_hash_from_asset(
-            &Asset::Native,
-            network_passphrase,
-        ))
-    } else {
-        None
+pub fn resolve_reserved(
+    alias: &str,
+    locator: &locator::Args,
+    network_passphrase: &str,
+) -> Option<Contract> {
+    if !is_reserved(alias) {
+        return None;
     }
+
+    // The reserved alias points at the native asset's Stellar Asset Contract.
+    // Route it through the shared token resolver so its id stays identical to
+    // every other `native` resolution. `locator` is unused for native (there is
+    // no issuer alias to look up) but is threaded through for signature parity
+    // with the resolver; native therefore can never fail to resolve.
+    let resolved = UnresolvedToken::Asset(builder::Asset::Native)
+        .resolve(locator, network_passphrase)
+        .expect("the reserved native alias always resolves to its SAC");
+    Some(resolved.contract_id)
 }
 
 /// Errors if `alias` is a reserved, built-in alias. Call this before doing any

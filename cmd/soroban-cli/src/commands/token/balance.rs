@@ -6,9 +6,13 @@ use crate::{
     commands::{
         contract::invoke,
         global,
-        token::args::{self, OutputFormat, TokenTarget},
+        token::args::{self, OutputFormat},
     },
-    config::{self, locator, network, sign_with, UnresolvedContract, UnresolvedScAddress},
+    config::{
+        self, locator, network, sign_with,
+        token::{ResolvedToken, UnresolvedToken},
+        UnresolvedContract, UnresolvedScAddress,
+    },
     fixed_point::FixedPoint,
     output::Output,
 };
@@ -19,7 +23,7 @@ pub struct Cmd {
     /// The token to query: a contract id or alias, `native`, or a classic asset
     /// as `CODE:ISSUER`.
     #[arg(long = "id")]
-    pub id: TokenTarget,
+    pub id: UnresolvedToken,
 
     /// Account or contract whose balance to read.
     #[arg(long)]
@@ -50,6 +54,8 @@ pub enum Error {
     #[error(transparent)]
     Args(#[from] args::Error),
     #[error(transparent)]
+    Token(#[from] config::token::Error),
+    #[error(transparent)]
     ScAddress(#[from] config::sc_address::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -68,6 +74,7 @@ impl Error {
             Error::Config(_) => "config",
             Error::Network(_) => "network",
             Error::Args(e) => e.error_type(),
+            Error::Token(e) => e.error_type(),
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) | Error::ParseResult { .. } => "internal",
@@ -108,9 +115,9 @@ impl Cmd {
         let config = self.config();
         let network = config.get_network()?;
 
-        let contract_id = self
+        let token = self
             .id
-            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
+            .resolve(&config.locator, &network.network_passphrase)?;
         let account = self
             .account
             .clone()
@@ -122,7 +129,7 @@ impl Cmd {
                 &config,
                 quiet,
                 global_args.no_cache,
-                contract_id,
+                &token,
                 vec![
                     OsString::from("balance"),
                     OsString::from("--id"),
@@ -141,7 +148,7 @@ impl Cmd {
                     &config,
                     quiet,
                     global_args.no_cache,
-                    contract_id,
+                    &token,
                     vec![OsString::from("decimals")],
                     "decimals",
                 )
@@ -163,11 +170,11 @@ impl Cmd {
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
-        contract_id: stellar_strkey::Contract,
+        token: &ResolvedToken,
         slop: Vec<OsString>,
     ) -> Result<String, Error> {
         let invoke_cmd = invoke::Cmd {
-            contract_id: UnresolvedContract::Resolved(contract_id),
+            contract_id: UnresolvedContract::Resolved(token.contract_id),
             slop,
             config: config.clone(),
             send: invoke::Send::No,
@@ -177,11 +184,7 @@ impl Cmd {
         let receipt = invoke_cmd
             .execute_with_receipt(config, quiet, no_cache)
             .await
-            .map_err(|e| {
-                self.id
-                    .not_deployed_error(&e, &contract_id)
-                    .map_or(Error::Invoke(e), Error::Args)
-            })?
+            .map_err(|e| args::not_deployed_error(token, &e).map_or(Error::Invoke(e), Error::Args))?
             .into_result();
 
         Ok(receipt.map(|r| r.output).unwrap_or_default())
@@ -194,13 +197,11 @@ impl Cmd {
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
-        contract_id: stellar_strkey::Contract,
+        token: &ResolvedToken,
         slop: Vec<OsString>,
         what: &'static str,
     ) -> Result<T, Error> {
-        let out = self
-            .read(config, quiet, no_cache, contract_id, slop)
-            .await?;
+        let out = self.read(config, quiet, no_cache, token, slop).await?;
         // A 128-bit balance comes back JSON-encoded as a quoted string (it can't
         // fit a JSON number), while `decimals` (u32) comes back bare; strip any
         // surrounding quotes so both parse straight into `T`.

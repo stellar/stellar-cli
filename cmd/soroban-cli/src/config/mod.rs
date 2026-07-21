@@ -23,6 +23,7 @@ pub mod network;
 pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
+pub mod token;
 pub mod upgrade_check;
 pub mod utils;
 
