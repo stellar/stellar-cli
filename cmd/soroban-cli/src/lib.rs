@@ -17,6 +17,7 @@ pub mod color;
 pub mod commands;
 pub mod config;
 mod env_vars;
+pub mod fixed_point;
 pub mod get_spec;
 pub mod key;
 pub mod log;
