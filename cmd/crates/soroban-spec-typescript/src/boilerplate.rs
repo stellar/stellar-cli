@@ -136,6 +136,8 @@ impl Project {
         let contract_id = contract_id.unwrap();
         let network_passphrase = network_passphrase.unwrap();
         if network_passphrase == NETWORK_PASSPHRASE_LOCAL {
+            let network_passphrase = sanitize_string(network_passphrase);
+            let contract_id = sanitize_string(contract_id);
             return format!(
                 r#"export const networks = {{
   local: {{
