@@ -100,7 +100,7 @@ pub async fn main() {
         // failure, the JSON body is just a parseable representation of it.
         if let Some(format) = json_error_format(&root.cmd) {
             let output = crate::output::Output::new(format, root.global_args.quiet);
-            let _ = output.json_value(&crate::output::error_json(&e));
+            let _ = output.json_value(&crate::output::error_json(&e, error_type(&e)));
             std::process::exit(1);
         }
         printer.errorln(format!("error: {e}"));
@@ -143,10 +143,21 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
         commands::Cmd::Network(network::Cmd::Info(cmd)) => cmd.output.into(),
         commands::Cmd::Network(network::Cmd::Settings(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Transfer(cmd)) => cmd.output.into(),
+        commands::Cmd::Token(token::Cmd::Balance(cmd)) => cmd.output.into(),
         _ => return None,
     };
 
     matches!(format, Format::Json | Format::JsonFormatted).then_some(format)
+}
+
+// Machine-readable `type` discriminator for the JSON error envelope. Commands
+// that classify their failures provide a specific slug (e.g. `sac_not_deployed`);
+// everything else falls back to `unknown`.
+fn error_type(err: &commands::Error) -> &'static str {
+    match err {
+        commands::Error::Token(e) => e.error_type(),
+        _ => "unknown",
+    }
 }
 
 fn config_dir_from_raw_args() -> Option<PathBuf> {

@@ -68,15 +68,6 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
 
     #[error(
-        "the Stellar Asset Contract {0} is not deployed on this network.\n\
-         Deploy it first with `stellar contract asset deploy --asset <ASSET>`, then retry."
-    )]
-    SacNotDeployed(String),
-
-    #[error("contract {0} was not found on this network")]
-    ContractNotFound(String),
-
-    #[error(
         "muxed (M…) source accounts are not yet supported for `token transfer`; \
          use the underlying G… account as `--from` instead"
     )]
@@ -94,6 +85,22 @@ fn parse_nonneg_i128(value: &str) -> Result<i128, String> {
         return Err(format!("amount must not be negative: {value}"));
     }
     Ok(amount)
+}
+
+impl Error {
+    /// Machine-readable discriminator for the JSON error envelope's `type` field.
+    #[must_use]
+    pub fn error_type(&self) -> &'static str {
+        match self {
+            Error::Config(_) => "config",
+            Error::Network(_) => "network",
+            Error::Args(e) => e.error_type(),
+            Error::ScAddress(_) => "invalid_address",
+            Error::Invoke(_) => "invoke",
+            Error::Serde(_) => "internal",
+            Error::MuxedSourceNotSupported => "unsupported",
+        }
+    }
 }
 
 /// The machine-readable receipt of a token transfer.
@@ -178,7 +185,11 @@ impl Cmd {
         let receipt = invoke_cmd
             .execute_with_receipt(&config, quiet, global_args.no_cache)
             .await
-            .map_err(|e| self.map_invoke_error(e, &contract_id))?
+            .map_err(|e| {
+                self.id
+                    .not_deployed_error(&e, &contract_id)
+                    .map_or(Error::Invoke(e), Error::Args)
+            })?
             .into_result();
 
         // `transfer` always writes, so the invocation is submitted rather than
@@ -209,32 +220,5 @@ impl Cmd {
         })?;
 
         Ok(())
-    }
-
-    /// Translate a raw invocation failure into a token-aware error where we can
-    /// recognize it. A missing contract instance surfaces as a
-    /// `Contract not found` RPC error while fetching the spec; for an asset
-    /// target that means the SAC has not been deployed yet, so we point the user
-    /// at `contract asset deploy`. Other failures pass through unchanged.
-    fn map_invoke_error(
-        &self,
-        err: invoke::Error,
-        contract_id: &stellar_strkey::Contract,
-    ) -> Error {
-        use crate::{get_spec, rpc};
-
-        if let invoke::Error::GetSpecError(get_spec::Error::Rpc(rpc::Error::NotFound(kind, _))) =
-            &err
-        {
-            if kind == "Contract" {
-                return if matches!(self.id, TokenTarget::Asset(_)) {
-                    Error::SacNotDeployed(format!("{contract_id}"))
-                } else {
-                    Error::ContractNotFound(format!("{contract_id}"))
-                };
-            }
-        }
-
-        Error::Invoke(err)
     }
 }

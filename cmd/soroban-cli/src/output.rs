@@ -18,27 +18,33 @@ use serde::Serialize;
 
 use crate::print::Print;
 
-/// Build the canonical JSON error envelope for an error: `{ "error": { … } }`.
+/// Build the canonical JSON error envelope for an error:
+/// `{ "error": { "type": …, "message": … } }`.
 ///
-/// The inner object is always present and always has at least a `message`
-/// string, so every command renders errors with the same shape. When the error
-/// chain contains a JSON-RPC [`ErrorObject`](jsonrpsee_types::ErrorObjectOwned)
-/// (whose own `Display` is just its debug representation), its structured
-/// `{ code, message, data? }` form is used; every other error falls back to its
-/// `Display` as the `message`.
+/// The inner object always carries a machine-readable `type` discriminator (so
+/// consumers can branch on the kind of failure without parsing the message) and
+/// at least a `message` string. When the error chain contains a JSON-RPC
+/// [`ErrorObject`](jsonrpsee_types::ErrorObjectOwned) (whose own `Display` is
+/// just its debug representation), its structured `{ code, message, data? }`
+/// form is merged in; every other error falls back to its `Display` as the
+/// `message`.
+///
+/// `error_type` is the caller-supplied discriminator (e.g. `"sac_not_deployed"`,
+/// or `"unknown"` when the error has no more specific type).
 #[must_use]
-pub fn error_json(err: &(dyn std::error::Error + 'static)) -> serde_json::Value {
+pub fn error_json(err: &(dyn std::error::Error + 'static), error_type: &str) -> serde_json::Value {
     let mut current: Option<&(dyn std::error::Error + 'static)> = Some(err);
     while let Some(source) = current {
         if let Some(object) = source.downcast_ref::<jsonrpsee_types::ErrorObjectOwned>() {
-            if let Ok(value) = serde_json::to_value(object) {
-                return serde_json::json!({ "error": value });
+            if let Ok(serde_json::Value::Object(mut map)) = serde_json::to_value(object) {
+                map.insert("type".to_string(), serde_json::json!(error_type));
+                return serde_json::json!({ "error": map });
             }
         }
         current = source.source();
     }
 
-    serde_json::json!({ "error": { "message": err.to_string() } })
+    serde_json::json!({ "error": { "type": error_type, "message": err.to_string() } })
 }
 
 /// The format a command should render its output in.
@@ -184,8 +190,17 @@ mod tests {
     fn error_json_uses_structured_rpc_error_object() {
         let obj = jsonrpsee_types::ErrorObject::owned(-32603, "DB is empty", None::<()>);
         assert_eq!(
-            error_json(&obj),
-            serde_json::json!({ "error": { "code": -32603, "message": "DB is empty" } }),
+            error_json(&obj, "unknown"),
+            serde_json::json!({ "error": { "type": "unknown", "code": -32603, "message": "DB is empty" } }),
+        );
+    }
+
+    #[test]
+    fn error_json_includes_specific_type() {
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "no sac");
+        assert_eq!(
+            error_json(&err, "sac_not_deployed"),
+            serde_json::json!({ "error": { "type": "sac_not_deployed", "message": "no sac" } }),
         );
     }
 
@@ -206,8 +221,8 @@ mod tests {
 
         let obj = jsonrpsee_types::ErrorObject::owned(-32000, "boom", None::<()>);
         assert_eq!(
-            error_json(&Wrapper(obj)),
-            serde_json::json!({ "error": { "code": -32000, "message": "boom" } }),
+            error_json(&Wrapper(obj), "unknown"),
+            serde_json::json!({ "error": { "type": "unknown", "code": -32000, "message": "boom" } }),
         );
     }
 
@@ -215,8 +230,8 @@ mod tests {
     fn error_json_falls_back_to_message_for_other_errors() {
         let err = std::io::Error::new(std::io::ErrorKind::NotFound, "nope");
         assert_eq!(
-            error_json(&err),
-            serde_json::json!({ "error": { "message": "nope" } }),
+            error_json(&err, "unknown"),
+            serde_json::json!({ "error": { "type": "unknown", "message": "nope" } }),
         );
     }
 }
