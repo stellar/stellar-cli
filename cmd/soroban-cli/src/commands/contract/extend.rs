@@ -21,6 +21,7 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     key, rpc, wasm, Pwd,
@@ -47,7 +48,7 @@ pub struct Cmd {
     pub resources: resources::Args,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -196,7 +197,10 @@ impl Cmd {
         tracing::trace!(?network);
         let keys = self.key.parse_keys(&config.locator, &network)?;
         let client = network.rpc_client()?;
-        let source_account = config.source_account().await?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
+        let source_account = config.source_account()?;
         let extend_to = self.ledgers_to_extend(&client).await?;
 
         // Get the account sequence number
@@ -243,6 +247,9 @@ impl Cmd {
             config,
             &self.resources,
             &[],
+            // Footprint extend is not an InvokeHostFunction op, so the RPC does
+            // not accept an auth mode.
+            None,
             quiet,
             no_cache,
         )

@@ -23,7 +23,6 @@ ledger-transport = "0.10.0"
 tracing = { workspace = true }
 hex.workspace = true
 byteorder = "1.5.0"
-bollard = { workspace = true }
 home = "0.5.9"
 tokio = { version = "1", features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -33,7 +32,7 @@ testcontainers = { workspace = true, optional = true }
 
 [dependencies.stellar-xdr]
 workspace = true
-features = ["curr", "std", "serde"]
+features = ["std", "serde"]
 
 [dev-dependencies]
 env_logger = "0.11.3"

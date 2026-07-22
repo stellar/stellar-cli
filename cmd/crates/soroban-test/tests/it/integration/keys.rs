@@ -351,6 +351,79 @@ async fn rm_with_force_skips_confirmation() {
         .failure();
 }
 
+// `keys generate --hd-path N` (plain seed-phrase storage) must persist N so
+// that later `keys address` calls without `--hd-path` derive at index N rather
+// than the default. Guards the user-visible contract from #2538 across CLI
+// parsing, identity-file I/O, and key derivation.
+#[tokio::test]
+async fn hd_path_persists_for_keys_generate() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["generate", "hd-gen", "--hd-path", "5"])
+        .assert()
+        .success();
+
+    let address_default = pubkey_for_identity(sandbox, "hd-gen");
+    let address_explicit = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", "hd-gen", "--hd-path", "5"])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let address_zero = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", "hd-gen", "--hd-path", "0"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(
+        address_default, address_explicit,
+        "expected `keys address hd-gen` (no flag) to derive at the persisted hd_path 5"
+    );
+    assert_ne!(
+        address_default, address_zero,
+        "expected hd_path 5 derivation to differ from hd_path 0"
+    );
+}
+
+#[tokio::test]
+async fn hd_path_persists_for_keys_add_seed_phrase() {
+    let sandbox = &TestEnv::new();
+    let seed_phrase = "aisle reflect depart add safe fury dress artist bronze abuse warrior clap inquiry ask mandate deputy view trade debate flip priority boy depart recipe";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .args(["add", "hd-add", "--hd-path", "5"])
+        .assert()
+        .success();
+
+    let address_default = pubkey_for_identity(sandbox, "hd-add");
+    let address_explicit = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", "hd-add", "--hd-path", "5"])
+        .assert()
+        .success()
+        .stdout_as_str();
+    let address_zero = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", "hd-add", "--hd-path", "0"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    assert_eq!(
+        address_default, address_explicit,
+        "expected `keys address hd-add` (no flag) to derive at the persisted hd_path 5"
+    );
+    assert_ne!(
+        address_default, address_zero,
+        "expected hd_path 5 derivation to differ from hd_path 0"
+    );
+}
+
 #[tokio::test]
 async fn rm_nonexistent_key() {
     let sandbox = &TestEnv::new();

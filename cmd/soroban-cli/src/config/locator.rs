@@ -4,8 +4,7 @@ use serde::de::DeserializeOwned;
 use std::{
     ffi::OsStr,
     fmt::Display,
-    fs::{self, OpenOptions},
-    io::{self, Write},
+    fs, io,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -93,6 +92,10 @@ pub enum Error {
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
     #[error("Contract alias {0}, cannot overlap with key")]
     ContractAliasCannotOverlapWithKey(String),
+    #[error("'{0}' is reserved for the built-in native asset contract and cannot be added, overwritten, or removed")]
+    ContractAliasReserved(String),
+    #[error("alias '{alias}' is reserved for the native asset contract, but a stored alias points to {stored}; remove it with `stellar contract alias remove {alias}`, or use the contract id directly")]
+    ShadowedReservedAlias { alias: String, stored: Contract },
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
@@ -192,6 +195,7 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         if let Ok(Some(_)) = self.load_contract_from_alias(name) {
             return Err(Error::KeyCannotOverlapWithContractAlias(name.to_owned()));
         }
@@ -207,6 +211,7 @@ impl Args {
     }
 
     pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         KeyType::Identity.write(name, key, &self.config_dir()?)
     }
 
@@ -229,6 +234,18 @@ impl Args {
         Config::load(&path)?
             .set_inclusion_fee(inclusion_fee)
             .save_to(&path)
+    }
+
+    pub fn write_default_container_engine(&self, engine: &str) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?
+            .set_container_engine(engine)
+            .save_to(&path)
+    }
+
+    pub fn unset_default_container_engine(&self) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_container_engine().save_to(&path)
     }
 
     pub fn unset_default_identity(&self) -> Result<(), Error> {
@@ -313,7 +330,7 @@ impl Args {
     pub fn read_key_with_secure_store_cache(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<Key, Error> {
         if let Ok(literal) = key_or_name.parse::<Key>() {
             return Ok(literal);
@@ -322,14 +339,19 @@ impl Args {
         if let Key::Secret(Secret::SecureStore {
             entry_name,
             public_key: None,
-            ..
+            hd_path: persisted_hd_path,
         }) = &key
         {
-            let pk = secure_store::get_public_key(entry_name, hd_path)?;
+            // Honor the persisted hd_path when the caller passes None. Without
+            // this the cache gets populated at index 0 even when the identity
+            // was added with `--hd-path N`, which silently locks every later
+            // read to the wrong account.
+            let effective = hd_path.or(*persisted_hd_path);
+            let pk = secure_store::get_public_key(entry_name, effective)?;
             let migrated = Key::Secret(Secret::SecureStore {
                 entry_name: entry_name.clone(),
-                public_key: Some(pk.to_string()),
-                hd_path,
+                public_key: Some(format!("{pk}")),
+                hd_path: effective,
             });
             // Best-effort write-back: if persistence fails we still return the
             // freshly-derived value so the current call succeeds.
@@ -357,7 +379,7 @@ impl Args {
     pub fn get_secret_key_with_hd_path(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<Secret, Error> {
         let key = self
             .read_key_with_secure_store_cache(key_or_name, hd_path)
@@ -374,7 +396,7 @@ impl Args {
     pub fn get_public_key(
         &self,
         key_or_name: &str,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<xdr::MuxedAccount, Error> {
         Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }
@@ -452,6 +474,7 @@ impl Args {
         contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
+        alias::validate_reserved_aliases(alias)?;
         if self.read_identity(alias).is_ok() {
             return Err(Error::ContractAliasCannotOverlapWithKey(alias.to_owned()));
         }
@@ -475,41 +498,22 @@ impl Args {
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
         data.ids
-            .insert(network_passphrase.into(), contract_id.to_string());
+            .insert(network_passphrase.into(), format!("{contract_id}"));
 
         let content = serde_json::to_string(&data)?;
+        write_hardened_file(&path, content.as_bytes())?;
 
         #[cfg(unix)]
-        {
-            use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut to_file = OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .mode(0o600)
-                .open(&path)?;
-            to_file.write_all(content.as_bytes())?;
-            set_hardened_permissions(&path)?;
-            if let Ok(root) = self.config_dir() {
-                fix_config_permissions(root);
-            }
-        }
-
-        #[cfg(not(unix))]
-        {
-            let mut to_file = OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(path)?;
-            to_file.write_all(content.as_bytes())?;
+        if let Ok(root) = self.config_dir() {
+            fix_config_permissions(root);
         }
 
         Ok(())
     }
 
     pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
+        // Reserved aliases cannot be added or overwritten, but a stored file
+        // that shadows one (created before it became reserved) may be removed.
         let path = self.alias_path(alias)?;
 
         if !path.is_file() {
@@ -519,20 +523,42 @@ impl Args {
         let content = fs::read_to_string(&path).unwrap_or_default();
         let mut data: alias::Data = serde_json::from_str(&content).unwrap_or_default();
 
-        let mut to_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(path)?;
-
         data.ids.remove::<str>(network_passphrase);
 
         let content = serde_json::to_string(&data)?;
-
-        Ok(to_file.write_all(content.as_bytes())?)
+        write_hardened_file(&path, content.as_bytes())?;
+        Ok(())
     }
 
     pub fn get_contract_id(
+        &self,
+        alias: &str,
+        network_passphrase: &str,
+    ) -> Result<Option<Contract>, Error> {
+        // A reserved alias (e.g. `native`) always resolves to its built-in
+        // contract. If a stored (shadowed) alias file points somewhere else,
+        // refuse to silently override it: resolving to the built-in anyway
+        // would misdirect the command to the wrong contract. The stored file
+        // can still be removed with `contract alias remove <name>`.
+        if let Some(reserved) = alias::resolve_reserved(alias, network_passphrase) {
+            if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
+                if stored != reserved {
+                    return Err(Error::ShadowedReservedAlias {
+                        alias: alias.to_owned(),
+                        stored,
+                    });
+                }
+            }
+
+            return Ok(Some(reserved));
+        }
+
+        self.get_stored_contract_id(alias, network_passphrase)
+    }
+
+    /// Reads a contract id from a stored alias file, ignoring built-in reserved
+    /// aliases. Returns `None` when no matching alias file entry exists.
+    pub fn get_stored_contract_id(
         &self,
         alias: &str,
         network_passphrase: &str,
@@ -657,6 +683,31 @@ pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Writes `contents` to `path`, creating the file with `0600` on Unix and
+/// resetting the mode to exactly `0600` afterwards regardless of any
+/// pre-existing permissions. Falls back to `std::fs::write` on non-Unix
+/// platforms.
+pub(crate) fn write_hardened_file(path: &Path, contents: &[u8]) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        file.write_all(contents)?;
+        set_hardened_permissions(path)?;
+    }
+
+    #[cfg(not(unix))]
+    std::fs::write(path, contents)?;
+
+    Ok(())
+}
+
 pub fn ensure_directory(dir: PathBuf) -> Result<PathBuf, Error> {
     let parent = dir.parent().ok_or(Error::HomeDirNotFound)?;
 
@@ -752,41 +803,15 @@ impl KeyType {
     ) -> Result<PathBuf, Error> {
         let filepath = ensure_directory(self.path(pwd, key))?;
         let data = toml::to_string(value).map_err(|_| Error::ConfigSerialization)?;
-        #[cfg(unix)]
-        {
-            use std::io::Write as _;
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&filepath)
-                .map_err(|error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                })?;
-            file.write_all(data.as_bytes())
-                .map_err(|error| Error::IdCreationFailed {
-                    filepath: filepath.clone(),
-                    error,
-                })?;
-        }
-
-        #[cfg(not(unix))]
-        std::fs::write(&filepath, data).map_err(|error| Error::IdCreationFailed {
-            filepath: filepath.clone(),
-            error,
+        write_hardened_file(&filepath, data.as_bytes()).map_err(|error| {
+            Error::IdCreationFailed {
+                filepath: filepath.clone(),
+                error,
+            }
         })?;
 
         #[cfg(unix)]
-        {
-            set_hardened_permissions(&filepath).map_err(|error| Error::IdCreationFailed {
-                filepath: filepath.clone(),
-                error,
-            })?;
-            fix_config_permissions(pwd.to_path_buf());
-        }
+        fix_config_permissions(pwd.to_path_buf());
 
         Ok(filepath)
     }
@@ -1027,6 +1052,107 @@ mod tests {
             "overwritten identity file should be 0600, got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    #[test]
+    fn save_contract_id_rejects_reserved_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let contract = "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+            .parse()
+            .unwrap();
+        let native = alias::NATIVE;
+
+        let err = args
+            .save_contract_id("Test Network", &contract, native)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(alias) if alias == native));
+    }
+
+    #[test]
+    fn get_contract_id_resolves_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
+
+        let resolved = args
+            .get_contract_id(native, network_passphrase)
+            .unwrap()
+            .expect("native alias should resolve");
+        let expected =
+            crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
+
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn get_contract_id_errors_when_native_alias_is_shadowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
+
+        // A native alias stored before the name became reserved, pointing at a
+        // different contract than the native asset SAC.
+        let contract_ids = dir.path().join("contract-ids");
+        std::fs::create_dir_all(&contract_ids).unwrap();
+        std::fs::write(
+            contract_ids.join(format!("{native}.json")),
+            format!(
+                r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
+            ),
+        )
+        .unwrap();
+
+        let err = args
+            .get_contract_id(native, network_passphrase)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ShadowedReservedAlias { alias, .. } if alias == native));
+    }
+
+    #[test]
+    fn write_identity_rejects_reserved_native_name() {
+        use crate::config::secret::Secret;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let secret =
+            Secret::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
+
+        let err = args.write_identity(native, &secret).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
+    }
+
+    #[test]
+    fn write_key_rejects_reserved_native_name() {
+        use crate::config::key::Key;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let key =
+            Key::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
+
+        let err = args.write_key(native, &key).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
     }
 
     #[test]

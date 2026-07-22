@@ -21,14 +21,17 @@ pub mod message;
 pub mod network;
 pub mod plugin;
 pub mod snapshot;
+pub mod token;
 pub mod tx;
 pub mod version;
 
 pub mod txn_result;
 
-pub const HEADING_RPC: &str = "Options (RPC)";
-pub const HEADING_ARCHIVE: &str = "Options (Archive)";
-pub const HEADING_GLOBAL: &str = "Options (Global)";
+pub const HEADING_RPC: &str = "RPC Options";
+pub const HEADING_ARCHIVE: &str = "Archive Options";
+pub const HEADING_GLOBAL: &str = "Global Options";
+pub const HEADING_SIGNING: &str = "Signing Options";
+pub const HEADING_TRANSACTION: &str = "Transaction Options";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
@@ -118,6 +121,7 @@ impl Root {
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
+            Cmd::Token(token) => token.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Message(message) => message.run(&self.global_args).await?,
@@ -155,7 +159,11 @@ pub enum Cmd {
     /// Prints to stdout in a format that can be used as .env file. Environment
     /// variables have precedence over defaults.
     ///
-    /// Pass a name to get the value of a single environment variable.
+    /// By default, secret values are concealed. To display them, use `--reveal`.
+    ///
+    /// Pass a name to get the value of a single environment variable. Its value is printed without
+    /// shell quoting (control characters are neutralized), suitable for command substitution.
+    /// Concealed variables print nothing unless `--reveal` is passed.
     ///
     /// If there are no environment variables in use, prints the defaults.
     Env(env::Cmd),
@@ -179,6 +187,10 @@ pub enum Cmd {
     /// Download a snapshot of a ledger from an archive.
     #[command(subcommand)]
     Snapshot(snapshot::Cmd),
+
+    /// Interact with SEP-41 tokens and Stellar Asset Contracts
+    #[command(subcommand)]
+    Token(token::Cmd),
 
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
@@ -262,6 +274,9 @@ pub enum Error {
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+
+    #[error(transparent)]
+    Token(#[from] token::Error),
 
     #[error(transparent)]
     Tx(#[from] tx::Error),

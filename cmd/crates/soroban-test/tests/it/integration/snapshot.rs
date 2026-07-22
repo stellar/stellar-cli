@@ -212,6 +212,24 @@ fn snapshot_merge() {
 }
 
 #[test]
+fn snapshot_create_redacts_archive_url_password() {
+    let sandbox = &TestEnv::new();
+    sandbox
+        .new_assert_cmd("snapshot")
+        .arg("create")
+        .arg("--archive-url=https://archiveuser:supersecret@archive.invalid/")
+        .arg("--ledger=1")
+        .arg("--out=snapshot.json")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("supersecret")
+                .not()
+                .and(predicate::str::contains("redacted")),
+        );
+}
+
+#[test]
 fn snapshot_merge_conflict_resolution() {
     let sandbox = &TestEnv::new();
     let identity = "ineffable-serval-3633";

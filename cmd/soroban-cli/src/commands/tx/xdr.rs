@@ -6,12 +6,12 @@ use std::fs::File;
 use std::io::{stdin, Read};
 use std::io::{Cursor, IsTerminal};
 use std::path::Path;
-use stellar_xdr::curr::Limited;
+use stellar_xdr::Limited;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("failed to decode XDR: {0}")]
-    XDRDecode(#[from] stellar_xdr::curr::Error),
+    XDRDecode(#[from] stellar_xdr::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("only transaction v1 is supported")]

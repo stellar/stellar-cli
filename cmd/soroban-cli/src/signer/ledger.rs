@@ -22,6 +22,7 @@ pub enum Error {
 mod ledger_impl {
     use super::Error;
     use crate::xdr::{DecoratedSignature, Hash, Signature, SignatureHint, Transaction};
+    use ed25519_dalek::Signature as Ed25519Signature;
     use sha2::{Digest, Sha256};
     use stellar_ledger::{Blob as _, Exchange, LedgerSigner};
 
@@ -29,6 +30,42 @@ mod ledger_impl {
     pub type LedgerType = Ledger<stellar_ledger::TransportNativeHID>;
     #[cfg(feature = "emulator-tests")]
     pub type LedgerType = Ledger<stellar_ledger::emulator_test_support::http_transport::Emulator>;
+
+    // Pure-data signer for Ledger identities. Mirrors `SecureStoreEntry`:
+    // holds no live transport, opens HID lazily inside each sign call so the
+    // device stays free between operations and can never collide with a
+    // concurrent transport elsewhere in the process.
+    pub struct LedgerEntry {
+        pub hd_path: u32,
+        pub public_key: Option<stellar_strkey::ed25519::PublicKey>,
+    }
+
+    impl LedgerEntry {
+        pub async fn sign_tx_hash(&self, tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+            let live = new(self.hd_path).await?;
+            let key = match self.public_key {
+                Some(pk) => pk,
+                None => live.public_key().await?,
+            };
+            let hint = SignatureHint(key.0[28..].try_into()?);
+            let signature = Signature(
+                live.signer
+                    .sign_transaction_hash(live.index, &tx_hash)
+                    .await?
+                    .try_into()?,
+            );
+            Ok(DecoratedSignature { hint, signature })
+        }
+
+        pub async fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+            let live = new(self.hd_path).await?;
+            let bytes = live
+                .signer
+                .sign_transaction_hash(live.index, &payload)
+                .await?;
+            Ok(Ed25519Signature::from_bytes(bytes.as_slice().try_into()?))
+        }
+    }
 
     pub struct Ledger<T: Exchange> {
         pub(crate) index: u32,
@@ -65,21 +102,6 @@ mod ledger_impl {
     }
 
     impl<T: Exchange> Ledger<T> {
-        pub async fn sign_transaction_hash(
-            &self,
-            tx_hash: &[u8; 32],
-        ) -> Result<DecoratedSignature, Error> {
-            let key = self.public_key().await?;
-            let hint = SignatureHint(key.0[28..].try_into()?);
-            let signature = Signature(
-                self.signer
-                    .sign_transaction_hash(self.index, tx_hash)
-                    .await?
-                    .try_into()?,
-            );
-            Ok(DecoratedSignature { hint, signature })
-        }
-
         pub async fn sign_transaction(
             &self,
             tx: Transaction,
@@ -106,6 +128,7 @@ mod ledger_impl {
 mod ledger_impl {
     use super::Error;
     use crate::xdr::{DecoratedSignature, Transaction};
+    use ed25519_dalek::Signature as Ed25519Signature;
     use std::marker::PhantomData;
 
     pub type LedgerType = Ledger<GenericExchange>;
@@ -115,20 +138,29 @@ mod ledger_impl {
         _marker: PhantomData<T>,
     }
 
+    pub struct LedgerEntry {
+        pub hd_path: u32,
+        pub public_key: Option<stellar_strkey::ed25519::PublicKey>,
+    }
+
+    impl LedgerEntry {
+        #[allow(clippy::unused_async)]
+        pub async fn sign_tx_hash(&self, _tx_hash: [u8; 32]) -> Result<DecoratedSignature, Error> {
+            Err(Error::FeatureNotEnabled)
+        }
+
+        #[allow(clippy::unused_async)]
+        pub async fn sign_payload(&self, _payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
+            Err(Error::FeatureNotEnabled)
+        }
+    }
+
     #[allow(clippy::unused_async)]
     pub async fn new(_hd_path: u32) -> Result<Ledger<GenericExchange>, Error> {
         Err(Error::FeatureNotEnabled)
     }
 
     impl<T: Exchange> Ledger<T> {
-        #[allow(clippy::unused_async)]
-        pub async fn sign_transaction_hash(
-            &self,
-            _tx_hash: &[u8; 32],
-        ) -> Result<DecoratedSignature, Error> {
-            Err(Error::FeatureNotEnabled)
-        }
-
         #[allow(clippy::unused_async)]
         pub async fn sign_transaction(
             &self,

@@ -29,7 +29,7 @@ impl Cmd {
             .address
             .name
             .as_ref()
-            .map_or_else(|| addr.to_string(), ToString::to_string);
+            .map_or_else(|| format!("{addr}"), ToString::to_string);
         network.fund_address(&addr).await?;
         print.checkln(format!(
             "Account {} funded on {:?}",

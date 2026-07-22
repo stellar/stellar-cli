@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     ScSpecEntry, ScSpecTypeDef as ScType, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
     ScSpecUdtUnionCaseV0,
 };
@@ -124,7 +124,7 @@ fn find_undefined_types(
     match entry {
         ScSpecEntry::FunctionV0(f) => {
             let fn_name = f.name.to_utf8_string_lossy();
-            for input in f.inputs.iter() {
+            for input in &f.inputs {
                 let input_name = input.name.to_utf8_string_lossy();
                 check_type(
                     &format!("function '{fn_name}' input '{input_name}'"),
@@ -133,7 +133,7 @@ fn find_undefined_types(
                     warnings,
                 );
             }
-            for output in f.outputs.iter() {
+            for output in &f.outputs {
                 check_type(
                     &format!("function '{fn_name}' output"),
                     output,
@@ -144,7 +144,7 @@ fn find_undefined_types(
         }
         ScSpecEntry::EventV0(e) => {
             let event_name = e.name.to_utf8_string_lossy();
-            for param in e.params.iter() {
+            for param in &e.params {
                 let param_name = param.name.to_utf8_string_lossy();
                 check_type(
                     &format!("event '{event_name}' param '{param_name}'"),
@@ -156,7 +156,7 @@ fn find_undefined_types(
         }
         ScSpecEntry::UdtStructV0(s) => {
             let struct_name = s.name.to_utf8_string_lossy();
-            for field in s.fields.iter() {
+            for field in &s.fields {
                 let field_name = field.name.to_utf8_string_lossy();
                 check_type(
                     &format!("struct '{struct_name}' field '{field_name}'"),
@@ -168,7 +168,7 @@ fn find_undefined_types(
         }
         ScSpecEntry::UdtUnionV0(u) => {
             let union_name = u.name.to_utf8_string_lossy();
-            for case in u.cases.iter() {
+            for case in &u.cases {
                 if let ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                     name,
                     type_,
@@ -176,7 +176,7 @@ fn find_undefined_types(
                 }) = case
                 {
                     let case_name = name.to_utf8_string_lossy();
-                    for t in type_.iter() {
+                    for t in type_ {
                         check_type(
                             &format!("union '{union_name}' case '{case_name}'"),
                             t,
@@ -215,7 +215,7 @@ fn collect_udt_names(type_def: &ScType) -> Vec<String> {
 mod tests {
     use std::str::FromStr;
 
-    use stellar_xdr::curr::{
+    use stellar_xdr::{
         ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
         ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtStructV0, ScSymbol, StringM,
     };
@@ -237,7 +237,7 @@ mod tests {
             name: StringM::from_str(name).unwrap(),
             fields: field_types
                 .into_iter()
-                .map(|(fname, ftype)| stellar_xdr::curr::ScSpecUdtStructFieldV0 {
+                .map(|(fname, ftype)| stellar_xdr::ScSpecUdtStructFieldV0 {
                     doc: StringM::default(),
                     name: StringM::from_str(fname).unwrap(),
                     type_: ftype,
@@ -254,7 +254,7 @@ mod tests {
             name: ScSymbol(name.try_into().unwrap()),
             inputs: inputs
                 .into_iter()
-                .map(|(n, t)| stellar_xdr::curr::ScSpecFunctionInputV0 {
+                .map(|(n, t)| stellar_xdr::ScSpecFunctionInputV0 {
                     doc: StringM::default(),
                     name: StringM::from_str(n).unwrap(),
                     type_: t,

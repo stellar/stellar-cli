@@ -267,6 +267,60 @@ pub mod http {
     }
 }
 
+pub mod url {
+    use url::Url;
+
+    /// Returns the given URL with any password component replaced by the literal
+    /// `redacted`. If the URL is not parseable, it is returned unchanged.
+    pub fn redact_url(url: &str) -> String {
+        let Ok(mut url) = Url::parse(url) else {
+            return url.to_string();
+        };
+        if url.password().is_some() {
+            let _ = url.set_password(Some("redacted"));
+        }
+        url.to_string()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn leaves_url_without_password_unchanged() {
+            let plain = "https://rpc.example.com/soroban";
+            assert_eq!(redact_url(plain), plain);
+
+            let user_only = "https://alice@rpc.example.com/soroban";
+            assert_eq!(redact_url(user_only), user_only);
+        }
+
+        #[test]
+        fn replaces_password_with_placeholder() {
+            let with_password = "https://alice:supersecret@rpc.example.com/soroban";
+            let redacted = redact_url(with_password);
+            assert!(
+                !redacted.contains("supersecret"),
+                "password leaked: {redacted}"
+            );
+            assert!(
+                redacted.contains("alice:redacted"),
+                "expected `alice:redacted`: {redacted}"
+            );
+            assert!(
+                redacted.contains("rpc.example.com/soroban"),
+                "expected host and path preserved: {redacted}"
+            );
+        }
+
+        #[test]
+        fn returns_input_when_unparseable() {
+            let bad = "not a url";
+            assert_eq!(redact_url(bad), bad);
+        }
+    }
+}
+
 pub mod args {
     #[derive(thiserror::Error, Debug)]
     pub enum DeprecatedError<'a> {
@@ -307,7 +361,7 @@ pub mod args {
 pub mod rpc {
     use crate::xdr;
     use soroban_rpc::{Client, Error};
-    use stellar_xdr::curr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
+    use stellar_xdr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
 
     pub async fn get_remote_wasm_from_hash(client: &Client, hash: &Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });
@@ -370,7 +424,7 @@ mod tests {
     #[test]
     fn test_verify_wasm_hash_matching() {
         use sha2::{Digest, Sha256};
-        use stellar_xdr::curr::Hash;
+        use stellar_xdr::Hash;
 
         let wasm_bytes = b"\0asm fake wasm content";
         let correct_hash = Hash(Sha256::digest(wasm_bytes).into());
@@ -379,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_verify_wasm_hash_mismatch() {
-        use stellar_xdr::curr::Hash;
+        use stellar_xdr::Hash;
 
         let wasm_bytes = b"\0asm fake wasm content";
         let wrong_hash = Hash([0xAB; 32]);

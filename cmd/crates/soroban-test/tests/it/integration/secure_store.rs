@@ -169,4 +169,35 @@ async fn secure_store_key_management() {
         "expected cached public_key to match the address derived at hd_path 5, \
          but identity file was:\n{identity_toml}"
     );
+
+    // Strip the cached public_key but keep hd_path = 5: simulates a legacy
+    // identity that persisted hd_path but never cached the derived pubkey.
+    // `keys address` without --hd-path must rederive at the persisted index 5
+    // and write the index-5 pubkey back to the cache — not silently overwrite
+    // it with the index-0 pubkey.
+    let stripped: String = identity_toml
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("public_key"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&identity_path, stripped).unwrap();
+
+    let address_after_rederive = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", add_hd_path])
+        .assert()
+        .success()
+        .stdout_as_str();
+    assert_eq!(
+        address_after_rederive.trim(),
+        address_hd_path.trim(),
+        "expected `keys address {add_hd_path}` (no --hd-path) to derive at the persisted hd_path 5"
+    );
+
+    let identity_toml = std::fs::read_to_string(&identity_path).unwrap();
+    assert!(
+        identity_toml.contains(&format!("public_key = \"{}\"", address_hd_path.trim())),
+        "expected cache write-back to use the persisted hd_path, \
+         but identity file was:\n{identity_toml}"
+    );
 }

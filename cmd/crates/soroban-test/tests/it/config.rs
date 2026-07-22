@@ -50,6 +50,99 @@ fn set_and_remove_network() {
     });
 }
 
+// When `--output json*` is requested, a failing command must render a
+// structured `{ "error": { "message": … } }` envelope on stdout and exit
+// non-zero, so machine consumers can parse the failure and still detect it via
+// the exit code. An unreachable RPC is a representative, network-free failure.
+#[test]
+fn json_output_renders_structured_errors_and_exits_non_zero() {
+    let sandbox = TestEnv::default();
+
+    for format in ["json", "json-formatted"] {
+        let stdout = sandbox
+            .new_assert_cmd("network")
+            .arg("health")
+            .args([
+                "--rpc-url=http://127.0.0.1:1",
+                "--network-passphrase",
+                LOCAL_NETWORK_PASSPHRASE,
+                &format!("--output={format}"),
+            ])
+            .assert()
+            .failure()
+            .stdout_as_str();
+
+        let value: serde_json::Value = serde_json::from_str(&stdout)
+            .unwrap_or_else(|e| panic!("invalid JSON ({format}): {e}\n{stdout}"));
+
+        assert!(
+            value
+                .get("error")
+                .and_then(|error| error.get("message"))
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "expected an `error.message` string ({format}), got: {stdout}"
+        );
+    }
+}
+
+// The JSON error envelope is scoped to commands migrated to the `Output`
+// system. A command that is *not* migrated (here `ledger latest`) must keep its
+// previous failure behavior even when invoked with `--output json`: no envelope
+// on stdout, the human `error:` line on stderr, and a non-zero exit. This guards
+// against silently changing the failure contract of unmigrated commands.
+#[test]
+fn non_migrated_command_keeps_human_error_line_in_json_mode() {
+    let sandbox = TestEnv::default();
+
+    sandbox
+        .new_assert_cmd("ledger")
+        .arg("latest")
+        .args([
+            "--rpc-url=http://127.0.0.1:1",
+            "--network-passphrase",
+            LOCAL_NETWORK_PASSPHRASE,
+            "--output=json",
+        ])
+        .assert()
+        .failure()
+        .stdout("")
+        .stderr(predicate::str::contains("error:"));
+}
+
+// `network settings` defaults its `--output` to json, so a failure with no
+// explicit flag must still render the structured JSON envelope on stdout (and
+// exit non-zero). This is resolved by reading the parsed command's own output
+// value rather than sniffing raw args, which cannot see per-command defaults.
+#[test]
+fn migrated_command_default_json_renders_structured_error() {
+    let sandbox = TestEnv::default();
+
+    let stdout = sandbox
+        .new_assert_cmd("network")
+        .arg("settings")
+        .args([
+            "--rpc-url=http://127.0.0.1:1",
+            "--network-passphrase",
+            LOCAL_NETWORK_PASSPHRASE,
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+
+    let value: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("invalid JSON: {e}\n{stdout}"));
+
+    assert!(
+        value
+            .get("error")
+            .and_then(|error| error.get("message"))
+            .and_then(serde_json::Value::as_str)
+            .is_some(),
+        "expected an `error.message` string, got: {stdout}"
+    );
+}
+
 fn add_network(sandbox: &TestEnv, name: &str) {
     sandbox
         .new_assert_cmd("network")
@@ -776,6 +869,23 @@ fn env_does_not_display_secret_key() {
 }
 
 #[test]
+fn env_does_display_secret_key_when_reveal_is_provided() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .arg("--reveal")
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout(predicate::str::contains(
+            "STELLAR_SECRET_KEY=SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        ))
+        .success();
+}
+
+#[test]
 fn env_single_concealed_key_returns_empty() {
     let sandbox = TestEnv::default();
     sandbox
@@ -787,6 +897,21 @@ fn env_single_concealed_key_returns_empty() {
         )
         .assert()
         .stdout("")
+        .success();
+}
+
+#[test]
+fn env_single_is_returned_when_using_reveal() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("env")
+        .args(["STELLAR_SECRET_KEY", "--reveal"])
+        .env(
+            "STELLAR_SECRET_KEY",
+            "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD",
+        )
+        .assert()
+        .stdout("SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD\n")
         .success();
 }
 
@@ -867,5 +992,212 @@ fn contract_alias_add_rejects_path_traversal() {
             .assert()
             .failure()
             .stderr(predicate::str::contains("Invalid name"));
+    });
+}
+
+#[test]
+fn native_alias_resolves_to_native_asset_contract() {
+    TestEnv::with_default(|sandbox| {
+        let native_sac = sandbox
+            .new_assert_cmd("contract")
+            .args(["id", "asset", "--asset", "native"])
+            .assert()
+            .success()
+            .stdout_as_str();
+
+        let resolved = sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "show", "native"])
+            .assert()
+            .success()
+            .stdout_as_str();
+
+        assert_eq!(native_sac, resolved);
+    });
+}
+
+#[test]
+fn cannot_add_reserved_native_alias() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("alias")
+            .arg("add")
+            .arg("native")
+            .arg("--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn can_remove_shadowed_native_alias() {
+    TestEnv::with_default(|sandbox| {
+        // A `native` alias created before it became reserved can still be
+        // removed to clean up the shadowed file.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "remove", "native"])
+            .assert()
+            .success();
+
+        // The shadowed entry is gone; only the built-in remains.
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("(built-in)")
+                    .and(predicate::str::contains("(disabled)").not()),
+            );
+    });
+}
+
+#[test]
+fn alias_ls_always_shows_builtin_native() {
+    TestEnv::with_default(|sandbox| {
+        // A user alias makes a network group appear in the listing.
+        sandbox
+            .new_assert_cmd("contract")
+            .args([
+                "alias",
+                "add",
+                "my-token",
+                "--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+            ])
+            .assert()
+            .success();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("native:").and(predicate::str::contains("(built-in)")),
+            );
+    });
+}
+
+#[test]
+fn alias_ls_marks_preexisting_native_alias_disabled() {
+    TestEnv::with_default(|sandbox| {
+        // Simulate a `native` alias created before it became a reserved
+        // built-in. It is now shadowed and should be listed as disabled.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "ls"])
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("(disabled)").and(predicate::str::contains("(built-in)")),
+            );
+    });
+}
+
+#[test]
+fn remove_native_without_stored_file_reports_reserved() {
+    TestEnv::with_default(|sandbox| {
+        // No stored `native.json` exists (the normal case, since `alias add
+        // native` is blocked). Removal must say the alias is reserved, matching
+        // what `ls` and `show` report, not "no contract found".
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "remove", "native"])
+            .assert()
+            .failure()
+            .stderr(
+                predicate::str::contains("reserved")
+                    .and(predicate::str::contains("no contract found").not()),
+            );
+    });
+}
+
+#[test]
+fn cannot_generate_reserved_native_key() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("generate")
+            .arg("--seed")
+            .arg("0000000000000000")
+            .arg("native")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn cannot_add_reserved_native_key() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("keys")
+            .arg("add")
+            .arg("native")
+            .env(
+                "STELLAR_SECRET_KEY",
+                "SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY",
+            )
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn shadowed_native_alias_errors_on_show() {
+    TestEnv::with_default(|sandbox| {
+        // A `native` alias stored before the name became reserved points at a
+        // different contract; resolving it must error rather than silently
+        // returning the native asset contract.
+        let contract_ids = sandbox.config_dir().join("contract-ids");
+        fs::create_dir_all(&contract_ids).unwrap();
+        fs::write(
+            contract_ids.join("native.json"),
+            r#"{"ids":{"Standalone Network ; February 2017":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}"#,
+        )
+        .unwrap();
+
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "show", "native"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
+    });
+}
+
+#[test]
+fn cannot_deploy_with_reserved_native_alias() {
+    // The reserved alias must be rejected before building, simulating, or
+    // deploying, so this fails fast without needing a network.
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .arg("deploy")
+            .arg("--alias=native")
+            .arg("--wasm=/does/not/matter.wasm")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("reserved"));
     });
 }

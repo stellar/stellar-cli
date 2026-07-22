@@ -5,11 +5,14 @@ use std::fmt::Debug;
 #[group(skip)]
 pub struct Cmd {
     /// Print only the version.
-    #[arg(long)]
+    #[arg(long, group = "only")]
     only_version: bool,
     /// Print only the major version.
-    #[arg(long)]
+    #[arg(long, group = "only")]
     only_version_major: bool,
+    /// Print only the commit sha.
+    #[arg(long, group = "only")]
+    only_commit: bool,
 }
 
 impl Cmd {
@@ -19,6 +22,8 @@ impl Cmd {
             println!("{}", pkg());
         } else if self.only_version_major {
             println!("{}", major());
+        } else if self.only_commit {
+            println!("{}", git());
         } else {
             println!("stellar {}", long());
         }
@@ -49,8 +54,8 @@ pub fn long() -> String {
         format!("{}{git_rev}", pkg()),
         format!(
             "stellar-xdr {} ({})
-xdr curr ({})",
-            xdr.pkg, xdr.rev, xdr.xdr_curr,
+xdr ({})",
+            xdr.pkg, xdr.rev, xdr.xdr,
         ),
     ]
     .join("\n")

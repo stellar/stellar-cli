@@ -6,19 +6,22 @@
 use std::path::Path;
 
 pub(crate) use soroban_rpc as rpc;
-pub use stellar_xdr::curr as xdr;
+pub use stellar_xdr as xdr;
 
 mod cli;
 pub use cli::main;
 
 pub mod assembled;
+pub mod auth_mode;
 pub mod color;
 pub mod commands;
 pub mod config;
 mod env_vars;
+pub mod fixed_point;
 pub mod get_spec;
 pub mod key;
 pub mod log;
+pub mod output;
 pub mod print;
 pub mod resources;
 pub mod signer;

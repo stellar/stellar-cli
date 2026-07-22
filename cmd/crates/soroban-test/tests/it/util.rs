@@ -18,6 +18,7 @@ pub fn add_key(dir: &Path, name: &str, kind: SecretKind, data: &str) {
     let secret = match kind {
         SecretKind::Seed => Secret::SeedPhrase {
             seed_phrase: data.to_string(),
+            hd_path: None,
         },
         SecretKind::Key => Secret::SecretKey {
             secret_key: data.to_string(),

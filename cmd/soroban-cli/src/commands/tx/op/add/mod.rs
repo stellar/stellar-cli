@@ -135,7 +135,7 @@ impl TryFrom<&Cmd> for OperationBody {
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
-    pub async fn run(&self, _: &global::Args) -> Result<(), Error> {
+    pub fn run(&self, _: &global::Args) -> Result<(), Error> {
         let op = OperationBody::try_from(self)?;
         let res = match self {
             Cmd::AccountMerge(cmd) => cmd.op.tx.add_op(
@@ -248,8 +248,7 @@ impl Cmd {
                 tx_envelope_from_input(&cmd.args.tx_xdr)?,
                 cmd.args.source(),
             ),
-        }
-        .await?;
+        }?;
         println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
         Ok(())
     }

@@ -14,7 +14,7 @@ use std::{
     str::FromStr,
     time::{Duration, Instant},
 };
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, AccountId, Asset, BucketEntry, ConfigSettingEntry, ContractExecutable, Frame,
     Hash, LedgerEntryData, LedgerHeaderHistoryEntry, LedgerKey, Limited, Limits, ReadXdr,
     ScAddress, ScContractInstance, ScVal,
@@ -31,7 +31,10 @@ use crate::{
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
 };
-use crate::{config::address::UnresolvedMuxedAccount, utils::http};
+use crate::{
+    config::address::UnresolvedMuxedAccount,
+    utils::{http, url::redact_url},
+};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
 pub enum Output {
@@ -487,9 +490,7 @@ impl Cmd {
     // G-address or a key name (as in `stellar keys address NAME`).
     fn resolve_account_sync(&self, address: &str) -> Option<AccountId> {
         let address: UnresolvedMuxedAccount = address.parse().ok()?;
-        let muxed_account = address
-            .resolve_muxed_account_sync(&self.locator, None)
-            .ok()?;
+        let muxed_account = address.resolve_muxed_account(&self.locator, None).ok()?;
         Some(muxed_account.account_id())
     }
 
@@ -497,7 +498,7 @@ impl Cmd {
     // C-address or a contract alias.
     fn resolve_contract(&self, address: &str, network_passphrase: &str) -> Option<ScAddress> {
         address.parse().ok().or_else(|| {
-            Some(ScAddress::Contract(stellar_xdr::curr::ContractId(
+            Some(ScAddress::Contract(stellar_xdr::ContractId(
                 self.locator
                     .resolve_contract_id(address, network_passphrase)
                     .ok()?
@@ -561,7 +562,10 @@ async fn get_history(
     };
     let history_url = Url::from_str(&history_url).unwrap();
 
-    print.globeln(format!("Downloading history {history_url}"));
+    print.globeln(format!(
+        "Downloading history {}",
+        redact_url(history_url.as_str())
+    ));
 
     let response = http::client()
         .get(history_url.as_str())
@@ -591,7 +595,10 @@ async fn get_history(
         .map_err(Error::ReadHistoryHttpStream)?;
 
     print.clear_previous_line();
-    print.globeln(format!("Downloaded history {}", &history_url));
+    print.globeln(format!(
+        "Downloaded history {}",
+        redact_url(history_url.as_str())
+    ));
 
     serde_json::from_slice::<History>(&body).map_err(Error::JsonDecodingHistory)
 }
@@ -610,9 +617,13 @@ async fn get_ledger_metadata_from_archive(
         "{archive_url}/ledger/{ledger_hex_0}/{ledger_hex_1}/{ledger_hex_2}/ledger-{ledger_hex}.xdr.gz"
     );
 
-    print.globeln(format!("Downloading ledger headers {ledger_url}"));
-
     let ledger_url = Url::from_str(&ledger_url).map_err(Error::ParsingBucketUrl)?;
+
+    print.globeln(format!(
+        "Downloading ledger headers {}",
+        redact_url(ledger_url.as_str())
+    ));
+
     let response = http::client()
         .get(ledger_url.as_str())
         .send()
@@ -649,6 +660,7 @@ async fn get_ledger_metadata_from_archive(
     }
 
     fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+    let _ = crate::config::locator::set_hardened_permissions(&cache_path);
 
     print.clear_previous_line();
     print.globeln(format!("Downloaded ledger headers for ledger {ledger}"));
@@ -762,6 +774,7 @@ async fn cache_bucket(
         }
 
         fs::rename(&dl_path, &cache_path).map_err(Error::RenameDownloadFile)?;
+        let _ = crate::config::locator::set_hardened_permissions(&cache_path);
     }
     Ok(cache_path)
 }

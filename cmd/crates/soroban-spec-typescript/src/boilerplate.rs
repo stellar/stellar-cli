@@ -6,7 +6,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
 };
-use stellar_xdr::curr::ScSpecEntry;
+use stellar_xdr::ScSpecEntry;
 
 use super::{generate, sanitize_string, validate_npm_package_name};
 
@@ -227,7 +227,7 @@ mod test {
     // TODO : fix the test below :
     // the test below should verify only a certain subset of the files were copied
     // rather then the entire directory.
-    #[ignore]
+    #[ignore = "compares the entire output directory; needs narrowing to the copied subset (see TODO above)"]
     #[test]
     fn test_project_dir_location() {
         // TODO: Ensure windows support
@@ -240,7 +240,7 @@ mod test {
         assert_dirs_equal(temp_dir.path(), &fixture);
     }
 
-    #[ignore]
+    #[ignore = "regenerates the ts snapshot fixtures; run manually"]
     #[test]
     fn build_package() {
         let root = PathBuf::from("./fixtures/ts");
@@ -343,7 +343,6 @@ mod test {
                 let content2 = fs::read_to_string(path2).unwrap();
                 pretty_assertions::assert_eq!(content1, content2, "{:?} != {:?}", path1, path2);
             } else if path1.is_dir() && path2.is_dir() {
-                continue;
             } else {
                 panic!(
                     "{:?} is not a file",

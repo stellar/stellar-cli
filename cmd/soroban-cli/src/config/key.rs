@@ -30,7 +30,7 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn muxed_account(&self, hd_path: Option<usize>) -> Result<xdr::MuxedAccount, Error> {
+    pub fn muxed_account(&self, hd_path: Option<u32>) -> Result<xdr::MuxedAccount, Error> {
         let bytes = match self {
             Key::Secret(secret) => secret.public_key(hd_path)?.0,
             Key::PublicKey(Public(key)) => key.0,
@@ -49,7 +49,7 @@ impl Key {
 
     pub fn private_key(
         &self,
-        hd_path: Option<usize>,
+        hd_path: Option<u32>,
     ) -> Result<stellar_strkey::ed25519::PrivateKey, Error> {
         match self {
             Key::Secret(secret) => Ok(secret.private_key(hd_path)?),
@@ -177,7 +177,7 @@ mod test {
     }
     #[test]
     fn secret_key() {
-        let secret_key = stellar_strkey::ed25519::PrivateKey([0; 32]).to_string();
+        let secret_key = format!("{}", stellar_strkey::ed25519::PrivateKey([0; 32]));
         let secret = Secret::SecretKey { secret_key };
         let key = Key::Secret(secret);
         round_trip(&key);
@@ -185,7 +185,10 @@ mod test {
     #[test]
     fn secret_seed_phrase() {
         let seed_phrase = "singer swing mango apple singer swing mango apple singer swing mango apple singer swing mango apple".to_string();
-        let secret = Secret::SeedPhrase { seed_phrase };
+        let secret = Secret::SeedPhrase {
+            seed_phrase,
+            hd_path: None,
+        };
         let key = Key::Secret(secret);
         round_trip(&key);
     }
@@ -224,7 +227,7 @@ mod test {
     #[test]
     fn parse_public_only_rejects_ledger() {
         let err = Key::parse_public_only("ledger").unwrap_err();
-        assert!(matches!(err, Error::PublicKeyExpected));
+        assert!(matches!(err, Error::Parse));
     }
 
     #[test]

@@ -68,7 +68,7 @@ pub struct Cmd {
 
     /// If public key identity is a seed phrase use this hd path, default is 0
     #[arg(long)]
-    pub hd_path: Option<usize>,
+    pub hd_path: Option<u32>,
 
     #[command(flatten)]
     pub locator: locator::Args,
@@ -78,7 +78,7 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
 
-        // Create the SEP-53 payload: prefix + message as utf-8 byte array
+        // Create the SEP-53 payload: prefix + message bytes (UTF-8, or raw bytes when --base64)
         let message_bytes = self.get_message_bytes()?;
         let mut payload = Vec::with_capacity(SEP53_PREFIX.len() + message_bytes.len());
         payload.extend_from_slice(SEP53_PREFIX.as_bytes());
@@ -302,23 +302,6 @@ mod tests {
             base64: false,
             signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
             public_key: seed_phrase.to_string(),
-            hd_path: None,
-            locator: setup_locator(),
-        };
-        let err = cmd.run(&global_args()).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::Key(crate::config::key::Error::PublicKeyExpected)
-        ));
-    }
-
-    #[test]
-    fn test_verify_rejects_ledger_as_public_key() {
-        let cmd = super::Cmd {
-            message: Some("Hello, World!".to_string()),
-            base64: false,
-            signature: "fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==".to_string(),
-            public_key: "ledger".to_string(),
             hd_path: None,
             locator: setup_locator(),
         };

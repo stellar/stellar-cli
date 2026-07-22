@@ -24,6 +24,7 @@ use crate::{
         contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     print::Print,
@@ -65,8 +66,10 @@ pub struct Cmd {
     pub alias: Option<AliasName>,
     #[command(flatten)]
     pub resources: resources::Args,
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
@@ -155,11 +158,17 @@ pub enum Error {
     #[error(transparent)]
     Build(#[from] build::Error),
 
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
+
     #[error("no buildable contracts found in workspace (no packages with crate-type cdylib)")]
     NoBuildableContracts,
 
     #[error("--alias is not supported when deploying multiple contracts; aliases are derived from package names automatically")]
     AliasNotSupported,
+
+    #[error("workspace package '{0}' resolves to the reserved contract alias '{0}'; rename the package, or deploy it on its own with `--package {0} --alias <name>`")]
+    ReservedPackageAlias(String),
 
     #[error("--salt is not supported when deploying multiple contracts")]
     SaltNotSupported,
@@ -178,11 +187,21 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         if self.build_only && self.wasm.is_none() && self.wasm_hash.is_none() {
             return Err(Error::BuildOnlyNotSupported);
         }
 
         let built_contracts = self.resolve_contracts(global_args)?;
+
+        // Aliases derived from workspace package names are assigned per-iteration
+        // inside the deploy loop, so validate them all up front: a package named
+        // after a reserved alias must fail before any contract is deployed
+        // on-chain, not partway through the loop.
+        if let Some(name) = reserved_package_alias(self.alias.as_ref(), &built_contracts) {
+            return Err(Error::ReservedPackageAlias(name));
+        }
 
         // When --wasm-hash is used, no built contracts are returned.
         // Deploy directly with the hash.
@@ -222,6 +241,14 @@ impl Cmd {
     }
 
     async fn run_single(cmd: &Cmd, global_args: &global::Args) -> Result<(), Error> {
+        // Validate the finalized alias (explicit or package-derived) at the
+        // point of use, before any on-chain work. `run` rejects a reserved
+        // package name up front to avoid a partial multi-contract deploy; this
+        // is the single guard for the single-contract and `--wasm-hash` paths.
+        if let Some(alias) = &cmd.alias {
+            crate::config::alias::validate_reserved_aliases(alias)?;
+        }
+
         let res = cmd
             .execute(&cmd.config, global_args.quiet, global_args.no_cache)
             .await?
@@ -242,7 +269,7 @@ impl Cmd {
                     {
                         let print = Print::new(global_args.quiet);
                         print.warnln(format!(
-                            "Overwriting existing alias {alias:?} that currently links to contract ID: {existing_contract}"
+                            "Overwriting existing alias '{alias}' that currently links to contract ID: {existing_contract}"
                         ));
                     }
 
@@ -302,6 +329,8 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = Print::new(quiet);
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let is_build = self.build_only;
@@ -313,6 +342,7 @@ impl Cmd {
                     wasm: Some(wasm.clone()),
                     config: config.clone(),
                     resources: self.resources.clone(),
+                    auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
                     package: None,
@@ -352,7 +382,7 @@ impl Cmd {
         };
 
         let client = network.rpc_client()?;
-        let MuxedAccount::Ed25519(bytes) = config.source_account().await? else {
+        let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
         let source_account = AccountId(PublicKey::PublicKeyTypeEd25519(bytes));
@@ -372,26 +402,24 @@ impl Cmd {
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
-        let constructor_params = if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
-            if func.inputs.is_empty() {
-                None
-            } else {
-                let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
-                slop.extend_from_slice(&self.slop);
-                Some(
-                    arg_parsing::build_constructor_parameters(
+        let (constructor_params, constructor_signers) =
+            if let Ok(func) = res.find_function(CONSTRUCTOR_FUNCTION_NAME) {
+                if func.inputs.is_empty() {
+                    (None, vec![])
+                } else {
+                    let mut slop = vec![OsString::from(CONSTRUCTOR_FUNCTION_NAME)];
+                    slop.extend_from_slice(&self.slop);
+                    let (_, _, invoke_args, signers) = arg_parsing::build_constructor_parameters(
                         &stellar_strkey::Contract(contract_id.0),
                         &slop,
                         &entries,
                         config,
-                    )
-                    .await?
-                    .2,
-                )
-            }
-        } else {
-            None
-        };
+                    )?;
+                    (Some(invoke_args), signers)
+                }
+            } else {
+                (None, vec![])
+            };
 
         // For network operations, verify the network passphrase
         client
@@ -415,8 +443,17 @@ impl Cmd {
             return Ok(TxnResult::Txn(txn));
         }
 
-        sim_sign_and_send_tx::<Error>(&client, &txn, config, &self.resources, &[], quiet, no_cache)
-            .await?;
+        sim_sign_and_send_tx::<Error>(
+            &client,
+            &txn,
+            config,
+            &self.resources,
+            &constructor_signers,
+            self.auth_mode.to_rpc(),
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
@@ -425,6 +462,23 @@ impl Cmd {
 
         Ok(TxnResult::Res(contract_id))
     }
+}
+
+/// Returns the name of the first built contract whose package-derived alias
+/// would be reserved. Explicit `--alias` is validated separately (and rejected
+/// entirely for multi-contract deploys), so an explicit alias short-circuits.
+fn reserved_package_alias(
+    explicit_alias: Option<&AliasName>,
+    built_contracts: &[build::BuiltContract],
+) -> Option<String> {
+    if explicit_alias.is_some() {
+        return None;
+    }
+
+    built_contracts.iter().find_map(|contract| {
+        (!contract.name.is_empty() && crate::config::alias::is_reserved(&contract.name))
+            .then(|| contract.name.clone())
+    })
 }
 
 fn build_create_contract_tx(
@@ -505,5 +559,40 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    fn built(name: &str) -> build::BuiltContract {
+        build::BuiltContract {
+            name: name.to_string(),
+            path: std::path::PathBuf::new(),
+        }
+    }
+
+    #[test]
+    fn reserved_package_alias_flags_reserved_package_before_deploy() {
+        let native = crate::config::alias::NATIVE;
+        let contracts = [built("adapter"), built(native), built("token")];
+
+        assert_eq!(
+            reserved_package_alias(None, &contracts),
+            Some(native.to_string())
+        );
+    }
+
+    #[test]
+    fn reserved_package_alias_ignores_regular_packages() {
+        let contracts = [built("adapter"), built("token")];
+
+        assert_eq!(reserved_package_alias(None, &contracts), None);
+    }
+
+    #[test]
+    fn reserved_package_alias_skipped_with_explicit_alias() {
+        // An explicit --alias is validated on its own path; a reserved package
+        // name is irrelevant because the derived alias is never used.
+        let alias = "my-contract".parse::<AliasName>().unwrap();
+        let contracts = [built(crate::config::alias::NATIVE)];
+
+        assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
     }
 }

@@ -62,6 +62,9 @@ serde_json = { workspace = true }
 serde-aux = { workspace = true }
 hex = { workspace = true }
 num-bigint = "0.4"
+# Pinned to match the version pulled in by soroban-rpc (jsonrpsee-core) so that
+# downcasting RPC errors to `ErrorObjectOwned` resolves to the same type.
+jsonrpsee-types = "0.26"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.11", features = ["io", "io-util", "compat"] }
 termcolor = { workspace = true }
@@ -107,7 +110,6 @@ shell-escape = "0.1.5"
 tempfile = "3.8.1"
 toml_edit = { workspace = true }
 rust-embed = { version = "8.2.0", features = ["debug-embed"] }
-bollard = { workspace = true }
 futures-util = "0.3.30"
 futures = "0.3.30"
 home = "0.5.9"
@@ -128,7 +130,7 @@ serde_with = "3.11.0"
 rustc_version = "0.4.1"
 
 [build-dependencies]
-crate-git-revision = "0.0.6"
+crate-git-revision = "0.0.9"
 serde.workspace = true
 thiserror.workspace = true
 

@@ -24,6 +24,7 @@ use crate::{
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, locator, network},
     get_spec::{self, get_remote_contract_spec},
@@ -65,12 +66,15 @@ pub struct Cmd {
     #[command(flatten)]
     pub resources: crate::resources::Args,
 
+    #[command(flatten)]
+    pub auth_mode: crate::auth_mode::Args,
+
     /// Whether or not to send a transaction
     #[arg(long, value_enum, default_value_t, env = "STELLAR_SEND")]
     pub send: Send,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
@@ -162,6 +166,9 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    AuthMode(#[from] crate::auth_mode::Error),
 }
 
 impl From<Infallible> for Error {
@@ -245,17 +252,40 @@ impl Cmd {
             &tx,
             self.resources.resource_config(),
             self.resources.resource_fee,
+            self.auth_mode.to_rpc(),
         )
         .await?)
     }
 
-    #[allow(clippy::too_many_lines)]
+    /// Run the invocation and return only the decoded result, discarding the
+    /// transaction hash. Kept as the stable entry point for callers that just
+    /// need the rendered output (e.g. `contract invoke` itself).
     pub async fn execute(
         &self,
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
+        Ok(
+            match self.execute_with_receipt(config, quiet, no_cache).await? {
+                TxnResult::Txn(tx) => TxnResult::Txn(tx),
+                TxnResult::Res(receipt) => TxnResult::Res(receipt.output),
+            },
+        )
+    }
+
+    /// Run the invocation and return a [`InvokeReceipt`] pairing the decoded
+    /// result with the submitted transaction's hash. Typed clients (such as
+    /// `stellar token`) use this to build machine-readable receipts.
+    #[allow(clippy::too_many_lines)]
+    pub async fn execute_with_receipt(
+        &self,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<InvokeReceipt>, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
         let print = print::Print::new(quiet);
         let network = config.get_network()?;
 
@@ -269,7 +299,7 @@ impl Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
         }
 
         let client = network.rpc_client()?;
@@ -294,7 +324,7 @@ impl Cmd {
         .map_err(Error::from)?;
 
         let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config).await?;
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
 
         let (function, spec, host_function_params, signers) = params;
 
@@ -316,7 +346,7 @@ impl Cmd {
                 .await?;
 
             client
-                .get_account(&config.source_account().await?.to_string())
+                .get_account(&config.source_account()?.to_string())
                 .await?
         } else {
             if should_send == ShouldSend::DefaultNo {
@@ -338,7 +368,13 @@ impl Cmd {
             // fall back to raw format since we only have the spec for the invoked contract.
             crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-            return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
+            let output = output_to_string(&spec, &return_value[0].xdr, &function)?
+                .into_result()
+                .expect("output_to_string always returns a result");
+            return Ok(TxnResult::Res(InvokeReceipt {
+                tx_hash: None,
+                output,
+            }));
         };
 
         let sequence: i64 = account_details.seq_num.into();
@@ -361,11 +397,13 @@ impl Cmd {
             config,
             &self.resources,
             &signers,
+            self.auth_mode.to_rpc(),
             quiet,
             no_cache,
         )
         .await?;
 
+        let tx_hash = res.tx_hash.clone();
         let return_value = res.return_value()?;
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
@@ -375,8 +413,22 @@ impl Cmd {
         // fall back to raw format since we only have the spec for the invoked contract.
         crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-        Ok(output_to_string(&spec, &return_value, &function)?)
+        let output = output_to_string(&spec, &return_value, &function)?
+            .into_result()
+            .expect("output_to_string always returns a result");
+        Ok(TxnResult::Res(InvokeReceipt { tx_hash, output }))
     }
+}
+
+/// The outcome of a submitted contract invocation: the decoded return value
+/// alongside the hash of the transaction that produced it.
+#[derive(Debug, Clone)]
+pub struct InvokeReceipt {
+    /// Hex-encoded hash of the submitted transaction, or `None` when the
+    /// invocation resolved by simulation only (read-only) and was never sent.
+    pub tx_hash: Option<String>,
+    /// The decoded return value, rendered as a string (JSON for most types).
+    pub output: String,
 }
 
 const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));

@@ -1,12 +1,7 @@
-use std::collections::HashMap;
 use std::env;
+use std::process::Stdio;
 
-use bollard::{
-    models::ContainerCreateBody,
-    query_parameters::{CreateContainerOptions, CreateImageOptions, StartContainerOptions},
-    service::{HostConfig, PortBinding},
-};
-use futures_util::TryStreamExt;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::{
     commands::{
@@ -16,20 +11,20 @@ use crate::{
     print,
 };
 
-use super::shared::{Args, Name};
+use super::shared::{Args, Name, RunArgs};
 
 const DEFAULT_PORT_MAPPING: &str = "8000:8000";
 const DOCKER_IMAGE: &str = "docker.io/stellar/quickstart";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("⛔ ️Failed to connect to docker: {0}")]
-    DockerConnectionFailed(#[from] ConnectionError),
+    #[error(transparent)]
+    Docker(#[from] ConnectionError),
 
-    #[error("⛔ ️Failed to create container: {0}")]
-    CreateContainerFailed(#[from] bollard::errors::Error),
+    #[error("failed to create container: {0}")]
+    CreateContainerFailed(String),
 
-    #[error("⛔ ️ a container named {0:?} already running")]
+    #[error("a container named {0:?} already running")]
     ContainerAlreadyRunning(String),
 }
 
@@ -37,6 +32,9 @@ pub enum Error {
 pub struct Cmd {
     #[command(flatten)]
     pub container_args: Args,
+
+    #[command(flatten)]
+    pub run_args: RunArgs,
 
     /// Network to start. Default is `local`
     pub network: Option<Network>,
@@ -83,83 +81,87 @@ struct Runner {
 impl Runner {
     async fn run_docker_command(&self) -> Result<(), Error> {
         self.print
-            .infoln(format!("Starting {} network", &self.network));
+            .infoln(format!("Starting {} network", self.network));
 
-        let docker = self
-            .args
-            .container_args
-            .connect_to_docker(&self.print)
-            .await?;
+        self.args.container_args.warn_if_host_ignored(&self.print);
 
         let image = self.get_image_name();
-        let mut stream = docker.create_image(
-            Some(CreateImageOptions {
-                from_image: Some(image.clone()),
-                ..Default::default()
-            }),
-            None,
-            None,
-        );
+        self.pull_image(&image).await;
 
-        while let Some(result) = stream.try_next().await.transpose() {
-            if let Ok(item) = result {
-                if let Some(status) = item.status {
-                    if status.contains("Pulling from")
-                        || status.contains("Digest")
-                        || status.contains("Status")
-                    {
-                        self.print.infoln(status);
-                    }
-                }
-            } else {
-                self.print
-                    .warnln(format!("Failed to fetch image: {image}."));
-                self.print.warnln(
-                    "Attempting to start local quickstart image. The image may be out-of-date.",
-                );
-                break;
-            }
+        let container_name = self.container_name().get_internal_container_name();
+        let mut cmd = self
+            .args
+            .container_args
+            .run_command(&container_name, &self.args.ports_mapping);
+        self.args.run_args.apply(&mut cmd);
+        cmd.arg(&image);
+        // Each element of `get_container_args` is passed as a single argv token (some elements,
+        // such as "--enable rpc,horizon,lab", intentionally contain spaces).
+        for arg in self.get_container_args() {
+            cmd.arg(arg);
         }
-        let config = ContainerCreateBody {
-            image: Some(image),
-            cmd: Some(self.get_container_args()),
-            attach_stdout: Some(true),
-            attach_stderr: Some(true),
-            host_config: Some(HostConfig {
-                auto_remove: Some(true),
-                port_bindings: Some(self.get_port_mapping()),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
 
-        let create_container_response = docker
-            .create_container(
-                Some(CreateContainerOptions {
-                    name: Some(self.container_name().get_internal_container_name()),
-                    ..Default::default()
-                }),
-                config,
-            )
+        let output = cmd
+            .output()
             .await
-            .map_err(|e| match &e {
-                bollard::errors::Error::DockerResponseServerError { status_code, .. } => {
-                    if *status_code == 409 {
-                        return Error::ContainerAlreadyRunning(
-                            self.container_name().get_internal_container_name(),
-                        );
-                    }
-                    Error::CreateContainerFailed(e)
-                }
-                _ => Error::CreateContainerFailed(e),
-            })?;
+            .map_err(|e| self.args.container_args.io_error(e))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if self
+                .args
+                .container_args
+                .is_container_already_running(&stderr)
+            {
+                return Err(Error::ContainerAlreadyRunning(container_name));
+            }
+            return Err(Error::CreateContainerFailed(stderr.trim().to_string()));
+        }
 
-        docker
-            .start_container(&create_container_response.id, None::<StartContainerOptions>)
-            .await?;
         self.print.checkln("Started container");
         self.print_instructions();
         Ok(())
+    }
+
+    async fn pull_image(&self, image: &str) {
+        let mut cmd = self.args.container_args.pull_command(image);
+        cmd.stdout(Stdio::piped());
+
+        // `docker pull` writes its progress to stderr; honor `--quiet` by discarding it.
+        if self.print.quiet {
+            cmd.stderr(Stdio::null());
+        }
+
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            // Let the main `docker run` invocation surface the "is docker installed?" hint
+            // rather than warning about a failed image fetch.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => return self.warn_image_fetch(image),
+        };
+
+        if let Some(stdout) = child.stdout.take() {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.contains("Pulling from")
+                    || line.contains("Digest")
+                    || line.contains("Status")
+                {
+                    self.print.infoln(line);
+                }
+            }
+        }
+
+        match child.wait().await {
+            Ok(status) if status.success() => {}
+            _ => self.warn_image_fetch(image),
+        }
+    }
+
+    fn warn_image_fetch(&self, image: &str) {
+        self.print
+            .warnln(format!("Failed to fetch image: {image}."));
+        self.print
+            .warnln("Attempting to start local quickstart image. The image may be out-of-date.");
     }
 
     fn get_image_name(&self) -> String {
@@ -193,26 +195,6 @@ impl Runner {
         .filter(|&s| !s.is_empty())
         .cloned()
         .collect()
-    }
-
-    // The port mapping in the bollard crate is formatted differently than the docker CLI. In the docker CLI, we usually specify exposed ports as `-p  HOST_PORT:CONTAINER_PORT`. But with the bollard crate, it is expecting the port mapping to be a map of the container port (with the protocol) to the host port.
-    fn get_port_mapping(&self) -> HashMap<String, Option<Vec<PortBinding>>> {
-        let mut port_mapping_hash = HashMap::new();
-        for port_mapping in &self.args.ports_mapping {
-            let ports_vec: Vec<&str> = port_mapping.split(':').collect();
-            let from_port = ports_vec[0];
-            let to_port = ports_vec[1];
-
-            port_mapping_hash.insert(
-                format!("{to_port}/tcp"),
-                Some(vec![PortBinding {
-                    host_ip: None,
-                    host_port: Some(from_port.to_string()),
-                }]),
-            );
-        }
-
-        port_mapping_hash
     }
 
     fn container_name(&self) -> Name {

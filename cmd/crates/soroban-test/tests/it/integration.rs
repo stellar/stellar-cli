@@ -1,3 +1,4 @@
+mod auth;
 mod auto_build;
 mod bindings;
 mod constructor;
@@ -13,5 +14,6 @@ mod ledger;
 mod network;
 mod secure_store;
 mod snapshot;
+mod token;
 mod tx;
 mod util;

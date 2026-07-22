@@ -15,7 +15,7 @@ use std::{
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
-use stellar_xdr::curr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
+use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
@@ -101,16 +101,32 @@ pub struct Cmd {
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
-#[derive(Parser, Debug, Clone, Default)]
+#[derive(Parser, Debug, Clone)]
 pub struct BuildArgs {
     /// Add key-value to contract meta (adds the meta to the `contractmetav0` custom section)
     #[arg(long, num_args=1, value_parser=parse_meta_arg, action=clap::ArgAction::Append, help_heading = "Metadata")]
     pub meta: Vec<(String, String)>,
 
-    /// Optimize the generated wasm.
-    #[cfg_attr(feature = "additional-libs", arg(long))]
-    #[cfg_attr(not(feature = "additional-libs"), arg(long, hide = true))]
+    /// Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature.
+    #[arg(
+        long,
+        default_value_t = true,
+        default_missing_value = "true",
+        num_args = 0..=1,
+        action = clap::ArgAction::Set,
+    )]
     pub optimize: bool,
+}
+
+// Manual impl so `optimize` defaults to `true`, matching the CLI default.
+// `#[derive(Default)]` would set it to `false`.
+impl Default for BuildArgs {
+    fn default() -> Self {
+        Self {
+            meta: Vec::new(),
+            optimize: true,
+        }
+    }
 }
 
 pub fn parse_meta_arg(s: &str) -> Result<(String, String), Error> {
@@ -170,14 +186,11 @@ pub enum Error {
     )]
     RustVersion(String),
 
-    #[error("must install with \"additional-libs\" feature.")]
-    OptimizeFeatureNotEnabled,
-
     #[error("invalid Cargo.toml configuration: {0}")]
     CargoConfiguration(String),
 
     #[error(transparent)]
-    Xdr(#[from] stellar_xdr::curr::Error),
+    Xdr(#[from] stellar_xdr::Error),
 
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
@@ -330,7 +343,10 @@ impl Cmd {
 
                 #[cfg(not(feature = "additional-libs"))]
                 if self.build_args.optimize {
-                    return Err(Error::OptimizeFeatureNotEnabled);
+                    print.warnln(
+                        "Optimization skipped: stellar-cli was installed without the `additional-libs` feature. \
+                         Reinstall with `--features additional-libs` to enable."
+                    );
                 }
 
                 Self::print_build_summary(
@@ -802,7 +818,7 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
 /// to a single occurrence.
 #[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
-    entries: Vec<stellar_xdr::curr::ScSpecEntry>,
+    entries: Vec<stellar_xdr::ScSpecEntry>,
     markers: &HashSet<soroban_spec::shaking::Marker>,
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();

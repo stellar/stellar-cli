@@ -5,15 +5,16 @@ use std::fmt::Debug;
 use std::process::Command;
 
 use crate::{
-    commands::global,
+    commands::{container::shared::Engine, global},
     config::{
         self, data,
         locator::{self, KeyType},
-        network::{redact_rpc_url, Network, DEFAULTS as DEFAULT_NETWORKS},
+        network::{Network, DEFAULTS as DEFAULT_NETWORKS},
     },
     print::Print,
     rpc,
     upgrade_check::has_available_upgrade,
+    utils::url::redact_url,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -49,6 +50,7 @@ impl Cmd {
         check_rust_version(&print);
         check_wasm_target(&print);
         check_optional_features(&print);
+        check_container_engine(&print);
         show_config_path(&print, &self.config_locator)?;
         show_data_path(&print)?;
         show_xdr_version(&print);
@@ -80,7 +82,7 @@ fn show_data_path(print: &Print) -> Result<(), Error> {
 fn show_xdr_version(print: &Print) {
     let xdr = stellar_xdr::VERSION;
 
-    print.infoln(format!("XDR version: {}", xdr.xdr_curr));
+    print.infoln(format!("XDR version: {}", xdr.xdr));
 }
 
 async fn print_network(
@@ -100,7 +102,7 @@ async fn print_network(
 
     print.globeln(format!(
         "{prefix} {name:?} ({})",
-        redact_rpc_url(&network.rpc_url)
+        redact_url(&network.rpc_url)
     ));
     print.blankln(format!("protocol {}", version_info.protocol_version));
     print.blankln(format!("rpc {}", version_info.version));
@@ -123,7 +125,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
         if print_network(true, print, &name, &network).await.is_err() {
             print.warnln(format!(
                 "Default network {name:?} ({}) is unreachable",
-                redact_rpc_url(&network.rpc_url)
+                redact_url(&network.rpc_url)
             ));
         }
     }
@@ -133,7 +135,7 @@ async fn inspect_networks(print: &Print, config_locator: &locator::Args) -> Resu
             if print_network(false, print, name, &network).await.is_err() {
                 print.warnln(format!(
                     "Network {name:?} ({}) is unreachable",
-                    redact_rpc_url(&network.rpc_url)
+                    redact_url(&network.rpc_url)
                 ));
             }
         }
@@ -201,6 +203,34 @@ fn check_wasm_target(print: &Print) {
         }
     } else {
         print.warnln("Could not retrieve Rust targets".to_string());
+    }
+}
+
+fn check_container_engine(print: &Print) {
+    // `resolved_default` silently falls back to docker on a bad
+    // `STELLAR_CONTAINER_ENGINE`, so probe the raw value first to warn about a
+    // typo instead of reporting a phantom docker as available.
+    if !Engine::is_valid_engine() {
+        let value = std::env::var("STELLAR_CONTAINER_ENGINE").unwrap_or_default();
+        print.warnln(format!(
+            "Unknown container engine `{value}`; expected one of: {}",
+            Engine::supported_engines()
+        ));
+        return;
+    }
+
+    let engine = Engine::resolved_default();
+
+    // `output()` succeeds as long as the binary spawned, regardless of exit
+    // status, so it tells us whether the engine is installed on `PATH`.
+    if Command::new(engine.program())
+        .arg("--version")
+        .output()
+        .is_ok()
+    {
+        print.checkln(format!("Container engine `{engine}` is available"));
+    } else {
+        print.warnln(format!("Container engine `{engine}` is not installed"));
     }
 }
 

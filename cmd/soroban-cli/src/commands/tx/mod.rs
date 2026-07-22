@@ -90,7 +90,7 @@ impl Cmd {
             Cmd::Hash(cmd) => cmd.run(global_args)?,
             Cmd::New(cmd) => cmd.run(global_args).await?,
             Cmd::Edit(cmd) => cmd.run(global_args)?,
-            Cmd::Operation(cmd) => cmd.run(global_args).await?,
+            Cmd::Operation(cmd) => cmd.run(global_args)?,
             Cmd::Send(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,

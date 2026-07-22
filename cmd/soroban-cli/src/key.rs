@@ -106,9 +106,7 @@ impl Args {
             .into_iter()
             .map(|key| {
                 LedgerKey::ContractData(LedgerKeyContractData {
-                    contract: ScAddress::Contract(stellar_xdr::curr::ContractId(xdr::Hash(
-                        contract.0,
-                    ))),
+                    contract: ScAddress::Contract(stellar_xdr::ContractId(xdr::Hash(contract.0))),
                     durability: (&self.durability).into(),
                     key,
                 })

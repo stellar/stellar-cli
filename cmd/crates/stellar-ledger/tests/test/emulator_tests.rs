@@ -3,7 +3,7 @@ use stellar_ledger::{Blob, Error};
 
 use std::sync::Arc;
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, Memo, MuxedAccount, Operation, OperationBody, PaymentOp, Preconditions,
     SequenceNumber, Transaction, TransactionExt, Uint256,
 };

@@ -4,7 +4,7 @@ use std::{
     io::{self, Cursor},
 };
 
-use stellar_xdr::curr::{
+use stellar_xdr::{
     self as xdr, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion,
     ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
     ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
@@ -193,7 +193,7 @@ fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::
         writeln!(
             f,
             "     Docs: {}",
-            &indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
+            indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
         )?;
     }
     writeln!(
@@ -220,7 +220,7 @@ fn write_union(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtUnionV0) -> std::
         )?;
     }
     writeln!(f, "     Cases:")?;
-    for case in udt.cases.iter() {
+    for case in &udt.cases {
         writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
     }
     writeln!(f)?;
@@ -237,7 +237,7 @@ fn write_struct(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtStructV0) -> std
         )?;
     }
     writeln!(f, "     Fields:")?;
-    for field in udt.fields.iter() {
+    for field in &udt.fields {
         writeln!(
             f,
             "      • {}: {}",
@@ -262,7 +262,7 @@ fn write_enum(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtEnumV0) -> std::fm
         )?;
     }
     writeln!(f, "     Cases:")?;
-    for case in udt.cases.iter() {
+    for case in &udt.cases {
         writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
     }
     writeln!(f)?;
@@ -279,7 +279,7 @@ fn write_error(f: &mut std::fmt::Formatter<'_>, udt: &ScSpecUdtErrorEnumV0) -> s
         )?;
     }
     writeln!(f, "     Cases:")?;
-    for case in udt.cases.iter() {
+    for case in &udt.cases {
         writeln!(f, "      • {}", indent(&format!("{case:#?}"), 8).trim())?;
     }
     writeln!(f)?;

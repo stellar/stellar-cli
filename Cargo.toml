@@ -21,61 +21,62 @@ exclude = [
 ]
 
 [workspace.package]
-version = "26.0.0"
+version = "27.0.0"
 rust-version = "1.93.0"
 
 # Dependencies located in this repo:
 [workspace.dependencies.soroban-cli]
-version = "=26.0.0"
+version = "=27.0.0"
 path = "cmd/soroban-cli"
 default-features = false
 
 [workspace.dependencies.soroban-spec-typescript]
-version = "26.0.0"
+version = "27.0.0"
 path = "./cmd/crates/soroban-spec-typescript"
 
 [workspace.dependencies.soroban-spec-tools]
-version = "26.0.0"
+version = "27.0.0"
 path = "./cmd/crates/soroban-spec-tools"
 
 [workspace.dependencies.stellar-ledger]
-version = "=26.0.0"
+version = "=27.0.0"
 path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "26.0.0"
+version = "27.0.0"
+
+# Dependencies from the rs-stellar-env repo:
+[workspace.dependencies.soroban-env-host]
+version = "27.0.0"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.soroban-sdk]
-version = "26.0.0-rc.1"
-
-[workspace.dependencies.soroban-env-host]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "26.0.0-rc.1"
+version = "27.0.0-rc.1"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
 package = "stellar-rpc-client"
-version = "26.0.0-rc.2"
+version = "27.0.0"
 
 # Dependencies from elsewhere shared by crates:
 [workspace.dependencies]
-stellar-strkey = "0.0.15"
+stellar-strkey = "0.0.16"
 sep5 = "0.1.0"
 base64 = "0.21.2"
 thiserror = "1.0.46"
@@ -85,7 +86,6 @@ escape-bytes = "0.1.1"
 hex = "0.4.3"
 itertools = "0.10.0"
 async-trait = "0.1.76"
-bollard = "0.20.2"
 serde-aux = "4.1.2"
 serde_json = "1.0.82"
 serde = "1.0.82"

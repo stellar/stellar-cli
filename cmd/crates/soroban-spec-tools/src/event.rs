@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::Value;
-use stellar_xdr::curr::{
+use stellar_xdr::{
     ScSpecEventDataFormat, ScSpecEventParamLocationV0, ScSpecEventParamV0, ScSpecEventV0, ScSymbol,
     ScVal,
 };
@@ -251,7 +251,7 @@ fn extract_data_params(
 mod tests {
     use super::*;
     use serde_json::json;
-    use stellar_xdr::curr::{
+    use stellar_xdr::{
         Int128Parts, ScMap, ScMapEntry, ScSpecEntry, ScSpecTypeDef, ScString, ScVec, StringM, VecM,
     };
 

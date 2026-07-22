@@ -17,6 +17,7 @@ use crate::{
     commands::{
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
+        HEADING_TRANSACTION,
     },
     config::{self, data, network},
     rpc::Error as SorobanRpcError,
@@ -91,12 +92,18 @@ pub struct Cmd {
     pub alias: Option<AliasName>,
 
     /// Build the transaction and only write the base64 xdr to stdout
-    #[arg(long)]
+    #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        // Validate the alias before simulating or deploying, so a reserved alias
+        // fails fast instead of after an on-chain deploy.
+        if let Some(alias) = &self.alias {
+            crate::config::alias::validate_reserved_aliases(alias)?;
+        }
+
         let res = self
             .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
@@ -147,7 +154,7 @@ impl Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let source_account = config.source_account().await?;
+        let source_account = config.source_account()?;
 
         // Get the account sequence number
         // TODO: use symbols for the method names (both here and in serve)
@@ -170,8 +177,18 @@ impl Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
-        sim_sign_and_send_tx::<Error>(&client, &tx, config, &self.resources, &[], quiet, no_cache)
-            .await?;
+        sim_sign_and_send_tx::<Error>(
+            &client,
+            &tx,
+            config,
+            &self.resources,
+            &[],
+            // Asset wrapping cannot accept simulateTransaction authMode.
+            None,
+            quiet,
+            no_cache,
+        )
+        .await?;
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
@@ -190,7 +207,7 @@ fn build_wrap_token_tx(
     _network_passphrase: &str,
     source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
-    let contract = ScAddress::Contract(stellar_xdr::curr::ContractId(Hash(contract_id.0)));
+    let contract = ScAddress::Contract(stellar_xdr::ContractId(Hash(contract_id.0)));
     let mut read_write = vec![
         ContractData(LedgerKeyContractData {
             contract: contract.clone(),

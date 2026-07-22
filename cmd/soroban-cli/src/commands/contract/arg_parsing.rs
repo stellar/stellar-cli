@@ -17,7 +17,7 @@ use std::env;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use stellar_xdr::curr::ContractId;
+use stellar_xdr::ContractId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -93,25 +93,25 @@ fn running_cmd() -> String {
     format!("{} --", args.join(" "))
 }
 
-pub async fn build_host_function_parameters(
+pub fn build_host_function_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true).await
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
 }
 
-pub async fn build_constructor_parameters(
+pub fn build_constructor_parameters(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false).await
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false)
 }
 
-async fn build_host_function_parameters_with_filter(
+fn build_host_function_parameters_with_filter(
     contract_id: &stellar_strkey::Contract,
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
@@ -122,7 +122,7 @@ async fn build_host_function_parameters_with_filter(
     let cmd = build_clap_command(&spec, filter_constructor)?;
     let (function, matches_) = parse_command_matches(cmd, slop)?;
     let func = get_function_spec(&spec, &function)?;
-    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config).await?;
+    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
 
     Ok((function, spec, invoke_args, signers))
@@ -187,7 +187,7 @@ fn get_function_spec(spec: &Spec, function: &str) -> Result<ScSpecFunctionV0, Er
     })
 }
 
-async fn parse_function_arguments(
+fn parse_function_arguments(
     func: &ScSpecFunctionV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
@@ -196,15 +196,15 @@ async fn parse_function_arguments(
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
     let mut signers = Vec::<Signer>::new();
 
-    for i in func.inputs.iter() {
-        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args).await?;
+    for i in &func.inputs {
+        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args)?;
     }
 
     Ok((parsed_args, signers))
 }
 
-async fn parse_single_argument(
-    input: &stellar_xdr::curr::ScSpecFunctionInputV0,
+fn parse_single_argument(
+    input: &stellar_xdr::ScSpecFunctionInputV0,
     matches_: &clap::ArgMatches,
     spec: &Spec,
     config: &config::Args,
@@ -234,7 +234,7 @@ async fn parse_single_argument(
             ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
         ) {
             let trimmed_s = s.trim_matches('"');
-            if let Some(signer) = resolve_signer(trimmed_s, config).await {
+            if let Some(signer) = resolve_signer(trimmed_s, config) {
                 signers.push(signer);
             }
         }
@@ -451,9 +451,9 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
                 contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
-                stellar_xdr::curr::ScAddress::MuxedAccount(account) => account.to_string(),
-                stellar_xdr::curr::ScAddress::ClaimableBalance(_)
-                | stellar_xdr::curr::ScAddress::LiquidityPool(_) => {
+                stellar_xdr::ScAddress::MuxedAccount(account) => account.to_string(),
+                stellar_xdr::ScAddress::ClaimableBalance(_)
+                | stellar_xdr::ScAddress::LiquidityPool(_) => {
                     return Err(Error::UnsupportedScAddress {
                         address: addr.to_string(),
                     })
@@ -464,10 +464,10 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     Ok(account)
 }
 
-async fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
+fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
     let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
     let print = Print::new(false);
-    let signer = secret.signer(config.hd_path(), print).await.ok()?;
+    let signer = secret.signer(config.hd_path(), print).ok()?;
     Some(signer)
 }
 
@@ -772,7 +772,7 @@ fn resolve_aliases_in_json(
 
 fn resolve_aliases_in_udt(
     value: &mut serde_json::Value,
-    udt: &stellar_xdr::curr::ScSpecTypeUdt,
+    udt: &stellar_xdr::ScSpecTypeUdt,
     spec: &Spec,
     config: &config::Args,
 ) -> Result<bool, Error> {
@@ -797,7 +797,7 @@ fn resolve_aliases_in_udt(
                     }
                 }
                 serde_json::Value::Object(obj) => {
-                    for field in strukt.fields.iter() {
+                    for field in &strukt.fields {
                         let key = field.name.to_utf8_string_lossy();
                         if let Some(field_val) = obj.get_mut(key.as_str()) {
                             mutated |=
@@ -818,11 +818,11 @@ fn resolve_aliases_in_udt(
 
 fn resolve_aliases_in_union(
     value: &mut serde_json::Value,
-    union: &stellar_xdr::curr::ScSpecUdtUnionV0,
+    union: &stellar_xdr::ScSpecUdtUnionV0,
     spec: &Spec,
     config: &config::Args,
 ) -> Result<bool, Error> {
-    use stellar_xdr::curr::ScSpecUdtUnionCaseV0;
+    use stellar_xdr::ScSpecUdtUnionCaseV0;
 
     let serde_json::Value::Object(obj) = value else {
         return Ok(false);
@@ -855,7 +855,7 @@ fn resolve_aliases_in_union(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::curr::{ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
+    use stellar_xdr::{ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
 
     #[test]
     fn test_get_type_name_primitives() {
@@ -974,7 +974,7 @@ mod tests {
 
     #[test]
     fn test_context_aware_error_messages() {
-        use stellar_xdr::curr::ScSpecTypeDef;
+        use stellar_xdr::ScSpecTypeDef;
 
         // Test context-aware suggestions for different types
 
@@ -1014,7 +1014,7 @@ mod tests {
 
     #[test]
     fn test_union_udt_bare_string_accepted() {
-        use stellar_xdr::curr::{
+        use stellar_xdr::{
             ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseV0,
             ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
         };
@@ -1064,7 +1064,7 @@ mod tests {
 
     #[test]
     fn test_union_udt_tuple_variant_still_requires_json() {
-        use stellar_xdr::curr::{
+        use stellar_xdr::{
             ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
             ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
         };
@@ -1108,7 +1108,7 @@ mod tests {
 
     #[test]
     fn test_error_message_format() {
-        use stellar_xdr::curr::ScSpecTypeDef;
+        use stellar_xdr::ScSpecTypeDef;
 
         // Test that our CannotParseArg error formats correctly
         let error = Error::CannotParseArg {
@@ -1133,7 +1133,7 @@ mod tests {
     }
 
     fn struct_spec(name: &'static str, fields: &[(&str, ScSpecTypeDef)]) -> (Spec, ScSpecTypeDef) {
-        use stellar_xdr::curr::{
+        use stellar_xdr::{
             ScSpecEntry, ScSpecTypeUdt, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM,
         };
         let struct_name: StringM<60> = name.try_into().unwrap();
@@ -1159,8 +1159,32 @@ mod tests {
     const TEST_G_ADDRESS: &str = "GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS";
 
     #[test]
+    fn resolve_aliases_resolves_native_to_asset_contract_address() {
+        let ty = ScSpecTypeDef::Address;
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!("native");
+        let mutated = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert!(
+            mutated,
+            "native should resolve to the native asset contract"
+        );
+
+        let network_passphrase = config.get_network().unwrap().network_passphrase;
+        let expected = format!(
+            "{}",
+            crate::utils::contract_id_hash_from_asset(
+                &crate::xdr::Asset::Native,
+                &network_passphrase,
+            )
+        );
+        assert_eq!(value, serde_json::Value::String(expected));
+    }
+
+    #[test]
     fn resolve_aliases_in_json_walks_vec_of_address() {
-        use stellar_xdr::curr::ScSpecTypeVec;
+        use stellar_xdr::ScSpecTypeVec;
 
         let ty = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
             element_type: Box::new(ScSpecTypeDef::Address),
@@ -1183,7 +1207,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_tuple() {
-        use stellar_xdr::curr::ScSpecTypeTuple;
+        use stellar_xdr::ScSpecTypeTuple;
 
         let ty = ScSpecTypeDef::Tuple(Box::new(ScSpecTypeTuple {
             value_types: vec![ScSpecTypeDef::Address, ScSpecTypeDef::U32]
@@ -1207,7 +1231,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_struct_field() {
-        use stellar_xdr::curr::ScSpecTypeVec;
+        use stellar_xdr::ScSpecTypeVec;
 
         let (spec, ty) = struct_spec(
             "Operator",
@@ -1241,7 +1265,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_union_tuple_variant() {
-        use stellar_xdr::curr::{
+        use stellar_xdr::{
             ScSpecEntry, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
             ScSpecUdtUnionV0, StringM,
         };
@@ -1279,7 +1303,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_single_element_union_variant() {
-        use stellar_xdr::curr::{
+        use stellar_xdr::{
             ScSpecEntry, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
             ScSpecUdtUnionV0, StringM,
         };
@@ -1316,7 +1340,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_option_and_map() {
-        use stellar_xdr::curr::{ScSpecTypeMap, ScSpecTypeOption};
+        use stellar_xdr::{ScSpecTypeMap, ScSpecTypeOption};
 
         let opt_ty = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::Address),
@@ -1350,7 +1374,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_result_inner_types() {
-        use stellar_xdr::curr::ScSpecTypeResult;
+        use stellar_xdr::ScSpecTypeResult;
 
         let ty = ScSpecTypeDef::Result(Box::new(ScSpecTypeResult {
             ok_type: Box::new(ScSpecTypeDef::Address),
@@ -1373,7 +1397,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_preserves_input_when_nothing_mutated() {
-        use stellar_xdr::curr::ScSpecTypeVec;
+        use stellar_xdr::ScSpecTypeVec;
 
         // Type with no Address positions: input is returned verbatim,
         // including whitespace that compact JSON re-serialization would drop.
@@ -1402,7 +1426,7 @@ mod tests {
 
     #[test]
     fn resolve_aliases_in_json_walks_map_keys() {
-        use stellar_xdr::curr::ScSpecTypeMap;
+        use stellar_xdr::ScSpecTypeMap;
 
         let map_ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
             key_type: Box::new(ScSpecTypeDef::Address),

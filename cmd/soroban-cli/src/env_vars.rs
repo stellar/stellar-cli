@@ -6,6 +6,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "ACCOUNT",
         "ARCHIVE_URL",
         "CONFIG_HOME",
+        "CONTAINER_ENGINE",
         "CONTRACT_ID",
         "DATA_HOME",
         "FEE",
@@ -29,8 +30,8 @@ pub fn unprefixed() -> Vec<&'static str> {
 /// Unprefixed names of env vars that are safe to display in plain text.
 const VISIBLE: &[&str] = &[
     "ACCOUNT",
-    "ARCHIVE_URL",
     "CONFIG_HOME",
+    "CONTAINER_ENGINE",
     "CONTRACT_ID",
     "DATA_HOME",
     "FEE",
@@ -41,21 +42,20 @@ const VISIBLE: &[&str] = &[
     "NO_CACHE",
     "NO_UPDATE_CHECK",
     "OPERATION_SOURCE_ACCOUNT",
-    "RPC_URL",
     "SEND",
     "SIGN_WITH_LAB",
     "SIGN_WITH_LEDGER",
 ];
 
-/// Returns true if the key is one of the supported env vars that should be shown in `stellar env`.
-/// Uses an allow list approach to avoid showing any env vars that are not explicitly supported,
-/// even if they start with the expected prefix.
+/// Returns true if the key should be concealed in `stellar env` output, i.e. it is not in the
+/// allow list of vars that are safe to display. Using an allow list ensures unknown vars are
+/// concealed by default, even if they start with the expected prefix.
 pub fn is_concealed(key: &str) -> bool {
     let name = key
         .strip_prefix("STELLAR_")
         .or_else(|| key.strip_prefix("SOROBAN_"))
         .unwrap_or(key);
-    VISIBLE.contains(&name)
+    !VISIBLE.contains(&name)
 }
 
 pub fn prefixed(key: &str) -> Vec<String> {
