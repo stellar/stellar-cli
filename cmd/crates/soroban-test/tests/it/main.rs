@@ -13,5 +13,6 @@ mod message;
 mod plugin;
 mod rpc_provider;
 mod strkey;
+mod tx;
 mod util;
 mod version;
