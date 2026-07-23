@@ -22,8 +22,6 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
     #[error(transparent)]
-    Asset(#[from] builder::asset::Error),
-    #[error(transparent)]
     Token(#[from] config::token::Error),
 }
 impl Cmd {

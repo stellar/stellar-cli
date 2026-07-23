@@ -53,9 +53,6 @@ pub enum Error {
     Builder(#[from] builder::Error),
 
     #[error(transparent)]
-    Asset(#[from] builder::asset::Error),
-
-    #[error(transparent)]
     Locator(#[from] locator::Error),
 
     #[error(transparent)]
