@@ -1,9 +1,9 @@
 use clap::Parser;
 
 use crate::config;
+use crate::config::token::UnresolvedToken;
 
 use crate::tx::builder;
-use crate::utils::contract_id_hash_from_asset;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -22,7 +22,7 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] crate::xdr::Error),
     #[error(transparent)]
-    Asset(#[from] builder::asset::Error),
+    Token(#[from] config::token::Error),
 }
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
@@ -32,10 +32,8 @@ impl Cmd {
 
     pub fn contract_address(&self) -> Result<stellar_strkey::Contract, Error> {
         let network = self.config.get_network()?;
-        let contract_id = contract_id_hash_from_asset(
-            &self.asset.resolve(&self.config.locator)?,
-            &network.network_passphrase,
-        );
-        Ok(stellar_strkey::Contract(contract_id.0))
+        let token = UnresolvedToken::Asset(self.asset.clone())
+            .resolve(&self.config.locator, &network.network_passphrase)?;
+        Ok(token.contract_id)
     }
 }

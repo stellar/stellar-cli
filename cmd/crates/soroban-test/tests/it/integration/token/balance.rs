@@ -109,3 +109,37 @@ async fn balance_fails_when_sac_not_deployed() {
         "expected an error message, got: {stdout}"
     );
 }
+
+#[tokio::test]
+async fn balance_fails_when_contract_not_found() {
+    let sandbox = &TestEnv::new();
+    // A well-formed contract id that resolves to a plain contract (not a SAC)
+    // and was never deployed → the missing-contract branch, distinct from the
+    // SAC deploy pointer above.
+    let id = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4";
+
+    // In JSON mode the error carries a machine-readable `type` discriminator.
+    let stdout = sandbox
+        .new_assert_cmd("token")
+        .args([
+            "balance",
+            "--id",
+            id,
+            "--account",
+            "test",
+            "--output",
+            "json",
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+    let value: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        value["error"]["type"], "contract_not_found",
+        "expected a typed error, got: {stdout}"
+    );
+    assert!(
+        value["error"]["message"].as_str().is_some(),
+        "expected an error message, got: {stdout}"
+    );
+}

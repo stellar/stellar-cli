@@ -19,10 +19,9 @@ use crate::{
         txn_result::{TxnEnvelopeResult, TxnResult},
         HEADING_TRANSACTION,
     },
-    config::{self, data, network},
+    config::{self, data, network, token::UnresolvedToken},
     rpc::Error as SorobanRpcError,
     tx::builder,
-    utils::contract_id_hash_from_asset,
 };
 
 use crate::config::address::AliasName;
@@ -54,10 +53,10 @@ pub enum Error {
     Builder(#[from] builder::Error),
 
     #[error(transparent)]
-    Asset(#[from] builder::asset::Error),
+    Locator(#[from] locator::Error),
 
     #[error(transparent)]
-    Locator(#[from] locator::Error),
+    Token(#[from] config::token::Error),
 
     #[error(transparent)]
     Fee(#[from] fetch::fee::Error),
@@ -144,11 +143,19 @@ impl Cmd {
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
-        // Parse asset
         let print = Print::new(quiet);
-        let asset = self.asset.resolve(&config.locator)?;
 
         let network = config.get_network()?;
+        // Resolve the asset up front, before any RPC, so an invalid asset or
+        // unresolvable issuer alias fails fast instead of after network calls.
+        let token = UnresolvedToken::Asset(self.asset.clone())
+            .resolve(&config.locator, &network.network_passphrase)?;
+        let contract_id = token.contract_id;
+        let asset = token
+            .asset()
+            .expect("an asset reference resolves to a SAC")
+            .clone();
+
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
@@ -163,7 +170,6 @@ impl Cmd {
             .await?;
         let sequence: i64 = account_details.seq_num.into();
         let network_passphrase = &network.network_passphrase;
-        let contract_id = contract_id_hash_from_asset(&asset, network_passphrase);
         let tx = build_wrap_token_tx(
             asset,
             &contract_id,
