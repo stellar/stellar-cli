@@ -297,6 +297,7 @@ impl TestEnv {
             self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
                 .private_key()
                 .unwrap()
+                .as_unredacted()
         )
     }
 
