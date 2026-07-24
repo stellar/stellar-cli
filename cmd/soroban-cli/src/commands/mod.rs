@@ -32,6 +32,8 @@ pub const HEADING_ARCHIVE: &str = "Archive Options";
 pub const HEADING_GLOBAL: &str = "Global Options";
 pub const HEADING_SIGNING: &str = "Signing Options";
 pub const HEADING_TRANSACTION: &str = "Transaction Options";
+pub const HEADING_CONTAINER: &str = "Container Options";
+pub const HEADING_VERIFIABLE: &str = "Verifiable Options";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 

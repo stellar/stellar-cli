@@ -1,6 +1,8 @@
 use core::fmt;
+use std::process::Stdio;
 
 use clap::ValueEnum;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::print::Print;
@@ -20,6 +22,9 @@ pub enum Error {
         program: String,
         source: std::io::Error,
     },
+
+    #[error("could not pull image {image}: {stderr}")]
+    PullImageFailed { image: String, stderr: String },
 }
 
 /// Container runtime to shell out to.
@@ -94,6 +99,44 @@ impl Engine {
             Engine::AppleContainer => stderr.contains("not found"),
         }
     }
+
+    /// The `inspect`-family argv (after the engine binary and any host flag)
+    /// that prints an image's digest metadata: docker's `RepoDigests` Go
+    /// template vs Apple's `image inspect` JSON (Apple groups image operations
+    /// under the `image` subcommand and has no `--format` templates).
+    fn image_inspect_args(self, image: &str) -> Vec<&str> {
+        match self {
+            Engine::Docker => vec!["inspect", "--format", "{{index .RepoDigests 0}}", image],
+            Engine::AppleContainer => vec!["image", "inspect", image],
+        }
+    }
+
+    /// Parse the stdout of [`image_inspect_args`] into a content-addressed
+    /// `<repo>@sha256:<hex>` reference, or `None` when the engine reports no
+    /// digest (e.g. a locally-built image never pushed or pulled).
+    fn parse_repo_digest(self, stdout: &[u8], image: &str) -> Option<String> {
+        match self {
+            Engine::Docker => {
+                let digest = String::from_utf8_lossy(stdout).trim().to_string();
+                (!digest.is_empty() && digest != "<no value>").then_some(digest)
+            }
+            // Apple emits a JSON array whose first entry carries the manifest-list
+            // descriptor at `configuration.descriptor.digest` — the equivalent of
+            // docker's `RepoDigests`. The per-platform `variants[].digest` is
+            // deliberately not used. `None` if the output doesn't have that shape.
+            Engine::AppleContainer => {
+                let value: serde_json::Value = serde_json::from_slice(stdout).ok()?;
+                let digest = value
+                    .as_array()?
+                    .first()?
+                    .get("configuration")?
+                    .get("descriptor")?
+                    .get("digest")?
+                    .as_str()?;
+                Some(format!("{}@{digest}", repo_of(image)))
+            }
+        }
+    }
 }
 
 impl fmt::Display for Engine {
@@ -108,7 +151,7 @@ impl fmt::Display for Engine {
     }
 }
 
-#[derive(Debug, clap::Parser, Clone)]
+#[derive(Debug, clap::Parser, Clone, Default)]
 pub struct Args {
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
     #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
@@ -191,7 +234,7 @@ impl Args {
     /// `--docker-host` (or `DOCKER_HOST` env) value is passed as `-H <host>`; the
     /// `-H` flag outranks `DOCKER_CONTEXT`, so the override is honored even when a
     /// docker context is active. Host resolution is otherwise left to the CLI.
-    fn base_command(&self) -> Command {
+    pub(crate) fn base_command(&self) -> Command {
         let engine = self.engine();
         let mut cmd = Command::new(engine.program());
         if engine.supports_docker_host() {
@@ -227,6 +270,16 @@ impl Args {
         cmd
     }
 
+    /// Immediately terminate a running container (SIGKILL), with no graceful
+    /// grace period — unlike `stop`, which waits up to 10s before force-killing.
+    /// Used to tear down a build container the instant the CLI is interrupted.
+    /// Both docker and Apple's `container` accept `kill <name>`.
+    pub(crate) fn kill_command(&self, name: &str) -> Command {
+        let mut cmd = self.base_command();
+        cmd.args(["kill", name]);
+        cmd
+    }
+
     pub(crate) fn logs_command(&self, name: &str) -> Command {
         let mut cmd = self.base_command();
         match self.engine() {
@@ -235,6 +288,99 @@ impl Args {
             Engine::AppleContainer => cmd.args(["logs", "-f", name]),
         };
         cmd
+    }
+
+    /// Pull `image`, streaming the engine's high-level status lines ("Pulling
+    /// from", "Digest", "Status") through `print`. Per-layer progress written to
+    /// stderr is captured rather than shown and surfaced only when the pull
+    /// fails, as `PullImageFailed` — callers that need to explain a failed pull
+    /// (e.g. the verifiable build's tag-listing hint) rely on that captured text.
+    /// A missing engine binary surfaces via `io_error` as `NotFound`.
+    pub(crate) async fn pull_image(&self, image: &str, print: &Print) -> Result<(), Error> {
+        let mut child = self
+            .pull_command(image)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| self.io_error(e))?;
+
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        let stream_stdout = async {
+            if let Some(stdout) = stdout {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if line.contains("Pulling from")
+                        || line.contains("Digest")
+                        || line.contains("Status")
+                    {
+                        print.infoln(line);
+                    }
+                }
+            }
+        };
+
+        let capture_stderr = async {
+            let mut buf = String::new();
+            if let Some(mut stderr) = stderr {
+                let _ = stderr.read_to_string(&mut buf).await;
+            }
+            buf
+        };
+
+        // Drain both pipes concurrently so a full stderr buffer can't deadlock
+        // the child while we're reading stdout.
+        let ((), stderr) = tokio::join!(stream_stdout, capture_stderr);
+
+        if child.wait().await.map_err(|e| self.io_error(e))?.success() {
+            Ok(())
+        } else {
+            Err(Error::PullImageFailed {
+                image: image.to_string(),
+                stderr: stderr.trim().to_string(),
+            })
+        }
+    }
+
+    /// The engine's executable name (`docker`, `container`), for rendering
+    /// copy-pasteable reproduce commands that name the same binary the CLI ran.
+    pub(crate) fn program(&self) -> &'static str {
+        self.engine().program()
+    }
+
+    /// Resolve a locally-present image to its content-addressed repo digest
+    /// (`<repo>@sha256:<hex>`), so a caller can pin the exact bytes rather than a
+    /// mutable tag. Returns `Ok(None)` when the engine reports no digest (e.g. a
+    /// locally-built image that was never pushed or pulled). The per-engine
+    /// `inspect` argv and output parsing live on [`Engine`]; this owns only the
+    /// command execution (the engine binary and `--docker-host`).
+    pub(crate) async fn image_repo_digest(&self, image: &str) -> Result<Option<String>, Error> {
+        let engine = self.engine();
+        let output = self
+            .base_command()
+            .args(engine.image_inspect_args(image))
+            .output()
+            .await
+            .map_err(|e| self.io_error(e))?;
+        if !output.status.success() {
+            return Ok(None);
+        }
+        Ok(engine.parse_repo_digest(&output.stdout, image))
+    }
+}
+
+/// The repo portion of an image reference: everything before the `:tag` (or
+/// `@digest`). A `:` only separates a tag when it appears after the last `/`, so
+/// a registry host's `:port` (e.g. `localhost:5000/foo`) is preserved.
+fn repo_of(image: &str) -> &str {
+    if let Some((repo, _)) = image.split_once('@') {
+        return repo;
+    }
+    let last_slash = image.rfind('/').map_or(0, |i| i + 1);
+    match image[last_slash..].find(':') {
+        Some(colon) => &image[..last_slash + colon],
+        None => image,
     }
 }
 
@@ -458,7 +604,7 @@ mod test {
         let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
         match args(None, Some(Engine::AppleContainer)).io_error(not_found) {
             Error::NotFound { program, .. } => assert_eq!(program, "container"),
-            Error::Command { .. } => panic!("expected NotFound, got Command"),
+            other => panic!("expected NotFound, got {other:?}"),
         }
     }
 
@@ -488,6 +634,63 @@ mod test {
     }
 
     #[test]
+    fn program_matches_engine_binary() {
+        assert_eq!(args(None, None).program(), "docker");
+        assert_eq!(
+            args(None, Some(Engine::AppleContainer)).program(),
+            "container"
+        );
+    }
+
+    #[test]
+    fn repo_of_strips_tag_but_keeps_registry_port() {
+        assert_eq!(
+            repo_of("docker.io/stellar/stellar-cli:26.1.0-rust1.90.0"),
+            "docker.io/stellar/stellar-cli"
+        );
+        assert_eq!(repo_of("localhost:5000/foo:bar"), "localhost:5000/foo");
+        assert_eq!(repo_of("localhost:5000/foo"), "localhost:5000/foo");
+        // An already digest-pinned ref keeps its repo.
+        assert_eq!(
+            repo_of(&format!(
+                "docker.io/stellar/stellar-cli@sha256:{}",
+                "a".repeat(64)
+            )),
+            "docker.io/stellar/stellar-cli"
+        );
+    }
+
+    #[test]
+    fn apple_repo_digest_reads_manifest_list_descriptor() {
+        // Shape mirrors real `container image inspect` output: the top-level
+        // manifest-list digest lives at [0].configuration.descriptor.digest,
+        // while the per-platform digest under variants[] must be ignored.
+        let list = format!("sha256:{}", "8d".repeat(32));
+        let variant = format!("sha256:{}", "85".repeat(32));
+        let json = format!(
+            r#"[{{"configuration":{{"descriptor":{{"digest":"{list}","mediaType":"application/vnd.docker.distribution.manifest.list.v2+json","size":743}},"name":"docker.io/stellar/quickstart:latest"}},"id":"8ddf","variants":[{{"digest":"{variant}","platform":{{"architecture":"arm64","os":"linux"}}}}]}}]"#
+        );
+        assert_eq!(
+            Engine::AppleContainer
+                .parse_repo_digest(json.as_bytes(), "docker.io/stellar/quickstart:latest"),
+            Some(format!("docker.io/stellar/quickstart@{list}"))
+        );
+    }
+
+    #[test]
+    fn docker_parse_repo_digest_trims_and_rejects_no_value() {
+        assert_eq!(
+            Engine::Docker.parse_repo_digest(b"  docker.io/stellar/cli@sha256:abc\n", "ignored"),
+            Some("docker.io/stellar/cli@sha256:abc".to_string())
+        );
+        assert_eq!(
+            Engine::Docker.parse_repo_digest(b"<no value>\n", "ignored"),
+            None
+        );
+        assert_eq!(Engine::Docker.parse_repo_digest(b"   \n", "ignored"), None);
+    }
+
+    #[test]
     fn run_args_flags_emit_only_set_limits() {
         assert!(RunArgs::default().flags().is_empty());
         assert_eq!(
@@ -505,6 +708,18 @@ mod test {
             }
             .flags(),
             ["--cpus", "2", "--memory", "2g"]
+        );
+    }
+
+    #[test]
+    fn apple_repo_digest_none_when_shape_unexpected() {
+        let apple = Engine::AppleContainer;
+        assert_eq!(apple.parse_repo_digest(b"[]", "foo:bar"), None);
+        assert_eq!(apple.parse_repo_digest(b"not json", "foo:bar"), None);
+        // Missing the configuration.descriptor.digest path.
+        assert_eq!(
+            apple.parse_repo_digest(br#"[{"id":"8ddf"}]"#, "foo:bar"),
+            None
         );
     }
 }
