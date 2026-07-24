@@ -165,11 +165,10 @@ impl Runner {
     }
 
     fn get_image_name(&self) -> String {
-        // this can be overriden with the `-t` flag
         let mut image_tag = match &self.network {
-            Network::Pubnet => "latest",
             Network::Futurenet => "future",
-            _ => "testing", // default to testing for local and testnet
+            // pubnet, local, and testnet all default to latest
+            _ => "latest",
         };
 
         if let Some(image_override) = &self.args.image_tag_override {
