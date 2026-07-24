@@ -6,11 +6,11 @@ use crate::{
     commands::{
         contract::invoke,
         global,
-        token::args::{self, OutputFormat, TokenTarget},
+        token::args::{self, OutputFormat},
     },
     config::{
-        self, locator, network, sign_with, UnresolvedContract, UnresolvedMuxedAccount,
-        UnresolvedScAddress,
+        self, locator, network, sign_with, token::UnresolvedToken, UnresolvedContract,
+        UnresolvedMuxedAccount, UnresolvedScAddress,
     },
     output::Output,
 };
@@ -21,7 +21,7 @@ pub struct Cmd {
     /// The token to transfer from: a contract id or alias, `native`, or a
     /// classic asset as `CODE:ISSUER`.
     #[arg(long = "id")]
-    pub id: TokenTarget,
+    pub id: UnresolvedToken,
 
     /// Account to transfer tokens from. Signs and authorizes the transfer, so it
     /// must be an identity or secret key you control.
@@ -61,6 +61,8 @@ pub enum Error {
     #[error(transparent)]
     Args(#[from] args::Error),
     #[error(transparent)]
+    Token(#[from] config::token::Error),
+    #[error(transparent)]
     ScAddress(#[from] config::sc_address::Error),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
@@ -95,6 +97,7 @@ impl Error {
             Error::Config(_) => "config",
             Error::Network(_) => "network",
             Error::Args(e) => e.error_type(),
+            Error::Token(e) => e.error_type(),
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
@@ -138,9 +141,9 @@ impl Cmd {
         let config = self.config();
         let network = config.get_network()?;
 
-        let contract_id = self
+        let token = self
             .id
-            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
+            .resolve(&config.locator, &network.network_passphrase)?;
 
         // SEP-41 `transfer(from, to, amount)`: `from` is the source account
         // (which also signs and authorizes), `to` is the destination.
@@ -172,7 +175,7 @@ impl Cmd {
         .collect();
 
         let invoke_cmd = invoke::Cmd {
-            contract_id: UnresolvedContract::Resolved(contract_id),
+            contract_id: UnresolvedContract::Resolved(token.contract_id),
             slop,
             config: config.clone(),
             // A transfer always intends to submit. Force `Send::Yes` so a token
@@ -186,9 +189,7 @@ impl Cmd {
             .execute_with_receipt(&config, quiet, global_args.no_cache)
             .await
             .map_err(|e| {
-                self.id
-                    .not_deployed_error(&e, &contract_id)
-                    .map_or(Error::Invoke(e), Error::Args)
+                args::not_deployed_error(&token, &e).map_or(Error::Invoke(e), Error::Args)
             })?
             .into_result();
 

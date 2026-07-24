@@ -101,7 +101,9 @@ impl Cmd {
         }
 
         for (network_passphrase, list) in &mut map {
-            if let Some(contract) = alias::resolve_reserved(alias::NATIVE, network_passphrase) {
+            if let Some(contract) =
+                alias::resolve_reserved(alias::NATIVE, &self.config_locator, network_passphrase)
+            {
                 list.push(AliasEntry {
                     alias: alias::NATIVE.to_string(),
                     contract: format!("{contract}"),

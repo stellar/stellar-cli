@@ -540,7 +540,7 @@ impl Args {
         // refuse to silently override it: resolving to the built-in anyway
         // would misdirect the command to the wrong contract. The stored file
         // can still be removed with `contract alias remove <name>`.
-        if let Some(reserved) = alias::resolve_reserved(alias, network_passphrase) {
+        if let Some(reserved) = alias::resolve_reserved(alias, self, network_passphrase) {
             if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
                 if stored != reserved {
                     return Err(Error::ShadowedReservedAlias {
