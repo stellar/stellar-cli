@@ -11,11 +11,11 @@ use crate::config::address::AliasName;
 use crate::resources;
 use crate::tx::sim_sign_and_send_tx;
 use crate::xdr::{
-    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-    CreateContractArgs, CreateContractArgsV2, Error as XdrError, Hash, HostFunction,
-    InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo, MuxedAccount, Operation, OperationBody,
-    Preconditions, PublicKey, ScAddress, SequenceNumber, Transaction, TransactionExt, Uint256,
-    VecM, WriteXdr,
+    AccountId, ContractExecutable, ContractExecutableExternalRef, ContractIdPreimage,
+    ContractIdPreimageFromAddress, CreateContractArgs, CreateContractArgsV2, Error as XdrError,
+    Hash, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Limits, Memo, MuxedAccount,
+    Operation, OperationBody, Preconditions, PublicKey, ScAddress, ScString, SequenceNumber,
+    Transaction, TransactionExt, Uint256, VecM, WriteXdr,
 };
 
 use crate::commands::tx::fetch;
@@ -29,7 +29,10 @@ use crate::{
     config::{self, data, locator, network},
     print::Print,
     rpc,
-    utils::{self, rpc::get_remote_wasm_from_hash},
+    utils::{
+        self,
+        rpc::{get_remote_wasm_from_hash, resolve_executable_ref},
+    },
     wasm,
 };
 
@@ -51,6 +54,16 @@ pub struct Cmd {
     /// Hash of the already installed/deployed WASM file
     #[arg(long = "wasm-hash", conflicts_with = "wasm", group = "wasm_src")]
     pub wasm_hash: Option<String>,
+    /// Contract that owns the executable reference entry to deploy against
+    /// (CAP-0085). The deployed contract runs whichever WASM that entry names,
+    /// and follows it whenever the owner re-points it — so the owner can
+    /// replace this contract's code at any time. Requires --executable-tag.
+    #[arg(long, requires = "executable_tag", conflicts_with = "wasm_src")]
+    pub executable_owner: Option<String>,
+    /// Tag naming the executable reference entry in the owner's storage
+    /// (CAP-0085). Requires --executable-owner.
+    #[arg(long, requires = "executable_owner", conflicts_with = "wasm_src")]
+    pub executable_tag: Option<String>,
     /// Custom salt 32-byte salt for the token id
     #[arg(long)]
     pub salt: Option<String>,
@@ -109,6 +122,10 @@ pub enum Error {
         wasm_hash: String,
         error: stellar_strkey::DecodeError,
     },
+    #[error("cannot parse executable owner {executable_owner}: expected a contract address")]
+    CannotParseExecutableOwner { executable_owner: String },
+    #[error("cannot parse executable tag {executable_tag}")]
+    CannotParseExecutableTag { executable_tag: String },
 
     #[error("Must provide either --wasm or --wasm-hash")]
     WasmNotProvided,
@@ -298,8 +315,10 @@ impl Cmd {
             }]);
         }
 
-        // If --wasm-hash is provided, no WASM file paths needed
-        if self.wasm_hash.is_some() {
+        // If --wasm-hash is provided, no WASM file paths needed. Same for a
+        // CAP-0085 executable reference: the code is named by the owner's
+        // entry, so there is nothing local to build.
+        if self.wasm_hash.is_some() || self.executable_owner.is_some() {
             return Ok(vec![]);
         }
 
@@ -332,6 +351,82 @@ impl Cmd {
         self.auth_mode.validate_not_enforce()?;
 
         let print = Print::new(quiet);
+
+        // CAP-0085: --executable-owner/--executable-tag deploy against an
+        // executable reference rather than a wasm hash. Nothing is uploaded and
+        // no local wasm is involved; the code is whatever the owner's entry
+        // names at apply time.
+        let external_ref = self.external_ref()?;
+
+        let wasm_hash = if let Some(r) = &external_ref {
+            print.infoln(
+                format!(
+                    "Deploying contract using executable reference {} of contract {}",
+                    String::from_utf8_lossy(r.tag.as_slice()),
+                    r.executable_owner
+                )
+                .as_str(),
+            );
+            None
+        } else {
+            Some(self.resolve_wasm_hash(config, quiet, no_cache, &print).await?)
+        };
+
+        let network = config.get_network()?;
+        let client = network.rpc_client()?;
+
+        let executable = match &external_ref {
+            Some(r) => ContractExecutable::ExternalRef(r.clone()),
+            None => ContractExecutable::Wasm(
+                wasm_hash.clone().expect("wasm hash set when not a reference"),
+            ),
+        };
+
+        self.execute_inner(
+            config,
+            quiet,
+            no_cache,
+            print,
+            network,
+            client,
+            executable,
+            wasm_hash,
+            external_ref,
+        )
+        .await
+    }
+
+    /// Parse the CAP-0085 executable reference arguments, if given. Clap
+    /// enforces that the two flags appear together and never alongside
+    /// --wasm/--wasm-hash.
+    fn external_ref(&self) -> Result<Option<ContractExecutableExternalRef>, Error> {
+        let (Some(owner), Some(tag)) = (&self.executable_owner, &self.executable_tag) else {
+            return Ok(None);
+        };
+        let owner_key = stellar_strkey::Contract::from_string(owner).map_err(|_| {
+            Error::CannotParseExecutableOwner {
+                executable_owner: owner.clone(),
+            }
+        })?;
+        let executable_owner = ScAddress::Contract(Hash(owner_key.0).into());
+        let tag = ScString(tag.as_str().try_into().map_err(|_| {
+            Error::CannotParseExecutableTag {
+                executable_tag: tag.clone(),
+            }
+        })?);
+        Ok(Some(ContractExecutableExternalRef {
+            executable_owner,
+            tag,
+        }))
+    }
+
+    async fn resolve_wasm_hash(
+        &self,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+        print: &Print,
+    ) -> Result<Hash, Error> {
         let wasm_hash = if let Some(wasm) = &self.wasm {
             let is_build = self.build_only;
             let hash = if is_build {
@@ -371,8 +466,22 @@ impl Cmd {
         );
 
         print.infoln(format!("Deploying contract using wasm hash {wasm_hash}").as_str());
+        Ok(wasm_hash)
+    }
 
-        let network = config.get_network()?;
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_inner(
+        &self,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+        print: Print,
+        network: config::network::Network,
+        client: rpc::Client,
+        executable: ContractExecutable,
+        wasm_hash: Option<Hash>,
+        external_ref: Option<ContractExecutableExternalRef>,
+    ) -> Result<TxnResult<stellar_strkey::Contract>, Error> {
         let salt: [u8; 32] = match &self.salt {
             Some(h) => soroban_spec_tools::utils::padded_hex_from_str(h, 32)
                 .map_err(|_| Error::CannotParseSalt { salt: h.clone() })?
@@ -381,7 +490,6 @@ impl Cmd {
             None => rand::thread_rng().gen::<[u8; 32]>(),
         };
 
-        let client = network.rpc_client()?;
         let MuxedAccount::Ed25519(bytes) = config.source_account()? else {
             return Err(Error::OnlyEd25519AccountsAllowed);
         };
@@ -394,11 +502,20 @@ impl Cmd {
             get_contract_id(contract_id_preimage.clone(), &network.network_passphrase)?;
         let raw_wasm = if let Some(wasm) = self.wasm.as_ref() {
             wasm::Args { wasm: wasm.clone() }.read()?
+        } else if let Some(r) = &external_ref {
+            // The constructor signature still has to come from the actual code,
+            // so resolve the reference and fetch whatever it names right now.
+            let hash = resolve_executable_ref(&client, r).await?;
+            get_remote_wasm_from_hash(&client, &hash).await?
         } else {
             if self.build_only {
                 return Err(Error::WasmNotProvided);
             }
-            get_remote_wasm_from_hash(&client, &wasm_hash).await?
+            get_remote_wasm_from_hash(
+                &client,
+                wasm_hash.as_ref().expect("wasm hash set when not a reference"),
+            )
+            .await?
         };
         let entries = soroban_spec_tools::contract::Spec::new(&raw_wasm)?.spec;
         let res = soroban_spec_tools::Spec::new(entries.clone().as_slice());
@@ -430,7 +547,7 @@ impl Cmd {
         let account_details = client.get_account(&source_account.to_string()).await?;
         let sequence: i64 = account_details.seq_num.into();
         let txn = Box::new(build_create_contract_tx(
-            wasm_hash,
+            executable,
             sequence + 1,
             config.get_inclusion_fee()?,
             source_account,
@@ -482,7 +599,7 @@ fn reserved_package_alias(
 }
 
 fn build_create_contract_tx(
-    wasm_hash: Hash,
+    executable: ContractExecutable,
     sequence: i64,
     fee: u32,
     key: AccountId,
@@ -495,7 +612,7 @@ fn build_create_contract_tx(
             body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                 host_function: HostFunction::CreateContractV2(CreateContractArgsV2 {
                     contract_id_preimage,
-                    executable: ContractExecutable::Wasm(wasm_hash),
+                    executable,
                     constructor_args: args.clone(),
                 }),
                 auth: VecM::default(),
@@ -507,7 +624,7 @@ fn build_create_contract_tx(
             body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
                 host_function: HostFunction::CreateContract(CreateContractArgs {
                     contract_id_preimage,
-                    executable: ContractExecutable::Wasm(wasm_hash),
+                    executable,
                 }),
                 auth: VecM::default(),
             }),
@@ -550,7 +667,7 @@ mod tests {
         });
 
         let result = build_create_contract_tx(
-            Hash(hash),
+            ContractExecutable::Wasm(Hash(hash)),
             300,
             1,
             source_account,

@@ -1025,6 +1025,20 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             Value::Object(m)
         }
         ScVal::Bytes(v) => Value::String(to_lower_hex(v.as_slice())),
+        // CAP-0085. Rendered as a tagged object rather than a bare string so it
+        // stays distinguishable from ScVal::String, which shares its payload.
+        ScVal::ExecutableTag(v) => {
+            let mut m = serde_json::Map::<String, Value>::with_capacity(1);
+            m.insert(
+                "executable_tag".to_string(),
+                Value::String(
+                    std::str::from_utf8(v.as_slice())
+                        .map_err(|_| Error::InvalidValue(Some(ScType::String)))?
+                        .to_string(),
+                ),
+            );
+            Value::Object(m)
+        }
         ScVal::Address(v) => sc_address_to_json(v),
         ScVal::U128(n) => {
             let hi: [u8; 8] = n.hi.to_be_bytes();
@@ -1094,6 +1108,19 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             executable: ContractExecutable::StellarAsset,
             ..
         }) => json!({"SAC": true}),
+        // CAP-0085. The instance stores the reference, not the resolved hash:
+        // the Wasm actually executed is whatever the owner's entry holds right
+        // now, so report the reference and let the caller resolve it.
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::ExternalRef(r),
+            ..
+        }) => json!({
+            "external_ref": {
+                "executable_owner": sc_address_to_json(&r.executable_owner),
+                "tag": std::str::from_utf8(r.tag.as_slice())
+                    .map_err(|_| Error::InvalidValue(Some(ScType::String)))?,
+            }
+        }),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
             Value::Number(serde_json::Number::from(*nonce))
         }

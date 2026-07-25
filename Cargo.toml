@@ -43,8 +43,43 @@ version = "=27.0.0"
 path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
+# Protocol 28 (CAP-0085, externally managed contract executables) needs the
+# CAP-85 XDR types, which are gated behind `cap_0085_executable_ref` and are in
+# no crates.io release yet. Pinned to the same rev rs-soroban-env pins so the
+# whole graph agrees on one stellar-xdr; the [patch.crates-io] below redirects
+# the transitive users (soroban-spec, soroban-sdk, stellar-rpc-client, ...)
+# onto it, without which they would resolve a second, CAP-85-blind copy.
+# Productionize -> a released 28.x version on crates.io once one is cut.
 [workspace.dependencies.stellar-xdr]
 version = "27.0.0"
+git = "https://github.com/stellar/rs-stellar-xdr"
+rev = "a90de0c0d6eba8be668e9074cfb7b285ac0ecd34"
+features = ["cap_0085_executable_ref"]
+
+# Protocol 28 (CAP-0085): the CAP-85 XDR types force the whole stack to move
+# together. Patching stellar-xdr alone makes crates.io soroban-env-common 27.0.0
+# fail to build -- its ScVal / ScValType matches do not cover ExecutableTag --
+# and leaving it unpatched resolves a second CAP-85-blind stellar-xdr that then
+# mismatches types at every crate boundary. So env and the SDK family move too.
+#
+# The soroban-* patches point at rs-soroban-sdk#1929 (CAP-0085), which carries
+# the merged-upstream env/xdr pins and the contract-facing CAP-85 surface. That
+# branch is fork-hosted while the PR is open, hence the sisuresh git URL; the env
+# and xdr revs above are already upstream `stellar` revs.
+# Productionize -> re-point the soroban-* patches at a stellar/rs-soroban-sdk rev
+# once #1929 lands, then drop this whole block in favour of released 28.x
+# versions on crates.io.
+[patch.crates-io]
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "a90de0c0d6eba8be668e9074cfb7b285ac0ecd34" }
+soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "358d8bafde7332ad176165b8f9da0bd979e33cd9" }
+soroban-env-guest = { git = "https://github.com/stellar/rs-soroban-env", rev = "358d8bafde7332ad176165b8f9da0bd979e33cd9" }
+soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "358d8bafde7332ad176165b8f9da0bd979e33cd9" }
+soroban-sdk = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
+soroban-spec = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
+soroban-spec-rust = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
+soroban-token-sdk = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
+soroban-ledger-snapshot = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
+stellar-asset-spec = { git = "https://github.com/sisuresh/rs-soroban-sdk", rev = "b30d8e3dc95448f2b19fd651edc05604a66cfd2e" }
 
 # Dependencies from the rs-stellar-env repo:
 [workspace.dependencies.soroban-env-host]

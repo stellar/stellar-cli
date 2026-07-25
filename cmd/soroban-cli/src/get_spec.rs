@@ -8,7 +8,7 @@ pub use soroban_spec_tools::contract as contract_spec;
 use crate::commands::global;
 use crate::config::{self, data, locator, network};
 use crate::rpc;
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, resolve_executable_ref};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -75,6 +75,24 @@ pub async fn get_remote_contract_spec(
         }
         ContractExecutable::StellarAsset => {
             soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
+        }
+        // CAP-0085: the spec lives in whichever Wasm the reference currently
+        // resolves to. Caching stays keyed on that resolved hash, not on the
+        // contract id, so re-pointing the reference naturally misses the cache
+        // instead of serving a stale spec.
+        ContractExecutable::ExternalRef(r) => {
+            let hash = resolve_executable_ref(&client, &r).await?;
+            let hash_str = hash.to_string();
+            if let Ok(entries) = data::read_spec(&hash_str) {
+                entries
+            } else {
+                let raw_wasm = get_remote_wasm_from_hash(&client, &hash).await?;
+                let res = contract_spec::Spec::new(&raw_wasm)?.spec;
+                if global_args.is_none_or(|a| !a.no_cache) {
+                    data::write_spec(&hash_str, &res)?;
+                }
+                res
+            }
         }
     })
 }

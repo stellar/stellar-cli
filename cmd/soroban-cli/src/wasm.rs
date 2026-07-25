@@ -12,7 +12,10 @@ use crate::{
         locator,
         network::{Error as NetworkError, Network},
     },
-    utils::{self, rpc::get_remote_wasm_from_hash},
+    utils::{
+        self,
+        rpc::{get_remote_wasm_from_hash, resolve_executable_ref},
+    },
     wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
 };
 
@@ -133,6 +136,12 @@ pub async fn fetch_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(get_remote_wasm_from_hash(&client, hash).await?),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            // CAP-0085: resolve the reference through the owner's entry, then
+            // fetch the Wasm it currently names.
+            ContractExecutable::ExternalRef(r) => {
+                let hash = resolve_executable_ref(&client, r).await?;
+                Ok(get_remote_wasm_from_hash(&client, &hash).await?)
+            }
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
@@ -158,6 +167,10 @@ pub async fn fetch_wasm_hash_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(hash.clone()),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            // CAP-0085: the instance holds a reference, so the hash has to be
+            // read out of the owner's entry. It is only current as of this
+            // ledger -- the owner may re-point it at any time.
+            ContractExecutable::ExternalRef(r) => Ok(resolve_executable_ref(&client, r).await?),
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))

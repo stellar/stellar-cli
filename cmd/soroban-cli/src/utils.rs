@@ -382,6 +382,61 @@ pub mod rpc {
         super::verify_wasm_hash(&code, hash)?;
         Ok(code)
     }
+
+    /// Resolve a CAP-0085 executable reference to the Wasm hash it names right
+    /// now.
+    ///
+    /// The reference is a persistent contract data entry in the owner
+    /// contract's storage, keyed by an executable tag. The protocol guarantees
+    /// a live entry always holds the hash of an already-uploaded Wasm, so a
+    /// successful read always yields a usable hash. The entry can still be
+    /// archived, in which case there is nothing to read until it is restored.
+    ///
+    /// The result is deliberately not cached: the owner can re-point the entry
+    /// at any time, and that is the whole purpose of the mechanism.
+    pub async fn resolve_executable_ref(
+        client: &Client,
+        r: &xdr::ContractExecutableExternalRef,
+    ) -> Result<Hash, Error> {
+        let tag = String::from_utf8_lossy(r.tag.as_slice()).into_owned();
+        let key = LedgerKey::ContractData(xdr::LedgerKeyContractData {
+            contract: r.executable_owner.clone(),
+            key: xdr::ScVal::ExecutableTag(r.tag.clone()),
+            durability: xdr::ContractDataDurability::Persistent,
+        });
+        let entries = client
+            .get_ledger_entries(&[key])
+            .await?
+            .entries
+            .unwrap_or_default();
+        let Some(entry) = entries.first() else {
+            return Err(Error::NotFound(
+                "Executable reference".to_string(),
+                format!("tag {tag} of contract {}", r.executable_owner),
+            ));
+        };
+        match LedgerEntryData::from_xdr_base64(&entry.xdr, Limits::none())? {
+            LedgerEntryData::ContractData(xdr::ContractDataEntry {
+                val: xdr::ScVal::Bytes(bytes),
+                ..
+            }) => <[u8; 32]>::try_from(bytes.as_slice())
+                .map(Hash)
+                .map_err(|_| {
+                    Error::NotFound(
+                        "Executable reference".to_string(),
+                        format!(
+                            "tag {tag} of contract {} holds {} bytes, not a 32-byte Wasm hash",
+                            r.executable_owner,
+                            bytes.len()
+                        ),
+                    )
+                }),
+            other => Err(Error::NotFound(
+                "Executable reference".to_string(),
+                format!("tag {tag} of contract {} holds {other:?}", r.executable_owner),
+            )),
+        }
+    }
 }
 
 // Uses `Error::NotFound` because `soroban_rpc::Error` has no integrity/mismatch

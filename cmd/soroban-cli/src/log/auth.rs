@@ -128,6 +128,23 @@ fn format_create_contract(
         ContractExecutable::StellarAsset => {
             let _ = writeln!(result, "{prefix}    Executable: StellarAsset");
         }
+        // CAP-0085. This is a signing-review surface, so show the reference
+        // rather than resolving it: what is being authorized is a contract
+        // whose code the owner can replace at will, and the resolved hash
+        // would misrepresent that as a fixed executable.
+        ContractExecutable::ExternalRef(r) => {
+            let _ = writeln!(result, "{prefix}    Executable: ExternalRef");
+            let _ = writeln!(
+                result,
+                "{prefix}      Owner: {}",
+                format_address(&r.executable_owner)
+            );
+            let _ = writeln!(
+                result,
+                "{prefix}      Tag: {}",
+                String::from_utf8_lossy(r.tag.as_slice())
+            );
+        }
     }
     if let Some(args) = constructor_args {
         if !args.is_empty() {
