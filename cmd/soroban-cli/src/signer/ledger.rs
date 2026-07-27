@@ -56,8 +56,8 @@ mod ledger_impl {
                 .await?;
             // Only the cached-pubkey path can drift; the cacheless path fetched the
             // key live from the same device that just signed.
-            if self.public_key.is_some() {
-                crate::signer::validation::verify_signature(&key, &tx_hash, &sig_bytes)?;
+            if let Some(pk) = self.public_key {
+                crate::signer::validation::verify_signature(&pk, &tx_hash, &sig_bytes)?;
             }
             let hint = SignatureHint(key.0[28..].try_into()?);
             let signature = Signature(sig_bytes.try_into()?);
