@@ -98,7 +98,7 @@ pub struct Args {
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
-        self.resolve(locator, /* require_rpc */ true)
+        self.resolve(locator, true)
     }
 
     /// Resolve the network for commands that only need the passphrase
@@ -107,7 +107,7 @@ impl Args {
     /// When only a passphrase is supplied, the returned `Network` has an empty
     /// `rpc_url`; callers of this method MUST NOT use `rpc_client()`.
     pub fn get_no_rpc(&self, locator: &locator::Args) -> Result<Network, Error> {
-        self.resolve(locator, /* require_rpc */ false)
+        self.resolve(locator, false)
     }
 
     fn resolve(&self, locator: &locator::Args, require_rpc: bool) -> Result<Network, Error> {
