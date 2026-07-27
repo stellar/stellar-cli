@@ -78,16 +78,17 @@ impl UnresolvedMuxedAccount {
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
         match &self {
-            // A literal public key (or muxed account) has no secret on its own,
-            // but a stored identity may hold the matching key. Scan identities
-            // by public key so `G...`/`M...` signs like its alias would; fall
-            // back to `CannotSign` only when nothing matches.
+            // A literal public key has no secret on its own, but a stored
+            // identity may hold the matching key. Scan identities by public key
+            // so `G...` signs like its alias would; fall back to `CannotSign`
+            // when nothing matches. Muxed accounts (`M...`) aren't signable
+            // end-to-end yet (see the `todo!` in `sign_soroban_authorizations`),
+            // so they keep returning `CannotSign`.
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
-                let ed25519 = match muxed_account {
-                    xdr::MuxedAccount::Ed25519(xdr::Uint256(key)) => *key,
-                    xdr::MuxedAccount::MuxedEd25519(m) => m.ed25519.0,
+                let xdr::MuxedAccount::Ed25519(xdr::Uint256(key)) = muxed_account else {
+                    return Err(Error::CannotSign(muxed_account.clone()));
                 };
-                let target = stellar_strkey::ed25519::PublicKey(ed25519);
+                let target = stellar_strkey::ed25519::PublicKey(*key);
                 locator
                     .secret_by_public_key(&target)?
                     .ok_or_else(|| Error::CannotSign(muxed_account.clone()))
