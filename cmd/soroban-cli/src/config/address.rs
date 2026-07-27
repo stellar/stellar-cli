@@ -76,7 +76,11 @@ impl UnresolvedMuxedAccount {
         }
     }
 
-    pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
+    pub fn resolve_secret(
+        &self,
+        locator: &locator::Args,
+        hd_path: Option<u32>,
+    ) -> Result<secret::Secret, Error> {
         match &self {
             // A literal public key has no secret on its own, but a stored
             // identity may hold the matching key. Scan identities by public key
@@ -90,7 +94,7 @@ impl UnresolvedMuxedAccount {
                 };
                 let target = stellar_strkey::ed25519::PublicKey(*key);
                 locator
-                    .secret_by_public_key(&target)?
+                    .secret_by_public_key(&target, hd_path)?
                     .ok_or_else(|| Error::CannotSign(muxed_account.clone()))
             }
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
@@ -236,7 +240,7 @@ mod tests {
         let account: UnresolvedMuxedAccount = TEST_PUBLIC_KEY.parse().unwrap();
         assert!(matches!(account, UnresolvedMuxedAccount::Resolved(_)));
 
-        let secret = account.resolve_secret(&locator).unwrap();
+        let secret = account.resolve_secret(&locator, None).unwrap();
         assert!(matches!(
             secret,
             Secret::SecretKey { ref secret_key } if secret_key == TEST_SECRET_KEY
@@ -249,7 +253,7 @@ mod tests {
         let account: UnresolvedMuxedAccount = OTHER_PUBLIC_KEY.parse().unwrap();
 
         assert!(matches!(
-            account.resolve_secret(&locator).unwrap_err(),
+            account.resolve_secret(&locator, None).unwrap_err(),
             Error::CannotSign(_)
         ));
     }

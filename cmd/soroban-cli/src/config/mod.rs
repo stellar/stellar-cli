@@ -101,7 +101,9 @@ impl Args {
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let key = &self
+            .source_account
+            .resolve_secret(&self.locator, self.hd_path())?;
         Ok(key.key_pair(self.hd_path())?)
     }
 

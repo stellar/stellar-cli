@@ -402,19 +402,21 @@ impl Args {
     }
 
     /// Find a stored identity whose public key matches `target`, returning its
-    /// secret. Best-effort: identities whose public key can't be derived
-    /// without error (e.g. a disconnected ledger) are skipped rather than
-    /// failing the whole lookup. Each identity is matched at its own persisted
-    /// hd_path.
+    /// secret. Each identity is derived at `hd_path` (falling back to its own
+    /// persisted path when `hd_path` is `None`), so a key looked up by strkey
+    /// resolves the same way it would by alias under the same `--hd-path`.
+    /// Best-effort: identities whose public key can't be derived without error
+    /// (e.g. a disconnected ledger) are skipped rather than failing the lookup.
     pub fn secret_by_public_key(
         &self,
         target: &stellar_strkey::ed25519::PublicKey,
+        hd_path: Option<u32>,
     ) -> Result<Option<Secret>, Error> {
         for name in self.list_identities()? {
             let Ok(Key::Secret(secret)) = self.read_identity(&name) else {
                 continue;
             };
-            if secret.public_key(None).is_ok_and(|pk| &pk == target) {
+            if secret.public_key(hd_path).is_ok_and(|pk| &pk == target) {
                 return Ok(Some(secret));
             }
         }
@@ -1552,6 +1554,8 @@ mod tests {
         const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
         const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
         const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+        const TEST_SEED_PHRASE: &str =
+            "depth decade power loud smile spatial sign movie judge february rate broccoli";
 
         fn locator_with_tempdir() -> (tempfile::TempDir, Args) {
             let dir = tempfile::tempdir().unwrap();
@@ -1570,7 +1574,7 @@ mod tests {
             locator.write_identity("alice", &secret).unwrap();
 
             let target = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
-            let found = locator.secret_by_public_key(&target).unwrap();
+            let found = locator.secret_by_public_key(&target, None).unwrap();
 
             assert!(matches!(
                 found,
@@ -1587,7 +1591,32 @@ mod tests {
             locator.write_identity("alice", &secret).unwrap();
 
             let target = stellar_strkey::ed25519::PublicKey::from_string(OTHER_PUBLIC_KEY).unwrap();
-            assert!(locator.secret_by_public_key(&target).unwrap().is_none());
+            assert!(locator
+                .secret_by_public_key(&target, None)
+                .unwrap()
+                .is_none());
+        }
+
+        #[test]
+        fn matches_identity_at_requested_hd_path() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SeedPhrase {
+                seed_phrase: TEST_SEED_PHRASE.to_string(),
+                hd_path: None,
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            // The account derived at index 5 is only found when the lookup uses
+            // the same hd_path; the default (index 0) path must not match it.
+            let at_five = secret.public_key(Some(5)).unwrap();
+            assert!(locator
+                .secret_by_public_key(&at_five, Some(5))
+                .unwrap()
+                .is_some());
+            assert!(locator
+                .secret_by_public_key(&at_five, None)
+                .unwrap()
+                .is_none());
         }
     }
 }
