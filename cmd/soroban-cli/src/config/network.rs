@@ -101,16 +101,14 @@ impl Args {
         self.resolve(locator, true)
     }
 
-    /// Resolve the network for commands that only need the passphrase
-    /// (e.g. `tx sign`, `tx hash`) and never contact an RPC server.
+    /// Resolve the network config.
     ///
-    /// When only a passphrase is supplied, the returned `Network` has an empty
-    /// `rpc_url`; callers of this method MUST NOT use `rpc_client()`.
-    pub fn get_no_rpc(&self, locator: &locator::Args) -> Result<Network, Error> {
-        self.resolve(locator, false)
-    }
-
-    fn resolve(&self, locator: &locator::Args, require_rpc: bool) -> Result<Network, Error> {
+    /// When `require_rpc` is false, a passphrase supplied on its own resolves to
+    /// a `Network` with an empty `rpc_url` (for commands like `tx sign` and
+    /// `tx hash` that never contact an RPC server). Such callers MUST NOT use
+    /// `rpc_client()`. When `require_rpc` is true, a passphrase-only invocation
+    /// errors with `MissingRpcUrl`.
+    pub fn resolve(&self, locator: &locator::Args, require_rpc: bool) -> Result<Network, Error> {
         match (
             self.network.as_deref(),
             self.rpc_url.clone(),
@@ -570,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_no_rpc_accepts_passphrase_only() {
+    fn test_resolve_no_rpc_accepts_passphrase_only() {
         use super::super::locator;
 
         let args = Args {
@@ -581,7 +579,7 @@ mod tests {
         };
 
         let network = args
-            .get_no_rpc(&locator::Args::default())
+            .resolve(&locator::Args::default(), false)
             .expect("passphrase-only network should resolve for signing-only commands");
         assert_eq!(network.network_passphrase, "specified manually");
         assert_eq!(network.rpc_url, "");
@@ -589,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_no_rpc_still_requires_passphrase_when_rpc_given() {
+    fn test_resolve_no_rpc_still_requires_passphrase_when_rpc_given() {
         use super::super::locator;
 
         let args = Args {
@@ -599,14 +597,14 @@ mod tests {
             network: None,
         };
 
-        let err = args.get_no_rpc(&locator::Args::default()).expect_err(
+        let err = args.resolve(&locator::Args::default(), false).expect_err(
             "rpc without passphrase should still error, even for signing-only commands",
         );
         assert!(matches!(err, Error::MissingNetworkPassphrase));
     }
 
     #[test]
-    fn test_get_no_rpc_preserves_rpc_url_when_both_given() {
+    fn test_resolve_no_rpc_preserves_rpc_url_when_both_given() {
         use super::super::locator;
 
         let args = Args {
@@ -616,7 +614,7 @@ mod tests {
             network: None,
         };
 
-        let network = args.get_no_rpc(&locator::Args::default()).unwrap();
+        let network = args.resolve(&locator::Args::default(), false).unwrap();
         assert_eq!(network.rpc_url, "https://example.com");
         assert_eq!(network.network_passphrase, "specified manually");
     }
