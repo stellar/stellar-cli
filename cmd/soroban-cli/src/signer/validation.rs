@@ -203,6 +203,15 @@ mod tests {
             verify_signature(&public_key, &message, &signature[..63]),
             Err(Error::InvalidSignature { len: 63 })
         ));
+
+        // A cached public key whose bytes are not a valid ed25519 point (here,
+        // 0x02 repeated, which fails curve decompression) is reported as an
+        // invalid key, not a signature mismatch.
+        let invalid_pk = ed25519::PublicKey([0x02u8; 32]);
+        assert!(matches!(
+            verify_signature(&invalid_pk, &message, &signature),
+            Err(Error::InvalidPublicKey { .. })
+        ));
     }
 
     #[test]
