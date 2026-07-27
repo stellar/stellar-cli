@@ -1,3 +1,4 @@
+use predicates::prelude::PredicateBooleanExt;
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -340,6 +341,28 @@ async fn contract_data_read() {
         .assert()
         .success()
         .stdout(predicates::str::starts_with("COUNTER,2"));
+}
+
+#[tokio::test]
+async fn extend_nonexistent_entry_errors_without_panic() {
+    // A well-formed but non-existent contract id makes the extend a no-op. The
+    // CLI must surface a clean error rather than panic with "index out of
+    // bounds" while inspecting the (empty) ledger entries. See issue #2599.
+    const NONEXISTENT_ID: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("extend")
+        .arg("--id")
+        .arg(NONEXISTENT_ID)
+        .arg("--ledgers-to-extend")
+        .arg("1")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Ledger entry not found"))
+        .stderr(predicates::str::contains("index out of bounds").not())
+        .stderr(predicates::str::contains("panicked").not());
 }
 
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
