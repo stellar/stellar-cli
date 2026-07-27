@@ -262,7 +262,14 @@ impl Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&entry_keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+            // A no-op restore against a non-existent entry returns no entries, so
+            // avoid indexing into an empty vec (which would panic).
+            let extension = entry
+                .entries
+                .first()
+                .ok_or(Error::LedgerEntryNotFound)?
+                .live_until_ledger_seq
+                .unwrap_or_default();
 
             return Ok(TxnResult::Res(extension));
         }
