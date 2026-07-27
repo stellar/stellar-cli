@@ -78,8 +78,19 @@ impl UnresolvedMuxedAccount {
 
     pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
         match &self {
+            // A literal public key (or muxed account) has no secret on its own,
+            // but a stored identity may hold the matching key. Scan identities
+            // by public key so `G...`/`M...` signs like its alias would; fall
+            // back to `CannotSign` only when nothing matches.
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
-                Err(Error::CannotSign(muxed_account.clone()))
+                let ed25519 = match muxed_account {
+                    xdr::MuxedAccount::Ed25519(xdr::Uint256(key)) => *key,
+                    xdr::MuxedAccount::MuxedEd25519(m) => m.ed25519.0,
+                };
+                let target = stellar_strkey::ed25519::PublicKey(ed25519);
+                locator
+                    .secret_by_public_key(&target)?
+                    .ok_or_else(|| Error::CannotSign(muxed_account.clone()))
             }
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
                 Ok(locator.read_key(alias_or_secret)?.try_into()?)
@@ -200,6 +211,47 @@ impl AsRef<std::path::Path> for ContractName {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::secret::Secret;
+
+    const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+    const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+
+    fn locator_with_identity() -> (tempfile::TempDir, locator::Args) {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let secret = Secret::SecretKey {
+            secret_key: TEST_SECRET_KEY.to_string(),
+        };
+        locator.write_identity("alice", &secret).unwrap();
+        (dir, locator)
+    }
+
+    #[test]
+    fn resolve_secret_matches_public_key_to_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        let account: UnresolvedMuxedAccount = TEST_PUBLIC_KEY.parse().unwrap();
+        assert!(matches!(account, UnresolvedMuxedAccount::Resolved(_)));
+
+        let secret = account.resolve_secret(&locator).unwrap();
+        assert!(matches!(
+            secret,
+            Secret::SecretKey { ref secret_key } if secret_key == TEST_SECRET_KEY
+        ));
+    }
+
+    #[test]
+    fn resolve_secret_errors_when_public_key_has_no_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        let account: UnresolvedMuxedAccount = OTHER_PUBLIC_KEY.parse().unwrap();
+
+        assert!(matches!(
+            account.resolve_secret(&locator).unwrap_err(),
+            Error::CannotSign(_)
+        ));
+    }
 
     #[test]
     fn ledger_shorthand_is_not_recognized() {

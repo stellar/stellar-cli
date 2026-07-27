@@ -465,9 +465,16 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
-    let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
-    let print = Print::new(false);
-    let signer = secret.signer(config.hd_path(), print).ok()?;
+    let account: config::UnresolvedMuxedAccount = addr_or_alias.parse().ok()?;
+    let secret = account.resolve_secret(&config.locator).ok()?;
+    // A raw public key was matched to an identity at its persisted derivation,
+    // so sign at that path (None); an alias or secret honors the global
+    // --hd-path as before.
+    let hd_path = match account {
+        config::UnresolvedMuxedAccount::Resolved(_) => None,
+        config::UnresolvedMuxedAccount::AliasOrSecret(_) => config.hd_path(),
+    };
+    let signer = secret.signer(hd_path, Print::new(false)).ok()?;
     Some(signer)
 }
 

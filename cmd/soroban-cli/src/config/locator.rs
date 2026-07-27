@@ -401,6 +401,26 @@ impl Args {
         Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }
 
+    /// Find a stored identity whose public key matches `target`, returning its
+    /// secret. Best-effort: identities whose public key can't be derived
+    /// without error (e.g. a disconnected ledger) are skipped rather than
+    /// failing the whole lookup. Each identity is matched at its own persisted
+    /// hd_path.
+    pub fn secret_by_public_key(
+        &self,
+        target: &stellar_strkey::ed25519::PublicKey,
+    ) -> Result<Option<Secret>, Error> {
+        for name in self.list_identities()? {
+            let Ok(Key::Secret(secret)) = self.read_identity(&name) else {
+                continue;
+            };
+            if secret.public_key(None).is_ok_and(|pk| &pk == target) {
+                return Ok(Some(secret));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         utils::validate_name(name)?;
         let res = KeyType::Network.read_with_global(name, self);
@@ -1523,6 +1543,51 @@ mod tests {
                 .read_key_with_secure_store_cache(TEST_PUBLIC_KEY, None)
                 .unwrap();
             assert!(matches!(key, Key::PublicKey(_)));
+        }
+    }
+
+    mod secret_by_public_key {
+        use super::super::*;
+
+        const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+        const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+
+        fn locator_with_tempdir() -> (tempfile::TempDir, Args) {
+            let dir = tempfile::tempdir().unwrap();
+            let args = Args {
+                config_dir: Some(dir.path().to_path_buf()),
+            };
+            (dir, args)
+        }
+
+        #[test]
+        fn returns_secret_for_stored_identity() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SecretKey {
+                secret_key: TEST_SECRET_KEY.to_string(),
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            let target = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
+            let found = locator.secret_by_public_key(&target).unwrap();
+
+            assert!(matches!(
+                found,
+                Some(Secret::SecretKey { ref secret_key }) if secret_key == TEST_SECRET_KEY
+            ));
+        }
+
+        #[test]
+        fn returns_none_for_unknown_public_key() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SecretKey {
+                secret_key: TEST_SECRET_KEY.to_string(),
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            let target = stellar_strkey::ed25519::PublicKey::from_string(OTHER_PUBLIC_KEY).unwrap();
+            assert!(locator.secret_by_public_key(&target).unwrap().is_none());
         }
     }
 }
