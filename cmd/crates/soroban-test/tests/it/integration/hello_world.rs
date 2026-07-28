@@ -365,6 +365,27 @@ async fn extend_nonexistent_entry_errors_without_panic() {
         .stderr(predicates::str::contains("panicked").not());
 }
 
+#[tokio::test]
+async fn restore_nonexistent_entry_errors_without_panic() {
+    // Restoring a well-formed but non-existent contract id fails at
+    // simulation with "Missing entry to restore". The CLI must surface that
+    // as a clean error and never panic with "index out of bounds" while
+    // inspecting empty ledger entries. See issue #2599.
+    const NONEXISTENT_ID: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("restore")
+        .arg("--id")
+        .arg(NONEXISTENT_ID)
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Missing entry to restore"))
+        .stderr(predicates::str::contains("index out of bounds").not())
+        .stderr(predicates::str::contains("panicked").not());
+}
+
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {
     invoke_with_source(sandbox, seed_phrase, id).await;
 }
