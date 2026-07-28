@@ -262,8 +262,9 @@ impl Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&entry_keys).await?;
-            // A no-op restore against a non-existent entry returns no entries, so
-            // avoid indexing into an empty vec (which would panic).
+            // The fetch after a no-op can return no entries (e.g. the entry
+            // was evicted in the meantime), so avoid indexing into an empty
+            // vec (which would panic).
             let extension = entry
                 .entries
                 .first()
