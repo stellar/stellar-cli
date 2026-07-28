@@ -134,7 +134,7 @@ async fn invoke_contract() {
     invoke_auth_with_identity(sandbox, id, "test", &addr);
     invoke_auth_with_identity(sandbox, id, "testone", &addr_1);
     invoke_auth_with_non_source_identity(sandbox, id, "test", "testone", &addr_1);
-    invoke_auth_with_different_test_account_fail(sandbox, id, &addr_1).await;
+    invoke_auth_with_unknown_account_fail(sandbox, id).await;
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
@@ -249,10 +249,35 @@ fn invoke_auth_with_non_source_identity(
         .success();
 }
 
-async fn invoke_auth_with_different_test_account_fail(sandbox: &TestEnv, id: &str, addr: &str) {
+// A public key that matches no stored identity has no signer, so requiring its
+// auth must fail rather than silently succeed. This guards the `CannotSign`
+// fallback in `resolve_secret`: signing by public key only works when the key
+// belongs to a known identity.
+async fn invoke_auth_with_unknown_account_fail(sandbox: &TestEnv, id: &str) {
+    // Mint a fresh keypair, capture its address, then remove the identity so the
+    // address is a valid, funded-elsewhere account that we hold no secret for.
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("unknown")
+        .assert()
+        .success();
+    let addr = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("unknown")
+        .assert()
+        .stdout_as_str();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("--force")
+        .arg("unknown")
+        .assert()
+        .success();
+
     let res = sandbox
         .invoke_with_test(&[
-            "--hd-path=0",
             "--id",
             id,
             "--",

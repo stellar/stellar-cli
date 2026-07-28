@@ -259,6 +259,27 @@ mod tests {
     }
 
     #[test]
+    fn resolve_secret_rejects_muxed_account_even_with_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        // A muxed account (`M...`) wrapping alice's ed25519 key. Even though the
+        // underlying key belongs to a stored identity, muxed accounts aren't
+        // signable end-to-end yet, so resolution must still return `CannotSign`
+        // rather than the stored secret.
+        let pk = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
+        let account = UnresolvedMuxedAccount::Resolved(xdr::MuxedAccount::MuxedEd25519(
+            xdr::MuxedAccountMed25519 {
+                id: 1,
+                ed25519: xdr::Uint256(pk.0),
+            },
+        ));
+
+        assert!(matches!(
+            account.resolve_secret(&locator, None).unwrap_err(),
+            Error::CannotSign(_)
+        ));
+    }
+
+    #[test]
     fn ledger_shorthand_is_not_recognized() {
         match "ledger".parse::<UnresolvedMuxedAccount>().unwrap() {
             UnresolvedMuxedAccount::AliasOrSecret(s) => assert_eq!(s, "ledger"),
