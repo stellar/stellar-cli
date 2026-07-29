@@ -88,14 +88,6 @@ impl Print {
 macro_rules! create_print_functions {
     ($name:ident, $nameln:ident, $icon:expr) => {
         impl Print {
-            #[allow(dead_code)]
-            pub fn $name<T: Display + Sized>(&self, message: T) {
-                if !self.quiet {
-                    eprint!("{} {}", self.compute_emoji($icon), message);
-                }
-            }
-
-            #[allow(dead_code)]
             pub fn $nameln<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
                     eprintln!("{} {}", self.compute_emoji($icon), message);
