@@ -1126,6 +1126,7 @@ If no keys are specificed the contract itself is restored.
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
 - `--build-only` — Build the transaction and only write the base64 xdr to stdout
+- `--dry-run` — Simulate the restore instead of submitting it, and report whether it fits within the network's per-transaction resource limits
 
 ## `stellar doctor`
 

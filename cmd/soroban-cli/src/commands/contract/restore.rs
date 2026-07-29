@@ -1,14 +1,16 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     log::extract_events,
     tx::sim_sign_and_send_tx,
     xdr::{
-        Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
-        LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
-        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
-        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
-        TtlEntry, WriteXdr,
+        ConfigSettingEntry, ConfigSettingId, Error as XdrError, ExtensionPoint, LedgerEntry,
+        LedgerEntryChange, LedgerEntryData, LedgerFootprint, LedgerKey, LedgerKeyConfigSetting,
+        Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp, SequenceNumber,
+        SorobanResources, SorobanTransactionData, SorobanTransactionDataExt, Transaction,
+        TransactionEnvelope, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
+        TransactionV1Envelope, TtlEntry, VecM, WriteXdr,
     },
 };
 use clap::Parser;
@@ -49,6 +51,11 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Simulate the restore instead of submitting it, and report whether it
+    /// fits within the network's per-transaction resource limits
+    #[arg(long, conflicts_with = "build_only", help_heading = HEADING_TRANSACTION)]
+    pub dry_run: bool,
 }
 
 impl FromStr for Cmd {
@@ -121,11 +128,18 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error("config setting {0} not found in network config")]
+    MissingConfigSetting(&'static str),
 }
 
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        if self.dry_run {
+            return self.run_dry_run(&self.config, global_args.quiet).await;
+        }
+
         let res = self
             .execute(&self.config, global_args.quiet, global_args.no_cache)
             .await?
@@ -169,41 +183,8 @@ impl Cmd {
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
-        let source_account = config.source_account()?;
 
-        // Get the account sequence number
-        let account_details = client
-            .get_account(&source_account.clone().to_string())
-            .await?;
-        let sequence: i64 = account_details.seq_num.into();
-
-        let tx = Box::new(Transaction {
-            source_account,
-            fee: config.get_inclusion_fee()?,
-            seq_num: SequenceNumber(sequence + 1),
-            cond: Preconditions::None,
-            memo: Memo::None,
-            operations: vec![Operation {
-                source_account: None,
-                body: OperationBody::RestoreFootprint(RestoreFootprintOp {
-                    ext: ExtensionPoint::V0,
-                }),
-            }]
-            .try_into()?,
-            ext: TransactionExt::V1(SorobanTransactionData {
-                ext: SorobanTransactionDataExt::V0,
-                resources: SorobanResources {
-                    footprint: LedgerFootprint {
-                        read_only: vec![].try_into()?,
-                        read_write: entry_keys.clone().try_into()?,
-                    },
-                    instructions: self.resources.instructions.unwrap_or_default(),
-                    disk_read_bytes: 0,
-                    write_bytes: 0,
-                },
-                resource_fee: 0,
-            }),
-        });
+        let tx = self.build_tx(config, &client, &entry_keys).await?;
         if self.build_only {
             return Ok(TxnResult::Txn(tx));
         }
@@ -279,6 +260,276 @@ impl Cmd {
             parse_changes(&changes.to_vec()).ok_or(Error::LedgerEntryNotFound)?,
         ))
     }
+
+    /// Builds the unsigned `RestoreFootprint` transaction with the given
+    /// footprint entries in its read-write set.
+    async fn build_tx(
+        &self,
+        config: &config::Args,
+        client: &rpc::Client,
+        entry_keys: &[LedgerKey],
+    ) -> Result<Box<Transaction>, Error> {
+        let source_account = config.source_account()?;
+
+        // Get the account sequence number
+        let account_details = client
+            .get_account(&source_account.clone().to_string())
+            .await?;
+        let sequence: i64 = account_details.seq_num.into();
+
+        Ok(Box::new(Transaction {
+            source_account,
+            fee: config.get_inclusion_fee()?,
+            seq_num: SequenceNumber(sequence + 1),
+            cond: Preconditions::None,
+            memo: Memo::None,
+            operations: vec![Operation {
+                source_account: None,
+                body: OperationBody::RestoreFootprint(RestoreFootprintOp {
+                    ext: ExtensionPoint::V0,
+                }),
+            }]
+            .try_into()?,
+            ext: TransactionExt::V1(SorobanTransactionData {
+                ext: SorobanTransactionDataExt::V0,
+                resources: SorobanResources {
+                    footprint: LedgerFootprint {
+                        read_only: vec![].try_into()?,
+                        read_write: entry_keys.to_vec().try_into()?,
+                    },
+                    instructions: self.resources.instructions.unwrap_or_default(),
+                    disk_read_bytes: 0,
+                    write_bytes: 0,
+                },
+                resource_fee: 0,
+            }),
+        }))
+    }
+
+    /// Simulates the restore (instead of submitting it) and reports whether the
+    /// resulting transaction fits within the network's per-transaction resource
+    /// limits, listing every limit and by how much any is exceeded.
+    async fn run_dry_run(&self, config: &config::Args, quiet: bool) -> Result<(), Error> {
+        let print = crate::print::Print::new(quiet);
+        let network = config.get_network()?;
+        let entry_keys = self.key.parse_keys(&config.locator, &network)?;
+        let client = network.rpc_client()?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
+
+        let tx = self.build_tx(config, &client, &entry_keys).await?;
+
+        print.infoln("Simulating restore transaction…");
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+            // Footprint restore is not an InvokeHostFunction op, so the RPC does
+            // not accept an auth mode.
+            None,
+        )
+        .await?;
+
+        let usage = ResourceUsage::from_transaction(assembled.transaction())?;
+        let limits = fetch_resource_limits(&client).await?;
+        let checks = check_limits(&usage, &limits);
+
+        print.infoln("Per-transaction resource limits (from network config):");
+        for check in &checks {
+            let status = if check.exceeded() {
+                format!("EXCEEDS by {}", check.overage())
+            } else {
+                "ok".to_string()
+            };
+            print.blankln(format!(
+                "{}: {} / {} ({status})",
+                check.name, check.used, check.limit
+            ));
+        }
+        print.blankln(
+            "(transaction size excludes signatures, so it is a lower-bound estimate; \
+             the signed transaction will be slightly larger)",
+        );
+
+        if fits(&checks) {
+            print.checkln("This restore fits within a single transaction.");
+        } else {
+            print.errorln(
+                "This restore does NOT fit within a single transaction. Restoring fewer keys \
+                 per transaction would be required. (Computing the minimum number of \
+                 transactions and grouping keys is not yet implemented.)",
+            );
+        }
+
+        Ok(())
+    }
+}
+
+/// The network's per-transaction resource limits, fetched from config settings.
+#[derive(Debug, Clone, Copy)]
+struct ResourceLimits {
+    instructions: i64,
+    disk_read_entries: u32,
+    disk_read_bytes: u32,
+    write_ledger_entries: u32,
+    write_bytes: u32,
+    tx_size_bytes: u32,
+}
+
+/// The resource usage of a simulated transaction.
+#[derive(Debug, Clone, Copy)]
+struct ResourceUsage {
+    instructions: u32,
+    disk_read_entries: u32,
+    disk_read_bytes: u32,
+    write_ledger_entries: u32,
+    write_bytes: u32,
+    tx_size_bytes: u32,
+}
+
+impl ResourceUsage {
+    /// Extracts the resource usage from an assembled (post-simulation) transaction.
+    fn from_transaction(tx: &Transaction) -> Result<Self, Error> {
+        let TransactionExt::V1(SorobanTransactionData {
+            resources:
+                SorobanResources {
+                    footprint,
+                    instructions,
+                    disk_read_bytes,
+                    write_bytes,
+                },
+            ..
+        }) = &tx.ext
+        else {
+            return Err(Error::MissingOperationResult);
+        };
+
+        // The transaction size the network limits is the size of the whole
+        // envelope. We don't have signatures yet at simulation time, so this is
+        // a close lower-bound estimate.
+        let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: tx.clone(),
+            signatures: VecM::default(),
+        });
+        let tx_size_bytes = u32::try_from(tx_env.to_xdr(Limits::none())?.len()).unwrap_or(u32::MAX);
+
+        Ok(Self {
+            instructions: *instructions,
+            // Every footprint entry (read-only + read-write) is read from disk.
+            disk_read_entries: u32::try_from(
+                footprint.read_only.len() + footprint.read_write.len(),
+            )
+            .unwrap_or(u32::MAX),
+            disk_read_bytes: *disk_read_bytes,
+            write_ledger_entries: u32::try_from(footprint.read_write.len()).unwrap_or(u32::MAX),
+            write_bytes: *write_bytes,
+            tx_size_bytes,
+        })
+    }
+}
+
+/// A single resource limit comparison.
+struct LimitCheck {
+    name: &'static str,
+    used: u64,
+    limit: u64,
+}
+
+impl LimitCheck {
+    fn exceeded(&self) -> bool {
+        self.used > self.limit
+    }
+
+    fn overage(&self) -> u64 {
+        self.used.saturating_sub(self.limit)
+    }
+}
+
+/// Compares the simulated resource usage against every per-transaction limit.
+fn check_limits(usage: &ResourceUsage, limits: &ResourceLimits) -> Vec<LimitCheck> {
+    vec![
+        LimitCheck {
+            name: "instructions",
+            used: u64::from(usage.instructions),
+            limit: u64::try_from(limits.instructions).unwrap_or(0),
+        },
+        LimitCheck {
+            name: "disk read entries",
+            used: u64::from(usage.disk_read_entries),
+            limit: u64::from(limits.disk_read_entries),
+        },
+        LimitCheck {
+            name: "disk read bytes",
+            used: u64::from(usage.disk_read_bytes),
+            limit: u64::from(limits.disk_read_bytes),
+        },
+        LimitCheck {
+            name: "write ledger entries",
+            used: u64::from(usage.write_ledger_entries),
+            limit: u64::from(limits.write_ledger_entries),
+        },
+        LimitCheck {
+            name: "write bytes",
+            used: u64::from(usage.write_bytes),
+            limit: u64::from(limits.write_bytes),
+        },
+        LimitCheck {
+            name: "transaction size (bytes)",
+            used: u64::from(usage.tx_size_bytes),
+            limit: u64::from(limits.tx_size_bytes),
+        },
+    ]
+}
+
+/// Whether the transaction fits within all per-transaction limits.
+fn fits(checks: &[LimitCheck]) -> bool {
+    checks.iter().all(|check| !check.exceeded())
+}
+
+/// Fetches the per-transaction resource limits from the network's config
+/// settings via RPC (the same mechanism as `stellar network settings`).
+async fn fetch_resource_limits(client: &rpc::Client) -> Result<ResourceLimits, Error> {
+    let keys = [
+        ConfigSettingId::ContractComputeV0,
+        ConfigSettingId::ContractLedgerCostV0,
+        ConfigSettingId::ContractBandwidthV0,
+    ]
+    .into_iter()
+    .map(|config_setting_id| LedgerKey::ConfigSetting(LedgerKeyConfigSetting { config_setting_id }))
+    .collect::<Vec<_>>();
+
+    let mut compute = None;
+    let mut ledger_cost = None;
+    let mut bandwidth = None;
+    for entry in client.get_full_ledger_entries(&keys).await?.entries {
+        match entry.val {
+            LedgerEntryData::ConfigSetting(ConfigSettingEntry::ContractComputeV0(c)) => {
+                compute = Some(c);
+            }
+            LedgerEntryData::ConfigSetting(ConfigSettingEntry::ContractLedgerCostV0(c)) => {
+                ledger_cost = Some(c);
+            }
+            LedgerEntryData::ConfigSetting(ConfigSettingEntry::ContractBandwidthV0(c)) => {
+                bandwidth = Some(c);
+            }
+            _ => {}
+        }
+    }
+
+    let compute = compute.ok_or(Error::MissingConfigSetting("ContractComputeV0"))?;
+    let ledger_cost = ledger_cost.ok_or(Error::MissingConfigSetting("ContractLedgerCostV0"))?;
+    let bandwidth = bandwidth.ok_or(Error::MissingConfigSetting("ContractBandwidthV0"))?;
+
+    Ok(ResourceLimits {
+        instructions: compute.tx_max_instructions,
+        disk_read_entries: ledger_cost.tx_max_disk_read_entries,
+        disk_read_bytes: ledger_cost.tx_max_disk_read_bytes,
+        write_ledger_entries: ledger_cost.tx_max_write_ledger_entries,
+        write_bytes: ledger_cost.tx_max_write_bytes,
+        tx_size_bytes: bandwidth.tx_max_size_bytes,
+    })
 }
 
 fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
@@ -545,5 +796,104 @@ mod tests {
 
         let result = parse_changes(&changes);
         assert_eq!(result, None);
+    }
+
+    fn limits() -> ResourceLimits {
+        ResourceLimits {
+            instructions: 100_000_000,
+            disk_read_entries: 40,
+            disk_read_bytes: 200_000,
+            write_ledger_entries: 20,
+            write_bytes: 100_000,
+            tx_size_bytes: 70_000,
+        }
+    }
+
+    fn usage() -> ResourceUsage {
+        ResourceUsage {
+            instructions: 0,
+            disk_read_entries: 5,
+            disk_read_bytes: 1_000,
+            write_ledger_entries: 5,
+            write_bytes: 1_000,
+            tx_size_bytes: 1_000,
+        }
+    }
+
+    #[test]
+    fn test_check_limits_within_bounds_fits() {
+        let checks = check_limits(&usage(), &limits());
+        assert!(fits(&checks));
+        assert!(checks.iter().all(|c| !c.exceeded()));
+        assert!(checks.iter().all(|c| c.overage() == 0));
+        // All six limits are reported.
+        assert_eq!(checks.len(), 6);
+    }
+
+    #[test]
+    fn test_check_limits_reports_all_exceeded() {
+        // Blow past every single limit at once.
+        let usage = ResourceUsage {
+            instructions: u32::MAX,
+            disk_read_entries: 100,
+            disk_read_bytes: 1_000_000,
+            write_ledger_entries: 100,
+            write_bytes: 1_000_000,
+            tx_size_bytes: 1_000_000,
+        };
+        let checks = check_limits(&usage, &limits());
+        assert!(!fits(&checks));
+        // Every limit is flagged, not just the first one that trips.
+        assert!(checks.iter().all(LimitCheck::exceeded));
+        assert_eq!(checks.iter().filter(|c| c.exceeded()).count(), 6);
+    }
+
+    #[test]
+    fn test_check_limits_partial_exceeded_and_overage() {
+        // Only write_bytes and transaction size exceed.
+        let usage = ResourceUsage {
+            instructions: 0,
+            disk_read_entries: 5,
+            disk_read_bytes: 1_000,
+            write_ledger_entries: 5,
+            write_bytes: 150_000,
+            tx_size_bytes: 80_000,
+        };
+        let checks = check_limits(&usage, &limits());
+        assert!(!fits(&checks));
+
+        let exceeded: Vec<_> = checks.iter().filter(|c| c.exceeded()).collect();
+        assert_eq!(exceeded.len(), 2);
+
+        let write_bytes = checks.iter().find(|c| c.name == "write bytes").unwrap();
+        assert!(write_bytes.exceeded());
+        assert_eq!(write_bytes.overage(), 50_000);
+
+        let tx_size = checks
+            .iter()
+            .find(|c| c.name == "transaction size (bytes)")
+            .unwrap();
+        assert!(tx_size.exceeded());
+        assert_eq!(tx_size.overage(), 10_000);
+
+        // A limit that is not exceeded reports zero overage.
+        let disk_read_bytes = checks.iter().find(|c| c.name == "disk read bytes").unwrap();
+        assert!(!disk_read_bytes.exceeded());
+        assert_eq!(disk_read_bytes.overage(), 0);
+    }
+
+    #[test]
+    fn test_check_limits_at_exact_limit_fits() {
+        // Usage exactly equal to the limit must count as fitting.
+        let usage = ResourceUsage {
+            instructions: 0,
+            disk_read_entries: 40,
+            disk_read_bytes: 200_000,
+            write_ledger_entries: 20,
+            write_bytes: 100_000,
+            tx_size_bytes: 70_000,
+        };
+        let checks = check_limits(&usage, &limits());
+        assert!(fits(&checks));
     }
 }

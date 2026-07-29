@@ -332,6 +332,7 @@ impl Cmd {
                 ledgers_to_extend: None,
                 ttl_ledger_only: true,
                 build_only: self.build_only,
+                dry_run: false,
             }
             .execute(config, quiet, no_cache)
             .await?;
