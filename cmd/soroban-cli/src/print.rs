@@ -86,16 +86,8 @@ impl Print {
 }
 
 macro_rules! create_print_functions {
-    ($name:ident, $nameln:ident, $icon:expr) => {
+    ($nameln:ident, $icon:expr) => {
         impl Print {
-            #[allow(dead_code)]
-            pub fn $name<T: Display + Sized>(&self, message: T) {
-                if !self.quiet {
-                    eprint!("{} {}", self.compute_emoji($icon), message);
-                }
-            }
-
-            #[allow(dead_code)]
             pub fn $nameln<T: Display + Sized>(&self, message: T) {
                 if !self.quiet {
                     eprintln!("{} {}", self.compute_emoji($icon), message);
@@ -126,23 +118,23 @@ fn should_add_additional_space() -> bool {
     false
 }
 
-create_print_functions!(bucket, bucketln, "🪣");
-create_print_functions!(check, checkln, "✅");
-create_print_functions!(error, errorln, "❌");
-create_print_functions!(globe, globeln, "🌎");
-create_print_functions!(info, infoln, "ℹ️");
-create_print_functions!(link, linkln, "🔗");
-create_print_functions!(plus, plusln, "➕");
-create_print_functions!(save, saveln, "💾");
-create_print_functions!(search, searchln, "🔎");
-create_print_functions!(warn, warnln, "⚠️");
-create_print_functions!(exclaim, exclaimln, "❗️");
-create_print_functions!(arrow, arrowln, "➡️");
-create_print_functions!(log, logln, "📔");
-create_print_functions!(event, eventln, "📅");
-create_print_functions!(blank, blankln, "  ");
-create_print_functions!(gear, gearln, "⚙️");
-create_print_functions!(dir, dirln, "📁");
+create_print_functions!(bucketln, "🪣");
+create_print_functions!(checkln, "✅");
+create_print_functions!(errorln, "❌");
+create_print_functions!(globeln, "🌎");
+create_print_functions!(infoln, "ℹ️");
+create_print_functions!(linkln, "🔗");
+create_print_functions!(plusln, "➕");
+create_print_functions!(saveln, "💾");
+create_print_functions!(searchln, "🔎");
+create_print_functions!(warnln, "⚠️");
+create_print_functions!(exclaimln, "❗️");
+create_print_functions!(arrowln, "➡️");
+create_print_functions!(logln, "📔");
+create_print_functions!(eventln, "📅");
+create_print_functions!(blankln, "  ");
+create_print_functions!(gearln, "⚙️");
+create_print_functions!(dirln, "📁");
 
 #[cfg(test)]
 mod tests {
