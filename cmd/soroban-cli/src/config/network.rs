@@ -98,6 +98,17 @@ pub struct Args {
 
 impl Args {
     pub fn get(&self, locator: &locator::Args) -> Result<Network, Error> {
+        self.resolve(locator, true)
+    }
+
+    /// Resolve the network config.
+    ///
+    /// When `require_rpc` is false, a passphrase supplied on its own resolves to
+    /// a `Network` with an empty `rpc_url` (for commands like `tx sign` and
+    /// `tx hash` that never contact an RPC server). Such callers MUST NOT use
+    /// `rpc_client()`. When `require_rpc` is true, a passphrase-only invocation
+    /// errors with `MissingRpcUrl`.
+    pub fn resolve(&self, locator: &locator::Args, require_rpc: bool) -> Result<Network, Error> {
         match (
             self.network.as_deref(),
             self.rpc_url.clone(),
@@ -108,6 +119,13 @@ impl Args {
                 Ok(DEFAULTS.get(DEFAULT_NETWORK_KEY).unwrap().into())
             }
             (_, Some(_), None) => Err(Error::MissingNetworkPassphrase),
+            // Signing-only commands don't need an RPC URL, so accept a
+            // passphrase on its own and leave `rpc_url` empty.
+            (_, None, Some(network_passphrase)) if !require_rpc => Ok(Network {
+                rpc_url: String::new(),
+                rpc_headers: Vec::new(),
+                network_passphrase,
+            }),
             (_, None, Some(_)) => Err(Error::MissingRpcUrl),
             (Some(network), None, None) => Ok(locator.read_network(network)?),
             (_, Some(rpc_url), Some(network_passphrase)) => {
@@ -547,6 +565,77 @@ mod tests {
         let network = result.unwrap();
         assert_eq!(network.network_passphrase, passphrase::TESTNET);
         assert_eq!(network.rpc_url, "https://soroban-testnet.stellar.org");
+    }
+
+    #[test]
+    fn test_resolve_no_rpc_accepts_passphrase_only() {
+        use super::super::locator;
+
+        let args = Args {
+            rpc_url: None,
+            rpc_headers: Vec::new(),
+            network_passphrase: Some("specified manually".to_string()),
+            network: None,
+        };
+
+        let network = args
+            .resolve(&locator::Args::default(), false)
+            .expect("passphrase-only network should resolve for signing-only commands");
+        assert_eq!(network.network_passphrase, "specified manually");
+        assert_eq!(network.rpc_url, "");
+        assert!(network.rpc_headers.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_no_rpc_still_requires_passphrase_when_rpc_given() {
+        use super::super::locator;
+
+        let args = Args {
+            rpc_url: Some("https://example.com".to_string()),
+            rpc_headers: Vec::new(),
+            network_passphrase: None,
+            network: None,
+        };
+
+        let err = args.resolve(&locator::Args::default(), false).expect_err(
+            "rpc without passphrase should still error, even for signing-only commands",
+        );
+        assert!(matches!(err, Error::MissingNetworkPassphrase));
+    }
+
+    #[test]
+    fn test_resolve_no_rpc_preserves_rpc_url_when_both_given() {
+        use super::super::locator;
+
+        let args = Args {
+            rpc_url: Some("https://example.com".to_string()),
+            rpc_headers: Vec::new(),
+            network_passphrase: Some("specified manually".to_string()),
+            network: None,
+        };
+
+        let network = args.resolve(&locator::Args::default(), false).unwrap();
+        assert_eq!(network.rpc_url, "https://example.com");
+        assert_eq!(network.network_passphrase, "specified manually");
+    }
+
+    #[test]
+    fn test_get_strict_still_requires_rpc_url_with_passphrase_only() {
+        use super::super::locator;
+
+        let args = Args {
+            rpc_url: None,
+            rpc_headers: Vec::new(),
+            network_passphrase: Some("specified manually".to_string()),
+            network: None,
+        };
+
+        // The strict resolver used by RPC commands must keep rejecting a
+        // passphrase-only invocation.
+        let err = args
+            .get(&locator::Args::default())
+            .expect_err("strict get() must still require an rpc-url with passphrase-only args");
+        assert!(matches!(err, Error::MissingRpcUrl));
     }
 
     #[tokio::test]
