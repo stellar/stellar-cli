@@ -126,7 +126,6 @@ fn should_add_additional_space() -> bool {
     false
 }
 
-create_print_functions!(bucket, bucketln, "🪣");
 create_print_functions!(check, checkln, "✅");
 create_print_functions!(error, errorln, "❌");
 create_print_functions!(globe, globeln, "🌎");
