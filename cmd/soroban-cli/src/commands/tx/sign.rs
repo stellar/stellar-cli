@@ -42,7 +42,7 @@ impl Cmd {
             .sign_tx_env(
                 &tx_env,
                 &self.locator,
-                &self.network.get(&self.locator)?,
+                &self.network.resolve(&self.locator, false)?,
                 global_args.quiet,
                 None,
             )
