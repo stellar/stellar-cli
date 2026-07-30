@@ -53,6 +53,31 @@ async fn standard_auth_with_separate_signer() {
         .stdout("\"hello\"\n");
 }
 
+// Regression test for https://github.com/stellar/stellar-cli/issues/2459:
+// passing a signer by its public key (G...) must resolve to the stored
+// identity that holds it, exactly like passing the identity alias does.
+#[tokio::test]
+async fn standard_auth_with_separate_signer_by_public_key() {
+    let sandbox = &TestEnv::new();
+    let signer_pubkey = new_account(sandbox, "signer");
+
+    let (id, _) = deploy_auth_contracts(sandbox).await;
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--source=test")
+        .arg("--id")
+        .arg(&id)
+        .arg("--")
+        .arg("do-auth")
+        .arg(format!("--addr={signer_pubkey}"))
+        .arg("--val=hello")
+        .assert()
+        .success()
+        .stdout("\"hello\"\n");
+}
+
 #[tokio::test]
 async fn root_auth_with_authorized_subcall() {
     let sandbox = &TestEnv::new();
