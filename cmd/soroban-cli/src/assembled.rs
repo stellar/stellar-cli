@@ -27,6 +27,13 @@ pub async fn simulate_and_assemble_transaction(
         envelope.to_xdr_base64(Limits::none())?
     );
 
+    // Whether an explicit record mode was requested. In record mode the RPC re-records auth
+    // even when entries already exist, so the assembled output should adopt the recorded set.
+    let record_auth = matches!(
+        auth_mode,
+        Some(AuthMode::Record | AuthMode::RecordAllowNonRoot)
+    );
+
     let sim_res = client
         .next_simulate_transaction_envelope(&envelope, auth_mode, resource_config)
         .await?;
@@ -36,7 +43,7 @@ pub async fn simulate_and_assemble_transaction(
         crate::log::event::all(&sim_res.events()?);
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
-        Ok(Assembled::new(tx, sim_res, resource_fee)?)
+        Ok(Assembled::new(tx, sim_res, resource_fee, record_auth)?)
     }
 }
 
@@ -56,6 +63,9 @@ impl Assembled {
     /// * `txn` - The original transaction.
     /// * `sim_res` - The simulation response.
     /// * `resource_fee` - Optional resource fee for the transaction. Will override the simulated resource fee if provided.
+    /// * `record_auth` - Whether an explicit record auth mode was requested. When `true`, the
+    ///   simulation-recorded auth entries replace any entries already on the transaction; when
+    ///   `false`, caller-provided entries are preserved and auth is only filled in when absent.
     ///
     /// # Errors
     ///
@@ -64,8 +74,9 @@ impl Assembled {
         txn: &Transaction,
         sim_res: SimulateTransactionResponse,
         resource_fee: Option<i64>,
+        record_auth: bool,
     ) -> Result<Self, Error> {
-        assemble(txn, sim_res, resource_fee)
+        assemble(txn, sim_res, resource_fee, record_auth)
     }
 
     ///
@@ -198,6 +209,7 @@ fn assemble(
     raw: &Transaction,
     simulation: SimulateTransactionResponse,
     resource_fee: Option<i64>,
+    record_auth: bool,
 ) -> Result<Assembled, Error> {
     let mut tx = raw.clone();
 
@@ -234,7 +246,10 @@ fn assemble(
 
     let mut op = tx.operations[0].clone();
     if let OperationBody::InvokeHostFunction(ref mut body) = &mut op.body {
-        if body.auth.is_empty() {
+        // In an explicit record mode the RPC records fresh auth even when entries already
+        // exist, so replace the caller-provided entries with the recorded set. For enforce /
+        // unset we only fill in auth when none was provided, preserving caller-provided entries.
+        if body.auth.is_empty() || record_auth {
             if simulation.results.len() != 1 {
                 return Err(Error::UnexpectedSimulateTransactionResultSize {
                     length: simulation.results.len(),
@@ -259,9 +274,26 @@ fn assemble(
         }
     }
 
+    // If the incoming transaction already carries a resource fee (i.e. it was previously
+    // assembled), it is already folded into `raw.fee`. Subtract it before adding the simulated
+    // resource fee so re-assembling does not double-count it. Mirrors the JS SDK's
+    // `assembleTransaction` guard.
+    let mut inclusion_fee = u64::from(raw.fee);
+    if let TransactionExt::V1(SorobanTransactionData {
+        resource_fee: existing_resource_fee,
+        ..
+    }) = &raw.ext
+    {
+        if let Ok(existing_resource_fee) = u64::try_from(*existing_resource_fee) {
+            if inclusion_fee > existing_resource_fee {
+                inclusion_fee -= existing_resource_fee;
+            }
+        }
+    }
+
     // Update the transaction fee to be the sum of the inclusion fee and the
     // minimum resource fee from simulation.
-    let total_fee: u64 = u64::from(raw.fee) + min_resource_fee;
+    let total_fee: u64 = inclusion_fee + min_resource_fee;
     let mut fee_bump_fee: Option<i64> = None;
     if let Ok(tx_fee) = u32::try_from(total_fee) {
         tx.fee = tx_fee;
@@ -270,7 +302,7 @@ fn assemble(
         // to the fee_bump_fee field, which will be used later when constructing the FeeBumpTransaction.
         // => fee_bump_fee = 2 * inclusion_fee + resource_fee
         tx.fee = 0;
-        let fee_bump_fee_u64 = total_fee + u64::from(raw.fee);
+        let fee_bump_fee_u64 = total_fee + inclusion_fee;
         fee_bump_fee =
             Some(i64::try_from(fee_bump_fee_u64).map_err(|_| Error::LargeFee(fee_bump_fee_u64))?);
     }
@@ -348,6 +380,53 @@ mod tests {
         }
     }
 
+    // Build a contract-function authorization entry with a distinguishable function name so
+    // tests can tell caller-provided auth apart from simulation-recorded auth.
+    fn contract_fn_auth(function_name: &str) -> SorobanAuthorizationEntry {
+        let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
+        SorobanAuthorizationEntry {
+            credentials: xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
+                address: ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+                    source_bytes,
+                )))),
+                nonce: 0,
+                signature_expiration_ledger: 0,
+                signature: ScVal::Void,
+            }),
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
+                    function_name: ScSymbol(function_name.try_into().unwrap()),
+                    args: VecM::default(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        }
+    }
+
+    // Return the function name of the first auth entry on the first operation.
+    fn first_auth_fn_name(txn: &Transaction) -> String {
+        let OperationBody::InvokeHostFunction(ref op) = txn.operations[0].body else {
+            panic!("expected InvokeHostFunction operation");
+        };
+        let SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            ref function_name, ..
+        }) = op.auth[0].root_invocation.function
+        else {
+            panic!("expected ContractFn auth");
+        };
+        format!("{}", function_name.0)
+    }
+
+    fn set_auth(txn: &mut Transaction, auth: Vec<SorobanAuthorizationEntry>) {
+        let mut op = txn.operations[0].clone();
+        let OperationBody::InvokeHostFunction(ref mut body) = op.body else {
+            panic!("expected InvokeHostFunction operation");
+        };
+        body.auth = auth.try_into().unwrap();
+        txn.operations = vec![op].try_into().unwrap();
+    }
+
     fn single_contract_fn_transaction() -> Transaction {
         let source_bytes = Ed25519PublicKey::from_string(SOURCE).unwrap().0;
         Transaction {
@@ -379,7 +458,7 @@ mod tests {
     fn test_assemble_transaction_updates_tx_data_from_simulation_response() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, sim, None) else {
+        let Ok(result) = assemble(&txn, sim, None, false) else {
             panic!("assemble failed");
         };
 
@@ -395,7 +474,7 @@ mod tests {
     fn test_assemble_transaction_adds_the_auth_to_the_host_function() {
         let sim = simulation_response();
         let txn = single_contract_fn_transaction();
-        let Ok(result) = assemble(&txn, sim, None) else {
+        let Ok(result) = assemble(&txn, sim, None, false) else {
             panic!("assemble failed");
         };
 
@@ -460,6 +539,7 @@ mod tests {
                 ..Default::default()
             },
             None,
+            false,
         );
 
         match result {
@@ -481,6 +561,7 @@ mod tests {
                 ..Default::default()
             },
             None,
+            false,
         );
 
         match result {
@@ -498,7 +579,7 @@ mod tests {
         sim.min_resource_fee = 12345;
         let mut txn = single_contract_fn_transaction();
         txn.fee = 10000;
-        let Ok(result) = assemble(&txn, sim, None) else {
+        let Ok(result) = assemble(&txn, sim, None, false) else {
             panic!("assemble failed");
         };
 
@@ -530,7 +611,7 @@ mod tests {
         // 1: wiggle room math overflows but result fits
         response.min_resource_fee = (u32::MAX - inclusion_fee).into();
 
-        match assemble(&txn, response.clone(), None) {
+        match assemble(&txn, response.clone(), None, false) {
             Ok(assembled) => {
                 assert_eq!(assembled.txn.fee, u32::MAX);
                 assert_eq!(assembled.fee_bump_fee, None);
@@ -540,7 +621,7 @@ mod tests {
 
         // 2: combo over u32::MAX, should set fee to 0 and fee_bump_fee to total
         response.min_resource_fee = (u32::MAX - inclusion_fee + 1).into();
-        match assemble(&txn, response.clone(), None) {
+        match assemble(&txn, response.clone(), None, false) {
             Ok(assembled) => {
                 assert_eq!(assembled.txn.fee, 0);
                 assert_eq!(
@@ -553,7 +634,7 @@ mod tests {
 
         // 3: total fee exceeds i64::MAX, should error
         response.min_resource_fee = u64::try_from(i64::MAX - (2 * inclusion_fee_i64) + 1).unwrap();
-        match assemble(&txn, response, None) {
+        match assemble(&txn, response, None, false) {
             Err(Error::LargeFee(fee)) => {
                 let expected = i64::MAX as u64 + 1;
                 assert_eq!(expected, fee, "expected {expected} != {fee} actual");
@@ -569,7 +650,7 @@ mod tests {
         let mut txn = single_contract_fn_transaction();
         txn.fee = 500;
         let resource_fee = 12345i64;
-        let Ok(result) = assemble(&txn, sim, Some(resource_fee)) else {
+        let Ok(result) = assemble(&txn, sim, Some(resource_fee), false) else {
             panic!("assemble failed");
         };
 
@@ -593,7 +674,7 @@ mod tests {
         let mut txn = single_contract_fn_transaction();
         txn.fee = 500;
         let resource_fee = -1;
-        let result = assemble(&txn, sim, Some(resource_fee));
+        let result = assemble(&txn, sim, Some(resource_fee), false);
 
         assert!(result.is_err());
     }
@@ -617,7 +698,7 @@ mod tests {
 
         // 1: wiggle room math overflows but result fits
         let resource_fee: i64 = (u32::MAX - inclusion_fee).into();
-        match assemble(&txn, response.clone(), Some(resource_fee)) {
+        match assemble(&txn, response.clone(), Some(resource_fee), false) {
             Ok(assembled) => {
                 assert_eq!(assembled.txn.fee, u32::MAX);
                 assert_eq!(assembled.fee_bump_fee, None);
@@ -627,7 +708,7 @@ mod tests {
 
         // 2: combo over u32::MAX, should set fee to 0 and fee_bump_fee to total
         let resource_fee: i64 = (u32::MAX - inclusion_fee + 1).into();
-        match assemble(&txn, response.clone(), Some(resource_fee)) {
+        match assemble(&txn, response.clone(), Some(resource_fee), false) {
             Ok(assembled) => {
                 assert_eq!(assembled.txn.fee, 0);
                 assert_eq!(
@@ -640,7 +721,7 @@ mod tests {
 
         // 3: total fee exceeds i64::MAX, should error
         let resource_fee: i64 = i64::MAX - (2 * inclusion_fee_i64) + 1;
-        match assemble(&txn, response, Some(resource_fee)) {
+        match assemble(&txn, response, Some(resource_fee), false) {
             Err(Error::LargeFee(fee)) => {
                 let expected = i64::MAX as u64 + 1;
                 assert_eq!(expected, fee, "expected {expected} != {fee} actual");
@@ -648,5 +729,67 @@ mod tests {
             Ok(_) => panic!("expected error, got success"),
             Err(e) => panic!("expected LargeFee error, got: {e:#?}"),
         }
+    }
+
+    #[test]
+    fn test_assemble_transaction_replaces_auth_when_recording() {
+        // A transaction that already carries auth entries, re-simulated in a record mode,
+        // should adopt the simulation-recorded entries (function name "fn") instead of the
+        // pre-existing ones ("old_fn").
+        let sim = simulation_response();
+        let mut txn = single_contract_fn_transaction();
+        set_auth(&mut txn, vec![contract_fn_auth("old_fn")]);
+
+        let Ok(result) = assemble(&txn, sim, None, true) else {
+            panic!("assemble failed");
+        };
+
+        assert_eq!(1, result.txn.operations.len());
+        let OperationBody::InvokeHostFunction(ref op) = result.txn.operations[0].body else {
+            panic!("unexpected operation type: {:#?}", result.txn.operations[0]);
+        };
+        assert_eq!(1, op.auth.len());
+        assert_eq!("fn", first_auth_fn_name(&result.txn));
+    }
+
+    #[test]
+    fn test_assemble_transaction_preserves_auth_when_not_recording() {
+        // Without an explicit record mode, caller-provided auth entries ("old_fn") must be
+        // preserved even though the simulation recorded a different entry ("fn").
+        let sim = simulation_response();
+        let mut txn = single_contract_fn_transaction();
+        set_auth(&mut txn, vec![contract_fn_auth("old_fn")]);
+
+        let Ok(result) = assemble(&txn, sim, None, false) else {
+            panic!("assemble failed");
+        };
+
+        assert_eq!("old_fn", first_auth_fn_name(&result.txn));
+    }
+
+    #[test]
+    fn test_assemble_transaction_does_not_double_count_resource_fee() {
+        // An already-assembled transaction carries its resource fee both in `raw.fee` and in
+        // the SorobanTransactionData (ext V1). Re-assembling must subtract the existing
+        // resource fee from the inclusion fee before adding the simulated resource fee, rather
+        // than stacking them.
+        let mut sim = simulation_response();
+        sim.min_resource_fee = 115;
+        let mut txn = single_contract_fn_transaction();
+
+        // Inclusion fee (400) + already-folded resource fee (100) == 500.
+        let existing_resource_fee = 100;
+        txn.fee = 500;
+        let mut existing_data = transaction_data();
+        existing_data.resource_fee = existing_resource_fee;
+        txn.ext = TransactionExt::V1(existing_data);
+
+        let Ok(result) = assemble(&txn, sim, None, false) else {
+            panic!("assemble failed");
+        };
+
+        // 400 (inclusion) + 115 (simulated resource fee), NOT 500 + 115.
+        assert_eq!(400 + 115, result.txn.fee);
+        assert_eq!(None, result.fee_bump_fee);
     }
 }
