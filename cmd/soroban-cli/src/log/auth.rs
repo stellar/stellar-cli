@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use soroban_spec_tools::sanitize;
+
 use crate::xdr::{
     AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
     CreateContractArgs, CreateContractArgsV2, Hash, InvokeContractArgs, PublicKey, ScAddress,
@@ -56,16 +58,13 @@ fn format_invocation(
                 "{prefix}  Contract: {}",
                 format_address(contract_address)
             );
-            let _ = writeln!(result, "{prefix}  Fn: {fn_name}");
+            let _ = writeln!(result, "{prefix}  Fn: {}", sanitize(fn_name));
             if !args.is_empty() {
                 let _ = writeln!(result, "{prefix}  Args:");
                 for arg in args {
-                    let _ = writeln!(
-                        result,
-                        "{prefix}    {}",
-                        soroban_spec_tools::to_string(arg)
-                            .unwrap_or(String::from("<unable to parse>"))
-                    );
+                    let rendered = soroban_spec_tools::to_string(arg)
+                        .unwrap_or(String::from("<unable to parse>"));
+                    let _ = writeln!(result, "{prefix}    {}", sanitize(&rendered));
                 }
             }
         }
@@ -133,11 +132,9 @@ fn format_create_contract(
         if !args.is_empty() {
             let _ = writeln!(result, "{prefix}    Constructor Args:");
             for arg in args {
-                let _ = writeln!(
-                    result,
-                    "{prefix}      {}",
-                    soroban_spec_tools::to_string(arg).unwrap_or(String::from("<unable to parse>"))
-                );
+                let rendered =
+                    soroban_spec_tools::to_string(arg).unwrap_or(String::from("<unable to parse>"));
+                let _ = writeln!(result, "{prefix}      {}", sanitize(&rendered));
             }
         }
     }
@@ -161,5 +158,67 @@ fn format_address(address: &ScAddress) -> String {
             )
         }
         _ => format!("{address:?}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::ScSymbol;
+    use soroban_spec_tools::test_utils::assert_no_control_chars;
+
+    fn sc_symbol(s: &str) -> ScSymbol {
+        ScSymbol(s.as_bytes().to_vec().try_into().unwrap())
+    }
+
+    // Auth entries come from the RPC's simulateTransaction response and are
+    // rendered in the signing prompt, so a hostile RPC must not be able to
+    // smuggle terminal-escape sequences through the function name or a
+    // top-level `ScVal::Symbol` argument.
+    #[test]
+    fn format_auth_entry_strips_attacker_control_bytes() {
+        let entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
+                    function_name: sc_symbol("\x1b[2Jhello"),
+                    args: vec![ScVal::Symbol(sc_symbol("\x1b[31mworld"))]
+                        .try_into()
+                        .unwrap(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        };
+
+        assert_no_control_chars(&format_auth_entry(&entry));
+    }
+
+    // `CreateContractV2` constructor args are rendered through a different code
+    // path (`format_create_contract`) than the `ContractFn` case above, so it
+    // needs its own guard: a hostile RPC must not smuggle terminal-escape
+    // sequences through a constructor argument either.
+    #[test]
+    fn format_auth_entry_strips_control_bytes_from_constructor_args() {
+        let entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::CreateContractV2HostFn(CreateContractArgsV2 {
+                    contract_id_preimage: ContractIdPreimage::Address(
+                        ContractIdPreimageFromAddress {
+                            address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
+                            salt: Uint256([0; 32]),
+                        },
+                    ),
+                    executable: ContractExecutable::Wasm(Hash([0; 32])),
+                    constructor_args: vec![ScVal::Symbol(sc_symbol("\x1b[31mworld"))]
+                        .try_into()
+                        .unwrap(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        };
+
+        assert_no_control_chars(&format_auth_entry(&entry));
     }
 }
