@@ -224,7 +224,7 @@ mod tests {
 
     // test helpers
     fn assert_base_template_files_exist(project_dir: &Path) {
-        let expected_paths = ["contracts", "Cargo.toml", "README.md"];
+        let expected_paths = ["contracts", "AGENTS.md", "Cargo.toml", "README.md"];
         for path in &expected_paths {
             assert!(project_dir.join(path).exists());
         }
