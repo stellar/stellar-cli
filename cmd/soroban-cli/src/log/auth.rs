@@ -193,4 +193,32 @@ mod tests {
 
         assert_no_control_chars(&format_auth_entry(&entry));
     }
+
+    // `CreateContractV2` constructor args are rendered through a different code
+    // path (`format_create_contract`) than the `ContractFn` case above, so it
+    // needs its own guard: a hostile RPC must not smuggle terminal-escape
+    // sequences through a constructor argument either.
+    #[test]
+    fn format_auth_entry_strips_control_bytes_from_constructor_args() {
+        let entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::CreateContractV2HostFn(CreateContractArgsV2 {
+                    contract_id_preimage: ContractIdPreimage::Address(
+                        ContractIdPreimageFromAddress {
+                            address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
+                            salt: Uint256([0; 32]),
+                        },
+                    ),
+                    executable: ContractExecutable::Wasm(Hash([0; 32])),
+                    constructor_args: vec![ScVal::Symbol(sc_symbol("\x1b[31mworld"))]
+                        .try_into()
+                        .unwrap(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        };
+
+        assert_no_control_chars(&format_auth_entry(&entry));
+    }
 }
