@@ -39,7 +39,10 @@ fn init() {
         .arg(".")
         .assert()
         .success();
-    sandbox.dir().child("AGENTS.md").assert(predicate::path::is_file());
+    sandbox
+        .dir()
+        .child("AGENTS.md")
+        .assert(predicate::path::is_file());
     sandbox
         .dir()
         .child("Cargo.toml")
