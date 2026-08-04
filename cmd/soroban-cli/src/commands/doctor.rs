@@ -2,6 +2,7 @@ use clap::Parser;
 use rustc_version::version;
 use semver::Version;
 use std::fmt::Debug;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::{
@@ -10,10 +11,11 @@ use crate::{
         self, data,
         locator::{self, KeyType},
         network::{Network, DEFAULTS as DEFAULT_NETWORKS},
+        upgrade_check::UpgradeCheck,
     },
     print::Print,
     rpc,
-    upgrade_check::has_available_upgrade,
+    upgrade_check::{check_performed_by, has_available_upgrade, running_binary, upgrade_message},
     utils::url::redact_url,
 };
 
@@ -46,7 +48,14 @@ impl Cmd {
     pub async fn run(&self, _global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(false);
 
+        // Read this before `check_version`, which refreshes the cache and would
+        // otherwise record this very run as the writer -- hiding the mismatch
+        // the report exists to reveal.
+        let previous_cache_writer = version_cache_writer();
+
         check_version(&print).await?;
+        check_installs(&print);
+        show_version_cache_writer(&print, previous_cache_writer.as_deref());
         check_rust_version(&print);
         check_wasm_target(&print);
         check_optional_features(&print);
@@ -149,9 +158,7 @@ async fn check_version(print: &Print) -> Result<(), Error> {
         has_available_upgrade(false).await
     {
         if upgrade_available {
-            print.warnln(format!(
-                "A new release of Stellar CLI is available: {current_version} -> {latest_version}"
-            ));
+            print.warnln(upgrade_message(&current_version, &latest_version));
         } else {
             print.checkln(format!(
                 "You are using the latest version of Stellar CLI: {current_version}"
@@ -160,6 +167,130 @@ async fn check_version(print: &Print) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+/// Which CLI last refreshed the shared version cache, if it recorded itself.
+fn version_cache_writer() -> Option<String> {
+    UpgradeCheck::load().ok()?.last_checked_by
+}
+
+/// Report which CLI last refreshed the shared version cache.
+///
+/// Every install writes the same file, so the entry that decides when the next
+/// check happens -- and the versions any warning is built from -- may have come
+/// from a different install than the one being run. When it did, say so plainly:
+/// that mismatch is the signal worth surfacing.
+fn show_version_cache_writer(print: &Print, writer: Option<&str>) {
+    let Some(writer) = writer else {
+        // Either no cache yet or one written before the CLI recorded this, so
+        // there is nothing to report rather than something being wrong.
+        print.infoln("Version cache was last refreshed by an unknown Stellar CLI".to_string());
+        return;
+    };
+
+    let this_cli = check_performed_by();
+
+    if writer == this_cli {
+        print.checkln(format!("Version cache last refreshed by: {writer}"));
+    } else {
+        print.warnln(format!(
+            "Version cache was last refreshed by a different Stellar CLI: {writer}"
+        ));
+        print.blankln(format!("this one is {this_cli}"));
+    }
+}
+
+/// The binary names this CLI ships under. Both are built from the same crate,
+/// so a stale `soroban` runs the same upgrade check as a current `stellar` and
+/// reports its own, older version.
+const CLI_BINARY_NAMES: [&str; 2] = ["stellar", "soroban"];
+
+/// Report the running executable and every other Stellar CLI on `PATH`.
+///
+/// Several installs at different versions is the case that makes the upgrade
+/// warning look wrong: an old binary correctly reports its own old version,
+/// but the user compares it against whichever binary `stellar --version`
+/// resolves to and sees a contradiction. Listing them makes that visible.
+fn check_installs(print: &Print) {
+    match running_binary() {
+        Some(binary) => print.infoln(format!("Running executable: {binary}")),
+        None => print.warnln("Could not determine the running executable".to_string()),
+    }
+
+    let mut installs: Vec<(PathBuf, Option<String>)> = Vec::new();
+
+    for name in CLI_BINARY_NAMES {
+        let Ok(paths) = which::which_all(name) else {
+            continue;
+        };
+
+        for path in paths {
+            // `which_all` yields one entry per matching `PATH` element, so the
+            // same binary shows up repeatedly when `PATH` has duplicates.
+            let key = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if installs.iter().any(|(seen, _)| *seen == key) {
+                continue;
+            }
+
+            let version = installed_version(&path);
+            installs.push((key, version));
+        }
+    }
+
+    if installs.len() <= 1 {
+        print.checkln("Only one Stellar CLI found on PATH".to_string());
+        return;
+    }
+
+    print.warnln(format!(
+        "Found {} Stellar CLI executables on PATH; an outdated one can report a \
+         version that disagrees with `stellar --version`:",
+        installs.len()
+    ));
+
+    for (path, version) in &installs {
+        let version = version.as_deref().unwrap_or("unknown version");
+        print.blankln(format!("- {} ({version})", path.to_string_lossy()));
+    }
+}
+
+/// Ask a CLI executable for its version. Returns `None` if it cannot be run or
+/// does not answer like a Stellar CLI.
+fn installed_version(path: &Path) -> Option<String> {
+    // `--only-version` predates neither every release nor every binary name:
+    // releases old enough to cause the version confusion this check exists to
+    // surface reject the flag, so fall back to parsing the full version banner.
+    run_version(path, &["version", "--only-version"])
+        .and_then(|output| parse_only_version(&output))
+        .or_else(|| run_version(path, &["--version"]).and_then(|o| parse_version_banner(&o)))
+}
+
+fn run_version(path: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new(path).args(args).output().ok()?;
+
+    if output.status.success() {
+        Some(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        None
+    }
+}
+
+fn parse_only_version(output: &str) -> Option<String> {
+    let version = output.trim();
+
+    // An older CLI treats `--only-version` as an unknown argument and may still
+    // exit zero while printing usage, so require a bare version.
+    Version::parse(version).ok().map(|_| version.to_string())
+}
+
+/// Pull the version out of a banner like `stellar 22.8.0 (18f54cd...)`.
+fn parse_version_banner(output: &str) -> Option<String> {
+    output
+        .lines()
+        .next()?
+        .split_whitespace()
+        .find(|token| Version::parse(token).is_ok())
+        .map(ToString::to_string)
 }
 
 fn check_rust_version(print: &Print) {
@@ -264,5 +395,40 @@ fn get_expected_wasm_target() -> String {
         "wasm32-unknown-unknown".into()
     } else {
         "wasm32v1-none".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_bare_only_version_output() {
+        assert_eq!(parse_only_version("27.1.0\n").as_deref(), Some("27.1.0"));
+    }
+
+    #[test]
+    fn rejects_usage_text_printed_for_an_unknown_flag() {
+        // A CLI old enough to reject `--only-version` must not be reported as
+        // if the usage text were its version.
+        let usage = "error: unexpected argument '--only-version' found\n\n\
+                     Usage: soroban version [OPTIONS]\n";
+
+        assert_eq!(parse_only_version(usage), None);
+    }
+
+    #[test]
+    fn parses_version_from_an_older_cli_banner() {
+        // Real output from a 22.8.0 `soroban`, which predates `--only-version`.
+        let banner = "stellar 22.8.0 (18f54cdc0342726eb13ac14f84e899703d9f180a)\n\
+                      stellar-xdr 22.1.0 (e139229708)\n\
+                      xdr curr (529d5176f2)\n";
+
+        assert_eq!(parse_version_banner(banner).as_deref(), Some("22.8.0"));
+    }
+
+    #[test]
+    fn returns_none_for_a_banner_without_a_version() {
+        assert_eq!(parse_version_banner("not a stellar cli\n"), None);
     }
 }

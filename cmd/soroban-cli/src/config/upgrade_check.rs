@@ -21,6 +21,19 @@ pub struct UpgradeCheck {
     pub max_stable_version: Version,
     /// The latest version of the CLI available on crates.io, including pre-releases.
     pub max_version: Version,
+    /// Which CLI last refreshed this file, as `"<version> (<executable>)"`.
+    ///
+    /// Every install shares this one file, and both the `stellar` and `soroban`
+    /// binaries are built from the same crate, so the entry that paces the next
+    /// check may well have been written by a different -- possibly much older --
+    /// CLI than the one reading it. Recording the writer makes that visible in
+    /// `stellar doctor` instead of leaving it to be guessed at.
+    ///
+    /// `None` for files written before this field existed. Nothing keys a
+    /// decision off it: it is diagnostic only, so an absent value cannot change
+    /// whether an upgrade is reported.
+    #[serde(default)]
+    pub last_checked_by: Option<String>,
 }
 
 impl Default for UpgradeCheck {
@@ -29,6 +42,7 @@ impl Default for UpgradeCheck {
             latest_check_time: DateTime::<Utc>::UNIX_EPOCH,
             max_stable_version: Version::new(0, 0, 0),
             max_version: Version::new(0, 0, 0),
+            last_checked_by: None,
         }
     }
 }
@@ -72,6 +86,27 @@ mod tests {
     use serial_test::serial;
     use std::env;
 
+    /// A file written before `last_checked_by` existed must still load, and the
+    /// absent field must not disturb any of the values the check reasons about.
+    #[test]
+    fn test_loads_legacy_file_without_last_checked_by() {
+        let legacy = r#"{
+            "latest_check_time": "2026-08-04T10:00:00Z",
+            "max_stable_version": "27.1.0",
+            "max_version": "27.1.0"
+        }"#;
+
+        let check: UpgradeCheck = serde_json::from_str(legacy).unwrap();
+
+        assert_eq!(
+            check.latest_check_time,
+            "2026-08-04T10:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
+        assert_eq!(check.max_stable_version, Version::new(27, 1, 0));
+        assert_eq!(check.max_version, Version::new(27, 1, 0));
+        assert_eq!(check.last_checked_by, None);
+    }
+
     #[test]
     #[serial]
     fn test_upgrade_check_load_save() {
@@ -95,6 +130,7 @@ mod tests {
             latest_check_time: DateTime::<Utc>::from_timestamp(1_234_567_890, 0).unwrap(),
             max_stable_version: Version::new(1, 2, 3),
             max_version: Version::parse("1.2.4-rc.1").unwrap(),
+            last_checked_by: Some("1.2.3 (/usr/local/bin/stellar)".to_string()),
         };
         saved_check.save().unwrap();
         let loaded_check = UpgradeCheck::load().unwrap();
