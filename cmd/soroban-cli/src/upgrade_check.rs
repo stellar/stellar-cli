@@ -1,4 +1,4 @@
-use crate::config::upgrade_check::UpgradeCheck;
+use crate::config::upgrade_check::{CheckWriter, UpgradeCheck};
 use crate::print::Print;
 use crate::utils::http;
 use semver::Version;
@@ -40,10 +40,14 @@ struct Crate {
 /// old version and the message reads as though it were about the CLI the user
 /// thinks they are running. Naming the executable makes the warning say which
 /// install it is actually about.
+///
+/// Canonicalized, so that the value written to the shared cache and the value
+/// compared against it later describe the same path in the same form.
 pub fn running_binary() -> Option<String> {
-    std::env::current_exe()
-        .ok()
-        .map(|path| path.to_string_lossy().into_owned())
+    let path = std::env::current_exe().ok()?;
+    let path = path.canonicalize().unwrap_or(path);
+
+    Some(path.to_string_lossy().into_owned())
 }
 
 /// Fetch the latest stable version of the crate from crates.io
@@ -61,12 +65,10 @@ async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
 }
 
 /// How this CLI identifies itself as the writer of the shared cache file.
-pub fn check_performed_by() -> String {
-    let version = crate::commands::version::pkg();
-
-    match running_binary() {
-        Some(binary) => format!("{version} ({binary})"),
-        None => version.to_string(),
+pub fn check_performed_by() -> CheckWriter {
+    CheckWriter {
+        version: Some(crate::commands::version::pkg().to_string()),
+        executable: running_binary(),
     }
 }
 
@@ -225,21 +227,19 @@ mod tests {
 
     #[test]
     fn test_check_performed_by_identifies_version_and_executable() {
-        let identifier = check_performed_by();
+        let writer = check_performed_by();
         let binary = running_binary().expect("test binary path should resolve");
 
-        // `doctor` compares this against the value stored in the shared cache to
-        // decide whether another install wrote it, so it has to carry both the
-        // version and the path -- version alone cannot distinguish two installs
-        // of the same version.
-        assert!(
-            identifier.starts_with(crate::commands::version::pkg()),
-            "should start with the running version: {identifier}"
+        // `doctor` compares the executable against the one stored in the shared
+        // cache to decide whether another *install* wrote it, and reports the
+        // version alongside it. They are recorded separately so that an in-place
+        // upgrade -- same path, new version -- is not mistaken for a second
+        // install.
+        assert_eq!(
+            writer.version.as_deref(),
+            Some(crate::commands::version::pkg())
         );
-        assert!(
-            identifier.contains(&binary),
-            "should name the executable: {identifier}"
-        );
+        assert_eq!(writer.executable.as_deref(), Some(binary.as_str()));
     }
 
     #[test]

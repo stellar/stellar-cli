@@ -10,6 +10,34 @@ use super::data::project_dir;
 
 const FILE_NAME: &str = "upgrade_check.json";
 
+/// The CLI that last refreshed the shared version cache.
+///
+/// Version and executable are kept apart on purpose. The executable is the
+/// installation identity: an in-place upgrade changes the version at one path
+/// without becoming a second install, so only the path can answer "was this a
+/// different CLI?". The version is diagnostic detail carried alongside it.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+pub struct CheckWriter {
+    /// The version of the CLI that wrote the file, if it recorded one.
+    #[serde(default)]
+    pub version: Option<String>,
+    /// The canonicalized path of the executable that wrote the file, if it
+    /// could be resolved.
+    #[serde(default)]
+    pub executable: Option<String>,
+}
+
+impl std::fmt::Display for CheckWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.version, &self.executable) {
+            (Some(version), Some(executable)) => write!(f, "{version} ({executable})"),
+            (Some(version), None) => write!(f, "{version} (unknown executable)"),
+            (None, Some(executable)) => write!(f, "unknown version ({executable})"),
+            (None, None) => write!(f, "an unidentified Stellar CLI"),
+        }
+    }
+}
+
 /// The `UpgradeCheck` struct represents the state of the upgrade check.
 /// This state is global and stored in the `upgrade_check.json` file in
 /// the global configuration directory.
@@ -21,7 +49,7 @@ pub struct UpgradeCheck {
     pub max_stable_version: Version,
     /// The latest version of the CLI available on crates.io, including pre-releases.
     pub max_version: Version,
-    /// Which CLI last refreshed this file, as `"<version> (<executable>)"`.
+    /// Which CLI last refreshed this file.
     ///
     /// Every install shares this one file, and both the `stellar` and `soroban`
     /// binaries are built from the same crate, so the entry that paces the next
@@ -33,7 +61,7 @@ pub struct UpgradeCheck {
     /// decision off it: it is diagnostic only, so an absent value cannot change
     /// whether an upgrade is reported.
     #[serde(default)]
-    pub last_checked_by: Option<String>,
+    pub last_checked_by: Option<CheckWriter>,
 }
 
 impl Default for UpgradeCheck {
@@ -107,6 +135,35 @@ mod tests {
         assert_eq!(check.last_checked_by, None);
     }
 
+    /// The writer is diagnostic, so a file that recorded only part of it has to
+    /// load rather than fail the whole check.
+    #[test]
+    fn test_loads_partially_recorded_writer() {
+        let partial = r#"{
+            "latest_check_time": "2026-08-04T10:00:00Z",
+            "max_stable_version": "27.1.0",
+            "max_version": "27.1.0",
+            "last_checked_by": { "version": "27.1.0" }
+        }"#;
+
+        let check: UpgradeCheck = serde_json::from_str(partial).unwrap();
+        let writer = check.last_checked_by.unwrap();
+
+        assert_eq!(writer.version.as_deref(), Some("27.1.0"));
+        assert_eq!(writer.executable, None);
+        assert_eq!(writer.to_string(), "27.1.0 (unknown executable)");
+    }
+
+    #[test]
+    fn test_writer_displays_version_and_executable() {
+        let writer = CheckWriter {
+            version: Some("27.1.0".to_string()),
+            executable: Some("/usr/local/bin/stellar".to_string()),
+        };
+
+        assert_eq!(writer.to_string(), "27.1.0 (/usr/local/bin/stellar)");
+    }
+
     #[test]
     #[serial]
     fn test_upgrade_check_load_save() {
@@ -130,7 +187,10 @@ mod tests {
             latest_check_time: DateTime::<Utc>::from_timestamp(1_234_567_890, 0).unwrap(),
             max_stable_version: Version::new(1, 2, 3),
             max_version: Version::parse("1.2.4-rc.1").unwrap(),
-            last_checked_by: Some("1.2.3 (/usr/local/bin/stellar)".to_string()),
+            last_checked_by: Some(CheckWriter {
+                version: Some("1.2.3".to_string()),
+                executable: Some("/usr/local/bin/stellar".to_string()),
+            }),
         };
         saved_check.save().unwrap();
         let loaded_check = UpgradeCheck::load().unwrap();

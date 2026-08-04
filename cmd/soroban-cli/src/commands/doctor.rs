@@ -11,7 +11,7 @@ use crate::{
         self, data,
         locator::{self, KeyType},
         network::{Network, DEFAULTS as DEFAULT_NETWORKS},
-        upgrade_check::UpgradeCheck,
+        upgrade_check::{CheckWriter, UpgradeCheck},
     },
     print::Print,
     rpc,
@@ -55,7 +55,7 @@ impl Cmd {
 
         check_version(&print).await?;
         check_installs(&print);
-        show_version_cache_writer(&print, previous_cache_writer.as_deref());
+        show_version_cache_writer(&print, previous_cache_writer.as_ref());
         check_rust_version(&print);
         check_wasm_target(&print);
         check_optional_features(&print);
@@ -170,7 +170,7 @@ async fn check_version(print: &Print) -> Result<(), Error> {
 }
 
 /// Which CLI last refreshed the shared version cache, if it recorded itself.
-fn version_cache_writer() -> Option<String> {
+fn version_cache_writer() -> Option<CheckWriter> {
     UpgradeCheck::load().ok()?.last_checked_by
 }
 
@@ -180,7 +180,12 @@ fn version_cache_writer() -> Option<String> {
 /// check happens -- and the versions any warning is built from -- may have come
 /// from a different install than the one being run. When it did, say so plainly:
 /// that mismatch is the signal worth surfacing.
-fn show_version_cache_writer(print: &Print, writer: Option<&str>) {
+///
+/// Identity is the executable path, not the recorded version. An in-place
+/// upgrade leaves an older version recorded against the very path now running,
+/// and that is one install, not two -- treating it as a mismatch would warn
+/// about every upgrade until the cache next refreshed.
+fn show_version_cache_writer(print: &Print, writer: Option<&CheckWriter>) {
     let Some(writer) = writer else {
         // Either no cache yet or one written before the CLI recorded this, so
         // there is nothing to report rather than something being wrong.
@@ -190,13 +195,31 @@ fn show_version_cache_writer(print: &Print, writer: Option<&str>) {
 
     let this_cli = check_performed_by();
 
-    if writer == this_cli {
-        print.checkln(format!("Version cache last refreshed by: {writer}"));
-    } else {
-        print.warnln(format!(
-            "Version cache was last refreshed by a different Stellar CLI: {writer}"
-        ));
-        print.blankln(format!("this one is {this_cli}"));
+    match (&writer.executable, &this_cli.executable) {
+        (Some(written_by), Some(running)) if written_by == running => {
+            if writer.version == this_cli.version {
+                print.checkln(format!("Version cache last refreshed by: {writer}"));
+            } else {
+                // Same install, earlier version: the ordinary state after an
+                // upgrade, and it corrects itself at the next refresh.
+                let recorded = writer.version.as_deref().unwrap_or("an unknown version");
+                let running = this_cli.version.as_deref().unwrap_or("unknown");
+
+                print.infoln(format!(
+                    "Version cache was last refreshed by this install running {recorded}; \
+                     it is now {running}"
+                ));
+            }
+        }
+        (Some(_), Some(_)) => {
+            print.warnln(format!(
+                "Version cache was last refreshed by a different Stellar CLI: {writer}"
+            ));
+            print.blankln(format!("this one is {this_cli}"));
+        }
+        // Without both paths there is no identity to compare, so report the
+        // writer without claiming it was or was not this install.
+        _ => print.infoln(format!("Version cache was last refreshed by: {writer}")),
     }
 }
 
@@ -207,16 +230,57 @@ const CLI_BINARY_NAMES: [&str; 2] = ["stellar", "soroban"];
 
 /// Report the running executable and every other Stellar CLI on `PATH`.
 ///
-/// Several installs at different versions is the case that makes the upgrade
-/// warning look wrong: an old binary correctly reports its own old version,
-/// but the user compares it against whichever binary `stellar --version`
-/// resolves to and sees a contradiction. Listing them makes that visible.
+/// Several executables at *different versions* is the case that makes the
+/// upgrade warning look wrong: an old binary correctly reports its own old
+/// version, but the user compares it against whichever binary
+/// `stellar --version` resolves to and sees a contradiction. Listing them makes
+/// that visible.
+///
+/// Count alone is not the signal. This crate ships two binaries, `stellar` and
+/// `soroban`, so a single healthy install puts two files on `PATH` -- warning
+/// about that would flag nearly every install. Warn when the versions actually
+/// disagree.
 fn check_installs(print: &Print) {
     match running_binary() {
         Some(binary) => print.infoln(format!("Running executable: {binary}")),
         None => print.warnln("Could not determine the running executable".to_string()),
     }
 
+    let installs = find_installs();
+
+    let mut versions = installs.iter().map(|(_, version)| version.as_deref());
+    let common_version = match versions.next() {
+        // Every executable answered, and answered the same: one version is in
+        // play however many files carry it.
+        Some(Some(first)) if versions.all(|version| version == Some(first)) => Some(first),
+        _ => None,
+    };
+
+    match (installs.len(), common_version) {
+        (0, _) => print.warnln(
+            "No Stellar CLI found on PATH; the running executable is not reachable by name"
+                .to_string(),
+        ),
+        (1, _) => print.checkln("Only one Stellar CLI found on PATH".to_string()),
+        (count, Some(version)) => {
+            print.checkln(format!(
+                "{count} Stellar CLI executables on PATH, all reporting {version}:"
+            ));
+            list_installs(print, &installs);
+        }
+        (count, None) => {
+            print.warnln(format!(
+                "Found {count} Stellar CLI executables on PATH reporting different versions; \
+                 an outdated one can report a version that disagrees with `stellar --version`:"
+            ));
+            list_installs(print, &installs);
+        }
+    }
+}
+
+/// Every distinct Stellar CLI executable reachable by name on `PATH`, with the
+/// version it reports.
+fn find_installs() -> Vec<(PathBuf, Option<String>)> {
     let mut installs: Vec<(PathBuf, Option<String>)> = Vec::new();
 
     for name in CLI_BINARY_NAMES {
@@ -237,18 +301,11 @@ fn check_installs(print: &Print) {
         }
     }
 
-    if installs.len() <= 1 {
-        print.checkln("Only one Stellar CLI found on PATH".to_string());
-        return;
-    }
+    installs
+}
 
-    print.warnln(format!(
-        "Found {} Stellar CLI executables on PATH; an outdated one can report a \
-         version that disagrees with `stellar --version`:",
-        installs.len()
-    ));
-
-    for (path, version) in &installs {
+fn list_installs(print: &Print, installs: &[(PathBuf, Option<String>)]) {
+    for (path, version) in installs {
         let version = version.as_deref().unwrap_or("unknown version");
         print.blankln(format!("- {} ({version})", path.to_string_lossy()));
     }
