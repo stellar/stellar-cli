@@ -169,27 +169,34 @@ async fn check_version(print: &Print) -> Result<(), Error> {
     Ok(())
 }
 
-/// Which CLI last refreshed the shared version cache, if it recorded itself.
+/// Which CLI last checked for a new release and wrote the shared version cache,
+/// if it recorded itself.
 fn version_cache_writer() -> Option<CheckWriter> {
     UpgradeCheck::load().ok()?.last_checked_by
 }
 
-/// Report which CLI last refreshed the shared version cache.
+/// Report which CLI last checked for a new release and wrote the shared version
+/// cache.
 ///
 /// Every install writes the same file, so the entry that decides when the next
 /// check happens -- and the versions any warning is built from -- may have come
 /// from a different install than the one being run. When it did, say so plainly:
 /// that mismatch is the signal worth surfacing.
 ///
+/// "Checked", not "refreshed": a check whose fetch failed still stamps the file
+/// while leaving the recorded versions untouched, so the writer names the
+/// install that paced the next check and cannot be said to have supplied the
+/// versions stored beside it.
+///
 /// Identity is the executable path, not the recorded version. An in-place
 /// upgrade leaves an older version recorded against the very path now running,
 /// and that is one install, not two -- treating it as a mismatch would warn
-/// about every upgrade until the cache next refreshed.
+/// about every upgrade until the cache was next written.
 fn show_version_cache_writer(print: &Print, writer: Option<&CheckWriter>) {
     let Some(writer) = writer else {
         // Either no cache yet or one written before the CLI recorded this, so
         // there is nothing to report rather than something being wrong.
-        print.infoln("Version cache was last refreshed by an unknown Stellar CLI".to_string());
+        print.infoln("Version cache was last checked by an unknown Stellar CLI".to_string());
         return;
     };
 
@@ -198,28 +205,28 @@ fn show_version_cache_writer(print: &Print, writer: Option<&CheckWriter>) {
     match (&writer.executable, &this_cli.executable) {
         (Some(written_by), Some(running)) if written_by == running => {
             if writer.version == this_cli.version {
-                print.checkln(format!("Version cache last refreshed by: {writer}"));
+                print.checkln(format!("Version cache last checked by: {writer}"));
             } else {
                 // Same install, earlier version: the ordinary state after an
-                // upgrade, and it corrects itself at the next refresh.
+                // upgrade, and it corrects itself at the next check.
                 let recorded = writer.version.as_deref().unwrap_or("an unknown version");
                 let running = this_cli.version.as_deref().unwrap_or("unknown");
 
                 print.infoln(format!(
-                    "Version cache was last refreshed by this install running {recorded}; \
+                    "Version cache was last checked by this install running {recorded}; \
                      it is now {running}"
                 ));
             }
         }
         (Some(_), Some(_)) => {
             print.warnln(format!(
-                "Version cache was last refreshed by a different Stellar CLI: {writer}"
+                "Version cache was last checked by a different Stellar CLI: {writer}"
             ));
             print.blankln(format!("this one is {this_cli}"));
         }
         // Without both paths there is no identity to compare, so report the
         // writer without claiming it was or was not this install.
-        _ => print.infoln(format!("Version cache was last refreshed by: {writer}")),
+        _ => print.infoln(format!("Version cache was last checked by: {writer}")),
     }
 }
 
@@ -248,33 +255,77 @@ fn check_installs(print: &Print) {
 
     let installs = find_installs();
 
-    let mut versions = installs.iter().map(|(_, version)| version.as_deref());
-    let common_version = match versions.next() {
-        // Every executable answered, and answered the same: one version is in
-        // play however many files carry it.
-        Some(Some(first)) if versions.all(|version| version == Some(first)) => Some(first),
-        _ => None,
-    };
+    match (installs.len(), summarize_versions(&installs)) {
+        (0, _) => {
+            print.warnln(
+                "No Stellar CLI found on PATH; the running executable is not reachable by name"
+                    .to_string(),
+            );
+            return;
+        }
+        // One file, so nothing can disagree with it. Still list it: the running
+        // executable is not necessarily the one `PATH` resolves by name, and the
+        // line above carries no version.
+        (1, _) => print.checkln("Only one Stellar CLI found on PATH:".to_string()),
+        (count, InstalledVersions::Agreed(version)) => print.checkln(format!(
+            "{count} Stellar CLI executables on PATH, all reporting {version}:"
+        )),
+        (count, InstalledVersions::Disagree) => print.warnln(format!(
+            "Found {count} Stellar CLI executables on PATH reporting different versions; \
+             an outdated one can report a version that disagrees with `stellar --version`:"
+        )),
+        // Not a version disagreement -- we could not establish one either way,
+        // and saying "different versions" here would name a cause that has not
+        // been observed.
+        (count, InstalledVersions::Unanswered(unanswered)) => print.warnln(format!(
+            "Found {count} Stellar CLI executables on PATH, {unanswered} of which did not \
+             report a version, so whether they agree could not be determined:"
+        )),
+    }
 
-    match (installs.len(), common_version) {
-        (0, _) => print.warnln(
-            "No Stellar CLI found on PATH; the running executable is not reachable by name"
-                .to_string(),
-        ),
-        (1, _) => print.checkln("Only one Stellar CLI found on PATH".to_string()),
-        (count, Some(version)) => {
-            print.checkln(format!(
-                "{count} Stellar CLI executables on PATH, all reporting {version}:"
-            ));
-            list_installs(print, &installs);
+    list_installs(print, &installs);
+}
+
+/// What the discovered executables establish about which version is in play.
+#[derive(Debug, PartialEq, Eq)]
+enum InstalledVersions {
+    /// Every executable answered, and answered the same: one version is in play
+    /// however many files carry it.
+    Agreed(String),
+    /// Two executables reported different versions. This is the case that makes
+    /// the upgrade warning look wrong.
+    Disagree,
+    /// At least one executable could not be asked for its version, and none of
+    /// those that did contradict each other, so agreement is unestablished
+    /// rather than absent. Carries how many did not answer.
+    Unanswered(usize),
+}
+
+/// Classify the reported versions, keeping "they disagree" apart from "one of
+/// them could not be asked".
+///
+/// A disagreement between known versions is reported even when other probes
+/// failed: it is an observed fact, and the failures only add to it.
+fn summarize_versions(installs: &[(PathBuf, Option<String>)]) -> InstalledVersions {
+    let unanswered = installs
+        .iter()
+        .filter(|(_, version)| version.is_none())
+        .count();
+
+    let mut known = installs
+        .iter()
+        .filter_map(|(_, version)| version.as_deref());
+    let first = known.next();
+
+    if let Some(first) = first {
+        if !known.all(|version| version == first) {
+            return InstalledVersions::Disagree;
         }
-        (count, None) => {
-            print.warnln(format!(
-                "Found {count} Stellar CLI executables on PATH reporting different versions; \
-                 an outdated one can report a version that disagrees with `stellar --version`:"
-            ));
-            list_installs(print, &installs);
-        }
+    }
+
+    match (first, unanswered) {
+        (Some(version), 0) => InstalledVersions::Agreed(version.to_string()),
+        _ => InstalledVersions::Unanswered(unanswered),
     }
 }
 
@@ -487,5 +538,65 @@ mod tests {
     #[test]
     fn returns_none_for_a_banner_without_a_version() {
         assert_eq!(parse_version_banner("not a stellar cli\n"), None);
+    }
+
+    fn installs(entries: &[(&str, Option<&str>)]) -> Vec<(PathBuf, Option<String>)> {
+        entries
+            .iter()
+            .map(|(path, version)| (PathBuf::from(path), version.map(ToString::to_string)))
+            .collect()
+    }
+
+    #[test]
+    fn agreement_needs_every_executable_to_have_answered() {
+        assert_eq!(
+            summarize_versions(&installs(&[
+                ("/a/stellar", Some("27.1.0")),
+                ("/a/soroban", Some("27.1.0")),
+            ])),
+            InstalledVersions::Agreed("27.1.0".to_string())
+        );
+    }
+
+    #[test]
+    fn distinct_known_versions_disagree() {
+        assert_eq!(
+            summarize_versions(&installs(&[
+                ("/a/stellar", Some("27.1.0")),
+                ("/b/soroban", Some("22.8.0")),
+            ])),
+            InstalledVersions::Disagree
+        );
+    }
+
+    #[test]
+    fn executables_that_cannot_be_asked_are_not_a_disagreement() {
+        // Two unrunnable binaries tell us nothing about whether their versions
+        // match, so reporting a disagreement would invent a cause.
+        assert_eq!(
+            summarize_versions(&installs(&[("/a/stellar", None), ("/b/soroban", None)])),
+            InstalledVersions::Unanswered(2)
+        );
+
+        // One answered, the other did not: still nothing to contradict.
+        assert_eq!(
+            summarize_versions(&installs(&[
+                ("/a/stellar", Some("27.1.0")),
+                ("/b/soroban", None),
+            ])),
+            InstalledVersions::Unanswered(1)
+        );
+    }
+
+    #[test]
+    fn an_observed_disagreement_outranks_a_failed_probe() {
+        assert_eq!(
+            summarize_versions(&installs(&[
+                ("/a/stellar", Some("27.1.0")),
+                ("/b/soroban", Some("22.8.0")),
+                ("/c/stellar", None),
+            ])),
+            InstalledVersions::Disagree
+        );
     }
 }

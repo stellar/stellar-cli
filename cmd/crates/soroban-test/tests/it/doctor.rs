@@ -1,8 +1,9 @@
 /*
 `doctor` reports on things it discovers outside the process: which Stellar CLI
-executables are on `PATH`, and which CLI last refreshed the shared version
-cache. Both inputs are injectable -- `PATH` like in `plugin.rs`, and the cache
-via `STELLAR_DATA_HOME` -- so the reporting can be exercised end to end.
+executables are on `PATH`, and which CLI last checked for a new release and
+wrote the shared version cache. Both inputs are injectable -- `PATH` like in
+`plugin.rs`, and the cache via `STELLAR_DATA_HOME` -- so the reporting can be
+exercised end to end.
 
 Unix only: the fake CLIs are shell scripts that need an execute bit.
 */
@@ -40,6 +41,14 @@ fn write_fake_cli(dir: &Path, name: &str, version: &str, supports_only_version: 
 
     let path = dir.join(name);
     fs::write(&path, script).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// A CLI on `PATH` that cannot be asked for its version -- an install too
+/// broken to answer either version query.
+fn write_unrunnable_cli(dir: &Path, name: &str) {
+    let path = dir.join(name);
+    fs::write(&path, "#!/bin/sh\nexit 1\n").unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
@@ -100,8 +109,18 @@ fn reports_the_running_executable_and_a_lone_install() {
     doctor(&sandbox, &bin_dir, &data_home)
         .assert()
         .success()
-        .stderr(contains(format!("Running executable: {}", running_binary())))
-        .stderr(contains("Only one Stellar CLI found on PATH"));
+        .stderr(contains(format!(
+            "Running executable: {}",
+            running_binary()
+        )))
+        .stderr(contains("Only one Stellar CLI found on PATH"))
+        // The lone install is listed with its version too: "Running executable"
+        // is not necessarily the entry `PATH` resolves by name, and carries no
+        // version of its own.
+        .stderr(contains(format!(
+            "- {} (27.1.0)",
+            bin_dir.join("stellar").to_string_lossy()
+        )));
 }
 
 #[test]
@@ -162,6 +181,55 @@ fn warns_when_installs_report_different_versions() {
 }
 
 #[test]
+fn does_not_blame_differing_versions_when_a_version_could_not_be_read() {
+    let sandbox = TestEnv::default();
+    let bin_dir = empty_dir(&sandbox, "two-installs-unreadable");
+    let data_home = empty_dir(&sandbox, "data-home");
+    // Neither answers, so nothing was observed to disagree -- the report must
+    // say the versions are unknown, not that they differ.
+    write_unrunnable_cli(&bin_dir, "stellar");
+    write_unrunnable_cli(&bin_dir, "soroban");
+
+    doctor(&sandbox, &bin_dir, &data_home)
+        .assert()
+        .success()
+        .stderr(contains(
+            "Found 2 Stellar CLI executables on PATH, 2 of which did not report a version",
+        ))
+        .stderr(contains("different versions").not())
+        .stderr(contains(format!(
+            "- {} (unknown version)",
+            bin_dir.join("stellar").to_string_lossy()
+        )));
+}
+
+#[test]
+fn reports_a_disagreement_even_when_another_executable_is_unreadable() {
+    let sandbox = TestEnv::default();
+    let bin_dir = empty_dir(&sandbox, "disagreeing-and-unreadable");
+    let second_dir = empty_dir(&sandbox, "disagreeing-and-unreadable-2");
+    let data_home = empty_dir(&sandbox, "data-home");
+    write_fake_cli(&bin_dir, "stellar", "27.1.0", true);
+    write_fake_cli(&bin_dir, "soroban", "22.8.0", false);
+    write_unrunnable_cli(&second_dir, "stellar");
+
+    let path = format!(
+        "{}:{}",
+        bin_dir.to_string_lossy(),
+        second_dir.to_string_lossy()
+    );
+
+    doctor(&sandbox, Path::new(&path), &data_home)
+        .assert()
+        .success()
+        // An observed disagreement is a fact; a failed probe alongside it does
+        // not soften it.
+        .stderr(contains(
+            "Found 3 Stellar CLI executables on PATH reporting different versions",
+        ));
+}
+
+#[test]
 fn confirms_the_cache_writer_when_it_is_this_cli() {
     let sandbox = TestEnv::default();
     let bin_dir = empty_dir(&sandbox, "bin");
@@ -174,7 +242,7 @@ fn confirms_the_cache_writer_when_it_is_this_cli() {
         .assert()
         .success()
         .stderr(contains(format!(
-            "Version cache last refreshed by: {} ({})",
+            "Version cache last checked by: {} ({})",
             pkg(),
             running_binary()
         )));
@@ -194,7 +262,7 @@ fn does_not_warn_when_the_same_install_wrote_the_cache_at_an_older_version() {
         .assert()
         .success()
         .stderr(contains(format!(
-            "Version cache was last refreshed by this install running 26.1.0; it is now {}",
+            "Version cache was last checked by this install running 26.1.0; it is now {}",
             pkg()
         )))
         .stderr(contains("a different Stellar CLI").not());
@@ -213,7 +281,7 @@ fn warns_when_a_different_install_wrote_the_cache() {
         .assert()
         .success()
         .stderr(contains(
-            "Version cache was last refreshed by a different Stellar CLI: \
+            "Version cache was last checked by a different Stellar CLI: \
              22.8.0 (/opt/elsewhere/bin/soroban)",
         ))
         .stderr(contains(format!("this one is {} (", pkg())));
@@ -230,7 +298,7 @@ fn reports_an_unknown_cache_writer_without_claiming_a_mismatch() {
         .assert()
         .success()
         .stderr(contains(
-            "Version cache was last refreshed by an unknown Stellar CLI",
+            "Version cache was last checked by an unknown Stellar CLI",
         ))
         .stderr(contains("a different Stellar CLI").not());
 }

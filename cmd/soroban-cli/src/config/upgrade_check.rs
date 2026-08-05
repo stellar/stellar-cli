@@ -10,7 +10,12 @@ use super::data::project_dir;
 
 const FILE_NAME: &str = "upgrade_check.json";
 
-/// The CLI that last refreshed the shared version cache.
+/// The CLI that last checked for a new release and wrote this file.
+///
+/// It is the last *writer*, not necessarily the source of the versions recorded
+/// beside it: a check whose fetch failed still stamps the file, because it still
+/// paces the next check. So this answers "which install is holding the next
+/// check back?" and not "which install fetched these version numbers?".
 ///
 /// Version and executable are kept apart on purpose. The executable is the
 /// installation identity: an in-place upgrade changes the version at one path
@@ -49,13 +54,17 @@ pub struct UpgradeCheck {
     pub max_stable_version: Version,
     /// The latest version of the CLI available on crates.io, including pre-releases.
     pub max_version: Version,
-    /// Which CLI last refreshed this file.
+    /// Which CLI last checked for a new release and wrote this file.
     ///
     /// Every install shares this one file, and both the `stellar` and `soroban`
     /// binaries are built from the same crate, so the entry that paces the next
     /// check may well have been written by a different -- possibly much older --
     /// CLI than the one reading it. Recording the writer makes that visible in
     /// `stellar doctor` instead of leaving it to be guessed at.
+    ///
+    /// Written on every check, including one whose fetch failed, so it names
+    /// the install that paced the next check rather than the one that last
+    /// supplied the versions above.
     ///
     /// `None` for files written before this field existed. Nothing keys a
     /// decision off it: it is diagnostic only, so an absent value cannot change
