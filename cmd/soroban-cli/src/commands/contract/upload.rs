@@ -359,7 +359,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &soroban_spec_tools::contract::Spec)
     if let Some(rs_sdk_version_entry) = &rs_sdk_version_option {
         match rs_sdk_version_entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) => {
-                return Some(val.to_utf8_string_lossy());
+                return Some(soroban_spec_tools::sanitize(&val.to_utf8_string_lossy()));
             }
         }
     }
@@ -410,5 +410,32 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    fn spec_with_sdk_meta(version: &str) -> soroban_spec_tools::contract::Spec {
+        let meta = ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: CONTRACT_META_SDK_KEY.try_into().unwrap(),
+            val: version.try_into().unwrap(),
+        });
+        soroban_spec_tools::contract::Spec {
+            env_meta_base64: None,
+            env_meta: vec![],
+            meta_base64: Some(String::new()),
+            meta: vec![meta],
+            spec_base64: None,
+            spec: vec![],
+        }
+    }
+
+    // The SDK version comes from attacker-influenceable contract metadata and is
+    // rendered into an error message / warning line on the terminal, so control
+    // and escape sequences must not survive.
+    #[test]
+    fn sdk_version_strips_control_bytes() {
+        let spec = spec_with_sdk_meta("0.9.0-rc\x1b[2Jhax");
+        let version = get_contract_meta_sdk_version(&spec).expect("sdk version present");
+        soroban_spec_tools::test_utils::assert_no_control_chars(&version);
+        // "rc" detection (used to gate the release-candidate check) still works.
+        assert!(version.contains("rc"));
     }
 }

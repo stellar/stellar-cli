@@ -383,7 +383,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .conflicts_with(name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
-            let value_name: &'static str = Box::leak(value_name.into_boxed_str());
+            let value_name: &'static str = Box::leak(sanitize(&value_name).into_boxed_str());
             arg = arg.value_name(value_name);
         }
 
@@ -928,6 +928,56 @@ mod tests {
                 element_type: Box::new(ScSpecTypeDef::U32),
             }
         ))));
+    }
+
+    // A UDT struct field name is attacker-influenceable contract-spec data and
+    // is embedded into the clap `value_name` shown in `--help`, so control and
+    // escape sequences must not survive to the terminal.
+    #[test]
+    fn build_custom_cmd_strips_control_bytes_from_value_name() {
+        use soroban_spec_tools::test_utils::assert_no_control_chars;
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeUdt,
+            ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSymbol,
+        };
+
+        let strukt = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: "".try_into().unwrap(),
+            lib: "".try_into().unwrap(),
+            name: "S".try_into().unwrap(),
+            fields: vec![ScSpecUdtStructFieldV0 {
+                doc: "".try_into().unwrap(),
+                name: "\x1b[2Jevil".try_into().unwrap(),
+                type_: ScSpecTypeDef::U32,
+            }]
+            .try_into()
+            .unwrap(),
+        });
+        let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: ScSymbol("f".try_into().unwrap()),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: "s".try_into().unwrap(),
+                type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                    name: "S".try_into().unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![].try_into().unwrap(),
+        });
+
+        let spec = Spec(Some(vec![strukt, func]));
+
+        let cmd = build_custom_cmd("f", &spec).unwrap();
+        let arg = cmd
+            .get_arguments()
+            .find(|a| a.get_id() == "s")
+            .expect("arg `s` should be registered");
+        for value_name in arg.get_value_names().unwrap_or_default() {
+            assert_no_control_chars(value_name.as_str());
+        }
     }
 
     #[test]
