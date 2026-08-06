@@ -205,7 +205,7 @@ fn does_not_blame_differing_versions_when_a_version_could_not_be_read() {
         .assert()
         .success()
         .stderr(contains(
-            "Found 2 Stellar CLI executables on PATH, 2 of which did not report a version",
+            "Found 2 Stellar CLI executables on PATH; none of them reported a version",
         ))
         .stderr(contains("different versions").not())
         .stderr(contains(format!(
@@ -234,10 +234,40 @@ fn reports_a_disagreement_even_when_another_executable_is_unreadable() {
         .assert()
         .success()
         // An observed disagreement is a fact; a failed probe alongside it does
-        // not soften it.
+        // not soften it. It does not join it either: only two executables were
+        // heard from, so only two can be said to disagree.
         .stderr(contains(
-            "Found 3 Stellar CLI executables on PATH reporting different versions",
+            "Found 3 Stellar CLI executables on PATH; the 2 that reported a version do not \
+             agree (1 could not be asked)",
         ));
+}
+
+#[test]
+fn reports_the_agreement_among_the_executables_that_answered() {
+    let sandbox = TestEnv::default();
+    let bin_dir = empty_dir(&sandbox, "agreeing-and-unreadable");
+    let second_dir = empty_dir(&sandbox, "agreeing-and-unreadable-2");
+    let data_home = empty_dir(&sandbox, "data-home");
+    write_fake_cli(&bin_dir, "stellar", "27.1.0", true);
+    write_fake_cli(&bin_dir, "soroban", "27.1.0", true);
+    write_unrunnable_cli(&second_dir, "stellar");
+
+    let path = format!(
+        "{}:{}",
+        bin_dir.to_string_lossy(),
+        second_dir.to_string_lossy()
+    );
+
+    doctor(&sandbox, &path, &data_home)
+        .assert()
+        .success()
+        // The two that answered agree, and that is the most useful thing known
+        // here -- the executable that could not be asked leaves it standing
+        // rather than wiping it out.
+        .stderr(contains(
+            "every one that answered reports 27.1.0, but 1 could not be asked",
+        ))
+        .stderr(contains("different versions").not());
 }
 
 #[test]

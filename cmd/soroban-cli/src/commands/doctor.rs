@@ -256,13 +256,10 @@ fn check_installs(print: &Print) {
     let installs = find_installs();
 
     match (installs.len(), summarize_versions(&installs)) {
-        (0, _) => {
-            print.warnln(
-                "No Stellar CLI found on PATH; the running executable is not reachable by name"
-                    .to_string(),
-            );
-            return;
-        }
+        (0, _) => print.warnln(
+            "No Stellar CLI found on PATH; the running executable is not reachable by name"
+                .to_string(),
+        ),
         // One file, so nothing can disagree with it. Still list it: the running
         // executable is not necessarily the one `PATH` resolves by name, and the
         // line above carries no version.
@@ -270,16 +267,37 @@ fn check_installs(print: &Print) {
         (count, InstalledVersions::Agreed(version)) => print.checkln(format!(
             "{count} Stellar CLI executables on PATH, all reporting {version}:"
         )),
-        (count, InstalledVersions::Disagree) => print.warnln(format!(
+        (count, InstalledVersions::Disagree { unanswered: 0 }) => print.warnln(format!(
             "Found {count} Stellar CLI executables on PATH reporting different versions; \
              an outdated one can report a version that disagrees with `stellar --version`:"
         )),
+        // Only the ones that answered were seen to disagree. Folding the silent
+        // ones into that count would attribute an observation to executables
+        // that were never heard from.
+        (count, InstalledVersions::Disagree { unanswered }) => print.warnln(format!(
+            "Found {count} Stellar CLI executables on PATH; the {} that reported a version do \
+             not agree ({unanswered} could not be asked); an outdated one can report a version \
+             that disagrees with `stellar --version`:",
+            count - unanswered
+        )),
         // Not a version disagreement -- we could not establish one either way,
         // and saying "different versions" here would name a cause that has not
-        // been observed.
-        (count, InstalledVersions::Unanswered(unanswered)) => print.warnln(format!(
-            "Found {count} Stellar CLI executables on PATH, {unanswered} of which did not \
-             report a version, so whether they agree could not be determined:"
+        // been observed. What the executables that did answer settled between
+        // themselves still holds, so lead with it.
+        (
+            count,
+            InstalledVersions::Unanswered {
+                agreed: Some(version),
+                unanswered,
+            },
+        ) => print.warnln(format!(
+            "Found {count} Stellar CLI executables on PATH; every one that answered reports \
+             {version}, but {unanswered} could not be asked, so a differing version cannot be \
+             ruled out:"
+        )),
+        (count, InstalledVersions::Unanswered { agreed: None, .. }) => print.warnln(format!(
+            "Found {count} Stellar CLI executables on PATH; none of them reported a version, \
+             so whether they agree could not be determined:"
         )),
     }
 
@@ -293,19 +311,26 @@ enum InstalledVersions {
     /// however many files carry it.
     Agreed(String),
     /// Two executables reported different versions. This is the case that makes
-    /// the upgrade warning look wrong.
-    Disagree,
+    /// the upgrade warning look wrong. Carries how many could not be asked: they
+    /// took no part in the disagreement, so they are not part of its count.
+    Disagree { unanswered: usize },
     /// At least one executable could not be asked for its version, and none of
     /// those that did contradict each other, so agreement is unestablished
-    /// rather than absent. Carries how many did not answer.
-    Unanswered(usize),
+    /// rather than absent. Carries the version the ones that answered settled
+    /// on, if any answered at all, and how many did not.
+    Unanswered {
+        agreed: Option<String>,
+        unanswered: usize,
+    },
 }
 
 /// Classify the reported versions, keeping "they disagree" apart from "one of
 /// them could not be asked".
 ///
 /// A disagreement between known versions is reported even when other probes
-/// failed: it is an observed fact, and the failures only add to it.
+/// failed: it is an observed fact, and the failures only add to it. Either way
+/// the failures are counted separately, so neither outcome speaks for an
+/// executable that was never heard from.
 fn summarize_versions(installs: &[(PathBuf, Option<String>)]) -> InstalledVersions {
     let unanswered = installs
         .iter()
@@ -319,13 +344,18 @@ fn summarize_versions(installs: &[(PathBuf, Option<String>)]) -> InstalledVersio
 
     if let Some(first) = first {
         if !known.all(|version| version == first) {
-            return InstalledVersions::Disagree;
+            return InstalledVersions::Disagree { unanswered };
         }
     }
 
     match (first, unanswered) {
         (Some(version), 0) => InstalledVersions::Agreed(version.to_string()),
-        _ => InstalledVersions::Unanswered(unanswered),
+        // Everything that answered agreed; `first` carries that version so the
+        // one fact established here is not thrown away with the failed probes.
+        _ => InstalledVersions::Unanswered {
+            agreed: first.map(ToString::to_string),
+            unanswered,
+        },
     }
 }
 
@@ -565,7 +595,7 @@ mod tests {
                 ("/a/stellar", Some("27.1.0")),
                 ("/b/soroban", Some("22.8.0")),
             ])),
-            InstalledVersions::Disagree
+            InstalledVersions::Disagree { unanswered: 0 }
         );
     }
 
@@ -575,7 +605,10 @@ mod tests {
         // match, so reporting a disagreement would invent a cause.
         assert_eq!(
             summarize_versions(&installs(&[("/a/stellar", None), ("/b/soroban", None)])),
-            InstalledVersions::Unanswered(2)
+            InstalledVersions::Unanswered {
+                agreed: None,
+                unanswered: 2
+            }
         );
 
         // One answered, the other did not: still nothing to contradict.
@@ -584,19 +617,42 @@ mod tests {
                 ("/a/stellar", Some("27.1.0")),
                 ("/b/soroban", None),
             ])),
-            InstalledVersions::Unanswered(1)
+            InstalledVersions::Unanswered {
+                agreed: Some("27.1.0".to_string()),
+                unanswered: 1
+            }
+        );
+    }
+
+    #[test]
+    fn a_failed_probe_does_not_erase_the_agreement_around_it() {
+        // Two agree and a third could not be asked. The agreement is the most
+        // useful thing known about this machine, and it survives the probe that
+        // failed beside it.
+        assert_eq!(
+            summarize_versions(&installs(&[
+                ("/a/stellar", Some("27.1.0")),
+                ("/a/soroban", Some("27.1.0")),
+                ("/b/stellar", None),
+            ])),
+            InstalledVersions::Unanswered {
+                agreed: Some("27.1.0".to_string()),
+                unanswered: 1
+            }
         );
     }
 
     #[test]
     fn an_observed_disagreement_outranks_a_failed_probe() {
+        // The executable that never answered is counted apart from the two that
+        // did: it is not one of the versions observed to differ.
         assert_eq!(
             summarize_versions(&installs(&[
                 ("/a/stellar", Some("27.1.0")),
                 ("/b/soroban", Some("22.8.0")),
                 ("/c/stellar", None),
             ])),
-            InstalledVersions::Disagree
+            InstalledVersions::Disagree { unanswered: 1 }
         );
     }
 }
