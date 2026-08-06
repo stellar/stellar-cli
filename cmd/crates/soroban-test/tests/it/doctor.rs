@@ -8,6 +8,7 @@ exercised end to end.
 Unix only: the fake CLIs are shell scripts that need an execute bit.
 */
 
+use std::ffi::OsStr;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -52,10 +53,17 @@ fn write_unrunnable_cli(dir: &Path, name: &str) {
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
+/// A directory under the sandbox, in the same canonicalized form `doctor`
+/// reports paths in.
+///
+/// `find_installs` canonicalizes every executable it discovers, so an expected
+/// path built from an uncanonicalized sandbox never matches: on macOS the
+/// temporary directory sits under `/var/folders`, a symlink to `/private/var`,
+/// and the two spellings compare unequal as strings.
 fn empty_dir(sandbox: &TestEnv, name: &str) -> PathBuf {
     let dir = sandbox.dir().join(name);
     fs::create_dir_all(&dir).unwrap();
-    dir
+    dir.canonicalize().unwrap_or(dir)
 }
 
 /// The path `doctor` sees as its own executable, in the canonicalized form it
@@ -93,7 +101,10 @@ fn seed_cache_writer(sandbox: &TestEnv, writer: serde_json::Value) -> PathBuf {
 }
 
 /// `doctor` with `PATH` and the version cache pointed at test-controlled state.
-fn doctor(sandbox: &TestEnv, path: &Path, data_home: &Path) -> Command {
+///
+/// `path` is a whole `PATH` value, not a single directory: a multi-entry one is
+/// several paths joined by `:` and is no longer a path itself.
+fn doctor(sandbox: &TestEnv, path: impl AsRef<OsStr>, data_home: &Path) -> Command {
     let mut cmd = sandbox.new_assert_cmd("doctor");
     cmd.env("PATH", path).env("STELLAR_DATA_HOME", data_home);
     cmd
@@ -219,7 +230,7 @@ fn reports_a_disagreement_even_when_another_executable_is_unreadable() {
         second_dir.to_string_lossy()
     );
 
-    doctor(&sandbox, Path::new(&path), &data_home)
+    doctor(&sandbox, &path, &data_home)
         .assert()
         .success()
         // An observed disagreement is a fact; a failed probe alongside it does
