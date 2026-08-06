@@ -115,72 +115,141 @@ impl Cmd {
         }
         tracing::trace!("{entries:#?}");
         let mut out = csv::Writer::from_writer(stdout());
-        for FullLedgerEntry {
-            key,
-            val,
-            live_until_ledger_seq,
-            last_modified_ledger,
-        } in &entries.entries
-        {
-            let (
-                LedgerKey::ContractData(LedgerKeyContractData { key, .. }),
-                LedgerEntryData::ContractData(ContractDataEntry { val, .. }),
-            ) = &(key, val)
-            else {
-                return Err(Error::OnlyDataAllowed);
-            };
-            let output = match self.output {
-                Output::String => [
-                    soroban_spec_tools::to_string(key).map_err(|e| Error::CannotPrintResult {
-                        result: key.clone(),
-                        error: e,
-                    })?,
-                    soroban_spec_tools::to_string(val).map_err(|e| Error::CannotPrintResult {
-                        result: val.clone(),
-                        error: e,
-                    })?,
-                    last_modified_ledger.to_string(),
-                    live_until_ledger_seq.unwrap_or_default().to_string(),
-                ],
-                Output::Json => [
-                    serde_json::to_string_pretty(&key).map_err(|error| {
-                        Error::CannotPrintJsonResult {
-                            result: key.clone(),
-                            error,
-                        }
-                    })?,
-                    serde_json::to_string_pretty(&val).map_err(|error| {
-                        Error::CannotPrintJsonResult {
-                            result: val.clone(),
-                            error,
-                        }
-                    })?,
-                    serde_json::to_string_pretty(&last_modified_ledger).map_err(|error| {
-                        Error::CannotPrintJsonResult {
-                            result: val.clone(),
-                            error,
-                        }
-                    })?,
-                    serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default())
-                        .map_err(|error| Error::CannotPrintJsonResult {
-                            result: val.clone(),
-                            error,
-                        })?,
-                ],
-                Output::Xdr => [
-                    key.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
-                    val.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
-                    last_modified_ledger.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
-                    live_until_ledger_seq
-                        .unwrap_or_default()
-                        .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
-                ],
-            };
-            out.write_record(output)
+        for entry in &entries.entries {
+            out.write_record(Self::entry_record(self.output, entry)?)
                 .map_err(|e| Error::CannotPrintAsCsv { error: e })?;
         }
         out.flush()
             .map_err(|e| Error::CannotPrintFlush { error: e })?;
         Ok(())
+    }
+
+    fn entry_record(output: Output, entry: &FullLedgerEntry) -> Result<[String; 4], Error> {
+        let FullLedgerEntry {
+            key,
+            val,
+            live_until_ledger_seq,
+            last_modified_ledger,
+        } = entry;
+        let (
+            LedgerKey::ContractData(LedgerKeyContractData { key, .. }),
+            LedgerEntryData::ContractData(ContractDataEntry { val, .. }),
+        ) = &(key, val)
+        else {
+            return Err(Error::OnlyDataAllowed);
+        };
+        let output = match output {
+            // `to_string` returns raw, unescaped bytes for a top-level
+            // `ScVal::Symbol`, so sanitize before writing to the terminal to
+            // strip any control/escape sequences the entry may carry.
+            Output::String => [
+                soroban_spec_tools::sanitize(&soroban_spec_tools::to_string(key).map_err(|e| {
+                    Error::CannotPrintResult {
+                        result: key.clone(),
+                        error: e,
+                    }
+                })?),
+                soroban_spec_tools::sanitize(&soroban_spec_tools::to_string(val).map_err(|e| {
+                    Error::CannotPrintResult {
+                        result: val.clone(),
+                        error: e,
+                    }
+                })?),
+                last_modified_ledger.to_string(),
+                live_until_ledger_seq.unwrap_or_default().to_string(),
+            ],
+            Output::Json => [
+                serde_json::to_string_pretty(&key).map_err(|error| {
+                    Error::CannotPrintJsonResult {
+                        result: key.clone(),
+                        error,
+                    }
+                })?,
+                serde_json::to_string_pretty(&val).map_err(|error| {
+                    Error::CannotPrintJsonResult {
+                        result: val.clone(),
+                        error,
+                    }
+                })?,
+                serde_json::to_string_pretty(&last_modified_ledger).map_err(|error| {
+                    Error::CannotPrintJsonResult {
+                        result: val.clone(),
+                        error,
+                    }
+                })?,
+                serde_json::to_string_pretty(&live_until_ledger_seq.unwrap_or_default()).map_err(
+                    |error| Error::CannotPrintJsonResult {
+                        result: val.clone(),
+                        error,
+                    },
+                )?,
+            ],
+            Output::Xdr => [
+                key.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+                val.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+                last_modified_ledger.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+                live_until_ledger_seq
+                    .unwrap_or_default()
+                    .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+            ],
+        };
+        Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{
+        ContractDataDurability, ContractId, ExtensionPoint, Hash, ScAddress, ScSymbol, StringM,
+    };
+
+    fn symbol(bytes: &[u8]) -> ScVal {
+        let s: StringM<32> = bytes.to_vec().try_into().unwrap();
+        ScVal::Symbol(ScSymbol(s))
+    }
+
+    fn contract_data_entry(key: ScVal, val: ScVal) -> FullLedgerEntry {
+        let contract = ScAddress::Contract(ContractId(Hash([0u8; 32])));
+        FullLedgerEntry {
+            key: LedgerKey::ContractData(LedgerKeyContractData {
+                contract: contract.clone(),
+                key,
+                durability: ContractDataDurability::Persistent,
+            }),
+            val: LedgerEntryData::ContractData(ContractDataEntry {
+                ext: ExtensionPoint::V0,
+                contract,
+                key: ScVal::Void,
+                durability: ContractDataDurability::Persistent,
+                val,
+            }),
+            last_modified_ledger: 2026,
+            live_until_ledger_seq: Some(3_000_000),
+        }
+    }
+
+    // A top-level `ScVal::Symbol` is rendered by `to_string` as raw, unescaped
+    // bytes. The default (`string`) output must not let those control/escape
+    // sequences reach the terminal.
+    #[test]
+    fn string_output_strips_control_bytes_from_symbol() {
+        let attack = b"\x1b[2J\x1b[Hpwned";
+        let entry = contract_data_entry(symbol(attack), symbol(attack));
+
+        let record = Cmd::entry_record(Output::String, &entry).unwrap();
+
+        assert!(
+            !record[0].as_bytes().contains(&0x1b),
+            "key field leaked an ESC byte: {:?}",
+            record[0]
+        );
+        assert!(
+            !record[1].as_bytes().contains(&0x1b),
+            "val field leaked an ESC byte: {:?}",
+            record[1]
+        );
+        // The (escaped) payload text is still present, just inert.
+        assert!(record[0].contains("pwned"));
     }
 }
