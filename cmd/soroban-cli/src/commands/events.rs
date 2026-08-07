@@ -377,8 +377,8 @@ impl Cmd {
         writeln!(
             stdout,
             " {} [{}]:",
-            event.id,
-            event.event_type.to_uppercase()
+            sanitize(&event.id),
+            sanitize(&event.event_type.to_uppercase())
         )?;
 
         // Ledger info
@@ -388,14 +388,15 @@ impl Cmd {
         writeln!(
             stdout,
             "{} (closed at {})",
-            event.ledger, event.ledger_closed_at
+            event.ledger,
+            sanitize(&event.ledger_closed_at)
         )?;
 
         // Contract
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)).set_dimmed(true))?;
         write!(stdout, "  Contract: ")?;
         stdout.reset()?;
-        writeln!(stdout, "{}", decoded.contract_id)?;
+        writeln!(stdout, "{}", sanitize(&decoded.contract_id))?;
 
         // Event name with prefix topics
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)).set_dimmed(true))?;
@@ -527,11 +528,11 @@ mod tests {
 
     fn evil_event() -> rpc::Event {
         rpc::Event {
-            event_type: "contract".into(),
+            event_type: "contract\x1b[31m".into(),
             ledger: 1,
-            ledger_closed_at: "2026-01-01T00:00:00Z".into(),
+            ledger_closed_at: "2026-01-01T00:00:00Z\x1b[2J".into(),
             contract_id: "CACA".into(),
-            id: "0000000001-0000000001".into(),
+            id: "0000000001-0000000001\x1b[H".into(),
             operation_index: None,
             transaction_index: None,
             tx_hash: None,
@@ -546,7 +547,7 @@ mod tests {
         let mut params = IndexMap::new();
         params.insert("amount\x1b[31m".to_string(), json!(1000));
         DecodedEvent {
-            contract_id: "CACA".to_string(),
+            contract_id: "CACA\x1b[0m".to_string(),
             event_name: "\x1b[2J\x1b[Htransfer".to_string(),
             prefix_topics: vec!["\x1b[31mEVIL".into(), "topic2".into()],
             params,
