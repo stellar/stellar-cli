@@ -1,5 +1,6 @@
 use stellar_xdr::MuxedAccount;
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         global,
@@ -37,7 +38,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
         self.update_tx_env(&mut tx, global_args).await?;
-        println!("{}", tx.to_xdr_base64(xdr::Limits::none())?);
+        println!("{}", tx.to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))?);
         Ok(())
     }
 

@@ -26,7 +26,8 @@ use crate::{
         builder::{self, TxExt},
         sim_sign_and_send_tx,
     },
-    utils, wasm,
+    utils::{self, XDR_DEPTH_LIMIT},
+    wasm,
 };
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -159,7 +160,7 @@ impl Cmd {
 
             match res {
                 TxnEnvelopeResult::TxnEnvelope(tx) => {
-                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                    println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
                 }
                 TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
             }
@@ -279,8 +280,10 @@ impl Cmd {
             // go ahead if the contract has a V0 extension.
             if let Some(entries) = contract_data.entries {
                 if let Some(entry_result) = entries.first() {
-                    let entry: LedgerEntryData =
-                        LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
+                    let entry: LedgerEntryData = LedgerEntryData::from_xdr_base64(
+                        &entry_result.xdr,
+                        Limits::depth(XDR_DEPTH_LIMIT),
+                    )?;
 
                     match &entry {
                         LedgerEntryData::ContractCode(code) => {

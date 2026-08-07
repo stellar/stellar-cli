@@ -24,6 +24,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
 use tokio_util::io::StreamReader;
 use url::Url;
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{config::data, global, HEADING_ARCHIVE},
     config::{self, locator, network::passphrase},
@@ -316,7 +317,7 @@ impl Cmd {
                 // Stream the bucket entries from the bucket, identifying
                 // entries that match the filters, and including only the
                 // entries that match in the snapshot.
-                let limited = &mut Limited::new(file, Limits::none());
+                let limited = &mut Limited::new(file, Limits::depth(XDR_DEPTH_LIMIT));
                 let entries = Frame::<BucketEntry>::read_xdr_iter(limited);
                 let mut count_saved = 0;
                 for entry in entries {
@@ -667,7 +668,7 @@ async fn get_ledger_metadata_from_archive(
 
     // Now read the cached file
     let file = std::fs::File::open(&cache_path).map_err(Error::ReadOpeningCachedBucket)?;
-    let limited = &mut Limited::new(file, Limits::none());
+    let limited = &mut Limited::new(file, Limits::depth(XDR_DEPTH_LIMIT));
 
     // Find the specific ledger header entry we need
     let entries = Frame::<LedgerHeaderHistoryEntry>::read_xdr_iter(limited);

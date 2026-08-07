@@ -17,6 +17,7 @@ use crate::{
 use clap::Parser;
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         global,
@@ -135,7 +136,9 @@ impl Cmd {
             .await?
             .to_envelope();
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
+            }
             TxnEnvelopeResult::Res(ttl_ledger) => {
                 if self.ttl_ledger_only {
                     println!("{ttl_ledger}");

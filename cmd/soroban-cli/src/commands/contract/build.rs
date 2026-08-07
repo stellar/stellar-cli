@@ -19,6 +19,7 @@ use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{global, version},
     print::Print,
@@ -511,7 +512,7 @@ impl Cmd {
         }
 
         let mut buffer = Vec::new();
-        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::depth(XDR_DEPTH_LIMIT));
         for entry in new_meta {
             entry.write_xdr(&mut writer)?;
         }
@@ -823,9 +824,12 @@ pub fn filter_and_dedup_spec(
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();
     let mut filtered_xdr = Vec::new();
-    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+    let mut writer = Limited::new(
+        Cursor::new(&mut filtered_xdr),
+        Limits::depth(XDR_DEPTH_LIMIT),
+    );
     for entry in soroban_spec::shaking::filter(entries, markers) {
-        let entry_xdr = entry.to_xdr(Limits::none())?;
+        let entry_xdr = entry.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
         if seen.insert(entry_xdr) {
             entry.write_xdr(&mut writer)?;
         }

@@ -10,7 +10,7 @@ use tempfile::TempDir;
 
 use serde_json::json;
 
-use crate::{commands::global, print::Print};
+use crate::{commands::global, print::Print, utils::XDR_DEPTH_LIMIT};
 
 fn schema_url() -> String {
     let ver = stellar_xdr::VERSION.pkg;
@@ -150,7 +150,7 @@ fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
     T: stellar_xdr::ReadXdr + serde::Serialize,
 {
-    let tx = T::from_xdr_base64(xdr_string, stellar_xdr::Limits::none())?;
+    let tx = T::from_xdr_base64(xdr_string, stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT))?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
     schema["$schema"] = json!(schema_url());
     let json = serde_json::to_string_pretty(&schema)?;
@@ -173,10 +173,10 @@ where
     let value: T = serde_json::from_str(json_string.as_str())?;
     let mut data = Vec::new();
     let cursor = Cursor::new(&mut data);
-    let mut limit = stellar_xdr::Limited::new(cursor, stellar_xdr::Limits::none());
+    let mut limit = stellar_xdr::Limited::new(cursor, stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT));
     value.write_xdr(&mut limit)?;
 
-    Ok(value.to_xdr_base64(stellar_xdr::Limits::none())?)
+    Ok(value.to_xdr_base64(stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT))?)
 }
 
 fn default_json() -> String {

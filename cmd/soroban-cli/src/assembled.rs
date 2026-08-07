@@ -10,6 +10,8 @@ use soroban_rpc::{
     AuthMode, Error, LogEvents, LogResources, ResourceConfig, SimulateTransactionResponse,
 };
 
+use crate::utils::XDR_DEPTH_LIMIT;
+
 pub async fn simulate_and_assemble_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
@@ -24,7 +26,7 @@ pub async fn simulate_and_assemble_transaction(
 
     tracing::trace!(
         "Simulation transaction envelope: {}",
-        envelope.to_xdr_base64(Limits::none())?
+        envelope.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?
     );
 
     // Whether an explicit record mode was requested. In record mode the RPC re-records auth
@@ -94,7 +96,7 @@ impl Assembled {
             network_id: Hash(Sha256::digest(network_passphrase).into()),
             tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(self.txn.clone()),
         };
-        Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+        Ok(Sha256::digest(signature_payload.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?).into())
     }
 
     /// Returns a reference to the original transaction.
@@ -263,7 +265,12 @@ fn assemble(
                     VecM::try_from(
                         r.auth
                             .iter()
-                            .map(|v| SorobanAuthorizationEntry::from_xdr_base64(v, Limits::none()))
+                            .map(|v| {
+                                SorobanAuthorizationEntry::from_xdr_base64(
+                                    v,
+                                    Limits::depth(XDR_DEPTH_LIMIT),
+                                )
+                            })
                             .collect::<Result<Vec<_>, _>>()?,
                     )
                 })
@@ -372,10 +379,16 @@ mod tests {
             min_resource_fee: 115,
             latest_ledger: 3,
             results: vec![SimulateHostFunctionResultRaw {
-                auth: vec![fn_auth.to_xdr_base64(Limits::none()).unwrap()],
-                xdr: ScVal::U32(0).to_xdr_base64(Limits::none()).unwrap(),
+                auth: vec![fn_auth
+                    .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                    .unwrap()],
+                xdr: ScVal::U32(0)
+                    .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                    .unwrap(),
             }],
-            transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
+            transaction_data: transaction_data()
+                .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                .unwrap(),
             ..Default::default()
         }
     }
@@ -534,7 +547,9 @@ mod tests {
             &txn,
             SimulateTransactionResponse {
                 min_resource_fee: 115,
-                transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
+                transaction_data: transaction_data()
+                    .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                    .unwrap(),
                 latest_ledger: 3,
                 ..Default::default()
             },
@@ -556,7 +571,9 @@ mod tests {
             &txn,
             SimulateTransactionResponse {
                 min_resource_fee: 115,
-                transaction_data: transaction_data().to_xdr_base64(Limits::none()).unwrap(),
+                transaction_data: transaction_data()
+                    .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                    .unwrap(),
                 latest_ledger: 3,
                 ..Default::default()
             },
