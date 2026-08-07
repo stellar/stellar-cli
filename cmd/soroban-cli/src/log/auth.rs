@@ -127,6 +127,15 @@ fn format_create_contract(
         ContractExecutable::StellarAsset => {
             let _ = writeln!(result, "{prefix}    Executable: StellarAsset");
         }
+        ContractExecutable::ExternalRef(external_ref) => {
+            let tag = std::str::from_utf8(external_ref.tag.as_ref()).unwrap_or("<invalid>");
+            let _ = writeln!(
+                result,
+                "{prefix}    Executable: ExternalRef owner={} tag={}",
+                format_address(&external_ref.executable_owner),
+                sanitize(tag)
+            );
+        }
     }
     if let Some(args) = constructor_args {
         if !args.is_empty() {

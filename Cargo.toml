@@ -132,6 +132,9 @@ soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1a
 soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
 stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
 soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
+# Pending https://github.com/stellar/rs-stellar-rpc-client/pull/108, which
+# updates the client to stellar-xdr 28.
+stellar-rpc-client = { git = "https://github.com/stellar/rs-stellar-rpc-client", rev = "e0d44a0b97959820e855eb9058e2114ac390c1fa" }
 
 [profile.release]
 overflow-checks = true
