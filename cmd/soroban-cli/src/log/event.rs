@@ -2,6 +2,7 @@ use soroban_spec_tools::event::DecodedEvent;
 use soroban_spec_tools::{sanitize, Spec};
 use tracing::debug;
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{print::Print, xdr};
 use xdr::{
     ContractEvent, ContractEventBody, ContractEventType, ContractEventV0, DiagnosticEvent, WriteXdr,
@@ -39,7 +40,9 @@ fn format_decoded_event(decoded: &DecodedEvent, status: &str) -> String {
 pub fn all(events: &[DiagnosticEvent]) {
     for (index, event) in events.iter().enumerate() {
         let json = serde_json::to_string(event).unwrap();
-        let xdr = event.to_xdr_base64(xdr::Limits::none()).unwrap();
+        let xdr = event
+            .to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))
+            .unwrap();
         print_event(&xdr, &json, index);
     }
 }

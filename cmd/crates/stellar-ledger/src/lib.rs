@@ -22,6 +22,11 @@ mod signer;
 
 pub mod emulator_test_support;
 
+/// Depth limit when encoding and decoding XDR.
+///
+/// 500 matches `soroban-env-host`'s `DEFAULT_XDR_RW_LIMITS`.
+const XDR_DEPTH_LIMIT: u32 = 500;
+
 // this is from https://github.com/LedgerHQ/ledger-live/blob/36cfbf3fa3300fd99bcee2ab72e1fd8f280e6280/libs/ledgerjs/packages/hw-app-str/src/Str.ts#L181
 const APDU_MAX_SIZE: u8 = 150;
 const HD_PATH_ELEMENTS_COUNT: u8 = 3;
@@ -161,7 +166,8 @@ where
             network_id,
             tagged_transaction,
         };
-        let mut signature_payload_as_bytes = signature_payload.to_xdr(Limits::none())?;
+        let mut signature_payload_as_bytes =
+            signature_payload.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
 
         let mut hd_path_to_bytes = hd_path.into().to_vec()?;
 

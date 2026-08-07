@@ -9,6 +9,7 @@ use crate::xdr::{
 };
 use clap::{Parser, ValueEnum};
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     config::{self, locator},
     key,
@@ -167,12 +168,12 @@ impl Cmd {
                         })?,
                 ],
                 Output::Xdr => [
-                    key.to_xdr_base64(Limits::none())?,
-                    val.to_xdr_base64(Limits::none())?,
-                    last_modified_ledger.to_xdr_base64(Limits::none())?,
+                    key.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+                    val.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
+                    last_modified_ledger.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
                     live_until_ledger_seq
                         .unwrap_or_default()
-                        .to_xdr_base64(Limits::none())?,
+                        .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?,
                 ],
             };
             out.write_record(output)

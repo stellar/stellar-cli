@@ -15,6 +15,11 @@ pub use soroban_spec_tools::contract as contract_spec;
 
 use crate::config::network::Network;
 
+/// Depth limit when encoding and decoding XDR.
+///
+/// 500 matches `soroban-env-host`'s `DEFAULT_XDR_RW_LIMITS`.
+pub(crate) const XDR_DEPTH_LIMIT: u32 = 500;
+
 /// # Errors
 ///
 /// Might return an error
@@ -52,7 +57,7 @@ pub fn transaction_hash(
         network_id: Hash(Sha256::digest(network_passphrase).into()),
         tagged_transaction: TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()),
     };
-    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?).into())
 }
 
 /// # Errors
@@ -68,7 +73,7 @@ pub fn fee_bump_transaction_hash(
             fee_bump_tx.clone(),
         ),
     };
-    Ok(Sha256::digest(signature_payload.to_xdr(Limits::none())?).into())
+    Ok(Sha256::digest(signature_payload.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?).into())
 }
 
 static EXPLORERS: phf::Map<&'static str, &'static str> = phf_map! {
@@ -197,7 +202,7 @@ pub fn contract_id_hash_from_asset(
         contract_id_preimage: ContractIdPreimage::Asset(asset.clone()),
     });
     let preimage_xdr = preimage
-        .to_xdr(Limits::none())
+        .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))
         .expect("HashIdPreimage should not fail encoding to xdr");
     stellar_strkey::Contract(Sha256::digest(preimage_xdr).into())
 }
@@ -359,6 +364,7 @@ pub mod args {
 }
 
 pub mod rpc {
+    use super::XDR_DEPTH_LIMIT;
     use crate::xdr;
     use soroban_rpc::{Client, Error};
     use stellar_xdr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
@@ -374,8 +380,10 @@ pub mod rpc {
             ));
         }
         let contract_data_entry = &entries[0];
-        let code = match LedgerEntryData::from_xdr_base64(&contract_data_entry.xdr, Limits::none())?
-        {
+        let code = match LedgerEntryData::from_xdr_base64(
+            &contract_data_entry.xdr,
+            Limits::depth(XDR_DEPTH_LIMIT),
+        )? {
             LedgerEntryData::ContractCode(xdr::ContractCodeEntry { code, .. }) => Vec::from(code),
             scval => return Err(Error::UnexpectedContractCodeDataType(scval)),
         };

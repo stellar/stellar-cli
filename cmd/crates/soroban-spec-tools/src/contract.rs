@@ -114,7 +114,12 @@ impl Spec {
         let spec = self
             .spec
             .iter()
-            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64(Limits::none())?)))
+            .map(|e| {
+                Ok(format!(
+                    "\"{}\"",
+                    e.to_xdr_base64(Limits::depth(SPEC_XDR_DEPTH_LIMIT))?
+                ))
+            })
             .collect::<Result<Vec<_>, Error>>()?
             .join(",\n");
         Ok(format!("[{spec}]"))

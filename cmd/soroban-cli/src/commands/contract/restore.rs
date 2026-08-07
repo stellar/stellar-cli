@@ -15,6 +15,7 @@ use clap::Parser;
 use stellar_strkey::DecodeError;
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         contract::extend,
@@ -132,7 +133,7 @@ impl Cmd {
             .to_envelope();
         let expiration_ledger_seq = match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
-                println!("{}", tx.to_xdr_base64(Limits::none())?);
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
                 return Ok(());
             }
             TxnEnvelopeResult::Res(res) => res,
