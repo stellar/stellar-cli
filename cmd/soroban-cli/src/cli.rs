@@ -77,8 +77,9 @@ pub async fn main() {
     // Spawn a thread to check if a new version exists.
     // It depends on logger, so we need to place it after
     // the code block that initializes the logger.
-    tokio::spawn(async move {
-        upgrade_check(root.global_args.quiet).await;
+    let quiet = root.global_args.quiet;
+    let upgrade_check_handle = tokio::spawn(async move {
+        upgrade_check(quiet).await;
     });
 
     let printer = Print::new(root.global_args.quiet);
@@ -105,6 +106,30 @@ pub async fn main() {
         }
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);
+    }
+
+    finish_upgrade_check(upgrade_check_handle).await;
+}
+
+// Returning from `main` ends the runtime, so a still-running upgrade check is
+// dropped where it stands. For a command that finishes faster than the request
+// to crates.io, that meant the fetched versions were never written to the cache
+// and the next run started over -- the check could keep re-fetching and keep
+// reporting whatever stale versions the cache already held.
+//
+// Give it a brief chance to land instead. The fetch runs alongside the command,
+// so by this point it has usually already finished and this returns
+// immediately; the wait only bites when the check actually went to the network,
+// which is at most once a day. Dropping it after the grace period is no worse
+// than the unconditional drop it replaces.
+const UPGRADE_CHECK_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+
+async fn finish_upgrade_check(handle: tokio::task::JoinHandle<()>) {
+    if tokio::time::timeout(UPGRADE_CHECK_GRACE, handle)
+        .await
+        .is_err()
+    {
+        tracing::debug!("upgrade check did not finish within its grace period");
     }
 }
 
