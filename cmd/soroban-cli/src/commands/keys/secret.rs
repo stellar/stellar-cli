@@ -40,7 +40,7 @@ impl Cmd {
         if self.phrase {
             println!("{}", self.seed_phrase()?);
         } else {
-            println!("{}", self.private_key()?);
+            println!("{}", self.private_key()?.as_unredacted());
         }
 
         Ok(())
