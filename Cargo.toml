@@ -126,12 +126,12 @@ astral-tokio-tar = "0.6.0"
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "99a031a6f6a0935f68c073705651bd1addca1fd4" }
 # Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
 # user-defined types in contract specs by their fully qualified path.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "c68e1aff76c79998d9e765f8cce0aef727fb86db" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
 # Pending https://github.com/stellar/rs-stellar-rpc-client/pull/108, which
 # updates the client to stellar-xdr 28.
 stellar-rpc-client = { git = "https://github.com/stellar/rs-stellar-rpc-client", rev = "e0d44a0b97959820e855eb9058e2114ac390c1fa" }

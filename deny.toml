@@ -237,7 +237,7 @@ allow-git = [
   # https://github.com/stellar/rs-stellar-xdr/pull/566
   "https://github.com/stellar/rs-stellar-xdr?rev=99a031a6f6a0935f68c073705651bd1addca1fd4",
   # https://github.com/stellar/rs-soroban-sdk/pull/1970
-  "https://github.com/stellar/rs-soroban-sdk?rev=c68e1aff76c79998d9e765f8cce0aef727fb86db",
+  "https://github.com/stellar/rs-soroban-sdk?rev=5727dc54b5a341d59677329d2dfbcead90bbf877",
   # https://github.com/stellar/rs-stellar-rpc-client/pull/108
   "https://github.com/stellar/rs-stellar-rpc-client?rev=e0d44a0b97959820e855eb9058e2114ac390c1fa",
 ]
