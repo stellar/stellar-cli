@@ -28,6 +28,11 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     ContractSpec(#[from] contract_spec::Error),
+    #[error(
+        "cannot fetch spec for contract because the contract executable is \
+    an external reference that does not have a downloadable code binary"
+    )]
+    ContractIsExternalRef,
 }
 
 ///
@@ -76,5 +81,6 @@ pub async fn get_remote_contract_spec(
         ContractExecutable::StellarAsset => {
             soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
         }
+        ContractExecutable::ExternalRef(_) => return Err(Error::ContractIsExternalRef),
     })
 }

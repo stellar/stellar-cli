@@ -44,30 +44,30 @@ path = "cmd/crates/stellar-ledger"
 
 # Dependencies from the rs-stellar-xdr repo:
 [workspace.dependencies.stellar-xdr]
-version = "27.0.0"
+version = "28.0.0"
 
 # Dependencies from the rs-stellar-env repo:
 [workspace.dependencies.soroban-env-host]
-version = "27.0.1"
+version = "28.0.1"
 
 # Dependencies from the rs-soroban-sdk repo:
 [workspace.dependencies.soroban-spec]
-version = "27.0.2"
+version = "27.0.5"
 
 [workspace.dependencies.soroban-spec-rust]
-version = "27.0.2"
+version = "27.0.5"
 
 [workspace.dependencies.soroban-sdk]
-version = "27.0.2"
+version = "27.0.5"
 
 [workspace.dependencies.soroban-token-sdk]
-version = "27.0.2"
+version = "27.0.5"
 
 [workspace.dependencies.stellar-asset-spec]
-version = "27.0.2"
+version = "27.0.5"
 
 [workspace.dependencies.soroban-ledger-snapshot]
-version = "27.0.2"
+version = "27.0.5"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
@@ -119,6 +119,22 @@ predicates = "3.1.2"
 testcontainers = "0.27.2"
 httpmock = "0.7.0"
 astral-tokio-tar = "0.6.0"
+
+[patch.crates-io]
+# Pending https://github.com/stellar/rs-stellar-xdr/pull/566, which widens the
+# user-defined type name limit so that a fully qualified type name fits.
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "99a031a6f6a0935f68c073705651bd1addca1fd4" }
+# Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
+# user-defined types in contract specs by their fully qualified path.
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "5727dc54b5a341d59677329d2dfbcead90bbf877" }
+# Pending https://github.com/stellar/rs-stellar-rpc-client/pull/108, which
+# updates the client to stellar-xdr 28.
+stellar-rpc-client = { git = "https://github.com/stellar/rs-stellar-rpc-client", rev = "e0d44a0b97959820e855eb9058e2114ac390c1fa" }
 
 [profile.release]
 overflow-checks = true

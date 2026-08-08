@@ -372,7 +372,7 @@ impl Spec {
         Ok(val)
     }
 
-    fn parse_udt(&self, name: &StringM<60>, value: &Value) -> Result<ScVal, Error> {
+    fn parse_udt(&self, name: &StringM<256>, value: &Value) -> Result<ScVal, Error> {
         let name = &name.to_utf8_string_lossy();
         match (self.find(name)?, value) {
             (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
@@ -649,7 +649,7 @@ impl Spec {
     /// # Panics
     ///
     /// May panic
-    pub fn udt_to_json(&self, name: &StringM<60>, sc_obj: &ScVal) -> Result<Value, Error> {
+    pub fn udt_to_json(&self, name: &StringM<256>, sc_obj: &ScVal) -> Result<Value, Error> {
         let name = &name.to_utf8_string_lossy();
         let udt = self.find(name)?;
         Ok(match (sc_obj, udt) {
@@ -1002,6 +1002,11 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
                 .map_err(|_| Error::InvalidValue(Some(ScType::Symbol)))?
                 .to_string(),
         ),
+        ScVal::ExecutableTag(v) => Value::String(
+            std::str::from_utf8(v.as_slice())
+                .map_err(|_| Error::InvalidValue(Some(ScType::String)))?
+                .to_string(),
+        ),
         ScVal::Vec(v) => {
             let values: Result<Vec<Value>, Error> = v.as_ref().map_or_else(
                 || Ok(vec![]),
@@ -1094,6 +1099,14 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             executable: ContractExecutable::StellarAsset,
             ..
         }) => json!({"SAC": true}),
+        ScVal::ContractInstance(ScContractInstance {
+            executable: ContractExecutable::ExternalRef(external_ref),
+            ..
+        }) => json!({
+            "executable_owner": sc_address_to_json(&external_ref.executable_owner),
+            "tag": std::str::from_utf8(external_ref.tag.as_slice())
+                .map_err(|_| Error::InvalidValue(Some(ScType::String)))?,
+        }),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
             Value::Number(serde_json::Number::from(*nonce))
         }

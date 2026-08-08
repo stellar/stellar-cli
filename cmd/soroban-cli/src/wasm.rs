@@ -13,7 +13,7 @@ use crate::{
         network::{Error as NetworkError, Network},
     },
     utils::{self, rpc::get_remote_wasm_from_hash},
-    wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
+    wasm::Error::{ContractIsExternalRef, ContractIsStellarAsset, UnexpectedContractToken},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -47,6 +47,11 @@ pub enum Error {
     a network built-in asset contract that does not have a downloadable code binary"
     )]
     ContractIsStellarAsset,
+    #[error(
+        "cannot fetch wasm for contract because the contract executable is \
+    an external reference that does not have a downloadable code binary"
+    )]
+    ContractIsExternalRef,
     #[error(transparent)]
     Network(#[from] NetworkError),
 }
@@ -133,6 +138,7 @@ pub async fn fetch_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(get_remote_wasm_from_hash(&client, hash).await?),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            ContractExecutable::ExternalRef(_) => Err(ContractIsExternalRef),
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
@@ -158,6 +164,7 @@ pub async fn fetch_wasm_hash_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(hash.clone()),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            ContractExecutable::ExternalRef(_) => Err(ContractIsExternalRef),
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
