@@ -84,6 +84,7 @@ Tools for smart contract developers
 - `asset` — Utilities to deploy a Stellar Asset Contract or get its id
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
+- `archive` — Generate the reproducible source archive used by verifiable builds
 - `build` — Build a contract from source
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
@@ -344,6 +345,17 @@ Generate PHP bindings
 
 **Usage:** `stellar contract bindings php`
 
+## `stellar contract archive`
+
+Generate the reproducible source archive used by verifiable builds
+
+**Usage:** `stellar contract archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
+
 ## `stellar contract build`
 
 Build a contract from source
@@ -355,6 +367,18 @@ In workspaces builds all crates unless a package name is specified, or the comma
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
 **Usage:** `stellar contract build [OPTIONS]`
+
+###### **Container Options:**
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 
 ###### **Features:**
 
@@ -384,6 +408,7 @@ To view the commands that will be executed, without executing them, use the --pr
   If ommitted, wasm files are written only to the cargo target directory.
 
 - `--locked` — Assert that `Cargo.lock` will remain unchanged
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -393,6 +418,13 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+###### **Verifiable Options:**
+
+- `--verifiable` — Build inside a trusted Docker container and record SEP-58 metadata (`bldimg`, `source_uri`, `source_sha256`, `bldopt`) so the resulting WASM can be reproduced and verified by third parties. Implies `--locked`. Requires a clean git working tree
+- `--image <IMAGE>` — Override the auto-selected container image used by `--verifiable`. Must be digest-pinned, e.g. `docker.io/stellar/stellar-cli@sha256:...`. Tag-only refs are rejected because SEP-58 requires content addressing
+- `--source-sha256 <SOURCE_SHA256>` — SEP-58 source identification: SHA-256 of the source archive (recorded as the `source_sha256` meta entry). Optional with `--verifiable`: the archive is always generated and its SHA-256 computed for you. When supplied it's treated as a pin — the build fails if it doesn't match the generated archive
+- `--source-uri <SOURCE_URI>` — SEP-58 source identification: URI where the source can be obtained, e.g. `https://example.com/src.tar.gz` (recorded as the `source_uri` meta entry). Optional; when set it must accompany `--source-sha256`
 
 ## `stellar contract extend`
 
@@ -481,6 +513,7 @@ Deploy a wasm contract
   Default value: `false`
 
 - `--alias <ALIAS>` — The alias that will be used to save the contract's id. Whenever used, `--alias` will always overwrite the existing contract id configuration without asking for confirmation
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -855,6 +888,7 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`
@@ -918,6 +952,7 @@ Install a WASM file to the ledger without creating a contract instance
 
   Default value: `false`
 
+- `--env <ENV>` — Set an environment variable for the build (repeatable), e.g. `--env NAME=VALUE`. It's set on the build process; for a verifiable build it's passed to the container and recorded as a `bldopt`, so avoid secrets there
 - `--optimize <OPTIMIZE>` — Optimize the generated wasm. Enabled by default; pass `--optimize=false` to disable. Requires the `additional-libs` feature
 
   Default value: `true`

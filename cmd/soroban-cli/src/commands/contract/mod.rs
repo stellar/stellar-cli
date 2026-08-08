@@ -1,4 +1,5 @@
 pub mod alias;
+pub mod archive;
 pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
@@ -32,6 +33,9 @@ pub enum Cmd {
     /// Generate code client bindings for a contract
     #[command(subcommand)]
     Bindings(bindings::Cmd),
+
+    /// Generate the reproducible source archive used by verifiable builds
+    Archive(archive::Cmd),
 
     Build(build::Cmd),
 
@@ -114,6 +118,9 @@ pub enum Error {
     Bindings(#[from] bindings::Error),
 
     #[error(transparent)]
+    Archive(#[from] archive::Error),
+
+    #[error(transparent)]
     Build(#[from] build::Error),
 
     #[error(transparent)]
@@ -163,8 +170,9 @@ impl Cmd {
         match &self {
             Cmd::Asset(asset) => asset.run(global_args).await?,
             Cmd::Bindings(bindings) => bindings.run().await?,
+            Cmd::Archive(archive) => archive.run(global_args)?,
             Cmd::Build(build) => {
-                build.run(global_args)?;
+                build.run(global_args).await?;
             }
             Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,

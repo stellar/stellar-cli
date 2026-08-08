@@ -58,6 +58,12 @@ pub fn bucket_dir() -> Result<std::path::PathBuf, Error> {
     Ok(dir)
 }
 
+pub fn archives_dir() -> Result<std::path::PathBuf, Error> {
+    let dir = data_local_dir()?.join("archives");
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
 pub fn write(action: Action, rpc_url: &Url) -> Result<ulid::Ulid, Error> {
     let data = Data {
         action,
@@ -210,6 +216,18 @@ mod test {
     use super::*;
     use crate::test_utils::with_env_set;
     use serial_test::serial;
+
+    #[test]
+    #[serial]
+    fn archives_dir_under_data_home_and_created() {
+        let t = assert_fs::TempDir::new().unwrap();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let dir = archives_dir().unwrap();
+            assert!(dir.ends_with("archives"));
+            assert!(dir.starts_with(t.path()));
+            assert!(dir.is_dir(), "archives_dir() should create the directory");
+        });
+    }
 
     #[test]
     #[serial]
