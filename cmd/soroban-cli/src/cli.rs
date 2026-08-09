@@ -83,7 +83,16 @@ pub async fn main() {
     });
 
     let printer = Print::new(root.global_args.quiet);
-    if let Err(e) = root.run().await {
+    let run_result = root.run().await;
+
+    // Every branch below this point exits via `std::process::exit`, which
+    // terminates the process without running anything after it -- including a
+    // call placed after this block. Finishing the upgrade check here, before
+    // any of those exits, is what makes it run on error paths too, not only
+    // when the command succeeds.
+    finish_upgrade_check(upgrade_check_handle).await;
+
+    if let Err(e) = run_result {
         // TODO: source is None (should be HelpMessage)
         let _source = commands::Error::source(&e);
         // TODO use source instead
@@ -107,8 +116,6 @@ pub async fn main() {
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);
     }
-
-    finish_upgrade_check(upgrade_check_handle).await;
 }
 
 // Returning from `main` ends the runtime, so a still-running upgrade check is
