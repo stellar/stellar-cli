@@ -68,9 +68,13 @@ async fn invoke_test_bindings_context_failure() {
     assert!(index_ts_path.exists(), "src/index.ts file does not exist");
 
     let content = std::fs::read_to_string(&index_ts_path).expect("Failed to read index.ts file");
+    // Match the method form `__check_auth:` specifically: the name also
+    // appears in doc text of SDK auth types that legitimately remain in the
+    // spec now that the sdk emits entries for all types used at the
+    // contract boundary.
     assert!(
-        !content.contains("__check_auth"),
-        "Test failed: `__check_auth` found in src/index.ts"
+        !content.contains("__check_auth:"),
+        "Test failed: `__check_auth:` method found in src/index.ts"
     );
 
     // check enum message + doc working properly
