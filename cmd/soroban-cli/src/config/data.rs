@@ -5,6 +5,7 @@ use std::str::FromStr;
 use url::Url;
 
 use crate::utils::url::redact_url;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::xdr::{self, WriteXdr};
 
 #[derive(thiserror::Error, Debug)]
@@ -80,7 +81,7 @@ pub fn write_spec(hash: &str, spec_entries: &[xdr::ScSpecEntry]) -> Result<(), E
     tracing::trace!("writing spec to {:?}", file);
     let mut contents: Vec<u8> = Vec::new();
     for entry in spec_entries {
-        contents.extend(entry.to_xdr(xdr::Limits::none())?);
+        contents.extend(entry.to_xdr(xdr::Limits::depth(XDR_DEPTH_LIMIT))?);
     }
     crate::config::locator::write_hardened_file(&file, &contents)?;
     Ok(())
@@ -202,7 +203,7 @@ impl TryFrom<GetTransactionResponse> for Action {
 }
 
 fn to_xdr(data: &impl WriteXdr) -> Result<String, xdr::Error> {
-    data.to_xdr_base64(xdr::Limits::none())
+    data.to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))
 }
 
 #[cfg(test)]

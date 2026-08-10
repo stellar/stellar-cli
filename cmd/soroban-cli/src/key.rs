@@ -5,6 +5,7 @@ use crate::xdr::{
 use crate::{
     commands::contract::Durability,
     config::{alias, locator, network::Network},
+    utils::XDR_DEPTH_LIMIT,
     wasm,
 };
 use std::path::PathBuf;
@@ -82,7 +83,7 @@ impl Args {
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(keys) = &self.key_xdr {
             keys.iter()
-                .map(|s| Ok(ScVal::from_xdr_base64(s, Limits::none())?))
+                .map(|s| Ok(ScVal::from_xdr_base64(s, Limits::depth(XDR_DEPTH_LIMIT))?))
                 .collect::<Result<Vec<_>, Error>>()?
         } else if let Some(wasm) = &self.wasm {
             return Ok(vec![crate::wasm::Args { wasm: wasm.clone() }.try_into()?]);

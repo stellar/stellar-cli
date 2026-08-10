@@ -25,6 +25,7 @@ use crate::{
 };
 
 use crate::config::address::AliasName;
+use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -108,7 +109,9 @@ impl Cmd {
             .await?
             .to_envelope();
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
+            }
             TxnEnvelopeResult::Res(contract) => {
                 let network = self.config.get_network()?;
 

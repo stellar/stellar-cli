@@ -1,3 +1,4 @@
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{global, txn_result::TxnEnvelopeResult, HEADING_TRANSACTION},
     config::{
@@ -94,7 +95,7 @@ impl Args {
     ) -> Result<(), Error> {
         let res = self.handle(op, global_args).await?;
         if let TxnEnvelopeResult::TxnEnvelope(tx) = res {
-            println!("{}", tx.to_xdr_base64(Limits::none())?);
+            println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
         }
         Ok(())
     }

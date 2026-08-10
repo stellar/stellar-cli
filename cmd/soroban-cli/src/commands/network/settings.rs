@@ -1,5 +1,6 @@
 use crate::config::network;
 use crate::output::{Format, Output};
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{commands::global, config};
 use semver::Version;
 use stellar_xdr::{
@@ -110,7 +111,10 @@ impl Cmd {
         };
         match self.output {
             // Xdr is a distinct raw rendering, handled outside the JSON path.
-            OutputFormat::Xdr => println!("{}", config_upgrade_set.to_xdr_base64(Limits::none())?),
+            OutputFormat::Xdr => println!(
+                "{}",
+                config_upgrade_set.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?
+            ),
             OutputFormat::Json | OutputFormat::JsonFormatted => {
                 output.json_value(&config_upgrade_set)?;
             }

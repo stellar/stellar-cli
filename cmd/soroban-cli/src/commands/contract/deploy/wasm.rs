@@ -19,6 +19,7 @@ use crate::xdr::{
 };
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
@@ -256,7 +257,7 @@ impl Cmd {
 
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
-                println!("{}", tx.to_xdr_base64(Limits::none())?);
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
             }
             TxnEnvelopeResult::Res(contract) => {
                 let network = cmd.config.get_network()?;
