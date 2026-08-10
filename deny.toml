@@ -231,7 +231,15 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
 allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
-  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66"
+  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
+
+  # Temporary patches, remove once the following PRs are merged and released:
+  # https://github.com/stellar/rs-stellar-xdr/pull/568
+  "https://github.com/stellar/rs-stellar-xdr?rev=182d524aa0cd34cd1b5d21ab71fbbebbd932939b",
+  # The rs-soroban-sdk PR stamping user-defined type spec entries with ids
+  "https://github.com/stellar/rs-soroban-sdk?rev=647dc7f29bc6151e21a2f1791e7954d260180161",
+  # https://github.com/stellar/rs-stellar-rpc-client/pull/108
+  "https://github.com/stellar/rs-stellar-rpc-client?rev=e0d44a0b97959820e855eb9058e2114ac390c1fa",
 ]
 
 [sources.allow-org]

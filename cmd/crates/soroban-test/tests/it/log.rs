@@ -30,7 +30,7 @@ fn test_diagnostic_events_logging() {
     });
 
     let captured_logs = logs.lock().unwrap();
-    assert!(captured_logs.iter().any(|log| log.contains(r#"AAAAAAAAAAAAAAAAAAAAAgAAAAAAAAADAAAADwAAAAdmbl9jYWxsAAAAAA0AAAAgfKvD/pIJPlRnGd3RKaBZSHfoq/nJbJSYxkVTScSbhuYAAAAPAAAABGRlY3IAAAAB {"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type_":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"7cabc3fe92093e546719ddd129a0594877e8abf9c96c9498c6455349c49b86e6"},{"symbol":"decr"}],"data":"void"}}}}"#)));
+    assert!(captured_logs.iter().any(|log| log.contains(r#"AAAAAAAAAAAAAAAAAAAAAgAAAAAAAAADAAAADwAAAAdmbl9jYWxsAAAAAA0AAAAgfKvD/pIJPlRnGd3RKaBZSHfoq/nJbJSYxkVTScSbhuYAAAAPAAAABGRlY3IAAAAB {"in_successful_contract_call":false,"event":{"ext":"v0","contract_id":null,"type":"diagnostic","body":{"v0":{"topics":[{"symbol":"fn_call"},{"bytes":"7cabc3fe92093e546719ddd129a0594877e8abf9c96c9498c6455349c49b86e6"},{"symbol":"decr"}],"data":"void"}}}}"#)));
     assert!(captured_logs
         .iter()
         .any(|log| log.contains("VM call trapped")));

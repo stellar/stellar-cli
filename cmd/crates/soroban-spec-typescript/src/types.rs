@@ -198,6 +198,9 @@ impl From<&ScSpecTypeDef> for Type {
             ScSpecTypeDef::Udt(udt) => Type::Custom {
                 name: udt.name.to_utf8_string_lossy(),
             },
+            ScSpecTypeDef::UdtV2(udt) => Type::Custom {
+                name: udt.name.to_utf8_string_lossy(),
+            },
             ScSpecTypeDef::BytesN(b) => Type::BytesN { n: b.n },
             ScSpecTypeDef::Val => Type::Val,
             ScSpecTypeDef::U64 => Type::U64,

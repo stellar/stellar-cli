@@ -39,7 +39,7 @@ build:
 	cargo build
 
 build-test-wasms:
-	cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
+	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms build-fixtures install
 

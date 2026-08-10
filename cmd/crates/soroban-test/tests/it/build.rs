@@ -416,6 +416,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
         doc: StringM::default(),
         lib: StringM::default(),
         name: "MyStruct".try_into().unwrap(),
+        id: [0; 8],
         fields: vec![ScSpecUdtStructFieldV0 {
             doc: StringM::default(),
             name: "field".try_into().unwrap(),

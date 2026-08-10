@@ -235,6 +235,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: StringM::from_str(name).unwrap(),
+            id: [0; 8],
             fields: field_types
                 .into_iter()
                 .map(|(fname, ftype)| stellar_xdr::ScSpecUdtStructFieldV0 {

@@ -531,6 +531,12 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
                 sanitize(&udt.name.to_utf8_string_lossy())
             )
         }
+        ScSpecTypeDef::UdtV2(udt) => {
+            format!(
+                "user-defined type '{}'",
+                sanitize(&udt.name.to_utf8_string_lossy())
+            )
+        }
     }
 }
 
@@ -627,11 +633,14 @@ fn parse_argument_with_validation(
     // Pre-validate JSON for non-primitive types, but skip for union (enum) UDTs since
     // both bare strings (e.g. `Unit`) and JSON strings (e.g. `"Unit"`) are valid for
     // unit variants — from_string in soroban-spec-tools handles both forms correctly.
-    let is_union_udt = if let ScSpecTypeDef::Udt(udt) = expected_type {
-        spec.find(&udt.name.to_utf8_string_lossy())
-            .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_)))
-    } else {
-        false
+    let is_union_udt = match expected_type {
+        ScSpecTypeDef::Udt(udt) => spec
+            .find(&udt.name.to_utf8_string_lossy())
+            .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_))),
+        ScSpecTypeDef::UdtV2(udt) => spec
+            .find_udt(&udt.name.to_utf8_string_lossy(), Some(&udt.id))
+            .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_))),
+        _ => false,
     };
     if !is_primitive_type(expected_type) && !is_union_udt {
         validate_json_arg(arg_name, value)?;
@@ -767,7 +776,22 @@ fn resolve_aliases_in_json(
             mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
         }
         ScSpecTypeDef::Udt(udt) => {
-            mutated |= resolve_aliases_in_udt(value, udt, spec, config)?;
+            mutated |= resolve_aliases_in_udt(
+                value,
+                &udt.name.to_utf8_string_lossy(),
+                None,
+                spec,
+                config,
+            )?;
+        }
+        ScSpecTypeDef::UdtV2(udt) => {
+            mutated |= resolve_aliases_in_udt(
+                value,
+                &udt.name.to_utf8_string_lossy(),
+                Some(&udt.id),
+                spec,
+                config,
+            )?;
         }
         _ => {}
     }
@@ -776,13 +800,13 @@ fn resolve_aliases_in_json(
 
 fn resolve_aliases_in_udt(
     value: &mut serde_json::Value,
-    udt: &stellar_xdr::ScSpecTypeUdt,
+    name: &str,
+    id: Option<&[u8; 8]>,
     spec: &Spec,
     config: &config::Args,
 ) -> Result<bool, Error> {
     let mut mutated = false;
-    let name = udt.name.to_utf8_string_lossy();
-    let Ok(entry) = spec.find(&name) else {
+    let Ok(entry) = spec.find_udt(name, id) else {
         return Ok(false);
     };
     match entry {
@@ -945,6 +969,7 @@ mod tests {
             doc: "".try_into().unwrap(),
             lib: "".try_into().unwrap(),
             name: "S".try_into().unwrap(),
+            id: [0; 8],
             fields: vec![ScSpecUdtStructFieldV0 {
                 doc: "".try_into().unwrap(),
                 name: "\x1b[2Jevil".try_into().unwrap(),
@@ -1080,6 +1105,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
+            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
                 doc: StringM::default(),
                 name: case_name,
@@ -1128,6 +1154,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
+            id: [0; 8],
             cases: vec![
                 ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
                     doc: StringM::default(),
@@ -1203,6 +1230,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: struct_name.clone(),
+            id: [0; 8],
             fields: fields_xdr.try_into().unwrap(),
         })]));
         let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: struct_name });
@@ -1329,6 +1357,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
+            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                 doc: StringM::default(),
                 name: "Pick".try_into().unwrap(),
@@ -1367,6 +1396,7 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
+            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                 doc: StringM::default(),
                 name: "Only".try_into().unwrap(),
