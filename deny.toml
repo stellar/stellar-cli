@@ -235,9 +235,9 @@ allow-git = [
 
   # Temporary patches, remove once the following PRs are merged and released:
   # https://github.com/stellar/rs-stellar-xdr/pull/568
-  "https://github.com/stellar/rs-stellar-xdr?rev=182d524aa0cd34cd1b5d21ab71fbbebbd932939b",
+  "https://github.com/stellar/rs-stellar-xdr?rev=d7bf0331c0b212b97010b49c06d6da259c89588d",
   # The rs-soroban-sdk PR stamping user-defined type spec entries with ids
-  "https://github.com/stellar/rs-soroban-sdk?rev=647dc7f29bc6151e21a2f1791e7954d260180161",
+  "https://github.com/stellar/rs-soroban-sdk?rev=db0de82715133c3732d422bdfcbee65f53c5c0c9",
   # https://github.com/stellar/rs-stellar-rpc-client/pull/108
   "https://github.com/stellar/rs-stellar-rpc-client?rev=e0d44a0b97959820e855eb9058e2114ac390c1fa",
 ]

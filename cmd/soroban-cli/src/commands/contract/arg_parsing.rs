@@ -638,7 +638,7 @@ fn parse_argument_with_validation(
             .find(&udt.name.to_utf8_string_lossy())
             .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_))),
         ScSpecTypeDef::UdtV2(udt) => spec
-            .find_udt(&udt.name.to_utf8_string_lossy(), Some(&udt.id))
+            .find(&udt.name.to_utf8_string_lossy())
             .is_ok_and(|entry| matches!(entry, ScSpecEntry::UdtUnionV0(_))),
         _ => false,
     };
@@ -776,22 +776,12 @@ fn resolve_aliases_in_json(
             mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
         }
         ScSpecTypeDef::Udt(udt) => {
-            mutated |= resolve_aliases_in_udt(
-                value,
-                &udt.name.to_utf8_string_lossy(),
-                None,
-                spec,
-                config,
-            )?;
+            mutated |=
+                resolve_aliases_in_udt(value, &udt.name.to_utf8_string_lossy(), spec, config)?;
         }
         ScSpecTypeDef::UdtV2(udt) => {
-            mutated |= resolve_aliases_in_udt(
-                value,
-                &udt.name.to_utf8_string_lossy(),
-                Some(&udt.id),
-                spec,
-                config,
-            )?;
+            mutated |=
+                resolve_aliases_in_udt(value, &udt.name.to_utf8_string_lossy(), spec, config)?;
         }
         _ => {}
     }
@@ -801,12 +791,11 @@ fn resolve_aliases_in_json(
 fn resolve_aliases_in_udt(
     value: &mut serde_json::Value,
     name: &str,
-    id: Option<&[u8; 8]>,
     spec: &Spec,
     config: &config::Args,
 ) -> Result<bool, Error> {
     let mut mutated = false;
-    let Ok(entry) = spec.find_udt(name, id) else {
+    let Ok(entry) = spec.find(name) else {
         return Ok(false);
     };
     match entry {
@@ -969,7 +958,6 @@ mod tests {
             doc: "".try_into().unwrap(),
             lib: "".try_into().unwrap(),
             name: "S".try_into().unwrap(),
-            id: [0; 8],
             fields: vec![ScSpecUdtStructFieldV0 {
                 doc: "".try_into().unwrap(),
                 name: "\x1b[2Jevil".try_into().unwrap(),
@@ -1105,7 +1093,6 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
-            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
                 doc: StringM::default(),
                 name: case_name,
@@ -1154,7 +1141,6 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
-            id: [0; 8],
             cases: vec![
                 ScSpecUdtUnionCaseV0::VoidV0(ScSpecUdtUnionCaseVoidV0 {
                     doc: StringM::default(),
@@ -1230,7 +1216,6 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: struct_name.clone(),
-            id: [0; 8],
             fields: fields_xdr.try_into().unwrap(),
         })]));
         let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: struct_name });
@@ -1357,7 +1342,6 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
-            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                 doc: StringM::default(),
                 name: "Pick".try_into().unwrap(),
@@ -1396,7 +1380,6 @@ mod tests {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
-            id: [0; 8],
             cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
                 doc: StringM::default(),
                 name: "Only".try_into().unwrap(),
