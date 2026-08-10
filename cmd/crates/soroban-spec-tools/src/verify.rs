@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use stellar_xdr::{
-    ScSpecEntry, ScSpecTypeDef as ScType, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
-    ScSpecUdtUnionCaseV0,
+    ScSpecEntry, ScSpecEntryV2Body, ScSpecTypeDef as ScType, ScSpecTypeUdt,
+    ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
 };
 
 use crate::{sanitize, Spec};
@@ -52,6 +52,14 @@ fn entry_name(entry: &ScSpecEntry) -> String {
         ScSpecEntry::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
         ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
         ScSpecEntry::EventV0(x) => x.name.to_utf8_string_lossy(),
+        ScSpecEntry::V2(v2) => match &v2.body {
+            ScSpecEntryV2Body::FunctionV0(x) => x.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtStructV0(x) => x.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtUnionV0(x) => x.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::EventV0(x) => x.name.to_utf8_string_lossy(),
+        },
     }
 }
 
@@ -63,7 +71,7 @@ impl Spec {
     /// - Undefined types: UDT names referenced in function signatures, event
     ///   params, struct fields, or union cases that are not defined in the spec.
     pub fn verify(&self) -> Vec<SpecWarning> {
-        let Some(entries) = &self.0 else {
+        let Some(entries) = &self.entries else {
             return vec![];
         };
 
@@ -85,6 +93,15 @@ impl Spec {
                 | ScSpecEntry::UdtErrorEnumV0(_) => {
                     defined.insert(name);
                 }
+                ScSpecEntry::V2(v2) => match &v2.body {
+                    ScSpecEntryV2Body::UdtStructV0(_)
+                    | ScSpecEntryV2Body::UdtUnionV0(_)
+                    | ScSpecEntryV2Body::UdtEnumV0(_)
+                    | ScSpecEntryV2Body::UdtErrorEnumV0(_) => {
+                        defined.insert(name);
+                    }
+                    ScSpecEntryV2Body::FunctionV0(_) | ScSpecEntryV2Body::EventV0(_) => {}
+                },
                 ScSpecEntry::FunctionV0(_) | ScSpecEntry::EventV0(_) => {}
             }
         }
@@ -188,6 +205,17 @@ fn find_undefined_types(
             }
         }
         ScSpecEntry::UdtEnumV0(_) | ScSpecEntry::UdtErrorEnumV0(_) => {}
+        ScSpecEntry::V2(v2) => {
+            let body = match v2.body.clone() {
+                ScSpecEntryV2Body::FunctionV0(f) => ScSpecEntry::FunctionV0(f),
+                ScSpecEntryV2Body::UdtStructV0(s) => ScSpecEntry::UdtStructV0(s),
+                ScSpecEntryV2Body::UdtUnionV0(u) => ScSpecEntry::UdtUnionV0(u),
+                ScSpecEntryV2Body::UdtEnumV0(e) => ScSpecEntry::UdtEnumV0(e),
+                ScSpecEntryV2Body::UdtErrorEnumV0(e) => ScSpecEntry::UdtErrorEnumV0(e),
+                ScSpecEntryV2Body::EventV0(e) => ScSpecEntry::EventV0(e),
+            };
+            find_undefined_types(&body, defined, warnings);
+        }
     }
 }
 

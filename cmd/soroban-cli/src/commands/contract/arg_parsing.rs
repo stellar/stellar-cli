@@ -118,7 +118,7 @@ fn build_host_function_parameters_with_filter(
     config: &config::Args,
     filter_constructor: bool,
 ) -> Result<HostFunctionParameters, Error> {
-    let spec = Spec(Some(spec_entries.to_vec()));
+    let spec = Spec::new(spec_entries);
     let cmd = build_clap_command(&spec, filter_constructor)?;
     let (function, matches_) = parse_command_matches(cmd, slop)?;
     let func = get_function_spec(&spec, &function)?;
@@ -981,7 +981,7 @@ mod tests {
             outputs: vec![].try_into().unwrap(),
         });
 
-        let spec = Spec(Some(vec![strukt, func]));
+        let spec = Spec::new(&[strukt, func]);
 
         let cmd = build_custom_cmd("f", &spec).unwrap();
         let arg = cmd
@@ -1089,7 +1089,7 @@ mod tests {
         // Build a minimal Spec with a union type: enum MyEnum { Unit }
         let union_name: StringM<60> = "MyEnum".try_into().unwrap();
         let case_name: StringM<60> = "Unit".try_into().unwrap();
-        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+        let spec = Spec::new(&[ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
@@ -1099,7 +1099,7 @@ mod tests {
             })]
             .try_into()
             .unwrap(),
-        })]));
+        })]);
 
         let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
         let config = crate::config::Args::default();
@@ -1137,7 +1137,7 @@ mod tests {
         };
 
         let union_name: StringM<60> = "MyEnum".try_into().unwrap();
-        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+        let spec = Spec::new(&[ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
@@ -1154,7 +1154,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-        })]));
+        })]);
 
         let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
         let config = crate::config::Args::default();
@@ -1212,12 +1212,12 @@ mod tests {
                 type_: t.clone(),
             })
             .collect();
-        let spec = Spec(Some(vec![ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+        let spec = Spec::new(&[ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
             doc: StringM::default(),
             lib: StringM::default(),
             name: struct_name.clone(),
             fields: fields_xdr.try_into().unwrap(),
-        })]));
+        })]);
         let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: struct_name });
         (spec, ty)
     }
@@ -1228,7 +1228,7 @@ mod tests {
     #[test]
     fn resolve_aliases_resolves_native_to_asset_contract_address() {
         let ty = ScSpecTypeDef::Address;
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!("native");
@@ -1256,7 +1256,7 @@ mod tests {
         let ty = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
             element_type: Box::new(ScSpecTypeDef::Address),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!([TEST_G_ADDRESS]);
@@ -1281,7 +1281,7 @@ mod tests {
                 .try_into()
                 .unwrap(),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!([TEST_G_ADDRESS, 42]);
@@ -1338,7 +1338,7 @@ mod tests {
         };
 
         let union_name: StringM<60> = "Choice".try_into().unwrap();
-        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+        let spec = Spec::new(&[ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
@@ -1351,7 +1351,7 @@ mod tests {
             })]
             .try_into()
             .unwrap(),
-        })]));
+        })]);
 
         let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
         let config = crate::config::Args::default();
@@ -1376,7 +1376,7 @@ mod tests {
         };
 
         let union_name: StringM<60> = "OneOf".try_into().unwrap();
-        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+        let spec = Spec::new(&[ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
             name: union_name.clone(),
@@ -1387,7 +1387,7 @@ mod tests {
             })]
             .try_into()
             .unwrap(),
-        })]));
+        })]);
 
         let ty = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
         let config = crate::config::Args::default();
@@ -1412,7 +1412,7 @@ mod tests {
         let opt_ty = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
             value_type: Box::new(ScSpecTypeDef::Address),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::Value::Null;
@@ -1447,7 +1447,7 @@ mod tests {
             ok_type: Box::new(ScSpecTypeDef::Address),
             error_type: Box::new(ScSpecTypeDef::U32),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!(TEST_G_ADDRESS);
@@ -1483,7 +1483,7 @@ mod tests {
         let ty = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
             element_type: Box::new(ScSpecTypeDef::Address),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let pretty = format!(r#"[ "{TEST_G_ADDRESS}" ]"#);
         assert_eq!(
             resolve_aliases(&pretty, &ty, &spec, &config).unwrap(),
@@ -1499,7 +1499,7 @@ mod tests {
             key_type: Box::new(ScSpecTypeDef::Address),
             value_type: Box::new(ScSpecTypeDef::U32),
         }));
-        let spec = Spec(Some(vec![]));
+        let spec = Spec::new(&[]);
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!({ TEST_G_ADDRESS: 1 });

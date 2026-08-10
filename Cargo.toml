@@ -124,15 +124,15 @@ astral-tokio-tar = "0.6.0"
 # Pending https://github.com/stellar/rs-stellar-xdr/pull/568, which adds
 # user-defined type ids and the `ScSpecTypeUdtv2` reference type to the
 # contract spec.
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "d7bf0331c0b212b97010b49c06d6da259c89588d" }
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "2e565108988d9181c26477815e708ade929e67e0" }
 # Pending the rs-soroban-sdk change that stamps every user-defined type's spec
 # entry with an id and marries references up with entries by id.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "db0de82715133c3732d422bdfcbee65f53c5c0c9" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "997dd6dbe9c0ce01a3c4cc940c392e9debab12dd" }
 # Pending https://github.com/stellar/rs-stellar-rpc-client/pull/108, which
 # updates the client to stellar-xdr 28.
 stellar-rpc-client = { git = "https://github.com/stellar/rs-stellar-rpc-client", rev = "e0d44a0b97959820e855eb9058e2114ac390c1fa" }

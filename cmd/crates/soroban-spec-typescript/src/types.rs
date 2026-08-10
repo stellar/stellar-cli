@@ -1,6 +1,6 @@
 use serde::Serialize;
 use stellar_xdr::{
-    ScSpecEntry, ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecUdtEnumCaseV0,
+    ScSpecEntry, ScSpecEntryV2Body, ScSpecFunctionInputV0, ScSpecTypeDef, ScSpecUdtEnumCaseV0,
     ScSpecUdtErrorEnumCaseV0, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseV0,
 };
 
@@ -265,6 +265,16 @@ impl From<&ScSpecEntry> for Entry {
                     e.doc.to_utf8_string_lossy()
                 ),
                 name: e.name.to_utf8_string_lossy(),
+            },
+            // A v2 entry is its v0 body plus the id that identifies the
+            // entry; the generated bindings work from the body alone.
+            ScSpecEntry::V2(v2) => match v2.body.clone() {
+                ScSpecEntryV2Body::FunctionV0(f) => (&ScSpecEntry::FunctionV0(f)).into(),
+                ScSpecEntryV2Body::UdtStructV0(s) => (&ScSpecEntry::UdtStructV0(s)).into(),
+                ScSpecEntryV2Body::UdtUnionV0(u) => (&ScSpecEntry::UdtUnionV0(u)).into(),
+                ScSpecEntryV2Body::UdtEnumV0(e) => (&ScSpecEntry::UdtEnumV0(e)).into(),
+                ScSpecEntryV2Body::UdtErrorEnumV0(e) => (&ScSpecEntry::UdtErrorEnumV0(e)).into(),
+                ScSpecEntryV2Body::EventV0(e) => (&ScSpecEntry::EventV0(e)).into(),
             },
         }
     }

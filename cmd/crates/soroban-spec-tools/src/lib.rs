@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::must_use_candidate)]
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -7,12 +8,12 @@ use serde_json::{json, Value};
 use stellar_xdr::{
     AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
     Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
-    ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
-    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
-    ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts,
-    Uint256, VecM,
+    ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEntryV2Body, ScSpecEventV0, ScSpecFunctionV0,
+    ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple,
+    ScSpecTypeUdt, ScSpecTypeUdtv2, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
+    UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -75,7 +76,15 @@ pub enum Error {
 }
 
 #[derive(Default, Clone)]
-pub struct Spec(pub Option<Vec<ScSpecEntry>>);
+pub struct Spec {
+    /// The spec's entries, with every v2 entry replaced by its v0 body so
+    /// consumers match a single shape whichever form the spec stored.
+    pub entries: Option<Vec<ScSpecEntry>>,
+    /// The id each v2 entry carried, keyed to the index of its body in
+    /// `entries`. A reference carrying an id resolves to the entry whose id
+    /// matches, exactly, even when entries share a name.
+    ids: HashMap<[u8; 8], usize>,
+}
 
 impl TryInto<Spec> for &[u8] {
     type Error = soroban_spec::read::FromWasmError;
@@ -88,7 +97,29 @@ impl TryInto<Spec> for &[u8] {
 
 impl Spec {
     pub fn new(entries: &[ScSpecEntry]) -> Self {
-        Self(Some(entries.to_vec()))
+        let mut ids = HashMap::new();
+        let entries = entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| match e {
+                ScSpecEntry::V2(v2) => {
+                    ids.insert(v2.id, i);
+                    match v2.body.clone() {
+                        ScSpecEntryV2Body::FunctionV0(f) => ScSpecEntry::FunctionV0(f),
+                        ScSpecEntryV2Body::UdtStructV0(s) => ScSpecEntry::UdtStructV0(s),
+                        ScSpecEntryV2Body::UdtUnionV0(u) => ScSpecEntry::UdtUnionV0(u),
+                        ScSpecEntryV2Body::UdtEnumV0(e) => ScSpecEntry::UdtEnumV0(e),
+                        ScSpecEntryV2Body::UdtErrorEnumV0(e) => ScSpecEntry::UdtErrorEnumV0(e),
+                        ScSpecEntryV2Body::EventV0(e) => ScSpecEntry::EventV0(e),
+                    }
+                }
+                e => e.clone(),
+            })
+            .collect();
+        Self {
+            entries: Some(entries),
+            ids,
+        }
     }
 
     pub fn from_wasm(wasm: &[u8]) -> Result<Spec, Error> {
@@ -136,8 +167,10 @@ impl Spec {
                 "Can be public key (G13..), a contract ID (C13...) or an identity (alice), ",
             ),
             ScType::Option(type_) => return self.doc(name, &type_.value_type),
-            ScType::Udt(ScSpecTypeUdt { name }) => self.udt_doc(&name.to_utf8_string_lossy())?,
-            ScType::UdtV2(udt) => self.udt_doc(&udt.name.to_utf8_string_lossy())?,
+            ScType::Udt(ScSpecTypeUdt { name }) => {
+                Self::entry_doc(self.find(&name.to_utf8_string_lossy())?)
+            }
+            ScType::UdtV2(udt) => Self::entry_doc(self.find_udt_v2(udt)?),
         };
 
         if let Some(mut ex) = self.example(0, type_) {
@@ -160,23 +193,31 @@ impl Spec {
         }
     }
 
-    fn udt_doc(&self, name: &str) -> Result<String, Error> {
-        let doc = match self.find(name)? {
+    fn entry_doc(entry: &ScSpecEntry) -> String {
+        let doc = match entry {
             ScSpecEntry::FunctionV0(ScSpecFunctionV0 { doc, .. })
             | ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
             | ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
             | ScSpecEntry::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
             | ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
             | ScSpecEntry::EventV0(ScSpecEventV0 { doc, .. }) => doc,
+            ScSpecEntry::V2(v2) => match &v2.body {
+                ScSpecEntryV2Body::FunctionV0(ScSpecFunctionV0 { doc, .. })
+                | ScSpecEntryV2Body::UdtStructV0(ScSpecUdtStructV0 { doc, .. })
+                | ScSpecEntryV2Body::UdtUnionV0(ScSpecUdtUnionV0 { doc, .. })
+                | ScSpecEntryV2Body::UdtEnumV0(ScSpecUdtEnumV0 { doc, .. })
+                | ScSpecEntryV2Body::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { doc, .. })
+                | ScSpecEntryV2Body::EventV0(ScSpecEventV0 { doc, .. }) => doc,
+            },
         };
-        Ok(doc.to_utf8_string_lossy())
+        doc.to_utf8_string_lossy()
     }
 
     /// # Errors
     ///
     /// Might return errors
     pub fn find(&self, name: &str) -> Result<&ScSpecEntry, Error> {
-        self.0
+        self.entries
             .as_ref()
             .and_then(|specs| {
                 specs.iter().find(|e| {
@@ -187,11 +228,41 @@ impl Spec {
                         ScSpecEntry::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
                         ScSpecEntry::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
                         ScSpecEntry::EventV0(x) => x.name.to_utf8_string_lossy(),
+                        // Entries are stored with v2 entries unwrapped to
+                        // their bodies, but handle one anyway.
+                        ScSpecEntry::V2(v2) => match &v2.body {
+                            ScSpecEntryV2Body::FunctionV0(x) => x.name.to_utf8_string_lossy(),
+                            ScSpecEntryV2Body::UdtStructV0(x) => x.name.to_utf8_string_lossy(),
+                            ScSpecEntryV2Body::UdtUnionV0(x) => x.name.to_utf8_string_lossy(),
+                            ScSpecEntryV2Body::UdtEnumV0(x) => x.name.to_utf8_string_lossy(),
+                            ScSpecEntryV2Body::UdtErrorEnumV0(x) => x.name.to_utf8_string_lossy(),
+                            ScSpecEntryV2Body::EventV0(x) => x.name.to_utf8_string_lossy(),
+                        },
                     };
                     name == entry_name
                 })
             })
             .ok_or_else(|| Error::MissingEntry(sanitize(name)))
+    }
+
+    /// The entry carrying the given id, if any does.
+    pub fn find_by_id(&self, id: [u8; 8]) -> Option<&ScSpecEntry> {
+        let i = *self.ids.get(&id)?;
+        self.entries.as_ref()?.get(i)
+    }
+
+    /// The entry a v2 user-defined type reference refers to: the entry whose
+    /// id matches when one does, or the entry the reference names, for specs
+    /// whose entries carry no ids.
+    ///
+    /// # Errors
+    ///
+    /// Might return errors
+    pub fn find_udt_v2(&self, udt: &ScSpecTypeUdtv2) -> Result<&ScSpecEntry, Error> {
+        if let Some(e) = self.find_by_id(udt.id) {
+            return Ok(e);
+        }
+        self.find(&udt.name.to_utf8_string_lossy())
     }
 
     /// # Errors
@@ -208,7 +279,7 @@ impl Spec {
     ///
     pub fn find_functions(&self) -> Result<impl Iterator<Item = &ScSpecFunctionV0>, Error> {
         Ok(self
-            .0
+            .entries
             .as_deref()
             .ok_or(Error::MissingSpec)?
             .iter()
@@ -238,7 +309,7 @@ impl Spec {
     /// Returns an error if the spec is missing
     pub fn find_events(&self) -> Result<impl Iterator<Item = &ScSpecEventV0>, Error> {
         Ok(self
-            .0
+            .entries
             .as_deref()
             .ok_or(Error::MissingSpec)?
             .iter()
@@ -292,7 +363,7 @@ impl Spec {
                     }
                     ScType::UdtV2(udt)
                         if matches!(
-                            self.find(&udt.name.to_utf8_string_lossy())?,
+                            self.find_udt_v2(udt)?,
                             ScSpecEntry::UdtUnionV0(_) | ScSpecEntry::UdtStructV0(_)
                         ) =>
                     {
@@ -375,9 +446,9 @@ impl Spec {
 
             // User defined types parsing
             (ScType::Udt(ScSpecTypeUdt { name }), _) => {
-                self.parse_udt(&name.to_utf8_string_lossy(), v)?
+                self.parse_udt(self.find(&name.to_utf8_string_lossy())?, v)?
             }
-            (ScType::UdtV2(udt), _) => self.parse_udt(&udt.name.to_utf8_string_lossy(), v)?,
+            (ScType::UdtV2(udt), _) => self.parse_udt(self.find_udt_v2(udt)?, v)?,
 
             // TODO: Implement the rest of these
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
@@ -385,8 +456,8 @@ impl Spec {
         Ok(val)
     }
 
-    fn parse_udt(&self, name: &str, value: &Value) -> Result<ScVal, Error> {
-        match (self.find(name)?, value) {
+    fn parse_udt(&self, entry: &ScSpecEntry, value: &Value) -> Result<ScVal, Error> {
+        match (entry, value) {
             (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
                 if strukt
                     .fields
@@ -661,8 +732,7 @@ impl Spec {
     /// # Panics
     ///
     /// May panic
-    pub fn udt_to_json(&self, name: &str, sc_obj: &ScVal) -> Result<Value, Error> {
-        let udt = self.find(name)?;
+    pub fn udt_to_json(&self, udt: &ScSpecEntry, sc_obj: &ScVal) -> Result<Value, Error> {
         Ok(match (sc_obj, udt) {
             (ScVal::Map(Some(map)), ScSpecEntry::UdtStructV0(strukt)) => serde_json::Value::Object(
                 strukt
@@ -768,9 +838,9 @@ impl Spec {
             (
                 sc_obj @ (ScVal::Vec(_) | ScVal::Map(_) | ScVal::U32(_)),
                 ScType::Udt(ScSpecTypeUdt { name }),
-            ) => self.udt_to_json(&name.to_utf8_string_lossy(), sc_obj)?,
+            ) => self.udt_to_json(self.find(&name.to_utf8_string_lossy())?, sc_obj)?,
             (sc_obj @ (ScVal::Vec(_) | ScVal::Map(_) | ScVal::U32(_)), ScType::UdtV2(udt)) => {
-                self.udt_to_json(&udt.name.to_utf8_string_lossy(), sc_obj)?
+                self.udt_to_json(self.find_udt_v2(udt)?, sc_obj)?
             }
 
             (ScVal::Map(Some(map)), ScType::Map(map_type)) => self.sc_map_to_json(map, map_type)?,
@@ -1243,9 +1313,7 @@ impl Spec {
             ScType::Udt(ScSpecTypeUdt { name }) => {
                 self.arg_value_name_udt(self.find(&name.to_utf8_string_lossy()).ok()?, depth)
             }
-            ScType::UdtV2(udt) => {
-                self.arg_value_name_udt(self.find(&udt.name.to_utf8_string_lossy()).ok()?, depth)
-            }
+            ScType::UdtV2(udt) => self.arg_value_name_udt(self.find_udt_v2(udt).ok()?, depth),
             // No specific value name for these yet.
             ScType::Val => None,
         }
@@ -1270,7 +1338,8 @@ impl Spec {
             ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
             ScSpecEntry::FunctionV0(_)
             | ScSpecEntry::UdtErrorEnumV0(_)
-            | ScSpecEntry::EventV0(_) => None,
+            | ScSpecEntry::EventV0(_)
+            | ScSpecEntry::V2(_) => None,
         }
     }
 
@@ -1424,11 +1493,14 @@ impl Spec {
                 Some(format!("\"{res}\""))
             }
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                self.example_udts(depth, name.to_utf8_string_lossy().as_ref())
+                let name = name.to_utf8_string_lossy();
+                self.example_udts(depth, &name, self.find(&name).ok())
             }
-            ScType::UdtV2(udt) => {
-                self.example_udts(depth, udt.name.to_utf8_string_lossy().as_ref())
-            }
+            ScType::UdtV2(udt) => self.example_udts(
+                depth,
+                udt.name.to_utf8_string_lossy().as_ref(),
+                self.find_udt_v2(udt).ok(),
+            ),
             ScType::MuxedAddress => {
                 Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
             }
@@ -1437,13 +1509,18 @@ impl Spec {
         }
     }
 
-    fn example_udts(&self, depth: usize, name: &str) -> Option<String> {
+    fn example_udts(
+        &self,
+        depth: usize,
+        name: &str,
+        entry: Option<&ScSpecEntry>,
+    ) -> Option<String> {
         if depth > 2 {
             return Some(name.to_string());
         }
 
         let depth = depth + 1;
-        let built = match self.find(name).ok() {
+        let built = match entry {
             Some(ScSpecEntry::UdtStructV0(strukt)) => {
                 // Check if a tuple strukt and handle it just as a tuple going forward
                 let build_struct = if !strukt.fields.is_empty()
@@ -1483,7 +1560,8 @@ impl Spec {
             Some(
                 ScSpecEntry::FunctionV0(_)
                 | ScSpecEntry::UdtErrorEnumV0(_)
-                | ScSpecEntry::EventV0(_),
+                | ScSpecEntry::EventV0(_)
+                | ScSpecEntry::V2(_),
             )
             | None => None,
         };
@@ -2478,7 +2556,7 @@ mod tests {
         // Map<Symbol, u32>: Symbol keys should appear as plain strings in JSON output,
         // not double-encoded as "\"bar\"" (regression for
         // https://github.com/stellar/stellar-cli/issues/2421).
-        let spec = Spec(None);
+        let spec = Spec::default();
         let map_type = ScSpecTypeMap {
             key_type: Box::new(ScType::Symbol),
             value_type: Box::new(ScType::U32),
@@ -2496,7 +2574,7 @@ mod tests {
     #[test]
     fn test_sc_map_to_json_string_keys_not_double_encoded() {
         // Map<String, u32>: String keys should also appear as plain strings in JSON output.
-        let spec = Spec(None);
+        let spec = Spec::default();
         let map_type = ScSpecTypeMap {
             key_type: Box::new(ScType::String),
             value_type: Box::new(ScType::U32),
@@ -2517,7 +2595,7 @@ mod tests {
         // When a contract function returns ScType::Val and the runtime value is
         // ScVal::Bytes (e.g. BytesN<32>), xdr_to_json should succeed instead of
         // panicking with "doesn't have a matching Val".
-        let spec = Spec(None);
+        let spec = Spec::default();
         let bytes_val = ScVal::Bytes(ScBytes(
             vec![
                 0x05, 0x5e, 0xf8, 0x16, 0x22, 0x3e, 0xe5, 0x21, 0x6b, 0x18, 0xc2, 0xdf, 0x00, 0xd6,
@@ -2539,7 +2617,7 @@ mod tests {
     #[test]
     fn test_xdr_to_json_map_with_val_type() {
         // ScVal::Map with ScType::Val should delegate to to_json, not sc_object_to_json.
-        let spec = Spec(None);
+        let spec = Spec::default();
         let map_val = ScVal::Map(Some(
             ScMap::sorted_from(vec![ScMapEntry {
                 key: ScVal::Symbol(ScSymbol("key".try_into().unwrap())),
@@ -2554,7 +2632,7 @@ mod tests {
     #[test]
     fn test_xdr_to_json_vec_with_val_type() {
         // ScVal::Vec with ScType::Val should delegate to to_json, not sc_object_to_json.
-        let spec = Spec(None);
+        let spec = Spec::default();
         let vec_val = ScVal::Vec(Some(
             ScVec::try_from(vec![ScVal::U32(1), ScVal::U32(2)]).unwrap(),
         ));
@@ -2565,7 +2643,7 @@ mod tests {
     #[test]
     fn test_xdr_to_json_u32_with_val_type() {
         // ScVal::U32 with ScType::Val should delegate to to_json, not sc_object_to_json.
-        let spec = Spec(None);
+        let spec = Spec::default();
         let result = spec.xdr_to_json(&ScVal::U32(100), &ScType::Val);
         assert_eq!(result.unwrap(), Value::Number(100.into()));
     }

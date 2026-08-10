@@ -2,7 +2,9 @@ use assert_fs::TempDir;
 use fs_extra::dir::CopyOptions;
 use predicates::prelude::{predicate, PredicateBooleanExt};
 use shell_escape::escape;
-use soroban_cli::xdr::{Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0, ScSpecEntry};
+use soroban_cli::xdr::{
+    Limited, Limits, ReadXdr, ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecEntryV2Body,
+};
 use soroban_spec_tools::contract::Spec;
 use soroban_test::TestEnv;
 use std::env;
@@ -310,6 +312,14 @@ fn spec_entry_name(entry: &ScSpecEntry) -> String {
         ScSpecEntry::UdtEnumV0(e) => e.name.to_utf8_string_lossy(),
         ScSpecEntry::UdtErrorEnumV0(e) => e.name.to_utf8_string_lossy(),
         ScSpecEntry::EventV0(e) => e.name.to_utf8_string_lossy(),
+        ScSpecEntry::V2(v2) => match &v2.body {
+            ScSpecEntryV2Body::FunctionV0(f) => f.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtStructV0(s) => s.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtUnionV0(u) => u.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtEnumV0(e) => e.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::UdtErrorEnumV0(e) => e.name.to_utf8_string_lossy(),
+            ScSpecEntryV2Body::EventV0(e) => e.name.to_utf8_string_lossy(),
+        },
     }
 }
 
@@ -380,7 +390,10 @@ fn build_with_spec_shaking_preserves_all_functions() {
     let (spec, _meta) = build_spec_shaking_fixture();
     let function_names: Vec<String> = spec
         .iter()
-        .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+        .filter(|e| {
+            matches!(e, ScSpecEntry::FunctionV0(_))
+                || matches!(e, ScSpecEntry::V2(v2) if matches!(v2.body, ScSpecEntryV2Body::FunctionV0(_)))
+        })
         .map(spec_entry_name)
         .collect();
 
@@ -504,7 +517,10 @@ fn build_without_spec_shaking_preserves_all_entries() {
     let function_names: Vec<String> = spec
         .spec
         .iter()
-        .filter(|e| matches!(e, ScSpecEntry::FunctionV0(_)))
+        .filter(|e| {
+            matches!(e, ScSpecEntry::FunctionV0(_))
+                || matches!(e, ScSpecEntry::V2(v2) if matches!(v2.body, ScSpecEntryV2Body::FunctionV0(_)))
+        })
         .map(spec_entry_name)
         .collect();
     assert!(

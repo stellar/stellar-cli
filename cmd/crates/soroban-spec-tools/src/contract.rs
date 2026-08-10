@@ -6,8 +6,8 @@ use std::{
 
 use stellar_xdr::{
     self as xdr, Limited, Limits, ReadXdr, ScEnvMetaEntry, ScEnvMetaEntryInterfaceVersion,
-    ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecFunctionV0, ScSpecUdtEnumV0, ScSpecUdtErrorEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
+    ScMetaEntry, ScMetaV0, ScSpecEntry, ScSpecEntryV2Body, ScSpecFunctionV0, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
 };
 
 /// Maximum recursion depth allowed when decoding contract spec/meta sections.
@@ -184,6 +184,14 @@ impl Display for Spec {
                     ScSpecEntry::UdtEnumV0(udt) => write_enum(f, udt)?,
                     ScSpecEntry::UdtErrorEnumV0(udt) => write_error(f, udt)?,
                     ScSpecEntry::EventV0(_) => {}
+                    ScSpecEntry::V2(v2) => match &v2.body {
+                        ScSpecEntryV2Body::FunctionV0(func) => write_func(f, func)?,
+                        ScSpecEntryV2Body::UdtUnionV0(udt) => write_union(f, udt)?,
+                        ScSpecEntryV2Body::UdtStructV0(udt) => write_struct(f, udt)?,
+                        ScSpecEntryV2Body::UdtEnumV0(udt) => write_enum(f, udt)?,
+                        ScSpecEntryV2Body::UdtErrorEnumV0(udt) => write_error(f, udt)?,
+                        ScSpecEntryV2Body::EventV0(_) => {}
+                    },
                 }
             }
         } else {
