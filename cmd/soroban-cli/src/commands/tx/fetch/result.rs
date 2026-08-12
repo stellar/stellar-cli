@@ -1,4 +1,5 @@
 use super::args;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::global,
     xdr::{self, Limits, WriteXdr},
@@ -35,7 +36,9 @@ impl Cmd {
                     println!("{}", serde_json::to_string(&result)?);
                 }
                 args::OutputFormat::Xdr => {
-                    let result_xdr = result.to_xdr_base64(Limits::none()).unwrap();
+                    let result_xdr = result
+                        .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                        .unwrap();
                     println!("{result_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {

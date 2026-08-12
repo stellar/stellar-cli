@@ -10,6 +10,7 @@ use crate::{
     config::{self, locator, network},
     get_spec::get_remote_contract_spec,
     rpc,
+    utils::XDR_DEPTH_LIMIT,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -331,7 +332,7 @@ impl Cmd {
         let topics: Vec<ScVal> = event
             .topic
             .iter()
-            .filter_map(|t| ScVal::from_xdr_base64(t, Limits::none()).ok())
+            .filter_map(|t| ScVal::from_xdr_base64(t, Limits::depth(XDR_DEPTH_LIMIT)).ok())
             .collect();
 
         if topics.len() != event.topic.len() {
@@ -339,7 +340,7 @@ impl Cmd {
         }
 
         // Decode value from base64 XDR
-        let data = ScVal::from_xdr_base64(&event.value, Limits::none()).ok()?;
+        let data = ScVal::from_xdr_base64(&event.value, Limits::depth(XDR_DEPTH_LIMIT)).ok()?;
 
         spec.decode_event(&event.contract_id, &topics, &data)
             .inspect_err(|e| tracing::debug!("Failed to decode event {}: {e}", event.id))
@@ -488,7 +489,7 @@ impl Cmd {
                 if segment == "*" || segment == "**" {
                     topic_filter.push(segment.to_owned());
                 } else {
-                    match xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
+                    match xdr::ScVal::from_xdr_base64(segment, Limits::depth(XDR_DEPTH_LIMIT)) {
                         Ok(_s) => {
                             topic_filter.push(segment.to_owned());
                         }

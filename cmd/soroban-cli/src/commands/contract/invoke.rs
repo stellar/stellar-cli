@@ -17,6 +17,7 @@ use crate::log::extract_events;
 use crate::print::Print;
 use crate::tx::sim_sign_and_send_tx;
 use crate::utils::deprecate_message;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
@@ -187,7 +188,9 @@ impl Cmd {
         }
 
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
+            }
             TxnEnvelopeResult::Res(output) => {
                 println!("{output}");
             }

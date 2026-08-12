@@ -14,6 +14,7 @@ use crate::{
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 use std::io::{self, BufRead, IsTerminal};
 
@@ -283,7 +284,7 @@ async fn sign_soroban_authorization_entry(
             signature_expiration_ledger,
         })
     }
-    .to_xdr(Limits::none())?;
+    .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
 
     let payload = Sha256::digest(preimage);
     let p: [u8; 32] = payload.as_slice().try_into()?;
@@ -440,7 +441,7 @@ impl Lab {
         network: &Network,
         printer: &Print,
     ) -> Result<DecoratedSignature, Error> {
-        let xdr = tx_env.to_xdr_base64(Limits::none())?;
+        let xdr = tx_env.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?;
 
         let mut url = url::Url::parse(Self::URL)?;
         url.query_pairs_mut()
@@ -858,7 +859,7 @@ mod tests {
                 invocation: body.auth[0].root_invocation.clone(),
             },
         )
-        .to_xdr(Limits::none())
+        .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))
         .unwrap();
         let payload: [u8; 32] = Sha256::digest(preimage).into();
 

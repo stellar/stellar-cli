@@ -1,3 +1,4 @@
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::global,
     config::{locator, network, sign_with},
@@ -47,7 +48,10 @@ impl Cmd {
                 None,
             )
             .await?;
-        println!("{}", tx_env_signed.to_xdr_base64(Limits::none())?);
+        println!(
+            "{}",
+            tx_env_signed.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?
+        );
         Ok(())
     }
 }
