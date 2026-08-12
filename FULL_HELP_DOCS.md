@@ -356,6 +356,26 @@ To view the commands that will be executed, without executing them, use the --pr
 
 **Usage:** `stellar contract build [OPTIONS]`
 
+###### **Container Options:**
+
+- `--image <IMAGE>` — Build inside this container image (e.g. `docker.io/stellar/stellar-cli:latest`). When set, the build runs in the container against the bind-mounted working tree instead of locally. Any tag or digest ref is accepted.
+
+  On Linux the container runs as your uid:gid so built wasm isn't root-owned; this assumes the image keeps CARGO_HOME/RUSTUP_HOME writable by non-root users, as the official image does.
+
+- `--no-image-pull` — Don't pull `--image` before building; use the copy already present locally.
+
+  Lets you build against a locally-built (never pushed) image or a digest-pinned image already on disk, and to work offline — e.g. air-gapped verification against a pinned digest. Fails if the image isn't present.
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
+
 ###### **Features:**
 
 - `--features <FEATURES>` — Build with the list of features activated, space or comma separated

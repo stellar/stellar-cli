@@ -33,6 +33,65 @@ cargo rustc {} --crate-type=cdylib --target=wasm32v1-none --release",
 }
 
 #[test]
+fn build_with_image_print_commands_only_multi_package() {
+    // With `--image`, `--print-commands-only` prints the container run command
+    // instead of the local cargo commands, without touching the engine. The
+    // workspace has several default-member cdylibs, so they chain through
+    // `/bin/sh -c`.
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli:latest")
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::starts_with("docker run --rm")
+                .and(predicate::str::contains("-w /source"))
+                .and(predicate::str::contains("--entrypoint /bin/sh"))
+                .and(predicate::str::contains(
+                    "docker.io/stellar/stellar-cli:latest",
+                ))
+                .and(predicate::str::contains(
+                    "stellar contract build --package=add",
+                ))
+                .and(predicate::str::contains("&&"))
+                .and(predicate::str::contains("cargo rustc").not()),
+        );
+}
+
+#[test]
+fn build_with_image_print_commands_only_single_package() {
+    // A single package runs the image's default entrypoint directly — no shell
+    // wrapper.
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli:latest")
+        .arg("--package=add")
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains(
+                "'docker.io/stellar/stellar-cli:latest' contract build --package=add --optimize",
+            )
+            .and(predicate::str::contains("--entrypoint").not())
+            .and(predicate::str::contains("cargo rustc").not()),
+        );
+}
+
+#[test]
 fn build_package_by_name() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
