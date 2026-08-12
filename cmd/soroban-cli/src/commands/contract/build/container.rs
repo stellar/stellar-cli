@@ -717,6 +717,24 @@ async fn wait_for_termination_signal() {
     let _ = tokio::signal::ctrl_c().await;
 }
 
+/// Among candidate artifact paths, return the one that exists and was modified
+/// most recently. Probing by existence alone can return a stale wasm left by an
+/// earlier build into a different target-triple dir; the freshest file is the
+/// one the current build just wrote. Returns `None` when none exist. An
+/// unreadable mtime is treated as the epoch, so such a file is only chosen when
+/// it's the sole candidate.
+fn newest_existing_artifact(candidates: &[PathBuf]) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .filter(|p| p.exists())
+        .max_by_key(|p| {
+            std::fs::metadata(p)
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+        })
+        .cloned()
+}
+
 /// Collect the built wasm from the mounted `target/`. Because the working tree
 /// was bind-mounted, the container writes artifacts straight to the host under
 /// `<workspace>/target/<triple>/<profile>/`. The container's rust toolchain
@@ -748,15 +766,19 @@ fn collect_built_contracts(
 
         let file = format!("{}.wasm", p.name.replace('-', "_"));
         // The container may build for either wasm target depending on its rust
-        // version; fall back to the current host default for the reported path.
-        let src = [WASM_TARGET, WASM_TARGET_OLD]
+        // version, so probe both triple dirs. Pick the *freshest* rather than the
+        // first that exists: an earlier build into the other triple can leave a
+        // stale wasm behind, and selecting by existence alone would return it.
+        // Fall back to the current host default for the reported path when the
+        // build produced nothing.
+        let candidates: Vec<PathBuf> = [WASM_TARGET, WASM_TARGET_OLD]
             .iter()
             .map(|triple| target_root.join(triple).join(&cmd.profile).join(&file))
-            .find(|path| path.exists())
-            .unwrap_or_else(|| {
-                let triple = get_wasm_target().unwrap_or_else(|_| WASM_TARGET.to_string());
-                target_root.join(triple).join(&cmd.profile).join(&file)
-            });
+            .collect();
+        let src = newest_existing_artifact(&candidates).unwrap_or_else(|| {
+            let triple = get_wasm_target().unwrap_or_else(|_| WASM_TARGET.to_string());
+            target_root.join(triple).join(&cmd.profile).join(&file)
+        });
 
         let path = if let Some(out_dir) = &cmd.out_dir {
             std::fs::create_dir_all(out_dir).map_err(super::Error::CreatingOutDir)?;
@@ -1103,6 +1125,46 @@ mod tests {
         );
         assert_eq!(parse_default_toolchain("").as_deref(), None);
         assert_eq!(parse_default_toolchain("   \n").as_deref(), None);
+    }
+
+    #[test]
+    fn newest_existing_artifact_prefers_freshest_not_first() {
+        use std::time::{Duration, SystemTime};
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("old.wasm");
+        let new = dir.path().join("new.wasm");
+        std::fs::write(&old, b"old").unwrap();
+        std::fs::write(&new, b"new").unwrap();
+        // Pin mtimes so the ordering is unambiguous regardless of filesystem
+        // timestamp resolution.
+        let base = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&old)
+            .unwrap()
+            .set_modified(base)
+            .unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&new)
+            .unwrap()
+            .set_modified(base + Duration::from_mins(1))
+            .unwrap();
+
+        // `old` is listed first, but the fresher `new` must win — selection is by
+        // mtime, not list position (the staleness bug this guards against).
+        assert_eq!(
+            newest_existing_artifact(&[old.clone(), new.clone()]),
+            Some(new)
+        );
+        // A non-existent candidate is skipped; the one real file is returned.
+        let missing = dir.path().join("missing.wasm");
+        assert_eq!(
+            newest_existing_artifact(&[missing.clone(), old.clone()]),
+            Some(old)
+        );
+        // Nothing exists → None (caller falls back to the host-default path).
+        assert_eq!(newest_existing_artifact(&[missing]), None);
     }
 
     #[test]
