@@ -92,6 +92,34 @@ fn build_with_image_print_commands_only_single_package() {
 }
 
 #[test]
+fn build_with_image_selects_package_by_manifest_path() {
+    // With `--image` and a `--manifest-path` pointing at a single member, only
+    // that package is built — mirroring the local build's package selection —
+    // instead of chaining every default-member cdylib. So it takes the
+    // single-package form (image's default entrypoint, no `/bin/sh` chain).
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/");
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli:latest")
+        .arg(manifest_path_arg(&add_path()))
+        .arg("--print-commands-only")
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("--package=add")
+                .and(predicate::str::contains("--package=call").not())
+                .and(predicate::str::contains("--package=add2").not())
+                .and(predicate::str::contains("&&").not())
+                .and(predicate::str::contains("--entrypoint").not()),
+        );
+}
+
+#[test]
 fn build_package_by_name() {
     let sandbox = TestEnv::default();
     let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
