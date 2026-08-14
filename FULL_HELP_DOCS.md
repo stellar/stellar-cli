@@ -85,6 +85,7 @@ Tools for smart contract developers
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
 - `build` — Build a contract from source
+- `archive` — Generate the reproducible source archive used by verifiable builds
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
 - `fetch` — Fetch a contract's Wasm binary
@@ -413,6 +414,26 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+###### **Verifiable Options:**
+
+- `--verifiable` — Produce a SEP-58 verifiable (reproducible) build.
+
+  Snapshots the working tree into a byte-reproducible source archive, builds it in a digest-pinned container image, and records provenance meta (bldimg, source_uri, source_sha256, bldopt) into the wasm so a third party can reproduce the exact bytes. Implies `--locked`. Requires a clean git tree. When `--image` is omitted, a `docker.io/stellar/stellar-cli:<cli>-rust<rustc>` image is derived and pinned to its digest.
+
+- `--source-sha256 <SOURCE_SHA256>` — Pin the SEP-58 source_sha256 of the generated archive (64-char lower-case hex). The build fails if the archive hashes to a different value
+- `--source-uri <SOURCE_URI>` — Record a SEP-58 source_uri where the source archive can be fetched (a URI with a scheme, e.g. https://example.com/src.tar.gz)
+
+## `stellar contract archive`
+
+Generate the reproducible source archive used by verifiable builds
+
+**Usage:** `stellar contract archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
 
 ## `stellar contract extend`
 

@@ -23,13 +23,15 @@ use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         container::shared::{Args as ContainerArgs, RunArgs as ContainerRunArgs},
-        global, version, HEADING_CONTAINER,
+        global, version, HEADING_CONTAINER, HEADING_VERIFIABLE,
     },
     print::Print,
     wasm,
 };
 
 pub mod container;
+pub(crate) mod source_archive;
+pub mod verifiable;
 
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]
@@ -120,6 +122,33 @@ pub struct Cmd {
     /// used as-is. Pass `--pull` to fetch the newest image for the tag first.
     #[arg(long, requires = "image", help_heading = HEADING_CONTAINER)]
     pub pull: bool,
+
+    /// Produce a SEP-58 verifiable (reproducible) build.
+    ///
+    /// Snapshots the working tree into a byte-reproducible source archive,
+    /// builds it in a digest-pinned container image, and records provenance meta
+    /// (bldimg, source_uri, source_sha256, bldopt) into the wasm so a third
+    /// party can reproduce the exact bytes. Implies `--locked`. Requires a clean
+    /// git tree. When `--image` is omitted, a
+    /// `docker.io/stellar/stellar-cli:<cli>-rust<rustc>` image is derived and
+    /// pinned to its digest.
+    #[arg(long, help_heading = HEADING_VERIFIABLE)]
+    pub verifiable: bool,
+
+    /// Pin the SEP-58 source_sha256 of the generated archive (64-char lower-case
+    /// hex). The build fails if the archive hashes to a different value.
+    #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
+    pub source_sha256: Option<String>,
+
+    /// Record a SEP-58 source_uri where the source archive can be fetched (a URI
+    /// with a scheme, e.g. https://example.com/src.tar.gz).
+    #[arg(
+        long,
+        requires = "verifiable",
+        requires = "source_sha256",
+        help_heading = HEADING_VERIFIABLE
+    )]
+    pub source_uri: Option<String>,
 
     #[command(flatten)]
     pub build_args: BuildArgs,
@@ -244,6 +273,9 @@ pub enum Error {
 
     #[error(transparent)]
     Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Verifiable(#[from] verifiable::Error),
 }
 
 pub(crate) const WASM_TARGET: &str = "wasm32v1-none";
@@ -264,6 +296,9 @@ impl Default for Cmd {
             print_commands_only: false,
             image: None,
             pull: false,
+            verifiable: false,
+            source_sha256: None,
+            source_uri: None,
             build_args: BuildArgs::default(),
             container_args: ContainerArgs::default(),
             run_args: ContainerRunArgs::default(),
@@ -277,7 +312,14 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
         let print = Print::new(global_args.quiet);
 
-        // When an image is given, build inside that container instead of locally.
+        // A verifiable build archives the source and builds it in a
+        // digest-pinned container, recording SEP-58 provenance meta.
+        if self.verifiable {
+            return verifiable::run(self, global_args, &print).await;
+        }
+
+        // When an image is given (without --verifiable), build inside that
+        // container instead of locally.
         if self.image.is_some() {
             return container::run(self, global_args, &print).await;
         }
