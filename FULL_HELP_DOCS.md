@@ -2270,7 +2270,7 @@ Claim a claimable balance by its balance ID
 
 ###### **Options:**
 
-- `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to claim (64-character hex string)
+- `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to claim. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Address format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
 
 ###### **RPC Options:**
 
@@ -3213,7 +3213,7 @@ Claim a claimable balance by its balance ID
 ###### **Options:**
 
 - `--operation-source-account <OPERATION_SOURCE_ACCOUNT>` [alias: `op-source`] — Source account used for the operation
-- `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to claim (64-character hex string)
+- `--balance-id <BALANCE_ID>` — Balance ID of the claimable balance to claim. Accepts multiple formats: - API format with type prefix (72 chars): 000000006f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Direct hash format (64 chars): 6f2179b31311fa8064760b48942c8e166702ba0b8fbe7358c4fd570421840461 - Address format (base32): BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA
 
 ###### **RPC Options:**
 
@@ -4829,7 +4829,7 @@ Fetch a claimable balance ledger entry by id
 
 ###### **Options:**
 
-- `--id <ID>` — Claimable Balance Ids to fetch an entry for
+- `--id <ID>` — Claimable Balance Ids to fetch an entry for. Accepts the 64-char hex hash, the 72-char hex with type prefix returned by Horizon, or the B... address format returned by `getTransaction`
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
