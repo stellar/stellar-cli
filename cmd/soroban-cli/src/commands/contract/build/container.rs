@@ -48,12 +48,6 @@ pub enum Error {
     PullImageFailed { image: String },
 
     #[error(
-        "image {image} is not present locally and --no-image-pull was set; \
-         pull it first or drop --no-image-pull to fetch it"
-    )]
-    ImageNotPresent { image: String },
-
-    #[error(
         "could not determine the image's default Rust toolchain via `rustup default`; \
          the image must provide rustup so the build toolchain can be pinned"
     )]
@@ -93,23 +87,14 @@ pub async fn run(
     // just render the run command against a current image below.
     let print_only = cmd.print_commands_only;
 
-    // Pull unless printing (nothing runs) or the user opted out with
-    // `--no-image-pull` to use a locally present image (offline / air-gapped
-    // verification, or a locally-built image that was never pushed).
-    //
-    // An explicit `pull` refreshes a moving tag (`docker run`'s default
-    // `--pull=missing` only fetches a *missing* image, never re-pulling an
-    // existing tag). With `--no-image-pull` we skip that refresh — but neither
-    // engine offers a portable "never pull on run" policy (Apple's `container`
-    // has no `--pull` flag), and `docker run` would still auto-pull a *missing*
-    // image, defeating the flag. So enforce it ourselves: assert the image is
-    // present locally up front and fail fast when it isn't.
-    if !print_only {
-        if cmd.no_image_pull {
-            ensure_image_present(&docker, image).await?;
-        } else {
-            pull_image(&docker, image, print).await?;
-        }
+    // By default the build uses the image already present locally and doesn't
+    // pull, matching `docker run` (whose default `--pull=missing` only fetches a
+    // *missing* image, never re-pulling an existing tag). This keeps a
+    // locally-built or digest-pinned image as-is. `--pull` opts in to an explicit
+    // `pull` up front to refresh a moving tag to its newest image. Nothing is
+    // pulled when only printing the command, since nothing runs.
+    if !print_only && cmd.pull {
+        pull_image(&docker, image, print).await?;
     }
 
     // Gather everything we need to know about the image in one throwaway
@@ -330,27 +315,6 @@ fn forwarded_build_args(
     }
 
     args
-}
-
-/// Assert the image is already present locally, for `--no-image-pull`. Runs
-/// `image inspect`, which exits non-zero when the image is absent, and never
-/// contacts the registry — so a locally-tagged (possibly stale) image is
-/// accepted, which is exactly the flag's intent. Output is discarded; only the
-/// exit status matters.
-async fn ensure_image_present(docker: &shared::Args, image: &str) -> Result<(), Error> {
-    let status = docker
-        .image_inspect_command(image)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await
-        .map_err(|e| docker.io_error(e))?;
-    if !status.success() {
-        return Err(Error::ImageNotPresent {
-            image: image.to_string(),
-        });
-    }
-    Ok(())
 }
 
 async fn pull_image(docker: &shared::Args, image: &str, print: &Print) -> Result<(), Error> {

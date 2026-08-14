@@ -228,18 +228,6 @@ impl Args {
         cmd
     }
 
-    /// Inspect a locally-present image, used to assert an image exists without
-    /// contacting the registry. Both engines group this under `image inspect` and
-    /// exit non-zero when the image is absent locally. Neither `docker run` nor
-    /// `container run` offers a portable "never pull" policy (Apple's CLI has no
-    /// `--pull` flag), so `--no-image-pull` is enforced with this precheck
-    /// instead of relying on the engine's implicit pull behavior.
-    pub(crate) fn image_inspect_command(&self, image: &str) -> Command {
-        let mut cmd = self.base_command();
-        cmd.args(["image", "inspect", image]);
-        cmd
-    }
-
     pub(crate) fn run_command(&self, name: &str, ports: &[String]) -> Command {
         let mut cmd = self.base_command();
         cmd.args(["run", "-d", "--rm", "--name", name]);
@@ -413,21 +401,6 @@ mod test {
         let cmd = args(Some("ssh://host"), Some(Engine::AppleContainer)).pull_command("img:tag");
         assert_eq!(program_of(&cmd), "container");
         assert_eq!(args_of(&cmd), ["image", "pull", "img:tag"]);
-    }
-
-    #[test]
-    fn docker_image_inspect_uses_image_inspect() {
-        let cmd = args(None, None).image_inspect_command("img:tag");
-        assert_eq!(program_of(&cmd), "docker");
-        assert_eq!(args_of(&cmd), ["image", "inspect", "img:tag"]);
-    }
-
-    #[test]
-    fn apple_image_inspect_uses_image_inspect_and_ignores_host() {
-        let cmd =
-            args(Some("ssh://host"), Some(Engine::AppleContainer)).image_inspect_command("img:tag");
-        assert_eq!(program_of(&cmd), "container");
-        assert_eq!(args_of(&cmd), ["image", "inspect", "img:tag"]);
     }
 
     #[test]

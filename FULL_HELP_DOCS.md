@@ -362,9 +362,9 @@ To view the commands that will be executed, without executing them, use the --pr
 
   On Linux the container runs as your uid:gid so built wasm isn't root-owned; this assumes the image keeps CARGO_HOME/RUSTUP_HOME writable by non-root users, as the official image does.
 
-- `--no-image-pull` — Don't pull `--image` before building; use the copy already present locally.
+- `--pull` — Pull `--image` before building to refresh a moving tag.
 
-  Lets you build against a locally-built (never pushed) image or a digest-pinned image already on disk, and to work offline — e.g. air-gapped verification against a pinned digest. Fails if the image isn't present.
+  By default the build uses the image already present locally and doesn't pull (matching `docker run`), so a locally-built or digest-pinned image is used as-is. Pass `--pull` to fetch the newest image for the tag first.
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
 - `--engine <ENGINE>` — Container engine to use [default: docker]

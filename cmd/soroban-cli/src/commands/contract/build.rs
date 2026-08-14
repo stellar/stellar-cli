@@ -113,13 +113,13 @@ pub struct Cmd {
     #[arg(long, help_heading = HEADING_CONTAINER)]
     pub image: Option<String>,
 
-    /// Don't pull `--image` before building; use the copy already present locally.
+    /// Pull `--image` before building to refresh a moving tag.
     ///
-    /// Lets you build against a locally-built (never pushed) image or a
-    /// digest-pinned image already on disk, and to work offline — e.g. air-gapped
-    /// verification against a pinned digest. Fails if the image isn't present.
+    /// By default the build uses the image already present locally and doesn't
+    /// pull (matching `docker run`), so a locally-built or digest-pinned image is
+    /// used as-is. Pass `--pull` to fetch the newest image for the tag first.
     #[arg(long, requires = "image", help_heading = HEADING_CONTAINER)]
-    pub no_image_pull: bool,
+    pub pull: bool,
 
     #[command(flatten)]
     pub build_args: BuildArgs,
@@ -263,7 +263,7 @@ impl Default for Cmd {
             locked: false,
             print_commands_only: false,
             image: None,
-            no_image_pull: false,
+            pull: false,
             build_args: BuildArgs::default(),
             container_args: ContainerArgs::default(),
             run_args: ContainerRunArgs::default(),
@@ -922,18 +922,18 @@ mod tests {
     }
 
     #[test]
-    fn no_image_pull_requires_image() {
+    fn pull_requires_image() {
         let cmd = Cmd::try_parse_from([
             "build",
             "--image",
             "docker.io/stellar/stellar-cli:latest",
-            "--no-image-pull",
+            "--pull",
         ])
-        .expect("--no-image-pull with --image must parse");
-        assert!(cmd.no_image_pull);
+        .expect("--pull with --image must parse");
+        assert!(cmd.pull);
 
         // Without --image the flag is rejected rather than silently ignored.
-        assert!(Cmd::try_parse_from(["build", "--no-image-pull"]).is_err());
+        assert!(Cmd::try_parse_from(["build", "--pull"]).is_err());
     }
 
     #[test]
