@@ -83,8 +83,11 @@ pub async fn run(
     docker.warn_if_host_ignored(print);
 
     // Bind-mount the workspace root so every crate is available and relative
-    // manifest paths resolve inside the container.
-    let workspace_root = resolve_workspace_root(cmd)?;
+    // manifest paths resolve inside the container. `cargo metadata` is resolved
+    // once here and reused for workspace root, package selection, and artifact
+    // collection, so a large or networked workspace pays a single subprocess.
+    let md = metadata(cmd).map_err(Error::from)?;
+    let workspace_root = md.workspace_root.clone().into_std_path_buf();
 
     // With `--print-commands-only` nothing runs, so don't pull, probe, or build;
     // just render the run command against a current image below.
@@ -155,7 +158,7 @@ pub async fn run(
     // Build once per package so workspaces with several cdylibs all get built;
     // an explicit `--package` wins, otherwise the default-member cdylibs are
     // inferred exactly like a local build.
-    let packages = resolve_packages(cmd)?;
+    let packages = resolve_packages(cmd, &md);
     if cmd.package.is_none() && !packages.is_empty() {
         print.infoln(format!("Building packages: {}", packages.join(", ")));
     }
@@ -222,11 +225,7 @@ pub async fn run(
         return Ok(Vec::new());
     }
 
-    collect_built_contracts(cmd, &workspace_root)
-}
-
-fn resolve_workspace_root(cmd: &Cmd) -> Result<PathBuf, Error> {
-    Ok(metadata(cmd)?.workspace_root.into_std_path_buf())
+    collect_built_contracts(cmd, &md, &workspace_root)
 }
 
 fn metadata(cmd: &Cmd) -> Result<cargo_metadata::Metadata, cargo_metadata::Error> {
@@ -242,11 +241,10 @@ fn metadata(cmd: &Cmd) -> Result<cargo_metadata::Metadata, cargo_metadata::Error
 /// default-member crates that build a cdylib, mirroring the local build's
 /// package selection. May be empty (no cdylib default members), in which case
 /// the caller falls back to a single no-`--package` build.
-fn resolve_packages(cmd: &Cmd) -> Result<Vec<String>, Error> {
+fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<String> {
     if let Some(pkg) = &cmd.package {
-        return Ok(vec![pkg.clone()]);
+        return vec![pkg.clone()];
     }
-    let md = metadata(cmd)?;
     let mut names: Vec<String> = md
         .packages
         .iter()
@@ -260,7 +258,7 @@ fn resolve_packages(cmd: &Cmd) -> Result<Vec<String>, Error> {
         .collect();
     names.sort();
     names.dedup();
-    Ok(names)
+    names
 }
 
 /// The `contract build …` argv forwarded to the container, mirroring the local
@@ -742,9 +740,9 @@ fn newest_existing_artifact(candidates: &[PathBuf]) -> Option<PathBuf> {
 /// `--out-dir` when set.
 fn collect_built_contracts(
     cmd: &Cmd,
+    md: &cargo_metadata::Metadata,
     workspace_root: &Path,
 ) -> Result<Vec<BuiltContract>, super::Error> {
-    let md = metadata(cmd).map_err(Error::from)?;
     let target_root = workspace_root.join("target");
 
     let mut out = Vec::new();
