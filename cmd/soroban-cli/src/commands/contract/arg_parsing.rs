@@ -247,10 +247,10 @@ fn parse_single_argument(
             config,
         )?);
         Ok(())
-    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
-        parsed_args.push(ScVal::Void);
-        Ok(())
     } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
+        // Check the file arg before the `Option` fallback: an explicitly
+        // provided `--<arg>-file-path` must not be silently ignored for
+        // `Option<T>` parameters.
         parsed_args.push(parse_file_argument(
             &name,
             arg_path,
@@ -259,6 +259,9 @@ fn parse_single_argument(
             spec,
             config,
         )?);
+        Ok(())
+    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
+        parsed_args.push(ScVal::Void);
         Ok(())
     } else {
         Err(Error::MissingArgument {
@@ -1521,5 +1524,92 @@ mod tests {
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
         );
+    }
+
+    fn one_arg_fn_spec(fn_name: &str, type_: ScSpecTypeDef) -> Spec {
+        use stellar_xdr::{ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0};
+        Spec(Some(vec![ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: fn_name.try_into().unwrap(),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: "i".try_into().unwrap(),
+                type_,
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![ScSpecTypeDef::U32].try_into().unwrap(),
+        })]))
+    }
+
+    fn parse_i_arg(spec: &Spec, fn_name: &str, argv: &[&str]) -> Vec<ScVal> {
+        let matches = build_custom_cmd(fn_name, spec)
+            .expect("command should build")
+            .try_get_matches_from(argv)
+            .expect("args should parse");
+        let input = match spec.find_function(fn_name).unwrap().inputs.first() {
+            Some(input) => input.clone(),
+            None => panic!("function should have an input"),
+        };
+        let mut signers = Vec::new();
+        let mut parsed_args = Vec::new();
+        parse_single_argument(
+            &input,
+            &matches,
+            spec,
+            &config::Args::default(),
+            &mut signers,
+            &mut parsed_args,
+        )
+        .expect("argument should parse");
+        parsed_args
+    }
+
+    // Regression test for https://github.com/stellar/stellar-cli/issues/2432:
+    // a `--<arg>-file-path` for an `Option<T>` parameter was silently ignored
+    // and the function invoked with `None`.
+    #[test]
+    fn optional_arg_reads_value_from_file_path() {
+        use std::io::Write;
+        let spec = one_arg_fn_spec(
+            "opt",
+            ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScSpecTypeDef::U32),
+            })),
+        );
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        write!(file, "127").unwrap();
+        let path = file.path().to_str().unwrap().to_string();
+
+        let parsed = parse_i_arg(&spec, "opt", &["--i-file-path", &path]);
+
+        assert_eq!(parsed, vec![ScVal::U32(127)]);
+    }
+
+    #[test]
+    fn optional_arg_omitted_defaults_to_void() {
+        let spec = one_arg_fn_spec(
+            "opt",
+            ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScSpecTypeDef::U32),
+            })),
+        );
+
+        let parsed = parse_i_arg(&spec, "opt", &[]);
+
+        assert_eq!(parsed, vec![ScVal::Void]);
+    }
+
+    #[test]
+    fn required_arg_reads_value_from_file_path() {
+        use std::io::Write;
+        let spec = one_arg_fn_spec("req", ScSpecTypeDef::U32);
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        write!(file, "127").unwrap();
+        let path = file.path().to_str().unwrap().to_string();
+
+        let parsed = parse_i_arg(&spec, "req", &["--i-file-path", &path]);
+
+        assert_eq!(parsed, vec![ScVal::U32(127)]);
     }
 }
