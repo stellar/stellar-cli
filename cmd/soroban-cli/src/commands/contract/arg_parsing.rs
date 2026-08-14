@@ -1522,4 +1522,61 @@ mod tests {
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
         );
     }
+
+    // Regression test for https://github.com/stellar/stellar-cli/issues/2445:
+    // building the clap command for a contract whose spec contains a recursive
+    // type used to recurse unboundedly and overflow the stack, crashing every
+    // `contract invoke` against the contract, including `-- --help`.
+    #[test]
+    fn build_custom_cmd_terminates_on_recursive_spec_type() {
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeUdt, ScSpecTypeVec,
+            ScSpecUdtStructFieldV0, ScSpecUdtStructV0,
+        };
+
+        // struct TreeNode { value: u32, children: Vec<TreeNode> }
+        let tree_node = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: "".try_into().unwrap(),
+            lib: "".try_into().unwrap(),
+            name: "TreeNode".try_into().unwrap(),
+            fields: vec![
+                ScSpecUdtStructFieldV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "value".try_into().unwrap(),
+                    type_: ScSpecTypeDef::U32,
+                },
+                ScSpecUdtStructFieldV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "children".try_into().unwrap(),
+                    type_: ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+                        element_type: Box::new(ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                            name: "TreeNode".try_into().unwrap(),
+                        })),
+                    })),
+                },
+            ]
+            .try_into()
+            .unwrap(),
+        });
+        let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: "hello".try_into().unwrap(),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: "tree".try_into().unwrap(),
+                type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                    name: "TreeNode".try_into().unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![ScSpecTypeDef::U32].try_into().unwrap(),
+        });
+        let spec = Spec(Some(vec![tree_node, func]));
+
+        let mut cmd = build_custom_cmd("hello", &spec).expect("command should build");
+        let help = cmd.render_long_help().to_string();
+
+        assert!(help.contains("--tree"));
+    }
 }
