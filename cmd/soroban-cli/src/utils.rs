@@ -34,7 +34,7 @@ pub struct SequenceNumberOverflow(pub i64);
 /// # Errors
 ///
 /// Returns [`SequenceNumberOverflow`] when `current` is `i64::MAX`.
-pub fn next_sequence_number(current: i64) -> Result<i64, SequenceNumberOverflow> {
+pub(crate) fn next_sequence_number(current: i64) -> Result<i64, SequenceNumberOverflow> {
     current
         .checked_add(1)
         .ok_or(SequenceNumberOverflow(current))
