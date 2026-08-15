@@ -41,8 +41,13 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
 fn claimable_balance_id(balance_id: &str) -> Result<xdr::ClaimableBalanceId, tx::args::Error> {
     let balance_id_bytes = super::clawback_claimable_balance::parse_balance_id(balance_id)?;
 
-    let mut balance_id_array = [0u8; 32];
-    balance_id_array.copy_from_slice(&balance_id_bytes);
+    let balance_id_array: [u8; 32] =
+        balance_id_bytes
+            .try_into()
+            .map_err(|_| tx::args::Error::InvalidHex {
+                name: "balance-id".to_string(),
+                hex: balance_id.to_string(),
+            })?;
 
     Ok(xdr::ClaimableBalanceId::ClaimableBalanceIdTypeV0(
         xdr::Hash(balance_id_array),
