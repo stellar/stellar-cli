@@ -1896,53 +1896,30 @@ mod tests {
         assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
     }
 
-    #[test]
-    fn test_u32_numeric_separator() {
-        assert_eq!(
-            from_string_primitive("1_000", &ScType::U32).unwrap(),
-            from_string_primitive("1000", &ScType::U32).unwrap()
-        );
+    /// Assert that a value with `_` digit separators parses identically to the
+    /// same value without them, generating one named `#[test]` per row.
+    macro_rules! numeric_separator_tests {
+        ($($name:ident: $ty:expr, $with:expr, $without:expr;)*) => {
+            $(
+                #[test]
+                fn $name() {
+                    assert_eq!(
+                        from_string_primitive($with, &$ty).unwrap(),
+                        from_string_primitive($without, &$ty).unwrap()
+                    );
+                }
+            )*
+        };
     }
 
-    #[test]
-    fn test_i64_numeric_separator() {
-        assert_eq!(
-            from_string_primitive("1_000_000", &ScType::I64).unwrap(),
-            from_string_primitive("1000000", &ScType::I64).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_i128_numeric_separator() {
+    numeric_separator_tests! {
+        test_u32_numeric_separator:  ScType::U32,  "1_000",       "1000";
+        test_i64_numeric_separator:  ScType::I64,  "1_000_000",   "1000000";
         // The exact #2447 example.
-        assert_eq!(
-            from_string_primitive("100_0000000", &ScType::I128).unwrap(),
-            from_string_primitive("1000000000", &ScType::I128).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_u128_numeric_separator() {
-        assert_eq!(
-            from_string_primitive("1_000", &ScType::U128).unwrap(),
-            from_string_primitive("1000", &ScType::U128).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_u256_numeric_separator() {
-        assert_eq!(
-            from_string_primitive("1_000", &ScType::U256).unwrap(),
-            from_string_primitive("1000", &ScType::U256).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_i256_numeric_separator() {
-        assert_eq!(
-            from_string_primitive("1_000", &ScType::I256).unwrap(),
-            from_string_primitive("1000", &ScType::I256).unwrap()
-        );
+        test_i128_numeric_separator: ScType::I128, "100_0000000", "1000000000";
+        test_u128_numeric_separator: ScType::U128, "1_000",       "1000";
+        test_u256_numeric_separator: ScType::U256, "1_000",       "1000";
+        test_i256_numeric_separator: ScType::I256, "1_000",       "1000";
     }
 
     #[test]
