@@ -33,6 +33,12 @@ pub enum Error {
     InvalidPair(ScVal, ScType),
     #[error("value is not parseable to {0:#?}")]
     InvalidValue(Option<ScType>),
+    #[error("invalid hex: expected an even number of hex digits, got {0}")]
+    OddHexLength(usize),
+    #[error(
+        "invalid length for BytesN<{expected}>: expected {expected} bytes but got {got} bytes; the input is incomplete"
+    )]
+    BytesNLengthMismatch { expected: usize, got: usize },
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
     #[error("Enum {0} missing value for type {1}")]
@@ -920,21 +926,37 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                     return Ok(key);
                 }
             }
-            // Bytes are not an address, just parse as a hex string
-            utils::padded_hex_from_str(s, bytes.n as usize)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+            // Bytes are not an address, just parse as a hex string. The input must be
+            // complete and exactly N bytes: no right-align/zero-pad (see #2244).
+            if s.len() % 2 != 0 {
+                return Err(Error::OddHexLength(s.len()));
+            }
+            let decoded = hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            if decoded.len() != bytes.n as usize {
+                return Err(Error::BytesNLengthMismatch {
+                    expected: bytes.n as usize,
+                    got: decoded.len(),
+                });
+            }
+            decoded
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         })),
         (ScType::BytesN(_) | ScType::Bytes, Value::Number(_)) => {
             return Err(Error::InvalidValue(Some(t.clone())));
         }
-        (ScType::Bytes, Value::String(s)) => ScVal::Bytes(
-            hex::decode(s)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-                .try_into()
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
-        ),
+        (ScType::Bytes, Value::String(s)) => {
+            // Require complete hex: an even number of digits, no zero-pad (see #2244).
+            if s.len() % 2 != 0 {
+                return Err(Error::OddHexLength(s.len()));
+            }
+            ScVal::Bytes(
+                hex::decode(s)
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+                    .try_into()
+                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+            )
+        }
         (ScType::Bytes | ScType::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, Error> = raw
                 .iter()
@@ -1747,6 +1769,61 @@ mod tests {
         let expected = ScVal::Bytes(ScBytes(vec![0x10].try_into().unwrap()));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_bytesn_rejects_under_length() {
+        // #2244: a short value was silently zero-padded; it must now error as incomplete.
+        let r = from_string_primitive("beefface", &ScType::BytesN(ScSpecTypeBytesN { n: 9 }));
+        assert!(matches!(
+            r,
+            Err(Error::BytesNLengthMismatch {
+                expected: 9,
+                got: 4
+            })
+        ));
+    }
+
+    #[test]
+    fn test_bytesn_rejects_over_length() {
+        let r = from_string_primitive(
+            "beeffacebeefface00ff",
+            &ScType::BytesN(ScSpecTypeBytesN { n: 9 }),
+        );
+        assert!(matches!(
+            r,
+            Err(Error::BytesNLengthMismatch {
+                expected: 9,
+                got: 10
+            })
+        ));
+    }
+
+    #[test]
+    fn test_bytesn_rejects_odd_hex() {
+        let r = from_string_primitive("beeffac", &ScType::BytesN(ScSpecTypeBytesN { n: 4 }));
+        assert!(matches!(r, Err(Error::OddHexLength(7))));
+    }
+
+    #[test]
+    fn test_bytes_rejects_odd_hex() {
+        let r = from_string_primitive("abc", &ScType::Bytes);
+        assert!(matches!(r, Err(Error::OddHexLength(3))));
+    }
+
+    #[test]
+    fn test_bytesn_exact_length_still_works() {
+        let parsed = from_string_primitive(
+            "beeffacebeefface00",
+            &ScType::BytesN(ScSpecTypeBytesN { n: 9 }),
+        )
+        .unwrap();
+        let expected = ScVal::Bytes(ScBytes(
+            vec![0xbe, 0xef, 0xfa, 0xce, 0xbe, 0xef, 0xfa, 0xce, 0x00]
+                .try_into()
+                .unwrap(),
+        ));
+        assert_eq!(parsed, expected);
     }
 
     #[test]
