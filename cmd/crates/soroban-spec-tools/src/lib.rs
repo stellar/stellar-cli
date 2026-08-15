@@ -266,6 +266,17 @@ impl Spec {
             let v = value_type.as_ref().clone();
             return self.from_string(s, &v);
         }
+        // Integer types accept `_` as a digit separator, mirroring Rust numeric
+        // literals (e.g. `1_000_000`). Strip separators before parsing, gated to
+        // integer types only: `_` is a legal character in Symbol/String args and
+        // must be preserved there. See #2447.
+        let stripped;
+        let s = if is_integer_type(t) && s.contains('_') {
+            stripped = s.replace('_', "");
+            stripped.as_str()
+        } else {
+            s
+        };
         // Parse as string and for special types assume Value::String
         serde_json::from_str(s)
             .map_or_else(
@@ -804,6 +815,21 @@ impl Spec {
 /// # Errors
 ///
 /// Might return an error
+/// Integer contract-argument types that accept `_` as a digit separator.
+fn is_integer_type(t: &ScType) -> bool {
+    matches!(
+        t,
+        ScType::U32
+            | ScType::I32
+            | ScType::U64
+            | ScType::I64
+            | ScType::U128
+            | ScType::I128
+            | ScType::U256
+            | ScType::I256
+    )
+}
+
 pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
 }
@@ -1868,6 +1894,68 @@ mod tests {
         let expected = ScVal::Address(ScAddress::Contract(ContractId(Hash([0; 32]))));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), format!("\"{as_str}\""));
+    }
+
+    #[test]
+    fn test_u32_numeric_separator() {
+        assert_eq!(
+            from_string_primitive("1_000", &ScType::U32).unwrap(),
+            from_string_primitive("1000", &ScType::U32).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_i64_numeric_separator() {
+        assert_eq!(
+            from_string_primitive("1_000_000", &ScType::I64).unwrap(),
+            from_string_primitive("1000000", &ScType::I64).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_i128_numeric_separator() {
+        // The exact #2447 example.
+        assert_eq!(
+            from_string_primitive("100_0000000", &ScType::I128).unwrap(),
+            from_string_primitive("1000000000", &ScType::I128).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_u128_numeric_separator() {
+        assert_eq!(
+            from_string_primitive("1_000", &ScType::U128).unwrap(),
+            from_string_primitive("1000", &ScType::U128).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_u256_numeric_separator() {
+        assert_eq!(
+            from_string_primitive("1_000", &ScType::U256).unwrap(),
+            from_string_primitive("1000", &ScType::U256).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_i256_numeric_separator() {
+        assert_eq!(
+            from_string_primitive("1_000", &ScType::I256).unwrap(),
+            from_string_primitive("1000", &ScType::I256).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_symbol_underscore_preserved() {
+        // `_` is a legal Soroban symbol char and must NOT be stripped.
+        let parsed = from_string_primitive("hello_world", &ScType::Symbol).unwrap();
+        assert_eq!(parsed, ScVal::Symbol("hello_world".try_into().unwrap()));
+    }
+
+    #[test]
+    fn test_string_underscore_preserved() {
+        let parsed = from_string_primitive("a_b_c", &ScType::String).unwrap();
+        assert_eq!(parsed, sc_string("a_b_c"));
     }
 
     #[test]
