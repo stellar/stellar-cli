@@ -35,9 +35,7 @@ pub enum Error {
     InvalidValue(Option<ScType>),
     #[error("invalid hex: expected an even number of hex digits, got {0}")]
     OddHexLength(usize),
-    #[error(
-        "invalid length for BytesN<{expected}>: expected {expected} bytes but got {got} bytes; the input is incomplete"
-    )]
+    #[error("invalid length for BytesN<{expected}>: expected {expected} bytes but got {got} bytes")]
     BytesNLengthMismatch { expected: usize, got: usize },
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
@@ -810,6 +808,15 @@ impl Spec {
 /// # Errors
 ///
 /// Might return an error
+/// Decode a hex string that must be complete: an even number of digits, no
+/// zero-padding (see #2244). Returns the raw bytes; callers enforce any length.
+fn decode_complete_hex(s: &str, t: &ScType) -> Result<Vec<u8>, Error> {
+    if !s.len().is_multiple_of(2) {
+        return Err(Error::OddHexLength(s.len()));
+    }
+    hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))
+}
+
 pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
 }
@@ -928,10 +935,7 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             }
             // Bytes are not an address, just parse as a hex string. The input must be
             // complete and exactly N bytes: no right-align/zero-pad (see #2244).
-            if s.len() % 2 != 0 {
-                return Err(Error::OddHexLength(s.len()));
-            }
-            let decoded = hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            let decoded = decode_complete_hex(s, t)?;
             if decoded.len() != bytes.n as usize {
                 return Err(Error::BytesNLengthMismatch {
                     expected: bytes.n as usize,
@@ -945,18 +949,11 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         (ScType::BytesN(_) | ScType::Bytes, Value::Number(_)) => {
             return Err(Error::InvalidValue(Some(t.clone())));
         }
-        (ScType::Bytes, Value::String(s)) => {
-            // Require complete hex: an even number of digits, no zero-pad (see #2244).
-            if s.len() % 2 != 0 {
-                return Err(Error::OddHexLength(s.len()));
-            }
-            ScVal::Bytes(
-                hex::decode(s)
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?
-                    .try_into()
-                    .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
-            )
-        }
+        (ScType::Bytes, Value::String(s)) => ScVal::Bytes(
+            decode_complete_hex(s, t)?
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        ),
         (ScType::Bytes | ScType::BytesN(_), Value::Array(raw)) => {
             let b: Result<Vec<u8>, Error> = raw
                 .iter()
