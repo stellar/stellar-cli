@@ -2511,6 +2511,23 @@ mod tests {
     }
 
     #[test]
+    fn test_xdr_to_json_bool_with_val_type() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2438
+        // A contract fn returning `Val` (SC_SPEC_TYPE_VAL) whose runtime value is
+        // ScVal::Bool must render instead of panicking with "doesn't have a
+        // matching Val". Both booleans hit the same match arm; false is not special.
+        let spec = Spec(None);
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::Bool(false), &ScType::Val).unwrap(),
+            Value::Bool(false)
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::Bool(true), &ScType::Val).unwrap(),
+            Value::Bool(true)
+        );
+    }
+
+    #[test]
     fn test_xdr_to_json_map_with_val_type() {
         // ScVal::Map with ScType::Val should delegate to to_json, not sc_object_to_json.
         let spec = Spec(None);
