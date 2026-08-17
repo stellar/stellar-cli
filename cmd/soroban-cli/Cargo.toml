@@ -129,6 +129,11 @@ whoami = "1.5.2"
 serde_with = "3.11.0"
 rustc_version = "0.4.1"
 
+# Used to read the current uid/gid so container builds don't leave root-owned
+# artifacts on Linux bind mounts.
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "1", features = ["process"] }
+
 [build-dependencies]
 crate-git-revision = "0.0.9"
 serde.workspace = true
