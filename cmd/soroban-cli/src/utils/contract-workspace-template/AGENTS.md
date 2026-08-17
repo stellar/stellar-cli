@@ -21,7 +21,7 @@ That compiles every `cdylib` member to WASM. Artifacts land in
 `target/wasm32v1-none/release/*.wasm`. Build one crate with
 `stellar contract build --package <name>`.
 
-Do not substitute `cargo build --target wasm32v1-none`. `stellar contract build`
+Do not substitute this with `cargo build --target wasm32v1-none`. `stellar contract build`
 applies the flags and metadata the network expects.
 
 The `wasm32v1-none` Rust target must be installed (`rustup target add wasm32v1-none`).
