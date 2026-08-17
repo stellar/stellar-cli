@@ -108,7 +108,7 @@ impl fmt::Display for Engine {
     }
 }
 
-#[derive(Debug, clap::Parser, Clone)]
+#[derive(Debug, clap::Parser, Clone, Default)]
 pub struct Args {
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
     #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
@@ -187,11 +187,27 @@ impl Args {
         self.engine().is_container_not_found(stderr)
     }
 
+    /// The engine invocation prefix for copy-pasteable reproduce/print lines,
+    /// mirroring [`base_command`](Self::base_command): the binary name plus
+    /// `-H <host>` when the docker engine honors a configured
+    /// `--docker-host`/`DOCKER_HOST`. Shell-escaped so it round-trips.
+    pub(crate) fn command_prefix(&self) -> String {
+        let engine = self.engine();
+        let mut prefix = engine.program().to_string();
+        if engine.supports_docker_host() {
+            if let Some(host) = &self.docker_host {
+                prefix.push_str(" -H ");
+                prefix.push_str(&shell_escape::escape(host.into()));
+            }
+        }
+        prefix
+    }
+
     /// Builds the base command for the selected engine. For docker, a
     /// `--docker-host` (or `DOCKER_HOST` env) value is passed as `-H <host>`; the
     /// `-H` flag outranks `DOCKER_CONTEXT`, so the override is honored even when a
     /// docker context is active. Host resolution is otherwise left to the CLI.
-    fn base_command(&self) -> Command {
+    pub(crate) fn base_command(&self) -> Command {
         let engine = self.engine();
         let mut cmd = Command::new(engine.program());
         if engine.supports_docker_host() {
@@ -224,6 +240,15 @@ impl Args {
     pub(crate) fn stop_command(&self, name: &str) -> Command {
         let mut cmd = self.base_command();
         cmd.args(["stop", name]);
+        cmd
+    }
+
+    /// Immediately kill (SIGKILL) a running container by name. Used to tear down
+    /// a build container when the CLI is interrupted, where `stop`'s grace
+    /// period would let the build keep running while we block waiting.
+    pub(crate) fn kill_command(&self, name: &str) -> Command {
+        let mut cmd = self.base_command();
+        cmd.args(["kill", name]);
         cmd
     }
 
@@ -437,6 +462,21 @@ mod test {
         assert_eq!(
             args(Some("ssh://host"), Some(Engine::AppleContainer)).get_additional_flags(),
             "--engine apple-container"
+        );
+    }
+
+    #[test]
+    fn command_prefix_reflects_docker_host_and_apple_ignores_it() {
+        assert_eq!(args(None, None).command_prefix(), "docker");
+        // The host is shell-escaped so the reproduce line round-trips.
+        assert_eq!(
+            args(Some("ssh://host"), None).command_prefix(),
+            "docker -H 'ssh://host'"
+        );
+        // Apple ignores the host and uses its own binary name.
+        assert_eq!(
+            args(Some("ssh://host"), Some(Engine::AppleContainer)).command_prefix(),
+            "container"
         );
     }
 
