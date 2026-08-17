@@ -196,6 +196,7 @@ mod tests {
         runner.run().unwrap();
 
         assert_base_template_files_exist(&project_dir);
+        assert_agents_md_covers_build_and_test(&project_dir);
 
         assert_contract_files_exist(&project_dir, "hello_world");
         assert_excluded_paths_do_not_exist(&project_dir);
@@ -224,10 +225,26 @@ mod tests {
 
     // test helpers
     fn assert_base_template_files_exist(project_dir: &Path) {
-        let expected_paths = ["contracts", "Cargo.toml", "README.md"];
+        let expected_paths = ["contracts", "Cargo.toml", "README.md", "AGENTS.md"];
         for path in &expected_paths {
             assert!(project_dir.join(path).exists());
         }
+    }
+
+    fn assert_agents_md_covers_build_and_test(project_dir: &Path) {
+        let agents = read_to_string(project_dir.join("AGENTS.md")).unwrap();
+        assert!(
+            agents.contains("stellar contract build"),
+            "AGENTS.md should document stellar contract build"
+        );
+        assert!(
+            agents.contains("cargo test"),
+            "AGENTS.md should document cargo test"
+        );
+        assert!(
+            agents.contains("wasm32v1-none"),
+            "AGENTS.md should mention the WASM target"
+        );
     }
 
     fn assert_contract_files_exist(project_dir: &Path, contract_name: &str) {
