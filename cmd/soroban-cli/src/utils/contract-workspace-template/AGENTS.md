@@ -1,7 +1,6 @@
 # Agent instructions
 
-This is a Stellar smart-contract workspace (Soroban). Each contract is a
-workspace member under `contracts/<name>/`.
+This is a Stellar smart-contract workspace (Soroban). Each contract is a workspace member under `contracts/<name>/`.
 
 ## Layout
 
@@ -17,16 +16,11 @@ From the workspace root:
 stellar contract build
 ```
 
-That compiles every `cdylib` member to WASM. Artifacts land in
-`target/wasm32v1-none/release/*.wasm`. Build one crate with
-`stellar contract build --package <name>`.
+That compiles every `cdylib` member to WASM. Artifacts land in `target/wasm32v1-none/release/*.wasm`. Build one crate with `stellar contract build --package <name>`.
 
-Do not substitute this with `cargo build --target wasm32v1-none`. `stellar contract build`
-applies the flags and metadata the network expects.
+Do not substitute this with `cargo build --target wasm32v1-none`. `stellar contract build` applies the flags and metadata the network expects.
 
-The `wasm32v1-none` Rust target must be installed (`rustup target add wasm32v1-none`).
-Rust 1.84 or newer is required for that target. Rust 1.82 and 1.83 cannot build
-contracts.
+The `wasm32v1-none` Rust target must be installed (`rustup target add wasm32v1-none`). Rust 1.84 or newer is required for that target. Rust 1.82 and 1.83 cannot build contracts.
 
 ## Test
 
@@ -56,9 +50,7 @@ stellar contract invoke \
   -- hello --to world
 ```
 
-The sample `hello_world` contract exposes `hello(to: String) -> Vec<String>`.
-Replace that with your own functions; `stellar contract invoke --id <id> -- -h`
-prints the generated CLI for the deployed contract.
+The sample `hello_world` contract exposes `hello(to: String) -> Vec<String>`. Replace that with your own functions; `stellar contract invoke --id <id> -- -h` prints the generated CLI for the deployed contract.
 
 ## Further reading
 
