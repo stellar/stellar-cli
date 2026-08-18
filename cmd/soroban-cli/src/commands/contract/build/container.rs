@@ -282,7 +282,12 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        args.push(format!("--manifest-path={}", rel.display()));
+        let rel_posix = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+        args.push(format!("--manifest-path={rel_posix}"));
     }
     if cmd.profile != "release" {
         args.push(format!("--profile={}", cmd.profile));
