@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use cargo_metadata::MetadataCommand;
+use path_slash::PathExt as _;
 use semver::Version;
 
 use crate::commands::{container::shared, global};
@@ -282,12 +283,7 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        let rel_posix = rel
-            .components()
-            .map(|c| c.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
-        args.push(format!("--manifest-path={rel_posix}"));
+        args.push(format!("--manifest-path={}", rel.to_slash_lossy()));
     }
     if cmd.profile != "release" {
         args.push(format!("--profile={}", cmd.profile));
