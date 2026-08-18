@@ -4,12 +4,6 @@ on:
   push:
     branches: [main, release/**]
   pull_request:
-  workflow_dispatch:
-    inputs:
-      run_windows:
-        description: "Also run the Windows build-and-test job"
-        type: boolean
-        default: false
 
 concurrency:
   group:
@@ -100,7 +94,7 @@ jobs:
           rust-version: ${{ matrix.rust }}
 
   build-and-test-windows:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') || (github.event_name == 'workflow_dispatch' && inputs.run_windows)
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.head_ref, 'release/') || github.event.pull_request.number == 2688
     strategy:
       fail-fast: false
       matrix:
