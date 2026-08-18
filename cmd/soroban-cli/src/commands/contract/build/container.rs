@@ -769,7 +769,14 @@ mod tests {
     use crate::commands::contract::build::BuildArgs;
 
     fn ws() -> &'static Path {
-        Path::new("/tmp/ws")
+        // Routed through `std::path::absolute` (as `forwarded_build_args` itself does
+        // for `manifest_path`) so both sides of the `strip_prefix` in
+        // `forwarded_build_args` agree on drive letter/prefix on Windows.
+        Box::leak(
+            std::path::absolute(Path::new("/tmp/ws"))
+                .unwrap()
+                .into_boxed_path(),
+        )
     }
 
     #[test]
