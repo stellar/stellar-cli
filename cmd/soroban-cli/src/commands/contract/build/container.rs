@@ -282,7 +282,12 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        args.push(format!("--manifest-path={}", rel.display()));
+        // The path is forwarded to `cargo` inside a Linux container, so it must
+        // use `/` separators even when this CLI is built and run on Windows.
+        args.push(format!(
+            "--manifest-path={}",
+            rel.display().to_string().replace('\\', "/")
+        ));
     }
     if cmd.profile != "release" {
         args.push(format!("--profile={}", cmd.profile));
