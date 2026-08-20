@@ -282,7 +282,15 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        args.push(format!("--manifest-path={}", rel.display()));
+        // The container always runs Linux, so the forwarded path must use
+        // forward slashes even when built on Windows, where `Path::display`
+        // renders `\`.
+        let rel_str = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("/");
+        args.push(format!("--manifest-path={rel_str}"));
     }
     if cmd.profile != "release" {
         args.push(format!("--profile={}", cmd.profile));
