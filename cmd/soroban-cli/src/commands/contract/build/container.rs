@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use cargo_metadata::MetadataCommand;
+use path_slash::PathExt as _;
 use semver::Version;
 
 use crate::commands::{container::shared, global};
@@ -282,7 +283,7 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        args.push(format!("--manifest-path={}", rel.display()));
+        args.push(format!("--manifest-path={}", rel.to_slash_lossy()));
     }
     if cmd.profile != "release" {
         args.push(format!("--profile={}", cmd.profile));
@@ -767,14 +768,17 @@ mod tests {
     use super::*;
     use crate::commands::contract::build::BuildArgs;
 
-    fn ws() -> &'static Path {
-        Path::new("/tmp/ws")
+    fn ws() -> PathBuf {
+        // Routed through `std::path::absolute` (as `forwarded_build_args` itself does
+        // for `manifest_path`) so both sides of the `strip_prefix` in
+        // `forwarded_build_args` agree on drive letter/prefix on Windows.
+        std::path::absolute(Path::new("/tmp/ws")).unwrap()
     }
 
     #[test]
     fn forwarded_build_args_defaults() {
         let cmd = Cmd::default();
-        let args = forwarded_build_args(&cmd, ws(), None, true, true, true);
+        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
         assert_eq!(args[..2], ["contract".to_string(), "build".to_string()]);
         // Default optimize=true → bare `--optimize`; no `--locked` unless asked.
         assert!(args.contains(&"--optimize".to_string()));
@@ -788,7 +792,7 @@ mod tests {
             locked: true,
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, ws(), Some("contract-a"), true, true, true);
+        let args = forwarded_build_args(&cmd, &ws(), Some("contract-a"), true, true, true);
         assert!(args.contains(&"--locked".to_string()));
         assert!(args.contains(&"--package=contract-a".to_string()));
     }
@@ -800,7 +804,7 @@ mod tests {
             locked: true,
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, ws(), None, false, true, true);
+        let args = forwarded_build_args(&cmd, &ws(), None, false, true, true);
         assert!(!args.iter().any(|a| a == "--locked"));
     }
 
@@ -810,7 +814,7 @@ mod tests {
         // though optimize defaults to true.
         let cmd = Cmd::default();
         assert!(cmd.build_args.optimize);
-        let args = forwarded_build_args(&cmd, ws(), None, true, false, false);
+        let args = forwarded_build_args(&cmd, &ws(), None, true, false, false);
         assert!(!args.iter().any(|a| a.starts_with("--optimize")));
     }
 
@@ -830,7 +834,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, ws(), None, true, true, true);
+        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
         assert!(args.contains(&"--profile=dev".to_string()));
         assert!(args.contains(&"--features=a,b".to_string()));
         assert!(args.contains(&"--all-features".to_string()));
@@ -851,7 +855,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, ws(), None, true, true, false);
+        let args = forwarded_build_args(&cmd, &ws(), None, true, true, false);
         assert!(!args.iter().any(|a| a.starts_with("--optimize")));
     }
 
@@ -861,7 +865,7 @@ mod tests {
             manifest_path: Some(PathBuf::from("/tmp/ws/contracts/add/Cargo.toml")),
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, ws(), None, true, true, true);
+        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
         assert!(args.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
     }
 

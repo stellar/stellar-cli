@@ -61,6 +61,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde-aux = { workspace = true }
 hex = { workspace = true }
+path-slash = { workspace = true }
 num-bigint = "0.4"
 # Pinned to match the version pulled in by soroban-rpc (jsonrpsee-core) so that
 # downcasting RPC errors to `ErrorObjectOwned` resolves to the same type.
