@@ -106,7 +106,7 @@ fn build_with_image_selects_package_by_manifest_path() {
         .arg("build")
         .arg("--image")
         .arg("docker.io/stellar/stellar-cli:latest")
-        .arg(manifest_path_arg(&add_path()))
+        .arg(format!("--manifest-path={}", add_path()))
         .arg("--print-commands-only")
         .assert()
         .success()
