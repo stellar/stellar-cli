@@ -29,6 +29,8 @@ pub mod secure_store;
 pub enum Error {
     #[error("Contract addresses are not supported to sign auth entries {address}")]
     ContractAddressAreNotSupported { address: String },
+    #[error("{kind} addresses cannot authorize Soroban invocations: {address}")]
+    UnsupportedAuthAddress { kind: &'static str, address: String },
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Missing signing key for account {address}")]
@@ -130,9 +132,28 @@ pub async fn sign_soroban_authorizations(
         // See if we have a signer for this authorizationEntry
         // If not, then we Error
         let auth_address_bytes: &[u8; 32] = match address {
-            ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
-            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
-            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
+            // Only account (G…) and contract addresses can authorize an
+            // invocation; the remaining ScAddress variants are values, not
+            // authorizers, so reject them with a structured error instead of
+            // panicking (#2534).
+            ScAddress::MuxedAccount(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    kind: "Muxed (M…)",
+                    address: address.to_string(),
+                })
+            }
+            ScAddress::ClaimableBalance(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    kind: "Claimable balance",
+                    address: address.to_string(),
+                })
+            }
+            ScAddress::LiquidityPool(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    kind: "Liquidity pool",
+                    address: address.to_string(),
+                })
+            }
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
             ScAddress::Contract(stellar_xdr::ContractId(Hash(c))) => {
                 // This address is for a contract. This means we're using a custom
@@ -642,6 +663,66 @@ mod tests {
             signer_pk,
             "embedded public_key should match the signer"
         );
+    }
+
+    /// Regression for #2534: an auth entry whose credential address is not a
+    /// valid authorizer (muxed account, claimable balance, liquidity pool)
+    /// must yield a structured error, not the `todo!()` panic it used to hit.
+    async fn assert_unsupported_auth_address(address: ScAddress, expected_kind: &str) {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+
+        let entry = address_auth(address, invocation(contract, "hello"));
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let res = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+
+        match res {
+            Err(Error::UnsupportedAuthAddress { kind, .. }) => assert_eq!(kind, expected_kind),
+            other => panic!("expected UnsupportedAuthAddress error, got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_muxed_account_auth_address_errors_instead_of_panicking() {
+        assert_unsupported_auth_address(
+            ScAddress::MuxedAccount(xdr::MuxedEd25519Account {
+                id: 1,
+                ed25519: Uint256([7u8; 32]),
+            }),
+            "Muxed (M…)",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_claimable_balance_auth_address_errors_instead_of_panicking() {
+        assert_unsupported_auth_address(
+            ScAddress::ClaimableBalance(xdr::ClaimableBalanceId::ClaimableBalanceIdTypeV0(Hash(
+                [8u8; 32],
+            ))),
+            "Claimable balance",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_liquidity_pool_auth_address_errors_instead_of_panicking() {
+        assert_unsupported_auth_address(
+            ScAddress::LiquidityPool(xdr::PoolId(Hash([6u8; 32]))),
+            "Liquidity pool",
+        )
+        .await;
     }
 
     #[tokio::test]

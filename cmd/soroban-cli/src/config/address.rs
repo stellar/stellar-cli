@@ -85,8 +85,9 @@ impl UnresolvedMuxedAccount {
             // A literal public key has no secret on its own, but a stored
             // identity may hold the matching key. Scan identities by public key
             // so `G...` signs like its alias would; fall back to `CannotSign`
-            // when nothing matches. Muxed accounts (`M...`) aren't signable
-            // end-to-end yet (see the `todo!` in `sign_soroban_authorizations`),
+            // when nothing matches. Muxed accounts (`M...`) carry no secret of
+            // their own and are not valid authorizers (see
+            // `Error::UnsupportedAuthAddress` in `sign_soroban_authorizations`),
             // so they keep returning `CannotSign`.
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
                 let xdr::MuxedAccount::Ed25519(xdr::Uint256(key)) = muxed_account else {
