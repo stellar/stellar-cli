@@ -132,6 +132,7 @@ impl std::fmt::Display for DatedAction {
                 .as_ref()
                 .map_or_else(|| "SUCCESS".to_string(), |_| "ERROR".to_string()),
             Action::Send { response } => response.status.clone(),
+            Action::SendFailed { .. } => "FAILED".to_string(),
         };
         write!(
             f,
@@ -164,6 +165,13 @@ pub enum Action {
     Send {
         response: GetTransactionResponseRaw,
     },
+    /// A signed transaction whose submission failed. Preserved so it can be
+    /// resubmitted (e.g. piped back into `stellar tx send`) without
+    /// re-signing (#2609).
+    SendFailed {
+        /// Base64 XDR of the signed transaction envelope.
+        envelope_xdr: String,
+    },
 }
 
 impl Action {
@@ -171,6 +179,7 @@ impl Action {
         match self {
             Action::Simulate { .. } => "Simulate",
             Action::Send { .. } => "Send    ",
+            Action::SendFailed { .. } => "SendFail",
         }
         .to_string()
     }
@@ -231,6 +240,48 @@ mod test {
                 }
                 _ => panic!("Action mismatch"),
             }
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn test_send_failed_round_trips_and_renders_as_failed() {
+        let t = assert_fs::TempDir::new().unwrap();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let rpc_uri = Url::from_str("http://localhost:8000").unwrap();
+            let envelope = "AAAAAgAAAABiQCwo7WLMLL5nQ+q8XW4dGSXHbqhUFTv2FSNQ".to_string();
+
+            let id = write(
+                Action::SendFailed {
+                    envelope_xdr: envelope.clone(),
+                },
+                &rpc_uri,
+            )
+            .unwrap();
+
+            let (action, _) = read(&id).unwrap();
+            match action {
+                Action::SendFailed { envelope_xdr } => assert_eq!(
+                    envelope_xdr, envelope,
+                    "the saved envelope must round-trip unchanged"
+                ),
+                _ => panic!("expected Action::SendFailed"),
+            }
+
+            let rendered = list_actions()
+                .unwrap()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                rendered.contains("SendFail"),
+                "ls should name the action type: {rendered}"
+            );
+            assert!(
+                rendered.contains("FAILED"),
+                "ls should render a FAILED status: {rendered}"
+            );
         });
     }
 

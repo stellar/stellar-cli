@@ -111,15 +111,26 @@ impl Args {
             return Ok(TxnEnvelopeResult::TxnEnvelope(Box::new(tx.into())));
         }
 
-        let print = crate::print::Print::new(args.quiet);
+let print = crate::print::Print::new(args.quiet);
         let signed_tx = self.config.sign(tx, args.quiet).await?;
-        let txn_resp = crate::tx::send_transaction_polling_with_events(
+        let txn_resp = match crate::tx::send_transaction_polling_with_events(
             &client,
             &signed_tx,
             &network.network_passphrase,
             &print,
         )
-        .await?;
+        .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                // Preserve the signed envelope on a failed send so it can be
+                // resubmitted without re-signing (#2609).
+                if !args.no_cache {
+                    crate::tx::save_failed_send(&signed_tx, &network, &print);
+                }
+                return Err(e.into());
+            }
+        };
 
         if !args.no_cache {
             data::write(txn_resp.clone().try_into().unwrap(), &network.rpc_uri()?)?;

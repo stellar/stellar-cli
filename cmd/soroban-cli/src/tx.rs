@@ -6,8 +6,8 @@ use crate::{
     signer::{self, Signer},
     utils::transaction_env_hash,
     xdr::{
-        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash,
-        Transaction, TransactionEnvelope,
+self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash, Limits,
+        Transaction, TransactionEnvelope, WriteXdr,
     },
 };
 use soroban_rpc::GetTransactionResponse;
@@ -16,6 +16,38 @@ pub mod builder;
 
 /// 10,000,000 stroops in 1 XLM
 pub const ONE_XLM: i64 = 10_000_000;
+
+/// Preserve a signed envelope whose submission failed in the action log, and
+/// tell the user how to resubmit it without re-signing (#2609).
+///
+/// Best-effort on purpose: a failure to save must not mask the original RPC
+/// error, so it is only logged at debug level.
+pub(crate) fn save_failed_send(
+    signed_tx: &TransactionEnvelope,
+    network: &network::Network,
+    print: &print::Print,
+) {
+    let saved = network
+        .rpc_uri()
+        .map_err(|e| e.to_string())
+        .and_then(|uri| {
+            signed_tx
+                .to_xdr_base64(Limits::none())
+                .map_err(|e| e.to_string())
+                .and_then(|envelope_xdr| {
+                    data::write(data::Action::SendFailed { envelope_xdr }, &uri)
+                        .map_err(|e| e.to_string())
+                })
+        });
+    match saved {
+        Ok(id) => print.warnln(format!(
+            "The transaction failed to send, but the signed envelope was saved to the \
+             action log and can be resubmitted without re-signing:\n  \
+             stellar cache actionlog read --id {id} | jq -r .action.send_failed.envelope_xdr | stellar tx send"
+        )),
+        Err(e) => tracing::debug!("failed to save the signed envelope to the action log: {e}"),
+    }
+}
 
 /// Simulates, signs, and sends a transaction to the network.
 ///
@@ -108,13 +140,25 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-    let res = send_transaction_polling_with_events(
+let res = match send_transaction_polling_with_events(
         client,
         &signed_tx,
         &network.network_passphrase,
         &print,
     )
-    .await?;
+    .await
+    {
+        Ok(res) => res,
+        Err(e) => {
+            // A failed send would otherwise lose the signed (and possibly
+            // fee-bumped) envelope; preserve it in the action log so it can
+            // be resubmitted without collecting signatures again (#2609).
+            if !no_cache {
+                save_failed_send(&signed_tx, &network, &print);
+            }
+            return Err(e.into());
+        }
+    };
 
     print.checkln("Transaction submitted successfully!");
 
