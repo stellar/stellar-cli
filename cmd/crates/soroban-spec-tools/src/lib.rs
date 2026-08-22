@@ -266,6 +266,7 @@ impl Spec {
             let v = value_type.as_ref().clone();
             return self.from_string(s, &v);
         }
+        let s = &*strip_number_separators(s, t);
         // Parse as string and for special types assume Value::String
         serde_json::from_str(s)
             .map_or_else(
@@ -806,6 +807,45 @@ impl Spec {
 /// Might return an error
 pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
     Spec::from_string_primitive(s, t)
+}
+
+/// Strips Rust-style `_` digit separators (e.g. `100_000_0000`) from `s` when
+/// the target type is numeric and every underscore sits between two digits.
+/// Any other input, and any non-numeric target type, is returned unchanged so
+/// underscores keep their meaning in symbols, strings, and byte payloads.
+fn strip_number_separators<'a>(s: &'a str, t: &ScType) -> std::borrow::Cow<'a, str> {
+    let numeric = matches!(
+        t,
+        ScType::U32
+            | ScType::I32
+            | ScType::U64
+            | ScType::I64
+            | ScType::U128
+            | ScType::I128
+            | ScType::U256
+            | ScType::I256
+            | ScType::Timepoint
+            | ScType::Duration
+    );
+    if !numeric || !s.contains('_') {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    let bytes = s.as_bytes();
+    let well_formed = bytes.iter().enumerate().all(|(i, &b)| match b {
+        b'0'..=b'9' => true,
+        b'+' | b'-' => i == 0,
+        b'_' => {
+            i > 0
+                && bytes[i - 1].is_ascii_digit()
+                && bytes.get(i + 1).is_some_and(u8::is_ascii_digit)
+        }
+        _ => false,
+    });
+    if well_formed {
+        std::borrow::Cow::Owned(s.replace('_', ""))
+    } else {
+        std::borrow::Cow::Borrowed(s)
+    }
 }
 
 fn parse_const_enum(num: &serde_json::Number, enum_: &ScSpecUdtEnumV0) -> Result<ScVal, Error> {
@@ -1555,6 +1595,66 @@ mod tests {
         let expected = ScVal::U64(42_000_000_000);
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_number_separator_conversion() {
+        // #2447: accept Rust-style `_` digit separators in numeric CLI args
+        let parsed = from_string_primitive("100_0000000", &ScType::I128).unwrap();
+        let expected = from_string_primitive("1000000000", &ScType::I128).unwrap();
+        assert_eq!(parsed, expected);
+
+        let parsed = from_string_primitive("1_000", &ScType::U32).unwrap();
+        assert_eq!(parsed, ScVal::U32(1_000));
+
+        let parsed = from_string_primitive("-1_000_000", &ScType::I64).unwrap();
+        assert_eq!(parsed, ScVal::I64(-1_000_000));
+
+        let parsed = from_string_primitive(
+            "340_000000000000000000000000000000000000",
+            &ScType::U256,
+        )
+        .unwrap();
+        let expected = from_string_primitive(
+            "340000000000000000000000000000000000000",
+            &ScType::U256,
+        )
+        .unwrap();
+        assert_eq!(parsed, expected);
+
+        // Option<numeric> goes through the same path
+        let parsed = from_string_primitive(
+            "1_000",
+            &ScType::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(ScType::U32),
+            })),
+        )
+        .unwrap();
+        assert_eq!(parsed, ScVal::U32(1_000));
+    }
+
+    #[test]
+    fn test_number_separator_only_between_digits() {
+        // Separators must sit between two digits; anything else is passed
+        // through untouched and fails with the existing parse error.
+        assert!(from_string_primitive("_1000", &ScType::U32).is_err());
+        assert!(from_string_primitive("1000_", &ScType::U32).is_err());
+        assert!(from_string_primitive("1__000", &ScType::U32).is_err());
+        assert!(from_string_primitive("-_1000", &ScType::I64).is_err());
+    }
+
+    #[test]
+    fn test_number_separator_not_applied_to_non_numeric_types() {
+        // Underscores are meaningful in symbols and strings; they must
+        // never be stripped there.
+        let parsed = from_string_primitive("hello_world", &ScType::Symbol).unwrap();
+        assert_eq!(
+            parsed,
+            ScVal::Symbol(ScSymbol("hello_world".try_into().unwrap()))
+        );
+
+        let parsed = from_string_primitive("1_000", &ScType::String).unwrap();
+        assert_eq!(parsed, ScVal::String(ScString("1_000".try_into().unwrap())));
     }
 
     #[test]
