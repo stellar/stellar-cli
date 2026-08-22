@@ -76,25 +76,22 @@ pub async fn has_available_upgrade(
     let now = chrono::Utc::now();
     // Skip fetch from crates.io if we've checked recently
     if !cache || now - MINIMUM_CHECK_INTERVAL >= stats.latest_check_time {
-        match fetch_latest_crate_info().await {
-            Ok(c) => {
-                stats = UpgradeCheck {
-                    latest_check_time: now,
-                    max_stable_version: c.max_stable_version,
-                    max_version: c.max_version,
-                };
-            }
-            Err(e) => {
-                tracing::debug!("Failed to fetch stellar-cli info from crates.io: {e}");
-                // Only update the latest check time if the fetch failed
-                // This way we don't spam the user with errors
-                stats.latest_check_time = now;
-            }
+        let fetched = apply_fetch_result(&mut stats, fetch_latest_crate_info().await, now);
+
+        if let Err(e) = &fetched {
+            tracing::debug!("Failed to fetch stellar-cli info from crates.io: {e}");
         }
 
         if let Err(e) = stats.save() {
             tracing::debug!("Failed to save upgrade check data: {e}");
         }
+
+        // Without a fresh answer from crates.io the cached versions may be
+        // arbitrarily old, and reporting them as "the latest release" tells
+        // the user to upgrade to a version that is itself outdated (#2464).
+        // The check time above was still advanced, so the fetch is retried
+        // at most once per interval rather than on every invocation.
+        fetched?;
     }
 
     let current_version = Version::parse(current_version).unwrap();
@@ -105,6 +102,35 @@ pub async fn has_available_upgrade(
         current_version,
         latest_version.clone(),
     ))
+}
+
+/// Folds the outcome of a crates.io fetch into the cached stats.
+///
+/// On success the cached versions and check time are replaced wholesale. On
+/// failure the cached versions are deliberately left untouched — they are
+/// stale, not authoritative — while the check time still advances so a
+/// failing fetch is retried at most once per check interval instead of on
+/// every command. The error is propagated so callers know the versions in
+/// `stats` do not reflect a current answer from crates.io.
+fn apply_fetch_result(
+    stats: &mut UpgradeCheck,
+    result: Result<Crate, Box<dyn Error>>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(), Box<dyn Error>> {
+    match result {
+        Ok(c) => {
+            *stats = UpgradeCheck {
+                latest_check_time: now,
+                max_stable_version: c.max_stable_version,
+                max_version: c.max_version,
+            };
+            Ok(())
+        }
+        Err(e) => {
+            stats.latest_check_time = now;
+            Err(e)
+        }
+    }
 }
 
 fn get_latest_version<'a>(current_version: &Version, stats: &'a UpgradeCheck) -> &'a Version {
@@ -153,6 +179,61 @@ mod tests {
         let current_version = Version::parse("1.1.0-beta.1").unwrap();
         let latest_version = get_latest_version(&current_version, &stats);
         assert_eq!(*latest_version, Version::parse("1.1.0-rc.1").unwrap());
+    }
+
+    #[test]
+    fn test_apply_fetch_result_success_replaces_cached_versions() {
+        let mut stats = UpgradeCheck {
+            latest_check_time: chrono::DateTime::UNIX_EPOCH,
+            max_stable_version: Version::parse("25.1.0").unwrap(),
+            max_version: Version::parse("25.1.0").unwrap(),
+        };
+        let now = chrono::Utc::now();
+
+        let result = apply_fetch_result(
+            &mut stats,
+            Ok(Crate {
+                max_stable_version: Version::parse("25.2.0").unwrap(),
+                max_version: Version::parse("26.0.0-rc.1").unwrap(),
+            }),
+            now,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(stats.latest_check_time, now);
+        assert_eq!(stats.max_stable_version, Version::parse("25.2.0").unwrap());
+        assert_eq!(stats.max_version, Version::parse("26.0.0-rc.1").unwrap());
+    }
+
+    #[test]
+    fn test_apply_fetch_result_failure_is_propagated_not_swallowed() {
+        // Regression for #2464: when the crates.io fetch fails, the cached
+        // versions may be arbitrarily stale. The failure must surface to the
+        // caller so no upgrade warning is printed from stale data, while the
+        // check time still advances to keep the retry throttled.
+        let stale_time = chrono::Utc::now() - chrono::Duration::days(19);
+        let mut stats = UpgradeCheck {
+            latest_check_time: stale_time,
+            max_stable_version: Version::parse("25.1.0").unwrap(),
+            max_version: Version::parse("25.1.0").unwrap(),
+        };
+        let now = chrono::Utc::now();
+
+        let result = apply_fetch_result(&mut stats, Err("network is down".into()), now);
+
+        assert!(
+            result.is_err(),
+            "fetch failure must propagate to the caller"
+        );
+        assert_eq!(
+            stats.latest_check_time, now,
+            "check time must advance so the retry stays throttled"
+        );
+        assert_eq!(
+            stats.max_stable_version,
+            Version::parse("25.1.0").unwrap(),
+            "stale cached versions must not be rewritten on failure"
+        );
     }
 
     #[test]
