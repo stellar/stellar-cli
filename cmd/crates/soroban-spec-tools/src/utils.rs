@@ -22,9 +22,9 @@ pub fn contract_id_from_str(contract_id: &str) -> Result<[u8; 32], stellar_strke
         .or_else(|_| {
             // strkey failed, try to parse it as a hex string, for backwards compatibility.
             padded_hex_from_str(contract_id, 32)
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)?
+                .map_err(|_| stellar_strkey::DecodeError::InvalidPayloadLength)?
                 .try_into()
-                .map_err(|_| stellar_strkey::DecodeError::Invalid)
+                .map_err(|_| stellar_strkey::DecodeError::InvalidPayloadLength)
         })
-        .map_err(|_| stellar_strkey::DecodeError::Invalid)
+        .map_err(|_| stellar_strkey::DecodeError::InvalidPayloadLength)
 }
