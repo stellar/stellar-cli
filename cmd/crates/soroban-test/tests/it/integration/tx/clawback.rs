@@ -105,33 +105,30 @@ async fn clawback() {
         .assert()
         .success();
 
-    // Verify holder's balance after clawback (should be 500 USDC: 1000 sent - 500 clawed back)
-    let horizon_url = format!("http://localhost:8000/accounts/{}", holder);
-    let response = reqwest::get(&horizon_url)
-        .await
-        .expect("Failed to fetch account from Horizon");
-    let json: serde_json::Value = response
-        .json()
-        .await
-        .expect("Failed to parse Horizon response");
-
-    let final_balance = json["balances"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|balance| {
-            balance["asset_code"].as_str() == Some("USDC")
-                && balance["asset_issuer"].as_str() == Some(&issuer)
-        })
-        .expect("USDC balance not found after clawback")["balance"]
-        .as_str()
-        .unwrap()
-        .parse::<f64>()
-        .unwrap();
+    // Verify holder's balance after clawback (should be 500 USDC: 1000 sent -
+    // 500 clawed back). Poll instead of reading once: Horizon ingestion lags
+    // the RPC ack, so an immediate read can still see the pre-clawback balance.
+    let horizon_url = format!("http://localhost:8000/accounts/{holder}");
+    let final_balance = crate::integration::util::poll_horizon_until(
+        &horizon_url,
+        |json| {
+            json["balances"].as_array()?.iter().find(|balance| {
+                balance["asset_code"].as_str() == Some("USDC")
+                    && balance["asset_issuer"].as_str() == Some(&issuer)
+            })?["balance"]
+                .as_str()?
+                .parse::<f64>()
+                .ok()
+        },
+        |balance| *balance == 500.0,
+    )
+    .await;
 
     assert_eq!(
-        final_balance, 500.0,
-        "Holder should have 500 USDC remaining after clawback (1000 sent - 500 clawed back)"
+        final_balance,
+        Some(500.0),
+        "Holder should have 500 USDC remaining after clawback (1000 sent - 500 clawed back); \
+         last balance observed on Horizon within the polling window shown on the left"
     );
 
     // Verify that a non-issuer cannot perform clawback

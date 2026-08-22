@@ -140,24 +140,21 @@ async fn clawback_claimable_balance() {
         .assert()
         .success();
 
-    // Fetch the balance ID from Horizon
-    let horizon_url = format!(
-        "http://localhost:8000/claimable_balances/?claimant={}",
-        claimant
-    );
-    let response = reqwest::get(&horizon_url)
-        .await
-        .expect("Failed to fetch claimable balances from Horizon");
-
-    let json: serde_json::Value = response
-        .json()
-        .await
-        .expect("Failed to parse Horizon response");
-
-    // Extract the balance ID from the response
-    let balance_id = json["_embedded"]["records"][0]["id"]
-        .as_str()
-        .expect("Failed to get balance ID from Horizon response");
+    // Fetch the balance ID from Horizon. Poll instead of reading once: Horizon
+    // ingestion lags the RPC ack, so an immediate read can find no record yet.
+    let horizon_url = format!("http://localhost:8000/claimable_balances/?claimant={claimant}");
+    let balance_id = crate::integration::util::poll_horizon_until(
+        &horizon_url,
+        |json| {
+            json["_embedded"]["records"][0]["id"]
+                .as_str()
+                .map(ToString::to_string)
+        },
+        |_| true,
+    )
+    .await
+    .expect("claimable balance never appeared on Horizon within the polling window");
+    let balance_id = balance_id.as_str();
 
     // Test clawback-claimable-balance command
     // this should succeed for the issuer

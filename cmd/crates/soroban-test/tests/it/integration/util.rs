@@ -12,6 +12,36 @@ pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types")
 pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
 
+/// Poll a Horizon endpoint until `extract` yields a value that `accept`s, or
+/// ~30s elapse (150 tries, 200ms apart).
+///
+/// Horizon ingestion lags the RPC acknowledgment the CLI returns on, so a
+/// read issued immediately after a submitted transaction can observe stale
+/// state. On timeout the last successfully extracted value is returned (even
+/// if never accepted) so the caller's assertion message can show what Horizon
+/// actually reported instead of a bare `None`.
+pub async fn poll_horizon_until<T>(
+    url: &str,
+    extract: impl Fn(&serde_json::Value) -> Option<T>,
+    accept: impl Fn(&T) -> bool,
+) -> Option<T> {
+    let mut last = None;
+    for _ in 0..150 {
+        if let Ok(response) = reqwest::get(url).await {
+            if let Ok(json) = response.json::<serde_json::Value>().await {
+                if let Some(value) = extract(&json) {
+                    if accept(&value) {
+                        return Some(value);
+                    }
+                    last = Some(value);
+                }
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+    last
+}
+
 pub async fn invoke(sandbox: &TestEnv, id: &str, func: &str, data: &str) -> String {
     sandbox
         .invoke_with_test(&["--id", id, "--", func, &format!("--{func}"), data])
