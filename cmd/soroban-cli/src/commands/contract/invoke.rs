@@ -348,8 +348,11 @@ impl Cmd {
                 .verify_network_passphrase(Some(&network.network_passphrase))
                 .await?;
 
+            // A muxed (M…) source is an underlying G… account plus a mux id;
+            // only the underlying account exists on ledger, so the sequence
+            // number lookup must use its G… form (#2645).
             client
-                .get_account(&config.source_account()?.to_string())
+                .get_account(&config.source_account()?.account_id().to_string())
                 .await?
         } else {
             if should_send == ShouldSend::DefaultNo {
