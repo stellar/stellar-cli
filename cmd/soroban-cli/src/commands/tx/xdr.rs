@@ -76,6 +76,18 @@ impl<R: Read> Read for SkipWhitespace<R> {
     }
 }
 
+/// Number of signatures already attached to the envelope, across all envelope
+/// flavors. Callers that go on to discard the envelope's signatures (e.g. via
+/// [`unwrap_envelope_v1`]) can use this to say so instead of dropping them
+/// silently.
+pub fn signature_count(tx_env: &TransactionEnvelope) -> usize {
+    match tx_env {
+        TransactionEnvelope::TxV0(e) => e.signatures.len(),
+        TransactionEnvelope::Tx(e) => e.signatures.len(),
+        TransactionEnvelope::TxFeeBump(e) => e.signatures.len(),
+    }
+}
+
 pub fn unwrap_envelope_v1(tx_env: TransactionEnvelope) -> Result<Transaction, Error> {
     let TransactionEnvelope::Tx(TransactionV1Envelope { tx, .. }) = tx_env else {
         return Err(Error::OnlyTransactionV1Supported);
@@ -121,6 +133,49 @@ mod tests {
             self.pos += 1;
             Ok(n)
         }
+    }
+
+    fn minimal_tx() -> Transaction {
+        use crate::xdr::{
+            Memo, MuxedAccount, Preconditions, SequenceNumber, TransactionExt, Uint256,
+        };
+        Transaction {
+            source_account: MuxedAccount::Ed25519(Uint256([0u8; 32])),
+            fee: 100,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::None,
+            operations: Vec::new().try_into().unwrap(),
+            ext: TransactionExt::V0,
+        }
+    }
+
+    fn signatures(n: usize) -> crate::xdr::VecM<crate::xdr::DecoratedSignature, 20> {
+        use crate::xdr::{DecoratedSignature, Signature, SignatureHint};
+        vec![
+            DecoratedSignature {
+                hint: SignatureHint([0u8; 4]),
+                signature: Signature(vec![0u8; 64].try_into().unwrap()),
+            };
+            n
+        ]
+        .try_into()
+        .unwrap()
+    }
+
+    #[test]
+    fn signature_count_reports_attached_signatures() {
+        let unsigned = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: minimal_tx(),
+            signatures: signatures(0),
+        });
+        assert_eq!(signature_count(&unsigned), 0);
+
+        let signed = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx: minimal_tx(),
+            signatures: signatures(2),
+        });
+        assert_eq!(signature_count(&signed), 2);
     }
 
     #[test]

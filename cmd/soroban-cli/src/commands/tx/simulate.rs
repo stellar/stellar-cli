@@ -61,7 +61,20 @@ impl Cmd {
         let print = print::Print::new(global_args.quiet);
         let network = config.get_network()?;
         let client = network.rpc_client()?;
-        let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
+        let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
+        // Simulation rewrites the fee and Soroban transaction data, so any
+        // signature on the incoming envelope is invalid on the simulated
+        // result. They were silently dropped before; say so, since the correct
+        // order (simulate, then sign) is the actual fix on the user's side.
+        let discarded = super::xdr::signature_count(&tx_env);
+        if discarded > 0 {
+            print.warnln(format!(
+                "Discarding {discarded} existing signature(s): simulation changes the \
+                 transaction's fee and resources, which invalidates prior signatures. \
+                 Simulate first, then sign the result."
+            ));
+        }
+        let tx = super::xdr::unwrap_envelope_v1(tx_env)?;
         let resource_config = self
             .instruction_leeway
             .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
