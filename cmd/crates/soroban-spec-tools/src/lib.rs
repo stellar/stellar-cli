@@ -674,7 +674,6 @@ impl Spec {
             ),
             (ScVal::Vec(Some(vec_)), ScSpecEntry::UdtUnionV0(union)) => {
                 let v = vec_.to_vec();
-                // let val = &v[0];
                 let (first, rest) = match v.split_at(1) {
                     ([first], []) => (first, None),
                     ([first], rest) => (first, Some(rest)),
