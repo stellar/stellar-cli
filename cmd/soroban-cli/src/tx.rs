@@ -6,8 +6,8 @@ use crate::{
     signer::{self, Signer},
     utils::transaction_env_hash,
     xdr::{
-        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Transaction,
-        TransactionEnvelope,
+        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash,
+        Transaction, TransactionEnvelope,
     },
 };
 use soroban_rpc::GetTransactionResponse;
@@ -106,7 +106,13 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-    let res = client.send_transaction_polling(&signed_tx).await?;
+    let res = send_transaction_polling_with_events(
+        client,
+        &signed_tx,
+        &network.network_passphrase,
+        &print,
+    )
+    .await?;
 
     print.checkln("Transaction submitted successfully!");
 
@@ -121,4 +127,39 @@ where
     }
 
     Ok(res)
+}
+
+/// Submits a signed transaction and polls for its result, surfacing diagnostic
+/// events when the transaction fails.
+///
+/// On failure the RPC client returns only the (decoded) result codes and discards
+/// the transaction's diagnostic events. This helper best-effort re-fetches the
+/// failed transaction to recover and print those events — the host/contract error,
+/// its message, and any contract logs — which explain *why* the transaction
+/// failed. The original error is always preserved and returned unchanged.
+///
+/// # Errors
+/// Returns the underlying submission error if the transaction fails.
+pub async fn send_transaction_polling_with_events(
+    client: &soroban_rpc::Client,
+    signed_tx: &TransactionEnvelope,
+    network_passphrase: &str,
+    print: &print::Print,
+) -> Result<GetTransactionResponse, soroban_rpc::Error> {
+    match client.send_transaction_polling(signed_tx).await {
+        Ok(res) => Ok(res),
+        Err(e) => {
+            // Best-effort: recover the diagnostic events the RPC client discarded.
+            if let Ok(hash) = transaction_env_hash(signed_tx, network_passphrase) {
+                if let Ok(resp) = client.get_transaction(&Hash(hash)).await {
+                    if let Some(meta) = resp.result_meta {
+                        let events = crate::log::extract_events(&meta);
+                        crate::log::event::all(&events);
+                        crate::log::event::failure(&events, print);
+                    }
+                }
+            }
+            Err(e)
+        }
+    }
 }
