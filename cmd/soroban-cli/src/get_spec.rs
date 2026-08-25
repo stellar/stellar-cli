@@ -8,7 +8,7 @@ pub use soroban_spec_tools::contract as contract_spec;
 use crate::commands::global;
 use crate::config::{self, data, locator, network};
 use crate::rpc;
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, resolve_external_ref_wasm_hash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -59,7 +59,20 @@ pub async fn get_remote_contract_spec(
 
     // Get the contract spec entries based on the executable type
     Ok(match executable {
-        ContractExecutable::Wasm(hash) => {
+        ContractExecutable::StellarAsset => {
+            soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
+        }
+        // Both a direct Wasm executable and a CAP-85 externally managed
+        // executable resolve to a Wasm hash whose spec is fetched (and cached)
+        // the same way.
+        ContractExecutable::Wasm(_) | ContractExecutable::ExternalRef(_) => {
+            let hash = match executable {
+                ContractExecutable::Wasm(hash) => hash,
+                ContractExecutable::ExternalRef(external_ref) => {
+                    resolve_external_ref_wasm_hash(&client, &external_ref).await?
+                }
+                ContractExecutable::StellarAsset => unreachable!(),
+            };
             let hash_str = hash.to_string();
             if let Ok(entries) = data::read_spec(&hash_str) {
                 entries
@@ -72,9 +85,6 @@ pub async fn get_remote_contract_spec(
                 }
                 res
             }
-        }
-        ContractExecutable::StellarAsset => {
-            soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
         }
     })
 }

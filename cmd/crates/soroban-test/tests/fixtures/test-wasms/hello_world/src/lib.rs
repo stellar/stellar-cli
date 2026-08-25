@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN, Env, String,
-    Symbol, Vec,
+    contract, contractevent, contractimpl, log, symbol_short, vec, Address, BytesN,
+    ContractExecutable, ContractExecutableRef, Env, String, Symbol, Vec,
 };
 
 const COUNTER: Symbol = symbol_short!("COUNTER");
@@ -59,7 +59,34 @@ impl Contract {
     }
 
     pub fn upgrade_contract(env: Env, hash: BytesN<32>) {
-        env.deployer().update_current_contract_wasm(hash);
+        env.deployer()
+            .update_current_contract(ContractExecutable::Wasm(hash));
+    }
+
+    // --- CAP-85: externally managed executables (beacon-proxy pattern) ---
+
+    // Publish (create or update) an executable reference entry owned by this
+    // contract, keyed by `tag`, pointing at an already-uploaded `wasm_hash`.
+    pub fn publish(env: Env, tag: String, wasm_hash: BytesN<32>) {
+        env.executable_refs().set(&tag, &wasm_hash);
+    }
+
+    // Read the Wasm hash the executable reference entry `tag` points at.
+    pub fn get_ref(env: Env, tag: String) -> Option<BytesN<32>> {
+        env.executable_refs().get(&tag)
+    }
+
+    // Deploy a fresh contract whose executable is the reference entry `tag`
+    // owned by this contract.
+    pub fn deploy_ref(env: Env, tag: String) -> Address {
+        let salt = BytesN::from_array(&env, &[0u8; 32]);
+        env.deployer().with_current_contract(salt).deploy_contract(
+            ContractExecutable::ExternalRef(ContractExecutableRef {
+                owner: env.current_contract_address(),
+                tag,
+            }),
+            (),
+        )
     }
 
     #[allow(unused_variables)]
