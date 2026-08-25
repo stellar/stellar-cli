@@ -4983,7 +4983,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -5818,8 +5818,9 @@ dependencies = [
 
 [[package]]
 name = "stellar-rpc-client"
-version = "27.0.0"
-source = "git+https://github.com/stellar/rs-stellar-rpc-client#ddea9e5cfe9f71d9643b859ed1883bb32c5fd3d0"
+version = "28.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6f06a05befef7b6ddb92d28f09880a801e34fc3ab671c04d0e88ec4de6b1d4d"
 dependencies = [
  "clap",
  "hex",
