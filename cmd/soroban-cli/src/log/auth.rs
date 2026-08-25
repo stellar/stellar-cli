@@ -132,7 +132,7 @@ fn format_create_contract(
                 result,
                 "{prefix}    Executable: ExternalRef (owner: {}, tag: {})",
                 format_address(&external_ref.executable_owner),
-                String::from_utf8_lossy(external_ref.tag.as_slice()),
+                sanitize(&String::from_utf8_lossy(external_ref.tag.as_slice())),
             );
         }
     }
