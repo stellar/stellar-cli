@@ -392,7 +392,13 @@ pub mod rpc {
         let Some(entry) = entries.first() else {
             return Err(Error::NotFound(
                 "Executable Reference Entry".to_string(),
-                external_ref.executable_owner.to_string(),
+                format!(
+                    "owner {}, tag {}",
+                    external_ref.executable_owner,
+                    soroban_spec_tools::sanitize(&String::from_utf8_lossy(
+                        external_ref.tag.as_slice()
+                    )),
+                ),
             ));
         };
         match LedgerEntryData::from_xdr_base64(&entry.xdr, Limits::depth(XDR_DEPTH_LIMIT))? {
