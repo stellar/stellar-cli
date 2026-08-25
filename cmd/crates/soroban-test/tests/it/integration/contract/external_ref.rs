@@ -110,4 +110,13 @@ async fn external_ref_resolves_for_invoke_fetch_and_info() {
         .assert()
         .success()
         .stdout(predicates::str::contains("fn hello"));
+
+    // info hash against the proxy resolves the ExternalRef to the referenced
+    // wasm hash (a distinct code path: fetch_wasm_hash_from_contract).
+    sandbox
+        .new_assert_cmd("contract")
+        .args(["info", "hash", "--id", proxy_id])
+        .assert()
+        .success()
+        .stdout(format!("{wasm_hash}\n"));
 }
