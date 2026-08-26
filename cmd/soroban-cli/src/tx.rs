@@ -149,14 +149,18 @@ pub async fn send_transaction_polling_with_events(
     match client.send_transaction_polling(signed_tx).await {
         Ok(res) => Ok(res),
         Err(e) => {
-            // Best-effort: recover the diagnostic events the RPC client discarded.
+            // Best-effort: recover the diagnostic events the submission error dropped.
+            //
+            // Since protocol 23 a failed transaction's diagnostic events are
+            // returned in the response's dedicated `diagnosticEventsXdr` field
+            // rather than embedded in the transaction meta, so read them from
+            // `events.diagnostic_events` (which the RPC client populates from that
+            // field) instead of from `result_meta`.
             if let Ok(hash) = transaction_env_hash(signed_tx, network_passphrase) {
                 if let Ok(resp) = client.get_transaction(&Hash(hash)).await {
-                    if let Some(meta) = resp.result_meta {
-                        let events = crate::log::extract_events(&meta);
-                        crate::log::event::all(&events);
-                        crate::log::event::failure(&events, print);
-                    }
+                    let events = &resp.events.diagnostic_events;
+                    crate::log::event::all(events);
+                    crate::log::event::failure(events, print);
                 }
             }
             Err(e)

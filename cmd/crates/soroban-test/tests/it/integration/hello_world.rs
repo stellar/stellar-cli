@@ -534,3 +534,48 @@ async fn invoke_auth_uses_hd_path_for_addr_alias() {
         .stdout(format!("\"{addr_1}\"\n"))
         .success();
 }
+
+// Capping `--instructions` to 1 passes simulation (which budgets the real
+// instruction count) but fails on-chain with `ResourceLimitExceeded`, since the
+// override is applied to the assembled transaction after simulation. This is the
+// only reliable way to drive a transaction that fails *on-chain* rather than
+// during simulation, which is exactly the path that recovers and prints the
+// diagnostic events.
+#[tokio::test]
+async fn on_chain_failure_surfaces_diagnostic_events() {
+    let sandbox = &TestEnv::new();
+    let id = deploy_hello(sandbox).await;
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id")
+        .arg(&id)
+        .arg("--instructions")
+        .arg("1")
+        .arg("--")
+        .arg("inc")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Error event"));
+}
+
+#[tokio::test]
+async fn on_chain_failure_diagnostic_events_suppressed_in_quiet_mode() {
+    let sandbox = &TestEnv::new();
+    let id = deploy_hello(sandbox).await;
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--quiet")
+        .arg("--id")
+        .arg(&id)
+        .arg("--instructions")
+        .arg("1")
+        .arg("--")
+        .arg("inc")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Error event").not());
+}
