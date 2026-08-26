@@ -5,14 +5,14 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
-    AccountId, BytesM, ContractExecutable, ContractId, Error as XdrError, Hash, Int128Parts,
-    Int256Parts, MuxedEd25519Account, PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap,
-    ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType,
-    ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt,
-    ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0,
-    ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM, UInt128Parts, UInt256Parts,
-    Uint256, VecM,
+    AccountId, BytesM, ContractExecutable, ContractExecutableExternalRef, ContractId,
+    Error as XdrError, Hash, Int128Parts, Int256Parts, MuxedEd25519Account, PublicKey, ScAddress,
+    ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0,
+    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
+    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
+    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
+    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
+    UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -1094,9 +1094,27 @@ pub fn to_json(v: &ScVal) -> Result<Value, Error> {
             executable: ContractExecutable::StellarAsset,
             ..
         }) => json!({"SAC": true}),
+        ScVal::ContractInstance(ScContractInstance {
+            executable:
+                ContractExecutable::ExternalRef(ContractExecutableExternalRef {
+                    executable_owner,
+                    tag,
+                }),
+            ..
+        }) => json!({
+            "executable_owner": sc_address_to_json(executable_owner),
+            "tag": std::str::from_utf8(tag.as_slice())
+                .map_err(|_| Error::InvalidValue(Some(ScType::String)))?
+                .to_string(),
+        }),
         ScVal::LedgerKeyNonce(ScNonceKey { nonce }) => {
             Value::Number(serde_json::Number::from(*nonce))
         }
+        ScVal::ExecutableTag(v) => Value::String(
+            std::str::from_utf8(v.as_slice())
+                .map_err(|_| Error::InvalidValue(Some(ScType::String)))?
+                .to_string(),
+        ),
         ScVal::Error(e) => serde_json::to_value(e)?,
     };
     Ok(val)

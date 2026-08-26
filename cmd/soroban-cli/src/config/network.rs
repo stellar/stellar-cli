@@ -445,10 +445,7 @@ mod tests {
         let invalid_header = format!("{INVALID_HEADER_NAME}: Bearer 1234");
         let result = parse_http_header(&invalid_header);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            format!("invalid HTTP header name")
-        );
+        assert_eq!(result.unwrap_err().to_string(), "invalid HTTP header name");
     }
 
     #[tokio::test]
@@ -458,7 +455,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("failed to parse header value")
+            "failed to parse header value"
         );
     }
 
@@ -516,7 +513,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("invalid HTTP header: must be in the form 'key:value'")
+            "invalid HTTP header: must be in the form 'key:value'"
         );
     }
 
@@ -532,7 +529,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("invalid HTTP header: must be in the form 'key:value'")
+            "invalid HTTP header: must be in the form 'key:value'"
         );
     }
 
@@ -548,7 +545,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            format!("Invalid URL Bring Your Own: http://localhost:8000")
+            "Invalid URL Bring Your Own: http://localhost:8000"
         );
     }
 
