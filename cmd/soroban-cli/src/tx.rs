@@ -24,7 +24,9 @@ pub const ONE_XLM: i64 = 10_000_000;
 /// * Store results to the data cache when `no_cache` is false
 /// * Logs a success message and block explorer link to stderr upon successful submission
 ///
-/// Does not handle any logging related to the result, events, or effects of the transaction.
+/// On failure, logs the transaction's diagnostic events to stderr (via
+/// `send_transaction_polling_with_events`); it does not otherwise log the
+/// result or effects of a successful transaction.
 ///
 /// Returns the `GetTransactionResponse` from the network.
 ///
