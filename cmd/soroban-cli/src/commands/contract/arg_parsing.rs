@@ -383,7 +383,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .conflicts_with(name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
-            let value_name: &'static str = Box::leak(value_name.into_boxed_str());
+            let value_name: &'static str = Box::leak(sanitize(&value_name).into_boxed_str());
             arg = arg.value_name(value_name);
         }
 
@@ -465,9 +465,13 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
-    let secret = config.locator.get_secret_key(addr_or_alias).ok()?;
-    let print = Print::new(false);
-    let signer = secret.signer(config.hd_path(), print).ok()?;
+    let account: config::UnresolvedMuxedAccount = addr_or_alias.parse().ok()?;
+    // A raw public key is matched to an identity at `--hd-path`, so the signer
+    // is built at that same path; an alias or secret honors it the same way.
+    let secret = account
+        .resolve_secret(&config.locator, config.hd_path())
+        .ok()?;
+    let signer = secret.signer(config.hd_path(), Print::new(false)).ok()?;
     Some(signer)
 }
 
@@ -926,6 +930,56 @@ mod tests {
         ))));
     }
 
+    // A UDT struct field name is attacker-influenceable contract-spec data and
+    // is embedded into the clap `value_name` shown in `--help`, so control and
+    // escape sequences must not survive to the terminal.
+    #[test]
+    fn build_custom_cmd_strips_control_bytes_from_value_name() {
+        use soroban_spec_tools::test_utils::assert_no_control_chars;
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeUdt,
+            ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSymbol,
+        };
+
+        let strukt = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: "".try_into().unwrap(),
+            lib: "".try_into().unwrap(),
+            name: "S".try_into().unwrap(),
+            fields: vec![ScSpecUdtStructFieldV0 {
+                doc: "".try_into().unwrap(),
+                name: "\x1b[2Jevil".try_into().unwrap(),
+                type_: ScSpecTypeDef::U32,
+            }]
+            .try_into()
+            .unwrap(),
+        });
+        let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: ScSymbol("f".try_into().unwrap()),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: "s".try_into().unwrap(),
+                type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                    name: "S".try_into().unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![].try_into().unwrap(),
+        });
+
+        let spec = Spec(Some(vec![strukt, func]));
+
+        let cmd = build_custom_cmd("f", &spec).unwrap();
+        let arg = cmd
+            .get_arguments()
+            .find(|a| a.get_id() == "s")
+            .expect("arg `s` should be registered");
+        for value_name in arg.get_value_names().unwrap_or_default() {
+            assert_no_control_chars(value_name.as_str());
+        }
+    }
+
     #[test]
     fn test_validate_json_arg_valid() {
         // Valid JSON should not return an error
@@ -1157,6 +1211,30 @@ mod tests {
 
     // A real account strkey that should pass through resolve_address unchanged.
     const TEST_G_ADDRESS: &str = "GD5KD2KEZJIGTC63IGW6UMUSMVUVG5IHG64HUTFWCHVZH2N2IBOQN7PS";
+
+    #[test]
+    fn resolve_aliases_resolves_native_to_asset_contract_address() {
+        let ty = ScSpecTypeDef::Address;
+        let spec = Spec(Some(vec![]));
+        let config = crate::config::Args::default();
+
+        let mut value = serde_json::json!("native");
+        let mutated = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        assert!(
+            mutated,
+            "native should resolve to the native asset contract"
+        );
+
+        let network_passphrase = config.get_network().unwrap().network_passphrase;
+        let expected = format!(
+            "{}",
+            crate::utils::contract_id_hash_from_asset(
+                &crate::xdr::Asset::Native,
+                &network_passphrase,
+            )
+        );
+        assert_eq!(value, serde_json::Value::String(expected));
+    }
 
     #[test]
     fn resolve_aliases_in_json_walks_vec_of_address() {

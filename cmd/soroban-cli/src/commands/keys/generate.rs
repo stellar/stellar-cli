@@ -79,7 +79,7 @@ impl Cmd {
                 return Err(Error::IdentityAlreadyExists(self.name.to_string()));
             }
 
-            print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
+            print.exclaimln(format!("Overwriting identity '{}'", self.name));
         }
 
         let secret = self.secret(&print)?;

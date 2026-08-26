@@ -1,3 +1,4 @@
+use predicates::prelude::PredicateBooleanExt;
 use soroban_cli::{
     commands::{
         contract::{self, fetch},
@@ -133,7 +134,7 @@ async fn invoke_contract() {
     invoke_auth_with_identity(sandbox, id, "test", &addr);
     invoke_auth_with_identity(sandbox, id, "testone", &addr_1);
     invoke_auth_with_non_source_identity(sandbox, id, "test", "testone", &addr_1);
-    invoke_auth_with_different_test_account_fail(sandbox, id, &addr_1).await;
+    invoke_auth_with_unknown_account_fail(sandbox, id).await;
     contract_data_read_failure(sandbox, id);
     invoke_with_seed(sandbox, id, &seed_phrase).await;
     invoke_with_sk(sandbox, id, &secret_key).await;
@@ -248,10 +249,35 @@ fn invoke_auth_with_non_source_identity(
         .success();
 }
 
-async fn invoke_auth_with_different_test_account_fail(sandbox: &TestEnv, id: &str, addr: &str) {
+// A public key that matches no stored identity has no signer, so requiring its
+// auth must fail rather than silently succeed. This guards the `CannotSign`
+// fallback in `resolve_secret`: signing by public key only works when the key
+// belongs to a known identity.
+async fn invoke_auth_with_unknown_account_fail(sandbox: &TestEnv, id: &str) {
+    // Mint a fresh keypair, capture its address, then remove the identity so the
+    // address is a valid, funded-elsewhere account that we hold no secret for.
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("generate")
+        .arg("unknown")
+        .assert()
+        .success();
+    let addr = sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg("unknown")
+        .assert()
+        .stdout_as_str();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("rm")
+        .arg("--force")
+        .arg("unknown")
+        .assert()
+        .success();
+
     let res = sandbox
         .invoke_with_test(&[
-            "--hd-path=0",
             "--id",
             id,
             "--",
@@ -340,6 +366,49 @@ async fn contract_data_read() {
         .assert()
         .success()
         .stdout(predicates::str::starts_with("COUNTER,2"));
+}
+
+#[tokio::test]
+async fn extend_nonexistent_entry_errors_without_panic() {
+    // A well-formed but non-existent contract id makes the extend a no-op. The
+    // CLI must surface a clean error rather than panic with "index out of
+    // bounds" while inspecting the (empty) ledger entries. See issue #2599.
+    const NONEXISTENT_ID: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("extend")
+        .arg("--id")
+        .arg(NONEXISTENT_ID)
+        .arg("--ledgers-to-extend")
+        .arg("1")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Ledger entry not found"))
+        .stderr(predicates::str::contains("index out of bounds").not())
+        .stderr(predicates::str::contains("panicked").not());
+}
+
+#[tokio::test]
+async fn restore_nonexistent_entry_errors_without_panic() {
+    // Restoring a well-formed but non-existent contract id fails at
+    // simulation with "Missing entry to restore". The CLI must surface that
+    // as a clean error and never panic with "index out of bounds" while
+    // inspecting empty ledger entries. See issue #2599.
+    const NONEXISTENT_ID: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+    let sandbox = &TestEnv::new();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("restore")
+        .arg("--id")
+        .arg(NONEXISTENT_ID)
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Missing entry to restore"))
+        .stderr(predicates::str::contains("index out of bounds").not())
+        .stderr(predicates::str::contains("panicked").not());
 }
 
 async fn invoke_with_seed(sandbox: &TestEnv, id: &str, seed_phrase: &str) {

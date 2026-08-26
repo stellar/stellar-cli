@@ -366,7 +366,9 @@ async fn tx_fetch_events() {
         .stdout_as_str();
 
     let parsed: GetTransactionEvents = serde_json::from_str(&output).unwrap();
-    assert!(parsed.diagnostic_events.is_empty());
+    // With diagnostic events enabled on the network, the RPC surfaces the full
+    // diagnostic stream (fn_call/fn_return, the contract log, and core_metrics).
+    assert!(!parsed.diagnostic_events.is_empty());
     assert_eq!(parsed.contract_events.len(), 1);
     assert_eq!(parsed.transaction_events.len(), 2);
 }

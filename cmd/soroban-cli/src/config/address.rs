@@ -76,10 +76,26 @@ impl UnresolvedMuxedAccount {
         }
     }
 
-    pub fn resolve_secret(&self, locator: &locator::Args) -> Result<secret::Secret, Error> {
+    pub fn resolve_secret(
+        &self,
+        locator: &locator::Args,
+        hd_path: Option<u32>,
+    ) -> Result<secret::Secret, Error> {
         match &self {
+            // A literal public key has no secret on its own, but a stored
+            // identity may hold the matching key. Scan identities by public key
+            // so `G...` signs like its alias would; fall back to `CannotSign`
+            // when nothing matches. Muxed accounts (`M...`) aren't signable
+            // end-to-end yet (see the `todo!` in `sign_soroban_authorizations`),
+            // so they keep returning `CannotSign`.
             UnresolvedMuxedAccount::Resolved(muxed_account) => {
-                Err(Error::CannotSign(muxed_account.clone()))
+                let xdr::MuxedAccount::Ed25519(xdr::Uint256(key)) = muxed_account else {
+                    return Err(Error::CannotSign(muxed_account.clone()));
+                };
+                let target = stellar_strkey::ed25519::PublicKey(*key);
+                locator
+                    .secret_by_public_key(&target, hd_path)?
+                    .ok_or_else(|| Error::CannotSign(muxed_account.clone()))
             }
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
                 Ok(locator.read_key(alias_or_secret)?.try_into()?)
@@ -200,6 +216,68 @@ impl AsRef<std::path::Path> for ContractName {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::secret::Secret;
+
+    const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+    const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+
+    fn locator_with_identity() -> (tempfile::TempDir, locator::Args) {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let secret = Secret::SecretKey {
+            secret_key: TEST_SECRET_KEY.to_string(),
+        };
+        locator.write_identity("alice", &secret).unwrap();
+        (dir, locator)
+    }
+
+    #[test]
+    fn resolve_secret_matches_public_key_to_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        let account: UnresolvedMuxedAccount = TEST_PUBLIC_KEY.parse().unwrap();
+        assert!(matches!(account, UnresolvedMuxedAccount::Resolved(_)));
+
+        let secret = account.resolve_secret(&locator, None).unwrap();
+        assert!(matches!(
+            secret,
+            Secret::SecretKey { ref secret_key } if secret_key == TEST_SECRET_KEY
+        ));
+    }
+
+    #[test]
+    fn resolve_secret_errors_when_public_key_has_no_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        let account: UnresolvedMuxedAccount = OTHER_PUBLIC_KEY.parse().unwrap();
+
+        assert!(matches!(
+            account.resolve_secret(&locator, None).unwrap_err(),
+            Error::CannotSign(_)
+        ));
+    }
+
+    #[test]
+    fn resolve_secret_rejects_muxed_account_even_with_stored_identity() {
+        let (_dir, locator) = locator_with_identity();
+        // A muxed account (`M...`) wrapping alice's ed25519 key. Even though the
+        // underlying key belongs to a stored identity, muxed accounts aren't
+        // signable end-to-end yet, so resolution must still return `CannotSign`
+        // rather than the stored secret.
+        let pk = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
+        let account = UnresolvedMuxedAccount::Resolved(xdr::MuxedAccount::MuxedEd25519(
+            xdr::MuxedAccountMed25519 {
+                id: 1,
+                ed25519: xdr::Uint256(pk.0),
+            },
+        ));
+
+        assert!(matches!(
+            account.resolve_secret(&locator, None).unwrap_err(),
+            Error::CannotSign(_)
+        ));
+    }
 
     #[test]
     fn ledger_shorthand_is_not_recognized() {

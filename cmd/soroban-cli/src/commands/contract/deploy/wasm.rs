@@ -19,6 +19,7 @@ use crate::xdr::{
 };
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
@@ -167,6 +168,9 @@ pub enum Error {
     #[error("--alias is not supported when deploying multiple contracts; aliases are derived from package names automatically")]
     AliasNotSupported,
 
+    #[error("workspace package '{0}' resolves to the reserved contract alias '{0}'; rename the package, or deploy it on its own with `--package {0} --alias <name>`")]
+    ReservedPackageAlias(String),
+
     #[error("--salt is not supported when deploying multiple contracts")]
     SaltNotSupported,
 
@@ -190,7 +194,15 @@ impl Cmd {
             return Err(Error::BuildOnlyNotSupported);
         }
 
-        let built_contracts = self.resolve_contracts(global_args)?;
+        let built_contracts = self.resolve_contracts(global_args).await?;
+
+        // Aliases derived from workspace package names are assigned per-iteration
+        // inside the deploy loop, so validate them all up front: a package named
+        // after a reserved alias must fail before any contract is deployed
+        // on-chain, not partway through the loop.
+        if let Some(name) = reserved_package_alias(self.alias.as_ref(), &built_contracts) {
+            return Err(Error::ReservedPackageAlias(name));
+        }
 
         // When --wasm-hash is used, no built contracts are returned.
         // Deploy directly with the hash.
@@ -230,6 +242,14 @@ impl Cmd {
     }
 
     async fn run_single(cmd: &Cmd, global_args: &global::Args) -> Result<(), Error> {
+        // Validate the finalized alias (explicit or package-derived) at the
+        // point of use, before any on-chain work. `run` rejects a reserved
+        // package name up front to avoid a partial multi-contract deploy; this
+        // is the single guard for the single-contract and `--wasm-hash` paths.
+        if let Some(alias) = &cmd.alias {
+            crate::config::alias::validate_reserved_aliases(alias)?;
+        }
+
         let res = cmd
             .execute(&cmd.config, global_args.quiet, global_args.no_cache)
             .await?
@@ -237,7 +257,7 @@ impl Cmd {
 
         match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
-                println!("{}", tx.to_xdr_base64(Limits::none())?);
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
             }
             TxnEnvelopeResult::Res(contract) => {
                 let network = cmd.config.get_network()?;
@@ -267,7 +287,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn resolve_contracts(
+    async fn resolve_contracts(
         &self,
         global_args: &global::Args,
     ) -> Result<Vec<build::BuiltContract>, Error> {
@@ -290,7 +310,7 @@ impl Cmd {
             build_args: self.build_args.clone(),
             ..build::Cmd::default()
         };
-        let contracts = build_cmd.run(global_args).map_err(|e| match e {
+        let contracts = build_cmd.run(global_args).await.map_err(|e| match e {
             build::Error::Metadata(_) => Error::NotInCargoProject,
             other => other.into(),
         })?;
@@ -445,6 +465,23 @@ impl Cmd {
     }
 }
 
+/// Returns the name of the first built contract whose package-derived alias
+/// would be reserved. Explicit `--alias` is validated separately (and rejected
+/// entirely for multi-contract deploys), so an explicit alias short-circuits.
+fn reserved_package_alias(
+    explicit_alias: Option<&AliasName>,
+    built_contracts: &[build::BuiltContract],
+) -> Option<String> {
+    if explicit_alias.is_some() {
+        return None;
+    }
+
+    built_contracts.iter().find_map(|contract| {
+        (!contract.name.is_empty() && crate::config::alias::is_reserved(&contract.name))
+            .then(|| contract.name.clone())
+    })
+}
+
 fn build_create_contract_tx(
     wasm_hash: Hash,
     sequence: i64,
@@ -523,5 +560,40 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    fn built(name: &str) -> build::BuiltContract {
+        build::BuiltContract {
+            name: name.to_string(),
+            path: std::path::PathBuf::new(),
+        }
+    }
+
+    #[test]
+    fn reserved_package_alias_flags_reserved_package_before_deploy() {
+        let native = crate::config::alias::NATIVE;
+        let contracts = [built("adapter"), built(native), built("token")];
+
+        assert_eq!(
+            reserved_package_alias(None, &contracts),
+            Some(native.to_string())
+        );
+    }
+
+    #[test]
+    fn reserved_package_alias_ignores_regular_packages() {
+        let contracts = [built("adapter"), built("token")];
+
+        assert_eq!(reserved_package_alias(None, &contracts), None);
+    }
+
+    #[test]
+    fn reserved_package_alias_skipped_with_explicit_alias() {
+        // An explicit --alias is validated on its own path; a reserved package
+        // name is irrelevant because the derived alias is never used.
+        let alias = "my-contract".parse::<AliasName>().unwrap();
+        let contracts = [built(crate::config::alias::NATIVE)];
+
+        assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
     }
 }

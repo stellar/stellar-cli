@@ -103,7 +103,7 @@ impl Cmd {
                 return Err(Error::IdentityAlreadyExists(self.name.to_string()));
             }
 
-            print.exclaimln(format!("Overwriting identity '{}'", &self.name.to_string()));
+            print.exclaimln(format!("Overwriting identity '{}'", self.name));
         }
 
         let key = if let Some(key) = self.public_key.as_ref() {

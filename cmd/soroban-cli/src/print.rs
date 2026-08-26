@@ -109,26 +109,9 @@ macro_rules! create_print_functions {
 ///
 /// If `n` cannot be represented as an i128 value, returns "Err(number out of bounds)".
 pub fn format_number<T: TryInto<i128>>(n: T, decimals: u32) -> String {
-    let n: i128 = match n.try_into() {
-        Ok(value) => value,
-        Err(_) => return "Err(number out of bounds)".to_string(),
-    };
-    if decimals == 0 {
-        return n.to_string();
-    }
-    let divisor = 10i128.pow(decimals);
-    let integer_part = n / divisor;
-    let fractional_part = (n % divisor).abs();
-    // Pad with leading zeros to match decimals width, then trim trailing zeros
-    let frac_str = format!("{:0width$}", fractional_part, width = decimals as usize);
-    let frac_trimmed = frac_str.trim_end_matches('0');
-
-    if frac_trimmed.is_empty() {
-        format!("{integer_part}")
-    } else {
-        // If integer_part is 0, we still want to show the sign for negative numbers (e.g. -0.5)
-        let sign = if n < 0 && integer_part == 0 { "-" } else { "" };
-        format!("{sign}{integer_part}.{frac_trimmed}")
+    match n.try_into() {
+        Ok(value) => crate::fixed_point::FixedPoint::new(value, decimals).to_string(),
+        Err(_) => "Err(number out of bounds)".to_string(),
     }
 }
 

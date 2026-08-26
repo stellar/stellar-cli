@@ -23,6 +23,7 @@ pub mod network;
 pub mod sc_address;
 pub mod secret;
 pub mod sign_with;
+pub mod token;
 pub mod upgrade_check;
 pub mod utils;
 
@@ -100,7 +101,9 @@ impl Args {
     }
 
     pub fn key_pair(&self) -> Result<ed25519_dalek::SigningKey, Error> {
-        let key = &self.source_account.resolve_secret(&self.locator)?;
+        let key = &self
+            .source_account
+            .resolve_secret(&self.locator, self.hd_path())?;
         Ok(key.key_pair(self.hd_path())?)
     }
 
@@ -237,6 +240,7 @@ pub struct Defaults {
     pub network: Option<String>,
     pub identity: Option<String>,
     pub inclusion_fee: Option<u32>,
+    pub container_engine: Option<String>,
 }
 
 impl Config {
@@ -274,6 +278,12 @@ impl Config {
     }
 
     #[must_use]
+    pub fn set_container_engine(mut self, s: &str) -> Self {
+        self.defaults.container_engine = Some(s.to_string());
+        self
+    }
+
+    #[must_use]
     pub fn unset_identity(mut self) -> Self {
         self.defaults.identity = None;
         self
@@ -288,6 +298,12 @@ impl Config {
     #[must_use]
     pub fn unset_inclusion_fee(mut self) -> Self {
         self.defaults.inclusion_fee = None;
+        self
+    }
+
+    #[must_use]
+    pub fn unset_container_engine(mut self) -> Self {
+        self.defaults.container_engine = None;
         self
     }
 

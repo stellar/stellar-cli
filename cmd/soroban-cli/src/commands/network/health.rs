@@ -1,6 +1,6 @@
 use crate::commands::global;
-use crate::config::network;
-use crate::{config, print};
+use crate::config::{self, network};
+use crate::output::{Format, Output};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -8,6 +8,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Network(#[from] network::Error),
+    #[error(transparent)]
+    Rpc(#[from] crate::rpc::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
 }
@@ -23,6 +25,16 @@ pub enum OutputFormat {
     JsonFormatted,
 }
 
+impl From<OutputFormat> for Format {
+    fn from(value: OutputFormat) -> Self {
+        match value {
+            OutputFormat::Text => Format::Readable,
+            OutputFormat::Json => Format::Json,
+            OutputFormat::JsonFormatted => Format::JsonFormatted,
+        }
+    }
+}
+
 #[derive(Debug, clap::Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -35,27 +47,29 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = print::Print::new(global_args.quiet);
-        let result = self.config.get_network()?.rpc_client()?.get_health().await;
+        let output = Output::new(self.output.into(), global_args.quiet);
 
-        match result {
-            Ok(resp) => match self.output {
-                OutputFormat::Text => {
-                    if resp.status.eq_ignore_ascii_case("healthy") {
-                        print.checkln("Healthy");
-                    } else {
-                        print.warnln(format!("Status: {}", resp.status));
-                    }
-                    print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
-                }
-                OutputFormat::Json => println!("{}", serde_json::to_string(&resp)?),
-                OutputFormat::JsonFormatted => println!("{}", serde_json::to_string_pretty(&resp)?),
-            },
+        // On failure, surface "Unhealthy" for humans then propagate the error so
+        // the process exits non-zero and the top-level handler renders it (as the
+        // structured JSON envelope in JSON mode). A reachable-but-unhealthy node
+        // instead returns `Ok` with a status, handled below.
+        let resp = match self.config.get_network()?.rpc_client()?.get_health().await {
+            Ok(resp) => resp,
             Err(err) => {
-                print.errorln("Unhealthy");
-                print.errorln(format!("failed to fetch network health: {err}"));
+                output.readable(|print| print.errorln("Unhealthy"));
+                return Err(err.into());
             }
-        }
+        };
+
+        output.readable(|print| {
+            if resp.status.eq_ignore_ascii_case("healthy") {
+                print.checkln("Healthy");
+            } else {
+                print.warnln(format!("Status: {}", resp.status));
+            }
+            print.infoln(format!("Latest ledger: {}", resp.latest_ledger));
+        });
+        output.json_value(&resp)?;
 
         Ok(())
     }

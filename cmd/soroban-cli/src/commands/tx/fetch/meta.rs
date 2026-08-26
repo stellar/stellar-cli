@@ -5,6 +5,7 @@ use crate::{
 use clap::Parser;
 
 use super::args;
+use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -36,7 +37,7 @@ impl Cmd {
                     println!("{}", serde_json::to_string(&meta)?);
                 }
                 args::OutputFormat::Xdr => {
-                    let meta_xdr = meta.to_xdr_base64(Limits::none()).unwrap();
+                    let meta_xdr = meta.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT)).unwrap();
                     println!("{meta_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {

@@ -1,9 +1,12 @@
 use soroban_cli::assembled::simulate_and_assemble_transaction;
-use soroban_cli::xdr::{Limits, ReadXdr, TransactionEnvelope, WriteXdr};
+use soroban_cli::xdr::{
+    Limits, OperationBody, ReadXdr, SorobanTransactionData, TransactionEnvelope, TransactionExt,
+    WriteXdr,
+};
 use soroban_test::{AssertExt, TestEnv};
 
 use crate::integration::util::{
-    deploy_contract, test_address, DeployKind, DeployOptions, HELLO_WORLD,
+    deploy_contract, extend_contract, test_address, DeployKind, DeployOptions, AUTH, HELLO_WORLD,
 };
 
 #[tokio::test]
@@ -80,6 +83,105 @@ async fn simulate_auth_modes() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("Auth, InvalidAction"));
+}
+
+// Regression test for https://github.com/stellar/stellar-cli/issues/2603:
+// re-simulating an already-assembled envelope must not drop its recorded
+// authorization or re-add the resource fee that is already folded into the
+// transaction fee. This exercises the full CLI + RPC + XDR round trip that the
+// `assemble` unit tests cannot reach.
+#[tokio::test]
+async fn simulate_reassembly_preserves_auth_and_fee() {
+    let sandbox = &TestEnv::new();
+
+    // Deploy the auth contract with the source account as the authorizer so the
+    // recorded auth uses source-account credentials and re-simulation (which
+    // defaults to enforce once entries exist) does not require a signature.
+    let contract_id = sandbox
+        .new_assert_cmd("contract")
+        .arg("deploy")
+        .arg("--source=test")
+        .arg("--wasm")
+        .arg(AUTH.path())
+        .arg("--")
+        .arg("--addr=test")
+        .assert()
+        .success()
+        .stdout_as_str();
+    extend_contract(sandbox, &contract_id).await;
+
+    let build_only = sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--build-only",
+            "--source=test",
+            "--id",
+            &contract_id,
+            "--",
+            "do-auth",
+            "--addr=test",
+            "--val=hello",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // First simulate: records auth and folds the resource fee into the tx fee.
+    let assembled = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(build_only.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // Second simulate on the already-assembled envelope: must be idempotent.
+    let reassembled = sandbox
+        .new_assert_cmd("tx")
+        .arg("simulate")
+        .write_stdin(assembled.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let auth_len = |xdr: &str| -> usize {
+        let env = TransactionEnvelope::from_xdr_base64(xdr, Limits::none()).unwrap();
+        let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(env).unwrap();
+        let OperationBody::InvokeHostFunction(ref op) = tx.operations[0].body else {
+            panic!("expected InvokeHostFunction operation");
+        };
+        op.auth.len()
+    };
+    let tx_of = |xdr: &str| {
+        let env = TransactionEnvelope::from_xdr_base64(xdr, Limits::none()).unwrap();
+        soroban_cli::commands::tx::xdr::unwrap_envelope_v1(env).unwrap()
+    };
+
+    // Auth recorded on the first pass must survive the second pass.
+    assert!(auth_len(&assembled) > 0, "first simulate recorded no auth");
+    assert_eq!(
+        auth_len(&assembled),
+        auth_len(&reassembled),
+        "re-simulation dropped recorded auth"
+    );
+
+    // Re-simulating must not double-count the resource fee already folded into
+    // the assembled transaction. The fee may still move by a few stroops (the
+    // reassembled envelope is marginally larger), so the guard is that the fee
+    // does not grow by anything close to another whole resource fee — the
+    // pre-fix behavior that #2603 reported.
+    let assembled_tx = tx_of(&assembled);
+    let TransactionExt::V1(SorobanTransactionData { resource_fee, .. }) = &assembled_tx.ext else {
+        panic!("assembled transaction is missing SorobanTransactionData");
+    };
+    let assembled_fee = assembled_tx.fee;
+    let reassembled_fee = tx_of(&reassembled).fee;
+    assert!(
+        i64::from(reassembled_fee) < i64::from(assembled_fee) + resource_fee / 2,
+        "re-simulation re-added the resource fee: assembled={assembled_fee}, \
+         reassembled={reassembled_fee}, resource_fee={resource_fee}"
+    );
 }
 
 fn test_tx_string(sandbox: &TestEnv) -> String {

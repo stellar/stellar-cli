@@ -1,5 +1,7 @@
 mod build;
 mod config;
+#[cfg(unix)]
+mod container;
 #[cfg(feature = "emulator-tests")]
 mod emulator;
 mod help;
@@ -11,5 +13,6 @@ mod message;
 mod plugin;
 mod rpc_provider;
 mod strkey;
+mod tx;
 mod util;
 mod version;

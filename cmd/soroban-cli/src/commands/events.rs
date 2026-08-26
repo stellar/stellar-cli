@@ -10,6 +10,7 @@ use crate::{
     config::{self, locator, network},
     get_spec::get_remote_contract_spec,
     rpc,
+    utils::XDR_DEPTH_LIMIT,
 };
 
 #[derive(Parser, Debug, Clone)]
@@ -331,7 +332,7 @@ impl Cmd {
         let topics: Vec<ScVal> = event
             .topic
             .iter()
-            .filter_map(|t| ScVal::from_xdr_base64(t, Limits::none()).ok())
+            .filter_map(|t| ScVal::from_xdr_base64(t, Limits::depth(XDR_DEPTH_LIMIT)).ok())
             .collect();
 
         if topics.len() != event.topic.len() {
@@ -339,7 +340,7 @@ impl Cmd {
         }
 
         // Decode value from base64 XDR
-        let data = ScVal::from_xdr_base64(&event.value, Limits::none()).ok()?;
+        let data = ScVal::from_xdr_base64(&event.value, Limits::depth(XDR_DEPTH_LIMIT)).ok()?;
 
         spec.decode_event(&event.contract_id, &topics, &data)
             .inspect_err(|e| tracing::debug!("Failed to decode event {}: {e}", event.id))
@@ -377,8 +378,8 @@ impl Cmd {
         writeln!(
             stdout,
             " {} [{}]:",
-            event.id,
-            event.event_type.to_uppercase()
+            sanitize(&event.id),
+            sanitize(&event.event_type.to_uppercase())
         )?;
 
         // Ledger info
@@ -388,14 +389,15 @@ impl Cmd {
         writeln!(
             stdout,
             "{} (closed at {})",
-            event.ledger, event.ledger_closed_at
+            event.ledger,
+            sanitize(&event.ledger_closed_at)
         )?;
 
         // Contract
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)).set_dimmed(true))?;
         write!(stdout, "  Contract: ")?;
         stdout.reset()?;
-        writeln!(stdout, "{}", decoded.contract_id)?;
+        writeln!(stdout, "{}", sanitize(&decoded.contract_id))?;
 
         // Event name with prefix topics
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)).set_dimmed(true))?;
@@ -487,7 +489,7 @@ impl Cmd {
                 if segment == "*" || segment == "**" {
                     topic_filter.push(segment.to_owned());
                 } else {
-                    match xdr::ScVal::from_xdr_base64(segment, Limits::none()) {
+                    match xdr::ScVal::from_xdr_base64(segment, Limits::depth(XDR_DEPTH_LIMIT)) {
                         Ok(_s) => {
                             topic_filter.push(segment.to_owned());
                         }
@@ -527,11 +529,11 @@ mod tests {
 
     fn evil_event() -> rpc::Event {
         rpc::Event {
-            event_type: "contract".into(),
+            event_type: "contract\x1b[31m".into(),
             ledger: 1,
-            ledger_closed_at: "2026-01-01T00:00:00Z".into(),
+            ledger_closed_at: "2026-01-01T00:00:00Z\x1b[2J".into(),
             contract_id: "CACA".into(),
-            id: "0000000001-0000000001".into(),
+            id: "0000000001-0000000001\x1b[H".into(),
             operation_index: None,
             transaction_index: None,
             tx_hash: None,
@@ -546,7 +548,7 @@ mod tests {
         let mut params = IndexMap::new();
         params.insert("amount\x1b[31m".to_string(), json!(1000));
         DecodedEvent {
-            contract_id: "CACA".to_string(),
+            contract_id: "CACA\x1b[0m".to_string(),
             event_name: "\x1b[2J\x1b[Htransfer".to_string(),
             prefix_topics: vec!["\x1b[31mEVIL".into(), "topic2".into()],
             params,

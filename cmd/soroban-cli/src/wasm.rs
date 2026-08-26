@@ -12,7 +12,10 @@ use crate::{
         locator,
         network::{Error as NetworkError, Network},
     },
-    utils::{self, rpc::get_remote_wasm_from_hash},
+    utils::{
+        self,
+        rpc::{get_remote_wasm_from_hash, resolve_external_ref_wasm_hash},
+    },
     wasm::Error::{ContractIsStellarAsset, UnexpectedContractToken},
 };
 
@@ -133,6 +136,10 @@ pub async fn fetch_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(get_remote_wasm_from_hash(&client, hash).await?),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            ContractExecutable::ExternalRef(external_ref) => {
+                let hash = resolve_external_ref_wasm_hash(&client, external_ref).await?;
+                Ok(get_remote_wasm_from_hash(&client, &hash).await?)
+            }
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))
@@ -158,6 +165,9 @@ pub async fn fetch_wasm_hash_from_contract(
         return match &contract.executable {
             ContractExecutable::Wasm(hash) => Ok(hash.clone()),
             ContractExecutable::StellarAsset => Err(ContractIsStellarAsset),
+            ContractExecutable::ExternalRef(external_ref) => {
+                Ok(resolve_external_ref_wasm_hash(&client, external_ref).await?)
+            }
         };
     }
     Err(UnexpectedContractToken(Box::new(data_entry)))

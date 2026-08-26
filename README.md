@@ -80,6 +80,14 @@ Use GitHub Action:
 uses: stellar/stellar-cli@v23.0.1
 ```
 
+Run with Docker:
+
+```sh
+docker run --rm -it -v "$(pwd)":/source stellar/stellar-cli version
+```
+
+Docker image distribution is handled by the [stellar/stellar-cli-docker](https://github.com/stellar/stellar-cli-docker) repository, with images published to [Docker Hub](https://hub.docker.com/r/stellar/stellar-cli/).
+
 ## Autocomplete
 
 The Stellar CLI supports some autocompletion. To set up, run the following commands:

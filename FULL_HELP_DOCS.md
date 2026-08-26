@@ -51,6 +51,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `container` — Start local networks in containers
 - `config` — Manage CLI configuration
 - `snapshot` — Download a snapshot of a ledger from an archive
+- `token` — Interact with SEP-41 tokens and Stellar Asset Contracts
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
 - `strkey` — Decode and encode strkey
@@ -354,6 +355,26 @@ In workspaces builds all crates unless a package name is specified, or the comma
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
 **Usage:** `stellar contract build [OPTIONS]`
+
+###### **Container Options:**
+
+- `--image <IMAGE>` — Build inside this container image (e.g. `docker.io/stellar/stellar-cli:latest`). When set, the build runs in the container against the bind-mounted working tree instead of locally. Any tag or digest ref is accepted.
+
+  On Linux the container runs as your uid:gid so built wasm isn't root-owned; this assumes the image keeps CARGO_HOME/RUSTUP_HOME writable by non-root users, as the official image does.
+
+- `--pull` — Pull `--image` before building to refresh a moving tag.
+
+  By default the build uses the image already present locally and doesn't pull (matching `docker run`), so a locally-built or digest-pinned image is used as-is. Pass `--pull` to fetch the newest image for the tag first.
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 
 ###### **Features:**
 
@@ -1659,6 +1680,8 @@ Start local networks in containers
 - `logs` — Get logs from a running network container
 - `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
 - `stop` — Stop a network container started with `stellar container start`
+- `use` — Set the default container engine used by `stellar container` commands
+- `unset` — Unset the default container engine defined previously with `container use <engine>`
 
 ## `stellar container logs`
 
@@ -1675,6 +1698,11 @@ Get logs from a running network container
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
 
 ## `stellar container start`
 
@@ -1684,7 +1712,7 @@ Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:latest --testnet --enable rpc,horizon`
 
 **Usage:** `stellar container start [OPTIONS] [NETWORK]`
 
@@ -1697,6 +1725,14 @@ By default, when starting a testnet container, without any optional arguments, i
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 - `--name <NAME>` — Optional argument to specify the container name
 - `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 - `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
@@ -1721,6 +1757,39 @@ Stop a network container started with `stellar container start`
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+## `stellar container use`
+
+Set the default container engine used by `stellar container` commands
+
+**Usage:** `stellar container use [OPTIONS] <ENGINE>`
+
+###### **Arguments:**
+
+- `<ENGINE>` — Container engine to use by default
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar container unset`
+
+Unset the default container engine defined previously with `container use <engine>`
+
+**Usage:** `stellar container unset [OPTIONS]`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar config`
 
@@ -1838,6 +1907,88 @@ This allows combining snapshots from different contract deployments or manually 
 - `-o`, `--out <OUT>` — Output path for the merged snapshot
 
   Default value: `snapshot.json`
+
+## `stellar token`
+
+Interact with SEP-41 tokens and Stellar Asset Contracts
+
+**Usage:** `stellar token <COMMAND>`
+
+###### **Subcommands:**
+
+- `transfer` — Transfer tokens from one account to another
+- `balance` — Read the token balance of an account or contract
+
+## `stellar token transfer`
+
+Transfer tokens from one account to another
+
+**Usage:** `stellar token transfer [OPTIONS] --id <ID> --from <FROM> --to <TO> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account to transfer tokens from. Signs and authorizes the transfer, so it must be an identity or secret key you control
+- `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON receipt
+  - `json-formatted`: Formatted (multiline) JSON receipt
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token balance`
+
+Read the token balance of an account or contract
+
+**Usage:** `stellar token balance [OPTIONS] --id <ID> --account <ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--account <ACCOUNT>` — Account or contract whose balance to read
+- `--decimal` — Format the balance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON receipt
+  - `json-formatted`: Formatted (multiline) JSON receipt
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar tx`
 
@@ -4145,7 +4296,7 @@ Encode a transaction envelope from JSON to XDR
 
 Decode and encode XDR
 
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4157,14 +4308,6 @@ Decode and encode XDR
 - `generate` — Generate XDR values
 - `xfile` — Preprocess XDR .x files
 - `version` — Print version information
-
-###### **Arguments:**
-
-- `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
 
 ## `stellar xdr types`
 

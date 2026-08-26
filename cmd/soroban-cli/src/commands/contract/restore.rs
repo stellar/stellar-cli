@@ -15,6 +15,7 @@ use clap::Parser;
 use stellar_strkey::DecodeError;
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         contract::extend,
@@ -132,7 +133,7 @@ impl Cmd {
             .to_envelope();
         let expiration_ledger_seq = match res {
             TxnEnvelopeResult::TxnEnvelope(tx) => {
-                println!("{}", tx.to_xdr_base64(Limits::none())?);
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
                 return Ok(());
             }
             TxnEnvelopeResult::Res(res) => res,
@@ -262,7 +263,15 @@ impl Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&entry_keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+            // The fetch after a no-op can return no entries (e.g. the entry
+            // was evicted in the meantime), so avoid indexing into an empty
+            // vec (which would panic).
+            let extension = entry
+                .entries
+                .first()
+                .ok_or(Error::LedgerEntryNotFound)?
+                .live_until_ledger_seq
+                .unwrap_or_default();
 
             return Ok(TxnResult::Res(extension));
         }
