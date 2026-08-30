@@ -73,17 +73,6 @@ async fn sep_53_sign_message_and_verify_stdin() {
     let secret_key = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
     let public_key = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
 
-    // sandbox
-    //     .new_assert_cmd("keys")
-    //     .args(["add", alias_secret, "--secret-key", secret_key])
-    //     .assert()
-    //     .success();
-    // sandbox
-    //     .new_assert_cmd("keys")
-    //     .args(["add", alias_public, "--public-key", public_key])
-    //     .assert()
-    //     .success();
-
     let output = sandbox
         .new_assert_cmd("message")
         .write_stdin(message)
