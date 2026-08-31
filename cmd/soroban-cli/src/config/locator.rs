@@ -56,12 +56,8 @@ pub enum Error {
     NetworkCreationFailed(std::io::Error),
     #[error("Error Identity directory is invalid: {name}")]
     IdentityList { name: String },
-    // #[error("Config file failed to deserialize")]
-    // CannotReadConfigFile,
     #[error("Config file failed to serialize")]
     ConfigSerialization,
-    // #[error("Config file failed write")]
-    // CannotWriteConfigFile,
     #[error("STELLAR_CONFIG_HOME env variable is not a valid path. Got {0}")]
     StellarConfigDir(String),
     #[error("XDG_CONFIG_HOME env variable is not a valid path. Got {0}")]
