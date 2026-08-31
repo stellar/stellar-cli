@@ -367,7 +367,56 @@ pub mod rpc {
     use super::XDR_DEPTH_LIMIT;
     use crate::xdr;
     use soroban_rpc::{Client, Error};
-    use stellar_xdr::{Hash, LedgerEntryData, LedgerKey, Limits, ReadXdr};
+    use stellar_xdr::{
+        ContractDataDurability, ContractExecutableExternalRef, Hash, LedgerEntryData, LedgerKey,
+        LedgerKeyContractData, Limits, ReadXdr, ScVal,
+    };
+
+    /// Resolve a CAP-85 externally managed executable to the Wasm hash it
+    /// currently points at.
+    ///
+    /// The executable reference entry is a persistent `ContractData` entry
+    /// owned by `external_ref.executable_owner`, keyed by
+    /// `ScVal::ExecutableTag(tag)`, whose value is the 32-byte Wasm hash.
+    pub async fn resolve_external_ref_wasm_hash(
+        client: &Client,
+        external_ref: &ContractExecutableExternalRef,
+    ) -> Result<Hash, Error> {
+        let key = LedgerKey::ContractData(LedgerKeyContractData {
+            contract: external_ref.executable_owner.clone(),
+            key: ScVal::ExecutableTag(external_ref.tag.clone()),
+            durability: ContractDataDurability::Persistent,
+        });
+        let response = client.get_ledger_entries(&[key]).await?;
+        let entries = response.entries.unwrap_or_default();
+        let Some(entry) = entries.first() else {
+            return Err(Error::NotFound(
+                "Executable Reference Entry".to_string(),
+                format!(
+                    "owner {}, tag {}",
+                    external_ref.executable_owner,
+                    soroban_spec_tools::sanitize(&String::from_utf8_lossy(
+                        external_ref.tag.as_slice()
+                    )),
+                ),
+            ));
+        };
+        match LedgerEntryData::from_xdr_base64(&entry.xdr, Limits::depth(XDR_DEPTH_LIMIT))? {
+            LedgerEntryData::ContractData(xdr::ContractDataEntry {
+                val: ScVal::Bytes(bytes),
+                ..
+            }) => {
+                let hash: [u8; 32] = bytes.as_slice().try_into().map_err(|_| {
+                    Error::NotFound(
+                        "Executable Reference Entry".to_string(),
+                        "value is not a 32-byte Wasm hash".to_string(),
+                    )
+                })?;
+                Ok(Hash(hash))
+            }
+            data => Err(Error::UnexpectedContractCodeDataType(data)),
+        }
+    }
 
     pub async fn get_remote_wasm_from_hash(client: &Client, hash: &Hash) -> Result<Vec<u8>, Error> {
         let code_key = LedgerKey::ContractCode(xdr::LedgerKeyContractCode { hash: hash.clone() });

@@ -8,7 +8,7 @@ pub use soroban_spec_tools::contract as contract_spec;
 use crate::commands::global;
 use crate::config::{self, data, locator, network};
 use crate::rpc;
-use crate::utils::rpc::get_remote_wasm_from_hash;
+use crate::utils::rpc::{get_remote_wasm_from_hash, resolve_external_ref_wasm_hash};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -57,24 +57,36 @@ pub async fn get_remote_contract_spec(
         return Err(Error::MissingResult);
     };
 
-    // Get the contract spec entries based on the executable type
+    // Get the contract spec entries based on the executable type. Both a
+    // direct Wasm executable and a CAP-85 externally managed executable
+    // resolve to a Wasm hash whose spec is fetched (and cached) the same way.
     Ok(match executable {
-        ContractExecutable::Wasm(hash) => {
-            let hash_str = hash.to_string();
-            if let Ok(entries) = data::read_spec(&hash_str) {
-                entries
-            } else {
-                let raw_wasm = get_remote_wasm_from_hash(&client, &hash).await?;
-                let res = contract_spec::Spec::new(&raw_wasm)?;
-                let res = res.spec;
-                if global_args.is_none_or(|a| !a.no_cache) {
-                    data::write_spec(&hash_str, &res)?;
-                }
-                res
-            }
-        }
         ContractExecutable::StellarAsset => {
             soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
         }
+        ContractExecutable::Wasm(hash) => {
+            get_spec_for_wasm_hash(&client, &hash, global_args).await?
+        }
+        ContractExecutable::ExternalRef(external_ref) => {
+            let hash = resolve_external_ref_wasm_hash(&client, &external_ref).await?;
+            get_spec_for_wasm_hash(&client, &hash, global_args).await?
+        }
     })
+}
+
+async fn get_spec_for_wasm_hash(
+    client: &rpc::Client,
+    hash: &xdr::Hash,
+    global_args: Option<&global::Args>,
+) -> Result<Vec<ScSpecEntry>, Error> {
+    let hash_str = hash.to_string();
+    if let Ok(entries) = data::read_spec(&hash_str) {
+        return Ok(entries);
+    }
+    let raw_wasm = get_remote_wasm_from_hash(client, hash).await?;
+    let res = contract_spec::Spec::new(&raw_wasm)?.spec;
+    if global_args.is_none_or(|a| !a.no_cache) {
+        data::write_spec(&hash_str, &res)?;
+    }
+    Ok(res)
 }

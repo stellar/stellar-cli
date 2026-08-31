@@ -197,6 +197,7 @@ impl TryFrom<GetTransactionResponse> for Action {
                 result_xdr: res.result.as_ref().map(to_xdr).transpose()?,
                 result_meta_xdr: res.result_meta.as_ref().map(to_xdr).transpose()?,
                 events: None,
+                diagnostic_events_xdr: None,
             },
         })
     }

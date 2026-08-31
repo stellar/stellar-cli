@@ -131,6 +131,44 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
     }
 }
 
+/// Render an `error` diagnostic event as a readable line.
+///
+/// `topics` carries the error type/code (an `ScError`) and `data` carries the
+/// message payload. Both are serialized as JSON, which escapes any control
+/// bytes present in the payload.
+fn format_error_event(topics: &[xdr::ScVal], data: &xdr::ScVal) -> String {
+    let topics_json = serde_json::to_string(topics).unwrap();
+    let data_json = serde_json::to_string(data).unwrap();
+    format!("Error event: {topics_json} = {data_json}")
+}
+
+/// Display diagnostic events for a failed transaction.
+///
+/// Reuses [`contract_with_spec`] to render contract events and `log` diagnostic
+/// events, and additionally surfaces the `error` diagnostic event (the host or
+/// contract error), which the success-path renderer intentionally drops. This is
+/// the most actionable information when a submitted transaction fails.
+pub fn failure(events: &[DiagnosticEvent], print: &Print) {
+    contract_with_spec(events, print, None);
+
+    for event in events.iter().cloned() {
+        if let DiagnosticEvent {
+            event:
+                ContractEvent {
+                    body: ContractEventBody::V0(ContractEventV0 { topics, data, .. }),
+                    type_: ContractEventType::Diagnostic,
+                    ..
+                },
+            ..
+        } = event
+        {
+            if topics.first() == Some(&xdr::ScVal::Symbol(str_to_sc_symbol("error"))) {
+                print.errorln(format_error_event(topics.as_slice(), &data));
+            }
+        }
+    }
+}
+
 fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     let inner: xdr::StringM<32> = s.try_into().unwrap();
     xdr::ScSymbol(inner)
@@ -146,6 +184,25 @@ mod tests {
     use indexmap::IndexMap;
     use serde_json::json;
     use soroban_spec_tools::test_utils::assert_no_control_chars;
+
+    #[test]
+    fn format_error_event_renders_code_and_message_without_control_bytes() {
+        let topics = vec![
+            xdr::ScVal::Symbol(str_to_sc_symbol("error")),
+            xdr::ScVal::Error(xdr::ScError::Contract(7)),
+        ];
+        // A message payload carrying an ANSI control sequence to ensure it is escaped.
+        let data = xdr::ScVal::String(xdr::ScString("boom\x1b[31m".try_into().unwrap()));
+
+        let rendered = format_error_event(&topics, &data);
+
+        assert!(rendered.contains("boom"), "message payload should be shown");
+        assert!(
+            rendered.contains('7') || rendered.to_lowercase().contains("contract"),
+            "error code should be shown: {rendered}"
+        );
+        assert_no_control_chars(&rendered);
+    }
 
     #[test]
     fn format_decoded_event_strips_attacker_control_bytes() {
