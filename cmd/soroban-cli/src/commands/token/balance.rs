@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 use clap::Parser;
 
 use crate::{
@@ -11,7 +9,7 @@ use crate::{
     config::{
         self, locator, network, sign_with,
         token::{ResolvedToken, UnresolvedToken},
-        UnresolvedContract, UnresolvedScAddress,
+        UnresolvedScAddress,
     },
     fixed_point::FixedPoint,
     output::Output,
@@ -130,12 +128,8 @@ impl Cmd {
                 quiet,
                 global_args.no_cache,
                 &token,
-                vec![
-                    OsString::from("balance"),
-                    OsString::from("--id"),
-                    OsString::from(&account),
-                ],
                 "balance",
+                vec![account],
             )
             .await?;
 
@@ -149,8 +143,8 @@ impl Cmd {
                     quiet,
                     global_args.no_cache,
                     &token,
-                    vec![OsString::from("decimals")],
                     "decimals",
+                    vec![],
                 )
                 .await?;
             (FixedPoint::new(raw, decimals).to_string(), Some(decimals))
@@ -164,50 +158,56 @@ impl Cmd {
         Ok(())
     }
 
-    /// Invoke a read-only token function and return its decoded output string.
+    /// Invoke a read-only token function by SEP-41 position and return its
+    /// decoded output string.
     async fn read(
         &self,
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
         token: &ResolvedToken,
-        slop: Vec<OsString>,
+        function: &str,
+        args: Vec<String>,
     ) -> Result<String, Error> {
-        let invoke_cmd = invoke::Cmd {
-            contract_id: UnresolvedContract::Resolved(token.contract_id),
-            slop,
-            config: config.clone(),
-            send: invoke::Send::No,
-            ..Default::default()
-        };
-
-        let receipt = invoke_cmd
-            .execute_with_receipt(config, quiet, no_cache)
-            .await
-            .map_err(|e| args::not_deployed_error(token, &e).map_or(Error::Invoke(e), Error::Args))?
-            .into_result();
+        let receipt = args::invoke_by_position(
+            config,
+            quiet,
+            no_cache,
+            token,
+            function,
+            args,
+            invoke::Send::No,
+        )
+        .await
+        .map_err(|e| args::not_deployed_error(token, &e).map_or(Error::Invoke(e), Error::Args))?
+        .into_result();
 
         Ok(receipt.map(|r| r.output).unwrap_or_default())
     }
 
     /// Invoke a read-only token function, then parse its decoded output as `T`.
-    /// `what` labels the value in a `ParseResult` error if parsing fails.
+    /// `function` also labels the value in a `ParseResult` error if parsing fails.
     async fn read_parsed<T: std::str::FromStr>(
         &self,
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
         token: &ResolvedToken,
-        slop: Vec<OsString>,
-        what: &'static str,
+        function: &'static str,
+        args: Vec<String>,
     ) -> Result<T, Error> {
-        let out = self.read(config, quiet, no_cache, token, slop).await?;
+        let out = self
+            .read(config, quiet, no_cache, token, function, args)
+            .await?;
         // A 128-bit balance comes back JSON-encoded as a quoted string (it can't
         // fit a JSON number), while `decimals` (u32) comes back bare; strip any
         // surrounding quotes so both parse straight into `T`.
         out.trim()
             .trim_matches('"')
             .parse()
-            .map_err(|_| Error::ParseResult { what, value: out })
+            .map_err(|_| Error::ParseResult {
+                what: function,
+                value: out,
+            })
     }
 }
