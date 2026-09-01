@@ -66,7 +66,14 @@ impl Cmd {
         // signature on the incoming envelope is invalid on the simulated
         // result. They were silently dropped before; say so, since the correct
         // order (simulate, then sign) is the actual fix on the user's side.
-        let discarded = super::xdr::signature_count(&tx_env);
+        // Warn only for v1 envelopes: v0 and fee-bump envelopes are rejected
+        // below by unwrap_envelope_v1 with their signatures intact, so nothing
+        // is discarded for them.
+        let discarded = if matches!(tx_env, TransactionEnvelope::Tx(_)) {
+            super::xdr::signature_count(&tx_env)
+        } else {
+            0
+        };
         if discarded > 0 {
             print.warnln(format!(
                 "Discarding {discarded} existing signature(s): simulation changes the \
