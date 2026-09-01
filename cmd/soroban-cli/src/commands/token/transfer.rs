@@ -68,12 +68,6 @@ pub enum Error {
     Invoke(#[from] invoke::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
-
-    #[error(
-        "muxed (M…) source accounts are not yet supported for `token transfer`; \
-         use the underlying G… account as `--from` instead"
-    )]
-    MuxedSourceNotSupported,
 }
 
 /// Parse `--amount` as a non-negative `i128`. A negative transfer amount is
@@ -101,7 +95,6 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
-            Error::MuxedSourceNotSupported => "unsupported",
         }
     }
 }
@@ -146,17 +139,13 @@ impl Cmd {
             .resolve(&config.locator, &network.network_passphrase)?;
 
         // SEP-41 `transfer(from, to, amount)`: `from` is the source account
-        // (which also signs and authorizes), `to` is the destination.
-        //
-        // The invoke pipeline can't source a transaction from a muxed account
-        // yet (see #2645), and a muxed strkey in the `transfer` arg is rejected
-        // mid-simulation with an opaque host error; reject it up front with a
-        // clear message instead.
-        let source_account = config.source_account()?;
-        if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
-            return Err(Error::MuxedSourceNotSupported);
-        }
-        let from = source_account.to_string();
+        // (which also signs and authorizes), `to` is the destination. A muxed
+        // (M…) `from` resolves to its underlying G… account: `from` must
+        // authorize the transfer, muxed accounts are not valid authorizers,
+        // and the host rejects a muxed `from` in simulation with an opaque
+        // `Error(Value, UnexpectedType)` (#2645). A muxed `--to` flows through
+        // as-is, preserving the mux id in the `transfer` argument and events.
+        let from = config.source_account()?.account_id().to_string();
         // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
         // resolve it to an `ScAddress` and hand the strkey to the `transfer`
         // arg, which accepts any of these destinations.
