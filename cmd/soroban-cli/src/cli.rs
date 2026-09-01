@@ -10,7 +10,7 @@ use crate::commands::contract::Error::{Deploy, Invoke};
 use crate::commands::Error::Contract;
 use crate::config::{locator::cli_config_file, Config};
 use crate::print::Print;
-use crate::upgrade_check::upgrade_check;
+use crate::upgrade_check::{upgrade_check, FETCH_TIMEOUT};
 use crate::{commands, env_vars, Root};
 use std::error::Error;
 
@@ -77,12 +77,22 @@ pub async fn main() {
     // Spawn a thread to check if a new version exists.
     // It depends on logger, so we need to place it after
     // the code block that initializes the logger.
-    tokio::spawn(async move {
-        upgrade_check(root.global_args.quiet).await;
+    let quiet = root.global_args.quiet;
+    let upgrade_check_handle = tokio::spawn(async move {
+        upgrade_check(quiet).await;
     });
 
     let printer = Print::new(root.global_args.quiet);
-    if let Err(e) = root.run().await {
+    let run_result = root.run().await;
+
+    // Every branch below this point exits via `std::process::exit`, which
+    // terminates the process without running anything after it -- including a
+    // call placed after this block. Finishing the upgrade check here, before
+    // any of those exits, is what makes it run on error paths too, not only
+    // when the command succeeds.
+    finish_upgrade_check(upgrade_check_handle).await;
+
+    if let Err(e) = run_result {
         // TODO: source is None (should be HelpMessage)
         let _source = commands::Error::source(&e);
         // TODO use source instead
@@ -105,6 +115,37 @@ pub async fn main() {
         }
         printer.errorln(format!("error: {e}"));
         std::process::exit(1);
+    }
+}
+
+// Returning from `main` ends the runtime, so a still-running upgrade check is
+// dropped where it stands. For a command that finishes faster than the request
+// to crates.io, that meant the fetched versions were never written to the cache
+// and the next run started over -- the check could keep re-fetching and keep
+// reporting whatever stale versions the cache already held.
+//
+// Give it a brief chance to land instead. The fetch runs alongside the command,
+// so by this point it has usually already finished and this returns
+// immediately; the wait only bites when the check actually went to the network,
+// which is at most once a day. Dropping it after the grace period is no worse
+// than the unconditional drop it replaces.
+//
+// Must outlast `FETCH_TIMEOUT`: the fetch itself is allowed to take that long,
+// and a grace period shorter than it would give up before a slow-but-successful
+// check could write its result to the cache -- reintroducing the very bug this
+// exists to fix.
+const UPGRADE_CHECK_GRACE: std::time::Duration =
+    FETCH_TIMEOUT.saturating_add(std::time::Duration::from_secs(1));
+
+async fn finish_upgrade_check(handle: tokio::task::JoinHandle<()>) {
+    match tokio::time::timeout(UPGRADE_CHECK_GRACE, handle).await {
+        Ok(Ok(())) => {}
+        Ok(Err(join_err)) => {
+            tracing::debug!("upgrade check task failed: {join_err}");
+        }
+        Err(_) => {
+            tracing::debug!("upgrade check did not finish within its grace period");
+        }
     }
 }
 
@@ -190,5 +231,19 @@ fn set_env_value_from_config<T: std::fmt::Display>(name: &str, value: Option<T>)
     if std::env::var(name).is_err() {
         std::env::set_var(name, value.to_string());
         std::env::set_var(format!("{name}_SOURCE"), "use");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The grace period exists so a fetch that its own timeout allowed to
+    // succeed always has room to write its result. A grace shorter than
+    // `FETCH_TIMEOUT` would give up on exactly the slow-but-successful check
+    // this is meant to rescue, reintroducing the bug it fixes.
+    #[test]
+    fn the_grace_period_outlasts_the_fetch_it_waits_on() {
+        assert!(UPGRADE_CHECK_GRACE > FETCH_TIMEOUT);
     }
 }
