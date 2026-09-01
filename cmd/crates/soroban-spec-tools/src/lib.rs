@@ -811,6 +811,9 @@ pub fn from_string_primitive(s: &str, t: &ScType) -> Result<ScVal, Error> {
 
 /// Strips Rust-style `_` digit separators (e.g. `100_000_0000`) from `s` when
 /// the target type is numeric and every underscore sits between two digits.
+/// Only plain decimal input (with an optional leading sign) qualifies:
+/// base-prefixed forms such as `0x1_000` are returned unchanged, so the
+/// downstream parser rejects the underscore instead of misreading the value.
 /// Any other input, and any non-numeric target type, is returned unchanged so
 /// underscores keep their meaning in symbols, strings, and byte payloads.
 fn strip_number_separators<'a>(s: &'a str, t: &ScType) -> std::borrow::Cow<'a, str> {
@@ -1622,6 +1625,22 @@ mod tests {
         .unwrap();
         assert_eq!(parsed, expected);
 
+        let parsed = from_string_primitive(
+            "-340_282366920938463463374607431768211456",
+            &ScType::I256,
+        )
+        .unwrap();
+        let expected = from_string_primitive(
+            "-340282366920938463463374607431768211456",
+            &ScType::I256,
+        )
+        .unwrap();
+        assert_eq!(parsed, expected);
+
+        let parsed = from_string_primitive("1_000", &ScType::U128).unwrap();
+        let expected = from_string_primitive("1000", &ScType::U128).unwrap();
+        assert_eq!(parsed, expected);
+
         // Option<numeric> goes through the same path
         let parsed = from_string_primitive(
             "1_000",
@@ -1641,6 +1660,22 @@ mod tests {
         assert!(from_string_primitive("1000_", &ScType::U32).is_err());
         assert!(from_string_primitive("1__000", &ScType::U32).is_err());
         assert!(from_string_primitive("-_1000", &ScType::I64).is_err());
+
+        // Same rules on the 128/256-bit paths, which reject through the
+        // string-number parser rather than serde_json.
+        assert!(from_string_primitive("_1000", &ScType::U256).is_err());
+        assert!(from_string_primitive("1000_", &ScType::I256).is_err());
+        assert!(from_string_primitive("1__000", &ScType::U256).is_err());
+        assert!(from_string_primitive("-_1000", &ScType::I256).is_err());
+        assert!(from_string_primitive("1__000", &ScType::U128).is_err());
+
+        // Separators adjacent to a base prefix are never stripped: the input
+        // passes through untouched and the downstream parser rejects the
+        // underscore. (Prefixed input without separators, e.g. `0x1000`,
+        // still parses for u256/i256, which accept prefixed forms.)
+        assert!(from_string_primitive("0x1_000", &ScType::U32).is_err());
+        assert!(from_string_primitive("0x1_000", &ScType::U256).is_err());
+        assert!(from_string_primitive("0x1_000", &ScType::I256).is_err());
     }
 
     #[test]
