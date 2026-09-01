@@ -13,7 +13,8 @@ pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_accou
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
 
 /// Poll a Horizon endpoint until `extract` yields a value that `accept`s, or
-/// ~30s elapse (150 tries, 200ms apart).
+/// a 30s deadline passes. The deadline bounds the whole call, including HTTP
+/// request time, not just the sleeps between tries.
 ///
 /// Horizon ingestion lags the RPC acknowledgment the CLI returns on, so a
 /// read issued immediately after a submitted transaction can observe stale
@@ -25,16 +26,19 @@ pub async fn poll_horizon_until<T>(
     extract: impl Fn(&serde_json::Value) -> Option<T>,
     accept: impl Fn(&T) -> bool,
 ) -> Option<T> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
     let mut last = None;
-    for _ in 0..150 {
-        if let Ok(response) = reqwest::get(url).await {
-            if let Ok(json) = response.json::<serde_json::Value>().await {
-                if let Some(value) = extract(&json) {
-                    if accept(&value) {
-                        return Some(value);
-                    }
-                    last = Some(value);
+    while tokio::time::Instant::now() < deadline {
+        let attempt = async {
+            let response = reqwest::get(url).await.ok()?;
+            response.json::<serde_json::Value>().await.ok()
+        };
+        if let Ok(Some(json)) = tokio::time::timeout_at(deadline, attempt).await {
+            if let Some(value) = extract(&json) {
+                if accept(&value) {
+                    return Some(value);
                 }
+                last = Some(value);
             }
         }
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
