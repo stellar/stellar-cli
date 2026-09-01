@@ -111,7 +111,7 @@ impl Args {
             return Ok(TxnEnvelopeResult::TxnEnvelope(Box::new(tx.into())));
         }
 
-let print = crate::print::Print::new(args.quiet);
+        let print = crate::print::Print::new(args.quiet);
         let signed_tx = self.config.sign(tx, args.quiet).await?;
         let txn_resp = match crate::tx::send_transaction_polling_with_events(
             &client,

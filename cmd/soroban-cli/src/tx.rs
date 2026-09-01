@@ -6,7 +6,7 @@ use crate::{
     signer::{self, Signer},
     utils::transaction_env_hash,
     xdr::{
-self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash, Limits,
+        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash, Limits,
         Transaction, TransactionEnvelope, WriteXdr,
     },
 };
@@ -40,11 +40,16 @@ pub(crate) fn save_failed_send(
                 })
         });
     match saved {
-        Ok(id) => print.warnln(format!(
-            "The transaction failed to send, but the signed envelope was saved to the \
-             action log and can be resubmitted without re-signing:\n  \
-             stellar cache actionlog read --id {id} | jq -r .action.send_failed.envelope_xdr | stellar tx send"
-        )),
+        Ok(id) => {
+            let rpc_url = &network.rpc_url;
+            let network_passphrase = &network.network_passphrase;
+            print.warnln(format!(
+                "The transaction failed to send, but the signed envelope was saved to the \
+                 action log and can be resubmitted to the same network without re-signing:\n  \
+                 stellar cache actionlog read --id {id} | jq -r .action.send_failed.envelope_xdr | \
+                 stellar tx send --rpc-url '{rpc_url}' --network-passphrase '{network_passphrase}'"
+            ));
+        }
         Err(e) => tracing::debug!("failed to save the signed envelope to the action log: {e}"),
     }
 }
@@ -140,7 +145,7 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-let res = match send_transaction_polling_with_events(
+    let res = match send_transaction_polling_with_events(
         client,
         &signed_tx,
         &network.network_passphrase,
