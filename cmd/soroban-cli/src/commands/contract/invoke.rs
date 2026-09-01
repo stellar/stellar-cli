@@ -96,6 +96,8 @@ impl Pwd for Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
     #[error("cannot add contract to ledger entries: {0}")]
     CannotAddContractToLedgerEntries(xdr::Error),
 
@@ -248,8 +250,12 @@ impl Cmd {
         let AccountId(PublicKey::PublicKeyTypeEd25519(account_id)) =
             account_details.account_id.clone();
 
-        let tx =
-            build_invoke_contract_tx(host_function_params.clone(), sequence + 1, 100, account_id)?;
+        let tx = build_invoke_contract_tx(
+            host_function_params.clone(),
+            crate::utils::next_sequence_number(sequence)?,
+            100,
+            account_id,
+        )?;
         Ok(simulate_and_assemble_transaction(
             rpc_client,
             &tx,
@@ -385,7 +391,7 @@ impl Cmd {
 
         let tx = Box::new(build_invoke_contract_tx(
             host_function_params.clone(),
-            sequence + 1,
+            crate::utils::next_sequence_number(sequence)?,
             config.get_inclusion_fee()?,
             account_id,
         )?);
