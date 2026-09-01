@@ -673,6 +673,7 @@ mod tests {
         let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
         let contract = [42u8; 32];
 
+        let expected_address = address.to_string();
         let entry = address_auth(address, invocation(contract, "hello"));
         let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
         let tx = build_tx(source, host_fn, vec![entry]);
@@ -688,7 +689,10 @@ mod tests {
         .await;
 
         match res {
-            Err(Error::UnsupportedAuthAddress { kind, .. }) => assert_eq!(kind, expected_kind),
+            Err(Error::UnsupportedAuthAddress { kind, address }) => {
+                assert_eq!(kind, expected_kind);
+                assert_eq!(address, expected_address);
+            }
             other => panic!("expected UnsupportedAuthAddress error, got: {other:?}"),
         }
     }
