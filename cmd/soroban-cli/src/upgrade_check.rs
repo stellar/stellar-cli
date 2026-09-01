@@ -89,8 +89,10 @@ pub async fn has_available_upgrade(
         // Without a fresh answer from crates.io the cached versions may be
         // arbitrarily old, and reporting them as "the latest release" tells
         // the user to upgrade to a version that is itself outdated (#2464).
-        // The check time above was still advanced, so the fetch is retried
-        // at most once per interval rather than on every invocation.
+        // The stale versions were reset above, so invocations inside the
+        // throttle window that skip this block stay silent as well, and the
+        // check time was still advanced, so the fetch is retried at most
+        // once per interval rather than on every invocation.
         fetched?;
     }
 
@@ -107,11 +109,13 @@ pub async fn has_available_upgrade(
 /// Folds the outcome of a crates.io fetch into the cached stats.
 ///
 /// On success the cached versions and check time are replaced wholesale. On
-/// failure the cached versions are deliberately left untouched — they are
-/// stale, not authoritative — while the check time still advances so a
-/// failing fetch is retried at most once per check interval instead of on
-/// every command. The error is propagated so callers know the versions in
-/// `stats` do not reflect a current answer from crates.io.
+/// failure the cached versions are reset to the `0.0.0` defaults — they are
+/// stale, not authoritative, and leaving them in place would let the next
+/// invocation inside the throttle window (which skips the fetch entirely)
+/// print an upgrade warning from them (#2464) — while the check time still
+/// advances so a failing fetch is retried at most once per check interval
+/// instead of on every command. The error is propagated so callers know the
+/// versions in `stats` do not reflect a current answer from crates.io.
 fn apply_fetch_result(
     stats: &mut UpgradeCheck,
     result: Result<Crate, Box<dyn Error>>,
@@ -127,7 +131,10 @@ fn apply_fetch_result(
             Ok(())
         }
         Err(e) => {
-            stats.latest_check_time = now;
+            *stats = UpgradeCheck {
+                latest_check_time: now,
+                ..UpgradeCheck::default()
+            };
             Err(e)
         }
     }
@@ -209,8 +216,10 @@ mod tests {
     fn test_apply_fetch_result_failure_is_propagated_not_swallowed() {
         // Regression for #2464: when the crates.io fetch fails, the cached
         // versions may be arbitrarily stale. The failure must surface to the
-        // caller so no upgrade warning is printed from stale data, while the
-        // check time still advances to keep the retry throttled.
+        // caller so no upgrade warning is printed from stale data, and the
+        // stale versions must be cleared so later invocations inside the
+        // throttle window (which skip the fetch) cannot warn from them,
+        // while the check time still advances to keep the retry throttled.
         let stale_time = chrono::Utc::now() - chrono::Duration::days(19);
         let mut stats = UpgradeCheck {
             latest_check_time: stale_time,
@@ -231,8 +240,13 @@ mod tests {
         );
         assert_eq!(
             stats.max_stable_version,
-            Version::parse("25.1.0").unwrap(),
-            "stale cached versions must not be rewritten on failure"
+            Version::new(0, 0, 0),
+            "stale max_stable_version must be cleared so throttled invocations cannot warn from it"
+        );
+        assert_eq!(
+            stats.max_version,
+            Version::new(0, 0, 0),
+            "stale max_version must be cleared so throttled invocations cannot warn from it"
         );
     }
 
