@@ -92,8 +92,12 @@ jobs:
         id: find-wasm
         run: |
           root=$(dirname "$(cargo locate-project --workspace --message-format plain --manifest-path ${{ matrix.dir }}/Cargo.toml)")
-          wasm=$(find "$root/target" -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
-          echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
+          mapfile -t wasms < <(find "$root/target" -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | sort)
+          if [ "${#wasms[@]}" -eq 0 ]; then
+            echo "ERROR: no contract wasm found under $root/target" >&2
+            exit 1
+          fi
+          echo "wasm=${wasms[0]}" | tee -a $GITHUB_OUTPUT
       - name: Set artifact name
         id: artifact-name
         run: echo "name=wasm-$(echo ${{ matrix.dir }} | sed 's/\//-/g')${{ matrix.experimental_spec_shaking_v2 && '-spec-shaking-v2' || '' }}" | tee -a $GITHUB_OUTPUT
