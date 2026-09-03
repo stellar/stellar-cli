@@ -2034,7 +2034,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4286,7 +4286,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.4",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4675,7 +4675,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5535,7 +5535,7 @@ version = "28.0.0"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "serde",
  "serde_json",
@@ -5548,7 +5548,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5573,7 +5573,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "darling 0.20.11",
  "heck 0.5.0",
@@ -5591,7 +5591,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5602,7 +5602,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-rust"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5700,7 +5700,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-sdk"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "soroban-sdk",
 ]
@@ -5708,7 +5708,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5758,7 +5758,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-asset-spec"
 version = "28.0.0-rc.1"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5#cd0aa803c5c072987cedefe9c2152e093fde91a5"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a#4d8faeff872aa7567de6fcf07bb33ae74500ab5a"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -6062,7 +6062,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.8",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

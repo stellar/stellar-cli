@@ -128,12 +128,12 @@ astral-tokio-tar = "0.6.0"
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "82677e1dfe49b6b94fc6440d9c58be74d2a33bff" }
 # Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
 # user-defined types in contract specs by their fully qualified path.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4d8faeff872aa7567de6fcf07bb33ae74500ab5a" }
 
 [profile.release]
 overflow-checks = true

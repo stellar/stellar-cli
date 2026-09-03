@@ -239,7 +239,7 @@ allow-git = [
   "https://github.com/stellar/rs-stellar-xdr?rev=82677e1dfe49b6b94fc6440d9c58be74d2a33bff",
   # https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
   # user-defined types in contract specs by their fully qualified path.
-  "https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5",
+  "https://github.com/stellar/rs-soroban-sdk?rev=4d8faeff872aa7567de6fcf07bb33ae74500ab5a",
 ]
 
 [sources.allow-org]
