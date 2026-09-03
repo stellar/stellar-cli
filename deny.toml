@@ -233,10 +233,13 @@ allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
   "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
 
-  # Temporary patch, remove once merged and released:
+  # Temporary patches, remove once merged and released:
   # https://github.com/stellar/rs-stellar-xdr/pull/566, which widens the
   # user-defined type name limit so a fully qualified type name fits.
-  "https://github.com/stellar/rs-stellar-xdr?rev=99a031a6f6a0935f68c073705651bd1addca1fd4",
+  "https://github.com/stellar/rs-stellar-xdr?rev=82677e1dfe49b6b94fc6440d9c58be74d2a33bff",
+  # https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
+  # user-defined types in contract specs by their fully qualified path.
+  "https://github.com/stellar/rs-soroban-sdk?rev=cd0aa803c5c072987cedefe9c2152e093fde91a5",
 ]
 
 [sources.allow-org]

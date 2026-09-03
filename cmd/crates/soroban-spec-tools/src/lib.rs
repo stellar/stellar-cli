@@ -2356,7 +2356,7 @@ mod tests {
         ScSpecEventV0 {
             doc: StringM::default(),
             lib: StringM::default(),
-            name: ScSymbol(name.try_into().unwrap()),
+            name: name.try_into().unwrap(),
             prefix_topics: VecM::default(),
             params: VecM::default(),
             data_format: stellar_xdr::ScSpecEventDataFormat::SingleValue,

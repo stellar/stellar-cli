@@ -123,8 +123,17 @@ astral-tokio-tar = "0.6.0"
 
 [patch.crates-io]
 # Pending https://github.com/stellar/rs-stellar-xdr/pull/566, which widens the
-# user-defined type name limit so that a fully qualified type name fits.
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "99a031a6f6a0935f68c073705651bd1addca1fd4" }
+# user-defined type name limit so that a fully qualified type name fits. Pinned
+# to the same rev rs-soroban-sdk#1970 uses so the graph has one stellar-xdr.
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "82677e1dfe49b6b94fc6440d9c58be74d2a33bff" }
+# Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
+# user-defined types in contract specs by their fully qualified path.
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "cd0aa803c5c072987cedefe9c2152e093fde91a5" }
 
 [profile.release]
 overflow-checks = true
