@@ -65,17 +65,45 @@ impl Cmd {
             }
         };
 
+        // Contract specs may name user-defined types by their fully qualified
+        // path (e.g. `my_contract::inner::State`). Those names are noisy and,
+        // because `::` is not a valid identifier, the Rust and JSON renderers
+        // below cannot use them as-is. Reduce them to short names for display,
+        // reporting what changed. The `XdrBase64` output is the canonical
+        // on-chain spec, so it is left untouched.
+        let (reduced_spec, reduction) = soroban_spec_tools::reduce::reduce_udt_names(&spec);
+        if !matches!(self.output, InfoOutput::XdrBase64) {
+            for rename in &reduction.renames {
+                print.infoln(format!(
+                    "Reduced type name {} to {}",
+                    rename.from, rename.to
+                ));
+            }
+            if !reduction.collisions.is_empty() {
+                use std::fmt::Write as _;
+                let mut msg = String::from(
+                    "Reduced type names collided and were disambiguated with a numeric suffix:",
+                );
+                for collision in &reduction.collisions {
+                    for member in &collision.members {
+                        let _ = write!(msg, "\n    {} -> {}", member.from, member.to);
+                    }
+                }
+                print.warnln(msg);
+            }
+        }
+
         let res = match self.output {
             InfoOutput::XdrBase64 => base64,
-            InfoOutput::Json => serde_json::to_string(&spec)?,
-            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
+            InfoOutput::Json => serde_json::to_string(&reduced_spec)?,
+            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&reduced_spec)?,
             // soroban_spec_rust drops doc strings entirely (rustdocs can execute
             // code) and routes every spec name through `format_ident!`, which
             // rejects non-identifier bytes. If a future revision starts
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
             // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&reduced_spec)?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };
