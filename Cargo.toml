@@ -121,6 +121,11 @@ testcontainers = "0.27.2"
 httpmock = "0.7.0"
 astral-tokio-tar = "0.6.0"
 
+[patch.crates-io]
+# Pending https://github.com/stellar/rs-stellar-xdr/pull/566, which widens the
+# user-defined type name limit so that a fully qualified type name fits.
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "99a031a6f6a0935f68c073705651bd1addca1fd4" }
+
 [profile.release]
 overflow-checks = true
 
