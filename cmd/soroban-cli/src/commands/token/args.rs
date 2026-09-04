@@ -12,9 +12,9 @@ pub enum OutputFormat {
     /// Human-readable text.
     #[default]
     Text,
-    /// Compact, single-line JSON receipt.
+    /// Compact, single-line JSON output.
     Json,
-    /// Formatted (multiline) JSON receipt.
+    /// Formatted (multiline) JSON output.
     JsonFormatted,
 }
 

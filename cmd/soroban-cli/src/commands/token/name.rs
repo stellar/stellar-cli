@@ -107,10 +107,16 @@ impl Cmd {
         .map_err(|e| args::not_deployed_error(&token, &e).map_or(Error::Invoke(e), Error::Args))?
         .into_result();
 
-        // The decoded `name` comes back JSON-encoded as a quoted string; strip
-        // the surrounding quotes to recover the plain metadata value.
-        let out = receipt.map(|r| r.output).unwrap_or_default();
-        let name = out.trim().trim_matches('"').to_string();
+        // The invoke pipeline renders the `String` return value as JSON, so
+        // decode it back through serde rather than trimming quotes by hand —
+        // that recovers a name containing quotes, backslashes, or control
+        // characters intact instead of leaking the escape sequences. `name()`
+        // always returns a value on a successful read, so a missing receipt
+        // (build-only, which reads never set) decodes as an empty name.
+        let name = match receipt {
+            Some(r) => serde_json::from_str::<String>(r.output.trim())?,
+            None => String::new(),
+        };
 
         output.readable(|_| println!("{name}"));
         output.json_value(&NameResult { name })?;
