@@ -3,6 +3,7 @@ pub mod approve;
 pub mod args;
 pub mod balance;
 pub mod decimals;
+pub mod mint;
 pub mod name;
 pub mod symbol;
 pub mod transfer;
@@ -31,6 +32,9 @@ pub enum Cmd {
 
     /// Read the allowance a spender has on an owner's behalf
     Allowance(allowance::Cmd),
+
+    /// Mint new tokens to an account or contract (SAC admin)
+    Mint(mint::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -49,6 +53,8 @@ pub enum Error {
     Approve(#[from] approve::Error),
     #[error(transparent)]
     Allowance(#[from] allowance::Error),
+    #[error(transparent)]
+    Mint(#[from] mint::Error),
 }
 
 impl Error {
@@ -63,6 +69,7 @@ impl Error {
             Error::Decimals(e) => e.error_type(),
             Error::Approve(e) => e.error_type(),
             Error::Allowance(e) => e.error_type(),
+            Error::Mint(e) => e.error_type(),
         }
     }
 }
@@ -77,6 +84,7 @@ impl Cmd {
             Cmd::Decimals(cmd) => cmd.run(global_args).await?,
             Cmd::Approve(cmd) => cmd.run(global_args).await?,
             Cmd::Allowance(cmd) => cmd.run(global_args).await?,
+            Cmd::Mint(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
