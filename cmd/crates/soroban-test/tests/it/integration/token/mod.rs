@@ -1,3 +1,4 @@
+pub mod approve;
 pub mod balance;
 pub mod decimals;
 pub mod name;
