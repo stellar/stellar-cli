@@ -118,7 +118,11 @@ impl Cmd {
             None => String::new(),
         };
 
-        output.readable(|_| println!("{name}"));
+        // The name is contract-controlled data, so escape any ANSI/control
+        // sequences before writing it to the terminal — matching how other
+        // contract-derived output is rendered (see `log::auth`/`log::event`).
+        // JSON output keeps the exact value: serde re-escapes it safely.
+        output.readable(|_| println!("{}", soroban_spec_tools::sanitize(&name)));
         output.json_value(&NameResult { name })?;
 
         Ok(())
