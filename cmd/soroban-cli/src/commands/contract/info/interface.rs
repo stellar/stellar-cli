@@ -65,17 +65,51 @@ impl Cmd {
             }
         };
 
+        // Contract specs may name user-defined types by their fully qualified
+        // path (e.g. `my_contract::inner::State`). Those names are noisy and,
+        // because `::` is not a valid identifier, the Rust and JSON renderers
+        // below cannot use them as-is. Reduce them to short names for display,
+        // reporting what changed. The `XdrBase64` output is the canonical
+        // on-chain spec, so it is left untouched.
+        let reduced = soroban_spec::reduce::reduce(&spec);
+        if !matches!(self.output, InfoOutput::XdrBase64) {
+            for rename in reduced.renames().filter(|r| r.renamed()) {
+                print.infoln(format!(
+                    "Reduced type name {} to {}",
+                    String::from_utf8_lossy(&rename.from),
+                    String::from_utf8_lossy(&rename.to),
+                ));
+            }
+            let collisions: Vec<_> = reduced.renames().filter(|r| r.collision()).collect();
+            if !collisions.is_empty() {
+                use std::fmt::Write as _;
+                let mut msg = String::from(
+                    "Reduced type names collided and were disambiguated with a numeric suffix:",
+                );
+                for rename in collisions {
+                    let _ = write!(
+                        msg,
+                        "\n    {} -> {}",
+                        String::from_utf8_lossy(&rename.from),
+                        String::from_utf8_lossy(&rename.to),
+                    );
+                }
+                print.warnln(msg);
+            }
+        }
+        let reduced_spec: Vec<_> = reduced.into_entries().collect();
+
         let res = match self.output {
             InfoOutput::XdrBase64 => base64,
-            InfoOutput::Json => serde_json::to_string(&spec)?,
-            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&spec)?,
+            InfoOutput::Json => serde_json::to_string(&reduced_spec)?,
+            InfoOutput::JsonFormatted => serde_json::to_string_pretty(&reduced_spec)?,
             // soroban_spec_rust drops doc strings entirely (rustdocs can execute
             // code) and routes every spec name through `format_ident!`, which
             // rejects non-identifier bytes. If a future revision starts
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
             // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&reduced_spec)?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };

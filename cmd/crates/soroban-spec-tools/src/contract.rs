@@ -316,7 +316,7 @@ fn indent(s: &str, n: usize) -> String {
         .join("\n")
 }
 
-fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
+fn format_name(lib: &StringM<80>, name: &StringM<{ crate::UDT_NAME_LIMIT }>) -> String {
     if lib.is_empty() {
         sanitize(&name.to_utf8_string_lossy())
     } else {

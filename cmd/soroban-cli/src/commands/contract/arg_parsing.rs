@@ -1074,7 +1074,8 @@ mod tests {
         };
 
         // Build a minimal Spec with a union type: enum MyEnum { Unit }
-        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let union_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> =
+            "MyEnum".try_into().unwrap();
         let case_name: StringM<60> = "Unit".try_into().unwrap();
         let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
@@ -1123,7 +1124,8 @@ mod tests {
             ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, StringM,
         };
 
-        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let union_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> =
+            "MyEnum".try_into().unwrap();
         let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
@@ -1190,7 +1192,7 @@ mod tests {
         use stellar_xdr::{
             ScSpecEntry, ScSpecTypeUdt, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM,
         };
-        let struct_name: StringM<60> = name.try_into().unwrap();
+        let struct_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> = name.try_into().unwrap();
         let fields_xdr: Vec<ScSpecUdtStructFieldV0> = fields
             .iter()
             .map(|(n, t)| ScSpecUdtStructFieldV0 {
@@ -1324,7 +1326,8 @@ mod tests {
             ScSpecUdtUnionV0, StringM,
         };
 
-        let union_name: StringM<60> = "Choice".try_into().unwrap();
+        let union_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> =
+            "Choice".try_into().unwrap();
         let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
@@ -1362,7 +1365,8 @@ mod tests {
             ScSpecUdtUnionV0, StringM,
         };
 
-        let union_name: StringM<60> = "OneOf".try_into().unwrap();
+        let union_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> =
+            "OneOf".try_into().unwrap();
         let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
