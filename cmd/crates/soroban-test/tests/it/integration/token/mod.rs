@@ -1,6 +1,7 @@
 pub mod balance;
 pub mod name;
 pub mod renamed;
+pub mod symbol;
 pub mod transfer;
 
 use soroban_test::{AssertExt, TestEnv};
