@@ -1,3 +1,4 @@
+pub mod allowance;
 pub mod approve;
 pub mod args;
 pub mod balance;
@@ -27,6 +28,9 @@ pub enum Cmd {
 
     /// Approve an allowance for a spender to transfer on your behalf
     Approve(approve::Cmd),
+
+    /// Read the allowance a spender has on an owner's behalf
+    Allowance(allowance::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,6 +47,8 @@ pub enum Error {
     Decimals(#[from] decimals::Error),
     #[error(transparent)]
     Approve(#[from] approve::Error),
+    #[error(transparent)]
+    Allowance(#[from] allowance::Error),
 }
 
 impl Error {
@@ -56,6 +62,7 @@ impl Error {
             Error::Symbol(e) => e.error_type(),
             Error::Decimals(e) => e.error_type(),
             Error::Approve(e) => e.error_type(),
+            Error::Allowance(e) => e.error_type(),
         }
     }
 }
@@ -69,6 +76,7 @@ impl Cmd {
             Cmd::Symbol(cmd) => cmd.run(global_args).await?,
             Cmd::Decimals(cmd) => cmd.run(global_args).await?,
             Cmd::Approve(cmd) => cmd.run(global_args).await?,
+            Cmd::Allowance(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
