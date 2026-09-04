@@ -1918,6 +1918,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 
 - `transfer` — Transfer tokens from one account to another
 - `balance` — Read the token balance of an account or contract
+- `name` — Read the token's name (SEP-41 metadata)
 
 ## `stellar token transfer`
 
@@ -1974,6 +1975,35 @@ Read the token balance of an account or contract
 - `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
 - `--account <ACCOUNT>` — Account or contract whose balance to read
 - `--decimal` — Format the balance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON receipt
+  - `json-formatted`: Formatted (multiline) JSON receipt
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token name`
+
+Read the token's name (SEP-41 metadata)
+
+**Usage:** `stellar token name [OPTIONS] --id <ID>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `text`
@@ -4503,6 +4533,11 @@ Generate arbitrary XDR values
   Default value: `single-base64`
 
   Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
+
+- `--hint <HINT>` — Keep generating values until the value's JSON representation contains this string. Useful for hinting toward a particular union/enum variant or sub-value. Repeat the flag to require several substrings; all of them must be present in the same value
+- `--hint-attempts <HINT_ATTEMPTS>` — Maximum number of generation attempts when --hint is set before giving up
+
+  Default value: `20000`
 
 ## `stellar xdr xfile`
 

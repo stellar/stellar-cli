@@ -1,4 +1,5 @@
 pub mod balance;
+pub mod name;
 pub mod renamed;
 pub mod transfer;
 
