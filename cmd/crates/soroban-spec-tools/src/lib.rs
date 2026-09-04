@@ -17,7 +17,6 @@ use stellar_xdr::{
 
 pub mod contract;
 pub mod event;
-pub mod reduce;
 pub mod test_utils;
 pub mod utils;
 mod verify;
