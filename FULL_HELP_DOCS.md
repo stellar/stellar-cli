@@ -1922,6 +1922,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 - `symbol` — Read the token's symbol (SEP-41 metadata)
 - `decimals` — Read the token's decimals (SEP-41 metadata)
 - `approve` — Approve an allowance for a spender to transfer on your behalf
+- `allowance` — Read the allowance a spender has on an owner's behalf
 
 ## `stellar token transfer`
 
@@ -2121,6 +2122,38 @@ Approve an allowance for a spender to transfer on your behalf
 - `--sign-with-lab` — Sign with https://lab.stellar.org
 - `--sign-with-ledger` — Sign with a ledger wallet
 - `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token allowance`
+
+Read the allowance a spender has on an owner's behalf
+
+**Usage:** `stellar token allowance [OPTIONS] --id <ID> --from <FROM> --spender <SPENDER>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account that granted the allowance (the owner of the funds)
+- `--spender <SPENDER>` — Account or contract allowed to spend on `--from`'s behalf
+- `--decimal` — Format the allowance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar tx`
 
