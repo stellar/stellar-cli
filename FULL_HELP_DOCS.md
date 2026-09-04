@@ -1958,6 +1958,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 - `mint` — Mint new tokens to an account or contract (SAC admin)
 - `clawback` — Claw back tokens from an account or contract (SAC admin)
 - `set-admin` — Transfer administration of the token to a new admin (SAC admin)
+- `set-authorized` — Authorize or deauthorize an account to hold the token (SAC admin)
 
 ## `stellar token transfer`
 
@@ -2420,6 +2421,56 @@ Calls the token's Stellar Asset Contract `set_admin` function. A non-SAC contrac
 
 - `--id <ID>` — The token to re-administer: a contract id or alias, or a classic asset as `CODE:ISSUER`
 - `--new-admin <NEW_ADMIN>` — The new administrator to hand control to. Accepts a `G…` account, a `C…` contract address, or an alias
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+###### **Transaction Options:**
+
+- `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+
+## `stellar token set-authorized`
+
+Authorize or deauthorize an account to hold the token (SAC admin)
+
+Calls the token's Stellar Asset Contract `set_authorized` function. A non-SAC contract with a same-named function that takes different arguments will fail or misbehave — use `stellar contract invoke` for those.
+
+**Usage:** `stellar token set-authorized [OPTIONS] --id <ID> --account <ACCOUNT> --authorize <AUTHORIZE> --source-account <SOURCE_ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token whose authorization to set: a contract id or alias, or a classic asset as `CODE:ISSUER`
+- `--account <ACCOUNT>` — Account or contract whose authorization to set. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--authorize <AUTHORIZE>` — Whether the account is authorized (`true`) to hold and transact the token, or deauthorized/frozen (`false`)
+
+  Possible values: `true`, `false`
+
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `text`
