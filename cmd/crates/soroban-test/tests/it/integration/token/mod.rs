@@ -3,6 +3,7 @@ pub mod approve;
 pub mod balance;
 pub mod burn;
 pub mod burn_from;
+pub mod clawback;
 pub mod decimals;
 pub mod mint;
 pub mod name;

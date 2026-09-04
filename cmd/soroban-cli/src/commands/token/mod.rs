@@ -4,6 +4,7 @@ pub mod args;
 pub mod balance;
 pub mod burn;
 pub mod burn_from;
+pub mod clawback;
 pub mod decimals;
 pub mod mint;
 pub mod name;
@@ -51,6 +52,13 @@ pub enum Cmd {
     /// contract with a same-named function that takes different arguments will
     /// fail or misbehave — use `stellar contract invoke` for those.
     Mint(mint::Cmd),
+
+    /// Claw back tokens from an account or contract (SAC admin)
+    ///
+    /// Calls the token's Stellar Asset Contract `clawback` function. A non-SAC
+    /// contract with a same-named function that takes different arguments will
+    /// fail or misbehave — use `stellar contract invoke` for those.
+    Clawback(clawback::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -77,6 +85,8 @@ pub enum Error {
     Allowance(#[from] allowance::Error),
     #[error(transparent)]
     Mint(#[from] mint::Error),
+    #[error(transparent)]
+    Clawback(#[from] clawback::Error),
 }
 
 impl Error {
@@ -95,6 +105,7 @@ impl Error {
             Error::Approve(e) => e.error_type(),
             Error::Allowance(e) => e.error_type(),
             Error::Mint(e) => e.error_type(),
+            Error::Clawback(e) => e.error_type(),
         }
     }
 }
@@ -113,6 +124,7 @@ impl Cmd {
             Cmd::Approve(cmd) => cmd.run(global_args).await?,
             Cmd::Allowance(cmd) => cmd.run(global_args).await?,
             Cmd::Mint(cmd) => cmd.run(global_args).await?,
+            Cmd::Clawback(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
