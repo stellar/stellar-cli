@@ -114,6 +114,37 @@ async fn approve_fails_when_sac_not_deployed() {
 }
 
 #[tokio::test]
+async fn approve_rejects_muxed_source_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+
+    // Muxed (M…) source accounts aren't supported by the invoke pipeline yet
+    // (see #2645). Until then the command must reject them up front with a clear
+    // message rather than a raw strkey decode error deep in the pipeline.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "approve",
+            "--id",
+            "native",
+            "--from",
+            muxed,
+            "--spender",
+            &spender,
+            "--amount",
+            "1",
+            "--expiration-ledger",
+            "9999999",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) source accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
 async fn approve_rejects_negative_amount_before_any_rpc() {
     let sandbox = &TestEnv::new();
     let spender = new_account(sandbox, "spender");
