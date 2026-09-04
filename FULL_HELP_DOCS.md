@@ -1926,6 +1926,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 - `mint` — Mint new tokens to an account or contract (SAC admin)
 - `clawback` — Claw back tokens from an account or contract (SAC admin)
 - `set-admin` — Transfer administration of the token to a new admin (SAC admin)
+- `set-authorized` — Authorize or deauthorize an account to hold the token (SAC admin)
 
 ## `stellar token transfer`
 
@@ -2253,6 +2254,49 @@ Transfer administration of the token to a new admin (SAC admin)
 - `--id <ID>` — The token to re-administer: a contract id or alias, or a classic asset as `CODE:ISSUER`
 - `--admin <ADMIN>` — The token's current administrator. Signs and authorizes the change, so it must be an identity or secret key you control (the asset issuer for a Stellar Asset Contract)
 - `--new-admin <NEW_ADMIN>` — The new administrator to hand control to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token set-authorized`
+
+Authorize or deauthorize an account to hold the token (SAC admin)
+
+**Usage:** `stellar token set-authorized [OPTIONS] --id <ID> --admin <ADMIN> --account <ACCOUNT> --authorize <AUTHORIZE>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token whose authorization to set: a contract id or alias, or a classic asset as `CODE:ISSUER`
+- `--admin <ADMIN>` — The token's administrator. Signs and authorizes the change, so it must be an identity or secret key you control (the asset issuer for a Stellar Asset Contract)
+- `--account <ACCOUNT>` — Account or contract whose authorization to set. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--authorize <AUTHORIZE>` — Whether the account is authorized (`true`) to hold and transact the token, or deauthorized/frozen (`false`)
+
+  Possible values: `true`, `false`
+
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `text`
