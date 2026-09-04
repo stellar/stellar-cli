@@ -1,6 +1,7 @@
 pub mod args;
 pub mod balance;
 pub mod name;
+pub mod symbol;
 pub mod transfer;
 
 use crate::commands::global;
@@ -15,6 +16,9 @@ pub enum Cmd {
 
     /// Read the token's name (SEP-41 metadata)
     Name(name::Cmd),
+
+    /// Read the token's symbol (SEP-41 metadata)
+    Symbol(symbol::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -25,6 +29,8 @@ pub enum Error {
     Balance(#[from] balance::Error),
     #[error(transparent)]
     Name(#[from] name::Error),
+    #[error(transparent)]
+    Symbol(#[from] symbol::Error),
 }
 
 impl Error {
@@ -35,6 +41,7 @@ impl Error {
             Error::Transfer(e) => e.error_type(),
             Error::Balance(e) => e.error_type(),
             Error::Name(e) => e.error_type(),
+            Error::Symbol(e) => e.error_type(),
         }
     }
 }
@@ -45,6 +52,7 @@ impl Cmd {
             Cmd::Transfer(cmd) => cmd.run(global_args).await?,
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
             Cmd::Name(cmd) => cmd.run(global_args).await?,
+            Cmd::Symbol(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
