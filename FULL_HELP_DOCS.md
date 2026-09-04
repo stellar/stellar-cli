@@ -2040,8 +2040,8 @@ Read the token's symbol (SEP-41 metadata)
 
   Possible values:
   - `text`: Human-readable text
-  - `json`: Compact, single-line JSON receipt
-  - `json-formatted`: Formatted (multiline) JSON receipt
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
 
 ###### **RPC Options:**
 
