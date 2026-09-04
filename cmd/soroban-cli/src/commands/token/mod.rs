@@ -2,6 +2,7 @@ pub mod allowance;
 pub mod approve;
 pub mod args;
 pub mod balance;
+pub mod clawback;
 pub mod decimals;
 pub mod mint;
 pub mod name;
@@ -35,6 +36,9 @@ pub enum Cmd {
 
     /// Mint new tokens to an account or contract (SAC admin)
     Mint(mint::Cmd),
+
+    /// Claw back tokens from an account or contract (SAC admin)
+    Clawback(clawback::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -55,6 +59,8 @@ pub enum Error {
     Allowance(#[from] allowance::Error),
     #[error(transparent)]
     Mint(#[from] mint::Error),
+    #[error(transparent)]
+    Clawback(#[from] clawback::Error),
 }
 
 impl Error {
@@ -70,6 +76,7 @@ impl Error {
             Error::Approve(e) => e.error_type(),
             Error::Allowance(e) => e.error_type(),
             Error::Mint(e) => e.error_type(),
+            Error::Clawback(e) => e.error_type(),
         }
     }
 }
@@ -85,6 +92,7 @@ impl Cmd {
             Cmd::Approve(cmd) => cmd.run(global_args).await?,
             Cmd::Allowance(cmd) => cmd.run(global_args).await?,
             Cmd::Mint(cmd) => cmd.run(global_args).await?,
+            Cmd::Clawback(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
