@@ -342,9 +342,14 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
+            // Set env vars to inform the SDK that this CLI supports spec
+            // optimization. Version 3 is announced because this CLI shakes
+            // types that carry no marker of their own, by following the
+            // references to them. Version 2 is announced alongside it, and
+            // remains true of this CLI, because a contract on an older SDK
+            // looks for that var alone and refuses to build without it.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3", "1");
 
             let cmd_str = serialize_command(&cmd);
 
@@ -499,13 +504,17 @@ impl Cmd {
     /// Filters unused types and events from the contract spec.
     ///
     /// This removes:
-    /// - Type definitions that are not referenced by any function
+    /// - Type definitions that nothing reachable from the contract's functions
+    ///   references, following references through events and other types
     /// - Events that don't have corresponding markers in the WASM data section
     ///   (events that are defined but never published)
+    /// - Error types that are neither referenced nor have a marker (errors
+    ///   that are defined but never returned or panicked with)
     ///
-    /// The SDK embeds markers in the data section for types/events that are
-    /// actually used. These markers survive dead code elimination, so we can
-    /// detect which spec entries are truly needed.
+    /// The SDK embeds markers in the data section for the events and errors it
+    /// uses in ways no spec entry names. These markers survive dead code
+    /// elimination, so we can detect which of those entries are truly needed;
+    /// every other type is settled by walking references.
     fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
         use soroban_spec_tools::contract::Spec;
         use soroban_spec_tools::wasm::replace_custom_section;
@@ -515,8 +524,11 @@ impl Cmd {
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
 
-        // Check if the contract meta indicates spec shaking v2 is enabled.
-        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
+        // Check if the contract meta indicates spec shaking is enabled. A v2
+        // wasm shakes correctly under these rules too: a marker there is only
+        // ever carried by an entry that is used, and the types that carried
+        // one are named by the entries that use them.
+        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) < 2 {
             return Ok(());
         }
 
@@ -921,11 +933,13 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
     }
 }
 
-/// Filters spec entries based on markers and deduplicates exact duplicates.
+/// Filters spec entries down to those the contract needs and deduplicates
+/// exact duplicates.
 ///
-/// Functions are always kept. Other entries (types, events) are kept only if a
-/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
-/// to a single occurrence.
+/// Functions are always kept. Events are kept only if a matching marker
+/// exists, and every other entry is kept if it is reachable by reference from
+/// a kept entry, or, for an error, if a matching marker exists. Exact
+/// duplicate entries (identical XDR) are collapsed to a single occurrence.
 #[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
     entries: Vec<stellar_xdr::ScSpecEntry>,
@@ -1019,8 +1033,7 @@ mod tests {
 
         // Embed the spec in a minimal (empty) wasm module and write it out.
         let wasm = replace_custom_section(b"\0asm\x01\0\0\0", "contractspecv0", &spec_xdr).unwrap();
-        let path =
-            env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
+        let path = env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
         fs::write(&path, &wasm).unwrap();
 
         Cmd::reduce_spec(&Print::new(true), "pkg", &path).unwrap();
