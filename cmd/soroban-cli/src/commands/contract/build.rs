@@ -366,6 +366,7 @@ impl Cmd {
 
                 self.inject_meta(&target_file_path)?;
                 Self::filter_spec(&target_file_path)?;
+                Self::reduce_spec(&print, &p.name, &target_file_path)?;
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -531,6 +532,65 @@ impl Cmd {
             .map_err(|e| Error::WasmParsing(e.to_string()))?;
 
         // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
+    }
+
+    /// Reduces user-defined type names in the contract spec to their simple
+    /// form, rewriting the `contractspecv0` section in place.
+    ///
+    /// Contract specs may name user-defined types by their fully qualified path
+    /// (e.g. `my_contract::inner::State`). This follows each to its simple name
+    /// (e.g. `State`), rewriting every reference, so the on-chain spec and every
+    /// downstream tool see the short names. Names that would collide are
+    /// disambiguated with a numeric suffix, which is warned about.
+    ///
+    /// Runs after `filter_spec` so only the entries that survive shaking are
+    /// reduced, but is otherwise independent of spec shaking.
+    fn reduce_spec(print: &Print, name: &str, target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let spec = Spec::new(&wasm_bytes)?;
+
+        let reduced = soroban_spec::reduce::reduce(&spec.spec);
+
+        // If every name was already simple, leave the wasm untouched.
+        if reduced.renames().all(|r| !r.renamed()) {
+            return Ok(());
+        }
+
+        let collisions: Vec<_> = reduced.renames().filter(|r| r.collision()).collect();
+        if !collisions.is_empty() {
+            use std::fmt::Write as _;
+            let mut msg = format!(
+                "{name}: reduced type names collided and were disambiguated with a numeric suffix:"
+            );
+            for rename in collisions {
+                let _ = write!(
+                    msg,
+                    "\n    {} -> {}",
+                    String::from_utf8_lossy(&rename.from),
+                    String::from_utf8_lossy(&rename.to),
+                );
+            }
+            print.warnln(msg);
+        }
+
+        // Encode the reduced entries and replace the contractspecv0 section.
+        let mut reduced_xdr = Vec::new();
+        let mut writer = Limited::new(
+            Cursor::new(&mut reduced_xdr),
+            Limits::depth(XDR_DEPTH_LIMIT),
+        );
+        for entry in reduced.into_entries() {
+            entry.write_xdr(&mut writer)?;
+        }
+
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &reduced_xdr)
+            .map_err(|e| Error::WasmParsing(e.to_string()))?;
+
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
@@ -934,6 +994,46 @@ mod tests {
 
         // Without --image the flag is rejected rather than silently ignored.
         assert!(Cmd::try_parse_from(["build", "--pull"]).is_err());
+    }
+
+    #[test]
+    fn reduce_spec_shortens_qualified_names_in_wasm() {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+        use stellar_xdr::{ScSpecEntry, ScSpecUdtStructV0, VecM};
+
+        // A spec with a single struct whose name is fully qualified.
+        let entry = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: "mycrate::mymod::MyType".to_string().try_into().unwrap(),
+            fields: VecM::default(),
+        });
+        let mut spec_xdr = Vec::new();
+        entry
+            .write_xdr(&mut Limited::new(
+                Cursor::new(&mut spec_xdr),
+                Limits::depth(XDR_DEPTH_LIMIT),
+            ))
+            .unwrap();
+
+        // Embed the spec in a minimal (empty) wasm module and write it out.
+        let wasm = replace_custom_section(b"\0asm\x01\0\0\0", "contractspecv0", &spec_xdr).unwrap();
+        let path =
+            env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
+        fs::write(&path, &wasm).unwrap();
+
+        Cmd::reduce_spec(&Print::new(true), "pkg", &path).unwrap();
+
+        let out = fs::read(&path).unwrap();
+        fs::remove_file(&path).ok();
+        let spec = Spec::new(&out).unwrap();
+
+        assert_eq!(spec.spec.len(), 1);
+        let ScSpecEntry::UdtStructV0(s) = &spec.spec[0] else {
+            panic!("expected a struct entry, got {:?}", spec.spec[0]);
+        };
+        assert_eq!(s.name.to_vec(), b"MyType".to_vec());
     }
 
     #[test]
