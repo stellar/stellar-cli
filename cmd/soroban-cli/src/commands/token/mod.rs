@@ -7,6 +7,7 @@ pub mod decimals;
 pub mod mint;
 pub mod name;
 pub mod set_admin;
+pub mod set_authorized;
 pub mod symbol;
 pub mod transfer;
 
@@ -43,6 +44,9 @@ pub enum Cmd {
 
     /// Transfer administration of the token to a new admin (SAC admin)
     SetAdmin(set_admin::Cmd),
+
+    /// Authorize or deauthorize an account to hold the token (SAC admin)
+    SetAuthorized(set_authorized::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -67,6 +71,8 @@ pub enum Error {
     Clawback(#[from] clawback::Error),
     #[error(transparent)]
     SetAdmin(#[from] set_admin::Error),
+    #[error(transparent)]
+    SetAuthorized(#[from] set_authorized::Error),
 }
 
 impl Error {
@@ -84,6 +90,7 @@ impl Error {
             Error::Mint(e) => e.error_type(),
             Error::Clawback(e) => e.error_type(),
             Error::SetAdmin(e) => e.error_type(),
+            Error::SetAuthorized(e) => e.error_type(),
         }
     }
 }
@@ -101,6 +108,7 @@ impl Cmd {
             Cmd::Mint(cmd) => cmd.run(global_args).await?,
             Cmd::Clawback(cmd) => cmd.run(global_args).await?,
             Cmd::SetAdmin(cmd) => cmd.run(global_args).await?,
+            Cmd::SetAuthorized(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }

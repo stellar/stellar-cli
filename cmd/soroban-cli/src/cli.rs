@@ -152,6 +152,7 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
         commands::Cmd::Token(token::Cmd::Mint(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Clawback(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::SetAdmin(cmd)) => cmd.output.into(),
+        commands::Cmd::Token(token::Cmd::SetAuthorized(cmd)) => cmd.output.into(),
         _ => return None,
     };
 
