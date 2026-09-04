@@ -1921,6 +1921,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 - `name` — Read the token's name (SEP-41 metadata)
 - `symbol` — Read the token's symbol (SEP-41 metadata)
 - `decimals` — Read the token's decimals (SEP-41 metadata)
+- `approve` — Approve an allowance for a spender to transfer on your behalf
 
 ## `stellar token transfer`
 
@@ -2079,6 +2080,47 @@ Read the token's decimals (SEP-41 metadata)
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token approve`
+
+Approve an allowance for a spender to transfer on your behalf
+
+**Usage:** `stellar token approve [OPTIONS] --id <ID> --from <FROM> --spender <SPENDER> --amount <AMOUNT> --expiration-ledger <EXPIRATION_LEDGER>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to approve an allowance on: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account granting the allowance. Signs and authorizes the approval, so it must be an identity or secret key you control
+- `--spender <SPENDER>` — Account or contract allowed to spend on `--from`'s behalf. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Allowance to grant, in the token's smallest unit (stroops for a Stellar Asset Contract). Replaces any existing allowance
+- `--expiration-ledger <EXPIRATION_LEDGER>` — Ledger sequence after which the allowance expires. Must be at or beyond the current ledger when the amount is positive
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ## `stellar tx`
 
