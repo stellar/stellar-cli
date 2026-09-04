@@ -1,5 +1,6 @@
 pub mod args;
 pub mod balance;
+pub mod decimals;
 pub mod name;
 pub mod symbol;
 pub mod transfer;
@@ -19,6 +20,9 @@ pub enum Cmd {
 
     /// Read the token's symbol (SEP-41 metadata)
     Symbol(symbol::Cmd),
+
+    /// Read the token's decimals (SEP-41 metadata)
+    Decimals(decimals::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,6 +35,8 @@ pub enum Error {
     Name(#[from] name::Error),
     #[error(transparent)]
     Symbol(#[from] symbol::Error),
+    #[error(transparent)]
+    Decimals(#[from] decimals::Error),
 }
 
 impl Error {
@@ -42,6 +48,7 @@ impl Error {
             Error::Balance(e) => e.error_type(),
             Error::Name(e) => e.error_type(),
             Error::Symbol(e) => e.error_type(),
+            Error::Decimals(e) => e.error_type(),
         }
     }
 }
@@ -53,6 +60,7 @@ impl Cmd {
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
             Cmd::Name(cmd) => cmd.run(global_args).await?,
             Cmd::Symbol(cmd) => cmd.run(global_args).await?,
+            Cmd::Decimals(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
