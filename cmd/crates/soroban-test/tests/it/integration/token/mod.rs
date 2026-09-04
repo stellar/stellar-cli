@@ -8,6 +8,7 @@ pub mod decimals;
 pub mod mint;
 pub mod name;
 pub mod renamed;
+pub mod set_admin;
 pub mod symbol;
 pub mod transfer;
 pub mod transfer_from;
