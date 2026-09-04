@@ -71,27 +71,33 @@ impl Cmd {
         // below cannot use them as-is. Reduce them to short names for display,
         // reporting what changed. The `XdrBase64` output is the canonical
         // on-chain spec, so it is left untouched.
-        let (reduced_spec, reduction) = soroban_spec_tools::reduce::reduce_udt_names(&spec);
+        let reduced = soroban_spec::reduce::reduce(&spec);
         if !matches!(self.output, InfoOutput::XdrBase64) {
-            for rename in &reduction.renames {
+            for rename in reduced.renames().filter(|r| r.renamed()) {
                 print.infoln(format!(
                     "Reduced type name {} to {}",
-                    rename.from, rename.to
+                    String::from_utf8_lossy(&rename.from),
+                    String::from_utf8_lossy(&rename.to),
                 ));
             }
-            if !reduction.collisions.is_empty() {
+            let collisions: Vec<_> = reduced.renames().filter(|r| r.collision()).collect();
+            if !collisions.is_empty() {
                 use std::fmt::Write as _;
                 let mut msg = String::from(
                     "Reduced type names collided and were disambiguated with a numeric suffix:",
                 );
-                for collision in &reduction.collisions {
-                    for member in &collision.members {
-                        let _ = write!(msg, "\n    {} -> {}", member.from, member.to);
-                    }
+                for rename in collisions {
+                    let _ = write!(
+                        msg,
+                        "\n    {} -> {}",
+                        String::from_utf8_lossy(&rename.from),
+                        String::from_utf8_lossy(&rename.to),
+                    );
                 }
                 print.warnln(msg);
             }
         }
+        let reduced_spec: Vec<_> = reduced.into_entries().collect();
 
         let res = match self.output {
             InfoOutput::XdrBase64 => base64,
