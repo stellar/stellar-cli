@@ -512,7 +512,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
         .unwrap(),
     });
 
-    // Build markers for the struct so it passes the filter
+    // Build markers for the struct so it passes the version 2 filter
     let mut markers = std::collections::HashSet::new();
     markers.insert(soroban_spec::shaking::generate_marker_for_entry(
         &used_struct,
@@ -527,7 +527,8 @@ fn filter_and_dedup_spec_removes_duplicates() {
         used_struct.clone(),
     ];
 
-    let result_xdr = filter_and_dedup_spec(entries, &markers).unwrap();
+    let result_xdr =
+        filter_and_dedup_spec(entries, &markers, soroban_spec::shaking::Version::V2).unwrap();
 
     // Parse back the entries from the XDR
     let result_entries: Vec<ScSpecEntry> =
@@ -556,8 +557,13 @@ fn build_with_spec_shaking_has_feature_meta() {
 
     let version = soroban_spec::shaking::spec_shaking_version_for_meta(&meta);
 
+    // The fixture builds against a published soroban-sdk, which records
+    // version 2. The workspace's `[patch.crates-io]` does not reach a contract
+    // built in a temp dir, so this covers the version 2 rules end to end, and
+    // the SDK's own test contract covers version 3.
     assert_eq!(
-        version, 2,
+        version,
+        soroban_spec::shaking::Version::V2,
         "contractmeta should indicate spec shaking version 2"
     );
 }
@@ -736,7 +742,8 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
-    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1";
+    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 \
+         SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3=1";
 
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
