@@ -39,11 +39,7 @@ build:
 	cargo build
 
 build-test-wasms:
-	# Announce the same spec shaking support `stellar contract build` announces,
-	# so the test contracts build against any soroban-sdk this repo patches in.
-	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 \
-	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3=1 \
-		cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
+	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms build-fixtures install
 

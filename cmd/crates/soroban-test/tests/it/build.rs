@@ -483,7 +483,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
     use soroban_cli::commands::contract::build::filter_and_dedup_spec;
     use soroban_cli::xdr::{
         ReadXdr, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
-        ScSpecTypeUdt, ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
+        ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
     };
 
     let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
@@ -492,9 +492,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
         inputs: vec![ScSpecFunctionInputV0 {
             doc: StringM::default(),
             name: "arg0".try_into().unwrap(),
-            type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
-                name: "MyStruct".try_into().unwrap(),
-            }),
+            type_: ScSpecTypeDef::U32,
         }]
         .try_into()
         .unwrap(),
@@ -514,9 +512,11 @@ fn filter_and_dedup_spec_removes_duplicates() {
         .unwrap(),
     });
 
-    // The function names the struct, so the struct passes the filter. Types
-    // carry no markers of their own.
-    let markers = std::collections::HashSet::new();
+    // Build markers for the struct so it passes the version 2 filter
+    let mut markers = std::collections::HashSet::new();
+    markers.insert(soroban_spec::shaking::generate_marker_for_entry(
+        &used_struct,
+    ));
 
     // Input: function appears twice, struct appears three times
     let entries = vec![
@@ -527,7 +527,8 @@ fn filter_and_dedup_spec_removes_duplicates() {
         used_struct.clone(),
     ];
 
-    let result_xdr = filter_and_dedup_spec(entries, &markers).unwrap();
+    let result_xdr =
+        filter_and_dedup_spec(entries, &markers, soroban_spec::shaking::Version::V2).unwrap();
 
     // Parse back the entries from the XDR
     let result_entries: Vec<ScSpecEntry> =
@@ -558,11 +559,11 @@ fn build_with_spec_shaking_has_feature_meta() {
 
     // The fixture builds against a published soroban-sdk, which records
     // version 2. The workspace's `[patch.crates-io]` does not reach a contract
-    // built in a temp dir, so this tracks whatever version that SDK records,
-    // and the shaking above is what confirms a v2 wasm shakes under the
-    // version 3 rules.
+    // built in a temp dir, so this covers the version 2 rules end to end, and
+    // the SDK's own test contract covers version 3.
     assert_eq!(
-        version, 2,
+        version,
+        soroban_spec::shaking::Version::V2,
         "contractmeta should indicate spec shaking version 2"
     );
 }
@@ -741,9 +742,7 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
-    // Both are set, and `Command` hands its env vars over sorted by name.
-    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 \
-                           SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3=1";
+    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1";
 
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
