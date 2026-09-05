@@ -598,7 +598,7 @@ fn extract_contract_error_from_events(events: &[DiagnosticEvent]) -> Option<u32>
         if let ScVal::Error(ScError::Contract(code)) = data {
             return Some(*code);
         }
-        for topic in topics.iter() {
+        for topic in topics {
             if let ScVal::Error(ScError::Contract(code)) = topic {
                 return Some(*code);
             }
