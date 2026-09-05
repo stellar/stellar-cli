@@ -342,11 +342,14 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            // Set env var to inform the SDK that this CLI supports spec
-            // optimization. The var says only that this CLI shakes; which
-            // rules it shakes a given contract by comes from the version that
-            // contract records in its meta.
+            // Set env vars to inform the SDK that this CLI supports spec
+            // optimization. Each var names a set of shaking rules, and this
+            // CLI announces every set it can apply, because the SDK refuses to
+            // build a contract whose rules the build system has not claimed.
+            // Which rules a given contract is shaken by comes from the version
+            // that contract records in its meta.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3", "1");
 
             let cmd_str = serialize_command(&cmd);
 

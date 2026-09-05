@@ -130,12 +130,12 @@ stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "82677e
 # user-defined types in contract specs by their fully qualified path, and the
 # PR stacked on it, which stops marking types for spec shaking and shakes them
 # by reachability instead.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "3064f93bdf9271d4b09c72b94b15c0e5ecd86e7d" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e22cfbb87fa9f2e7a2e067713f8be91170265912" }
 
 [profile.release]
 overflow-checks = true
