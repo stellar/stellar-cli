@@ -228,6 +228,7 @@ impl Spec {
         }
         Err(Error::MissingErrorCase(value))
     }
+
     /// Find all event specs in the contract spec
     ///
     /// # Errors
@@ -244,6 +245,7 @@ impl Spec {
                 _ => None,
             }))
     }
+
     /// # Errors
     ///
     /// Might return errors

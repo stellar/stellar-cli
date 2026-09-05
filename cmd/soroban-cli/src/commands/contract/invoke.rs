@@ -5,9 +5,7 @@ use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
 use clap::{Parser, ValueEnum};
-use soroban_rpc::{
-    Client, GetTransactionResponse, SimulateHostFunctionResult, SimulateTransactionResponse,
-};
+use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
 use super::super::events;
@@ -19,7 +17,7 @@ use crate::tx::sim_sign_and_send_tx;
 use crate::utils::deprecate_message;
 use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
-    assembled::{simulate_transaction, Assembled},
+    assembled::Assembled,
     commands::{
         contract::arg_parsing::{build_host_function_parameters, output_to_string},
         global,
@@ -520,8 +518,8 @@ async fn simulate_and_enhance(
         auth_mode,
         Some(soroban_rpc::AuthMode::Record | soroban_rpc::AuthMode::RecordAllowNonRoot)
     );
-    let sim_res = crate::assembled::simulate_transaction(client, tx, resource_config, auth_mode)
-        .await?;
+    let sim_res =
+        crate::assembled::simulate_transaction(client, tx, resource_config, auth_mode).await?;
 
     if let Some(e) = &sim_res.error {
         if let Ok(events) = sim_res.events() {
@@ -607,18 +605,6 @@ fn extract_contract_error_from_events(events: &[DiagnosticEvent]) -> Option<u32>
         }
     }
     None
-}
-
-fn enhance_error_from_meta(
-    response: &GetTransactionResponse,
-    rpc_error_msg: &str,
-    spec: &soroban_spec_tools::Spec,
-    function: &str,
-) -> Option<Error> {
-    let Ok(ScVal::Error(ScError::Contract(code))) = response.return_value() else {
-        return None;
-    };
-    build_enhanced_error(code, rpc_error_msg, spec, function)
 }
 
 fn build_enhanced_error(
