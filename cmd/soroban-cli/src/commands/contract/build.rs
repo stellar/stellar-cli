@@ -370,7 +370,9 @@ impl Cmd {
             }
 
             // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers. Current and new SDK versions no
+            // optimization. The var says only that this CLI shakes; which
+            // rules it shakes a given contract by comes from the version that
+            // contract records in its meta. Current and new SDK versions no
             // longer read this var, relying on the CLI version below
             // instead, but it must keep being set for past SDK versions that
             // require it.
@@ -532,14 +534,17 @@ impl Cmd {
 
     /// Filters unused types and events from the contract spec.
     ///
-    /// This removes:
-    /// - Type definitions that are not referenced by any function
-    /// - Events that don't have corresponding markers in the WASM data section
-    ///   (events that are defined but never published)
+    /// The contract records which spec shaking version it was built with, and
+    /// that version says which entries carry a marker and so what a missing
+    /// marker means. Read it and shake by its rules rather than the newest
+    /// known: a version 2 contract marks every used type, so markers alone say
+    /// what is used, while a version 3 contract marks only the events it
+    /// publishes and the errors it panics with, and every other type is
+    /// settled by following the references to it.
     ///
-    /// The SDK embeds markers in the data section for types/events that are
-    /// actually used. These markers survive dead code elimination, so we can
-    /// detect which spec entries are truly needed.
+    /// A version this CLI does not recognise reads as version 1, and a
+    /// version 1 contract carries no markers at all, so in both cases there is
+    /// nothing to shake by and the spec is left alone.
     fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
         use soroban_spec_tools::contract::Spec;
         use soroban_spec_tools::wasm::replace_custom_section;
@@ -549,17 +554,19 @@ impl Cmd {
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
 
-        // Check if the contract meta indicates spec shaking v2 is enabled.
-        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
+        // Read the version the contract was built with, which selects the
+        // rules below. Nothing to shake by at version 1, so leave it alone.
+        let version = soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta);
+        if version == soroban_spec::shaking::Version::V1 {
             return Ok(());
         }
 
         // Extract markers from the WASM data section
         let markers = soroban_spec::shaking::find_all(&wasm_bytes);
 
-        // Filter spec entries (types, events) based on markers, and
+        // Filter spec entries (types, events) by that version's rules, and
         // deduplicate any exact duplicate entries.
-        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
+        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers, version)?;
 
         // Replace the contractspecv0 section with the filtered version
         let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
@@ -955,15 +962,17 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
     }
 }
 
-/// Filters spec entries based on markers and deduplicates exact duplicates.
+/// Filters spec entries down to those the contract needs, by the rules of the
+/// spec shaking version it was built with, and deduplicates exact duplicates.
 ///
-/// Functions are always kept. Other entries (types, events) are kept only if a
-/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
+/// Which entries survive is decided by `soroban_spec::shaking::filter` for the
+/// given version. Exact duplicate entries (identical XDR) are then collapsed
 /// to a single occurrence.
 #[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
     entries: Vec<stellar_xdr::ScSpecEntry>,
     markers: &HashSet<soroban_spec::shaking::Marker>,
+    version: soroban_spec::shaking::Version,
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();
     let mut filtered_xdr = Vec::new();
@@ -971,7 +980,7 @@ pub fn filter_and_dedup_spec(
         Cursor::new(&mut filtered_xdr),
         Limits::depth(XDR_DEPTH_LIMIT),
     );
-    for entry in soroban_spec::shaking::filter(entries, markers) {
+    for entry in soroban_spec::shaking::filter(entries, markers, version) {
         let entry_xdr = entry.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
         if seen.insert(entry_xdr) {
             entry.write_xdr(&mut writer)?;
