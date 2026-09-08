@@ -22,12 +22,16 @@ pub struct Cmd {
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
-    /// Account or contract whose balance to read.
+    /// Account or contract that granted the allowance (the owner of the funds).
     #[arg(long)]
-    pub account: UnresolvedScAddress,
+    pub from: UnresolvedScAddress,
 
-    /// Format the balance as a decimal using the token's `decimals`, instead of
-    /// the raw smallest unit (stroops for a Stellar Asset Contract).
+    /// Account or contract allowed to spend on `--from`'s behalf.
+    #[arg(long)]
+    pub spender: UnresolvedScAddress,
+
+    /// Format the allowance as a decimal using the token's `decimals`, instead
+    /// of the raw smallest unit (stroops for a Stellar Asset Contract).
     #[arg(long)]
     pub decimal: bool,
 
@@ -79,19 +83,19 @@ impl Error {
     }
 }
 
-/// The machine-readable result of a balance query.
+/// The machine-readable result of an allowance query.
 #[derive(Debug, serde::Serialize)]
-struct BalanceResult {
-    /// The balance, in the requested representation: raw smallest units by
+struct AllowanceResult {
+    /// The allowance, in the requested representation: raw smallest units by
     /// default, or a decimal string when `--decimal` is set.
-    balance: String,
+    allowance: String,
     /// The token's `decimals`, present only when `--decimal` was requested.
     #[serde(skip_serializing_if = "Option::is_none")]
     decimals: Option<u32>,
 }
 
 impl Cmd {
-    /// A read-only config: balance is resolved by simulation, so no source
+    /// A read-only config: allowance is resolved by simulation, so no source
     /// account, signing options, or fees are needed.
     fn config(&self) -> config::Args {
         config::Args {
@@ -115,27 +119,33 @@ impl Cmd {
         let token = self
             .id
             .resolve(&config.locator, &network.network_passphrase)?;
-        let account = self
-            .account
+        let from = self
+            .from
+            .clone()
+            .resolve(&config.locator, &network.network_passphrase, None)?
+            .to_string();
+        let spender = self
+            .spender
             .clone()
             .resolve(&config.locator, &network.network_passphrase, None)?
             .to_string();
 
+        // SEP-41 `allowance(from, spender) -> i128`.
         let raw: i128 = self
             .read_parsed(
                 &config,
                 quiet,
                 global_args.no_cache,
                 &token,
-                "balance",
-                vec![account],
+                "allowance",
+                vec![from, spender],
             )
             .await?;
 
-        let (balance, decimals) = if self.decimal {
+        let (allowance, decimals) = if self.decimal {
             // Deliberately a second, separate simulation: `decimals` isn't
-            // returned by `balance`, so `--decimal` costs one extra read-only
-            // RPC round-trip on top of the balance query.
+            // returned by `allowance`, so `--decimal` costs one extra read-only
+            // RPC round-trip on top of the allowance query.
             let decimals: u32 = self
                 .read_parsed(
                     &config,
@@ -151,8 +161,11 @@ impl Cmd {
             (raw.to_string(), None)
         };
 
-        output.readable(|_| println!("{balance}"));
-        output.json_value(&BalanceResult { balance, decimals })?;
+        output.readable(|_| println!("{allowance}"));
+        output.json_value(&AllowanceResult {
+            allowance,
+            decimals,
+        })?;
 
         Ok(())
     }
@@ -198,9 +211,9 @@ impl Cmd {
         let out = self
             .read(config, quiet, no_cache, token, function, args)
             .await?;
-        // A 128-bit balance comes back JSON-encoded as a quoted string (it can't
-        // fit a JSON number), while `decimals` (u32) comes back bare; strip any
-        // surrounding quotes so both parse straight into `T`.
+        // A 128-bit allowance comes back JSON-encoded as a quoted string (it
+        // can't fit a JSON number), while `decimals` (u32) comes back bare;
+        // strip any surrounding quotes so both parse straight into `T`.
         out.trim()
             .trim_matches('"')
             .parse()

@@ -148,6 +148,7 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
         commands::Cmd::Token(token::Cmd::Symbol(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Decimals(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Approve(cmd)) => cmd.output.into(),
+        commands::Cmd::Token(token::Cmd::Allowance(cmd)) => cmd.output.into(),
         _ => return None,
     };
 
