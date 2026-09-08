@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 use clap::Parser;
 
 use crate::{
@@ -9,8 +7,8 @@ use crate::{
         token::args::{self, OutputFormat},
     },
     config::{
-        self, locator, network, sign_with, token::UnresolvedToken, UnresolvedContract,
-        UnresolvedMuxedAccount, UnresolvedScAddress,
+        self, locator, network, sign_with, token::UnresolvedToken, UnresolvedMuxedAccount,
+        UnresolvedScAddress,
     },
     output::Output,
 };
@@ -167,31 +165,24 @@ impl Cmd {
             .to_string();
         let amount = self.amount.to_string();
 
-        let slop: Vec<OsString> = [
-            "transfer", "--from", &from, "--to", &to, "--amount", &amount,
-        ]
-        .into_iter()
-        .map(OsString::from)
-        .collect();
-
-        let invoke_cmd = invoke::Cmd {
-            contract_id: UnresolvedContract::Resolved(token.contract_id),
-            slop,
-            config: config.clone(),
-            // A transfer always intends to submit. Force `Send::Yes` so a token
-            // whose `transfer` records no writes/events/auth can't be classified
-            // read-only and silently exit 0 without ever moving funds.
-            send: invoke::Send::Yes,
-            ..Default::default()
-        };
-
-        let receipt = invoke_cmd
-            .execute_with_receipt(&config, quiet, global_args.no_cache)
-            .await
-            .map_err(|e| {
-                args::not_deployed_error(&token, &e).map_or(Error::Invoke(e), Error::Args)
-            })?
-            .into_result();
+        // SEP-41 `transfer(from, to, amount)` — supply the values in that order
+        // and let the contract's parameters be matched by position, so a token
+        // that names them anything still works. A transfer always intends to
+        // submit, so force `Send::Yes`: a token whose `transfer` records no
+        // writes/events/auth can't be classified read-only and silently exit 0
+        // without ever moving funds.
+        let receipt = args::invoke_by_position(
+            &config,
+            quiet,
+            global_args.no_cache,
+            &token,
+            "transfer",
+            vec![from, to, amount],
+            invoke::Send::Yes,
+        )
+        .await
+        .map_err(|e| args::not_deployed_error(&token, &e).map_or(Error::Invoke(e), Error::Args))?
+        .into_result();
 
         // `transfer` always writes, so the invocation is submitted rather than
         // resolved as a build-only transaction; a missing receipt would mean

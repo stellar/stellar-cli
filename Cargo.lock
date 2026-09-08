@@ -6207,6 +6207,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_token_renamed"
+version = "28.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_udt"
 version = "28.0.0"
 dependencies = [

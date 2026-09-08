@@ -1,5 +1,9 @@
 use crate::{
-    commands::contract::invoke, config::token::ResolvedToken, get_spec, output::Format, rpc,
+    commands::{contract::invoke, txn_result::TxnResult},
+    config::{self, token::ResolvedToken, UnresolvedContract},
+    get_spec,
+    output::Format,
+    rpc,
 };
 
 /// Output format shared by the `stellar token` subcommands.
@@ -45,6 +49,36 @@ impl Error {
             Error::ContractNotFound(_) => "contract_not_found",
         }
     }
+}
+
+/// Invoke a token `function` by SEP-41 canonical position: `args` are supplied
+/// in the function's parameter order and mapped onto the contract's parameters
+/// by index, so the call works regardless of what the contract names them.
+///
+/// Returns the raw `invoke::Error` so callers keep their own
+/// `not_deployed_error` translation; a `None` result means `--build-only`, which
+/// the token commands never set.
+pub async fn invoke_by_position(
+    config: &config::Args,
+    quiet: bool,
+    no_cache: bool,
+    token: &ResolvedToken,
+    function: &str,
+    args: Vec<String>,
+    send: invoke::Send,
+) -> Result<TxnResult<invoke::InvokeReceipt>, invoke::Error> {
+    let cmd = invoke::Cmd {
+        contract_id: UnresolvedContract::Resolved(token.contract_id),
+        invocation: Some(invoke::PositionalInvocation {
+            function: function.to_string(),
+            args,
+        }),
+        config: config.clone(),
+        send,
+        ..Default::default()
+    };
+
+    cmd.execute_with_receipt(config, quiet, no_cache).await
 }
 
 /// If `err` is a "contract not found" failure raised while fetching the contract
