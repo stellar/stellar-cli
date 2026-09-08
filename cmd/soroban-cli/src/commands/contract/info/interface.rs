@@ -65,6 +65,8 @@ impl Cmd {
             }
         };
 
+        // Type names in the spec are already reduced to simple names during
+        // `contract build`, so show the spec as it is stored in the contract.
         let res = match self.output {
             InfoOutput::XdrBase64 => base64,
             InfoOutput::Json => serde_json::to_string(&spec)?,

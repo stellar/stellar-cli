@@ -736,7 +736,11 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
-    const ENV_VAR: &str = "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1";
+    // Serialized in sorted key order, so REDUCING_FULL_NAMES precedes SPEC_SHAKING_V2.
+    const ENV_VARS: &str = concat!(
+        "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_REDUCING_FULL_NAMES=1 ",
+        "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1"
+    );
 
     let cargo_home = home::cargo_home().unwrap();
     let registry_prefix = cargo_home.join("registry").join("src");
@@ -747,7 +751,7 @@ fn with_flags(expected: &str) -> String {
     let vec: Vec<_> = if env::var("RUSTFLAGS").is_ok() {
         expected
             .split('\n')
-            .map(|x| format!("{ENV_VAR} {x}"))
+            .map(|x| format!("{ENV_VARS} {x}"))
             .collect()
     } else {
         expected
@@ -755,7 +759,7 @@ fn with_flags(expected: &str) -> String {
             .map(|x| {
                 let rustflags_value = format!("--remap-path-prefix={registry_prefix}=");
                 let escaped_value = escape(std::borrow::Cow::Borrowed(&rustflags_value));
-                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {ENV_VAR} {x}")
+                format!("CARGO_BUILD_RUSTFLAGS={escaped_value} {ENV_VARS} {x}")
             })
             .collect()
     };
