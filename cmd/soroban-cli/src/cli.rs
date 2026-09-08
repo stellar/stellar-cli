@@ -144,6 +144,7 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
         commands::Cmd::Network(network::Cmd::Settings(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Transfer(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::Balance(cmd)) => cmd.output.into(),
+        commands::Cmd::Token(token::Cmd::Name(cmd)) => cmd.output.into(),
         _ => return None,
     };
 
