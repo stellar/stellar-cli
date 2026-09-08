@@ -43,6 +43,7 @@ build-test-wasms:
 	# so the test contracts build against any soroban-sdk this repo patches in.
 	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 \
 	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3=1 \
+	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_FULL_NAMES=1 \
 		cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
 
 build-test: build-test-wasms build-fixtures install
