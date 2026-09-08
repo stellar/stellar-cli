@@ -1,4 +1,5 @@
 pub mod balance;
+pub mod decimals;
 pub mod name;
 pub mod renamed;
 pub mod symbol;
