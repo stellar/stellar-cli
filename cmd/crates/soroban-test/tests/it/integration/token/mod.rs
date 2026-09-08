@@ -2,6 +2,7 @@ pub mod allowance;
 pub mod approve;
 pub mod balance;
 pub mod decimals;
+pub mod mint;
 pub mod name;
 pub mod renamed;
 pub mod symbol;
