@@ -11,7 +11,6 @@ use crate::{
         token::{ResolvedToken, UnresolvedToken},
         UnresolvedScAddress,
     },
-    fixed_point::FixedPoint,
     output::Output,
 };
 
@@ -23,7 +22,7 @@ pub struct Cmd {
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
-    /// Account that granted the allowance (the owner of the funds).
+    /// Account or contract that granted the allowance (the owner of the funds).
     #[arg(long)]
     pub from: UnresolvedScAddress,
 
@@ -157,7 +156,7 @@ impl Cmd {
                     vec![],
                 )
                 .await?;
-            (FixedPoint::new(raw, decimals).to_string(), Some(decimals))
+            (args::format_decimal(raw, decimals)?, Some(decimals))
         } else {
             (raw.to_string(), None)
         };

@@ -2136,7 +2136,7 @@ Read the allowance a spender has on an owner's behalf
 ###### **Options:**
 
 - `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
-- `--from <FROM>` — Account that granted the allowance (the owner of the funds)
+- `--from <FROM>` — Account or contract that granted the allowance (the owner of the funds)
 - `--spender <SPENDER>` — Account or contract allowed to spend on `--from`'s behalf
 - `--decimal` — Format the allowance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
 - `--output <OUTPUT>` — Format of the output

@@ -11,7 +11,6 @@ use crate::{
         token::{ResolvedToken, UnresolvedToken},
         UnresolvedScAddress,
     },
-    fixed_point::FixedPoint,
     output::Output,
 };
 
@@ -147,7 +146,7 @@ impl Cmd {
                     vec![],
                 )
                 .await?;
-            (FixedPoint::new(raw, decimals).to_string(), Some(decimals))
+            (args::format_decimal(raw, decimals)?, Some(decimals))
         } else {
             (raw.to_string(), None)
         };

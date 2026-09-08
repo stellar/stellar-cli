@@ -2,11 +2,34 @@
 //! non-canonical names (`balance(who)`, `transfer(sender, recipient, amt)`).
 //! These prove the command maps values to the contract's parameters by
 //! position, not by name — the old flag-name mapping would fail here.
+use serde_json::Value;
 use soroban_test::{AssertExt, TestEnv, Wasm};
 
 use crate::integration::util::{deploy_contract, new_account, test_address, DeployOptions};
 
 const TOKEN_RENAMED: &Wasm = &Wasm::Custom("test-wasms", "test_token_renamed");
+
+/// Deploy the renamed-arg token and set its `decimals` to `decimal_count`,
+/// returning the contract id. No balance is seeded.
+async fn deploy_with_decimals(sandbox: &TestEnv, decimal_count: u32) -> String {
+    let id = deploy_contract(sandbox, TOKEN_RENAMED, DeployOptions::default()).await;
+    sandbox
+        .new_assert_cmd("contract")
+        .args([
+            "invoke",
+            "--id",
+            &id,
+            "--source-account",
+            "test",
+            "--",
+            "init",
+            "--decimal_count",
+            &decimal_count.to_string(),
+        ])
+        .assert()
+        .success();
+    id
+}
 
 /// Deploy the renamed-arg token, set decimals to 7, and mint `qty` to `test`.
 /// Returns the contract id and `test`'s address.
@@ -80,6 +103,39 @@ async fn transfer_maps_renamed_params_by_position() {
         .success();
 
     assert_eq!(token_balance(sandbox, &id, &recipient), "400");
+}
+
+#[tokio::test]
+async fn balance_decimal_rejects_oversized_decimals() {
+    let sandbox = &TestEnv::new();
+    let test = test_address(sandbox);
+    // `decimals` is contract-controlled; a hostile value would make `--decimal`
+    // pad the output to that many characters. Anything past the CLI's cap is
+    // rejected up front rather than risking a pathological allocation. 1000 is
+    // over the cap but small enough that, without the guard, formatting would
+    // still succeed — so this test truly catches a regression.
+    let id = deploy_with_decimals(sandbox, 1000).await;
+
+    let stdout = sandbox
+        .new_assert_cmd("token")
+        .args([
+            "balance",
+            "--id",
+            &id,
+            "--account",
+            &test,
+            "--decimal",
+            "--output",
+            "json",
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+    let value: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        value["error"]["type"], "decimals_too_large",
+        "expected a typed error, got: {stdout}"
+    );
 }
 
 #[tokio::test]
