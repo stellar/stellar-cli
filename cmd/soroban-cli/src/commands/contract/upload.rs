@@ -67,6 +67,8 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
 
@@ -258,7 +260,7 @@ impl Cmd {
 
         let (tx_without_preflight, hash) = build_install_contract_code_tx(
             &contract,
-            sequence + 1,
+            crate::utils::next_sequence_number(sequence)?,
             config.get_inclusion_fee()?,
             &source_account,
         )?;

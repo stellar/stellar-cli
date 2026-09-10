@@ -32,6 +32,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Network(#[from] config::network::Error),
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
 }
 
 impl Cmd {
@@ -51,7 +53,7 @@ impl Cmd {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 let tx_source_acct = &transaction_v1_envelope.tx.source_account;
                 let current_seq_num = self.current_seq_num(tx_source_acct).await?;
-                let next_seq_num = current_seq_num + 1;
+                let next_seq_num = crate::utils::next_sequence_number(current_seq_num)?;
                 transaction_v1_envelope.tx.seq_num = SequenceNumber(next_seq_num);
             }
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
