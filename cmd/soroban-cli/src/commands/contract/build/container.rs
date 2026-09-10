@@ -27,18 +27,18 @@ use super::{get_wasm_target, BuiltContract, Cmd, WASM_TARGET, WASM_TARGET_OLD};
 /// First CLI release whose `contract build` accepts `--locked` (added in cli
 /// v25.2.0). Older images reject it, so it's dropped (with a warning) on anything
 /// older, matching the version detected from the image's own `version` output.
-const LOCKED_MIN: &str = "25.2.0";
+pub(super) const LOCKED_MIN: &str = "25.2.0";
 
 /// First CLI release whose `contract build` has the `--optimize` flag at all.
 /// Older images reject it, so — since optimization is on by default — this is the
 /// effective minimum supported image. We probe the image's `version` and skip the
 /// flag (with a warning) on anything older.
-const OPTIMIZE_FLAG_MIN: &str = "23.2.0";
+pub(super) const OPTIMIZE_FLAG_MIN: &str = "23.2.0";
 
 /// First CLI release whose `contract build` accepts `--optimize=false` as an
 /// explicit value. Images between [`OPTIMIZE_FLAG_MIN`] and this default to *not*
 /// optimizing, so for them we forward nothing to get an unoptimized build.
-const OPTIMIZE_NEW_SYNTAX_MIN: &str = "26.1.0";
+pub(super) const OPTIMIZE_NEW_SYNTAX_MIN: &str = "26.1.0";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -156,14 +156,18 @@ pub async fn run(
     let container_cmds: Vec<Vec<String>> = targets
         .iter()
         .map(|target| {
+            // Plain container builds forward the user's `--locked` (when the
+            // image accepts it) and don't record bldopts.
             forwarded_build_args(
                 cmd,
                 &workspace_root,
                 *target,
-                supports_locked,
+                cmd.locked && supports_locked,
                 supports_optimize_flag,
                 supports_optimize_false,
+                false,
             )
+            .0
         })
         .collect();
 
@@ -201,6 +205,7 @@ pub async fn run(
         &docker,
         &cmd.run_args,
         &bin,
+        "stellar-contract-build",
         print,
         print_only,
     )
@@ -211,10 +216,10 @@ pub async fn run(
         return Ok(Vec::new());
     }
 
-    collect_built_contracts(cmd, &md, &workspace_root)
+    collect_built_contracts(cmd, &md, &workspace_root, None)
 }
 
-fn metadata(cmd: &Cmd) -> Result<cargo_metadata::Metadata, cargo_metadata::Error> {
+pub(super) fn metadata(cmd: &Cmd) -> Result<cargo_metadata::Metadata, cargo_metadata::Error> {
     let mut mc = MetadataCommand::new();
     mc.no_deps();
     if let Some(p) = &cmd.manifest_path {
@@ -227,7 +232,7 @@ fn metadata(cmd: &Cmd) -> Result<cargo_metadata::Metadata, cargo_metadata::Error
 /// default-member crates that build a cdylib, mirroring the local build's
 /// package selection. May be empty (no cdylib default members), in which case
 /// the caller falls back to a single no-`--package` build.
-fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<String> {
+pub(super) fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<String> {
     if let Some(pkg) = &cmd.package {
         return vec![pkg.clone()];
     }
@@ -248,13 +253,16 @@ fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<String> {
 }
 
 /// The `contract build …` argv forwarded to the container, mirroring the local
-/// build's flags. `--manifest-path` is relativized against the workspace root so
-/// it's valid inside `/source`. `--out-dir` is deliberately omitted — artifacts
-/// are collected on the host from the mounted `target/`.
+/// build's flags, plus (when `record_bldopts`) the shell-escaped `bldopt`
+/// strings recorded into SEP-58 metadata by verifiable builds. `--manifest-path`
+/// is relativized against the workspace/source root so it's valid inside
+/// `/source`. `--out-dir` is deliberately omitted — artifacts are collected on
+/// the host from the mounted `target/`.
 ///
-/// `supports_locked`: whether the container's `contract build` accepts `--locked`
-/// (added in cli 25.2.0). When false, the user's `--locked` is dropped rather
-/// than forwarded to an image that would reject it.
+/// `include_locked`: whether to add `--locked`. A plain container build passes
+/// `cmd.locked && supports_locked` (the user's flag, when the image accepts it);
+/// a verifiable build implies it (`supports_locked`). Either way it's dropped on
+/// images too old to accept the flag (added in cli 25.2.0).
 ///
 /// `supports_optimize_flag`: whether the container's cli has the `--optimize`
 /// flag at all (added in cli 23.2.0). When false, nothing about optimize is
@@ -264,18 +272,47 @@ fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<String> {
 /// `--optimize=false` (added in cli 26.1.0). When false and the user disabled
 /// optimization, nothing is forwarded — the older cli defaults to not
 /// optimizing, and passing `--optimize=false` there would fail.
-fn forwarded_build_args(
+///
+/// `record_bldopts`: when true, every forwarded build-affecting flag is also
+/// captured as a `bldopt` (its value shell-escaped once, at the source, so each
+/// recorded option is valid shell on its own) for the verifiable build's SEP-58
+/// metadata. A plain container build passes false and ignores the second tuple
+/// element.
+#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+pub(super) fn forwarded_build_args(
     cmd: &Cmd,
     workspace_root: &Path,
     package: Option<&str>,
-    supports_locked: bool,
+    include_locked: bool,
     supports_optimize_flag: bool,
     supports_optimize_false: bool,
-) -> Vec<String> {
+    record_bldopts: bool,
+) -> (Vec<String>, Vec<String>) {
     let mut args = vec!["contract".to_string(), "build".to_string()];
+    let mut bldopts: Vec<String> = Vec::new();
 
-    if cmd.locked && supports_locked {
-        args.push("--locked".to_string());
+    // Record a build option. `None` means a bare flag (`--locked`); `Some(v)`
+    // means `--flag=v`. The forwarded copy keeps the value raw (the container
+    // gets it as argv, and `compose_shell_command` re-escapes it for the
+    // multi-package `sh -c`); the bldopt copy shell-escapes only the value side,
+    // once, so every recorded option is valid shell on its own — e.g.
+    // `--meta=note='added on build'`, never `'--meta=note=added on build'`.
+    let mut record = |key: &str, value: Option<&str>| {
+        if let Some(v) = value {
+            args.push(format!("{key}={v}"));
+            if record_bldopts {
+                bldopts.push(format!("{key}={}", shell_escape::escape(v.into())));
+            }
+        } else {
+            args.push(key.to_string());
+            if record_bldopts {
+                bldopts.push(key.to_string());
+            }
+        }
+    };
+
+    if include_locked {
+        record("--locked", None);
     }
     if let Some(path) = &cmd.manifest_path {
         let abs = std::path::absolute(path).unwrap_or_else(|_| path.clone());
@@ -283,25 +320,25 @@ fn forwarded_build_args(
             .strip_prefix(workspace_root)
             .map(Path::to_path_buf)
             .unwrap_or(abs);
-        args.push(format!("--manifest-path={}", rel.to_slash_lossy()));
+        record("--manifest-path", Some(rel.to_slash_lossy().as_ref()));
     }
     if cmd.profile != "release" {
-        args.push(format!("--profile={}", cmd.profile));
+        record("--profile", Some(cmd.profile.as_str()));
     }
     if let Some(features) = &cmd.features {
-        args.push(format!("--features={features}"));
+        record("--features", Some(features.as_str()));
     }
     if cmd.all_features {
-        args.push("--all-features".to_string());
+        record("--all-features", None);
     }
     if cmd.no_default_features {
-        args.push("--no-default-features".to_string());
+        record("--no-default-features", None);
     }
     if let Some(pkg) = package {
-        args.push(format!("--package={pkg}"));
+        record("--package", Some(pkg));
     }
     for (k, v) in &cmd.build_args.meta {
-        args.push(format!("--meta={k}={v}"));
+        record(&format!("--meta={k}"), Some(v.as_str()));
     }
     // Optimization is forwarded per the image's cli version. To enable it, bare
     // `--optimize` on images >= v23.2.0 (older images lack the flag entirely, so
@@ -309,13 +346,13 @@ fn forwarded_build_args(
     // older ones default to not optimizing, so forwarding nothing matches.
     if cmd.build_args.optimize {
         if supports_optimize_flag {
-            args.push("--optimize".to_string());
+            record("--optimize", None);
         }
     } else if supports_optimize_false {
-        args.push("--optimize=false".to_string());
+        record("--optimize", Some("false"));
     }
 
-    args
+    (args, bldopts)
 }
 
 async fn pull_image(docker: &shared::Args, image: &str, print: &Print) -> Result<(), Error> {
@@ -364,18 +401,18 @@ async fn run_probe(
 
 /// Facts probed from the image before building, gathered in one throwaway
 /// container to avoid a round-trip per fact.
-struct ImageProbe {
+pub(super) struct ImageProbe {
     /// CLI binary on the image's PATH — `stellar` (v21.0.0+) or `soroban`
     /// (older). Used when invoking the CLI by name in the chained multi-build
     /// command; the single-build path uses the image's entrypoint instead.
-    bin: String,
+    pub(super) bin: String,
     /// Parsed CLI version, or `None` when the image reported no parseable version
     /// (treated as a current image by the caller).
-    version: Option<Version>,
+    pub(super) version: Option<Version>,
     /// The image's default rustup toolchain (e.g.
     /// `1.97.1-aarch64-unknown-linux-gnu`), pinned into `RUSTUP_TOOLCHAIN`.
     /// Guaranteed non-empty — the probe hard-fails when it can't be determined.
-    toolchain: String,
+    pub(super) toolchain: String,
 }
 
 /// Probe the image once for everything the build needs: the CLI binary name, its
@@ -384,7 +421,7 @@ struct ImageProbe {
 /// already require) that detects the binary, then reports each fact on its own
 /// tagged line so the combined stdout can be split apart. Hard-fails when no
 /// default toolchain can be determined, rather than building unpinned.
-async fn probe_image(image: &str, docker: &shared::Args) -> Result<ImageProbe, Error> {
+pub(super) async fn probe_image(image: &str, docker: &shared::Args) -> Result<ImageProbe, Error> {
     // Detect the binary first, then run `$bin version` (version on its first
     // line) and `rustup default` (the toolchain name). Tag each line so we can
     // pick the values back out regardless of any extra output.
@@ -446,7 +483,7 @@ fn parse_default_toolchain(stdout: &str) -> Option<String> {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_in_container(
+pub(super) async fn run_in_container(
     image: &str,
     workspace_root: &Path,
     container_cmds: &[Vec<String>],
@@ -454,6 +491,7 @@ async fn run_in_container(
     docker: &shared::Args,
     run_args: &shared::RunArgs,
     bin: &str,
+    container_name_prefix: &str,
     print: &Print,
     print_only: bool,
 ) -> Result<(), Error> {
@@ -513,7 +551,7 @@ async fn run_in_container(
     // per invocation so concurrent builds don't collide, and kept out of the
     // reproduce line where a fixed name would clash on re-run.
     let container_name = format!(
-        "stellar-contract-build-{}-{:08x}",
+        "{container_name_prefix}-{}-{:08x}",
         std::process::id(),
         rand::random::<u32>()
     );
@@ -698,17 +736,39 @@ fn newest_existing_artifact(candidates: &[PathBuf]) -> Option<PathBuf> {
         .cloned()
 }
 
-/// Collect the built wasm from the mounted `target/`. Because the working tree
-/// was bind-mounted, the container writes artifacts straight to the host under
-/// `<workspace>/target/<triple>/<profile>/`. The container's rust toolchain
-/// decides the target triple, so both known triples are probed. Copies to
-/// `--out-dir` when set.
-fn collect_built_contracts(
+/// Collect the built wasm artifacts. Package names and the host target dir come
+/// from host `cargo metadata`.
+///
+/// `extracted_root` is `None` for a plain container build: the working tree was
+/// bind-mounted, so the container wrote artifacts straight to the host target
+/// dir and they're read (and optionally copied to `--out-dir`) in place. It's
+/// `Some(er)` for a verifiable build, where the container built from an
+/// extracted-archive tempdir; the artifacts then live under that tree's target
+/// dir and must be copied back to the host target dir (or `--out-dir`) before
+/// the tempdir drops. `source_root` is the host source root the extracted tree
+/// mirrors, so the target dir's position relative to it carries over.
+///
+/// The container's rust toolchain decides the target triple, so both known
+/// triples are probed and the *freshest* artifact wins (an earlier build into
+/// the other triple can leave a stale wasm behind).
+pub(super) fn collect_built_contracts(
     cmd: &Cmd,
     md: &cargo_metadata::Metadata,
-    workspace_root: &Path,
+    source_root: &Path,
+    extracted_root: Option<&Path>,
 ) -> Result<Vec<BuiltContract>, super::Error> {
-    let target_root = workspace_root.join("target");
+    // Where the user's artifacts ultimately belong (and where a verifiable build's
+    // wasm is copied back to): the workspace's real target dir, which may be moved
+    // by a `.cargo/config.toml` `target-dir` or host `CARGO_TARGET_DIR`.
+    let host_target = md.target_directory.as_std_path();
+
+    // Where the build ACTUALLY wrote artifacts. The container is always forced to
+    // `CARGO_TARGET_DIR=/source/target` (independent of the host's target-dir
+    // config), which on the host is `<bind-mounted dir>/target` — the extracted
+    // archive root for a verifiable build, else the source (workspace) root. Basing
+    // this on `host_target` instead would miss the artifacts whenever a custom
+    // target-dir moves it away from `<source>/target`.
+    let src_target = extracted_root.unwrap_or(source_root).join("target");
 
     let mut out = Vec::new();
     for p in &md.packages {
@@ -728,30 +788,48 @@ fn collect_built_contracts(
         }
 
         let file = format!("{}.wasm", p.name.replace('-', "_"));
-        // The container may build for either wasm target depending on its rust
-        // version, so probe both triple dirs. Pick the *freshest* rather than the
-        // first that exists: an earlier build into the other triple can leave a
-        // stale wasm behind, and selecting by existence alone would return it.
-        // Fall back to the current host default for the reported path when the
-        // build produced nothing.
-        let candidates: Vec<PathBuf> = [WASM_TARGET, WASM_TARGET_OLD]
+        // Probe both triple dirs (the container's rust version decides which),
+        // picking the freshest by mtime rather than the first that exists. The
+        // chosen triple's relative path is reused to mirror the layout when
+        // copying a verifiable build's artifact back to the host target dir.
+        let rel_candidates: Vec<PathBuf> = [WASM_TARGET, WASM_TARGET_OLD]
             .iter()
-            .map(|triple| target_root.join(triple).join(&cmd.profile).join(&file))
+            .map(|triple| Path::new(triple).join(&cmd.profile).join(&file))
             .collect();
-        let src = newest_existing_artifact(&candidates).unwrap_or_else(|| {
-            let triple = get_wasm_target().unwrap_or_else(|_| WASM_TARGET.to_string());
-            target_root.join(triple).join(&cmd.profile).join(&file)
-        });
+        let abs_candidates: Vec<PathBuf> = rel_candidates
+            .iter()
+            .map(|rel| src_target.join(rel))
+            .collect();
+        let chosen_rel = newest_existing_artifact(&abs_candidates)
+            .and_then(|src| src.strip_prefix(&src_target).ok().map(Path::to_path_buf))
+            .unwrap_or_else(|| {
+                let triple = get_wasm_target().unwrap_or_else(|_| WASM_TARGET.to_string());
+                Path::new(&triple).join(&cmd.profile).join(&file)
+            });
+        let src = src_target.join(&chosen_rel);
 
-        let path = if let Some(out_dir) = &cmd.out_dir {
-            std::fs::create_dir_all(out_dir).map_err(super::Error::CreatingOutDir)?;
-            let dest = out_dir.join(&file);
-            if src.exists() {
-                std::fs::copy(&src, &dest).map_err(super::Error::CopyingWasmFile)?;
-            }
-            dest
+        // Destination: `--out-dir` wins; else if the build ran in an extracted
+        // tempdir, copy into the host target dir so the artifact survives the
+        // tempdir drop; else leave it in place (already on the host).
+        let dest = if let Some(out_dir) = &cmd.out_dir {
+            Some(out_dir.join(&file))
+        } else if extracted_root.is_some() {
+            Some(host_target.join(&chosen_rel))
         } else {
-            src
+            None
+        };
+
+        let path = match dest {
+            Some(dest) if src.exists() => {
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(super::Error::CreatingOutDir)?;
+                }
+                std::fs::copy(&src, &dest).map_err(super::Error::CopyingWasmFile)?;
+                dest
+            }
+            // Source missing: report the intended dest (matches prior leniency).
+            Some(dest) => dest,
+            None => src,
         };
 
         out.push(BuiltContract {
@@ -778,12 +856,14 @@ mod tests {
     #[test]
     fn forwarded_build_args_defaults() {
         let cmd = Cmd::default();
-        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
+        let (args, bldopts) = forwarded_build_args(&cmd, &ws(), None, false, true, true, false);
         assert_eq!(args[..2], ["contract".to_string(), "build".to_string()]);
         // Default optimize=true → bare `--optimize`; no `--locked` unless asked.
         assert!(args.contains(&"--optimize".to_string()));
         assert!(!args.iter().any(|a| a == "--locked"));
         assert!(!args.iter().any(|a| a.starts_with("--package")));
+        // Plain container builds don't record bldopts.
+        assert!(bldopts.is_empty());
     }
 
     #[test]
@@ -792,19 +872,21 @@ mod tests {
             locked: true,
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, &ws(), Some("contract-a"), true, true, true);
+        let (args, _) =
+            forwarded_build_args(&cmd, &ws(), Some("contract-a"), true, true, true, false);
         assert!(args.contains(&"--locked".to_string()));
         assert!(args.contains(&"--package=contract-a".to_string()));
     }
 
     #[test]
     fn forwarded_build_args_drops_locked_when_unsupported() {
-        // User asked for --locked but the image's cli doesn't accept it.
+        // User asked for --locked but the image's cli doesn't accept it, so the
+        // caller passes include_locked=false (cmd.locked && supports_locked).
         let cmd = Cmd {
             locked: true,
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, &ws(), None, false, true, true);
+        let (args, _) = forwarded_build_args(&cmd, &ws(), None, false, true, true, false);
         assert!(!args.iter().any(|a| a == "--locked"));
     }
 
@@ -814,7 +896,7 @@ mod tests {
         // though optimize defaults to true.
         let cmd = Cmd::default();
         assert!(cmd.build_args.optimize);
-        let args = forwarded_build_args(&cmd, &ws(), None, true, false, false);
+        let (args, _) = forwarded_build_args(&cmd, &ws(), None, false, false, false, false);
         assert!(!args.iter().any(|a| a.starts_with("--optimize")));
     }
 
@@ -834,7 +916,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
+        let (args, _) = forwarded_build_args(&cmd, &ws(), None, false, true, true, false);
         assert!(args.contains(&"--profile=dev".to_string()));
         assert!(args.contains(&"--features=a,b".to_string()));
         assert!(args.contains(&"--all-features".to_string()));
@@ -842,6 +924,32 @@ mod tests {
         assert!(args.contains(&"--meta=home_domain=example.com".to_string()));
         assert!(args.contains(&"--meta=author=alice".to_string()));
         assert!(args.contains(&"--optimize=false".to_string()));
+    }
+
+    #[test]
+    fn forwarded_build_args_records_bldopts_when_requested() {
+        // Verifiable builds pass record_bldopts=true and include_locked=true,
+        // capturing each forwarded flag as a shell-escaped bldopt.
+        let cmd = Cmd {
+            features: Some("a,b".to_string()),
+            build_args: BuildArgs {
+                meta: vec![("note".to_string(), "added on build".to_string())],
+                optimize: true,
+            },
+            ..Cmd::default()
+        };
+        let (forwarded, bldopts) =
+            forwarded_build_args(&cmd, &ws(), Some("contract-a"), true, true, true, true);
+        assert!(forwarded.contains(&"--locked".to_string()));
+        assert!(forwarded.contains(&"--meta=note=added on build".to_string()));
+        assert!(bldopts.contains(&"--locked".to_string()));
+        assert!(bldopts.contains(&"--features=a,b".to_string()));
+        assert!(bldopts.contains(&"--package=contract-a".to_string()));
+        // Only the value side is shell-escaped, and each bldopt is one token.
+        assert!(bldopts.contains(&"--meta=note='added on build'".to_string()));
+        for o in &bldopts {
+            assert_eq!(shlex::split(o).expect("valid shell").len(), 1, "{o}");
+        }
     }
 
     #[test]
@@ -855,7 +963,7 @@ mod tests {
             },
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, &ws(), None, true, true, false);
+        let (args, _) = forwarded_build_args(&cmd, &ws(), None, false, true, false, false);
         assert!(!args.iter().any(|a| a.starts_with("--optimize")));
     }
 
@@ -865,7 +973,7 @@ mod tests {
             manifest_path: Some(PathBuf::from("/tmp/ws/contracts/add/Cargo.toml")),
             ..Cmd::default()
         };
-        let args = forwarded_build_args(&cmd, &ws(), None, true, true, true);
+        let (args, _) = forwarded_build_args(&cmd, &ws(), None, false, true, true, false);
         assert!(args.contains(&"--manifest-path=contracts/add/Cargo.toml".to_string()));
     }
 
