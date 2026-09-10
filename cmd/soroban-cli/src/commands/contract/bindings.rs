@@ -1,5 +1,6 @@
 pub mod flutter;
 pub mod java;
+pub mod kmp;
 pub mod php;
 pub mod python;
 pub mod rust;
@@ -28,6 +29,9 @@ pub enum Cmd {
 
     /// Generate PHP bindings
     Php(php::Cmd),
+
+    /// Generate Kotlin Multiplatform bindings
+    Kmp(kmp::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -52,6 +56,9 @@ pub enum Error {
 
     #[error(transparent)]
     Php(#[from] php::Error),
+
+    #[error(transparent)]
+    Kmp(#[from] kmp::Error),
 }
 
 impl Cmd {
@@ -64,6 +71,7 @@ impl Cmd {
             Cmd::Flutter(flutter) => flutter.run()?,
             Cmd::Swift(swift) => swift.run()?,
             Cmd::Php(php) => php.run()?,
+            Cmd::Kmp(kmp) => kmp.run()?,
         }
         Ok(())
     }
