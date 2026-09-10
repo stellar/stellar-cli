@@ -280,6 +280,29 @@ mod test {
     }
 
     #[test]
+    fn test_index_ts_has_no_interop_breaking_wildcard_reexport() {
+        // Regression for #2352: `export * from "@stellar/stellar-sdk"` re-exports
+        // a CommonJS module by star-flattening, which Rollup/Vite cannot interop,
+        // emitting "Unable to interop `export *` ... this may lose module exports".
+        // The namespace re-exports (contract/rpc) do not hit this and must stay.
+        let temp_dir = TempDir::new().unwrap();
+        let _project = init(temp_dir.path()).unwrap();
+        let index_ts = fs::read_to_string(temp_dir.path().join("src/index.ts")).unwrap();
+        assert!(
+            !index_ts.contains(r#"export * from "@stellar/stellar-sdk""#),
+            "generated index.ts still contains the interop-breaking wildcard re-export"
+        );
+        assert!(
+            index_ts.contains(r#"export * as contract from "@stellar/stellar-sdk/contract""#),
+            "namespace `contract` re-export should be preserved"
+        );
+        assert!(
+            index_ts.contains(r#"export * as rpc from "@stellar/stellar-sdk/rpc""#),
+            "namespace `rpc` re-export should be preserved"
+        );
+    }
+
+    #[test]
     fn test_init_rejects_invalid_contract_name() {
         let temp_dir = TempDir::new().unwrap();
         let p: Project = temp_dir.path().to_path_buf().try_into().unwrap();
