@@ -35,7 +35,7 @@ jobs:
         with:
           tag: latest
           protocol_version: 28
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: stellar/actions/rust-cache@main
       - run: rustup update
       - run:
