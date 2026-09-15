@@ -63,6 +63,12 @@ pub enum Error {
     },
     #[error("argument count ({current}) surpasses maximum allowed count ({maximum})\n\nSuggestions:\n- Reduce the number of arguments\n- Consider using file-based arguments for complex data\n- Check if some arguments can be combined")]
     MaxNumberOfArgumentsReached { current: usize, maximum: usize },
+    #[error("function '{function}' expects {expected} argument(s), but {actual} were provided")]
+    ArgumentArityMismatch {
+        function: String,
+        expected: usize,
+        actual: usize,
+    },
     #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
     #[error("Duplicate map key '{key}' after alias resolution\n\nMultiple input keys resolved to the same address — likely an alias passed alongside its strkey, or two aliases pointing to the same identity.")]
@@ -100,6 +106,47 @@ pub fn build_host_function_parameters(
     config: &config::Args,
 ) -> Result<HostFunctionParameters, Error> {
     build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
+}
+
+/// Build invocation parameters by mapping `ordered_values` to the contract
+/// function's parameters **by position**, using each parameter's declared type
+/// only for parsing — never its name.
+///
+/// This is what lets `stellar token` proxy SEP-41 calls (`transfer`, `balance`,
+/// …) regardless of what the deployed contract names its parameters: SEP-41
+/// fixes the function name and argument order, so callers supply values in
+/// canonical order and this maps them onto whatever the contract's parameters
+/// happen to be called.
+pub fn build_host_function_parameters_by_position(
+    contract_id: &stellar_strkey::Contract,
+    function_name: &str,
+    ordered_values: &[String],
+    spec_entries: &[ScSpecEntry],
+    config: &config::Args,
+) -> Result<HostFunctionParameters, Error> {
+    let spec = Spec(Some(spec_entries.to_vec()));
+    let func = get_function_spec(&spec, function_name)?;
+
+    // Positional mapping requires the arity to match exactly: every parameter
+    // gets a value and no value is left over. A contract whose function deviates
+    // from the SEP-41 signature fails loudly here rather than producing a
+    // malformed `InvokeContractArgs`.
+    if ordered_values.len() != func.inputs.len() {
+        return Err(Error::ArgumentArityMismatch {
+            function: function_name.to_string(),
+            expected: func.inputs.len(),
+            actual: ordered_values.len(),
+        });
+    }
+
+    let mut parsed_args = Vec::with_capacity(func.inputs.len());
+    let mut signers = Vec::<Signer>::new();
+    for (input, value) in func.inputs.iter().zip(ordered_values.iter()) {
+        parse_positional_value(input, value, &spec, config, &mut signers, &mut parsed_args)?;
+    }
+
+    let invoke_args = build_invoke_contract_args(contract_id, function_name, parsed_args)?;
+    Ok((function_name.to_string(), spec, invoke_args, signers))
 }
 
 pub fn build_constructor_parameters(
@@ -225,28 +272,7 @@ fn parse_single_argument(
             }
         };
 
-        // Collect a signer up front for top-level address args, so the
-        // alias-named identity can also sign the transaction. Alias-to-strkey
-        // resolution itself happens inside parse_argument_with_validation,
-        // which uniformly handles top-level and nested Address positions.
-        if matches!(
-            input.type_,
-            ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
-        ) {
-            let trimmed_s = s.trim_matches('"');
-            if let Some(signer) = resolve_signer(trimmed_s, config) {
-                signers.push(signer);
-            }
-        }
-
-        parsed_args.push(parse_argument_with_validation(
-            &name,
-            &s,
-            &input.type_,
-            spec,
-            config,
-        )?);
-        Ok(())
+        parse_positional_value(input, &s, spec, config, signers, parsed_args)
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
         parsed_args.push(ScVal::Void);
         Ok(())
@@ -266,6 +292,45 @@ fn parse_single_argument(
             expected_type: expected_type_name,
         })
     }
+}
+
+/// Parse a single already-extracted string `value` for `input` and push the
+/// resulting `ScVal`, collecting a signer for top-level `Address`/`MuxedAddress`
+/// positions. Shared by the flag-based path (`parse_single_argument`) and the
+/// by-position path so alias resolution, JSON validation, and signer collection
+/// stay identical across both.
+fn parse_positional_value(
+    input: &stellar_xdr::ScSpecFunctionInputV0,
+    value: &str,
+    spec: &Spec,
+    config: &config::Args,
+    signers: &mut Vec<Signer>,
+    parsed_args: &mut Vec<ScVal>,
+) -> Result<(), Error> {
+    let name = sanitize(&input.name.to_utf8_string_lossy());
+
+    // Collect a signer up front for top-level address args, so the
+    // alias-named identity can also sign the transaction. Alias-to-strkey
+    // resolution itself happens inside parse_argument_with_validation,
+    // which uniformly handles top-level and nested Address positions.
+    if matches!(
+        input.type_,
+        ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+    ) {
+        let trimmed = value.trim_matches('"');
+        if let Some(signer) = resolve_signer(trimmed, config) {
+            signers.push(signer);
+        }
+    }
+
+    parsed_args.push(parse_argument_with_validation(
+        &name,
+        value,
+        &input.type_,
+        spec,
+        config,
+    )?);
+    Ok(())
 }
 
 fn parse_file_argument(
@@ -1499,6 +1564,152 @@ mod tests {
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
         );
+    }
+
+    // A second valid account strkey, distinct from TEST_G_ADDRESS, so positional
+    // ordering can be checked with two different addresses.
+    const TEST_G_ADDRESS_2: &str = "GAF4UUODFGAAMYRTF5QKUZCCZPXF3S4PRU5NS2BBRVJGX4WLRVI4ZI4Z";
+
+    fn function_spec(name: &str, inputs: &[(&str, ScSpecTypeDef)]) -> Vec<ScSpecEntry> {
+        use stellar_xdr::{ScSpecFunctionInputV0, ScSpecFunctionV0, ScSymbol};
+        let inputs_xdr: Vec<ScSpecFunctionInputV0> = inputs
+            .iter()
+            .map(|(n, t)| ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: (*n).try_into().unwrap(),
+                type_: t.clone(),
+            })
+            .collect();
+        vec![ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: ScSymbol(name.try_into().unwrap()),
+            inputs: inputs_xdr.try_into().unwrap(),
+            outputs: vec![].try_into().unwrap(),
+        })]
+    }
+
+    // The whole point of the by-position path: the contract may name SEP-41
+    // `transfer`'s params anything, yet the values map to positions by index and
+    // are parsed against each position's declared type.
+    #[test]
+    fn by_position_maps_values_to_renamed_params_in_order() {
+        let spec_entries = function_spec(
+            "transfer",
+            &[
+                ("sender", ScSpecTypeDef::Address),
+                ("recipient", ScSpecTypeDef::Address),
+                ("amt", ScSpecTypeDef::I128),
+            ],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+        let values = vec![
+            TEST_G_ADDRESS.to_string(),
+            TEST_G_ADDRESS_2.to_string(),
+            "1000".to_string(),
+        ];
+
+        let (function, _spec, invoke_args, _signers) = build_host_function_parameters_by_position(
+            &contract_id,
+            "transfer",
+            &values,
+            &spec_entries,
+            &config,
+        )
+        .unwrap();
+
+        assert_eq!(function, "transfer");
+        assert_eq!(invoke_args.args.len(), 3);
+        // Position 0/1 are addresses, position 2 is the i128 amount — proving the
+        // values landed at the right index under each position's type.
+        let expect_addr = |v: &str| {
+            let sc: UnresolvedScAddress = v.parse().unwrap();
+            let UnresolvedScAddress::Resolved(addr) = sc else {
+                panic!("expected resolved address");
+            };
+            ScVal::Address(addr)
+        };
+        assert_eq!(invoke_args.args[0], expect_addr(TEST_G_ADDRESS));
+        assert_eq!(invoke_args.args[1], expect_addr(TEST_G_ADDRESS_2));
+        assert_eq!(
+            invoke_args.args[2],
+            ScVal::I128(xdr::Int128Parts { hi: 0, lo: 1000 })
+        );
+    }
+
+    // Distinct type per position: if mapping were anything but positional, the
+    // U32 slot would receive an address string and fail to parse.
+    #[test]
+    fn by_position_maps_distinct_types_by_index() {
+        let spec_entries = function_spec(
+            "f",
+            &[
+                ("a", ScSpecTypeDef::U32),
+                ("b", ScSpecTypeDef::Address),
+                ("c", ScSpecTypeDef::I128),
+            ],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+        let values = vec![
+            "7".to_string(),
+            TEST_G_ADDRESS.to_string(),
+            "42".to_string(),
+        ];
+
+        let (_function, _spec, invoke_args, _signers) = build_host_function_parameters_by_position(
+            &contract_id,
+            "f",
+            &values,
+            &spec_entries,
+            &config,
+        )
+        .unwrap();
+
+        assert_eq!(invoke_args.args[0], ScVal::U32(7));
+        assert!(matches!(invoke_args.args[1], ScVal::Address(_)));
+        assert_eq!(
+            invoke_args.args[2],
+            ScVal::I128(xdr::Int128Parts { hi: 0, lo: 42 })
+        );
+    }
+
+    #[test]
+    fn by_position_rejects_arity_mismatch() {
+        let spec_entries = function_spec(
+            "transfer",
+            &[
+                ("sender", ScSpecTypeDef::Address),
+                ("recipient", ScSpecTypeDef::Address),
+                ("amt", ScSpecTypeDef::I128),
+            ],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+        // Only two values for a three-parameter function.
+        let values = vec![TEST_G_ADDRESS.to_string(), "1000".to_string()];
+
+        let result = build_host_function_parameters_by_position(
+            &contract_id,
+            "transfer",
+            &values,
+            &spec_entries,
+            &config,
+        );
+
+        match result {
+            Err(Error::ArgumentArityMismatch {
+                function,
+                expected,
+                actual,
+            }) => {
+                assert_eq!(function, "transfer");
+                assert_eq!(expected, 3);
+                assert_eq!(actual, 2);
+            }
+            Err(e) => panic!("expected arity mismatch, got {e:?}"),
+            Ok(_) => panic!("expected arity mismatch, got Ok"),
+        }
     }
 
     /// Mirrors `stellar contract invoke`: Spec::from_wasm -> build_clap_command -> render_long_help.
