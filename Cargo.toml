@@ -129,12 +129,12 @@ astral-tokio-tar = "0.6.0"
 stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "c0e963972c19265627fc3012eddf30a2d7dbd042" }
 # Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
 # user-defined types in contract specs by their fully qualified path.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "dcf0461882c1d6f2769bfb05198e21729a901f5e" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "36a6808ed450f52d5576a03597722d6d3792c535" }
 # Pending https://github.com/stellar/rs-soroban-env/pull/1733, which adapts the
 # host to the XDR constants that rs-stellar-xdr#580 changes from u64 to u32.
 # rs-soroban-sdk#1970 is on that 29.x line, so pin to the same rev it uses.
