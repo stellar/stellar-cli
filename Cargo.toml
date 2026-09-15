@@ -50,24 +50,40 @@ version = "28.0.0"
 [workspace.dependencies.soroban-env-host]
 version = "28.0.0-rc.1"
 
-# Dependencies from the rs-soroban-sdk repo:
+# Dependencies from the rs-soroban-sdk repo, pinned to
+# https://github.com/stellar/rs-soroban-sdk/pull/1970, which names user-defined
+# types in contract specs by their fully qualified path, and the PR stacked on
+# it, which stops marking types for spec shaking and shakes them by
+# reachability instead:
 [workspace.dependencies.soroban-spec]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 [workspace.dependencies.soroban-spec-rust]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 [workspace.dependencies.soroban-sdk]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 [workspace.dependencies.soroban-token-sdk]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 [workspace.dependencies.stellar-asset-spec]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "28.0.0-rc.1"
+git = "https://github.com/stellar/rs-soroban-sdk"
+rev = "87abb6f2b5e92c2be45553270f800bb33440c16b"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
@@ -122,27 +138,13 @@ httpmock = "0.7.0"
 astral-tokio-tar = "0.6.0"
 
 [patch.crates-io]
-# Pending https://github.com/stellar/rs-stellar-xdr/pull/580, which carries the
-# const XDR encoding and the widened user-defined type name limit that a fully
-# qualified type name needs. Pinned to the same rev rs-soroban-sdk#1970 uses so
-# the graph has one stellar-xdr.
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "c0e963972c19265627fc3012eddf30a2d7dbd042" }
-# Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
-# user-defined types in contract specs by their fully qualified path, and the
-# PR stacked on it, which stops marking types for spec shaking and shakes them
-# by reachability instead.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "4f2ee6175ee37396550ec1c8f6d430c002b97c14" }
-# Pending https://github.com/stellar/rs-soroban-env/pull/1733, which adapts the
-# host to the XDR constants that rs-stellar-xdr#580 changes from u64 to u32.
-# rs-soroban-sdk#1970 is on that 29.x line, so pin to the same rev it uses.
-soroban-env-common = { git = "https://github.com/stellar/rs-soroban-env", rev = "de68ee914401e70d3d8350a4d004c0442943324e" }
-soroban-env-guest = { git = "https://github.com/stellar/rs-soroban-env", rev = "de68ee914401e70d3d8350a4d004c0442943324e" }
-soroban-env-host = { git = "https://github.com/stellar/rs-soroban-env", rev = "de68ee914401e70d3d8350a4d004c0442943324e" }
+# Pinned to a rev of rs-stellar-xdr main, pending a release containing the const
+# XDR encoding and the widened user-defined type name limit that a fully
+# qualified type name needs. This has to be a patch rather than a git revision on
+# the dependency itself, because stellar-rpc-client is published and so brings
+# its own stellar-xdr from crates.io, which only a patch redirects onto the same
+# copy the rest of the graph uses.
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "e0d289adf4ad2483a10bcc8df743126974d77301" }
 
 [profile.release]
 overflow-checks = true
