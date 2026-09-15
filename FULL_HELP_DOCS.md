@@ -278,6 +278,7 @@ Generate code client bindings for a contract
 - `flutter` — Generate Flutter bindings
 - `swift` — Generate Swift bindings
 - `php` — Generate PHP bindings
+- `kmp` — Generate Kotlin Multiplatform bindings
 
 ## `stellar contract bindings rust`
 
@@ -343,6 +344,12 @@ Generate Swift bindings
 Generate PHP bindings
 
 **Usage:** `stellar contract bindings php`
+
+## `stellar contract bindings kmp`
+
+Generate Kotlin Multiplatform bindings
+
+**Usage:** `stellar contract bindings kmp`
 
 ## `stellar contract build`
 
