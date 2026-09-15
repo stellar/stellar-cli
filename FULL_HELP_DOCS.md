@@ -272,7 +272,7 @@ Generate code client bindings for a contract
 ###### **Subcommands:**
 
 - `rust` — Generate Rust bindings
-- `typescript` — Generate a TypeScript / JavaScript package
+- `typescript` — ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
 - `python` — Generate Python bindings
 - `java` — Generate Java bindings
 - `flutter` — Generate Flutter bindings
@@ -291,7 +291,7 @@ Generate Rust bindings
 
 ## `stellar contract bindings typescript`
 
-Generate a TypeScript / JavaScript package
+⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
 
 **Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
