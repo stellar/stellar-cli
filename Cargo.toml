@@ -122,20 +122,21 @@ httpmock = "0.7.0"
 astral-tokio-tar = "0.6.0"
 
 [patch.crates-io]
-# Pending https://github.com/stellar/rs-stellar-xdr/pull/566, which widens the
-# user-defined type name limit so that a fully qualified type name fits. Pinned
-# to the same rev rs-soroban-sdk#1970 uses so the graph has one stellar-xdr.
-stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "d5c3f39bf7bc52a6bbc4db0518c892ec22b2dd11" }
+# Pending https://github.com/stellar/rs-stellar-xdr/pull/580, which carries the
+# const XDR encoding and the widened user-defined type name limit that a fully
+# qualified type name needs. Pinned to the same rev rs-soroban-sdk#1970 uses so
+# the graph has one stellar-xdr.
+stellar-xdr = { git = "https://github.com/stellar/rs-stellar-xdr", rev = "c0e963972c19265627fc3012eddf30a2d7dbd042" }
 # Pending https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
 # user-defined types in contract specs by their fully qualified path, and the
 # PR stacked on it, which stops marking types for spec shaking and shakes them
 # by reachability instead.
-soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
-soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
-soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
-soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
-stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
-soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "8e36e9925cacbc7eea3e08636fa2e869430392e3" }
+soroban-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
+soroban-spec-rust = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
+soroban-token-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
+stellar-asset-spec = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
+soroban-ledger-snapshot = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "adb4874e8446655c37c0094c44282f13febba0ce" }
 # Pending https://github.com/stellar/rs-soroban-env/pull/1733, which adapts the
 # host to the XDR constants that rs-stellar-xdr#580 changes from u64 to u32.
 # rs-soroban-sdk#1970 is on that 29.x line, so pin to the same rev it uses.
