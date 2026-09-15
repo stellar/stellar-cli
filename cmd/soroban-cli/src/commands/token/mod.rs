@@ -1,5 +1,10 @@
+pub mod allowance;
+pub mod approve;
 pub mod args;
 pub mod balance;
+pub mod decimals;
+pub mod name;
+pub mod symbol;
 pub mod transfer;
 
 use crate::commands::global;
@@ -11,6 +16,21 @@ pub enum Cmd {
 
     /// Read the token balance of an account or contract
     Balance(balance::Cmd),
+
+    /// Read the token's name (SEP-41 metadata)
+    Name(name::Cmd),
+
+    /// Read the token's symbol (SEP-41 metadata)
+    Symbol(symbol::Cmd),
+
+    /// Read the token's decimals (SEP-41 metadata)
+    Decimals(decimals::Cmd),
+
+    /// Approve an allowance for a spender to transfer on your behalf
+    Approve(approve::Cmd),
+
+    /// Read the allowance a spender has on an owner's behalf
+    Allowance(allowance::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -19,6 +39,16 @@ pub enum Error {
     Transfer(#[from] transfer::Error),
     #[error(transparent)]
     Balance(#[from] balance::Error),
+    #[error(transparent)]
+    Name(#[from] name::Error),
+    #[error(transparent)]
+    Symbol(#[from] symbol::Error),
+    #[error(transparent)]
+    Decimals(#[from] decimals::Error),
+    #[error(transparent)]
+    Approve(#[from] approve::Error),
+    #[error(transparent)]
+    Allowance(#[from] allowance::Error),
 }
 
 impl Error {
@@ -28,6 +58,11 @@ impl Error {
         match self {
             Error::Transfer(e) => e.error_type(),
             Error::Balance(e) => e.error_type(),
+            Error::Name(e) => e.error_type(),
+            Error::Symbol(e) => e.error_type(),
+            Error::Decimals(e) => e.error_type(),
+            Error::Approve(e) => e.error_type(),
+            Error::Allowance(e) => e.error_type(),
         }
     }
 }
@@ -37,6 +72,11 @@ impl Cmd {
         match self {
             Cmd::Transfer(cmd) => cmd.run(global_args).await?,
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
+            Cmd::Name(cmd) => cmd.run(global_args).await?,
+            Cmd::Symbol(cmd) => cmd.run(global_args).await?,
+            Cmd::Decimals(cmd) => cmd.run(global_args).await?,
+            Cmd::Approve(cmd) => cmd.run(global_args).await?,
+            Cmd::Allowance(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
