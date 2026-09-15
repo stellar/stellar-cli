@@ -55,6 +55,11 @@ impl Cmd {
     pub async fn execute(&self, quiet: bool) -> Result<(), Error> {
         let print = Print::new(quiet);
 
+        print.warnln(
+            "`stellar contract bindings typescript` is deprecated. Use the JavaScript Stellar SDK \
+             instead: https://github.com/stellar/js-stellar-sdk#cli",
+        );
+
         let contract_spec::Fetched { contract, source } =
             contract_spec::fetch(&self.wasm_or_hash_or_contract_id, &print).await?;
 
