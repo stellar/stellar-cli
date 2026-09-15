@@ -21,7 +21,10 @@ use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::arg_parsing::{build_host_function_parameters, output_to_string},
+        contract::arg_parsing::{
+            build_host_function_parameters, build_host_function_parameters_by_position,
+            output_to_string,
+        },
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -61,6 +64,13 @@ pub struct Cmd {
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
 
+    /// When set, invoke this function with these already-resolved values mapped
+    /// to the contract's parameters by position instead of parsing `slop` by
+    /// name. Used by `stellar token` so a SEP-41 call works regardless of what
+    /// the contract names its parameters.
+    #[arg(skip)]
+    pub invocation: Option<PositionalInvocation>,
+
     #[command(flatten)]
     pub config: config::Args,
 
@@ -77,6 +87,16 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+}
+
+/// A request to invoke a named function with values mapped to the contract's
+/// parameters by position rather than by name.
+#[derive(Debug, Clone)]
+pub struct PositionalInvocation {
+    /// The contract function to call (matched by name).
+    pub function: String,
+    /// Already-resolved argument values in the function's parameter order.
+    pub args: Vec<String>,
 }
 
 impl FromStr for Cmd {
@@ -302,7 +322,17 @@ impl Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            if let Some(inv) = &self.invocation {
+                build_host_function_parameters_by_position(
+                    &contract_id,
+                    &inv.function,
+                    &inv.args,
+                    spec_entries,
+                    config,
+                )?;
+            } else {
+                build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            }
         }
 
         let client = network.rpc_client()?;
@@ -326,8 +356,17 @@ impl Cmd {
         .await
         .map_err(Error::from)?;
 
-        let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+        let params = if let Some(inv) = &self.invocation {
+            build_host_function_parameters_by_position(
+                &contract_id,
+                &inv.function,
+                &inv.args,
+                &spec_entries,
+                config,
+            )?
+        } else {
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?
+        };
 
         let (function, spec, host_function_params, signers) = params;
 

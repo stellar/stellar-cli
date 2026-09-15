@@ -1,4 +1,10 @@
+pub mod allowance;
+pub mod approve;
 pub mod balance;
+pub mod decimals;
+pub mod name;
+pub mod renamed;
+pub mod symbol;
 pub mod transfer;
 
 use soroban_test::{AssertExt, TestEnv};

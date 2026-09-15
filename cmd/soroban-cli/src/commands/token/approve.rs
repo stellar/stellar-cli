@@ -16,25 +16,30 @@ use crate::{
 #[derive(Debug, Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// The token to transfer from: a contract id or alias, `native`, or a
-    /// classic asset as `CODE:ISSUER`.
+    /// The token to approve an allowance on: a contract id or alias, `native`,
+    /// or a classic asset as `CODE:ISSUER`.
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
-    /// Account to transfer tokens from. Signs and authorizes the transfer, so it
+    /// Account granting the allowance. Signs and authorizes the approval, so it
     /// must be an identity or secret key you control.
     #[arg(long)]
     pub from: UnresolvedMuxedAccount,
 
-    /// Account or contract to transfer the tokens to. Accepts a `G…`/`M…`
-    /// account, a `C…` contract address, or an alias.
+    /// Account or contract allowed to spend on `--from`'s behalf. Accepts a
+    /// `G…`/`M…` account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub to: UnresolvedScAddress,
+    pub spender: UnresolvedScAddress,
 
-    /// Amount to transfer, in the token's smallest unit (stroops for a Stellar
-    /// Asset Contract).
+    /// Allowance to grant, in the token's smallest unit (stroops for a Stellar
+    /// Asset Contract). Replaces any existing allowance.
     #[arg(long, value_parser = parse_nonneg_i128)]
     pub amount: i128,
+
+    /// Ledger sequence after which the allowance expires. Must be at or beyond
+    /// the current ledger when the amount is positive.
+    #[arg(long = "expiration-ledger")]
+    pub expiration_ledger: u32,
 
     /// Format of the output.
     #[arg(long, default_value = "text")]
@@ -68,15 +73,15 @@ pub enum Error {
     Serde(#[from] serde_json::Error),
 
     #[error(
-        "muxed (M…) source accounts are not yet supported for `token transfer`; \
+        "muxed (M…) source accounts are not yet supported for `token approve`; \
          use the underlying G… account as `--from` instead"
     )]
     MuxedSourceNotSupported,
 }
 
-/// Parse `--amount` as a non-negative `i128`. A negative transfer amount is
-/// always invalid, so reject it at the clap layer instead of letting it reach
-/// the contract and fail as an opaque `HostError` deep in simulation.
+/// Parse `--amount` as a non-negative `i128`. A negative allowance is always
+/// invalid, so reject it at the clap layer instead of letting it reach the
+/// contract and fail as an opaque `HostError` deep in simulation.
 fn parse_nonneg_i128(value: &str) -> Result<i128, String> {
     let amount: i128 = value
         .parse()
@@ -104,19 +109,19 @@ impl Error {
     }
 }
 
-/// The machine-readable receipt of a token transfer.
+/// The machine-readable receipt of a token approval.
 #[derive(Debug, serde::Serialize)]
 struct Receipt {
     /// Hex-encoded hash of the submitted transaction.
     tx_hash: Option<String>,
-    /// The decoded contract return value (`null` for SEP-41 `transfer`, which
+    /// The decoded contract return value (`null` for SEP-41 `approve`, which
     /// returns nothing).
     result: serde_json::Value,
 }
 
 impl Cmd {
     /// Assemble a full [`config::Args`] for the underlying invocation, using
-    /// `--from` as the source account that signs and authorizes the transfer.
+    /// `--from` as the source account that signs and authorizes the approval.
     /// Fees are left unset so the pipeline applies its default inclusion fee —
     /// this command intentionally exposes no fee or sequence knobs.
     fn config(&self) -> config::Args {
@@ -143,11 +148,12 @@ impl Cmd {
             .id
             .resolve(&config.locator, &network.network_passphrase)?;
 
-        // SEP-41 `transfer(from, to, amount)`: `from` is the source account
-        // (which also signs and authorizes), `to` is the destination.
+        // SEP-41 `approve(from, spender, amount, expiration_ledger)`: `from` is
+        // the source account (which also signs and authorizes), `spender` is the
+        // delegate being granted the allowance.
         //
         // The invoke pipeline can't source a transaction from a muxed account
-        // yet (see #2645), and a muxed strkey in the `transfer` arg is rejected
+        // yet (see #2645), and a muxed strkey in the `from` arg is rejected
         // mid-simulation with an opaque host error; reject it up front with a
         // clear message instead.
         let source_account = config.source_account()?;
@@ -155,36 +161,37 @@ impl Cmd {
             return Err(Error::MuxedSourceNotSupported);
         }
         let from = source_account.to_string();
-        // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
-        // resolve it to an `ScAddress` and hand the strkey to the `transfer`
-        // arg, which accepts any of these destinations.
-        let to = self
-            .to
+        // `--spender` may be an account (`G…`/`M…`), a contract (`C…`), or an
+        // alias; resolve it to an `ScAddress` and hand the strkey to the
+        // `approve` arg, which accepts any of these delegates.
+        let spender = self
+            .spender
             .clone()
             .resolve(&config.locator, &network.network_passphrase, None)?
             .to_string();
         let amount = self.amount.to_string();
+        let expiration_ledger = self.expiration_ledger.to_string();
 
-        // SEP-41 `transfer(from, to, amount)` — supply the values in that order
-        // and let the contract's parameters be matched by position, so a token
-        // that names them anything still works. A transfer always intends to
-        // submit, so force `Send::Yes`: a token whose `transfer` records no
-        // writes/events/auth can't be classified read-only and silently exit 0
-        // without ever moving funds.
+        // SEP-41 `approve(from, spender, amount, expiration_ledger)` — supply the
+        // values in that order and let the contract's parameters be matched by
+        // position, so a token that names them anything still works. An approval
+        // always intends to submit, so force `Send::Yes`: a token whose `approve`
+        // records no writes/events/auth can't be classified read-only and
+        // silently exit 0 without ever setting the allowance.
         let receipt = args::invoke_by_position(
             &config,
             quiet,
             global_args.no_cache,
             &token,
-            "transfer",
-            vec![from, to, amount],
+            "approve",
+            vec![from, spender, amount, expiration_ledger],
             invoke::Send::Yes,
         )
         .await
         .map_err(|e| args::not_deployed_error(&token, &e).map_or(Error::Invoke(e), Error::Args))?
         .into_result();
 
-        // `transfer` always writes, so the invocation is submitted rather than
+        // `approve` always writes, so the invocation is submitted rather than
         // resolved as a build-only transaction; a missing receipt would mean
         // `--build-only`, which this command never sets.
         let Some(receipt) = receipt else {

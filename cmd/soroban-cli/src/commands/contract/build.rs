@@ -354,7 +354,7 @@ impl Cmd {
             // Set env var to inform the SDK that this CLI reduces fully
             // qualified user-defined type names in the spec down to their
             // simple names.
-            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_FULL_NAMES", "1");
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_REDUCING_FULL_NAMES", "1");
 
             let cmd_str = serialize_command(&cmd);
 
