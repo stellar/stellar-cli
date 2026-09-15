@@ -12,7 +12,7 @@ pub enum Cmd {
     /// Generate Rust bindings
     Rust(rust::Cmd),
 
-    /// Generate a TypeScript / JavaScript package
+    /// ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
     Typescript(Box<typescript::Cmd>),
 
     /// Generate Python bindings
