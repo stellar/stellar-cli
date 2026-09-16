@@ -742,9 +742,8 @@ fn parent_path() -> String {
 }
 
 fn with_flags(expected: &str) -> String {
-    // Serialized in sorted key order, so REDUCING_FULL_NAMES precedes SPEC_SHAKING_V2.
+    // Serialized in sorted key order, so SPEC_SHAKING_V2 precedes SPEC_SHAKING_V3.
     const ENV_VARS: &str = concat!(
-        "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_REDUCING_FULL_NAMES=1 ",
         "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 ",
         "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V3=1"
     );
