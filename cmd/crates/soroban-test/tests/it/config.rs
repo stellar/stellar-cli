@@ -1064,7 +1064,7 @@ fn can_remove_shadowed_native_alias() {
 }
 
 #[test]
-fn alias_rm_is_an_alias_for_remove() {
+fn alias_rm_is_canonical_with_remove_alias() {
     TestEnv::with_default(|sandbox| {
         sandbox
             .new_assert_cmd("contract")
