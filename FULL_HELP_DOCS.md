@@ -180,16 +180,18 @@ Utilities to manage contract aliases
 
 ###### **Subcommands:**
 
-- `remove` — Remove contract alias
+- `rm` — Remove contract alias
 - `add` — Add contract alias
 - `show` — Show the contract id associated with a given alias
 - `ls` — List all aliases
 
-## `stellar contract alias remove`
+## `stellar contract alias rm`
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias rm [OPTIONS] <ALIAS>`
+
+**Command Alias:** `remove`
 
 ###### **Arguments:**
 

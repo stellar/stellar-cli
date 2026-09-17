@@ -1064,6 +1064,37 @@ fn can_remove_shadowed_native_alias() {
 }
 
 #[test]
+fn alias_rm_is_an_alias_for_remove() {
+    TestEnv::with_default(|sandbox| {
+        sandbox
+            .new_assert_cmd("contract")
+            .args([
+                "alias",
+                "add",
+                "my-token",
+                "--id=CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+            ])
+            .assert()
+            .success();
+
+        // `rm` is the canonical subcommand name.
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "rm", "my-token"])
+            .assert()
+            .success();
+
+        // `remove` still works as an alias.
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["alias", "remove", "my-token"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("no contract found"));
+    });
+}
+
+#[test]
 fn alias_ls_always_shows_builtin_native() {
     TestEnv::with_default(|sandbox| {
         // A user alias makes a network group appear in the listing.
