@@ -1148,6 +1148,35 @@ fn contract_archive_writes_out() {
     }
 }
 
+// Re-running `contract archive` with an `--out-file` written inside the repo
+// must succeed: the prior run's tarball is untracked, but it's the excluded
+// output, so it neither trips the clean-tree check nor gets archived into the
+// new one.
+#[test]
+fn contract_archive_rerun_inside_repo_succeeds() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    // Write the archive *inside* the workspace so the second run sees the first
+    // run's tarball sitting untracked in the tree.
+    let out = workspace.join("src.tar.gz");
+
+    for _ in 0..2 {
+        sandbox
+            .new_assert_cmd("contract")
+            .current_dir(&workspace)
+            .arg("archive")
+            .arg("--out-file")
+            .arg(&out)
+            .assert()
+            .success()
+            .stderr(predicate::str::contains("Wrote source archive"));
+    }
+}
+
 // `contract archive --dry-run` lists the archived entries and the
 // source_sha256 without writing any file.
 #[test]

@@ -102,8 +102,17 @@ pub(crate) fn resolve_source_root() -> PathBuf {
 /// explaining why) so an archive always corresponds to a committed state. A
 /// no-op when `source_root` isn't a git repo (we can't check, e.g. archive
 /// sources) — the user owns the bytes they produce there.
-pub(crate) fn ensure_clean_tree(source_root: &Path, print: &Print) -> Result<(), Error> {
-    if tree_is_dirty(source_root)? {
+///
+/// `exclude` is the caller's own output file, kept out of the check exactly as
+/// it's kept out of the archive, so re-running over an unchanged tree that
+/// already holds a previous tarball isn't seen as dirty.
+pub(crate) fn ensure_clean_tree(
+    source_root: &Path,
+    exclude: Option<&Path>,
+    print: &Print,
+) -> Result<(), Error> {
+    let selected = collect_files(source_root, exclude)?;
+    if tree_is_dirty(source_root, &selected)? {
         print.warnln(format!(
             "git working tree at {} is dirty; the archive would include uncommitted changes.",
             source_root.display(),
@@ -115,38 +124,96 @@ pub(crate) fn ensure_clean_tree(source_root: &Path, print: &Print) -> Result<(),
     Ok(())
 }
 
-/// Whether `source_root` is a git work tree with uncommitted changes. Returns
-/// `Ok(false)` when it isn't a git repo (git ran but refused) — callers can't
-/// verify cleanliness there, so they proceed. Errors only when git can't be
-/// invoked at all.
-fn tree_is_dirty(source_root: &Path) -> Result<bool, Error> {
-    let status = Command::new("git")
+/// Whether `source_root` is a git work tree that isn't safe to archive. Checked
+/// against the *archived* file set (`selected`), not git's default status
+/// filtering, because the walker and `git status` apply different ignore rules —
+/// the walker skips the global gitignore, `.git/info/exclude`, and parent-dir
+/// ignores, and additionally honors `.ignore` — so a file could be archived
+/// while status still called the tree clean (or the reverse). A tree is dirty
+/// when either a tracked file is modified/staged/deleted, or a file the archive
+/// would include isn't committed. Returns `Ok(false)` when it isn't a git repo
+/// (nothing to verify). Errors only when git can't be invoked or fails
+/// otherwise.
+fn tree_is_dirty(source_root: &Path, selected: &[PathBuf]) -> Result<bool, Error> {
+    // Modified/staged/deleted tracked files. `--untracked-files=no` keeps this
+    // independent of ignore rules; untracked files are covered by the
+    // committed-membership check below instead.
+    let Some(status) = run_git(
+        source_root,
+        &["status", "--porcelain", "--untracked-files=no"],
+    )?
+    else {
+        return Ok(false); // not a git repo — nothing to verify
+    };
+    if !status.is_empty() {
+        return Ok(true);
+    }
+
+    // Every file the archive would include must be committed; otherwise the
+    // archive bakes in uncommitted content while the status check above still
+    // saw a clean tree (e.g. a file hidden from status by a global/`info/exclude`
+    // ignore that the walker doesn't consult).
+    let tracked = tracked_files(source_root)?;
+    Ok(selected
+        .iter()
+        .any(|path| !tracked.contains(path.strip_prefix(source_root).unwrap_or(path))))
+}
+
+/// Run `git -C source_root <args>` under the C locale. Returns the captured
+/// stdout on success, `None` when `source_root` isn't a git repository (nothing
+/// to verify there), or an error for any other failure. git exits non-zero
+/// (typically 128) for both "not a git repository" and genuine failures —
+/// dubious ownership, permission errors, a corrupt repo — so the first is
+/// distinguished by its (C-locale, hence stable English) message; the rest are
+/// surfaced rather than silently treated as "not a repo".
+fn run_git(source_root: &Path, args: &[&str]) -> Result<Option<Vec<u8>>, Error> {
+    let output = Command::new("git")
+        .env("LC_ALL", "C")
         .arg("-C")
         .arg(source_root)
-        .arg("status")
-        .arg("--porcelain")
+        .args(args)
         .output()
         .map_err(|source| Error::GitInvoke {
             path: source_root.to_path_buf(),
             source,
         })?;
 
-    // git exits non-zero (typically 128) for both "not a git repository" and for
-    // genuine failures — dubious ownership, permission errors, a corrupt repo. In
-    // the first case there's nothing to check, so proceed; but treating the rest
-    // as "not a repo" would silently bypass the clean-tree gate, so surface them.
-    if !status.status.success() {
-        let stderr = String::from_utf8_lossy(&status.stderr);
-        if stderr.contains("not a git repository") {
-            return Ok(false);
-        }
-        return Err(Error::GitStatus {
-            path: source_root.to_path_buf(),
-            stderr: stderr.trim().to_string(),
-        });
+    if output.status.success() {
+        return Ok(Some(output.stdout));
     }
 
-    Ok(!status.stdout.is_empty())
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("not a git repository") {
+        return Ok(None);
+    }
+    Err(Error::GitStatus {
+        path: source_root.to_path_buf(),
+        stderr: stderr.trim().to_string(),
+    })
+}
+
+/// The set of tracked files under `source_root`, as paths relative to it.
+fn tracked_files(source_root: &Path) -> Result<std::collections::HashSet<PathBuf>, Error> {
+    let out = run_git(source_root, &["ls-files", "-z"])?.unwrap_or_default();
+    // `-z` gives NUL-separated, unquoted paths — so a name with spaces or other
+    // special bytes still matches the walker's real path.
+    Ok(out
+        .split(|b| *b == 0)
+        .filter(|s| !s.is_empty())
+        .map(bytes_to_path)
+        .collect())
+}
+
+fn bytes_to_path(bytes: &[u8]) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        PathBuf::from(std::ffi::OsStr::from_bytes(bytes))
+    }
+    #[cfg(not(unix))]
+    {
+        PathBuf::from(String::from_utf8_lossy(bytes).into_owned())
+    }
 }
 
 /// Produce the gzipped source tarball bytes. The working directory under
@@ -213,6 +280,41 @@ fn walk_tar(
     warn: bool,
     exclude: Option<&Path>,
 ) -> Result<Vec<u8>, Error> {
+    let files = collect_files(source_root, exclude)?;
+
+    if warn {
+        warn_unexpected_paths(&files, source_root, print);
+    }
+
+    let mut builder = tar::Builder::new(Vec::new());
+    builder.mode(tar::HeaderMode::Deterministic);
+    for path in &files {
+        let rel = path.strip_prefix(source_root).unwrap_or(path);
+        let name = Path::new("source").join(rel);
+        let mut f = std::fs::File::open(path).map_err(|source| Error::ArchiveWrite {
+            path: path.clone(),
+            source,
+        })?;
+        builder
+            .append_file(&name, &mut f)
+            .map_err(|source| Error::ArchiveWrite {
+                path: path.clone(),
+                source,
+            })?;
+    }
+    builder.into_inner().map_err(|source| Error::ArchiveWrite {
+        path: source_root.to_path_buf(),
+        source,
+    })
+}
+
+/// The sorted set of files the archive would contain: the working tree under
+/// `source_root`, honoring the project's in-tree `.gitignore`/`.ignore` (and
+/// only those — see `walk_tar`), with the `.git` directory and the caller's own
+/// `exclude` output file skipped. Rejects symlinks. This is the single source of
+/// truth for "what goes in the archive", shared by `walk_tar` (to build it) and
+/// `ensure_clean_tree` (to check the same files are committed).
+fn collect_files(source_root: &Path, exclude: Option<&Path>) -> Result<Vec<PathBuf>, Error> {
     // Resolve the excluded output file to its real path (only when it already
     // exists — a not-yet-written file can't be in the tree to skip).
     let exclude = exclude.and_then(|p| p.canonicalize().ok());
@@ -261,31 +363,7 @@ fn walk_tar(
         }
     }
     files.sort();
-
-    if warn {
-        warn_unexpected_paths(&files, source_root, print);
-    }
-
-    let mut builder = tar::Builder::new(Vec::new());
-    builder.mode(tar::HeaderMode::Deterministic);
-    for path in &files {
-        let rel = path.strip_prefix(source_root).unwrap_or(path);
-        let name = Path::new("source").join(rel);
-        let mut f = std::fs::File::open(path).map_err(|source| Error::ArchiveWrite {
-            path: path.clone(),
-            source,
-        })?;
-        builder
-            .append_file(&name, &mut f)
-            .map_err(|source| Error::ArchiveWrite {
-                path: path.clone(),
-                source,
-            })?;
-    }
-    builder.into_inner().map_err(|source| Error::ArchiveWrite {
-        path: source_root.to_path_buf(),
-        source,
-    })
+    Ok(files)
 }
 
 /// Whether a path component matches the warn list: it equals an entry, or — for
@@ -353,7 +431,7 @@ fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::locator::enforce_hardened_tree;
+    use crate::config::locator::{enforce_hardened_tree, FileMode};
     use sha2::{Digest, Sha256};
 
     /// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`,
@@ -446,7 +524,7 @@ mod tests {
         assert!(dest.path().join("source/Cargo.toml").exists());
         assert!(dest.path().join("source/src/lib.rs").exists());
 
-        enforce_hardened_tree(dest.path()).unwrap();
+        enforce_hardened_tree(dest.path(), FileMode::PreserveOwner).unwrap();
         let file_mode = std::fs::metadata(dest.path().join("source/Cargo.toml"))
             .unwrap()
             .permissions()
@@ -555,6 +633,81 @@ mod tests {
         assert_eq!(resolve_source_root(), std::env::current_dir().unwrap());
     }
 
+    // A file the archive would include but git doesn't track must fail the
+    // clean-tree check, so uncommitted content never lands in a "clean" archive.
+    // Here `secret.rs` is hidden from `git status` via `.git/info/exclude` — which
+    // the walker deliberately ignores — so the old status-only check called the
+    // tree clean while the walker still archived it.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_archived_but_uncommitted_file() {
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_init_commit(root);
+
+        std::fs::write(root.join(".git/info/exclude"), b"secret.rs\n").unwrap();
+        std::fs::write(root.join("secret.rs"), b"// uncommitted").unwrap();
+
+        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
+    }
+
+    // The caller's own output file, sitting untracked inside the repo, must not
+    // trip the clean-tree check when it's the excluded output — otherwise a second
+    // `archive -o inside.tar.gz` run would wrongly fail as dirty. Not excluding it
+    // proves the check does otherwise catch an untracked file.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_ignores_the_excluded_output_file() {
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_init_commit(root);
+
+        let out = root.join("src.tar.gz");
+        std::fs::write(&out, b"a prior run's archive").unwrap();
+
+        ensure_clean_tree(root, Some(&out), &print)
+            .expect("the excluded output file must not count as dirty");
+        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
+    }
+
+    // A modified *tracked* file is dirty even though the committed-membership
+    // check alone would pass it (it's tracked) — the status probe catches it.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_modified_tracked_file() {
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_init_commit(root);
+
+        std::fs::write(root.join("Cargo.toml"), b"# modified").unwrap();
+
+        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
+    }
+
+    // A committed, unmodified tree is clean.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_accepts_committed_tree() {
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
+        git_init_commit(root);
+
+        ensure_clean_tree(root, None, &print).expect("a committed tree is clean");
+    }
+
     // A symlink in the tree is rejected rather than followed (its target could be
     // outside the tree, breaking reproducibility) or stored as a link entry.
     #[test]
@@ -586,7 +739,7 @@ mod tests {
         std::fs::write(&data, b"x").unwrap();
         std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-        enforce_hardened_tree(root).unwrap();
+        enforce_hardened_tree(root, FileMode::PreserveOwner).unwrap();
 
         let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
         // Executable file keeps owner-exec (0700); non-exec file hardened to 0600;

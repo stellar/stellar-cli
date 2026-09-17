@@ -641,18 +641,35 @@ impl Pwd for Args {
     }
 }
 
+/// How `enforce_hardened_tree` normalizes a file's owner bits (group/other are
+/// always stripped regardless).
+#[derive(Clone, Copy)]
+pub(crate) enum FileMode {
+    /// Force every file to exactly `0o600`. Used for config files, which are
+    /// data (never executable) and must stay owner-writable so the CLI can
+    /// rewrite them.
+    Exact,
+    /// Keep the owner's bits, including the execute bit, and only drop
+    /// group/other (a `0o644` file becomes `0o600`, a `0o755` becomes `0o700`).
+    /// Used for an extracted source tree, where a checked-in script a build
+    /// invokes must stay runnable.
+    #[cfg_attr(not(test), allow(dead_code))]
+    PreserveOwner,
+}
+
 /// Walk `root` recursively and strip all group/other access. Dirs are set to
-/// `0o700`; files keep their owner bits — including the execute bit, so a
-/// checked-in script that an extracted-source build invokes stays runnable —
-/// with group/other removed (a `0o644` file becomes `0o600`, a `0o755` becomes
-/// `0o700`). Returns the dirs and files that were changed so callers can decide
-/// whether to surface a warning. Symlinks are skipped — mode bits aren't
-/// meaningful for them and `set_permissions` would follow them.
+/// `0o700`; files are normalized per `file_mode` (see [`FileMode`]). Returns the
+/// dirs and files that were changed so callers can decide whether to surface a
+/// warning. Symlinks are skipped — mode bits aren't meaningful for them and
+/// `set_permissions` would follow them.
 ///
 /// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
 /// on filesystem ACLs created by the higher-level APIs.
 #[allow(clippy::unnecessary_wraps)]
-pub(crate) fn enforce_hardened_tree(root: &Path) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
+pub(crate) fn enforce_hardened_tree(
+    root: &Path,
+    file_mode: FileMode,
+) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -678,8 +695,11 @@ pub(crate) fn enforce_hardened_tree(root: &Path) -> io::Result<(Vec<PathBuf>, Ve
                     }
                 }
             } else {
-                // Keep the owner's bits (notably execute) but drop group/other.
-                let target = current & 0o700;
+                let target = match file_mode {
+                    FileMode::Exact => 0o600,
+                    // Keep the owner's bits (notably execute) but drop group/other.
+                    FileMode::PreserveOwner => current & 0o700,
+                };
                 if current != target {
                     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target))?;
                     changed_files.push(p);
@@ -690,14 +710,16 @@ pub(crate) fn enforce_hardened_tree(root: &Path) -> io::Result<(Vec<PathBuf>, Ve
     }
     #[cfg(not(unix))]
     {
-        let _ = root;
+        let _ = (root, file_mode);
         Ok((Vec::new(), Vec::new()))
     }
 }
 
 #[cfg(unix)]
 fn fix_config_permissions(root: std::path::PathBuf) {
-    let Ok((dirs, files)) = enforce_hardened_tree(&root) else {
+    // Config files are data, never executable, and the CLI must be able to
+    // rewrite them, so normalize each to exactly 0600.
+    let Ok((dirs, files)) = enforce_hardened_tree(&root, FileMode::Exact) else {
         return;
     };
 
@@ -1089,6 +1111,32 @@ mod tests {
             0o600,
             "overwritten identity file should be 0600, got {:o}",
             perms.mode() & 0o777
+        );
+    }
+
+    #[test]
+    fn overwrite_repairs_read_only_file_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let identity_dir = dir.path().join("identity");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+
+        // Pre-create alice.toml as read-only (0400). Config repair must restore
+        // write access (0600) so the overwrite below can actually open it.
+        let alice = identity_dir.join("alice.toml");
+        std::fs::write(&alice, "seed_phrase = \"old\"\n").unwrap();
+        std::fs::set_permissions(&alice, std::fs::Permissions::from_mode(0o400)).unwrap();
+
+        let value: HashMap<String, String> = HashMap::new();
+        KeyType::Identity
+            .write("alice", &value, dir.path())
+            .expect("overwriting a read-only config file should succeed");
+
+        assert_eq!(
+            std::fs::metadata(&alice).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "a read-only config file should be repaired to 0600"
         );
     }
 

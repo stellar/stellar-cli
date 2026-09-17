@@ -53,15 +53,16 @@ impl Cmd {
 
         let source_root = source_archive::resolve_source_root();
 
+        // Exclude our own output file from both the clean-tree check and the walk,
+        // so re-running over an unchanged tree (where a previous tarball already
+        // sits inside it) neither trips the dirty check nor archives that tarball
+        // into the new one and changes source_sha256.
+        let out_file = self.out_file.as_deref();
+
         // The archive is the working tree, so a dirty repo would bake uncommitted
         // changes into the bytes and the printed source_sha256 — refuse it, so the
         // hash always corresponds to a committed state (matching --verifiable).
-        source_archive::ensure_clean_tree(&source_root, &print)?;
-
-        // Exclude our own output file from the walk so re-running over an
-        // unchanged tree (where a previous tarball already sits inside it) doesn't
-        // archive that tarball into the new one and change source_sha256.
-        let out_file = self.out_file.as_deref();
+        source_archive::ensure_clean_tree(&source_root, out_file, &print)?;
 
         // The dry-run listing itself reveals the contents, so skip the
         // "not a git repository" warning there.
