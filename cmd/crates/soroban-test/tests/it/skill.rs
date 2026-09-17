@@ -9,5 +9,8 @@ fn skill_prints_agent_guide() {
         .success()
         .stdout(predicates::str::contains("network use"))
         .stdout(predicates::str::contains("--alias"))
-        .stdout(predicates::str::contains("--id"));
+        .stdout(predicates::str::contains("--id"))
+        .stdout(predicates::str::contains("contract build"))
+        .stdout(predicates::str::contains("--send=no"))
+        .stdout(predicates::str::contains("container use"));
 }

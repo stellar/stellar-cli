@@ -59,6 +59,55 @@ Do **not** capture the deployed contract id into a shell variable or `.env` file
 - Manage aliases: `stellar contract alias ls`, `stellar contract alias add`, `stellar contract alias rm`
 - Asset contracts accept `--alias` too: `stellar contract asset deploy --asset <asset> --alias <name>`
 
+## Building and deploying from source
+
+Scaffold, build, and deploy a contract project:
+
+    stellar contract init my-project     # scaffold a Cargo workspace
+    stellar contract build               # compile to target/wasm32v1-none/release/<name>.wasm
+
+Inside a contract project you can deploy without pointing at a `.wasm` — the CLI builds it for you:
+
+    stellar contract deploy --alias counter -- --admin alice
+
+Constructor arguments go after the `--`, passed as `--arg-name value`; they are forwarded to the contract's `__constructor`.
+
+- Deploy a prebuilt file: `stellar contract deploy --wasm <path> --alias <name>`
+- Upload Wasm without instantiating a contract (e.g. for factories or upgrades): `stellar contract upload` (the older `install` is a deprecated alias).
+
+## Discovering a contract's interface
+
+Besides `stellar contract invoke --id <c> -- --help`, you can inspect a deployed contract's functions and types without invoking it:
+
+    stellar contract info interface --id <contract>
+
+`--id` accepts a contract id or an alias and works across contract commands (it's the short form of `--contract-id`) — prefer it everywhere.
+
+## Reading data and parsing output
+
+- For view/query calls, use `--send=no` to simulate without submitting a transaction or paying fees:
+
+      stellar contract invoke --id counter --send=no -- get_count
+
+- A function's return value is printed to **stdout** as JSON; logs and diagnostics go to **stderr**. When capturing output for parsing, add `-q`/`--quiet` to silence logs and keep stdout clean.
+
+## Data lifecycle and TTL (archival)
+
+Ledger entries are rented and expire over time; expired entries are archived and must be restored before use.
+
+- `stellar contract read` — inspect a contract's storage entries
+- `stellar contract extend` — bump an entry's time-to-live before it expires
+- `stellar contract restore` — revive archived state
+
+## Running a local network
+
+For fast, offline iteration, run a self-contained network (node + RPC + faucet) in a container:
+
+    stellar container start local
+
+- Container engine: defaults to Docker (or any Docker-compatible CLI such as Podman). On Apple silicon (macOS 26+) you can use Apple's `container` CLI. Set the default once with `stellar container use <engine>` (engines: `docker`, `apple-container`); override a single command with `--engine`, or set `STELLAR_CONTAINER_ENGINE`.
+- On testnet, fund an account through friendbot: `stellar keys fund alice`.
+
 ## Inspecting configuration
 
 Use these to see the current state instead of guessing:
