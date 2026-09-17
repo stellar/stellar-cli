@@ -1080,3 +1080,208 @@ fn build_always_injects_cli_version() {
         "CLI version should not be empty"
     );
 }
+
+// Convenience: drive a git command in a fixture directory.
+fn git_in(dir: &Path, args: &[&str]) {
+    std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "Test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.com")
+        .env("GIT_COMMITTER_NAME", "Test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.com")
+        .status()
+        .unwrap();
+}
+
+// Init a tempdir copy of the workspace fixture and return the workspace path.
+fn fresh_workspace() -> (TempDir, PathBuf) {
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    let temp = TempDir::new().unwrap();
+    fs_extra::dir::copy(&fixture_path, temp.path(), &CopyOptions::new()).unwrap();
+    let workspace = temp.path().join("workspace");
+    (temp, workspace)
+}
+
+// `contract archive --out-file` writes the gzipped tarball and prints its
+// source_sha256.
+#[test]
+fn contract_archive_writes_out() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let out = temp.path().join("src.tar.gz");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("Wrote source archive")
+                .and(predicate::str::contains("source_sha256")),
+        );
+
+    assert!(out.exists(), "the archive should be written to --out-file");
+    assert!(
+        std::fs::metadata(&out).unwrap().len() > 0,
+        "the archive should not be empty"
+    );
+
+    // The archive can hold private source, so it's written 0600, not the umask
+    // default.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&out).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "the source archive should be owner-only (0600)"
+        );
+    }
+}
+
+// `contract archive --dry-run` lists the archived entries and the
+// source_sha256 without writing any file.
+#[test]
+fn contract_archive_dry_run_lists_entries() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let out = temp.path().join("should-not-exist.tar.gz");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--dry-run")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("source/Cargo.toml"))
+        .stderr(predicate::str::contains("source_sha256"));
+
+    assert!(!out.exists(), "--dry-run must not write an archive");
+}
+
+// A filename carrying terminal control/escape bytes must be sanitized before it's
+// listed, so archiving a hostile tree can't inject escape sequences into the
+// user's terminal. (No git init here, so the clean-tree check is skipped and the
+// working tree is listed as-is.)
+#[test]
+#[cfg(unix)]
+fn contract_archive_dry_run_sanitizes_control_chars_in_names() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+
+    // `e` + raw ESC + an ANSI color sequence + `vil.txt`.
+    let evil = std::ffi::OsStr::from_bytes(b"e\x1b[31mvil.txt");
+    std::fs::write(workspace.join(evil), b"x").unwrap();
+
+    let output = sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--dry-run")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    // The raw ESC byte must never reach the terminal…
+    assert!(
+        !output.contains(&0x1b),
+        "raw ESC leaked into the archive listing"
+    );
+    // …while the printable remainder of the name still shows, so the listing
+    // stays useful.
+    let text = String::from_utf8_lossy(&output);
+    assert!(
+        text.contains("vil.txt"),
+        "expected the sanitized name in the listing, got:\n{text}"
+    );
+}
+
+// `--out-file` must name a gzipped tarball (.tar.gz / .tgz).
+#[test]
+fn contract_archive_rejects_bad_out_file_extension() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+
+    let out = temp.path().join("src.zip");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(".tar.gz or .tgz"));
+
+    assert!(
+        !out.exists(),
+        "no archive should be written on a bad extension"
+    );
+}
+
+// `--out-file` is required unless `--dry-run` is passed.
+#[test]
+fn contract_archive_requires_out_file_without_dry_run() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--out-file"));
+}
+
+// A dirty git tree is a hard fail for `contract archive` too, matching
+// `--verifiable`: the source_sha256 must describe a committed state.
+#[test]
+fn contract_archive_dirty_tree_errors() {
+    let sandbox = TestEnv::default();
+    let (temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+    // Dirty the tree after committing so status is non-empty.
+    std::fs::write(workspace.join("dirty.txt"), b"uncommitted").unwrap();
+
+    let out = temp.path().join("src.tar.gz");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("archive")
+        .arg("--out-file")
+        .arg(&out)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("dirty"));
+
+    assert!(
+        !out.exists(),
+        "no archive should be written for a dirty tree"
+    );
+}

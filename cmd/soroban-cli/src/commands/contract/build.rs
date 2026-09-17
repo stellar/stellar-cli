@@ -30,6 +30,7 @@ use crate::{
 };
 
 pub mod container;
+pub(crate) mod source_archive;
 
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]

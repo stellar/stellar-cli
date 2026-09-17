@@ -85,6 +85,7 @@ Tools for smart contract developers
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
 - `build` — Build a contract from source
+- `archive` — Generate the reproducible source archive used by verifiable builds
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
 - `fetch` — Fetch a contract's Wasm binary
@@ -420,6 +421,17 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+## `stellar contract archive`
+
+Generate the reproducible source archive used by verifiable builds
+
+**Usage:** `stellar contract archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
 
 ## `stellar contract extend`
 
