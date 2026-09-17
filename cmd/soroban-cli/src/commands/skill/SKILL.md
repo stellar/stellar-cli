@@ -93,11 +93,11 @@ Besides `stellar contract invoke --id <c> -- --help`, you can inspect a deployed
 
 ## Data lifecycle and TTL (archival)
 
-Ledger entries are rented and expire over time; expired entries are archived and must be restored before use.
+Contract storage is rented and each entry has a time-to-live (TTL). Behavior on expiry depends on the storage type: contract code, instance, and persistent entries are **archived** when their TTL runs out and must be restored before use, whereas **temporary** entries are deleted permanently and cannot be restored.
 
 - `stellar contract read` — inspect a contract's storage entries
-- `stellar contract extend` — bump an entry's time-to-live before it expires
-- `stellar contract restore` — revive archived state
+- `stellar contract extend` — bump an entry's TTL before it expires
+- `stellar contract restore` — restore an archived persistent or instance entry (temporary data can't be restored)
 
 ## Running a local network
 
@@ -115,7 +115,7 @@ Use these to see the current state instead of guessing:
 - `stellar env` — effective environment variables and config in use
 - `stellar network ls` — configured networks and the default
 - `stellar keys ls` — configured identities
-- `stellar contract alias ls` — contract aliases for the current network
+- `stellar contract alias ls` — stored contract aliases, grouped by network
 
 ## Putting it together
 
