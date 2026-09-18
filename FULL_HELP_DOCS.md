@@ -425,6 +425,19 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
+  Incompatible with `--verifiable`, which compiles from a throwaway extracted-archive tempdir that only exists for the build, so a printed command bind-mounting it could never be replayed.
+
+###### **Verifiable Options:**
+
+- `--verifiable` — Produce a SEP-58 verifiable (reproducible) build.
+
+  Snapshots the working tree into a byte-reproducible source archive, builds it in a digest-pinned container image, and records provenance meta (bldimg, source_uri, source_sha256, bldopt) into the wasm so a third party can reproduce the exact bytes. Implies `--locked`. Requires a clean git tree. Requires `--image` pinned by digest (`<registry-host>/<repo>@sha256:<64-hex>`) so the recorded `bldimg` names the exact bytes.
+
+  Incompatible with `--print-commands-only`: a verifiable build compiles from an extracted-archive tempdir that only exists for the build, so a printed command bind-mounting it could never be replayed.
+
+- `--source-sha256 <SOURCE_SHA256>` — Pin the SEP-58 source_sha256 of the generated archive (64-char lower-case hex). The build fails if the archive hashes to a different value
+- `--source-uri <SOURCE_URI>` — Record a SEP-58 source_uri where the source archive can be fetched (a URI with a scheme, e.g. https://example.com/src.tar.gz)
+
 ## `stellar contract build archive`
 
 Generate (or inspect) the reproducible source archive for a contract.

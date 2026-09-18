@@ -522,20 +522,20 @@ fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     })
 }
 
+/// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`, so
+/// they land at `<dest>/source/…`.
+pub(crate) fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
+    let dec = flate2::read::GzDecoder::new(bytes);
+    tar::Archive::new(dec)
+        .unpack(dest)
+        .map_err(Error::ArchiveExtract)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::locator::{enforce_hardened_tree, FileMode};
     use sha2::{Digest, Sha256};
-
-    /// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`,
-    /// so they land at `<dest>/source/…`.
-    fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
-        let dec = flate2::read::GzDecoder::new(bytes);
-        tar::Archive::new(dec)
-            .unpack(dest)
-            .map_err(Error::ArchiveExtract)
-    }
 
     #[test]
     fn is_warned_matches_names_and_dotted_suffixes() {
