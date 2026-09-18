@@ -663,6 +663,9 @@ pub(crate) enum FileMode {
 /// warning. Symlinks are skipped — mode bits aren't meaningful for them and
 /// `set_permissions` would follow them.
 ///
+/// Best-effort: an entry whose `chmod` fails is skipped and traversal continues,
+/// so one unfixable file can't leave the rest of the tree group/other-readable.
+///
 /// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
 /// on filesystem ACLs created by the higher-level APIs.
 #[allow(clippy::unnecessary_wraps)]
@@ -685,8 +688,9 @@ pub(crate) fn enforce_hardened_tree(
             }
             let current = meta.permissions().mode() & 0o777;
             if meta.is_dir() {
-                if current != 0o700 {
-                    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700))?;
+                if current != 0o700
+                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).is_ok()
+                {
                     changed_dirs.push(p.clone());
                 }
                 if let Ok(entries) = std::fs::read_dir(&p) {
@@ -700,8 +704,9 @@ pub(crate) fn enforce_hardened_tree(
                     // Keep the owner's bits (notably execute) but drop group/other.
                     FileMode::PreserveOwner => current & 0o700,
                 };
-                if current != target {
-                    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target))?;
+                if current != target
+                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target)).is_ok()
+                {
                     changed_files.push(p);
                 }
             }
