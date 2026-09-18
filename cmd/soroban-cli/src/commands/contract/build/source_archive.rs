@@ -8,7 +8,7 @@
 //! always hashes to the same `source_sha256`.
 //!
 //! Shared by `contract build --verifiable` (which builds from the extracted
-//! archive) and the standalone `contract archive` command (which generates and
+//! archive) and the `contract build archive` command (which generates and
 //! inspects it).
 
 use std::{
@@ -75,6 +75,11 @@ pub enum Error {
     )]
     GitUnverifiable { paths: Vec<PathBuf> },
 
+    #[error(
+        "refusing to archive: submodule(s) {paths:?} are not initialized, so their committed source would be missing from the archive; run `git submodule update --init --recursive` and try again."
+    )]
+    SubmoduleUninitialized { paths: Vec<PathBuf> },
+
     #[error("could not write source archive to {path:?}: {source}")]
     ArchiveWrite {
         path: PathBuf,
@@ -113,6 +118,16 @@ pub(crate) fn resolve_source_root() -> PathBuf {
 /// already holds a previous tarball isn't seen as dirty.
 pub(crate) fn ensure_clean_tree(source_root: &Path, exclude: Option<&Path>) -> Result<(), Error> {
     let selected = collect_files(source_root, exclude)?;
+
+    // An uninitialized submodule is an empty dir the walker archives nothing for,
+    // yet its committed source belongs in the archive — reject rather than hash an
+    // incomplete tree.
+    let uninitialized = uninitialized_submodules(source_root)?;
+    if !uninitialized.is_empty() {
+        return Err(Error::SubmoduleUninitialized {
+            paths: uninitialized,
+        });
+    }
 
     // Files git has been told to ignore working-tree changes for can't be
     // verified by the dirty check below, so reject them first (more specific).
@@ -251,6 +266,26 @@ fn unverifiable_files(source_root: &Path, selected: &[PathBuf]) -> Result<Vec<Pa
         .iter()
         .filter(|p| flagged.contains(p.strip_prefix(source_root).unwrap_or(p)))
         .cloned()
+        .collect())
+}
+
+/// Submodule paths that are present as gitlinks but not checked out. `git
+/// submodule status --recursive` prefixes such entries with `-`; their working
+/// dirs are empty, so the walker archives none of their (committed) source.
+/// Empty when `source_root` isn't a git repo or has no uninitialized submodules.
+fn uninitialized_submodules(source_root: &Path) -> Result<Vec<PathBuf>, Error> {
+    let Some(out) = run_git(source_root, &["submodule", "status", "--recursive"])? else {
+        return Ok(Vec::new());
+    };
+    // Each line is `<flag><sha> <path> (<describe>)`; `-` flags an uninitialized
+    // submodule, and the path is the second whitespace-separated token.
+    Ok(String::from_utf8_lossy(&out)
+        .lines()
+        .filter_map(|l| {
+            l.strip_prefix('-')
+                .and_then(|rest| rest.split_whitespace().nth(1))
+        })
+        .map(PathBuf::from)
         .collect())
 }
 
@@ -831,6 +866,21 @@ mod tests {
     fn ensure_clean_tree_accepts_committed_submodule() {
         let (_super, _sub, root) = superproject_with_submodule();
         ensure_clean_tree(&root, None).expect("a committed submodule must be clean");
+    }
+
+    // An uninitialized submodule is an empty dir: the walker archives nothing for
+    // it, so the archive would silently omit its committed source. Reject it.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_uninitialized_submodule() {
+        let (_super, _sub, root) = superproject_with_submodule();
+        git_run(&root, &["submodule", "deinit", "-f", "sub"]);
+
+        let err = ensure_clean_tree(&root, None).unwrap_err();
+        assert!(
+            matches!(err, Error::SubmoduleUninitialized { .. }),
+            "got {err:?}"
+        );
     }
 
     // A submodule configured `ignore = all` hides its modified tracked files from
