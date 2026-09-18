@@ -641,52 +641,99 @@ impl Pwd for Args {
     }
 }
 
-#[cfg(unix)]
-fn fix_config_permissions(root: std::path::PathBuf) {
-    use std::os::unix::fs::PermissionsExt;
+/// How `enforce_hardened_tree` normalizes a file's owner bits (group/other are
+/// always stripped regardless).
+#[derive(Clone, Copy)]
+pub(crate) enum FileMode {
+    /// Force every file to exactly `0o600`. Used for config files, which are
+    /// data (never executable) and must stay owner-writable so the CLI can
+    /// rewrite them.
+    Exact,
+    /// Keep the owner's bits, including the execute bit, and only drop
+    /// group/other (a `0o644` file becomes `0o600`, a `0o755` becomes `0o700`).
+    /// Used for an extracted source tree, where a checked-in script a build
+    /// invokes must stay runnable.
+    #[cfg_attr(not(test), allow(dead_code))]
+    PreserveOwner,
+}
 
-    let mut bad_dirs = Vec::new();
-    let mut bad_files = Vec::new();
-    let mut stack = vec![root];
-
-    while let Some(dir) = stack.pop() {
-        if let Ok(meta) = std::fs::metadata(&dir) {
-            if meta.permissions().mode() & 0o777 != 0o700 {
-                bad_dirs.push(dir.clone());
+/// Walk `root` recursively and strip all group/other access. Dirs are set to
+/// `0o700`; files are normalized per `file_mode` (see [`FileMode`]). Returns the
+/// dirs and files that were changed so callers can decide whether to surface a
+/// warning. Symlinks are skipped — mode bits aren't meaningful for them and
+/// `set_permissions` would follow them.
+///
+/// Best-effort: an entry whose `chmod` fails is skipped and traversal continues,
+/// so one unfixable file can't leave the rest of the tree group/other-readable.
+///
+/// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
+/// on filesystem ACLs created by the higher-level APIs.
+#[allow(clippy::unnecessary_wraps)]
+pub(crate) fn enforce_hardened_tree(
+    root: &Path,
+    file_mode: FileMode,
+) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut changed_dirs = Vec::new();
+        let mut changed_files = Vec::new();
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(p) = stack.pop() {
+            let Ok(meta) = std::fs::symlink_metadata(&p) else {
+                continue;
+            };
+            if meta.file_type().is_symlink() {
+                continue;
             }
-        }
-
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.filter_map(Result::ok) {
-                let path = entry.path();
-
-                if path.is_dir() {
-                    stack.push(path);
-                } else if let Ok(meta) = std::fs::metadata(&path) {
-                    if meta.permissions().mode() & 0o777 != 0o600 {
-                        bad_files.push(path);
+            let current = meta.permissions().mode() & 0o777;
+            if meta.is_dir() {
+                if current != 0o700
+                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).is_ok()
+                {
+                    changed_dirs.push(p.clone());
+                }
+                if let Ok(entries) = std::fs::read_dir(&p) {
+                    for entry in entries.filter_map(Result::ok) {
+                        stack.push(entry.path());
                     }
+                }
+            } else {
+                let target = match file_mode {
+                    FileMode::Exact => 0o600,
+                    // Keep the owner's bits (notably execute) but drop group/other.
+                    FileMode::PreserveOwner => current & 0o700,
+                };
+                if current != target
+                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target)).is_ok()
+                {
+                    changed_files.push(p);
                 }
             }
         }
+        Ok((changed_dirs, changed_files))
     }
+    #[cfg(not(unix))]
+    {
+        let _ = (root, file_mode);
+        Ok((Vec::new(), Vec::new()))
+    }
+}
+
+#[cfg(unix)]
+fn fix_config_permissions(root: std::path::PathBuf) {
+    // Config files are data, never executable, and the CLI must be able to
+    // rewrite them, so normalize each to exactly 0600.
+    let Ok((dirs, files)) = enforce_hardened_tree(&root, FileMode::Exact) else {
+        return;
+    };
 
     let print = Print::new(false);
-
-    if !bad_dirs.is_empty() {
-        print.warnln("Updated config directories permissions to 0700.");
-
-        for dir in bad_dirs {
-            let _ = set_hardened_permissions(&dir);
-        }
+    if !dirs.is_empty() {
+        print.warnln("Updated config directory permissions to 0700.");
     }
-
-    if !bad_files.is_empty() {
-        print.warnln("Updated config files permissions to 0600.");
-
-        for file in bad_files {
-            let _ = set_hardened_permissions(&file);
-        }
+    if !files.is_empty() {
+        print.warnln("Updated config file permissions to 0600.");
     }
 }
 
@@ -701,23 +748,26 @@ pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Writes `contents` to `path`, creating the file with `0600` on Unix and
-/// resetting the mode to exactly `0600` afterwards regardless of any
+/// Writes `contents` to `path` at mode `0600` on Unix, regardless of any
 /// pre-existing permissions. Falls back to `std::fs::write` on non-Unix
 /// platforms.
 pub(crate) fn write_hardened_file(path: &Path, contents: &[u8]) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::io::Write as _;
-        use std::os::unix::fs::OpenOptionsExt;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .mode(0o600)
             .open(path)?;
+        // `mode(0o600)` only applies when the file is created; a pre-existing file
+        // keeps its old (possibly group/other-readable) mode. Harden the now-empty
+        // (truncated) file to 0600 *before* writing, so the contents are never
+        // briefly exposed — and even a partial write on failure stays private.
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
         file.write_all(contents)?;
-        set_hardened_permissions(path)?;
     }
 
     #[cfg(not(unix))]
@@ -1069,6 +1119,32 @@ mod tests {
             0o600,
             "overwritten identity file should be 0600, got {:o}",
             perms.mode() & 0o777
+        );
+    }
+
+    #[test]
+    fn overwrite_repairs_read_only_file_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let identity_dir = dir.path().join("identity");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+
+        // Pre-create alice.toml as read-only (0400). Config repair must restore
+        // write access (0600) so the overwrite below can actually open it.
+        let alice = identity_dir.join("alice.toml");
+        std::fs::write(&alice, "seed_phrase = \"old\"\n").unwrap();
+        std::fs::set_permissions(&alice, std::fs::Permissions::from_mode(0o400)).unwrap();
+
+        let value: HashMap<String, String> = HashMap::new();
+        KeyType::Identity
+            .write("alice", &value, dir.path())
+            .expect("overwriting a read-only config file should succeed");
+
+        assert_eq!(
+            std::fs::metadata(&alice).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "a read-only config file should be repaired to 0600"
         );
     }
 
