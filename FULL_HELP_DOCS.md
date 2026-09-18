@@ -85,7 +85,7 @@ Tools for smart contract developers
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
 - `build` — Build a contract from source
-- `archive` — Generate the reproducible source archive used by verifiable builds
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
 - `fetch` — Fetch a contract's Wasm binary
@@ -424,7 +424,11 @@ To view the commands that will be executed, without executing them, use the --pr
 
 ## `stellar contract archive`
 
-Generate the reproducible source archive used by verifiable builds
+Generate (or inspect) the reproducible source archive for a contract.
+
+Produces the same gzipped tarball that `stellar contract build --verifiable` builds from, and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before a verifiable build, or for producing the archive to host at a `--source-uri`.
+
+The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
 
 **Usage:** `stellar contract archive [OPTIONS]`
 

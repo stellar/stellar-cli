@@ -36,7 +36,6 @@ pub enum Cmd {
 
     Build(build::Cmd),
 
-    /// Generate the reproducible source archive used by verifiable builds
     Archive(archive::Cmd),
 
     /// Extend the time to live ledger of a contract-data ledger entry.
