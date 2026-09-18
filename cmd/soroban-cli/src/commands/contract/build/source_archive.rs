@@ -75,7 +75,7 @@ pub enum Error {
     )]
     GitUnverifiable { paths: Vec<PathBuf> },
 
-    #[error("could not write source archive to {path}: {source}")]
+    #[error("could not write source archive to {path:?}: {source}")]
     ArchiveWrite {
         path: PathBuf,
         source: std::io::Error,
@@ -85,7 +85,7 @@ pub enum Error {
     ArchiveExtract(std::io::Error),
 
     #[error(
-        "refusing to archive symlink {link}: symlinks are not supported in a reproducible source archive; replace it with the real file (or ignore it via .gitignore/.ignore) and try again."
+        "refusing to archive symlink {link:?}: symlinks are not supported in a reproducible source archive; replace it with the real file (or ignore it via .gitignore/.ignore) and try again."
     )]
     Symlink { link: PathBuf },
 }
@@ -877,6 +877,30 @@ mod tests {
 
         let err = build_source_archive(root, &print, false, None).unwrap_err();
         assert!(matches!(err, Error::Symlink { .. }), "got {err:?}");
+    }
+
+    // A symlink filename is working-tree-controlled, so a hostile repo could put
+    // terminal escape bytes in it. The rejection error must escape them, or
+    // `archive --dry-run` would emit raw control sequences before the sanitized
+    // listing is ever reached.
+    #[test]
+    #[cfg(unix)]
+    fn symlink_error_escapes_control_bytes_in_name() {
+        use std::os::unix::ffi::OsStrExt;
+        let print = Print::new(true);
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        // `e` + raw ESC + ANSI color sequence + `vil`.
+        let evil = std::ffi::OsStr::from_bytes(b"e\x1b[31mvil");
+        std::os::unix::fs::symlink("Cargo.toml", root.join(evil)).unwrap();
+
+        let err = build_source_archive(root, &print, false, None).unwrap_err();
+        assert!(
+            !err.to_string().contains('\u{1b}'),
+            "raw ESC leaked into the symlink error: {:?}",
+            err.to_string()
+        );
     }
 
     // Hardening the extracted tree strips group/other access but must keep the
