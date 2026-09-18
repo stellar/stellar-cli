@@ -725,10 +725,10 @@ fn fix_config_permissions(root: std::path::PathBuf) {
 
     let print = Print::new(false);
     if !dirs.is_empty() {
-        print.warnln("Removed group/other access from config directories.");
+        print.warnln("Updated config directory permissions to 0700.");
     }
     if !files.is_empty() {
-        print.warnln("Removed group/other access from config files.");
+        print.warnln("Updated config file permissions to 0600.");
     }
 }
 
