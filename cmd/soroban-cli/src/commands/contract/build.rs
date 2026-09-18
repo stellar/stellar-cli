@@ -136,10 +136,11 @@ pub struct Cmd {
     /// Snapshots the working tree into a byte-reproducible source archive,
     /// builds it in a digest-pinned container image, and records provenance meta
     /// (bldimg, source_uri, source_sha256, bldopt) into the wasm so a third
-    /// party can reproduce the exact bytes. Implies `--locked`. Requires a clean
-    /// git tree. Requires `--image` pinned by digest
-    /// (`<registry-host>/<repo>@sha256:<64-hex>`) so the recorded `bldimg` names
-    /// the exact bytes.
+    /// party can reproduce the exact bytes. Implies `--locked`. In a git repo the
+    /// working tree must be clean (a warning is printed if the source isn't a git
+    /// repo, since cleanliness can't be verified). Requires `--image` pinned by
+    /// digest (`<registry-host>/<repo>@sha256:<64-hex>`) so the recorded `bldimg`
+    /// names the exact bytes.
     ///
     /// Incompatible with `--print-commands-only`: a verifiable build compiles
     /// from an extracted-archive tempdir that only exists for the build, so a
@@ -153,13 +154,9 @@ pub struct Cmd {
     pub source_sha256: Option<String>,
 
     /// Record a SEP-58 source_uri where the source archive can be fetched (a URI
-    /// with a scheme, e.g. https://example.com/src.tar.gz).
-    #[arg(
-        long,
-        requires = "verifiable",
-        requires = "source_sha256",
-        help_heading = HEADING_VERIFIABLE
-    )]
+    /// with a scheme, e.g. https://example.com/src.tar.gz). The build always
+    /// computes and records source_sha256, so this needs only `--verifiable`.
+    #[arg(long, requires = "verifiable", help_heading = HEADING_VERIFIABLE)]
     pub source_uri: Option<String>,
 
     #[command(flatten)]
