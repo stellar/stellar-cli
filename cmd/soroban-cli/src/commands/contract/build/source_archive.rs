@@ -193,8 +193,13 @@ fn run_git(source_root: &Path, args: &[&str]) -> Result<Option<Vec<u8>>, Error> 
 }
 
 /// The set of tracked files under `source_root`, as paths relative to it.
+/// `--recurse-submodules` descends into initialized submodules (whose working
+/// files the walker also archives, but which `ls-files` would otherwise report
+/// only as a single gitlink path), so a clean project using a submodule isn't
+/// mistaken for dirty.
 fn tracked_files(source_root: &Path) -> Result<std::collections::HashSet<PathBuf>, Error> {
-    let out = run_git(source_root, &["ls-files", "-z"])?.unwrap_or_default();
+    let out =
+        run_git(source_root, &["ls-files", "-z", "--recurse-submodules"])?.unwrap_or_default();
     // `-z` gives NUL-separated, unquoted paths — so a name with spaces or other
     // special bytes still matches the walker's real path.
     Ok(out
@@ -464,27 +469,29 @@ mod tests {
         assert!(!is_warned(OsStr::new("lib.rs")));
     }
 
+    // Run a single git command in `root`, asserting it succeeds.
+    #[cfg(unix)]
+    fn git_run(root: &Path, args: &[&str]) {
+        let ok = Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.x")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.x")
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok, "git {args:?} failed");
+    }
+
     // Initialize a git repo at `root` with one commit of everything present.
     #[cfg(unix)]
     fn git_init_commit(root: &Path) {
-        for args in [
-            &["init", "-q", "-b", "main"][..],
-            &["add", "-A"][..],
-            &["commit", "-q", "-m", "init"][..],
-        ] {
-            let ok = Command::new("git")
-                .arg("-C")
-                .arg(root)
-                .args(args)
-                .env("GIT_AUTHOR_NAME", "T")
-                .env("GIT_AUTHOR_EMAIL", "t@e.x")
-                .env("GIT_COMMITTER_NAME", "T")
-                .env("GIT_COMMITTER_EMAIL", "t@e.x")
-                .status()
-                .unwrap()
-                .success();
-            assert!(ok);
-        }
+        git_run(root, &["init", "-q", "-b", "main"]);
+        git_run(root, &["add", "-A"]);
+        git_run(root, &["commit", "-q", "-m", "init"]);
     }
 
     #[test]
@@ -706,6 +713,44 @@ mod tests {
         git_init_commit(root);
 
         ensure_clean_tree(root, None, &print).expect("a committed tree is clean");
+    }
+
+    // A clean project that embeds an initialized git submodule must pass: the
+    // walker archives the submodule's files, so the tracked set has to include
+    // them too (via `--recurse-submodules`) — otherwise they look untracked and
+    // the tree is wrongly rejected as dirty.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_accepts_committed_submodule() {
+        let print = Print::new(true);
+
+        // A standalone repo to embed as a submodule.
+        let sub = tempfile::TempDir::new().unwrap();
+        std::fs::write(sub.path().join("lib.rs"), b"// sub").unwrap();
+        git_init_commit(sub.path());
+
+        // Superproject that adds and commits the submodule. `protocol.file.allow`
+        // is required for a local-path submodule on modern git.
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_run(root, &["init", "-q", "-b", "main"]);
+        git_run(
+            root,
+            &[
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                "-q",
+                &sub.path().to_string_lossy(),
+                "sub",
+            ],
+        );
+        git_run(root, &["add", "-A"]);
+        git_run(root, &["commit", "-q", "-m", "init"]);
+
+        ensure_clean_tree(root, None, &print).expect("a committed submodule must be clean");
     }
 
     // A symlink in the tree is rejected rather than followed (its target could be
