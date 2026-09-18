@@ -250,8 +250,8 @@ pub(super) fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<
 }
 
 /// The `contract build …` argv forwarded to the container, mirroring the local
-/// build's flags, plus (when `record_bldopts`) the shell-escaped `bldopt`
-/// strings recorded into SEP-58 metadata by verifiable builds. `--manifest-path`
+/// build's flags, plus (when `record_bldopts`) the raw `bldopt` strings recorded
+/// into SEP-58 metadata by verifiable builds. `--manifest-path`
 /// is relativized against the workspace/source root so it's valid inside
 /// `/source`. `--out-dir` is deliberately omitted — artifacts are collected on
 /// the host from the mounted `target/`.
@@ -271,8 +271,8 @@ pub(super) fn resolve_packages(cmd: &Cmd, md: &cargo_metadata::Metadata) -> Vec<
 /// optimizing, and passing `--optimize=false` there would fail.
 ///
 /// `record_bldopts`: when true, every forwarded build-affecting flag is also
-/// captured as a `bldopt` (its value shell-escaped once, at the source, so each
-/// recorded option is valid shell on its own) for the verifiable build's SEP-58
+/// captured as a `bldopt`, its value stored verbatim (SEP-58 treats a bldopt as
+/// one argument passed as if single-quoted), for the verifiable build's SEP-58
 /// metadata. A plain container build passes false and ignores the second tuple
 /// element.
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
@@ -289,16 +289,16 @@ pub(super) fn forwarded_build_args(
     let mut bldopts: Vec<String> = Vec::new();
 
     // Record a build option. `None` means a bare flag (`--locked`); `Some(v)`
-    // means `--flag=v`. The forwarded copy keeps the value raw (the container
-    // gets it as argv, and `compose_shell_command` re-escapes it for the
-    // multi-package `sh -c`); the bldopt copy shell-escapes only the value side,
-    // once, so every recorded option is valid shell on its own — e.g.
-    // `--meta=note='added on build'`, never `'--meta=note=added on build'`.
+    // means `--flag=v`. Both the forwarded copy (the container gets it as argv,
+    // and `compose_shell_command` re-escapes it for the multi-package `sh -c`)
+    // and the bldopt copy store the value raw: SEP-58 defines a bldopt as passed
+    // "verbatim as one argument ... as if single-quoted", so the recorded value
+    // must not contain shell quoting — the verifier single-quotes it.
     let mut record = |key: &str, value: Option<&str>| {
         if let Some(v) = value {
             args.push(format!("{key}={v}"));
             if record_bldopts {
-                bldopts.push(format!("{key}={}", shell_escape::escape(v.into())));
+                bldopts.push(format!("{key}={v}"));
             }
         } else {
             args.push(key.to_string());
@@ -904,7 +904,9 @@ mod tests {
     #[test]
     fn forwarded_build_args_records_bldopts_when_requested() {
         // Verifiable builds pass record_bldopts=true and include_locked=true,
-        // capturing each forwarded flag as a shell-escaped bldopt.
+        // capturing each forwarded flag as a raw bldopt. Per SEP-58 a bldopt is
+        // "passed verbatim as one argument ... as if single-quoted", so the value
+        // is stored raw (no shell escaping) — the verifier single-quotes it.
         let cmd = Cmd {
             features: Some("a,b".to_string()),
             build_args: BuildArgs {
@@ -920,11 +922,8 @@ mod tests {
         assert!(bldopts.contains(&"--locked".to_string()));
         assert!(bldopts.contains(&"--features=a,b".to_string()));
         assert!(bldopts.contains(&"--package=contract-a".to_string()));
-        // Only the value side is shell-escaped, and each bldopt is one token.
-        assert!(bldopts.contains(&"--meta=note='added on build'".to_string()));
-        for o in &bldopts {
-            assert_eq!(shlex::split(o).expect("valid shell").len(), 1, "{o}");
-        }
+        // The value is recorded verbatim, spaces and all — no embedded quotes.
+        assert!(bldopts.contains(&"--meta=note=added on build".to_string()));
     }
 
     #[test]
