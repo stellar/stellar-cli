@@ -222,6 +222,16 @@ fn run_git(source_root: &Path, args: &[&str]) -> Result<Option<Vec<u8>>, Error> 
     })
 }
 
+/// Whether `source_root` is inside a git work tree. Verifiable builds use this to
+/// warn when cleanliness can't be verified — `ensure_clean_tree` is a no-op for a
+/// non-git source.
+pub(crate) fn is_git_repo(source_root: &Path) -> bool {
+    matches!(
+        run_git(source_root, &["rev-parse", "--is-inside-work-tree"]),
+        Ok(Some(_))
+    )
+}
+
 /// The set of tracked files under `source_root`, as paths relative to it.
 /// `--recurse-submodules` descends into initialized submodules (whose working
 /// files the walker also archives, but which `ls-files` would otherwise report

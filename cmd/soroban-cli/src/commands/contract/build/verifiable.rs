@@ -68,6 +68,7 @@ pub enum Error {
     Data(#[from] data::Error),
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn run(
     cmd: &Cmd,
     global_args: &global::Args,
@@ -88,20 +89,31 @@ pub async fn run(
     // Stage 2: local filesystem + git, no network.
     validate_source_formats(cmd)?;
 
-    // The source root is the current working directory: it's archived,
-    // bind-mounted into the container, and the `--manifest-path` bldopt is
-    // relativized against it. Run from the project/workspace root you want built.
-    let source_root = source_archive::resolve_source_root();
+    // Resolve host `cargo metadata` up front and reuse it throughout. The source
+    // root is the workspace root it reports, not just the cwd: host metadata
+    // selects packages across the whole workspace, so the archive/mount must
+    // contain the workspace `Cargo.toml`/`Cargo.lock` and sibling crates too —
+    // otherwise a build from a member subdirectory would fail on `--locked` or a
+    // sibling `--package`.
+    let md = container::metadata(cmd).map_err(container::Error::Metadata)?;
+    let source_root = md.workspace_root.clone().into_std_path_buf();
 
     // The archive is the working tree, so refuse a dirty repo: a verifiable build
     // should be deliberate, off a committed state, not whatever happens to be on
-    // disk. Skipped when the source root isn't a git repo.
+    // disk. A non-git source can't be checked; warn rather than fail (the user
+    // may use another VCS) so it isn't silently stamped as verifiable.
     source_archive::ensure_clean_tree(&source_root, None).map_err(Error::from)?;
+    if !source_archive::is_git_repo(&source_root) {
+        print.warnln(
+            "verifiable build: source is not a git repository, so its cleanliness \
+             can't be verified; the archive reflects the working tree as-is.",
+        );
+    }
 
     // Build the source archive, record its hash, and build from the *extracted*
     // archive (in a hardened tempdir) so the wasm is produced from exactly the
     // bytes that were hashed.
-    let resolved = {
+    let mut resolved = {
         let a = resolve_archive(cmd, &source_root, print)?;
         // The extracted `source/` dir mirrors `source_root` exactly and is both
         // the container mount and the tree the build writes `target/` into.
@@ -110,7 +122,7 @@ pub async fn run(
             source_sha256: a.source_sha256,
             extracted_root: Some(mount_root.clone()),
             mount_root,
-            _tmp: Some(a.tmp),
+            tmp: Some(a.tmp),
         }
     };
 
@@ -151,10 +163,6 @@ pub async fn run(
         );
     }
 
-    // Resolve host `cargo metadata` once and reuse it for package selection and
-    // artifact collection, mirroring the plain container build.
-    let md = container::metadata(cmd).map_err(container::Error::Metadata)?;
-
     // Build once per package, each with its own `--package` forwarded and
     // recorded as a `bldopt`, so every wasm is independently reproducible.
     let packages = container::resolve_packages(cmd, &md);
@@ -192,7 +200,7 @@ pub async fn run(
     print.infoln(format!("Using Rust toolchain {}", probe.toolchain));
     env.push(format!("RUSTUP_TOOLCHAIN={}", probe.toolchain));
 
-    container::run_in_container(
+    let build = container::run_in_container(
         &image_ref,
         &resolved.mount_root,
         &container_cmds,
@@ -204,7 +212,20 @@ pub async fn run(
         print,
         cmd.print_commands_only,
     )
-    .await?;
+    .await;
+
+    // On failure, keep the extracted tree so the "reproduce manually" command
+    // (which bind-mounts it) still works; on success it's dropped and removed.
+    if build.is_err() {
+        if let Some(tmp) = resolved.tmp.take() {
+            let _ = tmp.keep();
+            print.warnln(format!(
+                "kept the extracted source at {} so the failed build can be reproduced; remove it when done",
+                resolved.mount_root.display(),
+            ));
+        }
+    }
+    build?;
 
     // Nothing was built when only printing the command.
     if cmd.print_commands_only {
@@ -221,7 +242,9 @@ struct ResolvedSource {
     source_sha256: String,
     mount_root: PathBuf,
     extracted_root: Option<PathBuf>,
-    _tmp: Option<tempfile::TempDir>,
+    // Held to keep the extracted tempdir alive for the build; taken (and
+    // persisted) on failure so the reproduce command's mount path survives.
+    tmp: Option<tempfile::TempDir>,
 }
 
 /// Source-identification fields recorded as SEP-58 meta. `source_sha256` is
