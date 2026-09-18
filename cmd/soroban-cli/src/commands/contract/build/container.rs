@@ -45,9 +45,6 @@ pub enum Error {
     #[error(transparent)]
     Engine(#[from] shared::Error),
 
-    #[error("could not pull image {image}")]
-    PullImageFailed { image: String },
-
     #[error(
         "could not determine the image's default Rust toolchain via `rustup default`; \
          the image must provide rustup so the build toolchain can be pinned"
@@ -95,7 +92,10 @@ pub async fn run(
     // `pull` up front to refresh a moving tag to its newest image. Nothing is
     // pulled when only printing the command, since nothing runs.
     if !print_only && cmd.pull {
-        pull_image(&docker, image, print).await?;
+        docker
+            .pull_image(image, print)
+            .await
+            .map_err(Error::Engine)?;
     }
 
     // Gather everything we need to know about the image in one throwaway
@@ -316,28 +316,6 @@ fn forwarded_build_args(
     }
 
     args
-}
-
-async fn pull_image(docker: &shared::Args, image: &str, print: &Print) -> Result<(), Error> {
-    print.infoln(format!("Pulling image {image}"));
-    let (stdout, stderr) = if print.quiet {
-        (Stdio::null(), Stdio::null())
-    } else {
-        (Stdio::inherit(), Stdio::inherit())
-    };
-    let status = docker
-        .pull_command(image)
-        .stdout(stdout)
-        .stderr(stderr)
-        .status()
-        .await
-        .map_err(|e| docker.io_error(e))?;
-    if !status.success() {
-        return Err(Error::PullImageFailed {
-            image: image.to_string(),
-        });
-    }
-    Ok(())
 }
 
 /// Run `cmd` in a throwaway `docker run --rm` container (optionally overriding
