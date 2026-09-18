@@ -70,6 +70,11 @@ pub enum Error {
     )]
     GitDirty { path: PathBuf },
 
+    #[error(
+        "refusing to archive: {paths:?} marked assume-unchanged or skip-worktree, so git can't confirm they match the committed source; clear the flag (git update-index --no-assume-unchanged / --no-skip-worktree <file>) and try again."
+    )]
+    GitUnverifiable { paths: Vec<PathBuf> },
+
     #[error("could not write source archive to {path}: {source}")]
     ArchiveWrite {
         path: PathBuf,
@@ -108,6 +113,16 @@ pub(crate) fn resolve_source_root() -> PathBuf {
 /// already holds a previous tarball isn't seen as dirty.
 pub(crate) fn ensure_clean_tree(source_root: &Path, exclude: Option<&Path>) -> Result<(), Error> {
     let selected = collect_files(source_root, exclude)?;
+
+    // Files git has been told to ignore working-tree changes for can't be
+    // verified by the dirty check below, so reject them first (more specific).
+    let unverifiable = unverifiable_files(source_root, &selected)?;
+    if !unverifiable.is_empty() {
+        return Err(Error::GitUnverifiable {
+            paths: unverifiable,
+        });
+    }
+
     if tree_is_dirty(source_root, &selected)? {
         return Err(Error::GitDirty {
             path: source_root.to_path_buf(),
@@ -198,6 +213,30 @@ fn tracked_files(source_root: &Path) -> Result<std::collections::HashSet<PathBuf
         .split(|b| *b == 0)
         .filter(|s| !s.is_empty())
         .map(bytes_to_path)
+        .collect())
+}
+
+/// Selected files whose index flags tell git to ignore working-tree changes to
+/// them — `assume-unchanged` (a lowercased `git ls-files -v` tag) or
+/// `skip-worktree` (tag `S`). `git status`/`git diff` skip such files, so a
+/// modified one would be archived while the tree still looked clean; callers
+/// refuse them since their committed-ness can't be confirmed. Empty when
+/// `source_root` isn't a git repo.
+fn unverifiable_files(source_root: &Path, selected: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
+    let Some(out) = run_git(source_root, &["ls-files", "-v", "-z"])? else {
+        return Ok(Vec::new());
+    };
+    // Each record is `<tag><space><path>` (see `git ls-files -v`); the path
+    // starts after the tag and its separating space.
+    let flagged: std::collections::HashSet<PathBuf> = out
+        .split(|b| *b == 0)
+        .filter(|r| r.len() > 2 && (r[0] == b'S' || r[0].is_ascii_lowercase()))
+        .map(|r| bytes_to_path(&r[2..]))
+        .collect();
+    Ok(selected
+        .iter()
+        .filter(|p| flagged.contains(p.strip_prefix(source_root).unwrap_or(p)))
+        .cloned()
         .collect())
 }
 
@@ -687,6 +726,41 @@ mod tests {
 
         let err = ensure_clean_tree(root, None).unwrap_err();
         assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
+    }
+
+    // A file marked `assume-unchanged` is skipped by `git status`/`git diff`, so a
+    // modification to it would be archived while looking clean. We can't vouch it
+    // matches committed source, so it must be refused.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_assume_unchanged_file() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_init_commit(root);
+
+        git_run(root, &["update-index", "--assume-unchanged", "Cargo.toml"]);
+        std::fs::write(root.join("Cargo.toml"), b"# modified out of view").unwrap();
+
+        let err = ensure_clean_tree(root, None).unwrap_err();
+        assert!(matches!(err, Error::GitUnverifiable { .. }), "got {err:?}");
+    }
+
+    // Same guarantee for `skip-worktree`, the other index flag that hides
+    // working-tree changes from git.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_skip_worktree_file() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_init_commit(root);
+
+        git_run(root, &["update-index", "--skip-worktree", "Cargo.toml"]);
+        std::fs::write(root.join("Cargo.toml"), b"# modified out of view").unwrap();
+
+        let err = ensure_clean_tree(root, None).unwrap_err();
+        assert!(matches!(err, Error::GitUnverifiable { .. }), "got {err:?}");
     }
 
     // A committed, unmodified tree is clean.
