@@ -239,12 +239,15 @@ fn tracked_files(source_root: &Path) -> Result<std::collections::HashSet<PathBuf
         .collect())
 }
 
-/// Selected files whose index flags tell git to ignore working-tree changes to
-/// them — `assume-unchanged` (a lowercased `git ls-files -v` tag) or
-/// `skip-worktree` (tag `S`). `git status`/`git diff` skip such files, so a
-/// modified one would be archived while the tree still looked clean; callers
-/// refuse them since their committed-ness can't be confirmed. Empty when
-/// `source_root` isn't a git repo.
+/// Files whose index flags tell git to ignore their working-tree state, so we
+/// can't confirm they match committed source: `assume-unchanged` (a lowercased
+/// `git ls-files -v` tag) and `skip-worktree` (tag `S`/`s`).
+///
+/// `assume-unchanged` files are on disk, so they only matter when archived —
+/// gated on `selected`. `skip-worktree` files may be absent from disk (sparse
+/// checkout), so they never reach `selected`; reject every one regardless, since
+/// their committed source can't be archived either way. Empty when `source_root`
+/// isn't a git repo.
 fn unverifiable_files(source_root: &Path, selected: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
     // `--recurse-submodules` so a flagged file inside an initialized submodule
     // (which the walker archives) is caught too, matching `tracked_files`.
@@ -255,18 +258,24 @@ fn unverifiable_files(source_root: &Path, selected: &[PathBuf]) -> Result<Vec<Pa
     else {
         return Ok(Vec::new());
     };
+    let selected: std::collections::HashSet<&Path> = selected
+        .iter()
+        .map(|p| p.strip_prefix(source_root).unwrap_or(p))
+        .collect();
+
     // Each record is `<tag><space><path>` (see `git ls-files -v`); the path
     // starts after the tag and its separating space.
-    let flagged: std::collections::HashSet<PathBuf> = out
-        .split(|b| *b == 0)
-        .filter(|r| r.len() > 2 && (r[0] == b'S' || r[0].is_ascii_lowercase()))
-        .map(|r| bytes_to_path(&r[2..]))
-        .collect();
-    Ok(selected
-        .iter()
-        .filter(|p| flagged.contains(p.strip_prefix(source_root).unwrap_or(p)))
-        .cloned()
-        .collect())
+    let mut unverifiable = Vec::new();
+    for record in out.split(|b| *b == 0).filter(|r| r.len() > 2) {
+        let tag = record[0];
+        let path = bytes_to_path(&record[2..]);
+        let is_skip_worktree = tag == b'S' || tag == b's';
+        let is_assume_unchanged = tag.is_ascii_lowercase();
+        if is_skip_worktree || (is_assume_unchanged && selected.contains(path.as_path())) {
+            unverifiable.push(path);
+        }
+    }
+    Ok(unverifiable)
 }
 
 /// Submodule paths that are present as gitlinks but not checked out. `git
@@ -838,6 +847,25 @@ mod tests {
 
         git_run(root, &["update-index", "--skip-worktree", "Cargo.toml"]);
         std::fs::write(root.join("Cargo.toml"), b"# modified out of view").unwrap();
+
+        let err = ensure_clean_tree(root, None).unwrap_err();
+        assert!(matches!(err, Error::GitUnverifiable { .. }), "got {err:?}");
+    }
+
+    // A `skip-worktree` file absent from disk (e.g. a sparse checkout) never
+    // reaches the walker's selected set, but its committed source still belongs in
+    // the archive — so it must be rejected, not silently dropped.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_absent_skip_worktree_file() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        std::fs::write(root.join("extra.rs"), b"// committed").unwrap();
+        git_init_commit(root);
+
+        git_run(root, &["update-index", "--skip-worktree", "extra.rs"]);
+        std::fs::remove_file(root.join("extra.rs")).unwrap();
 
         let err = ensure_clean_tree(root, None).unwrap_err();
         assert!(matches!(err, Error::GitUnverifiable { .. }), "got {err:?}");
