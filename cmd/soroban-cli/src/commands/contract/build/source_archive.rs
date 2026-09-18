@@ -96,27 +96,19 @@ pub(crate) fn resolve_source_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Warn about and reject a dirty git working tree. Both `contract archive` and
-/// `build --verifiable` archive the working tree as-is, so uncommitted changes
-/// would be baked into the recorded `source_sha256`; refuse them (after
-/// explaining why) so an archive always corresponds to a committed state. A
-/// no-op when `source_root` isn't a git repo (we can't check, e.g. archive
-/// sources) — the user owns the bytes they produce there.
+/// Reject a dirty git working tree. Both `contract archive` and `build
+/// --verifiable` archive the working tree as-is, so uncommitted changes would be
+/// baked into the recorded `source_sha256`; refuse them so an archive always
+/// corresponds to a committed state. A no-op when `source_root` isn't a git repo
+/// (we can't check, e.g. archive sources) — the user owns the bytes they produce
+/// there.
 ///
 /// `exclude` is the caller's own output file, kept out of the check exactly as
 /// it's kept out of the archive, so re-running over an unchanged tree that
 /// already holds a previous tarball isn't seen as dirty.
-pub(crate) fn ensure_clean_tree(
-    source_root: &Path,
-    exclude: Option<&Path>,
-    print: &Print,
-) -> Result<(), Error> {
+pub(crate) fn ensure_clean_tree(source_root: &Path, exclude: Option<&Path>) -> Result<(), Error> {
     let selected = collect_files(source_root, exclude)?;
     if tree_is_dirty(source_root, &selected)? {
-        print.warnln(format!(
-            "git working tree at {} is dirty; the archive would include uncommitted changes.",
-            source_root.display(),
-        ));
         return Err(Error::GitDirty {
             path: source_root.to_path_buf(),
         });
@@ -648,7 +640,6 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_rejects_archived_but_uncommitted_file() {
-        let print = Print::new(true);
         let temp = tempfile::TempDir::new().unwrap();
         let root = temp.path();
         std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
@@ -657,7 +648,7 @@ mod tests {
         std::fs::write(root.join(".git/info/exclude"), b"secret.rs\n").unwrap();
         std::fs::write(root.join("secret.rs"), b"// uncommitted").unwrap();
 
-        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        let err = ensure_clean_tree(root, None).unwrap_err();
         assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
     }
 
@@ -668,7 +659,6 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_ignores_the_excluded_output_file() {
-        let print = Print::new(true);
         let temp = tempfile::TempDir::new().unwrap();
         let root = temp.path();
         std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
@@ -677,9 +667,9 @@ mod tests {
         let out = root.join("src.tar.gz");
         std::fs::write(&out, b"a prior run's archive").unwrap();
 
-        ensure_clean_tree(root, Some(&out), &print)
+        ensure_clean_tree(root, Some(&out))
             .expect("the excluded output file must not count as dirty");
-        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        let err = ensure_clean_tree(root, None).unwrap_err();
         assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
     }
 
@@ -688,7 +678,6 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_rejects_modified_tracked_file() {
-        let print = Print::new(true);
         let temp = tempfile::TempDir::new().unwrap();
         let root = temp.path();
         std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
@@ -696,7 +685,7 @@ mod tests {
 
         std::fs::write(root.join("Cargo.toml"), b"# modified").unwrap();
 
-        let err = ensure_clean_tree(root, None, &print).unwrap_err();
+        let err = ensure_clean_tree(root, None).unwrap_err();
         assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
     }
 
@@ -704,7 +693,6 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_accepts_committed_tree() {
-        let print = Print::new(true);
         let temp = tempfile::TempDir::new().unwrap();
         let root = temp.path();
         std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
@@ -712,7 +700,7 @@ mod tests {
         std::fs::write(root.join("src/lib.rs"), b"// code").unwrap();
         git_init_commit(root);
 
-        ensure_clean_tree(root, None, &print).expect("a committed tree is clean");
+        ensure_clean_tree(root, None).expect("a committed tree is clean");
     }
 
     // A clean project that embeds an initialized git submodule must pass: the
@@ -722,8 +710,6 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_accepts_committed_submodule() {
-        let print = Print::new(true);
-
         // A standalone repo to embed as a submodule.
         let sub = tempfile::TempDir::new().unwrap();
         std::fs::write(sub.path().join("lib.rs"), b"// sub").unwrap();
@@ -750,7 +736,7 @@ mod tests {
         git_run(root, &["add", "-A"]);
         git_run(root, &["commit", "-q", "-m", "init"]);
 
-        ensure_clean_tree(root, None, &print).expect("a committed submodule must be clean");
+        ensure_clean_tree(root, None).expect("a committed submodule must be clean");
     }
 
     // A symlink in the tree is rejected rather than followed (its target could be

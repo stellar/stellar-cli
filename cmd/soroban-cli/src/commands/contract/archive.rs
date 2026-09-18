@@ -62,7 +62,7 @@ impl Cmd {
         // The archive is the working tree, so a dirty repo would bake uncommitted
         // changes into the bytes and the printed source_sha256 — refuse it, so the
         // hash always corresponds to a committed state (matching --verifiable).
-        source_archive::ensure_clean_tree(&source_root, out_file, &print)?;
+        source_archive::ensure_clean_tree(&source_root, out_file)?;
 
         // The dry-run listing itself reveals the contents, so skip the
         // "not a git repository" warning there.
