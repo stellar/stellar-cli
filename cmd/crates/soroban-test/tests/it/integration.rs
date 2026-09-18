@@ -18,3 +18,4 @@ mod snapshot;
 mod token;
 mod tx;
 mod util;
+mod verifiable;
