@@ -85,7 +85,6 @@ Tools for smart contract developers
 - `alias` — Utilities to manage contract aliases
 - `bindings` — Generate code client bindings for a contract
 - `build` — Build a contract from source
-- `archive` — Generate (or inspect) the reproducible source archive for a contract
 - `extend` — Extend the time to live ledger of a contract-data ledger entry
 - `deploy` — Deploy a wasm contract
 - `fetch` — Fetch a contract's Wasm binary
@@ -362,7 +361,11 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS] [COMMAND]`
+
+###### **Subcommands:**
+
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
 
 ###### **Container Options:**
 
@@ -422,7 +425,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
-## `stellar contract archive`
+## `stellar contract build archive`
 
 Generate (or inspect) the reproducible source archive for a contract.
 
@@ -430,7 +433,7 @@ Produces the same gzipped tarball that `stellar contract build --verifiable` bui
 
 The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
 
-**Usage:** `stellar contract archive [OPTIONS]`
+**Usage:** `stellar contract build archive [OPTIONS]`
 
 ###### **Options:**
 

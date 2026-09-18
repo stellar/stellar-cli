@@ -6,7 +6,7 @@ use soroban_spec_tools::sanitize;
 
 use crate::{commands::global, config::locator::write_hardened_file, print::Print};
 
-use super::build::source_archive;
+use super::source_archive;
 
 /// Accepted `--out-file` suffixes (lower-case). The archive is always a gzipped
 /// tarball, so the filename must say so.

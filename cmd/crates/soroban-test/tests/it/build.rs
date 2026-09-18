@@ -1119,6 +1119,7 @@ fn contract_archive_writes_out() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .arg("--out-file")
         .arg(&out)
@@ -1168,6 +1169,7 @@ fn contract_archive_rerun_inside_repo_succeeds() {
         sandbox
             .new_assert_cmd("contract")
             .current_dir(&workspace)
+            .arg("build")
             .arg("archive")
             .arg("--out-file")
             .arg(&out)
@@ -1192,6 +1194,7 @@ fn contract_archive_dry_run_lists_entries() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .arg("--dry-run")
         .assert()
@@ -1221,6 +1224,7 @@ fn contract_archive_dry_run_sanitizes_control_chars_in_names() {
     let output = sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .arg("--dry-run")
         .assert()
@@ -1257,6 +1261,7 @@ fn contract_archive_rejects_bad_out_file_extension() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .arg("--out-file")
         .arg(&out)
@@ -1279,6 +1284,7 @@ fn contract_archive_requires_out_file_without_dry_run() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .assert()
         .failure()
@@ -1302,6 +1308,7 @@ fn contract_archive_dirty_tree_errors() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&workspace)
+        .arg("build")
         .arg("archive")
         .arg("--out-file")
         .arg(&out)

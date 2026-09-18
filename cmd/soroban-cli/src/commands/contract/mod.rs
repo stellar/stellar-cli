@@ -1,5 +1,4 @@
 pub mod alias;
-pub mod archive;
 pub mod arg_parsing;
 pub mod asset;
 pub mod bindings;
@@ -35,8 +34,6 @@ pub enum Cmd {
     Bindings(bindings::Cmd),
 
     Build(build::Cmd),
-
-    Archive(archive::Cmd),
 
     /// Extend the time to live ledger of a contract-data ledger entry.
     ///
@@ -120,9 +117,6 @@ pub enum Error {
     Build(#[from] build::Error),
 
     #[error(transparent)]
-    Archive(#[from] archive::Error),
-
-    #[error(transparent)]
     Extend(#[from] extend::Error),
 
     #[error(transparent)]
@@ -172,7 +166,6 @@ impl Cmd {
             Cmd::Build(build) => {
                 build.run(global_args).await?;
             }
-            Cmd::Archive(archive) => archive.run(global_args)?,
             Cmd::Extend(extend) => extend.run(global_args).await?,
             Cmd::Alias(alias) => alias.run(global_args)?,
             Cmd::Deploy(deploy) => deploy.run(global_args).await?,
