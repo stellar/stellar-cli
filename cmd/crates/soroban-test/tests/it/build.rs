@@ -1081,9 +1081,10 @@ fn build_always_injects_cli_version() {
     );
 }
 
-// Convenience: drive a git command in a fixture directory.
+// Convenience: drive a git command in a fixture directory, asserting it succeeds
+// so a failed setup can't silently push tests down the non-git path.
 fn git_in(dir: &Path, args: &[&str]) {
-    std::process::Command::new("git")
+    let status = std::process::Command::new("git")
         .args(args)
         .current_dir(dir)
         .env("GIT_AUTHOR_NAME", "Test")
@@ -1092,6 +1093,7 @@ fn git_in(dir: &Path, args: &[&str]) {
         .env("GIT_COMMITTER_EMAIL", "test@example.com")
         .status()
         .unwrap();
+    assert!(status.success(), "git {args:?} failed");
 }
 
 // Init a tempdir copy of the workspace fixture and return the workspace path.
