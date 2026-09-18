@@ -743,23 +743,26 @@ pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Writes `contents` to `path`, creating the file with `0600` on Unix and
-/// resetting the mode to exactly `0600` afterwards regardless of any
+/// Writes `contents` to `path` at mode `0600` on Unix, regardless of any
 /// pre-existing permissions. Falls back to `std::fs::write` on non-Unix
 /// platforms.
 pub(crate) fn write_hardened_file(path: &Path, contents: &[u8]) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::io::Write as _;
-        use std::os::unix::fs::OpenOptionsExt;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .mode(0o600)
             .open(path)?;
+        // `mode(0o600)` only applies when the file is created; a pre-existing file
+        // keeps its old (possibly group/other-readable) mode. Harden the now-empty
+        // (truncated) file to 0600 *before* writing, so the contents are never
+        // briefly exposed — and even a partial write on failure stays private.
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
         file.write_all(contents)?;
-        set_hardened_permissions(path)?;
     }
 
     #[cfg(not(unix))]
