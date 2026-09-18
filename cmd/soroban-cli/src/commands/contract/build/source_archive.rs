@@ -145,9 +145,17 @@ fn tree_is_dirty(source_root: &Path, selected: &[PathBuf]) -> Result<bool, Error
     // Modified/staged/deleted tracked files. `--untracked-files=no` keeps this
     // independent of ignore rules; untracked files are covered by the
     // committed-membership check below instead.
+    // `--ignore-submodules=none` overrides any `submodule.<name>.ignore` /
+    // `diff.ignoreSubmodules` config that would otherwise hide a submodule's
+    // modified tracked files, whose changed bytes the walker still archives.
     let Some(status) = run_git(
         source_root,
-        &["status", "--porcelain", "--untracked-files=no"],
+        &[
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+            "--ignore-submodules=none",
+        ],
     )?
     else {
         return Ok(false); // not a git repo — nothing to verify
@@ -223,7 +231,13 @@ fn tracked_files(source_root: &Path) -> Result<std::collections::HashSet<PathBuf
 /// refuse them since their committed-ness can't be confirmed. Empty when
 /// `source_root` isn't a git repo.
 fn unverifiable_files(source_root: &Path, selected: &[PathBuf]) -> Result<Vec<PathBuf>, Error> {
-    let Some(out) = run_git(source_root, &["ls-files", "-v", "-z"])? else {
+    // `--recurse-submodules` so a flagged file inside an initialized submodule
+    // (which the walker archives) is caught too, matching `tracked_files`.
+    let Some(out) = run_git(
+        source_root,
+        &["ls-files", "-v", "-z", "--recurse-submodules"],
+    )?
+    else {
         return Ok(Vec::new());
     };
     // Each record is `<tag><space><path>` (see `git ls-files -v`); the path
@@ -525,6 +539,37 @@ mod tests {
         git_run(root, &["commit", "-q", "-m", "init"]);
     }
 
+    // A committed superproject with one committed submodule at `sub/`. Returns the
+    // superproject's tempdir, the submodule's tempdir (kept alive so its origin
+    // path stays valid), and the superproject root.
+    #[cfg(unix)]
+    fn superproject_with_submodule() -> (tempfile::TempDir, tempfile::TempDir, PathBuf) {
+        let sub = tempfile::TempDir::new().unwrap();
+        std::fs::write(sub.path().join("f.txt"), b"// sub").unwrap();
+        git_init_commit(sub.path());
+
+        // `protocol.file.allow` is required for a local-path submodule on modern git.
+        let super_dir = tempfile::TempDir::new().unwrap();
+        let root = super_dir.path().to_path_buf();
+        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
+        git_run(&root, &["init", "-q", "-b", "main"]);
+        git_run(
+            &root,
+            &[
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                "-q",
+                &sub.path().to_string_lossy(),
+                "sub",
+            ],
+        );
+        git_run(&root, &["add", "-A"]);
+        git_run(&root, &["commit", "-q", "-m", "init"]);
+        (super_dir, sub, root)
+    }
+
     #[test]
     #[cfg(unix)]
     fn build_source_archive_git_is_prefixed_and_deterministic() {
@@ -784,33 +829,39 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn ensure_clean_tree_accepts_committed_submodule() {
-        // A standalone repo to embed as a submodule.
-        let sub = tempfile::TempDir::new().unwrap();
-        std::fs::write(sub.path().join("lib.rs"), b"// sub").unwrap();
-        git_init_commit(sub.path());
+        let (_super, _sub, root) = superproject_with_submodule();
+        ensure_clean_tree(&root, None).expect("a committed submodule must be clean");
+    }
 
-        // Superproject that adds and commits the submodule. `protocol.file.allow`
-        // is required for a local-path submodule on modern git.
-        let temp = tempfile::TempDir::new().unwrap();
-        let root = temp.path();
-        std::fs::write(root.join("Cargo.toml"), b"# crate").unwrap();
-        git_run(root, &["init", "-q", "-b", "main"]);
+    // A submodule configured `ignore = all` hides its modified tracked files from
+    // `git status`, but the walker still archives the changed bytes. The check must
+    // override that config (`--ignore-submodules=none`) and catch it.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_modified_ignored_submodule() {
+        let (_super, _sub, root) = superproject_with_submodule();
+        git_run(&root, &["config", "submodule.sub.ignore", "all"]);
+        std::fs::write(root.join("sub/f.txt"), b"// modified out of view").unwrap();
+
+        let err = ensure_clean_tree(&root, None).unwrap_err();
+        assert!(matches!(err, Error::GitDirty { .. }), "got {err:?}");
+    }
+
+    // A submodule file marked `assume-unchanged` is hidden from status; the flag
+    // query must recurse into submodules to catch it, else its modified bytes get
+    // archived while the tree looks clean.
+    #[test]
+    #[cfg(unix)]
+    fn ensure_clean_tree_rejects_assume_unchanged_submodule_file() {
+        let (_super, _sub, root) = superproject_with_submodule();
         git_run(
-            root,
-            &[
-                "-c",
-                "protocol.file.allow=always",
-                "submodule",
-                "add",
-                "-q",
-                &sub.path().to_string_lossy(),
-                "sub",
-            ],
+            &root.join("sub"),
+            &["update-index", "--assume-unchanged", "f.txt"],
         );
-        git_run(root, &["add", "-A"]);
-        git_run(root, &["commit", "-q", "-m", "init"]);
+        std::fs::write(root.join("sub/f.txt"), b"// modified out of view").unwrap();
 
-        ensure_clean_tree(root, None).expect("a committed submodule must be clean");
+        let err = ensure_clean_tree(&root, None).unwrap_err();
+        assert!(matches!(err, Error::GitUnverifiable { .. }), "got {err:?}");
     }
 
     // A symlink in the tree is rejected rather than followed (its target could be
