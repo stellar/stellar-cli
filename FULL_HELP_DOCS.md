@@ -361,7 +361,7 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS] [COMMAND]`
+**Usage:** `stellar contract build [OPTIONS]        build <COMMAND>`
 
 ###### **Subcommands:**
 

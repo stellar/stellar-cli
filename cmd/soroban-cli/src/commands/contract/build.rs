@@ -56,6 +56,9 @@ pub struct BuiltContract {
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+// Either the build flags or the `archive` subcommand — never both, since the
+// subcommand path ignores the parent build flags entirely.
+#[command(args_conflicts_with_subcommands = true)]
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]

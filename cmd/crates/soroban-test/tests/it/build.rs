@@ -1149,6 +1149,28 @@ fn contract_archive_writes_out() {
     }
 }
 
+// Parent `build` flags can't be combined with the `archive` subcommand: the
+// archive ignores them (it always uses the working directory), so accepting e.g.
+// `build --manifest-path x archive` would silently drop the flag. clap must
+// reject the combination instead.
+#[test]
+fn contract_build_archive_rejects_parent_build_args() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&workspace)
+        .arg("build")
+        .arg("--manifest-path")
+        .arg("Cargo.toml")
+        .arg("archive")
+        .arg("--dry-run")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
 // Re-running `contract archive` with an `--out-file` written inside the repo
 // must succeed: the prior run's tarball is untracked, but it's the excluded
 // output, so it neither trips the clean-tree check nor gets archived into the
