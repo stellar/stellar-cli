@@ -429,7 +429,7 @@ To view the commands that will be executed, without executing them, use the --pr
 
 Generate (or inspect) the reproducible source archive for a contract.
 
-Produces the same gzipped tarball that `stellar contract build --verifiable` builds from, and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before a verifiable build, or for producing the archive to host at a `--source-uri`.
+Produces a gzipped tarball of the source tree and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before publishing the archive.
 
 The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
 
