@@ -1,6 +1,7 @@
 pub mod allowance;
 pub mod approve;
 pub mod balance;
+pub mod clawback;
 pub mod decimals;
 pub mod mint;
 pub mod name;
