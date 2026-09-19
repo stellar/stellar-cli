@@ -20,6 +20,7 @@ pub mod ledger;
 pub mod message;
 pub mod network;
 pub mod plugin;
+pub mod skill;
 pub mod snapshot;
 pub mod token;
 pub mod tx;
@@ -121,6 +122,7 @@ impl Root {
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
+            Cmd::Skill(skill) => skill.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
             Cmd::Token(token) => token.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
@@ -213,6 +215,10 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// Print an AI-agent skill guide for using the Stellar CLI
+    #[command(long_about = skill::LONG_ABOUT)]
+    Skill(skill::Cmd),
 
     /// The subcommand for CLI plugins
     #[command(subcommand)]
