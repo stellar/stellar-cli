@@ -20,6 +20,26 @@ use crate::config::network::Network;
 /// 500 matches `soroban-env-host`'s `DEFAULT_XDR_RW_LIMITS`.
 pub(crate) const XDR_DEPTH_LIMIT: u32 = 500;
 
+/// A transaction's sequence number must be exactly one greater than the source
+/// account's current sequence number, which any account can raise to
+/// `i64::MAX` with a single `bump_sequence` operation. Incrementing past that
+/// point must surface as an error instead of an integer-overflow panic.
+#[derive(thiserror::Error, Debug)]
+#[error("account sequence number is at the maximum value ({0}); no further transactions can be submitted from this account")]
+pub struct SequenceNumberOverflow(pub i64);
+
+/// Returns the sequence number for the next transaction of an account
+/// currently at `current`, erroring if the account is at `i64::MAX`.
+///
+/// # Errors
+///
+/// Returns [`SequenceNumberOverflow`] when `current` is `i64::MAX`.
+pub(crate) fn next_sequence_number(current: i64) -> Result<i64, SequenceNumberOverflow> {
+    current
+        .checked_add(1)
+        .ok_or(SequenceNumberOverflow(current))
+}
+
 /// # Errors
 ///
 /// Might return an error
@@ -461,6 +481,20 @@ fn verify_wasm_hash(code: &[u8], expected_hash: &Hash) -> Result<(), soroban_rpc
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_next_sequence_number() {
+        assert_eq!(next_sequence_number(0).unwrap(), 1);
+        assert_eq!(next_sequence_number(41).unwrap(), 42);
+        assert_eq!(next_sequence_number(i64::MAX - 1).unwrap(), i64::MAX);
+    }
+
+    #[test]
+    fn test_next_sequence_number_at_max_errors_instead_of_overflowing() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2417
+        let err = next_sequence_number(i64::MAX).unwrap_err();
+        assert_eq!(err.0, i64::MAX);
+    }
 
     #[test]
     fn test_contract_id_from_str() {

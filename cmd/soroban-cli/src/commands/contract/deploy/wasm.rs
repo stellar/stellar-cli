@@ -85,6 +85,8 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
+    #[error(transparent)]
     Install(#[from] upload::Error),
 
     #[error("error parsing int: {0}")]
@@ -432,7 +434,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let txn = Box::new(build_create_contract_tx(
             wasm_hash,
-            sequence + 1,
+            crate::utils::next_sequence_number(sequence)?,
             config.get_inclusion_fee()?,
             source_account,
             contract_id_preimage,
