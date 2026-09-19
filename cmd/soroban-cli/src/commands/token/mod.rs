@@ -6,6 +6,7 @@ pub mod clawback;
 pub mod decimals;
 pub mod mint;
 pub mod name;
+pub mod set_admin;
 pub mod symbol;
 pub mod transfer;
 
@@ -39,6 +40,9 @@ pub enum Cmd {
 
     /// Claw back tokens from an account or contract (SAC admin)
     Clawback(clawback::Cmd),
+
+    /// Transfer administration of the token to a new admin (SAC admin)
+    SetAdmin(set_admin::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -61,6 +65,8 @@ pub enum Error {
     Mint(#[from] mint::Error),
     #[error(transparent)]
     Clawback(#[from] clawback::Error),
+    #[error(transparent)]
+    SetAdmin(#[from] set_admin::Error),
 }
 
 impl Error {
@@ -77,6 +83,7 @@ impl Error {
             Error::Allowance(e) => e.error_type(),
             Error::Mint(e) => e.error_type(),
             Error::Clawback(e) => e.error_type(),
+            Error::SetAdmin(e) => e.error_type(),
         }
     }
 }
@@ -93,6 +100,7 @@ impl Cmd {
             Cmd::Allowance(cmd) => cmd.run(global_args).await?,
             Cmd::Mint(cmd) => cmd.run(global_args).await?,
             Cmd::Clawback(cmd) => cmd.run(global_args).await?,
+            Cmd::SetAdmin(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
