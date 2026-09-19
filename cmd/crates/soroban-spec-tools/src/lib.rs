@@ -1169,6 +1169,17 @@ fn to_lower_hex(bytes: &[u8]) -> String {
 }
 
 impl Spec {
+    /// Maximum nesting depth at which user-defined types are still expanded
+    /// when rendering a value name.
+    ///
+    /// UDT references are resolved by name, so a recursive type (e.g.
+    /// `struct TreeNode { children: Vec<TreeNode> }`, which the SDK and the
+    /// network accept) would otherwise recurse unboundedly and overflow the
+    /// stack. Past this depth the type's name is rendered instead of its
+    /// expansion; returning `None` instead would erase the entire value name,
+    /// since `None` propagates through the `?` in every caller.
+    const MAX_UDT_VALUE_NAME_DEPTH: usize = 4;
+
     #[must_use]
     pub fn arg_value_name(&self, type_: &ScType, depth: usize) -> Option<String> {
         match type_ {
@@ -1231,6 +1242,12 @@ impl Spec {
             }
             ScType::BytesN(t) => Some(format!("{}_hex_bytes", t.n)),
             ScType::Udt(ScSpecTypeUdt { name }) => {
+                // UDTs are the only types resolved by name, so any cycle in a
+                // recursive spec passes through here; cap the expansion depth
+                // and fall back to the type's name (#2445).
+                if depth > Self::MAX_UDT_VALUE_NAME_DEPTH {
+                    return Some(name.to_utf8_string_lossy());
+                }
                 match self.find(&name.to_utf8_string_lossy()).ok()? {
                     ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { fields, .. })
                         if fields
@@ -2556,5 +2573,83 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    fn udt(name: &str) -> ScType {
+        ScType::Udt(ScSpecTypeUdt {
+            name: name.try_into().unwrap(),
+        })
+    }
+
+    fn udt_struct(name: &str, fields: Vec<(&str, ScType)>) -> ScSpecEntry {
+        use stellar_xdr::ScSpecUdtStructFieldV0;
+        ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: "".try_into().unwrap(),
+            lib: "".try_into().unwrap(),
+            name: name.try_into().unwrap(),
+            fields: fields
+                .into_iter()
+                .map(|(field_name, type_)| ScSpecUdtStructFieldV0 {
+                    doc: "".try_into().unwrap(),
+                    name: field_name.try_into().unwrap(),
+                    type_,
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        })
+    }
+
+    fn vec_of(type_: ScType) -> ScType {
+        ScType::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(type_),
+        }))
+    }
+
+    // Regression tests for https://github.com/stellar/stellar-cli/issues/2445:
+    // a recursive type in a contract spec (accepted by the SDK and the
+    // network) sent `arg_value_name` into unbounded recursion, overflowing
+    // the stack on any `contract invoke`, including `-- --help`.
+    #[test]
+    fn arg_value_name_terminates_on_self_recursive_struct() {
+        // struct TreeNode { value: u32, children: Vec<TreeNode> }
+        let spec = Spec(Some(vec![udt_struct(
+            "TreeNode",
+            vec![
+                ("value", ScType::U32),
+                ("children", vec_of(udt("TreeNode"))),
+            ],
+        )]));
+
+        let name = spec.arg_value_name(&udt("TreeNode"), 0).unwrap();
+
+        // Expansion stops at the depth cap by rendering the type's name.
+        assert!(name.contains("TreeNode"));
+        assert!(name.starts_with("{ "));
+    }
+
+    #[test]
+    fn arg_value_name_terminates_on_mutually_recursive_structs() {
+        // struct A { b: B } / struct B { a: A }
+        let spec = Spec(Some(vec![
+            udt_struct("A", vec![("b", udt("B"))]),
+            udt_struct("B", vec![("a", udt("A"))]),
+        ]));
+
+        let name = spec.arg_value_name(&udt("A"), 0).unwrap();
+
+        assert!(name.contains('A') || name.contains('B'));
+    }
+
+    #[test]
+    fn arg_value_name_expands_non_recursive_nested_structs() {
+        let spec = Spec(Some(vec![
+            udt_struct("Outer", vec![("inner", udt("Inner"))]),
+            udt_struct("Inner", vec![("x", ScType::U32)]),
+        ]));
+
+        let name = spec.arg_value_name(&udt("Outer"), 0).unwrap();
+
+        assert_eq!(name, "{ inner: { x: u32 } }");
     }
 }
