@@ -24,6 +24,43 @@ async fn invoke_view_with_non_existent_source_account() {
 }
 
 #[tokio::test]
+async fn invoke_with_muxed_source_account() {
+    let sandbox = &TestEnv::new();
+    let id = &deploy_hello(sandbox).await;
+
+    // A muxed (M…) source is the funded `test` identity's G… account plus a
+    // mux id (#2645). Sending used to fail at the sequence-number lookup,
+    // which handed the M… strkey to a G-only parser; `--send=yes` forces the
+    // send path even though `hello` is read-only. An M-literal carries no
+    // secret, so signing goes through the identity via `--sign-with-key`.
+    let g_addr = crate::integration::util::test_address(sandbox);
+    let ed25519 = stellar_strkey::ed25519::PublicKey::from_string(&g_addr)
+        .unwrap()
+        .0;
+    let muxed = format!(
+        "{}",
+        stellar_strkey::ed25519::MuxedAccount { ed25519, id: 7 }
+    );
+
+    sandbox
+        .new_assert_cmd("contract")
+        .arg("invoke")
+        .arg("--id")
+        .arg(id)
+        .arg("--source-account")
+        .arg(&muxed)
+        .arg("--sign-with-key")
+        .arg("test")
+        .arg("--send=yes")
+        .arg("--")
+        .arg("hello")
+        .arg("--world=muxed")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(r#"["Hello","muxed"]"#));
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn invoke_contract() {
     let sandbox = &TestEnv::new();
