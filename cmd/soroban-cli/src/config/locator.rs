@@ -643,6 +643,7 @@ impl Pwd for Args {
 
 /// How `enforce_hardened_tree` normalizes a file's owner bits (group/other are
 /// always stripped regardless).
+#[cfg(unix)]
 #[derive(Clone, Copy)]
 pub(crate) enum FileMode {
     /// Force every file to exactly `0o600`. Used for config files, which are
@@ -666,58 +667,52 @@ pub(crate) enum FileMode {
 /// Best-effort: an entry whose `chmod` fails is skipped and traversal continues,
 /// so one unfixable file can't leave the rest of the tree group/other-readable.
 ///
-/// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
-/// on filesystem ACLs created by the higher-level APIs.
+/// Unix-only: mode bits aren't a thing on other platforms, so this doesn't
+/// exist there; tempdirs / config dirs on non-unix rely on filesystem ACLs
+/// created by the higher-level APIs.
+#[cfg(unix)]
 #[allow(clippy::unnecessary_wraps)]
 pub(crate) fn enforce_hardened_tree(
     root: &Path,
     file_mode: FileMode,
 ) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut changed_dirs = Vec::new();
-        let mut changed_files = Vec::new();
-        let mut stack = vec![root.to_path_buf()];
-        while let Some(p) = stack.pop() {
-            let Ok(meta) = std::fs::symlink_metadata(&p) else {
-                continue;
-            };
-            if meta.file_type().is_symlink() {
-                continue;
+    use std::os::unix::fs::PermissionsExt;
+    let mut changed_dirs = Vec::new();
+    let mut changed_files = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(p) = stack.pop() {
+        let Ok(meta) = std::fs::symlink_metadata(&p) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        let current = meta.permissions().mode() & 0o777;
+        if meta.is_dir() {
+            if current != 0o700
+                && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).is_ok()
+            {
+                changed_dirs.push(p.clone());
             }
-            let current = meta.permissions().mode() & 0o777;
-            if meta.is_dir() {
-                if current != 0o700
-                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).is_ok()
-                {
-                    changed_dirs.push(p.clone());
+            if let Ok(entries) = std::fs::read_dir(&p) {
+                for entry in entries.filter_map(Result::ok) {
+                    stack.push(entry.path());
                 }
-                if let Ok(entries) = std::fs::read_dir(&p) {
-                    for entry in entries.filter_map(Result::ok) {
-                        stack.push(entry.path());
-                    }
-                }
-            } else {
-                let target = match file_mode {
-                    FileMode::Exact => 0o600,
-                    // Keep the owner's bits (notably execute) but drop group/other.
-                    FileMode::PreserveOwner => current & 0o700,
-                };
-                if current != target
-                    && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target)).is_ok()
-                {
-                    changed_files.push(p);
-                }
+            }
+        } else {
+            let target = match file_mode {
+                FileMode::Exact => 0o600,
+                // Keep the owner's bits (notably execute) but drop group/other.
+                FileMode::PreserveOwner => current & 0o700,
+            };
+            if current != target
+                && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target)).is_ok()
+            {
+                changed_files.push(p);
             }
         }
-        Ok((changed_dirs, changed_files))
     }
-    #[cfg(not(unix))]
-    {
-        let _ = (root, file_mode);
-        Ok((Vec::new(), Vec::new()))
-    }
+    Ok((changed_dirs, changed_files))
 }
 
 #[cfg(unix)]
