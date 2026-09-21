@@ -64,13 +64,14 @@ Do **not** capture the deployed contract id into a shell variable or `.env` file
 Scaffold, build, and deploy a contract project:
 
     stellar contract init my-project     # scaffold a Cargo workspace
+    cd my-project                        # enter the project before building
     stellar contract build               # compile to target/wasm32v1-none/release/<name>.wasm
 
 Inside a contract project you can deploy without pointing at a `.wasm` — the CLI builds it for you:
 
-    stellar contract deploy --alias counter -- --admin alice
+    stellar contract deploy --alias my-project
 
-Constructor arguments go after the `--`, passed as `--arg-name value`; they are forwarded to the contract's `__constructor`.
+If your contract defines a `__constructor`, forward its arguments after `--` as `--arg-name value` (e.g. `-- --admin alice`).
 
 - Deploy a prebuilt file: `stellar contract deploy --wasm <path> --alias <name>`
 - Upload Wasm without instantiating a contract (e.g. for factories or upgrades): `stellar contract upload` (the older `install` is a deprecated alias).
@@ -103,10 +104,11 @@ Contract storage is rented and each entry has a time-to-live (TTL). Behavior on 
 
 For fast, offline iteration, run a self-contained network (node + RPC + faucet) in a container:
 
-    stellar container start local
+    stellar container start local        # start the node + RPC (RPC on localhost:8000)
+    stellar network use local            # point the CLI at it — otherwise commands keep using the previously selected network
 
 - Container engine: defaults to Docker (or any Docker-compatible CLI such as Podman). On Apple silicon (macOS 26+) you can use Apple's `container` CLI. Set the default once with `stellar container use <engine>` (engines: `docker`, `apple-container`); override a single command with `--engine`, or set `STELLAR_CONTAINER_ENGINE`.
-- On testnet, fund an account through friendbot: `stellar keys fund alice`.
+- Fund a local account: `stellar keys fund alice` (on testnet the same command funds via friendbot).
 
 ## Inspecting configuration
 
