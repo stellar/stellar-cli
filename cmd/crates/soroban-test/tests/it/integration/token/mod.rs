@@ -7,6 +7,7 @@ pub mod mint;
 pub mod name;
 pub mod renamed;
 pub mod set_admin;
+pub mod set_authorized;
 pub mod symbol;
 pub mod transfer;
 
