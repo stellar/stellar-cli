@@ -2,10 +2,35 @@ use core::fmt;
 use std::process::Stdio;
 
 use clap::ValueEnum;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::print::Print;
+
+/// The current process's stderr as a `Stdio`, so a child's stdout can be routed
+/// to our stderr — keeping our own stdout clean. Falls back to inheriting on the
+/// rare fd/handle clone failure.
+fn stderr_as_stdio() -> Stdio {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsFd;
+        std::io::stderr()
+            .as_fd()
+            .try_clone_to_owned()
+            .map_or_else(|_| Stdio::inherit(), Stdio::from)
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsHandle;
+        std::io::stderr()
+            .as_handle()
+            .try_clone_to_owned()
+            .map_or_else(|_| Stdio::inherit(), Stdio::from)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        Stdio::inherit()
+    }
+}
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
@@ -23,8 +48,8 @@ pub enum Error {
         source: std::io::Error,
     },
 
-    #[error("could not pull image {image}: {stderr}")]
-    PullImageFailed { image: String, stderr: String },
+    #[error("could not pull image {image}")]
+    PullImageFailed { image: String },
 }
 
 /// Container runtime to shell out to.
@@ -267,54 +292,28 @@ impl Args {
         cmd
     }
 
-    /// Pull `image`, streaming the engine's high-level status lines ("Pulling
-    /// from", "Digest", "Status") through `print`. Per-layer progress written to
-    /// stderr is captured rather than shown and surfaced only when the pull
-    /// fails, as `PullImageFailed`, so a failed pull can report the engine's own
-    /// error. A missing engine binary surfaces via `io_error` as `NotFound`.
-    pub(crate) async fn pull_image(&self, image: &str, print: &Print) -> Result<(), Error> {
-        let mut child = self
+    /// Pull `image`, streaming the engine's own progress to our stderr so our
+    /// stdout stays clean (the engine writes pull progress to stdout, which we
+    /// redirect to stderr; its stderr is inherited). Under `quiet` both are
+    /// discarded. A missing engine binary surfaces via `io_error` as `NotFound`.
+    pub(crate) async fn pull_image(&self, image: &str, quiet: bool) -> Result<(), Error> {
+        let (stdout, stderr) = if quiet {
+            (Stdio::null(), Stdio::null())
+        } else {
+            (stderr_as_stdio(), Stdio::inherit())
+        };
+        let status = self
             .pull_command(image)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stdout(stdout)
+            .stderr(stderr)
+            .status()
+            .await
             .map_err(|e| self.io_error(e))?;
-
-        let stdout = child.stdout.take();
-        let stderr = child.stderr.take();
-
-        let stream_stdout = async {
-            if let Some(stdout) = stdout {
-                let mut lines = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    if line.contains("Pulling from")
-                        || line.contains("Digest")
-                        || line.contains("Status")
-                    {
-                        print.infoln(line);
-                    }
-                }
-            }
-        };
-
-        let capture_stderr = async {
-            let mut buf = String::new();
-            if let Some(mut stderr) = stderr {
-                let _ = stderr.read_to_string(&mut buf).await;
-            }
-            buf
-        };
-
-        // Drain both pipes concurrently so a full stderr buffer can't deadlock
-        // the child while we're reading stdout.
-        let ((), stderr) = tokio::join!(stream_stdout, capture_stderr);
-
-        if child.wait().await.map_err(|e| self.io_error(e))?.success() {
+        if status.success() {
             Ok(())
         } else {
             Err(Error::PullImageFailed {
                 image: image.to_string(),
-                stderr: stderr.trim().to_string(),
             })
         }
     }

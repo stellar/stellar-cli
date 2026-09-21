@@ -259,6 +259,9 @@ pub enum Error {
     Container(#[from] container::Error),
 
     #[error(transparent)]
+    Engine(#[from] crate::commands::container::shared::Error),
+
+    #[error(transparent)]
     Archive(#[from] archive::Error),
 }
 

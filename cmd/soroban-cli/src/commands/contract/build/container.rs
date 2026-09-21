@@ -92,10 +92,7 @@ pub async fn run(
     // `pull` up front to refresh a moving tag to its newest image. Nothing is
     // pulled when only printing the command, since nothing runs.
     if !print_only && cmd.pull {
-        docker
-            .pull_image(image, print)
-            .await
-            .map_err(Error::Engine)?;
+        docker.pull_image(image, print.quiet).await?;
     }
 
     // Gather everything we need to know about the image in one throwaway
