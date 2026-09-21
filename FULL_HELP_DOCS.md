@@ -32,11 +32,11 @@ Commands that work with contracts are organized under the `contract` subcommand.
 
 Use contracts like a CLI:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
 **Usage:** `stellar [OPTIONS] <COMMAND>`
 
@@ -181,16 +181,18 @@ Utilities to manage contract aliases
 
 ###### **Subcommands:**
 
-- `remove` — Remove contract alias
+- `rm` — Remove contract alias
 - `add` — Add contract alias
 - `show` — Show the contract id associated with a given alias
 - `ls` — List all aliases
 
-## `stellar contract alias remove`
+## `stellar contract alias rm`
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias rm [OPTIONS] <ALIAS>`
+
+**Command Alias:** `remove`
 
 ###### **Arguments:**
 
@@ -211,7 +213,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --contract-id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -224,7 +226,7 @@ Add contract alias
 ###### **Options:**
 
 - `--overwrite` — Overwrite the contract alias if it already exists
-- `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — The contract id that will be associated with the alias
 
 ###### **RPC Options:**
 
@@ -362,7 +364,11 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS]        build <COMMAND>`
+
+###### **Subcommands:**
+
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
 
 ###### **Container Options:**
 
@@ -422,6 +428,21 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
+## `stellar contract build archive`
+
+Generate (or inspect) the reproducible source archive for a contract.
+
+Produces a gzipped tarball of the source tree and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before publishing the archive.
+
+The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
+
+**Usage:** `stellar contract build archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
+
 ## `stellar contract extend`
 
 Extend the time to live ledger of a contract-data ledger entry.
@@ -438,7 +459,7 @@ If no keys are specified the contract itself is extended.
 
 - `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 - `--ttl-ledger-only` — Only print the new Time To Live ledger
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -559,7 +580,7 @@ Fetch a contract's Wasm binary
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to fetch
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to fetch
 - `--wasm-hash <WASM_HASH>` — Wasm to fetch
 - `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 
@@ -992,7 +1013,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --contract-id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -1004,7 +1025,7 @@ stellar contract invoke ... -- --help
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to invoke
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to invoke
 - `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 - `--send <SEND>` — Whether or not to send a transaction
 
@@ -1079,7 +1100,7 @@ Print the current value of a contract-data ledger entry
   - `json`: Json
   - `xdr`: XDR
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1113,7 +1134,7 @@ If no keys are specificed the contract itself is restored.
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
