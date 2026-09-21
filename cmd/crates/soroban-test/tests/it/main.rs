@@ -2,6 +2,7 @@ mod build;
 mod config;
 #[cfg(unix)]
 mod container;
+mod contract_id_flag;
 #[cfg(feature = "emulator-tests")]
 mod emulator;
 mod help;
