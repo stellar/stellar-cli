@@ -1223,31 +1223,10 @@ fn verifiable_image_requires_explicit_registry_host() {
         .stderr(predicate::str::contains("bldimg format"));
 }
 
-// `--verifiable` always generates the source archive (and computes
-// source_sha256) before the docker stage, so the "Wrote source archive" line
-// appears even though the build then fails to reach a real image.
-#[test]
-fn verifiable_always_writes_source_archive() {
-    let sandbox = TestEnv::default();
-    let (_temp, workspace) = fresh_workspace();
-    git_in(&workspace, &["init", "-q", "-b", "main"]);
-    git_in(&workspace, &["add", "-A"]);
-    git_in(&workspace, &["commit", "-q", "-m", "init"]);
-
-    sandbox
-        .new_assert_cmd("contract")
-        .current_dir(workspace.join("contracts").join("add"))
-        .arg("build")
-        .arg("--verifiable")
-        .arg("--image")
-        .arg(ZERO_DIGEST)
-        .assert()
-        .failure()
-        .stderr(
-            predicate::str::contains("Wrote source archive")
-                .and(predicate::str::contains("source_sha256")),
-        );
-}
+// The source-archive stage (writing the archive and computing source_sha256) is
+// exercised end-to-end by the Docker-gated `integration/verifiable.rs`; these
+// engine-free tests deliberately stop at validation so they never reach a real
+// container.
 
 // `contract archive --out-file` writes the gzipped tarball and prints its
 // source_sha256.

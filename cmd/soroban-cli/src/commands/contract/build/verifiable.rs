@@ -25,10 +25,7 @@ use crate::{
         container::shared::{self, Error as ConnectionError},
         global,
     },
-    config::{
-        data,
-        locator::{enforce_hardened_tree, write_hardened_file, FileMode},
-    },
+    config::{data, locator::write_hardened_file},
     print::Print,
 };
 
@@ -149,6 +146,16 @@ pub async fn run(
     let supports_locked = at_least(container::LOCKED_MIN);
     let supports_optimize_flag = at_least(container::OPTIMIZE_FLAG_MIN);
     let supports_optimize_false = at_least(container::OPTIMIZE_NEW_SYNTAX_MIN);
+
+    // `--optimize` (the default) was only added to `contract build` in cli
+    // 23.2.0; older images silently build unoptimized. Warn so a `--verifiable`
+    // build isn't quietly downgraded, matching the plain container build.
+    if cmd.build_args.optimize && !supports_optimize_flag {
+        print.warnln(
+            "The build image's `contract build` does not support --optimize; \
+             building without it.",
+        );
+    }
 
     // `--locked` is implied by `--verifiable` (a reproducible build should pin
     // the lockfile), but it was only added to `contract build` in cli 25.2.0.
@@ -347,8 +354,16 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
         out_path.display()
     ));
 
-    // Extract and harden, then build from the extracted copy so the wasm is
-    // produced from exactly the archived bytes.
+    // Extract and build from the extracted copy so the wasm is produced from
+    // exactly the archived bytes.
+    //
+    // The extracted files keep the archive's own modes (e.g. 0644/0755) rather
+    // than being re-hardened: a SEP-58 verifier reproduces by extracting this
+    // same archive, so the tree the build sees must match theirs bit for bit,
+    // mode bits included (a build script can observe them). Confidentiality still
+    // holds without per-file hardening — `tempdir_in` creates the root 0700, so
+    // the whole extracted tree is unreadable to other local users regardless of
+    // the per-file modes inside it.
     //
     // Extract under the data dir, NOT the OS temp dir: on macOS `$TMPDIR` lives
     // under /var/folders, which container VMs (Docker Desktop, Colima, …) don't
@@ -364,8 +379,6 @@ fn resolve_archive(cmd: &Cmd, source_root: &Path, print: &Print) -> Result<Archi
         .tempdir_in(&base)
         .map_err(source_archive::Error::ArchiveExtract)?;
     source_archive::unpack_targz(&bytes, tmp.path())?;
-    enforce_hardened_tree(tmp.path(), FileMode::PreserveOwner)
-        .map_err(source_archive::Error::ArchiveExtract)?;
 
     let extracted_root = tmp.path().to_path_buf();
     Ok(ArchiveResult {

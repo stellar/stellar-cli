@@ -7,6 +7,7 @@
 //! target dir, and the SEP-58 provenance meta stamped into the wasm.
 
 use fs_extra::dir::CopyOptions;
+use predicates::prelude::*;
 use soroban_test::{AssertExt, TestEnv};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -78,7 +79,13 @@ fn verifiable_build_stamps_sep58_metadata_and_copies_artifact() {
         .arg("--source-uri")
         .arg("https://example.com/src.tar.gz")
         .assert()
-        .success();
+        .success()
+        // The archive is generated and its hash computed before the container
+        // build, so the "Wrote source archive" line is emitted on the happy path.
+        .stderr(
+            predicate::str::contains("Wrote source archive")
+                .and(predicate::str::contains("source_sha256")),
+        );
 
     // The build runs in an extracted tempdir, so the artifact must be copied back
     // to the host workspace target dir.
