@@ -1,9 +1,38 @@
 use core::fmt;
+use std::process::Stdio;
 
 use clap::ValueEnum;
 use tokio::process::Command;
 
 use crate::print::Print;
+
+/// The current process's stderr as a `Stdio`, so a child's stdout can be routed
+/// to our stderr — keeping our own stdout clean. Falls back to discarding the
+/// output on the rare fd/handle clone failure (and on targets that are neither
+/// unix nor windows); inheriting instead would send it to our stdout, defeating
+/// the point.
+fn stderr_as_stdio() -> Stdio {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsFd;
+        std::io::stderr()
+            .as_fd()
+            .try_clone_to_owned()
+            .map_or_else(|_| Stdio::null(), Stdio::from)
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsHandle;
+        std::io::stderr()
+            .as_handle()
+            .try_clone_to_owned()
+            .map_or_else(|_| Stdio::null(), Stdio::from)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        Stdio::null()
+    }
+}
 
 pub const DOCKER_HOST_HELP: &str = "Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock";
 
@@ -20,6 +49,9 @@ pub enum Error {
         program: String,
         source: std::io::Error,
     },
+
+    #[error("could not pull image {image}")]
+    PullImageFailed { image: String },
 }
 
 /// Container runtime to shell out to.
@@ -261,6 +293,32 @@ impl Args {
         };
         cmd
     }
+
+    /// Pull `image`, streaming the engine's own progress to our stderr so our
+    /// stdout stays clean (the engine writes pull progress to stdout, which we
+    /// redirect to stderr; its stderr is inherited). Under `quiet` both are
+    /// discarded. A missing engine binary surfaces via `io_error` as `NotFound`.
+    pub(crate) async fn pull_image(&self, image: &str, quiet: bool) -> Result<(), Error> {
+        let (stdout, stderr) = if quiet {
+            (Stdio::null(), Stdio::null())
+        } else {
+            (stderr_as_stdio(), Stdio::inherit())
+        };
+        let status = self
+            .pull_command(image)
+            .stdout(stdout)
+            .stderr(stderr)
+            .status()
+            .await
+            .map_err(|e| self.io_error(e))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::PullImageFailed {
+                image: image.to_string(),
+            })
+        }
+    }
 }
 
 /// Resource limits for commands that *run* a container (e.g. `container start`).
@@ -498,7 +556,7 @@ mod test {
         let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
         match args(None, Some(Engine::AppleContainer)).io_error(not_found) {
             Error::NotFound { program, .. } => assert_eq!(program, "container"),
-            Error::Command { .. } => panic!("expected NotFound, got Command"),
+            other => panic!("expected NotFound, got {other:?}"),
         }
     }
 
