@@ -7,8 +7,10 @@ use tokio::process::Command;
 use crate::print::Print;
 
 /// The current process's stderr as a `Stdio`, so a child's stdout can be routed
-/// to our stderr — keeping our own stdout clean. Falls back to inheriting on the
-/// rare fd/handle clone failure.
+/// to our stderr — keeping our own stdout clean. Falls back to discarding the
+/// output on the rare fd/handle clone failure (and on targets that are neither
+/// unix nor windows); inheriting instead would send it to our stdout, defeating
+/// the point.
 fn stderr_as_stdio() -> Stdio {
     #[cfg(unix)]
     {
@@ -16,7 +18,7 @@ fn stderr_as_stdio() -> Stdio {
         std::io::stderr()
             .as_fd()
             .try_clone_to_owned()
-            .map_or_else(|_| Stdio::inherit(), Stdio::from)
+            .map_or_else(|_| Stdio::null(), Stdio::from)
     }
     #[cfg(windows)]
     {
@@ -24,11 +26,11 @@ fn stderr_as_stdio() -> Stdio {
         std::io::stderr()
             .as_handle()
             .try_clone_to_owned()
-            .map_or_else(|_| Stdio::inherit(), Stdio::from)
+            .map_or_else(|_| Stdio::null(), Stdio::from)
     }
     #[cfg(not(any(unix, windows)))]
     {
-        Stdio::inherit()
+        Stdio::null()
     }
 }
 
