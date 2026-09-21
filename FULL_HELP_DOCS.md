@@ -180,16 +180,18 @@ Utilities to manage contract aliases
 
 ###### **Subcommands:**
 
-- `remove` — Remove contract alias
+- `rm` — Remove contract alias
 - `add` — Add contract alias
 - `show` — Show the contract id associated with a given alias
 - `ls` — List all aliases
 
-## `stellar contract alias remove`
+## `stellar contract alias rm`
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias rm [OPTIONS] <ALIAS>`
+
+**Command Alias:** `remove`
 
 ###### **Arguments:**
 
@@ -361,7 +363,11 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS]        build <COMMAND>`
+
+###### **Subcommands:**
+
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
 
 ###### **Container Options:**
 
@@ -420,6 +426,21 @@ To view the commands that will be executed, without executing them, use the --pr
 ###### **Other:**
 
 - `--print-commands-only` — Print commands to build without executing them
+
+## `stellar contract build archive`
+
+Generate (or inspect) the reproducible source archive for a contract.
+
+Produces a gzipped tarball of the source tree and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before publishing the archive.
+
+The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
+
+**Usage:** `stellar contract build archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
 
 ## `stellar contract extend`
 
