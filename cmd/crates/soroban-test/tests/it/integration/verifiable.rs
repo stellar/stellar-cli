@@ -71,6 +71,7 @@ fn verifiable_build_stamps_sep58_metadata_and_copies_artifact() {
         .arg("--verifiable")
         .arg("--image")
         .arg(&image)
+        .arg("--pull")
         .arg("--package")
         .arg("add")
         // `--source-uri` needs only `--verifiable`; the hash is computed and stamped.

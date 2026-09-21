@@ -428,7 +428,7 @@ async fn resolve_image(cmd: &Cmd, docker: &shared::Args, print: &Print) -> Resul
         .clone()
         .expect("--image is required with --verifiable (enforced by clap)");
     if cmd.pull {
-        docker.pull_image(&image, print).await?;
+        docker.pull_image(&image, print.quiet).await?;
     }
     Ok(image)
 }
