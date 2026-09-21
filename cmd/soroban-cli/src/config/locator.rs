@@ -90,7 +90,7 @@ pub enum Error {
     ContractAliasCannotOverlapWithKey(String),
     #[error("'{0}' is reserved for the built-in native asset contract and cannot be added, overwritten, or removed")]
     ContractAliasReserved(String),
-    #[error("alias '{alias}' is reserved for the native asset contract, but a stored alias points to {stored}; remove it with `stellar contract alias remove {alias}`, or use the contract id directly")]
+    #[error("alias '{alias}' is reserved for the native asset contract, but a stored alias points to {stored}; remove it with `stellar contract alias rm {alias}`, or use the contract id directly")]
     ShadowedReservedAlias { alias: String, stored: Contract },
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
@@ -557,7 +557,7 @@ impl Args {
         // contract. If a stored (shadowed) alias file points somewhere else,
         // refuse to silently override it: resolving to the built-in anyway
         // would misdirect the command to the wrong contract. The stored file
-        // can still be removed with `contract alias remove <name>`.
+        // can still be removed with `contract alias rm <name>`.
         if let Some(reserved) = alias::resolve_reserved(alias, self, network_passphrase) {
             if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
                 if stored != reserved {
