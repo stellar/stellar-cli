@@ -6,6 +6,7 @@ pub mod name;
 pub mod renamed;
 pub mod symbol;
 pub mod transfer;
+pub mod transfer_from;
 
 use soroban_test::{AssertExt, TestEnv};
 

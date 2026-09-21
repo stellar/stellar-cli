@@ -6,6 +6,7 @@ pub mod decimals;
 pub mod name;
 pub mod symbol;
 pub mod transfer;
+pub mod transfer_from;
 
 use crate::commands::global;
 
@@ -13,6 +14,9 @@ use crate::commands::global;
 pub enum Cmd {
     /// Transfer tokens from one account to another
     Transfer(transfer::Cmd),
+
+    /// Transfer tokens on an owner's behalf using a granted allowance
+    TransferFrom(transfer_from::Cmd),
 
     /// Read the token balance of an account or contract
     Balance(balance::Cmd),
@@ -38,6 +42,8 @@ pub enum Error {
     #[error(transparent)]
     Transfer(#[from] transfer::Error),
     #[error(transparent)]
+    TransferFrom(#[from] transfer_from::Error),
+    #[error(transparent)]
     Balance(#[from] balance::Error),
     #[error(transparent)]
     Name(#[from] name::Error),
@@ -57,6 +63,7 @@ impl Error {
     pub fn error_type(&self) -> &'static str {
         match self {
             Error::Transfer(e) => e.error_type(),
+            Error::TransferFrom(e) => e.error_type(),
             Error::Balance(e) => e.error_type(),
             Error::Name(e) => e.error_type(),
             Error::Symbol(e) => e.error_type(),
@@ -71,6 +78,7 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         match self {
             Cmd::Transfer(cmd) => cmd.run(global_args).await?,
+            Cmd::TransferFrom(cmd) => cmd.run(global_args).await?,
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
             Cmd::Name(cmd) => cmd.run(global_args).await?,
             Cmd::Symbol(cmd) => cmd.run(global_args).await?,
