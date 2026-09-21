@@ -13,6 +13,7 @@ mod log;
 mod message;
 mod plugin;
 mod rpc_provider;
+mod skill;
 mod strkey;
 mod tx;
 mod util;

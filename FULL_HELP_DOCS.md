@@ -58,6 +58,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
+- `skill` — Print an AI-agent skill guide for using the Stellar CLI
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
 - `message` — Sign and verify arbitrary messages using SEP-53
@@ -4880,6 +4881,14 @@ Print version information
 - `--only-version` — Print only the version
 - `--only-version-major` — Print only the major version
 - `--only-commit` — Print only the commit sha
+
+## `stellar skill`
+
+Print an AI-agent skill guide for using the Stellar CLI
+
+Outputs a Markdown document describing how to use the Stellar CLI idiomatically. It is meant to be read by AI coding agents (or pasted into their instructions) so they follow the CLI's conventions: using named networks, identities, and contract aliases instead of raw RPC URLs, secret keys, and hard-coded contract ids.
+
+**Usage:** `stellar skill`
 
 ## `stellar plugin`
 
