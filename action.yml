@@ -15,7 +15,18 @@ runs:
       shell: bash
       run: |
         mkdir -p $HOME/.local/bin
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        # On Windows runners bash expands $HOME to an MSYS path, e.g.
+        # /c/Users/runneradmin/.local/bin, which only bash can resolve. Tools
+        # that start processes with the Win32 API rather than a shell, such as
+        # GNU make, would not find the binary on a PATH containing that form,
+        # so add the path in native Windows form instead.
+        case "${{ runner.os }}" in
+        'Windows')
+          cygpath -w "$HOME/.local/bin" >> $GITHUB_PATH
+          ;;
+        *)
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        esac
 
     - name: Determine version to install
       id: version

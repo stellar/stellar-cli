@@ -18,6 +18,15 @@ jobs:
     runs-on: ${{ matrix.image }}
 
     steps:
-      - uses: stellar/stellar-cli@main
+      - uses: actions/checkout@v4
+      - uses: ./
         with:
           version: v26.1.0
+      # Check the CLI is found by tools that start processes without a shell,
+      # such as GNU make, which on Windows uses the Win32 API and cannot
+      # resolve an MSYS style path on PATH.
+      - shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          printf 'version:\n\tstellar --version\n' > Makefile
+          make version
