@@ -644,6 +644,7 @@ impl Pwd for Args {
 /// How `enforce_hardened_tree` normalizes a file's owner bits (group/other are
 /// always stripped regardless).
 #[derive(Clone, Copy)]
+#[cfg_attr(not(unix), allow(dead_code))]
 pub(crate) enum FileMode {
     /// Force every file to exactly `0o600`. Used for config files, which are
     /// data (never executable) and must stay owner-writable so the CLI can
@@ -669,6 +670,7 @@ pub(crate) enum FileMode {
 /// On non-unix platforms this is a no-op; tempdirs / config dirs there rely
 /// on filesystem ACLs created by the higher-level APIs.
 #[allow(clippy::unnecessary_wraps)]
+#[cfg_attr(not(unix), allow(dead_code))]
 pub(crate) fn enforce_hardened_tree(
     root: &Path,
     file_mode: FileMode,

@@ -525,6 +525,7 @@ fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use crate::config::locator::{enforce_hardened_tree, FileMode};
     use sha2::{Digest, Sha256};
 
