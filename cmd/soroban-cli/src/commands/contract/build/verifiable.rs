@@ -31,7 +31,13 @@ use crate::{
 
 use super::{container, source_archive, BuiltContract, Cmd};
 
-const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_uri", "source_sha256", "bldopt"];
+// Keys the verifiable build owns and stamps itself, so a user's `--meta` can't
+// override them. `bldarg` is included even though the CLI never emits it: SEP-58
+// gives a present `bldarg` sequence command-replacement semantics (it supersedes
+// the default `contract build` a verifier reconstructs), so a user-stamped
+// `bldarg` would silently point verifiers at a different command than the one
+// that actually ran.
+const RESERVED_META_KEYS: &[&str] = &["bldimg", "source_uri", "source_sha256", "bldopt", "bldarg"];
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -45,7 +51,7 @@ pub enum Error {
     SourceArchive(#[from] source_archive::Error),
 
     #[error(
-        "the cli sets bldimg, source_uri, source_sha256, and bldopt automatically when --verifiable is used; remove them from --meta. Got reserved key: {key}"
+        "the cli manages the SEP-58 keys bldimg, source_uri, source_sha256, bldopt, and bldarg when --verifiable is used; remove them from --meta. Got reserved key: {key}"
     )]
     ReservedMetaKey { key: String },
 
@@ -608,7 +614,11 @@ mod tests {
 
     #[test]
     fn reserved_meta_keys_list() {
-        for key in ["bldimg", "source_uri", "source_sha256", "bldopt"] {
+        // `bldarg` is reserved even though the CLI never emits it: SEP-58 gives a
+        // present `bldarg` sequence command-replacement semantics, so a
+        // user-stamped `--meta bldarg=…` would make a verifier reconstruct a
+        // different command than the `contract build` that actually ran.
+        for key in ["bldimg", "source_uri", "source_sha256", "bldopt", "bldarg"] {
             assert!(RESERVED_META_KEYS.contains(&key));
         }
     }
