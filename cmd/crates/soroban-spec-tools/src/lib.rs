@@ -467,17 +467,24 @@ impl Spec {
         let (enum_case, rest) = match value {
             Value::String(s) => (s, None),
             Value::Object(o) if o.len() == 1 => {
-                let res = o.values().next().map(|v| match v {
+                let res = match o.values().next().unwrap() {
+                    // A tuple-case payload given as a positional object ("0", "1",
+                    // …): look each index up and error on a missing key rather
+                    // than unwrapping, so a non-contiguous or short object is a
+                    // clean error instead of a panic.
                     Value::Object(obj) if obj.contains_key("0") => {
-                        let len = obj.len();
-                        Value::Array(
-                            (0..len)
-                                .map(|i| obj.get(&i.to_string()).unwrap().clone())
-                                .collect::<Vec<_>>(),
-                        )
+                        let arr = (0..obj.len())
+                            .map(|i| {
+                                let key = i.to_string();
+                                obj.get(&key)
+                                    .cloned()
+                                    .ok_or_else(|| Error::MissingKey(sanitize(&key)))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        Some(Value::Array(arr))
                     }
-                    _ => v.clone(),
-                });
+                    v => Some(v.clone()),
+                };
                 (o.keys().next().unwrap(), res)
             }
             // A union must be given its case name as a string or a single-key
@@ -2064,6 +2071,21 @@ mod tests {
                 "input {bad}: got {err:?}"
             );
         }
+    }
+
+    #[test]
+    fn malformed_union_tuple_case_errors_instead_of_panicking() {
+        // Regression for https://github.com/stellar/stellar-cli/issues/2738
+        // (union variant): a single-case union payload whose inner tuple object
+        // has non-contiguous positional keys (here "0" and "2", missing "1") must
+        // return an error, not panic — this positional conversion used to
+        // `.unwrap()` the missing key inside `parse_union`.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("complex").unwrap().inputs[0].type_;
+        let err = spec
+            .from_string(r#"{"Tuple":{"0":1,"2":2}}"#, type_)
+            .unwrap_err();
+        assert!(matches!(err, Error::MissingKey(_)), "got {err:?}");
     }
 
     #[test]
