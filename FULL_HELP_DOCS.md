@@ -32,11 +32,11 @@ Commands that work with contracts are organized under the `contract` subcommand.
 
 Use contracts like a CLI:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
 **Usage:** `stellar [OPTIONS] <COMMAND>`
 
@@ -58,6 +58,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
+- `skill` — Print an AI-agent skill guide for using the Stellar CLI
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
 - `message` — Sign and verify arbitrary messages using SEP-53
@@ -212,7 +213,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --contract-id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -225,7 +226,7 @@ Add contract alias
 ###### **Options:**
 
 - `--overwrite` — Overwrite the contract alias if it already exists
-- `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — The contract id that will be associated with the alias
 
 ###### **RPC Options:**
 
@@ -458,7 +459,7 @@ If no keys are specified the contract itself is extended.
 
 - `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 - `--ttl-ledger-only` — Only print the new Time To Live ledger
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -579,7 +580,7 @@ Fetch a contract's Wasm binary
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to fetch
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to fetch
 - `--wasm-hash <WASM_HASH>` — Wasm to fetch
 - `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 
@@ -1012,7 +1013,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --contract-id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -1024,7 +1025,7 @@ stellar contract invoke ... -- --help
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to invoke
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to invoke
 - `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 - `--send <SEND>` — Whether or not to send a transaction
 
@@ -1099,7 +1100,7 @@ Print the current value of a contract-data ledger entry
   - `json`: Json
   - `xdr`: XDR
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1133,7 +1134,7 @@ If no keys are specificed the contract itself is restored.
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -4880,6 +4881,14 @@ Print version information
 - `--only-version` — Print only the version
 - `--only-version-major` — Print only the major version
 - `--only-commit` — Print only the commit sha
+
+## `stellar skill`
+
+Print an AI-agent skill guide for using the Stellar CLI
+
+Outputs a Markdown document describing how to use the Stellar CLI idiomatically. It is meant to be read by AI coding agents (or pasted into their instructions) so they follow the CLI's conventions: using named networks, identities, and contract aliases instead of raw RPC URLs, secret keys, and hard-coded contract ids.
+
+**Usage:** `stellar skill`
 
 ## `stellar plugin`
 

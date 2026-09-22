@@ -49,7 +49,11 @@ use soroban_spec_tools::contract;
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
+    #[arg(
+        long = "contract-id",
+        visible_alias = "id",
+        env = "STELLAR_CONTRACT_ID"
+    )]
     pub contract_id: config::UnresolvedContract,
 
     // For testing only
