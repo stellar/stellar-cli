@@ -2,6 +2,7 @@ pub mod allowance;
 pub mod approve;
 pub mod balance;
 pub mod burn;
+pub mod burn_from;
 pub mod decimals;
 pub mod name;
 pub mod renamed;
