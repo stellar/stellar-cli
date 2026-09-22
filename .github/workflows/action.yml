@@ -4,6 +4,9 @@ name: Action
 on:
   pull_request:
 
+env:
+  STELLAR_CLI_VERSION: v26.1.0
+
 concurrency:
   group:
     ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
@@ -21,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         with:
-          version: v26.1.0
+          version: ${{ env.STELLAR_CLI_VERSION }}
       - shell: bash
         run: |
           stellar --version
@@ -39,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         with:
-          version: v26.1.0
+          version: ${{ env.STELLAR_CLI_VERSION }}
       - shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -59,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         with:
-          version: v26.1.0
+          version: ${{ env.STELLAR_CLI_VERSION }}
       - shell: bash
         working-directory: ${{ runner.temp }}
         run: |
