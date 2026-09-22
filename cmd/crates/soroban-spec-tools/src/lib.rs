@@ -527,7 +527,7 @@ impl Spec {
             (
                 ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { type_, .. }),
                 Some(Value::Array(arr)),
-            ) => {
+            ) if arr.len() == type_.len() => {
                 res.extend(
                     arr.iter()
                         .zip(type_.iter())
@@ -535,7 +535,15 @@ impl Spec {
                         .collect::<Result<Vec<_>, _>>()?,
                 );
             }
-            (ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { .. }), Some(_)) => {}
+            // A multi-field tuple case needs exactly one value per field. Anything
+            // else — an array of the wrong length, or a non-array payload — would
+            // otherwise be silently truncated by the `zip` above into an
+            // incomplete ScVal, so reject it as malformed instead.
+            (ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 { .. }), Some(_)) => {
+                return Err(Error::IllFormedEnum(sanitize(
+                    &union.name.to_utf8_string_lossy(),
+                )))
+            }
         }
         Ok(ScVal::Vec(Some(res.try_into().map_err(Error::Xdr)?)))
     }
@@ -2086,6 +2094,24 @@ mod tests {
             .from_string(r#"{"Tuple":{"0":1,"2":2}}"#, type_)
             .unwrap_err();
         assert!(matches!(err, Error::MissingKey(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn union_tuple_case_wrong_arity_errors_instead_of_truncating() {
+        // Regression for the arity gap flagged in PR #2747 review: a multi-field
+        // union case given too few positional values (here `Asset`, which needs
+        // two, given one) must return an error, not silently drop the missing
+        // field via `zip` and produce an incomplete ScVal.
+        // The first field is a valid address so it parses cleanly; only the
+        // second (i128) is absent — exactly the case where `zip` would otherwise
+        // silently truncate without any type error surfacing.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("complex").unwrap().inputs[0].type_;
+        let addr = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
+        let err = spec
+            .from_string(&format!(r#"{{"Asset":{{"0":"{addr}"}}}}"#), type_)
+            .unwrap_err();
+        assert!(matches!(err, Error::IllFormedEnum(_)), "got {err:?}");
     }
 
     #[test]
