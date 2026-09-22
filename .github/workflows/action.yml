@@ -26,6 +26,13 @@ jobs:
         run: |
           stellar --version
           stellar contract id asset --asset native --network testnet
+      # Check the CLI is on PATH for shells other than bash, which resolve PATH
+      # natively and, on Windows, cannot use the MSYS form.
+      - shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          stellar --version
+          stellar contract id asset --asset native --network testnet
       # Check the CLI is found by tools that start processes without a shell,
       # such as GNU make, which on Windows uses the Win32 API and cannot
       # resolve an MSYS style path on PATH. Build a contract from a Makefile,
