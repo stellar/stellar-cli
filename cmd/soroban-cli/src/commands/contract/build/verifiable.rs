@@ -200,10 +200,11 @@ pub async fn run(
         })
         .collect();
 
-    // Pin the target dir to a known location under the mount, and the image's
-    // own default toolchain so a `rust-toolchain.toml` in the source can't
+    // Pin the target dir to a known location under the mount and CARGO_HOME off
+    // the image's default (so the build works under the uid remap), plus the
+    // image's own default toolchain so a `rust-toolchain.toml` in the source can't
     // redirect the build to a toolchain rustup would then try to install.
-    let mut env = vec!["CARGO_TARGET_DIR=/source/target".to_string()];
+    let mut env = container::container_build_env();
     print.infoln(format!("Using Rust toolchain {}", probe.toolchain));
     env.push(format!("RUSTUP_TOOLCHAIN={}", probe.toolchain));
 

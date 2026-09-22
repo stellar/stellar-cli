@@ -168,10 +168,11 @@ pub async fn run(
         })
         .collect();
 
-    // Reset the target dir to a known location under the mount, independent of
-    // any mounted `.cargo/config` `build.target-dir` or image env, so we always
-    // know where to collect artifacts.
-    let mut env: Vec<String> = vec!["CARGO_TARGET_DIR=/source/target".to_string()];
+    // Reset the target dir to a known location under the mount (independent of
+    // any mounted `.cargo/config` `build.target-dir` or image env) so we always
+    // know where to collect artifacts, and redirect CARGO_HOME off the image's
+    // default so the build works under the uid remap in `run_in_container`.
+    let mut env: Vec<String> = container_build_env();
 
     // Pin RUSTUP_TOOLCHAIN to the image's own default toolchain so a
     // `rust-toolchain.toml` in the mounted source can't redirect the build to a
@@ -455,6 +456,27 @@ fn parse_cli_version(stdout: &str) -> Option<Version> {
 /// is empty (e.g. the image has no default toolchain or lacks `rustup`).
 fn parse_default_toolchain(stdout: &str) -> Option<String> {
     stdout.split_whitespace().next().map(str::to_string)
+}
+
+/// Environment set for every container build, plain or verifiable.
+///
+/// `CARGO_TARGET_DIR` pins artifacts to a known spot under the mount so they can
+/// be collected afterwards. `CARGO_HOME` redirects cargo's registry download and
+/// cache to `/tmp/cargo`: the build runs as `--user <host-uid>:<gid>` (see
+/// `current_user_flags`), and on an image whose default `$CARGO_HOME` is owned by
+/// another user (e.g. the official image's `/stellar/.cargo`) that uid can't write
+/// there, so cargo fails to create its registry cache. `/tmp` is world-writable
+/// (`1777`), off the bind mount, and ephemeral with the `--rm` container, so it's
+/// writable regardless of the remapped uid and never touches the host `target/`.
+///
+/// `RUSTUP_HOME` is deliberately left at the image default so the pre-installed
+/// toolchain is found; it's only read, never written, so the remapped uid needs no
+/// write access there. Callers pin the toolchain via `RUSTUP_TOOLCHAIN`.
+pub(super) fn container_build_env() -> Vec<String> {
+    vec![
+        "CARGO_TARGET_DIR=/source/target".to_string(),
+        "CARGO_HOME=/tmp/cargo".to_string(),
+    ]
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -826,6 +848,24 @@ mod tests {
         // for `manifest_path`) so both sides of the `strip_prefix` in
         // `forwarded_build_args` agree on drive letter/prefix on Windows.
         std::path::absolute(Path::new("/tmp/ws")).unwrap()
+    }
+
+    #[test]
+    fn container_build_env_redirects_cargo_home_into_mount() {
+        let env = container_build_env();
+        // Artifacts are pinned to a known spot under the mount.
+        assert!(env.contains(&"CARGO_TARGET_DIR=/source/target".to_string()));
+        // CARGO_HOME must be a writable, uid-agnostic path so the build works
+        // when run as a uid that doesn't own the image's default cargo home (the
+        // Permission-denied failure this guards against).
+        let cargo_home = env
+            .iter()
+            .find(|e| e.starts_with("CARGO_HOME="))
+            .expect("CARGO_HOME must be set");
+        assert_eq!(cargo_home, "CARGO_HOME=/tmp/cargo");
+        // RUSTUP_HOME is left as the image's own (only read); callers pin the
+        // toolchain via RUSTUP_TOOLCHAIN, not here.
+        assert!(!env.iter().any(|e| e.starts_with("RUSTUP_HOME=")));
     }
 
     #[test]
