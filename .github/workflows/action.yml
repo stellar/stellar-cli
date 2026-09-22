@@ -31,10 +31,9 @@ jobs:
       # resolve an MSYS style path on PATH. Build a contract from a Makefile,
       # which is how the failure was originally seen.
       - shell: bash
-        run: rustup target add wasm32v1-none
-      - shell: bash
         working-directory: ${{ runner.temp }}
         run: |
+          rustup target add wasm32v1-none
           stellar contract init hello
           cd hello
           printf 'build:\n\tstellar contract build\n' > Makefile
