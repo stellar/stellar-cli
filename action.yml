@@ -22,11 +22,12 @@ runs:
     # start processes with the Win32 API rather than a shell, such as GNU make,
     # would not find the binary on a PATH containing only that form, so add the
     # path in native Windows form as well.
-    - name: Setup install path (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        cygpath -w "$HOME/.local/bin" >> $GITHUB_PATH
+    # TEMPORARILY DISABLED to prove CI catches the failure. Revert before merge.
+    # - name: Setup install path (Windows)
+    #   if: runner.os == 'Windows'
+    #   shell: bash
+    #   run: |
+    #     cygpath -w "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Determine version to install
       id: version
