@@ -33,6 +33,8 @@ pub enum Error {
     InvalidPair(ScVal, ScType),
     #[error("value is not parseable to {0:#?}")]
     InvalidValue(Option<ScType>),
+    #[error("value {value} is not valid for user-defined type {name}")]
+    InvalidUdtValue { name: String, value: String },
     #[error("Unknown case {0} for {1}")]
     EnumCase(String, String),
     #[error("Enum {0} missing value for type {1}")]
@@ -381,12 +383,19 @@ impl Spec {
                     .iter()
                     .any(|f| f.name.to_utf8_string_lossy() == "0")
                 {
-                    self.parse_tuple_strukt(
-                        strukt,
-                        &(0..map.len())
-                            .map(|i| map.get(&i.to_string()).unwrap().clone())
-                            .collect::<Vec<_>>(),
-                    )
+                    // Tuple struct: fields are positional ("0", "1", …). Look each
+                    // one up by index and error on a missing key rather than
+                    // unwrapping — a JSON object with the wrong field names (or too
+                    // few entries) must be a clean error, not a panic.
+                    let values = (0..strukt.fields.len())
+                        .map(|i| {
+                            let key = i.to_string();
+                            map.get(&key)
+                                .cloned()
+                                .ok_or_else(|| Error::MissingKey(sanitize(&key)))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    self.parse_tuple_strukt(strukt, &values)
                 } else {
                     self.parse_strukt(strukt, map)
                 }
@@ -399,7 +408,14 @@ impl Spec {
                 val @ (Value::Array(_) | Value::String(_) | Value::Object(_)),
             ) => self.parse_union(union, val),
             (ScSpecEntry::UdtEnumV0(enum_), Value::Number(num)) => parse_const_enum(num, enum_),
-            (s, v) => todo!("Not implemented for {s:#?} {v:#?}"),
+            // Any other UDT/value shape (e.g. a const enum given a string, or a
+            // struct given a scalar) is a malformed argument — surface a clear
+            // error instead of panicking. The value is user-supplied, so sanitize
+            // it before embedding it in the message.
+            (_, v) => Err(Error::InvalidUdtValue {
+                name: sanitize(name),
+                value: sanitize(&v.to_string()),
+            }),
         }
     }
 
@@ -464,7 +480,14 @@ impl Spec {
                 });
                 (o.keys().next().unwrap(), res)
             }
-            _ => todo!(),
+            // A union must be given its case name as a string or a single-key
+            // object naming one case; anything else (empty object, multiple keys,
+            // an array, …) is malformed — error instead of panicking.
+            _ => {
+                return Err(Error::IllFormedEnum(sanitize(
+                    &union.name.to_utf8_string_lossy(),
+                )))
+            }
         };
         let case = union
             .cases
@@ -2012,6 +2035,46 @@ mod tests {
         )));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), format!("[\"{as_str}\"]"));
+    }
+
+    #[test]
+    fn malformed_tuple_struct_arg_errors_instead_of_panicking() {
+        // Regression for https://github.com/stellar/stellar-cli/issues/2738: a
+        // tuple struct argument given a JSON object with unexpected field names
+        // (or too few positional keys) must return an error, not panic — this
+        // path used to `.unwrap()` a missing positional key.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("tuple_strukt").unwrap().inputs[0].type_;
+        let err = spec.from_string(r#"{"a":1,"b":2}"#, type_).unwrap_err();
+        assert!(matches!(err, Error::MissingKey(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn malformed_union_arg_errors_instead_of_panicking() {
+        // Regression for https://github.com/stellar/stellar-cli/issues/2740: a
+        // union argument that is neither a case name nor a single-key object
+        // (here an empty object and a multi-key object) must return an error,
+        // not panic — this path used to hit `todo!()`.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("complex").unwrap().inputs[0].type_;
+        for bad in [r"{}", r#"{"Struct":1,"Tuple":2}"#] {
+            let err = spec.from_string(bad, type_).unwrap_err();
+            assert!(
+                matches!(err, Error::IllFormedEnum(_)),
+                "input {bad}: got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_const_enum_arg_errors_instead_of_panicking() {
+        // Regression for https://github.com/stellar/stellar-cli/issues/2739: a
+        // const (u32) enum argument given a string instead of a number must
+        // return an error, not panic — this path used to hit `todo!()`.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("card").unwrap().inputs[0].type_;
+        let err = spec.from_string(r#""King""#, type_).unwrap_err();
+        assert!(matches!(err, Error::InvalidUdtValue { .. }), "got {err:?}");
     }
 
     #[test]
