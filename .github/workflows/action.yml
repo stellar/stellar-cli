@@ -4,6 +4,9 @@ name: Action
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   STELLAR_CLI_VERSION: v26.1.0
 
