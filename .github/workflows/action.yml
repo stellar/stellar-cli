@@ -7,7 +7,7 @@ on:
 concurrency:
   group:
     ${{ github.workflow }}-${{ github.ref_protected == 'true' && github.sha ||
-    github.ref }}-{{ github.event_name	}}
+    github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
