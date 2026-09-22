@@ -2,6 +2,7 @@ pub mod allowance;
 pub mod approve;
 pub mod args;
 pub mod balance;
+pub mod burn;
 pub mod decimals;
 pub mod name;
 pub mod symbol;
@@ -17,6 +18,9 @@ pub enum Cmd {
 
     /// Transfer tokens on an owner's behalf using a granted allowance
     TransferFrom(transfer_from::Cmd),
+
+    /// Burn tokens from an account, destroying them
+    Burn(burn::Cmd),
 
     /// Read the token balance of an account or contract
     Balance(balance::Cmd),
@@ -44,6 +48,8 @@ pub enum Error {
     #[error(transparent)]
     TransferFrom(#[from] transfer_from::Error),
     #[error(transparent)]
+    Burn(#[from] burn::Error),
+    #[error(transparent)]
     Balance(#[from] balance::Error),
     #[error(transparent)]
     Name(#[from] name::Error),
@@ -64,6 +70,7 @@ impl Error {
         match self {
             Error::Transfer(e) => e.error_type(),
             Error::TransferFrom(e) => e.error_type(),
+            Error::Burn(e) => e.error_type(),
             Error::Balance(e) => e.error_type(),
             Error::Name(e) => e.error_type(),
             Error::Symbol(e) => e.error_type(),
@@ -79,6 +86,7 @@ impl Cmd {
         match self {
             Cmd::Transfer(cmd) => cmd.run(global_args).await?,
             Cmd::TransferFrom(cmd) => cmd.run(global_args).await?,
+            Cmd::Burn(cmd) => cmd.run(global_args).await?,
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
             Cmd::Name(cmd) => cmd.run(global_args).await?,
             Cmd::Symbol(cmd) => cmd.run(global_args).await?,
