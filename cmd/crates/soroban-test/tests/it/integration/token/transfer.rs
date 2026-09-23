@@ -237,7 +237,7 @@ async fn transfer_rejects_muxed_source_with_clear_error() {
         .assert()
         .failure()
         .stderr(predicates::str::contains(
-            "muxed (M…) source accounts are not yet supported",
+            "muxed (M…) accounts are not yet supported",
         ));
 }
 

@@ -72,11 +72,8 @@ pub enum Error {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
 
-    #[error(
-        "muxed (M…) source accounts are not yet supported for `token approve`; \
-         use the underlying G… account as `--from` instead"
-    )]
-    MuxedSourceNotSupported,
+    #[error("muxed (M…) accounts are not yet supported")]
+    MuxedNotSupported,
 }
 
 /// Parse `--amount` as a non-negative `i128`. A negative allowance is always
@@ -104,7 +101,7 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
-            Error::MuxedSourceNotSupported => "unsupported",
+            Error::MuxedNotSupported => "unsupported",
         }
     }
 }
@@ -158,7 +155,7 @@ impl Cmd {
         // clear message instead.
         let source_account = config.source_account()?;
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
-            return Err(Error::MuxedSourceNotSupported);
+            return Err(Error::MuxedNotSupported);
         }
         let from = source_account.to_string();
         // `--spender` may be an account (`G…`/`M…`), a contract (`C…`), or an
