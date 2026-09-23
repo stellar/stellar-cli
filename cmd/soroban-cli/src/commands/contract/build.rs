@@ -1053,8 +1053,7 @@ mod tests {
 
         // Embed the spec in a minimal (empty) wasm module and write it out.
         let wasm = replace_custom_section(b"\0asm\x01\0\0\0", "contractspecv0", &spec_xdr).unwrap();
-        let path =
-            env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
+        let path = env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
         fs::write(&path, &wasm).unwrap();
 
         Cmd::reduce_spec(&Print::new(true), "pkg", &path).unwrap();
