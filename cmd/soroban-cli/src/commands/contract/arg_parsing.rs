@@ -1238,7 +1238,8 @@ mod tests {
             ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0, StringM,
         };
 
-        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let union_name: StringM<{ soroban_spec_tools::UDT_NAME_LIMIT }> =
+            "MyEnum".try_into().unwrap();
         let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
             doc: StringM::default(),
             lib: StringM::default(),
