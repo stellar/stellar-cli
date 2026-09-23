@@ -1948,6 +1948,7 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 - `transfer` — Transfer tokens from one account to another
 - `transfer-from` — Transfer tokens on an owner's behalf using a granted allowance
 - `burn` — Burn tokens from an account, destroying them
+- `burn-from` — Burn tokens from an owner's account using a granted allowance
 - `balance` — Read the token balance of an account or contract
 - `name` — Read the token's name (SEP-41 metadata)
 - `symbol` — Read the token's symbol (SEP-41 metadata)
@@ -2050,6 +2051,46 @@ Burn tokens from an account, destroying them
 
 - `--id <ID>` — The token to burn: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
 - `--from <FROM>` — Account whose tokens are destroyed. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token burn-from`
+
+Burn tokens from an owner's account using a granted allowance
+
+**Usage:** `stellar token burn-from [OPTIONS] --id <ID> --spender <SPENDER> --from <FROM> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to burn from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--spender <SPENDER>` — Spender drawing on its allowance. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--from <FROM>` — Owner whose tokens are destroyed. Must have granted `--spender` an allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
 - `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
 - `--output <OUTPUT>` — Format of the output
 

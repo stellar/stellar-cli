@@ -3,6 +3,7 @@ pub mod approve;
 pub mod args;
 pub mod balance;
 pub mod burn;
+pub mod burn_from;
 pub mod decimals;
 pub mod name;
 pub mod symbol;
@@ -21,6 +22,9 @@ pub enum Cmd {
 
     /// Burn tokens from an account, destroying them
     Burn(burn::Cmd),
+
+    /// Burn tokens from an owner's account using a granted allowance
+    BurnFrom(burn_from::Cmd),
 
     /// Read the token balance of an account or contract
     Balance(balance::Cmd),
@@ -50,6 +54,8 @@ pub enum Error {
     #[error(transparent)]
     Burn(#[from] burn::Error),
     #[error(transparent)]
+    BurnFrom(#[from] burn_from::Error),
+    #[error(transparent)]
     Balance(#[from] balance::Error),
     #[error(transparent)]
     Name(#[from] name::Error),
@@ -71,6 +77,7 @@ impl Error {
             Error::Transfer(e) => e.error_type(),
             Error::TransferFrom(e) => e.error_type(),
             Error::Burn(e) => e.error_type(),
+            Error::BurnFrom(e) => e.error_type(),
             Error::Balance(e) => e.error_type(),
             Error::Name(e) => e.error_type(),
             Error::Symbol(e) => e.error_type(),
@@ -87,6 +94,7 @@ impl Cmd {
             Cmd::Transfer(cmd) => cmd.run(global_args).await?,
             Cmd::TransferFrom(cmd) => cmd.run(global_args).await?,
             Cmd::Burn(cmd) => cmd.run(global_args).await?,
+            Cmd::BurnFrom(cmd) => cmd.run(global_args).await?,
             Cmd::Balance(cmd) => cmd.run(global_args).await?,
             Cmd::Name(cmd) => cmd.run(global_args).await?,
             Cmd::Symbol(cmd) => cmd.run(global_args).await?,
