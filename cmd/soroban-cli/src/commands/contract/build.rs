@@ -369,8 +369,11 @@ impl Cmd {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
             }
 
-            // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
+            // Set env var to inform the SDK of the comma-separated list of
+            // features this CLI supports, such as spec optimization using
+            // markers.
+            cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS", "spec_shaking_v2");
+            // Set the legacy env var for older SDKs that check for it instead.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
             let cmd_str = serialize_command(&cmd);
