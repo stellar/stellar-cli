@@ -370,7 +370,10 @@ impl Cmd {
             }
 
             // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
+            // optimization using markers. Current and new SDK versions no
+            // longer read this var, relying on the CLI major version below
+            // instead, but it must keep being set for past SDK versions that
+            // require it.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
             // Set env var to inform the SDK of the CLI major version, which the
