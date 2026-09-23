@@ -373,6 +373,10 @@ impl Cmd {
             // optimization using markers.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
 
+            // Set env var to inform the SDK of the CLI version, which the SDK
+            // requires to be the same or greater major version than its own.
+            cmd.env("STELLAR_CLI_VERSION", env!("CARGO_PKG_VERSION"));
+
             let cmd_str = serialize_command(&cmd);
 
             if self.print_commands_only {
