@@ -182,3 +182,78 @@ async fn transfer_from_rejects_negative_amount_before_any_rpc() {
         .failure()
         .stderr(predicates::str::contains("amount must not be negative"));
 }
+
+#[tokio::test]
+async fn transfer_from_rejects_muxed_from_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+    let recipient = new_account(sandbox, "recipient");
+
+    // An alias whose stored key is muxed would be silently collapsed to its base
+    // `G…` account by resolution, targeting a different owner than the one
+    // named. Reject it up front instead.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-owner", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            "muxed-owner",
+            "--to",
+            &recipient,
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn transfer_from_rejects_muxed_to_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+    let test = test_address(sandbox);
+
+    // The guard rejects a muxed alias in either `--from` or `--to`; a valid
+    // `--from` here forces the `--to` branch to be the one that fires.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-recipient", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            &test,
+            "--to",
+            "muxed-recipient",
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}

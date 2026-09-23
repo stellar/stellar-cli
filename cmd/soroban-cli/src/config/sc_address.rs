@@ -42,6 +42,24 @@ impl FromStr for UnresolvedScAddress {
 }
 
 impl UnresolvedScAddress {
+    /// Whether this is an alias that [`resolve`](Self::resolve) would silently
+    /// collapse to the base `G…` account of a muxed (`M…`) identity, so callers
+    /// that can't yet handle muxed accounts reject it up front rather than
+    /// target a different address than the one named.
+    #[must_use]
+    pub fn is_muxed_alias(&self, locator: &locator::Args, network_passphrase: &str) -> bool {
+        let UnresolvedScAddress::Alias(alias) = self else {
+            return false;
+        };
+        // Mirror `resolve`'s precedence: a contract alias wins when both a
+        // contract alias and a stored key exist, so it never downgrades to a
+        // `G…` account. Only a muxed key that would actually be picked matters.
+        if UnresolvedContract::resolve_alias(alias, locator, network_passphrase).is_ok() {
+            return false;
+        }
+        matches!(locator.read_key(alias), Ok(key::Key::MuxedAccount(_)))
+    }
+
     pub fn resolve(
         self,
         locator: &locator::Args,
@@ -149,5 +167,50 @@ mod tests {
             err,
             Error::Locator(locator::Error::ShadowedReservedAlias { alias, .. }) if alias == native
         ));
+    }
+
+    const MUXED: &str = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+
+    #[test]
+    fn is_muxed_alias_true_for_stored_muxed_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        let key = Key::from_str(MUXED).unwrap();
+        KeyType::Identity.write("owner", &key, dir.path()).unwrap();
+
+        assert!(UnresolvedScAddress::Alias("owner".to_string())
+            .is_muxed_alias(&locator, network_passphrase));
+    }
+
+    #[test]
+    fn is_muxed_alias_false_when_contract_alias_takes_precedence() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // A muxed key and a contract alias share the name. `resolve` picks the
+        // contract (never downgrading to a `G…` account), so `is_muxed_alias`
+        // must not reject it.
+        let key = Key::from_str(MUXED).unwrap();
+        KeyType::Identity.write("dual", &key, dir.path()).unwrap();
+
+        let contract_ids = dir.path().join("contract-ids");
+        std::fs::create_dir_all(&contract_ids).unwrap();
+        std::fs::write(
+            contract_ids.join("dual.json"),
+            format!(
+                r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
+            ),
+        )
+        .unwrap();
+
+        assert!(!UnresolvedScAddress::Alias("dual".to_string())
+            .is_muxed_alias(&locator, network_passphrase));
     }
 }

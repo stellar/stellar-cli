@@ -169,3 +169,39 @@ async fn approve_rejects_negative_amount_before_any_rpc() {
         .failure()
         .stderr(predicates::str::contains("must not be negative"));
 }
+
+#[tokio::test]
+async fn approve_rejects_muxed_spender_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+
+    // An alias whose stored key is muxed would be silently collapsed to its base
+    // `G…` account by resolution, targeting a different delegate than the one
+    // named. Reject it up front instead.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-spender", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "approve",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--spender",
+            "muxed-spender",
+            "--amount",
+            "1",
+            "--expiration-ledger",
+            "9999999",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}

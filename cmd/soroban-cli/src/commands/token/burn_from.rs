@@ -7,8 +7,8 @@ use crate::{
         token::args::{self, OutputFormat},
     },
     config::{
-        self, key::Key, locator, network, sign_with, token::UnresolvedToken,
-        UnresolvedMuxedAccount, UnresolvedScAddress,
+        self, locator, network, sign_with, token::UnresolvedToken, UnresolvedMuxedAccount,
+        UnresolvedScAddress,
     },
     output::Output,
 };
@@ -161,10 +161,11 @@ impl Cmd {
         // An alias that resolves to a muxed identity is collapsed by `resolve`
         // to its base `G…` account, which would target a different owner than
         // the one named. Reject that up front.
-        if let UnresolvedScAddress::Alias(alias) = &self.from {
-            if let Ok(Key::MuxedAccount(_)) = config.locator.read_key(alias) {
-                return Err(Error::MuxedNotSupported);
-            }
+        if self
+            .from
+            .is_muxed_alias(&config.locator, &network.network_passphrase)
+        {
+            return Err(Error::MuxedNotSupported);
         }
         let from = self
             .from

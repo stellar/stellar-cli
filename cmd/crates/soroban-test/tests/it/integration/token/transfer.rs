@@ -277,3 +277,37 @@ async fn transfer_json_failure_returns_error_envelope_on_stdout() {
         "expected the trustline diagnostic in the JSON error message, got: {message}"
     );
 }
+
+#[tokio::test]
+async fn transfer_rejects_muxed_to_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+
+    // An alias whose stored key is muxed would be silently collapsed to its base
+    // `G…` account by resolution, targeting a different recipient than the one
+    // named. Reject it up front instead.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-recipient", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--to",
+            "muxed-recipient",
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}

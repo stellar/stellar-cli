@@ -159,9 +159,22 @@ impl Cmd {
             return Err(Error::MuxedNotSupported);
         }
         let spender = source_account.to_string();
-        // `--from` and `--to` may each be an account (`G…`/`M…`), a contract
-        // (`C…`), or an alias; resolve them to `ScAddress`es and hand the
-        // strkeys to the `transfer_from` args, which accept any of these.
+        // `--from` and `--to` may each be an account (`G…`), a contract (`C…`),
+        // or an alias; resolve them to `ScAddress`es and hand the strkeys to the
+        // `transfer_from` args, which accept any of these.
+        //
+        // An alias that resolves to a muxed identity is collapsed by `resolve`
+        // to its base `G…` account, which would target a different address than
+        // the one named. Reject either up front.
+        if self
+            .from
+            .is_muxed_alias(&config.locator, &network.network_passphrase)
+            || self
+                .to
+                .is_muxed_alias(&config.locator, &network.network_passphrase)
+        {
+            return Err(Error::MuxedNotSupported);
+        }
         let from = self
             .from
             .clone()
