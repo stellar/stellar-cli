@@ -294,7 +294,7 @@ mod tests {
         ScSpecEventV0 {
             doc: StringM::default(),
             lib: StringM::default(),
-            name: make_symbol(name),
+            name: name.try_into().unwrap(),
             prefix_topics: prefix_topics
                 .into_iter()
                 .map(make_symbol)
