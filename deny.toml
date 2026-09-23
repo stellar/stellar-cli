@@ -239,6 +239,10 @@ allow-git = [
   # https://github.com/stellar/rs-soroban-sdk/pull/1970, which names
   # user-defined types in contract specs by their fully qualified path.
   "https://github.com/stellar/rs-soroban-sdk?rev=788b536af88a1b0a4d473dc8050b6a44c668e80e",
+  # https://github.com/stellar/rs-soroban-sdk/pull/2061, which points the sdk at
+  # rs-soroban-env main, and so brings in these git dependencies of the env.
+  "https://github.com/stellar/rs-soroban-env?rev=cb32250d926bd7188f3a6f9075bd48c44550dcac",
+  "https://github.com/stellar/wasmi?rev=0ed3f3dee30dc41ebe21972399e0a73a41944aa0",
 ]
 
 [sources.allow-org]
