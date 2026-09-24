@@ -1,4 +1,5 @@
 use super::super::{global, help, xdr::tx_envelope_from_input};
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::xdr::{OperationBody, WriteXdr};
 
 pub(crate) use super::super::new;
@@ -249,7 +250,10 @@ impl Cmd {
                 cmd.args.source(),
             ),
         }?;
-        println!("{}", res.to_xdr_base64(crate::xdr::Limits::none())?);
+        println!(
+            "{}",
+            res.to_xdr_base64(crate::xdr::Limits::depth(XDR_DEPTH_LIMIT))?
+        );
         Ok(())
     }
 }

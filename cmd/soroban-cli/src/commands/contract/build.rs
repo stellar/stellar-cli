@@ -19,11 +19,19 @@ use stellar_xdr::{Limited, Limits, ScMetaEntry, ScMetaV0, StringM, WriteXdr};
 
 #[cfg(feature = "additional-libs")]
 use crate::commands::contract::optimize;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
-    commands::{global, version},
+    commands::{
+        container::shared::{Args as ContainerArgs, RunArgs as ContainerRunArgs},
+        global, version, HEADING_CONTAINER,
+    },
     print::Print,
     wasm,
 };
+
+pub mod archive;
+pub mod container;
+pub(crate) mod source_archive;
 
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]
@@ -48,6 +56,9 @@ pub struct BuiltContract {
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+// Either the build flags or the `archive` subcommand — never both, since the
+// subcommand path ignores the parent build flags entirely.
+#[command(args_conflicts_with_subcommands = true)]
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]
@@ -96,8 +107,47 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "out_dir", help_heading = "Other")]
     pub print_commands_only: bool,
 
+    /// Build inside this container image (e.g.
+    /// `docker.io/stellar/stellar-cli:latest`). When set, the build runs in the
+    /// container against the bind-mounted working tree instead of locally. Any
+    /// tag or digest ref is accepted.
+    ///
+    /// On Linux the container runs as your uid:gid so built wasm isn't
+    /// root-owned; this assumes the image keeps CARGO_HOME/RUSTUP_HOME writable
+    /// by non-root users, as the official image does.
+    #[arg(long, help_heading = HEADING_CONTAINER)]
+    pub image: Option<String>,
+
+    /// Pull `--image` before building to refresh a moving tag.
+    ///
+    /// By default the build uses the image already present locally and doesn't
+    /// pull (matching `docker run`), so a locally-built or digest-pinned image is
+    /// used as-is. Pass `--pull` to fetch the newest image for the tag first.
+    #[arg(long, requires = "image", help_heading = HEADING_CONTAINER)]
+    pub pull: bool,
+
     #[command(flatten)]
     pub build_args: BuildArgs,
+
+    // Declared after `build_args` so their `next_help_heading` groups them under
+    // the Container heading without leaking it onto the ungrouped flags above.
+    /// Container connection options (`--engine`, `--docker-host`) used when
+    /// `--image` is set. `--docker-host` is honored only by the docker engine.
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub container_args: ContainerArgs,
+
+    /// Container resource limits (`--cpus`, `--memory`) applied to the
+    /// `--image` build container.
+    #[command(flatten, next_help_heading = HEADING_CONTAINER)]
+    pub run_args: ContainerRunArgs,
+
+    #[command(subcommand)]
+    pub command: Option<SubCommand>,
+}
+
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum SubCommand {
+    Archive(archive::Cmd),
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
@@ -204,10 +254,19 @@ pub enum Error {
 
     #[error("wasm parsing error: {0}")]
     WasmParsing(String),
+
+    #[error(transparent)]
+    Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Engine(#[from] crate::commands::container::shared::Error),
+
+    #[error(transparent)]
+    Archive(#[from] archive::Error),
 }
 
-const WASM_TARGET: &str = "wasm32v1-none";
-const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
+pub(crate) const WASM_TARGET: &str = "wasm32v1-none";
+pub(crate) const WASM_TARGET_OLD: &str = "wasm32-unknown-unknown";
 const META_CUSTOM_SECTION_NAME: &str = "contractmetav0";
 
 impl Default for Cmd {
@@ -222,7 +281,12 @@ impl Default for Cmd {
             out_dir: None,
             locked: false,
             print_commands_only: false,
+            image: None,
+            pull: false,
             build_args: BuildArgs::default(),
+            container_args: ContainerArgs::default(),
+            run_args: ContainerRunArgs::default(),
+            command: None,
         }
     }
 }
@@ -230,8 +294,21 @@ impl Default for Cmd {
 impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
-    pub fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+    pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+        // `contract build archive` generates the source archive instead of
+        // building; it produces no wasm artifacts.
+        if let Some(SubCommand::Archive(cmd)) = &self.command {
+            cmd.run(global_args)?;
+            return Ok(Vec::new());
+        }
+
         let print = Print::new(global_args.quiet);
+
+        // When an image is given, build inside that container instead of locally.
+        if self.image.is_some() {
+            return container::run(self, global_args, &print).await;
+        }
+
         let working_dir = env::current_dir().map_err(Error::GettingCurrentDir)?;
         let metadata = self.metadata()?;
         let packages = self.packages(&metadata)?;
@@ -293,8 +370,15 @@ impl Cmd {
             }
 
             // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
+            // optimization using markers. Current and new SDK versions no
+            // longer read this var, relying on the CLI version below
+            // instead, but it must keep being set for past SDK versions that
+            // require it.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            // Set env var to inform the SDK of the CLI version. The SDK requires
+            // the CLI's major version to be the same or greater than its own.
+            cmd.env("STELLAR_CLI_VERSION", env!("CARGO_PKG_VERSION"));
 
             let cmd_str = serialize_command(&cmd);
 
@@ -511,7 +595,7 @@ impl Cmd {
         }
 
         let mut buffer = Vec::new();
-        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::none());
+        let mut writer = Limited::new(Cursor::new(&mut buffer), Limits::depth(XDR_DEPTH_LIMIT));
         for entry in new_meta {
             entry.write_xdr(&mut writer)?;
         }
@@ -715,7 +799,7 @@ fn get_rustflags() -> Option<Vec<String>> {
     None
 }
 
-fn get_wasm_target() -> Result<String, Error> {
+pub(crate) fn get_wasm_target() -> Result<String, Error> {
     let Ok(current_version) = version() else {
         return Ok(WASM_TARGET.into());
     };
@@ -823,9 +907,12 @@ pub fn filter_and_dedup_spec(
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();
     let mut filtered_xdr = Vec::new();
-    let mut writer = Limited::new(Cursor::new(&mut filtered_xdr), Limits::none());
+    let mut writer = Limited::new(
+        Cursor::new(&mut filtered_xdr),
+        Limits::depth(XDR_DEPTH_LIMIT),
+    );
     for entry in soroban_spec::shaking::filter(entries, markers) {
-        let entry_xdr = entry.to_xdr(Limits::none())?;
+        let entry_xdr = entry.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
         if seen.insert(entry_xdr) {
             entry.write_xdr(&mut writer)?;
         }
@@ -836,6 +923,52 @@ pub fn filter_and_dedup_spec(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_flag_parses_with_tag_and_container_options() {
+        let cmd = Cmd::try_parse_from([
+            "build",
+            "--image",
+            "docker.io/stellar/stellar-cli:latest",
+            "--meta",
+            "field=value",
+            "--engine",
+            "docker",
+            "--cpus",
+            "2",
+        ])
+        .expect("--image with a tag ref and container options must parse");
+        assert_eq!(
+            cmd.image.as_deref(),
+            Some("docker.io/stellar/stellar-cli:latest")
+        );
+        assert_eq!(
+            cmd.build_args.meta,
+            vec![("field".to_string(), "value".to_string())]
+        );
+        assert_eq!(cmd.run_args.cpus, Some(2));
+    }
+
+    #[test]
+    fn image_defaults_to_none() {
+        let cmd = Cmd::try_parse_from(["build"]).unwrap();
+        assert!(cmd.image.is_none());
+    }
+
+    #[test]
+    fn pull_requires_image() {
+        let cmd = Cmd::try_parse_from([
+            "build",
+            "--image",
+            "docker.io/stellar/stellar-cli:latest",
+            "--pull",
+        ])
+        .expect("--pull with --image must parse");
+        assert!(cmd.pull);
+
+        // Without --image the flag is rejected rather than silently ignored.
+        assert!(Cmd::try_parse_from(["build", "--pull"]).is_err());
+    }
 
     #[test]
     fn serialize_command_shell_escapes_args_with_metacharacters() {

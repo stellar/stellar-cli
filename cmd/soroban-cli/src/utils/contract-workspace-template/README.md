@@ -13,6 +13,7 @@ This repository uses the recommended structure for a Soroban project:
 │       │   └── test.rs
 │       └── Cargo.toml
 ├── Cargo.toml
+├── AGENTS.md
 └── README.md
 ```
 

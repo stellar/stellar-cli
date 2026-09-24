@@ -26,7 +26,8 @@ use crate::{
         builder::{self, TxExt},
         sim_sign_and_send_tx,
     },
-    utils, wasm,
+    utils::{self, XDR_DEPTH_LIMIT},
+    wasm,
 };
 
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
@@ -144,7 +145,7 @@ impl Cmd {
             return Err(Error::BuildOnlyNotSupported);
         }
 
-        let wasm_paths = self.resolve_wasm_paths(global_args)?;
+        let wasm_paths = self.resolve_wasm_paths(global_args).await?;
 
         for wasm_path in &wasm_paths {
             let res = self
@@ -159,7 +160,7 @@ impl Cmd {
 
             match res {
                 TxnEnvelopeResult::TxnEnvelope(tx) => {
-                    println!("{}", tx.to_xdr_base64(Limits::none())?);
+                    println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
                 }
                 TxnEnvelopeResult::Res(hash) => println!("{}", hex::encode(hash)),
             }
@@ -181,7 +182,7 @@ impl Cmd {
         self.upload_wasm(&wasm_path, config, quiet, no_cache).await
     }
 
-    fn resolve_wasm_paths(&self, global_args: &global::Args) -> Result<Vec<PathBuf>, Error> {
+    async fn resolve_wasm_paths(&self, global_args: &global::Args) -> Result<Vec<PathBuf>, Error> {
         if let Some(wasm) = &self.wasm {
             Ok(vec![wasm.clone()])
         } else {
@@ -190,7 +191,7 @@ impl Cmd {
                 build_args: self.build_args.clone(),
                 ..build::Cmd::default()
             };
-            let contracts = build_cmd.run(global_args).map_err(|e| match e {
+            let contracts = build_cmd.run(global_args).await.map_err(|e| match e {
                 build::Error::Metadata(_) => Error::NotInCargoProject,
                 other => other.into(),
             })?;
@@ -279,8 +280,10 @@ impl Cmd {
             // go ahead if the contract has a V0 extension.
             if let Some(entries) = contract_data.entries {
                 if let Some(entry_result) = entries.first() {
-                    let entry: LedgerEntryData =
-                        LedgerEntryData::from_xdr_base64(&entry_result.xdr, Limits::none())?;
+                    let entry: LedgerEntryData = LedgerEntryData::from_xdr_base64(
+                        &entry_result.xdr,
+                        Limits::depth(XDR_DEPTH_LIMIT),
+                    )?;
 
                     match &entry {
                         LedgerEntryData::ContractCode(code) => {
@@ -359,7 +362,7 @@ fn get_contract_meta_sdk_version(wasm_spec: &soroban_spec_tools::contract::Spec)
     if let Some(rs_sdk_version_entry) = &rs_sdk_version_option {
         match rs_sdk_version_entry {
             ScMetaEntry::ScMetaV0(ScMetaV0 { val, .. }) => {
-                return Some(val.to_utf8_string_lossy());
+                return Some(soroban_spec_tools::sanitize(&val.to_utf8_string_lossy()));
             }
         }
     }
@@ -410,5 +413,32 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    fn spec_with_sdk_meta(version: &str) -> soroban_spec_tools::contract::Spec {
+        let meta = ScMetaEntry::ScMetaV0(ScMetaV0 {
+            key: CONTRACT_META_SDK_KEY.try_into().unwrap(),
+            val: version.try_into().unwrap(),
+        });
+        soroban_spec_tools::contract::Spec {
+            env_meta_base64: None,
+            env_meta: vec![],
+            meta_base64: Some(String::new()),
+            meta: vec![meta],
+            spec_base64: None,
+            spec: vec![],
+        }
+    }
+
+    // The SDK version comes from attacker-influenceable contract metadata and is
+    // rendered into an error message / warning line on the terminal, so control
+    // and escape sequences must not survive.
+    #[test]
+    fn sdk_version_strips_control_bytes() {
+        let spec = spec_with_sdk_meta("0.9.0-rc\x1b[2Jhax");
+        let version = get_contract_meta_sdk_version(&spec).expect("sdk version present");
+        soroban_spec_tools::test_utils::assert_no_control_chars(&version);
+        // "rc" detection (used to gate the release-candidate check) still works.
+        assert!(version.contains("rc"));
     }
 }

@@ -5,6 +5,7 @@ use crate::{
 use clap::Parser;
 
 use super::args;
+use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -36,7 +37,9 @@ impl Cmd {
                     println!("{}", serde_json::to_string(&envelope)?);
                 }
                 args::OutputFormat::Xdr => {
-                    let envelope_xdr = envelope.to_xdr_base64(Limits::none()).unwrap();
+                    let envelope_xdr = envelope
+                        .to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))
+                        .unwrap();
                     println!("{envelope_xdr}");
                 }
                 args::OutputFormat::JsonFormatted => {

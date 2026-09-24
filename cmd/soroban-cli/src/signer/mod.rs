@@ -14,6 +14,7 @@ use crate::{
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
 use sha2::{Digest, Sha256};
 
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{config::network::Network, print::Print, utils::transaction_hash};
 use std::io::{self, BufRead, IsTerminal};
 
@@ -59,6 +60,8 @@ pub enum Error {
     Ledger(#[from] ledger::Error),
     #[error(transparent)]
     Decode(#[from] stellar_strkey::DecodeError),
+    #[error(transparent)]
+    Validation(#[from] validation::Error),
 }
 
 /// Sign all SorobanAuthorizationEntry's in the transaction with the given signers. Returns a new
@@ -281,7 +284,7 @@ async fn sign_soroban_authorization_entry(
             signature_expiration_ledger,
         })
     }
-    .to_xdr(Limits::none())?;
+    .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
 
     let payload = Sha256::digest(preimage);
     let p: [u8; 32] = payload.as_slice().try_into()?;
@@ -438,7 +441,7 @@ impl Lab {
         network: &Network,
         printer: &Print,
     ) -> Result<DecoratedSignature, Error> {
-        let xdr = tx_env.to_xdr_base64(Limits::none())?;
+        let xdr = tx_env.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?;
 
         let mut url = url::Url::parse(Self::URL)?;
         url.query_pairs_mut()
@@ -472,12 +475,19 @@ impl SecureStoreEntry {
 
         let signed_tx_hash = secure_store::sign_tx_data(&self.name, self.hd_path, &tx_hash)?;
 
+        if let Some(pk) = self.public_key {
+            validation::verify_signature(&pk, &tx_hash, &signed_tx_hash)?;
+        }
+
         let signature = Signature(signed_tx_hash.clone().try_into()?);
         Ok(DecoratedSignature { hint, signature })
     }
 
     pub fn sign_payload(&self, payload: [u8; 32]) -> Result<Ed25519Signature, Error> {
         let signed_bytes = secure_store::sign_tx_data(&self.name, self.hd_path, &payload)?;
+        if let Some(pk) = self.public_key {
+            validation::verify_signature(&pk, &payload, &signed_bytes)?;
+        }
         let sig = Ed25519Signature::from_bytes(signed_bytes.as_slice().try_into()?);
         Ok(sig)
     }
@@ -849,7 +859,7 @@ mod tests {
                 invocation: body.auth[0].root_invocation.clone(),
             },
         )
-        .to_xdr(Limits::none())
+        .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))
         .unwrap();
         let payload: [u8; 32] = Sha256::digest(preimage).into();
 

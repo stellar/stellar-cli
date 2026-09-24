@@ -168,7 +168,7 @@ impl TestEnv {
                 "STELLAR_RPC_HEADERS",
                 format!(
                     "{}:{}",
-                    &self.network.rpc_headers[0].0, &self.network.rpc_headers[0].1
+                    self.network.rpc_headers[0].0, self.network.rpc_headers[0].1
                 ),
             );
         }

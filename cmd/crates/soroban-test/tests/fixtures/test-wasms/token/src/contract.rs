@@ -96,7 +96,7 @@ impl token::Interface for Token {
             from: from.clone(),
             spender: spender.clone(),
             amount,
-            expiration_ledger,
+            live_until_ledger: expiration_ledger,
         }
         .publish(&e);
     }

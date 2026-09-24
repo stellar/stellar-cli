@@ -2,6 +2,7 @@ use super::args::Args;
 use crate::{
     commands::contract::Durability,
     config::{self, locator},
+    utils::XDR_DEPTH_LIMIT,
     xdr::{
         self, ContractDataDurability, ContractId, Hash, LedgerKey, LedgerKeyContractData, Limits,
         ReadXdr, ScAddress, ScVal,
@@ -90,7 +91,7 @@ impl Cmd {
             for key in keys {
                 let key = LedgerKey::ContractData(LedgerKeyContractData {
                     contract: contract_address_arg.clone(),
-                    key: ScVal::from_xdr_base64(key, Limits::none())?,
+                    key: ScVal::from_xdr_base64(key, Limits::depth(XDR_DEPTH_LIMIT))?,
                     durability: ContractDataDurability::Persistent,
                 });
 

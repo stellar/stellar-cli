@@ -2,6 +2,7 @@ use sha2::{Digest, Sha256};
 
 use crate::commands::global;
 use crate::config::network;
+use crate::output::{Format, Output};
 use crate::utils::url::redact_url;
 use crate::{config, print, rpc};
 
@@ -26,6 +27,16 @@ pub enum OutputFormat {
     Json,
     /// Formatted (multiline) JSON output of the RPC request
     JsonFormatted,
+}
+
+impl From<OutputFormat> for Format {
+    fn from(value: OutputFormat) -> Self {
+        match value {
+            OutputFormat::Text => Format::Readable,
+            OutputFormat::Json => Format::Json,
+            OutputFormat::JsonFormatted => Format::JsonFormatted,
+        }
+    }
 }
 
 #[derive(Debug, clap::Parser, Clone)]
@@ -66,23 +77,11 @@ impl Info {
             print.infoln(format!("Friendbot Url: {friendbot_url}"));
         }
     }
-
-    fn print_json(&self) -> Result<(), serde_json::Error> {
-        let json = serde_json::to_string(&self)?;
-        println!("{json}");
-        Ok(())
-    }
-
-    fn print_json_formatted(&self) -> Result<(), serde_json::Error> {
-        let json = serde_json::to_string_pretty(&self)?;
-        println!("{json}");
-        Ok(())
-    }
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
-        let print = print::Print::new(global_args.quiet);
+        let output = Output::new(self.output.into(), global_args.quiet);
         let rpc_client = self.config.get_network()?.rpc_client()?;
         let network_result = rpc_client.get_network().await?;
         let version_result = rpc_client.get_version_info().await?;
@@ -98,11 +97,8 @@ impl Cmd {
             passphrase: network_result.passphrase,
         };
 
-        match self.output {
-            OutputFormat::Text => info.print_text(&print),
-            OutputFormat::Json => info.print_json()?,
-            OutputFormat::JsonFormatted => info.print_json_formatted()?,
-        }
+        output.readable(|print| info.print_text(print));
+        output.json_value(&info)?;
 
         Ok(())
     }

@@ -36,9 +36,9 @@ jobs:
     steps:
       - uses: stellar/quickstart@main
         with:
-          tag: nightly
-          protocol_version: 27
-      - uses: actions/checkout@v6
+          tag: latest
+          protocol_version: 28
+      - uses: actions/checkout@v7.0.1
 
       - uses: stellar/actions/rust-cache@main
 

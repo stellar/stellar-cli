@@ -23,7 +23,7 @@ pub struct Cmd {
     pub overwrite: bool,
 
     /// The contract id that will be associated with the alias.
-    #[arg(long = "id")]
+    #[arg(long = "contract-id", visible_alias = "id")]
     pub contract_id: stellar_strkey::Contract,
 }
 
@@ -49,6 +49,9 @@ impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let alias = &self.alias;
+
+        crate::config::alias::validate_reserved_aliases(alias)?;
+
         let network = self.network.get(&self.config_locator)?;
         let network_passphrase = &network.network_passphrase;
 

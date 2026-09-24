@@ -6,6 +6,7 @@ use clap::Parser;
 use sha2::{Digest, Sha256};
 
 use crate::config;
+use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
@@ -68,7 +69,7 @@ pub fn get_contract_id(
         network_id,
         contract_id_preimage,
     });
-    let preimage_xdr = preimage.to_xdr(Limits::none())?;
+    let preimage_xdr = preimage.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
     Ok(stellar_strkey::Contract(
         Sha256::digest(preimage_xdr).into(),
     ))

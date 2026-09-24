@@ -56,12 +56,8 @@ pub enum Error {
     NetworkCreationFailed(std::io::Error),
     #[error("Error Identity directory is invalid: {name}")]
     IdentityList { name: String },
-    // #[error("Config file failed to deserialize")]
-    // CannotReadConfigFile,
     #[error("Config file failed to serialize")]
     ConfigSerialization,
-    // #[error("Config file failed write")]
-    // CannotWriteConfigFile,
     #[error("STELLAR_CONFIG_HOME env variable is not a valid path. Got {0}")]
     StellarConfigDir(String),
     #[error("XDG_CONFIG_HOME env variable is not a valid path. Got {0}")]
@@ -92,6 +88,10 @@ pub enum Error {
     UpgradeCheckWriteFailed { path: PathBuf, error: io::Error },
     #[error("Contract alias {0}, cannot overlap with key")]
     ContractAliasCannotOverlapWithKey(String),
+    #[error("'{0}' is reserved for the built-in native asset contract and cannot be added, overwritten, or removed")]
+    ContractAliasReserved(String),
+    #[error("alias '{alias}' is reserved for the native asset contract, but a stored alias points to {stored}; remove it with `stellar contract alias rm {alias}`, or use the contract id directly")]
+    ShadowedReservedAlias { alias: String, stored: Contract },
     #[error("Key cannot {0} cannot overlap with contract alias")]
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
@@ -191,6 +191,7 @@ impl Args {
     }
 
     pub fn write_identity(&self, name: &str, secret: &Secret) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         if let Ok(Some(_)) = self.load_contract_from_alias(name) {
             return Err(Error::KeyCannotOverlapWithContractAlias(name.to_owned()));
         }
@@ -206,6 +207,7 @@ impl Args {
     }
 
     pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {
+        alias::validate_reserved_aliases(name)?;
         KeyType::Identity.write(name, key, &self.config_dir()?)
     }
 
@@ -228,6 +230,18 @@ impl Args {
         Config::load(&path)?
             .set_inclusion_fee(inclusion_fee)
             .save_to(&path)
+    }
+
+    pub fn write_default_container_engine(&self, engine: &str) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?
+            .set_container_engine(engine)
+            .save_to(&path)
+    }
+
+    pub fn unset_default_container_engine(&self) -> Result<(), Error> {
+        let path = self.global_config_path()?.join("config.toml");
+        Config::load(&path)?.unset_container_engine().save_to(&path)
     }
 
     pub fn unset_default_identity(&self) -> Result<(), Error> {
@@ -383,6 +397,28 @@ impl Args {
         Ok(self.read_key(key_or_name)?.muxed_account(hd_path)?)
     }
 
+    /// Find a stored identity whose public key matches `target`, returning its
+    /// secret. Each identity is derived at `hd_path` (falling back to its own
+    /// persisted path when `hd_path` is `None`), so a key looked up by strkey
+    /// resolves the same way it would by alias under the same `--hd-path`.
+    /// Best-effort: identities whose public key can't be derived without error
+    /// (e.g. a disconnected ledger) are skipped rather than failing the lookup.
+    pub fn secret_by_public_key(
+        &self,
+        target: &stellar_strkey::ed25519::PublicKey,
+        hd_path: Option<u32>,
+    ) -> Result<Option<Secret>, Error> {
+        for name in self.list_identities()? {
+            let Ok(Key::Secret(secret)) = self.read_identity(&name) else {
+                continue;
+            };
+            if secret.public_key(hd_path).is_ok_and(|pk| &pk == target) {
+                return Ok(Some(secret));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn read_network(&self, name: &str) -> Result<Network, Error> {
         utils::validate_name(name)?;
         let res = KeyType::Network.read_with_global(name, self);
@@ -456,6 +492,7 @@ impl Args {
         contract_id: &stellar_strkey::Contract,
         alias: &str,
     ) -> Result<(), Error> {
+        alias::validate_reserved_aliases(alias)?;
         if self.read_identity(alias).is_ok() {
             return Err(Error::ContractAliasCannotOverlapWithKey(alias.to_owned()));
         }
@@ -493,6 +530,8 @@ impl Args {
     }
 
     pub fn remove_contract_id(&self, network_passphrase: &str, alias: &str) -> Result<(), Error> {
+        // Reserved aliases cannot be added or overwritten, but a stored file
+        // that shadows one (created before it became reserved) may be removed.
         let path = self.alias_path(alias)?;
 
         if !path.is_file() {
@@ -510,6 +549,34 @@ impl Args {
     }
 
     pub fn get_contract_id(
+        &self,
+        alias: &str,
+        network_passphrase: &str,
+    ) -> Result<Option<Contract>, Error> {
+        // A reserved alias (e.g. `native`) always resolves to its built-in
+        // contract. If a stored (shadowed) alias file points somewhere else,
+        // refuse to silently override it: resolving to the built-in anyway
+        // would misdirect the command to the wrong contract. The stored file
+        // can still be removed with `contract alias rm <name>`.
+        if let Some(reserved) = alias::resolve_reserved(alias, self, network_passphrase) {
+            if let Some(stored) = self.get_stored_contract_id(alias, network_passphrase)? {
+                if stored != reserved {
+                    return Err(Error::ShadowedReservedAlias {
+                        alias: alias.to_owned(),
+                        stored,
+                    });
+                }
+            }
+
+            return Ok(Some(reserved));
+        }
+
+        self.get_stored_contract_id(alias, network_passphrase)
+    }
+
+    /// Reads a contract id from a stored alias file, ignoring built-in reserved
+    /// aliases. Returns `None` when no matching alias file entry exists.
+    pub fn get_stored_contract_id(
         &self,
         alias: &str,
         network_passphrase: &str,
@@ -574,52 +641,94 @@ impl Pwd for Args {
     }
 }
 
+/// How `enforce_hardened_tree` normalizes a file's owner bits (group/other are
+/// always stripped regardless).
 #[cfg(unix)]
-fn fix_config_permissions(root: std::path::PathBuf) {
+#[derive(Clone, Copy)]
+pub(crate) enum FileMode {
+    /// Force every file to exactly `0o600`. Used for config files, which are
+    /// data (never executable) and must stay owner-writable so the CLI can
+    /// rewrite them.
+    Exact,
+    /// Keep the owner's bits, including the execute bit, and only drop
+    /// group/other (a `0o644` file becomes `0o600`, a `0o755` becomes `0o700`).
+    /// Used for an extracted source tree, where a checked-in script a build
+    /// invokes must stay runnable.
+    #[cfg_attr(not(test), allow(dead_code))]
+    PreserveOwner,
+}
+
+/// Walk `root` recursively and strip all group/other access. Dirs are set to
+/// `0o700`; files are normalized per `file_mode` (see [`FileMode`]). Returns the
+/// dirs and files that were changed so callers can decide whether to surface a
+/// warning. Symlinks are skipped — mode bits aren't meaningful for them and
+/// `set_permissions` would follow them.
+///
+/// Best-effort: an entry whose `chmod` fails is skipped and traversal continues,
+/// so one unfixable file can't leave the rest of the tree group/other-readable.
+///
+/// Unix-only: mode bits aren't a thing on other platforms, so this doesn't
+/// exist there; tempdirs / config dirs on non-unix rely on filesystem ACLs
+/// created by the higher-level APIs.
+#[cfg(unix)]
+#[allow(clippy::unnecessary_wraps)]
+pub(crate) fn enforce_hardened_tree(
+    root: &Path,
+    file_mode: FileMode,
+) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     use std::os::unix::fs::PermissionsExt;
-
-    let mut bad_dirs = Vec::new();
-    let mut bad_files = Vec::new();
-    let mut stack = vec![root];
-
-    while let Some(dir) = stack.pop() {
-        if let Ok(meta) = std::fs::metadata(&dir) {
-            if meta.permissions().mode() & 0o777 != 0o700 {
-                bad_dirs.push(dir.clone());
-            }
+    let mut changed_dirs = Vec::new();
+    let mut changed_files = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(p) = stack.pop() {
+        let Ok(meta) = std::fs::symlink_metadata(&p) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            continue;
         }
-
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.filter_map(Result::ok) {
-                let path = entry.path();
-
-                if path.is_dir() {
-                    stack.push(path);
-                } else if let Ok(meta) = std::fs::metadata(&path) {
-                    if meta.permissions().mode() & 0o777 != 0o600 {
-                        bad_files.push(path);
-                    }
+        let current = meta.permissions().mode() & 0o777;
+        if meta.is_dir() {
+            if current != 0o700
+                && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).is_ok()
+            {
+                changed_dirs.push(p.clone());
+            }
+            if let Ok(entries) = std::fs::read_dir(&p) {
+                for entry in entries.filter_map(Result::ok) {
+                    stack.push(entry.path());
                 }
             }
+        } else {
+            let target = match file_mode {
+                FileMode::Exact => 0o600,
+                // Keep the owner's bits (notably execute) but drop group/other.
+                FileMode::PreserveOwner => current & 0o700,
+            };
+            if current != target
+                && std::fs::set_permissions(&p, std::fs::Permissions::from_mode(target)).is_ok()
+            {
+                changed_files.push(p);
+            }
         }
     }
+    Ok((changed_dirs, changed_files))
+}
+
+#[cfg(unix)]
+fn fix_config_permissions(root: std::path::PathBuf) {
+    // Config files are data, never executable, and the CLI must be able to
+    // rewrite them, so normalize each to exactly 0600.
+    let Ok((dirs, files)) = enforce_hardened_tree(&root, FileMode::Exact) else {
+        return;
+    };
 
     let print = Print::new(false);
-
-    if !bad_dirs.is_empty() {
-        print.warnln("Updated config directories permissions to 0700.");
-
-        for dir in bad_dirs {
-            let _ = set_hardened_permissions(&dir);
-        }
+    if !dirs.is_empty() {
+        print.warnln("Updated config directory permissions to 0700.");
     }
-
-    if !bad_files.is_empty() {
-        print.warnln("Updated config files permissions to 0600.");
-
-        for file in bad_files {
-            let _ = set_hardened_permissions(&file);
-        }
+    if !files.is_empty() {
+        print.warnln("Updated config file permissions to 0600.");
     }
 }
 
@@ -634,23 +743,26 @@ pub(crate) fn set_hardened_permissions(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Writes `contents` to `path`, creating the file with `0600` on Unix and
-/// resetting the mode to exactly `0600` afterwards regardless of any
+/// Writes `contents` to `path` at mode `0600` on Unix, regardless of any
 /// pre-existing permissions. Falls back to `std::fs::write` on non-Unix
 /// platforms.
 pub(crate) fn write_hardened_file(path: &Path, contents: &[u8]) -> io::Result<()> {
     #[cfg(unix)]
     {
         use std::io::Write as _;
-        use std::os::unix::fs::OpenOptionsExt;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .mode(0o600)
             .open(path)?;
+        // `mode(0o600)` only applies when the file is created; a pre-existing file
+        // keeps its old (possibly group/other-readable) mode. Harden the now-empty
+        // (truncated) file to 0600 *before* writing, so the contents are never
+        // briefly exposed — and even a partial write on failure stays private.
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
         file.write_all(contents)?;
-        set_hardened_permissions(path)?;
     }
 
     #[cfg(not(unix))]
@@ -1003,6 +1115,133 @@ mod tests {
             "overwritten identity file should be 0600, got {:o}",
             perms.mode() & 0o777
         );
+    }
+
+    #[test]
+    fn overwrite_repairs_read_only_file_to_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let identity_dir = dir.path().join("identity");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+
+        // Pre-create alice.toml as read-only (0400). Config repair must restore
+        // write access (0600) so the overwrite below can actually open it.
+        let alice = identity_dir.join("alice.toml");
+        std::fs::write(&alice, "seed_phrase = \"old\"\n").unwrap();
+        std::fs::set_permissions(&alice, std::fs::Permissions::from_mode(0o400)).unwrap();
+
+        let value: HashMap<String, String> = HashMap::new();
+        KeyType::Identity
+            .write("alice", &value, dir.path())
+            .expect("overwriting a read-only config file should succeed");
+
+        assert_eq!(
+            std::fs::metadata(&alice).unwrap().permissions().mode() & 0o777,
+            0o600,
+            "a read-only config file should be repaired to 0600"
+        );
+    }
+
+    #[test]
+    fn save_contract_id_rejects_reserved_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let contract = "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+            .parse()
+            .unwrap();
+        let native = alias::NATIVE;
+
+        let err = args
+            .save_contract_id("Test Network", &contract, native)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(alias) if alias == native));
+    }
+
+    #[test]
+    fn get_contract_id_resolves_native_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
+
+        let resolved = args
+            .get_contract_id(native, network_passphrase)
+            .unwrap()
+            .expect("native alias should resolve");
+        let expected =
+            crate::utils::contract_id_hash_from_asset(&xdr::Asset::Native, network_passphrase);
+
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn get_contract_id_errors_when_native_alias_is_shadowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
+
+        // A native alias stored before the name became reserved, pointing at a
+        // different contract than the native asset SAC.
+        let contract_ids = dir.path().join("contract-ids");
+        std::fs::create_dir_all(&contract_ids).unwrap();
+        std::fs::write(
+            contract_ids.join(format!("{native}.json")),
+            format!(
+                r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
+            ),
+        )
+        .unwrap();
+
+        let err = args
+            .get_contract_id(native, network_passphrase)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::ShadowedReservedAlias { alias, .. } if alias == native));
+    }
+
+    #[test]
+    fn write_identity_rejects_reserved_native_name() {
+        use crate::config::secret::Secret;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let secret =
+            Secret::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
+
+        let err = args.write_identity(native, &secret).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
+    }
+
+    #[test]
+    fn write_key_rejects_reserved_native_name() {
+        use crate::config::key::Key;
+        use std::str::FromStr;
+
+        let dir = tempfile::tempdir().unwrap();
+        let args = Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let key =
+            Key::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
+        let native = alias::NATIVE;
+
+        let err = args.write_key(native, &key).unwrap_err();
+
+        assert!(matches!(err, Error::ContractAliasReserved(name) if name == native));
     }
 
     #[test]
@@ -1373,6 +1612,78 @@ mod tests {
                 .read_key_with_secure_store_cache(TEST_PUBLIC_KEY, None)
                 .unwrap();
             assert!(matches!(key, Key::PublicKey(_)));
+        }
+    }
+
+    mod secret_by_public_key {
+        use super::super::*;
+
+        const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+        const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+        const TEST_SEED_PHRASE: &str =
+            "depth decade power loud smile spatial sign movie judge february rate broccoli";
+
+        fn locator_with_tempdir() -> (tempfile::TempDir, Args) {
+            let dir = tempfile::tempdir().unwrap();
+            let args = Args {
+                config_dir: Some(dir.path().to_path_buf()),
+            };
+            (dir, args)
+        }
+
+        #[test]
+        fn returns_secret_for_stored_identity() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SecretKey {
+                secret_key: TEST_SECRET_KEY.to_string(),
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            let target = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
+            let found = locator.secret_by_public_key(&target, None).unwrap();
+
+            assert!(matches!(
+                found,
+                Some(Secret::SecretKey { ref secret_key }) if secret_key == TEST_SECRET_KEY
+            ));
+        }
+
+        #[test]
+        fn returns_none_for_unknown_public_key() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SecretKey {
+                secret_key: TEST_SECRET_KEY.to_string(),
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            let target = stellar_strkey::ed25519::PublicKey::from_string(OTHER_PUBLIC_KEY).unwrap();
+            assert!(locator
+                .secret_by_public_key(&target, None)
+                .unwrap()
+                .is_none());
+        }
+
+        #[test]
+        fn matches_identity_at_requested_hd_path() {
+            let (_dir, locator) = locator_with_tempdir();
+            let secret = Secret::SeedPhrase {
+                seed_phrase: TEST_SEED_PHRASE.to_string(),
+                hd_path: None,
+            };
+            locator.write_identity("alice", &secret).unwrap();
+
+            // The account derived at index 5 is only found when the lookup uses
+            // the same hd_path; the default (index 0) path must not match it.
+            let at_five = secret.public_key(Some(5)).unwrap();
+            assert!(locator
+                .secret_by_public_key(&at_five, Some(5))
+                .unwrap()
+                .is_some());
+            assert!(locator
+                .secret_by_public_key(&at_five, None)
+                .unwrap()
+                .is_none());
         }
     }
 }

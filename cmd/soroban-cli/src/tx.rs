@@ -6,8 +6,8 @@ use crate::{
     signer::{self, Signer},
     utils::transaction_env_hash,
     xdr::{
-        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Transaction,
-        TransactionEnvelope,
+        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash,
+        Transaction, TransactionEnvelope,
     },
 };
 use soroban_rpc::GetTransactionResponse;
@@ -24,7 +24,9 @@ pub const ONE_XLM: i64 = 10_000_000;
 /// * Store results to the data cache when `no_cache` is false
 /// * Logs a success message and block explorer link to stderr upon successful submission
 ///
-/// Does not handle any logging related to the result, events, or effects of the transaction.
+/// On failure, logs the transaction's diagnostic events to stderr (via
+/// `send_transaction_polling_with_events`); it does not otherwise log the
+/// result or effects of a successful transaction.
 ///
 /// Returns the `GetTransactionResponse` from the network.
 ///
@@ -106,7 +108,13 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-    let res = client.send_transaction_polling(&signed_tx).await?;
+    let res = send_transaction_polling_with_events(
+        client,
+        &signed_tx,
+        &network.network_passphrase,
+        &print,
+    )
+    .await?;
 
     print.checkln("Transaction submitted successfully!");
 
@@ -121,4 +129,43 @@ where
     }
 
     Ok(res)
+}
+
+/// Submits a signed transaction and polls for its result, surfacing diagnostic
+/// events when the transaction fails.
+///
+/// On failure the RPC client returns only the (decoded) result codes and discards
+/// the transaction's diagnostic events. This helper best-effort re-fetches the
+/// failed transaction to recover and print those events — the host/contract error,
+/// its message, and any contract logs — which explain *why* the transaction
+/// failed. The original error is always preserved and returned unchanged.
+///
+/// # Errors
+/// Returns the underlying submission error if the transaction fails.
+pub async fn send_transaction_polling_with_events(
+    client: &soroban_rpc::Client,
+    signed_tx: &TransactionEnvelope,
+    network_passphrase: &str,
+    print: &print::Print,
+) -> Result<GetTransactionResponse, soroban_rpc::Error> {
+    match client.send_transaction_polling(signed_tx).await {
+        Ok(res) => Ok(res),
+        Err(e) => {
+            // Best-effort: recover the diagnostic events the submission error dropped.
+            //
+            // Since protocol 23 a failed transaction's diagnostic events are
+            // returned in the response's dedicated `diagnosticEventsXdr` field
+            // rather than embedded in the transaction meta, so read them from
+            // `events.diagnostic_events` (which the RPC client populates from that
+            // field) instead of from `result_meta`.
+            if let Ok(hash) = transaction_env_hash(signed_tx, network_passphrase) {
+                if let Ok(resp) = client.get_transaction(&Hash(hash)).await {
+                    let events = &resp.events.diagnostic_events;
+                    crate::log::event::all(events);
+                    crate::log::event::failure(events, print);
+                }
+            }
+            Err(e)
+        }
+    }
 }

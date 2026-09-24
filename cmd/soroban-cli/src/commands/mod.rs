@@ -20,7 +20,9 @@ pub mod ledger;
 pub mod message;
 pub mod network;
 pub mod plugin;
+pub mod skill;
 pub mod snapshot;
+pub mod token;
 pub mod tx;
 pub mod version;
 
@@ -31,6 +33,7 @@ pub const HEADING_ARCHIVE: &str = "Archive Options";
 pub const HEADING_GLOBAL: &str = "Global Options";
 pub const HEADING_SIGNING: &str = "Signing Options";
 pub const HEADING_TRANSACTION: &str = "Transaction Options";
+pub const HEADING_CONTAINER: &str = "Container Options";
 const ABOUT: &str =
     "Work seamlessly with Stellar accounts, contracts, and assets from the command line.
 
@@ -63,11 +66,11 @@ Commands that work with contracts are organized under the `contract` subcommand.
 
 Use contracts like a CLI:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the \"slop\") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 ";
 
 #[derive(Parser, Debug)]
@@ -119,7 +122,9 @@ impl Root {
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
             Cmd::Version(version) => version.run(),
+            Cmd::Skill(skill) => skill.run(),
             Cmd::Keys(id) => id.run(&self.global_args).await?,
+            Cmd::Token(token) => token.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
             Cmd::Message(message) => message.run(&self.global_args).await?,
@@ -186,6 +191,10 @@ pub enum Cmd {
     #[command(subcommand)]
     Snapshot(snapshot::Cmd),
 
+    /// Interact with SEP-41 tokens and Stellar Asset Contracts
+    #[command(subcommand)]
+    Token(token::Cmd),
+
     /// Sign, Simulate, and Send transactions
     #[command(subcommand)]
     Tx(tx::Cmd),
@@ -206,6 +215,10 @@ pub enum Cmd {
 
     /// Print version information
     Version(version::Cmd),
+
+    /// Print an AI-agent skill guide for using the Stellar CLI
+    #[command(long_about = skill::LONG_ABOUT)]
+    Skill(skill::Cmd),
 
     /// The subcommand for CLI plugins
     #[command(subcommand)]
@@ -268,6 +281,9 @@ pub enum Error {
 
     #[error(transparent)]
     Snapshot(#[from] snapshot::Error),
+
+    #[error(transparent)]
+    Token(#[from] token::Error),
 
     #[error(transparent)]
     Tx(#[from] tx::Error),

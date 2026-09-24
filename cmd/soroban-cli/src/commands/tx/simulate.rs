@@ -6,6 +6,7 @@ use crate::{
 use std::ffi::OsString;
 
 use crate::commands::{config, global};
+use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -45,7 +46,10 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.execute(global_args, &self.config).await?;
         let tx_env: TransactionEnvelope = res.transaction().clone().into();
-        println!("{}", tx_env.to_xdr_base64(xdr::Limits::none())?);
+        println!(
+            "{}",
+            tx_env.to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))?
+        );
         Ok(())
     }
 

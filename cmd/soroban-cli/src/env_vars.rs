@@ -6,6 +6,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "ACCOUNT",
         "ARCHIVE_URL",
         "CONFIG_HOME",
+        "CONTAINER_ENGINE",
         "CONTRACT_ID",
         "DATA_HOME",
         "FEE",
@@ -30,6 +31,7 @@ pub fn unprefixed() -> Vec<&'static str> {
 const VISIBLE: &[&str] = &[
     "ACCOUNT",
     "CONFIG_HOME",
+    "CONTAINER_ENGINE",
     "CONTRACT_ID",
     "DATA_HOME",
     "FEE",

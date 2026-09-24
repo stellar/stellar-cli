@@ -10,6 +10,16 @@ use stellar_xdr::{
     ScSpecUdtStructV0, ScSpecUdtUnionV0, StringM, WriteXdr,
 };
 
+/// Maximum recursion depth allowed when decoding contract spec/meta sections.
+///
+/// These sections come from attacker-authored contract WASM, and `ScSpecTypeDef`
+/// is a recursive XDR type, so decoding with `Limits::none()` (depth `u32::MAX`)
+/// lets a deeply-nested type definition exhaust the stack and abort the process.
+/// 500 matches `soroban-env-host`'s `DEFAULT_XDR_RW_LIMITS`, so any spec the
+/// network would accept still decodes, while deeper input fails with a clean
+/// `DepthLimitExceeded` error instead of a crash.
+const SPEC_XDR_DEPTH_LIMIT: u32 = 500;
+
 pub struct Spec {
     pub env_meta_base64: Option<String>,
     pub env_meta: Vec<ScEnvMetaEntry>,
@@ -66,7 +76,7 @@ impl Spec {
         let env_meta = if let Some(env_meta) = env_meta {
             env_meta_base64 = Some(base64.encode(&env_meta));
             let cursor = Cursor::new(env_meta);
-            let mut read = Limited::new(cursor, Limits::none());
+            let mut read = Limited::new(cursor, Limits::depth(SPEC_XDR_DEPTH_LIMIT));
             ScEnvMetaEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
             vec![]
@@ -76,7 +86,7 @@ impl Spec {
         let meta = if let Some(meta) = meta {
             meta_base64 = Some(base64.encode(&meta));
             let cursor = Cursor::new(meta);
-            let mut depth_limit_read = Limited::new(cursor, Limits::none());
+            let mut depth_limit_read = Limited::new(cursor, Limits::depth(SPEC_XDR_DEPTH_LIMIT));
             ScMetaEntry::read_xdr_iter(&mut depth_limit_read)
                 .collect::<Result<Vec<_>, xdr::Error>>()?
         } else {
@@ -104,7 +114,12 @@ impl Spec {
         let spec = self
             .spec
             .iter()
-            .map(|e| Ok(format!("\"{}\"", e.to_xdr_base64(Limits::none())?)))
+            .map(|e| {
+                Ok(format!(
+                    "\"{}\"",
+                    e.to_xdr_base64(Limits::depth(SPEC_XDR_DEPTH_LIMIT))?
+                ))
+            })
             .collect::<Result<Vec<_>, Error>>()?
             .join(",\n");
         Ok(format!("[{spec}]"))
@@ -113,7 +128,7 @@ impl Spec {
     pub fn spec_to_base64(spec: &[u8]) -> Result<(String, Vec<ScSpecEntry>), Error> {
         let spec_base64 = base64.encode(spec);
         let cursor = Cursor::new(spec);
-        let mut read = Limited::new(cursor, Limits::none());
+        let mut read = Limited::new(cursor, Limits::depth(SPEC_XDR_DEPTH_LIMIT));
         Ok((
             spec_base64,
             ScSpecEntry::read_xdr_iter(&mut read).collect::<Result<Vec<_>, xdr::Error>>()?,
@@ -193,7 +208,7 @@ fn write_func(f: &mut std::fmt::Formatter<'_>, func: &ScSpecFunctionV0) -> std::
         writeln!(
             f,
             "     Docs: {}",
-            &indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
+            indent(&sanitize(&func.doc.to_utf8_string_lossy()), 11).trim()
         )?;
     }
     writeln!(
@@ -310,5 +325,70 @@ fn format_name(lib: &StringM<80>, name: &StringM<60>) -> String {
             sanitize(&lib.to_utf8_string_lossy()),
             sanitize(&name.to_utf8_string_lossy())
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::borrow::Cow;
+    use stellar_xdr::{ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeOption};
+
+    /// Wraps `spec` bytes in a minimal WASM module's `contractspecv0` section.
+    fn wasm_with_spec(spec: &[u8]) -> Vec<u8> {
+        let mut module = wasm_encoder::Module::new();
+        module.section(&wasm_encoder::CustomSection {
+            name: Cow::Borrowed("contractspecv0"),
+            data: Cow::Borrowed(spec),
+        });
+        module.finish()
+    }
+
+    /// A spec entry for a function whose single output has type `type_`.
+    fn fn_entry_returning(type_: ScSpecTypeDef) -> ScSpecEntry {
+        ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            outputs: vec![type_].try_into().unwrap(),
+            ..Default::default()
+        })
+    }
+
+    /// A contract spec whose type nesting exceeds the decoder's depth limit must
+    /// fail with a clean error rather than aborting the process via stack
+    /// exhaustion. See `SPEC_XDR_DEPTH_LIMIT`.
+    #[test]
+    fn deeply_nested_spec_type_is_rejected() {
+        // `ScSpecTypeDef::Option` boxes another `ScSpecTypeDef`, so decoding it
+        // recurses once per level. Nest well past the limit.
+        let mut type_ = ScSpecTypeDef::Bool;
+        for _ in 0..(SPEC_XDR_DEPTH_LIMIT + 100) {
+            type_ = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+                value_type: Box::new(type_),
+            }));
+        }
+        let entry = fn_entry_returning(type_);
+        // Encode without limits so the crafted bytes reflect an attacker's WASM;
+        // the guard under test is on the decode side.
+        let spec = entry.to_xdr(Limits::none()).unwrap();
+        let wasm = wasm_with_spec(&spec);
+
+        match Spec::new(&wasm) {
+            Err(Error::Xdr(xdr::Error::DepthLimitExceeded)) => {}
+            Err(e) => panic!("expected DepthLimitExceeded, got error {e:?}"),
+            Ok(_) => panic!("expected DepthLimitExceeded, but the spec decoded"),
+        }
+    }
+
+    /// A normally-nested spec still decodes successfully under the depth limit.
+    #[test]
+    fn shallow_spec_type_is_accepted() {
+        let type_ = ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScSpecTypeDef::Bool),
+        }));
+        let entry = fn_entry_returning(type_);
+        let spec = entry.to_xdr(Limits::none()).unwrap();
+        let wasm = wasm_with_spec(&spec);
+
+        let parsed = Spec::new(&wasm).expect("shallow spec should decode");
+        assert_eq!(parsed.spec, vec![entry]);
     }
 }

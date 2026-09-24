@@ -32,11 +32,11 @@ Commands that work with contracts are organized under the `contract` subcommand.
 
 Use contracts like a CLI:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
 **Usage:** `stellar [OPTIONS] <COMMAND>`
 
@@ -51,12 +51,14 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `container` — Start local networks in containers
 - `config` — Manage CLI configuration
 - `snapshot` — Download a snapshot of a ledger from an archive
+- `token` — Interact with SEP-41 tokens and Stellar Asset Contracts
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
 - `strkey` — Decode and encode strkey
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
+- `skill` — Print an AI-agent skill guide for using the Stellar CLI
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
 - `message` — Sign and verify arbitrary messages using SEP-53
@@ -179,16 +181,18 @@ Utilities to manage contract aliases
 
 ###### **Subcommands:**
 
-- `remove` — Remove contract alias
+- `rm` — Remove contract alias
 - `add` — Add contract alias
 - `show` — Show the contract id associated with a given alias
 - `ls` — List all aliases
 
-## `stellar contract alias remove`
+## `stellar contract alias rm`
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias rm [OPTIONS] <ALIAS>`
+
+**Command Alias:** `remove`
 
 ###### **Arguments:**
 
@@ -209,7 +213,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --contract-id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -222,7 +226,7 @@ Add contract alias
 ###### **Options:**
 
 - `--overwrite` — Overwrite the contract alias if it already exists
-- `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — The contract id that will be associated with the alias
 
 ###### **RPC Options:**
 
@@ -271,12 +275,13 @@ Generate code client bindings for a contract
 ###### **Subcommands:**
 
 - `rust` — Generate Rust bindings
-- `typescript` — Generate a TypeScript / JavaScript package
+- `typescript` — ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
 - `python` — Generate Python bindings
 - `java` — Generate Java bindings
 - `flutter` — Generate Flutter bindings
 - `swift` — Generate Swift bindings
 - `php` — Generate PHP bindings
+- `kmp` — Generate Kotlin Multiplatform bindings
 
 ## `stellar contract bindings rust`
 
@@ -290,7 +295,7 @@ Generate Rust bindings
 
 ## `stellar contract bindings typescript`
 
-Generate a TypeScript / JavaScript package
+⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
 
 **Usage:** `stellar contract bindings typescript [OPTIONS] --output-dir <OUTPUT_DIR> <--wasm <WASM>|--wasm-hash <WASM_HASH>|--contract-id <CONTRACT_ID>>`
 
@@ -343,6 +348,12 @@ Generate PHP bindings
 
 **Usage:** `stellar contract bindings php`
 
+## `stellar contract bindings kmp`
+
+Generate Kotlin Multiplatform bindings
+
+**Usage:** `stellar contract bindings kmp`
+
 ## `stellar contract build`
 
 Build a contract from source
@@ -353,7 +364,31 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS]        build <COMMAND>`
+
+###### **Subcommands:**
+
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
+
+###### **Container Options:**
+
+- `--image <IMAGE>` — Build inside this container image (e.g. `docker.io/stellar/stellar-cli:latest`). When set, the build runs in the container against the bind-mounted working tree instead of locally. Any tag or digest ref is accepted.
+
+  On Linux the container runs as your uid:gid so built wasm isn't root-owned; this assumes the image keeps CARGO_HOME/RUSTUP_HOME writable by non-root users, as the official image does.
+
+- `--pull` — Pull `--image` before building to refresh a moving tag.
+
+  By default the build uses the image already present locally and doesn't pull (matching `docker run`), so a locally-built or digest-pinned image is used as-is. Pass `--pull` to fetch the newest image for the tag first.
+
+- `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 
 ###### **Features:**
 
@@ -393,6 +428,21 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
+## `stellar contract build archive`
+
+Generate (or inspect) the reproducible source archive for a contract.
+
+Produces a gzipped tarball of the source tree and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before publishing the archive.
+
+The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
+
+**Usage:** `stellar contract build archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
+
 ## `stellar contract extend`
 
 Extend the time to live ledger of a contract-data ledger entry.
@@ -409,7 +459,7 @@ If no keys are specified the contract itself is extended.
 
 - `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 - `--ttl-ledger-only` — Only print the new Time To Live ledger
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -530,7 +580,7 @@ Fetch a contract's Wasm binary
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to fetch
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to fetch
 - `--wasm-hash <WASM_HASH>` — Wasm to fetch
 - `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 
@@ -549,12 +599,12 @@ Generate the contract id for a given contract or asset
 
 ###### **Subcommands:**
 
-- `asset` — Deploy builtin Soroban Asset Contract
-- `wasm` — Deploy normal Wasm Contract
+- `asset` — Derive the contract id for a builtin Stellar Asset Contract
+- `wasm` — Derive the contract id for a Wasm contract
 
 ## `stellar contract id asset`
 
-Deploy builtin Soroban Asset Contract
+Derive the contract id for a builtin Stellar Asset Contract
 
 **Usage:** `stellar contract id asset [OPTIONS] --asset <ASSET>`
 
@@ -575,7 +625,7 @@ Deploy builtin Soroban Asset Contract
 
 ## `stellar contract id wasm`
 
-Deploy normal Wasm Contract
+Derive the contract id for a Wasm contract
 
 **Usage:** `stellar contract id wasm [OPTIONS] --salt <SALT> --source-account <SOURCE_ACCOUNT>`
 
@@ -963,7 +1013,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --contract-id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -975,7 +1025,7 @@ stellar contract invoke ... -- --help
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to invoke
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to invoke
 - `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 - `--send <SEND>` — Whether or not to send a transaction
 
@@ -1050,7 +1100,7 @@ Print the current value of a contract-data ledger entry
   - `json`: Json
   - `xdr`: XDR
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1084,7 +1134,7 @@ If no keys are specificed the contract itself is restored.
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1659,6 +1709,8 @@ Start local networks in containers
 - `logs` — Get logs from a running network container
 - `start` — Start a container running a Stellar node, RPC, API, and friendbot (faucet)
 - `stop` — Stop a network container started with `stellar container start`
+- `use` — Set the default container engine used by `stellar container` commands
+- `unset` — Unset the default container engine defined previously with `container use <engine>`
 
 ## `stellar container logs`
 
@@ -1675,6 +1727,11 @@ Get logs from a running network container
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
 
 ## `stellar container start`
 
@@ -1684,7 +1741,7 @@ Start a container running a Stellar node, RPC, API, and friendbot (faucet).
 
 By default, when starting a testnet container, without any optional arguments, it will run the equivalent of the following docker command:
 
-`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:testing --testnet --enable rpc,horizon`
+`docker run --rm -p 8000:8000 --name stellar stellar/quickstart:latest --testnet --enable rpc,horizon`
 
 **Usage:** `stellar container start [OPTIONS] [NETWORK]`
 
@@ -1697,6 +1754,14 @@ By default, when starting a testnet container, without any optional arguments, i
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+- `--cpus <CPUS>` — Limit the number of CPUs available to the container, e.g. `2`. A whole number: Apple's `container` engine does not accept fractional CPUs
+- `--memory <MEMORY>` — Limit the memory available to the container, e.g. `2g` or `512m`
 - `--name <NAME>` — Optional argument to specify the container name
 - `-l`, `--limits <LIMITS>` — Optional argument to specify the limits for the local network only
 - `-p`, `--ports-mapping <PORTS_MAPPING>` — Argument to specify the `HOST_PORT:CONTAINER_PORT` mapping
@@ -1721,6 +1786,39 @@ Stop a network container started with `stellar container start`
 ###### **Options:**
 
 - `-d`, `--docker-host <DOCKER_HOST>` — Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
+- `--engine <ENGINE>` — Container engine to use [default: docker]
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+## `stellar container use`
+
+Set the default container engine used by `stellar container` commands
+
+**Usage:** `stellar container use [OPTIONS] <ENGINE>`
+
+###### **Arguments:**
+
+- `<ENGINE>` — Container engine to use by default
+
+  Possible values:
+  - `docker`: Docker, or any Docker-compatible CLI
+  - `apple-container`: Apple's `container` CLI (macOS 26+, Apple silicon)
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+## `stellar container unset`
+
+Unset the default container engine defined previously with `container use <engine>`
+
+**Usage:** `stellar container unset [OPTIONS]`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
 ## `stellar config`
 
@@ -1838,6 +1936,376 @@ This allows combining snapshots from different contract deployments or manually 
 - `-o`, `--out <OUT>` — Output path for the merged snapshot
 
   Default value: `snapshot.json`
+
+## `stellar token`
+
+Interact with SEP-41 tokens and Stellar Asset Contracts
+
+**Usage:** `stellar token <COMMAND>`
+
+###### **Subcommands:**
+
+- `transfer` — Transfer tokens from one account to another
+- `transfer-from` — Transfer tokens on an owner's behalf using a granted allowance
+- `burn` — Burn tokens from an account, destroying them
+- `burn-from` — Burn tokens from an owner's account using a granted allowance
+- `balance` — Read the token balance of an account or contract
+- `name` — Read the token's name (SEP-41 metadata)
+- `symbol` — Read the token's symbol (SEP-41 metadata)
+- `decimals` — Read the token's decimals (SEP-41 metadata)
+- `approve` — Approve an allowance for a spender to transfer on your behalf
+- `allowance` — Read the allowance a spender has on an owner's behalf
+
+## `stellar token transfer`
+
+Transfer tokens from one account to another
+
+**Usage:** `stellar token transfer [OPTIONS] --id <ID> --from <FROM> --to <TO> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account to transfer tokens from. Signs and authorizes the transfer, so it must be an identity or secret key you control
+- `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token transfer-from`
+
+Transfer tokens on an owner's behalf using a granted allowance
+
+**Usage:** `stellar token transfer-from [OPTIONS] --id <ID> --spender <SPENDER> --from <FROM> --to <TO> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--spender <SPENDER>` — Spender drawing on its allowance. Signs and authorizes the transfer, so it must be an identity or secret key you control
+- `--from <FROM>` — Owner whose tokens are moved. Must have granted `--spender` an allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token burn`
+
+Burn tokens from an account, destroying them
+
+**Usage:** `stellar token burn [OPTIONS] --id <ID> --from <FROM> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to burn: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account whose tokens are destroyed. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token burn-from`
+
+Burn tokens from an owner's account using a granted allowance
+
+**Usage:** `stellar token burn-from [OPTIONS] --id <ID> --spender <SPENDER> --from <FROM> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to burn from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--spender <SPENDER>` — Spender drawing on its allowance. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--from <FROM>` — Owner whose tokens are destroyed. Must have granted `--spender` an allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token balance`
+
+Read the token balance of an account or contract
+
+**Usage:** `stellar token balance [OPTIONS] --id <ID> --account <ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--account <ACCOUNT>` — Account or contract whose balance to read
+- `--decimal` — Format the balance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token name`
+
+Read the token's name (SEP-41 metadata)
+
+**Usage:** `stellar token name [OPTIONS] --id <ID>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token symbol`
+
+Read the token's symbol (SEP-41 metadata)
+
+**Usage:** `stellar token symbol [OPTIONS] --id <ID>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token decimals`
+
+Read the token's decimals (SEP-41 metadata)
+
+**Usage:** `stellar token decimals [OPTIONS] --id <ID>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token approve`
+
+Approve an allowance for a spender to transfer on your behalf
+
+**Usage:** `stellar token approve [OPTIONS] --id <ID> --from <FROM> --spender <SPENDER> --amount <AMOUNT> --expiration-ledger <EXPIRATION_LEDGER>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to approve an allowance on: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account granting the allowance. Signs and authorizes the approval, so it must be an identity or secret key you control
+- `--spender <SPENDER>` — Account or contract allowed to spend on `--from`'s behalf. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Allowance to grant, in the token's smallest unit (stroops for a Stellar Asset Contract). Replaces any existing allowance
+- `--expiration-ledger <EXPIRATION_LEDGER>` — Ledger sequence after which the allowance expires. Must be at or beyond the current ledger when the amount is positive
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token allowance`
+
+Read the allowance a spender has on an owner's behalf
+
+**Usage:** `stellar token allowance [OPTIONS] --id <ID> --from <FROM> --spender <SPENDER>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to query: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account or contract that granted the allowance (the owner of the funds)
+- `--spender <SPENDER>` — Account or contract allowed to spend on `--from`'s behalf
+- `--decimal` — Format the allowance as a decimal using the token's `decimals`, instead of the raw smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
 
 ## `stellar tx`
 
@@ -4145,7 +4613,7 @@ Encode a transaction envelope from JSON to XDR
 
 Decode and encode XDR
 
-**Usage:** `stellar xdr [CHANNEL] <COMMAND>`
+**Usage:** `stellar xdr <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4157,14 +4625,6 @@ Decode and encode XDR
 - `generate` — Generate XDR values
 - `xfile` — Preprocess XDR .x files
 - `version` — Print version information
-
-###### **Arguments:**
-
-- `<CHANNEL>` — Channel of XDR to operate on
-
-  Default value: `+curr`
-
-  Possible values: `+curr`, `+next`
 
 ## `stellar xdr types`
 
@@ -4361,6 +4821,11 @@ Generate arbitrary XDR values
 
   Possible values: `single`, `single-base64`, `json`, `json-formatted`, `text`
 
+- `--hint <HINT>` — Keep generating values until the value's JSON representation contains this string. Useful for hinting toward a particular union/enum variant or sub-value. Repeat the flag to require several substrings; all of them must be present in the same value
+- `--hint-attempts <HINT_ATTEMPTS>` — Maximum number of generation attempts when --hint is set before giving up
+
+  Default value: `20000`
+
 ## `stellar xdr xfile`
 
 Preprocess XDR .x files
@@ -4539,6 +5004,14 @@ Print version information
 - `--only-version` — Print only the version
 - `--only-version-major` — Print only the major version
 - `--only-commit` — Print only the commit sha
+
+## `stellar skill`
+
+Print an AI-agent skill guide for using the Stellar CLI
+
+Outputs a Markdown document describing how to use the Stellar CLI idiomatically. It is meant to be read by AI coding agents (or pasted into their instructions) so they follow the CLI's conventions: using named networks, identities, and contract aliases instead of raw RPC URLs, secret keys, and hard-coded contract ids.
+
+**Usage:** `stellar skill`
 
 ## `stellar plugin`
 

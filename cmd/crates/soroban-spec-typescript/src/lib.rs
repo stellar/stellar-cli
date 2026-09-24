@@ -15,6 +15,11 @@ use types::{Entry, ErrorEnumCase};
 
 use soroban_spec::read::{from_wasm, FromWasmError};
 
+/// Depth limit when encoding and decoding XDR.
+///
+/// 500 matches `soroban-env-host`'s `DEFAULT_XDR_RW_LIMITS`.
+const XDR_DEPTH_LIMIT: u32 = 500;
+
 pub mod boilerplate;
 mod types;
 
@@ -86,7 +91,12 @@ fn generate_class(
         .join(",\n        ");
     let spec = spec
         .iter()
-        .map(|s| format!("\"{}\"", s.to_xdr_base64(Limits::none()).unwrap()))
+        .map(|s| {
+            format!(
+                "\"{}\"",
+                s.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT)).unwrap()
+            )
+        })
         .join(",\n        ");
     format!(
         r#"export interface Client {{{method_types}

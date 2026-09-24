@@ -1,3 +1,4 @@
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::xdr::{
     Limits, Operation, ReadXdr, Transaction, TransactionEnvelope, TransactionV1Envelope,
 };
@@ -37,7 +38,7 @@ pub fn tx_envelope_from_input(input: &Option<OsString>) -> Result<TransactionEnv
         &mut stdin()
     };
 
-    let mut lim = Limited::new(SkipWhitespace::new(read), Limits::none());
+    let mut lim = Limited::new(SkipWhitespace::new(read), Limits::depth(XDR_DEPTH_LIMIT));
     Ok(TransactionEnvelope::read_xdr_base64_to_end(&mut lim)?)
 }
 

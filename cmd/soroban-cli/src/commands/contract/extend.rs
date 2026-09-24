@@ -17,6 +17,7 @@ use crate::{
 use clap::Parser;
 
 use crate::commands::tx::fetch;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
         global,
@@ -135,7 +136,9 @@ impl Cmd {
             .await?
             .to_envelope();
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
+            }
             TxnEnvelopeResult::Res(ttl_ledger) => {
                 if self.ttl_ledger_only {
                     println!("{ttl_ledger}");
@@ -288,7 +291,14 @@ impl Cmd {
         if changes.is_empty() {
             print.infoln("No changes detected, transaction was a no-op.");
             let entry = client.get_full_ledger_entries(&keys).await?;
-            let extension = entry.entries[0].live_until_ledger_seq.unwrap_or_default();
+            // A no-op extend against a non-existent entry returns no entries, so
+            // avoid indexing into an empty vec (which would panic).
+            let extension = entry
+                .entries
+                .first()
+                .ok_or(Error::LedgerEntryNotFound)?
+                .live_until_ledger_seq
+                .unwrap_or_default();
 
             return Ok(TxnResult::Res(extension));
         }

@@ -64,12 +64,18 @@ impl Cmd {
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx_env = super::xdr::tx_envelope_from_input(&self.tx_xdr)?;
+        let print = Print::new(quiet);
 
         if let Ok(txn) = super::xdr::unwrap_envelope_v1(tx_env.clone()) {
-            let print = Print::new(quiet);
             print.log_transaction(&txn, &network, true)?;
         }
 
-        Ok(client.send_transaction_polling(&tx_env).await?)
+        Ok(crate::tx::send_transaction_polling_with_events(
+            &client,
+            &tx_env,
+            &network.network_passphrase,
+            &print,
+        )
+        .await?)
     }
 }

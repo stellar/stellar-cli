@@ -41,6 +41,11 @@ fn init() {
         .success();
     sandbox
         .dir()
+        .child("AGENTS.md")
+        .assert(predicate::str::contains("stellar contract build"));
+
+    sandbox
+        .dir()
         .child("Cargo.toml")
         .assert(predicate::function(|c: &str| {
             let table = toml::from_str::<toml::Table>(c).unwrap();

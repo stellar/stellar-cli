@@ -17,10 +17,14 @@ use crate::log::extract_events;
 use crate::print::Print;
 use crate::tx::sim_sign_and_send_tx;
 use crate::utils::deprecate_message;
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     assembled::simulate_and_assemble_transaction,
     commands::{
-        contract::arg_parsing::{build_host_function_parameters, output_to_string},
+        contract::arg_parsing::{
+            build_host_function_parameters, build_host_function_parameters_by_position,
+            output_to_string,
+        },
         global,
         tx::fetch::fee,
         txn_result::{TxnEnvelopeResult, TxnResult},
@@ -45,7 +49,11 @@ use soroban_spec_tools::contract;
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to invoke
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
+    #[arg(
+        long = "contract-id",
+        visible_alias = "id",
+        env = "STELLAR_CONTRACT_ID"
+    )]
     pub contract_id: config::UnresolvedContract,
 
     // For testing only
@@ -59,6 +67,13 @@ pub struct Cmd {
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
+
+    /// When set, invoke this function with these already-resolved values mapped
+    /// to the contract's parameters by position instead of parsing `slop` by
+    /// name. Used by `stellar token` so a SEP-41 call works regardless of what
+    /// the contract names its parameters.
+    #[arg(skip)]
+    pub invocation: Option<PositionalInvocation>,
 
     #[command(flatten)]
     pub config: config::Args,
@@ -76,6 +91,16 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+}
+
+/// A request to invoke a named function with values mapped to the contract's
+/// parameters by position rather than by name.
+#[derive(Debug, Clone)]
+pub struct PositionalInvocation {
+    /// The contract function to call (matched by name).
+    pub function: String,
+    /// Already-resolved argument values in the function's parameter order.
+    pub args: Vec<String>,
 }
 
 impl FromStr for Cmd {
@@ -187,7 +212,9 @@ impl Cmd {
         }
 
         match res {
-            TxnEnvelopeResult::TxnEnvelope(tx) => println!("{}", tx.to_xdr_base64(Limits::none())?),
+            TxnEnvelopeResult::TxnEnvelope(tx) => {
+                println!("{}", tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?);
+            }
             TxnEnvelopeResult::Res(output) => {
                 println!("{output}");
             }
@@ -257,13 +284,33 @@ impl Cmd {
         .await?)
     }
 
-    #[allow(clippy::too_many_lines)]
+    /// Run the invocation and return only the decoded result, discarding the
+    /// transaction hash. Kept as the stable entry point for callers that just
+    /// need the rendered output (e.g. `contract invoke` itself).
     pub async fn execute(
         &self,
         config: &config::Args,
         quiet: bool,
         no_cache: bool,
     ) -> Result<TxnResult<String>, Error> {
+        Ok(
+            match self.execute_with_receipt(config, quiet, no_cache).await? {
+                TxnResult::Txn(tx) => TxnResult::Txn(tx),
+                TxnResult::Res(receipt) => TxnResult::Res(receipt.output),
+            },
+        )
+    }
+
+    /// Run the invocation and return a [`InvokeReceipt`] pairing the decoded
+    /// result with the submitted transaction's hash. Typed clients (such as
+    /// `stellar token`) use this to build machine-readable receipts.
+    #[allow(clippy::too_many_lines)]
+    pub async fn execute_with_receipt(
+        &self,
+        config: &config::Args,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<TxnResult<InvokeReceipt>, Error> {
         self.auth_mode.validate_not_enforce()?;
 
         let print = print::Print::new(quiet);
@@ -279,7 +326,17 @@ impl Cmd {
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
-            build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            if let Some(inv) = &self.invocation {
+                build_host_function_parameters_by_position(
+                    &contract_id,
+                    &inv.function,
+                    &inv.args,
+                    spec_entries,
+                    config,
+                )?;
+            } else {
+                build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+            }
         }
 
         let client = network.rpc_client()?;
@@ -303,8 +360,17 @@ impl Cmd {
         .await
         .map_err(Error::from)?;
 
-        let params =
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?;
+        let params = if let Some(inv) = &self.invocation {
+            build_host_function_parameters_by_position(
+                &contract_id,
+                &inv.function,
+                &inv.args,
+                &spec_entries,
+                config,
+            )?
+        } else {
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?
+        };
 
         let (function, spec, host_function_params, signers) = params;
 
@@ -348,7 +414,13 @@ impl Cmd {
             // fall back to raw format since we only have the spec for the invoked contract.
             crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-            return Ok(output_to_string(&spec, &return_value[0].xdr, &function)?);
+            let output = output_to_string(&spec, &return_value[0].xdr, &function)?
+                .into_result()
+                .expect("output_to_string always returns a result");
+            return Ok(TxnResult::Res(InvokeReceipt {
+                tx_hash: None,
+                output,
+            }));
         };
 
         let sequence: i64 = account_details.seq_num.into();
@@ -377,6 +449,7 @@ impl Cmd {
         )
         .await?;
 
+        let tx_hash = res.tx_hash.clone();
         let return_value = res.return_value()?;
         let events = extract_events(&res.result_meta.unwrap_or_default());
 
@@ -386,8 +459,22 @@ impl Cmd {
         // fall back to raw format since we only have the spec for the invoked contract.
         crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-        Ok(output_to_string(&spec, &return_value, &function)?)
+        let output = output_to_string(&spec, &return_value, &function)?
+            .into_result()
+            .expect("output_to_string always returns a result");
+        Ok(TxnResult::Res(InvokeReceipt { tx_hash, output }))
     }
+}
+
+/// The outcome of a submitted contract invocation: the decoded return value
+/// alongside the hash of the transaction that produced it.
+#[derive(Debug, Clone)]
+pub struct InvokeReceipt {
+    /// Hex-encoded hash of the submitted transaction, or `None` when the
+    /// invocation resolved by simulation only (read-only) and was never sent.
+    pub tx_hash: Option<String>,
+    /// The decoded return value, rendered as a string (JSON for most types).
+    pub output: String,
 }
 
 const DEFAULT_ACCOUNT_ID: AccountId = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256([0; 32])));
