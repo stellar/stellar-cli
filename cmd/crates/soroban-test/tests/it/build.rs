@@ -737,8 +737,8 @@ fn parent_path() -> String {
 
 fn with_flags(expected: &str) -> String {
     const ENV_VAR: &str = concat!(
-        "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 STELLAR_CLI_VERSION_MAJOR=",
-        env!("CARGO_PKG_VERSION_MAJOR")
+        "SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 STELLAR_CLI_VERSION=",
+        env!("CARGO_PKG_VERSION")
     );
 
     let cargo_home = home::cargo_home().unwrap();
