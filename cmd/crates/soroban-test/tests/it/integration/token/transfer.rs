@@ -219,26 +219,45 @@ async fn transfer_rejects_negative_amount_before_any_rpc() {
 }
 
 #[tokio::test]
-async fn transfer_rejects_muxed_source_with_clear_error() {
+async fn transfer_from_muxed_source() {
     let sandbox = &TestEnv::new();
     let recipient = new_account(sandbox, "recipient");
 
     deploy_sac(sandbox, "native", "test");
+    let sac = sac_id(sandbox, "native");
 
-    // Muxed (M…) source accounts aren't supported by the invoke pipeline yet
-    // (see #2645). Until then the command must reject them up front with a clear
-    // message rather than a raw strkey decode error deep in the pipeline.
-    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    // A muxed (M…) source is the funded `test` identity's G… account plus a
+    // mux id (#2645). An M-literal carries no secret, so signing goes through
+    // the identity via `--sign-with-key`.
+    let g_addr = test_address(sandbox);
+    let ed25519 = stellar_strkey::ed25519::PublicKey::from_string(&g_addr)
+        .unwrap()
+        .0;
+    let muxed = format!(
+        "{}",
+        stellar_strkey::ed25519::MuxedAccount { ed25519, id: 1 }
+    );
+
+    let recipient_before = sac_balance(sandbox, &sac, &recipient);
     sandbox
         .new_assert_cmd("token")
         .args([
-            "transfer", "--id", "native", "--to", &recipient, "--amount", "1", "--from", muxed,
+            "transfer",
+            "--id",
+            "native",
+            "--to",
+            &recipient,
+            "--amount",
+            "1",
+            "--from",
+            &muxed,
+            "--sign-with-key",
+            "test",
         ])
         .assert()
-        .failure()
-        .stderr(predicates::str::contains(
-            "muxed (M…) source accounts are not yet supported",
-        ));
+        .success();
+
+    assert_eq!(sac_balance(sandbox, &sac, &recipient), recipient_before + 1);
 }
 
 #[tokio::test]
