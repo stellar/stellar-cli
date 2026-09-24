@@ -174,12 +174,13 @@ fn extract_github_repo(source_repo: &str) -> Result<&str, Error> {
 /// dropping the `git+` scheme prefix, the `@<ref>` suffix, and any `.git`
 /// suffix, so it can be compared against `https://github.com/<owner>/<repo>`.
 fn resolved_dependency_repo_url(uri: &str) -> &str {
-    uri.strip_prefix("git+")
+    let without_ref = uri
+        .strip_prefix("git+")
         .unwrap_or(uri)
         .split('@')
         .next()
-        .unwrap_or("")
-        .trim_end_matches(".git")
+        .unwrap_or("");
+    without_ref.strip_suffix(".git").unwrap_or(without_ref)
 }
 
 /// Select the SLSA provenance attestation from a GitHub attestations response
@@ -385,7 +386,10 @@ mod gh_payload {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_github_repo, gh_attest_resp, verified_provenance, Error};
+    use super::{
+        extract_github_repo, gh_attest_resp, resolved_dependency_repo_url, verified_provenance,
+        Error,
+    };
     use base64::Engine as _;
 
     const WASM_HASH: &str = "d3e0f12ef8e25358d366c40faf5d4792749c6651d91256c3d888bcdb817829e0";
@@ -512,6 +516,20 @@ mod tests {
         // describes the same repository and must be accepted.
         let resp = attest_resp(WASM_HASH, "https://github.com/Stellar/Stellar-CLI");
         assert!(verified_provenance(&resp, WASM_HASH, "stellar/stellar-cli").is_ok());
+    }
+
+    #[test]
+    fn strips_at_most_one_git_suffix() {
+        // Only a single transport `.git` suffix is dropped, so a repository
+        // whose name legitimately ends in `.git` is not collapsed to another.
+        assert_eq!(
+            resolved_dependency_repo_url("git+https://github.com/owner/repo.git@refs/tags/v1"),
+            "https://github.com/owner/repo"
+        );
+        assert_eq!(
+            resolved_dependency_repo_url("https://github.com/owner/repo.git.git"),
+            "https://github.com/owner/repo.git"
+        );
     }
 
     #[test]
