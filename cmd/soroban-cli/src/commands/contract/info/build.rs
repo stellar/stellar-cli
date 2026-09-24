@@ -234,7 +234,10 @@ fn verified_provenance(
             .resolved_dependencies
             .first()
             .map(|dependency| resolved_dependency_repo_url(&dependency.uri).to_string());
-        let repo_matches = source_repo_url.as_deref() == Some(expected_repo_url.as_str());
+        // GitHub owner/repo names are case-insensitive, so compare accordingly.
+        let repo_matches = source_repo_url
+            .as_deref()
+            .is_some_and(|url| url.eq_ignore_ascii_case(&expected_repo_url));
 
         if subject_matches && repo_matches {
             return Ok(payload);
@@ -499,6 +502,15 @@ mod tests {
             attest_resp(other, "https://github.com/stellar/stellar-cli"),
             attest_resp(WASM_HASH, "https://github.com/stellar/stellar-cli"),
         ]);
+        assert!(verified_provenance(&resp, WASM_HASH, "stellar/stellar-cli").is_ok());
+    }
+
+    #[test]
+    fn accepts_repo_differing_only_in_case() {
+        // GitHub owner/repo names are case-insensitive, so an attestation whose
+        // resolved dependency differs from `source_repo` only in casing still
+        // describes the same repository and must be accepted.
+        let resp = attest_resp(WASM_HASH, "https://github.com/Stellar/Stellar-CLI");
         assert!(verified_provenance(&resp, WASM_HASH, "stellar/stellar-cli").is_ok());
     }
 
