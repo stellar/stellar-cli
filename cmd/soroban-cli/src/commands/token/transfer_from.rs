@@ -163,9 +163,9 @@ impl Cmd {
         // or an alias; resolve them to `ScAddress`es and hand the strkeys to the
         // `transfer_from` args, which accept any of these.
         //
-        // An alias that resolves to a muxed identity is collapsed by `resolve`
-        // to its base `G…` account, which would target a different address than
-        // the one named. Reject either up front.
+        // The host rejects a muxed (`M…`) `from`/`to` mid-simulation with an
+        // opaque error, so reject an alias that resolves to one up front with a
+        // clear message. An explicit `M…` strkey stays pass-through by design.
         if self
             .from
             .is_muxed_alias(&config.locator, &network.network_passphrase)

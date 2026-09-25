@@ -162,9 +162,9 @@ impl Cmd {
         // resolve it to an `ScAddress` and hand the strkey to the `approve` arg,
         // which accepts any of these delegates.
         //
-        // An alias that resolves to a muxed identity is collapsed by `resolve`
-        // to its base `G…` account, which would target a different delegate than
-        // the one named. Reject that up front.
+        // The host rejects a muxed (`M…`) spender mid-simulation with an opaque
+        // error, so reject an alias that resolves to one up front with a clear
+        // message. An explicit `M…` strkey stays pass-through by design.
         if self
             .spender
             .is_muxed_alias(&config.locator, &network.network_passphrase)
