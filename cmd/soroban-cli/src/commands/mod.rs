@@ -22,6 +22,7 @@ pub mod network;
 pub mod plugin;
 pub mod skill;
 pub mod snapshot;
+pub mod strkey;
 pub mod token;
 pub mod tx;
 pub mod version;
@@ -203,7 +204,7 @@ pub enum Cmd {
     Xdr(stellar_xdr::cli::Root),
 
     /// Decode and encode strkey
-    Strkey(stellar_strkey::cli::Root),
+    Strkey(strkey::Cmd),
 
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]

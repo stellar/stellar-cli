@@ -4878,17 +4878,21 @@ Decode and encode strkey
 
 Decode strkey
 
-Reads the strkey from stdin.
+**Usage:** `stellar strkey decode [STRKEY]`
 
-**Usage:** `stellar strkey decode`
+###### **Arguments:**
+
+- `<STRKEY>` — Strkey to decode, or stdin if empty
 
 ## `stellar strkey encode`
 
 Encode strkey
 
-Reads the JSON from stdin.
+**Usage:** `stellar strkey encode [JSON]`
 
-**Usage:** `stellar strkey encode`
+###### **Arguments:**
+
+- `<JSON>` — JSON for Strkey to encode, or stdin if empty
 
 ## `stellar strkey zero`
 
