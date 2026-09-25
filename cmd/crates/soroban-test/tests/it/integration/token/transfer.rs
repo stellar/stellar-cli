@@ -294,17 +294,30 @@ async fn transfer_to_muxed_destination_succeeds() {
     deploy_sac(sandbox, "native", "test");
     let native_id = sac_id(sandbox, "native");
 
-    // A muxed (`M…`) destination credits its base account and records the mux id
-    // in the transfer event, so the base account's balance must increase.
+    // A muxed (`M…`) destination credits its base account *and* records the mux
+    // id in the transfer event. Assert both: a regression that downgraded
+    // `M…`→`G…` would still move the base balance, so the `to_muxed_id` event
+    // field is what actually protects the mux id being preserved on-chain.
     let muxed = muxed_address(&recipient, 42);
     let amount: i128 = 7_000_000;
     let before = sac_balance(sandbox, &native_id, &recipient);
 
-    let receipt = transfer_json(sandbox, "native", &muxed, amount);
-    assert!(
-        receipt["tx_hash"].as_str().is_some_and(|h| !h.is_empty()),
-        "expected a non-empty tx_hash, got: {receipt}"
-    );
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--to",
+            &muxed,
+            "--amount",
+            &amount.to_string(),
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("to_muxed_id"));
 
     let after = sac_balance(sandbox, &native_id, &recipient);
     assert_eq!(
@@ -323,8 +336,8 @@ async fn transfer_to_muxed_alias_succeeds() {
     let native_id = sac_id(sandbox, "native");
 
     // An alias whose stored key is muxed resolves to that muxed address rather
-    // than silently downgrading to the base `G…`, so the transfer reaches the
-    // muxed recipient named by the alias.
+    // than silently downgrading to the base `G…`: the transfer reaches the base
+    // account and the mux id named by the alias is preserved in the event.
     let muxed = muxed_address(&recipient, 42);
     sandbox
         .new_assert_cmd("keys")
@@ -349,7 +362,8 @@ async fn transfer_to_muxed_alias_succeeds() {
             &amount.to_string(),
         ])
         .assert()
-        .success();
+        .success()
+        .stderr(predicate::str::contains("to_muxed_id"));
 
     let after = sac_balance(sandbox, &native_id, &recipient);
     assert_eq!(
