@@ -174,9 +174,9 @@ async fn approve_rejects_negative_amount_before_any_rpc() {
 async fn approve_rejects_muxed_spender_alias_with_clear_error() {
     let sandbox = &TestEnv::new();
 
-    // An alias whose stored key is muxed would be silently collapsed to its base
-    // `G…` account by resolution, targeting a different delegate than the one
-    // named. Reject it up front instead.
+    // The host rejects a muxed (`M…`) spender mid-simulation, so an alias whose
+    // stored key is muxed is rejected up front with a clear message instead of
+    // failing opaquely.
     let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
     sandbox
         .new_assert_cmd("keys")
@@ -194,6 +194,35 @@ async fn approve_rejects_muxed_spender_alias_with_clear_error() {
             "test",
             "--spender",
             "muxed-spender",
+            "--amount",
+            "1",
+            "--expiration-ledger",
+            "9999999",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn approve_rejects_muxed_spender_strkey_with_clear_error() {
+    let sandbox = &TestEnv::new();
+
+    // A literal `M…` spender is a resolved muxed address, which the host also
+    // rejects; the command must reject it up front too, not just aliases.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "approve",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--spender",
+            muxed,
             "--amount",
             "1",
             "--expiration-ledger",
