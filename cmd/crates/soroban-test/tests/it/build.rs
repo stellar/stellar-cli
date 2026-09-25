@@ -1084,6 +1084,9 @@ fn build_always_injects_cli_version() {
     );
 }
 
+const ZERO_DIGEST: &str =
+    "docker.io/stellar/stellar-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
 // Convenience: drive a git command in a fixture directory, asserting it succeeds
 // so a failed setup can't silently push tests down the non-git path.
 fn git_in(dir: &Path, args: &[&str]) {
@@ -1108,6 +1111,125 @@ fn fresh_workspace() -> (TempDir, PathBuf) {
     let workspace = temp.path().join("workspace");
     (temp, workspace)
 }
+
+// `--verifiable` cannot accept reserved `--meta` keys that the cli writes itself.
+#[test]
+fn verifiable_meta_conflict_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .arg("--meta")
+        .arg("bldimg=not-allowed")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("reserved key: bldimg"));
+}
+
+// A verifiable build compiles from a throwaway extracted-archive tempdir, so a
+// `--print-commands-only` command bind-mounting it could never be replayed;
+// clap rejects the combination up front.
+#[test]
+fn verifiable_rejects_print_commands_only() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--print-commands-only")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+// `--image` is validated against the SEP-58 bldimg regex; tag-only refs fail.
+#[test]
+fn verifiable_image_must_be_digest_pinned() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg("docker.io/stellar/stellar-cli:latest")
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("bldimg format"));
+}
+
+// SEP-58 metadata must be ASCII; a non-ASCII `--image` is rejected before the
+// bldimg format check.
+#[test]
+fn verifiable_image_must_be_ascii() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    let non_ascii = format!("localhost:5000/café@sha256:{}", "0".repeat(64));
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(non_ascii)
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must be ASCII"));
+}
+
+// SEP-58 bldimg requires an explicit registry host (e.g. `docker.io/...`).
+// Implicit Docker-Hub-style short refs are rejected.
+#[test]
+fn verifiable_image_requires_explicit_registry_host() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    let short_ref = format!("stellar/stellar-cli@sha256:{}", "0".repeat(64));
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(short_ref)
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("bldimg format"));
+}
+
+// The source-archive stage (writing the archive and computing source_sha256) is
+// exercised end-to-end by the Docker-gated `integration/verifiable.rs`; these
+// engine-free tests deliberately stop at validation so they never reach a real
+// container.
 
 // `contract archive --out-file` writes the gzipped tarball and prints its
 // source_sha256.
@@ -1347,4 +1469,74 @@ fn contract_archive_dirty_tree_errors() {
         !out.exists(),
         "no archive should be written for a dirty tree"
     );
+}
+
+// `--source-sha256` value must match the 64-hex regex.
+#[test]
+fn verifiable_source_sha256_format_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-sha256")
+        .arg("not-a-sha")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("source_sha256 format"));
+}
+
+// `--source-uri` value must be a URI with a scheme.
+#[test]
+fn verifiable_source_uri_format_errors() {
+    let sandbox = TestEnv::default();
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace/contracts/add");
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(fixture_path)
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .arg("--source-uri")
+        .arg("not a uri")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("source_uri format"));
+}
+
+// A dirty git tree is a hard fail under `--verifiable` (the recorded
+// source_sha256 would not describe the bytes built).
+#[test]
+fn verifiable_dirty_tree_errors() {
+    let sandbox = TestEnv::default();
+    let (_temp, workspace) = fresh_workspace();
+    git_in(&workspace, &["init", "-q", "-b", "main"]);
+    git_in(&workspace, &["add", "-A"]);
+    git_in(&workspace, &["commit", "-q", "-m", "init"]);
+    // Dirty the tree after committing so status is non-empty.
+    std::fs::write(workspace.join("dirty.txt"), b"uncommitted").unwrap();
+
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(workspace.join("contracts").join("add"))
+        .arg("build")
+        .arg("--verifiable")
+        .arg("--image")
+        .arg(ZERO_DIGEST)
+        .arg("--source-sha256")
+        .arg("a".repeat(64))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("dirty").or(predicate::str::contains("clean tree")));
 }
