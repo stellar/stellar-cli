@@ -237,7 +237,7 @@ async fn transfer_rejects_muxed_source_with_clear_error() {
         .assert()
         .failure()
         .stderr(predicates::str::contains(
-            "muxed (M…) source accounts are not yet supported",
+            "muxed (M…) accounts are not yet supported",
         ));
 }
 
@@ -275,5 +275,100 @@ async fn transfer_json_failure_returns_error_envelope_on_stdout() {
     assert!(
         message.contains("trustline entry is missing"),
         "expected the trustline diagnostic in the JSON error message, got: {message}"
+    );
+}
+
+/// Build the muxed (`M…`) strkey for `account`'s ed25519 key with mux id `id`.
+fn muxed_address(account: &str, id: u64) -> String {
+    let ed25519 = stellar_strkey::ed25519::PublicKey::from_string(account)
+        .unwrap()
+        .0;
+    format!("{}", stellar_strkey::ed25519::MuxedAccount { ed25519, id })
+}
+
+#[tokio::test]
+async fn transfer_to_muxed_destination_succeeds() {
+    let sandbox = &TestEnv::new();
+    let recipient = new_account(sandbox, "recipient");
+
+    deploy_sac(sandbox, "native", "test");
+    let native_id = sac_id(sandbox, "native");
+
+    // A muxed (`M…`) destination credits its base account *and* records the mux
+    // id in the transfer event. Assert both: a regression that downgraded
+    // `M…`→`G…` would still move the base balance, so the `to_muxed_id` event
+    // field is what actually protects the mux id being preserved on-chain.
+    let muxed = muxed_address(&recipient, 42);
+    let amount: i128 = 7_000_000;
+    let before = sac_balance(sandbox, &native_id, &recipient);
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--to",
+            &muxed,
+            "--amount",
+            &amount.to_string(),
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("to_muxed_id"));
+
+    let after = sac_balance(sandbox, &native_id, &recipient);
+    assert_eq!(
+        after,
+        before + amount,
+        "muxed destination's base balance should increase"
+    );
+}
+
+#[tokio::test]
+async fn transfer_to_muxed_alias_succeeds() {
+    let sandbox = &TestEnv::new();
+    let recipient = new_account(sandbox, "recipient");
+
+    deploy_sac(sandbox, "native", "test");
+    let native_id = sac_id(sandbox, "native");
+
+    // An alias whose stored key is muxed resolves to that muxed address rather
+    // than silently downgrading to the base `G…`: the transfer reaches the base
+    // account and the mux id named by the alias is preserved in the event.
+    let muxed = muxed_address(&recipient, 42);
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-recipient", "--public-key", &muxed])
+        .assert()
+        .success();
+
+    let amount: i128 = 3_000_000;
+    let before = sac_balance(sandbox, &native_id, &recipient);
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer",
+            "--id",
+            "native",
+            "--from",
+            "test",
+            "--to",
+            "muxed-recipient",
+            "--amount",
+            &amount.to_string(),
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("to_muxed_id"));
+
+    let after = sac_balance(sandbox, &native_id, &recipient);
+    assert_eq!(
+        after,
+        before + amount,
+        "muxed alias's base balance should increase"
     );
 }

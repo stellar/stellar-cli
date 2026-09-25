@@ -131,7 +131,8 @@ async fn transfer_from_rejects_muxed_spender_with_clear_error() {
     let recipient = new_account(sandbox, "recipient");
 
     // Muxed (M…) source accounts aren't supported by the invoke pipeline yet
-    // (see #2645). The signer here is `--spender`, so the guard must name it.
+    // (see #2645). Until then the command must reject them up front with a clear
+    // message rather than a raw strkey decode error deep in the pipeline.
     let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
     sandbox
         .new_assert_cmd("token")
@@ -151,7 +152,7 @@ async fn transfer_from_rejects_muxed_spender_with_clear_error() {
         .assert()
         .failure()
         .stderr(predicates::str::contains(
-            "muxed (M…) source accounts are not yet supported",
+            "muxed (M…) accounts are not yet supported",
         ));
 }
 
@@ -180,4 +181,110 @@ async fn transfer_from_rejects_negative_amount_before_any_rpc() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("amount must not be negative"));
+}
+
+#[tokio::test]
+async fn transfer_from_rejects_muxed_from_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+    let recipient = new_account(sandbox, "recipient");
+
+    // The host rejects a muxed (`M…`) owner mid-simulation, so an alias whose
+    // stored key is muxed is rejected up front with a clear message instead of
+    // failing opaquely.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-owner", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            "muxed-owner",
+            "--to",
+            &recipient,
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn transfer_from_rejects_muxed_to_strkey_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+    let test = test_address(sandbox);
+
+    // A literal `M…` destination is a resolved muxed address, which the host
+    // also rejects; the command must reject it up front too, not just aliases.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            &test,
+            "--to",
+            muxed,
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn transfer_from_rejects_muxed_to_alias_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+    let test = test_address(sandbox);
+
+    // The guard rejects a muxed alias in either `--from` or `--to`; a valid
+    // `--from` here forces the `--to` branch to be the one that fires.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("keys")
+        .args(["add", "muxed-recipient", "--public-key", muxed])
+        .assert()
+        .success();
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "transfer-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            &test,
+            "--to",
+            "muxed-recipient",
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
 }

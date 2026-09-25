@@ -151,9 +151,9 @@ async fn burn_from_rejects_muxed_from_alias_with_clear_error() {
     let sandbox = &TestEnv::new();
     let spender = new_account(sandbox, "spender");
 
-    // An alias whose stored key is muxed would be silently collapsed to its
-    // base `G…` account by resolution, targeting a different owner than the one
-    // named. Reject it up front instead.
+    // The host rejects a muxed (`M…`) owner mid-simulation, so an alias whose
+    // stored key is muxed is rejected up front with a clear message instead of
+    // failing opaquely.
     let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
     sandbox
         .new_assert_cmd("keys")
@@ -171,6 +171,34 @@ async fn burn_from_rejects_muxed_from_alias_with_clear_error() {
             &spender,
             "--from",
             "muxed-owner",
+            "--amount",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn burn_from_rejects_muxed_from_strkey_with_clear_error() {
+    let sandbox = &TestEnv::new();
+    let spender = new_account(sandbox, "spender");
+
+    // A literal `M…` owner is a resolved muxed address, which the host also
+    // rejects; the command must reject it up front too, not just aliases.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "burn-from",
+            "--id",
+            "native",
+            "--spender",
+            &spender,
+            "--from",
+            muxed,
             "--amount",
             "1",
         ])

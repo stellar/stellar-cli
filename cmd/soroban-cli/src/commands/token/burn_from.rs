@@ -7,8 +7,8 @@ use crate::{
         token::args::{self, OutputFormat},
     },
     config::{
-        self, key::Key, locator, network, sign_with, token::UnresolvedToken,
-        UnresolvedMuxedAccount, UnresolvedScAddress,
+        self, locator, network, sign_with, token::UnresolvedToken, UnresolvedMuxedAccount,
+        UnresolvedScAddress,
     },
     output::Output,
 };
@@ -158,13 +158,14 @@ impl Cmd {
         // resolve it to an `ScAddress` and hand the strkey to the `burn_from`
         // args, which accept any of these.
         //
-        // An alias that resolves to a muxed identity is collapsed by `resolve`
-        // to its base `G…` account, which would target a different owner than
-        // the one named. Reject that up front.
-        if let UnresolvedScAddress::Alias(alias) = &self.from {
-            if let Ok(Key::MuxedAccount(_)) = config.locator.read_key(alias) {
-                return Err(Error::MuxedNotSupported);
-            }
+        // The host rejects a muxed (`M…`) owner mid-simulation with an opaque
+        // error, so reject one up front with a clear message — whether supplied
+        // as a direct `M…` strkey or an alias resolving to a muxed key.
+        if self
+            .from
+            .is_muxed(&config.locator, &network.network_passphrase)
+        {
+            return Err(Error::MuxedNotSupported);
         }
         let from = self
             .from

@@ -67,11 +67,8 @@ pub enum Error {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
 
-    #[error(
-        "muxed (M…) source accounts are not yet supported for `token transfer`; \
-         use the underlying G… account as `--from` instead"
-    )]
-    MuxedSourceNotSupported,
+    #[error("muxed (M…) accounts are not yet supported")]
+    MuxedNotSupported,
 }
 
 /// Parse `--amount` as a non-negative `i128`. A negative transfer amount is
@@ -99,7 +96,7 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
-            Error::MuxedSourceNotSupported => "unsupported",
+            Error::MuxedNotSupported => "unsupported",
         }
     }
 }
@@ -147,17 +144,18 @@ impl Cmd {
         // (which also signs and authorizes), `to` is the destination.
         //
         // The invoke pipeline can't source a transaction from a muxed account
-        // yet (see #2645), and a muxed strkey in the `transfer` arg is rejected
-        // mid-simulation with an opaque host error; reject it up front with a
-        // clear message instead.
+        // yet (see #2645), so reject a muxed `from` up front with a clear
+        // message rather than a raw strkey decode error deep in the pipeline.
         let source_account = config.source_account()?;
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
-            return Err(Error::MuxedSourceNotSupported);
+            return Err(Error::MuxedNotSupported);
         }
         let from = source_account.to_string();
         // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
         // resolve it to an `ScAddress` and hand the strkey to the `transfer`
-        // arg, which accepts any of these destinations.
+        // arg, which accepts any of these destinations. A muxed (`M…`)
+        // destination is passed through as-is: the SAC records its mux id in
+        // the transfer event.
         let to = self
             .to
             .clone()
