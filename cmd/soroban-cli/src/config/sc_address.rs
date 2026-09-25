@@ -53,9 +53,12 @@ impl UnresolvedScAddress {
         };
         // Mirror `resolve`'s precedence: a contract alias wins when both a
         // contract alias and a stored key exist, so the muxed key is never
-        // picked. Only a muxed key that would actually be resolved matters.
-        if UnresolvedContract::resolve_alias(alias, locator, network_passphrase).is_ok() {
-            return false;
+        // picked. A shadowed reserved-alias collision is likewise surfaced by
+        // `resolve` itself, so don't mask it as a muxed rejection. Only a muxed
+        // key that would actually be resolved matters.
+        match UnresolvedContract::resolve_alias(alias, locator, network_passphrase) {
+            Ok(_) | Err(locator::Error::ShadowedReservedAlias { .. }) => return false,
+            Err(_) => {}
         }
         matches!(locator.read_key(alias), Ok(key::Key::MuxedAccount(_)))
     }
@@ -214,6 +217,35 @@ mod tests {
         KeyType::Identity.write("owner", &key, dir.path()).unwrap();
 
         assert!(UnresolvedScAddress::Alias("owner".to_string())
+            .is_muxed_alias(&locator, network_passphrase));
+    }
+
+    #[test]
+    fn is_muxed_alias_false_when_reserved_alias_is_shadowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+        let native = alias::NATIVE;
+
+        // A reserved alias shadowed by a stored contract id, with a muxed key of
+        // the same name. `resolve` surfaces the collision error, so
+        // `is_muxed_alias` must not mask it by reporting a muxed rejection.
+        let key = Key::from_str(MUXED).unwrap();
+        KeyType::Identity.write(native, &key, dir.path()).unwrap();
+
+        let contract_ids = dir.path().join("contract-ids");
+        std::fs::create_dir_all(&contract_ids).unwrap();
+        std::fs::write(
+            contract_ids.join(format!("{native}.json")),
+            format!(
+                r#"{{"ids":{{"{network_passphrase}":"CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"}}}}"#
+            ),
+        )
+        .unwrap();
+
+        assert!(!UnresolvedScAddress::Alias(native.to_string())
             .is_muxed_alias(&locator, network_passphrase));
     }
 
