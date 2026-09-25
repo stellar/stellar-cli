@@ -278,19 +278,62 @@ async fn transfer_json_failure_returns_error_envelope_on_stdout() {
     );
 }
 
-#[tokio::test]
-async fn transfer_rejects_muxed_to_alias_with_clear_error() {
-    let sandbox = &TestEnv::new();
+/// Build the muxed (`M…`) strkey for `account`'s ed25519 key with mux id `id`.
+fn muxed_address(account: &str, id: u64) -> String {
+    let ed25519 = stellar_strkey::ed25519::PublicKey::from_string(account)
+        .unwrap()
+        .0;
+    format!("{}", stellar_strkey::ed25519::MuxedAccount { ed25519, id })
+}
 
-    // An alias whose stored key is muxed would be silently collapsed to its base
-    // `G…` account by resolution, targeting a different recipient than the one
-    // named. Reject it up front instead.
-    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+#[tokio::test]
+async fn transfer_to_muxed_destination_succeeds() {
+    let sandbox = &TestEnv::new();
+    let recipient = new_account(sandbox, "recipient");
+
+    deploy_sac(sandbox, "native", "test");
+    let native_id = sac_id(sandbox, "native");
+
+    // A muxed (`M…`) destination credits its base account and records the mux id
+    // in the transfer event, so the base account's balance must increase.
+    let muxed = muxed_address(&recipient, 42);
+    let amount: i128 = 7_000_000;
+    let before = sac_balance(sandbox, &native_id, &recipient);
+
+    let receipt = transfer_json(sandbox, "native", &muxed, amount);
+    assert!(
+        receipt["tx_hash"].as_str().is_some_and(|h| !h.is_empty()),
+        "expected a non-empty tx_hash, got: {receipt}"
+    );
+
+    let after = sac_balance(sandbox, &native_id, &recipient);
+    assert_eq!(
+        after,
+        before + amount,
+        "muxed destination's base balance should increase"
+    );
+}
+
+#[tokio::test]
+async fn transfer_to_muxed_alias_succeeds() {
+    let sandbox = &TestEnv::new();
+    let recipient = new_account(sandbox, "recipient");
+
+    deploy_sac(sandbox, "native", "test");
+    let native_id = sac_id(sandbox, "native");
+
+    // An alias whose stored key is muxed resolves to that muxed address rather
+    // than silently downgrading to the base `G…`, so the transfer reaches the
+    // muxed recipient named by the alias.
+    let muxed = muxed_address(&recipient, 42);
     sandbox
         .new_assert_cmd("keys")
-        .args(["add", "muxed-recipient", "--public-key", muxed])
+        .args(["add", "muxed-recipient", "--public-key", &muxed])
         .assert()
         .success();
+
+    let amount: i128 = 3_000_000;
+    let before = sac_balance(sandbox, &native_id, &recipient);
 
     sandbox
         .new_assert_cmd("token")
@@ -303,11 +346,15 @@ async fn transfer_rejects_muxed_to_alias_with_clear_error() {
             "--to",
             "muxed-recipient",
             "--amount",
-            "1",
+            &amount.to_string(),
         ])
         .assert()
-        .failure()
-        .stderr(predicates::str::contains(
-            "muxed (M…) accounts are not yet supported",
-        ));
+        .success();
+
+    let after = sac_balance(sandbox, &native_id, &recipient);
+    assert_eq!(
+        after,
+        before + amount,
+        "muxed alias's base balance should increase"
+    );
 }

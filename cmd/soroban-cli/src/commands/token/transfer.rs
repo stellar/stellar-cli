@@ -144,27 +144,18 @@ impl Cmd {
         // (which also signs and authorizes), `to` is the destination.
         //
         // The invoke pipeline can't source a transaction from a muxed account
-        // yet (see #2645), and a muxed strkey in the `transfer` arg is rejected
-        // mid-simulation with an opaque host error; reject it up front with a
-        // clear message instead.
+        // yet (see #2645), so reject a muxed `from` up front with a clear
+        // message rather than a raw strkey decode error deep in the pipeline.
         let source_account = config.source_account()?;
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
             return Err(Error::MuxedNotSupported);
         }
         let from = source_account.to_string();
-        // `--to` may be an account (`G…`), a contract (`C…`), or an alias;
+        // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
         // resolve it to an `ScAddress` and hand the strkey to the `transfer`
-        // arg, which accepts any of these destinations.
-        //
-        // An alias that resolves to a muxed identity is collapsed by `resolve`
-        // to its base `G…` account, which would target a different recipient
-        // than the one named. Reject that up front.
-        if self
-            .to
-            .is_muxed_alias(&config.locator, &network.network_passphrase)
-        {
-            return Err(Error::MuxedNotSupported);
-        }
+        // arg, which accepts any of these destinations. A muxed (`M…`)
+        // destination is passed through as-is: the SAC records its mux id in
+        // the transfer event.
         let to = self
             .to
             .clone()

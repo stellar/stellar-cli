@@ -42,18 +42,18 @@ impl FromStr for UnresolvedScAddress {
 }
 
 impl UnresolvedScAddress {
-    /// Whether this is an alias that [`resolve`](Self::resolve) would silently
-    /// collapse to the base `G…` account of a muxed (`M…`) identity, so callers
-    /// that can't yet handle muxed accounts reject it up front rather than
-    /// target a different address than the one named.
+    /// Whether this alias resolves to a muxed (`M…`) identity. Contexts that a
+    /// muxed address can't be used in — e.g. an allowance `spender`, or an
+    /// `owner` the host rejects — call this to fail up front with a clear
+    /// message instead of an opaque host error mid-simulation.
     #[must_use]
     pub fn is_muxed_alias(&self, locator: &locator::Args, network_passphrase: &str) -> bool {
         let UnresolvedScAddress::Alias(alias) = self else {
             return false;
         };
         // Mirror `resolve`'s precedence: a contract alias wins when both a
-        // contract alias and a stored key exist, so it never downgrades to a
-        // `G…` account. Only a muxed key that would actually be picked matters.
+        // contract alias and a stored key exist, so the muxed key is never
+        // picked. Only a muxed key that would actually be resolved matters.
         if UnresolvedContract::resolve_alias(alias, locator, network_passphrase).is_ok() {
             return false;
         }
@@ -95,9 +95,18 @@ impl UnresolvedScAddress {
             // when both a stored `native` alias and a `native` key exist, the
             // collision has to win so resolution can't silently pick the key.
             (Err(err @ locator::Error::ShadowedReservedAlias { .. }), _) => Err(err.into()),
-            (_, Ok(key)) => Ok(xdr::ScAddress::Account(
-                key.muxed_account(hd_path)?.account_id(),
-            )),
+            // Preserve a muxed (`M…`) key as a muxed `ScAddress` rather than
+            // downgrading to its base `G…` account: collapsing it would target a
+            // different recipient than the one named. Contexts that can't accept
+            // a muxed address reject it up front (see `is_muxed_alias`).
+            (_, Ok(key)) => Ok(match key.muxed_account(hd_path)? {
+                xdr::MuxedAccount::Ed25519(ed25519) => xdr::ScAddress::Account(xdr::AccountId(
+                    xdr::PublicKey::PublicKeyTypeEd25519(ed25519),
+                )),
+                xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 { id, ed25519 }) => {
+                    xdr::ScAddress::MuxedAccount(xdr::MuxedEd25519Account { id, ed25519 })
+                }
+            }),
             _ => Err(Error::AccountAliasNotFound(alias)),
         }
     }
@@ -170,6 +179,28 @@ mod tests {
     }
 
     const MUXED: &str = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+
+    #[test]
+    fn resolve_preserves_muxed_account_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // An alias whose stored key is muxed must resolve to a muxed
+        // `ScAddress`, not silently downgrade to its base `G…` account, so a
+        // transfer targets the exact recipient (mux id included) that was named.
+        let key = Key::from_str(MUXED).unwrap();
+        KeyType::Identity.write("bobmux", &key, dir.path()).unwrap();
+
+        let resolved = UnresolvedScAddress::Alias("bobmux".to_string())
+            .resolve(&locator, network_passphrase, None)
+            .unwrap();
+
+        assert_eq!(resolved, xdr::ScAddress::from_str(MUXED).unwrap());
+        assert!(matches!(resolved, xdr::ScAddress::MuxedAccount(_)));
+    }
 
     #[test]
     fn is_muxed_alias_true_for_stored_muxed_key() {
