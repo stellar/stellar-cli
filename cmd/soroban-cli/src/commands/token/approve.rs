@@ -163,11 +163,11 @@ impl Cmd {
         // which accepts any of these delegates.
         //
         // The host rejects a muxed (`M…`) spender mid-simulation with an opaque
-        // error, so reject an alias that resolves to one up front with a clear
-        // message. An explicit `M…` strkey stays pass-through by design.
+        // error, so reject one up front with a clear message — whether supplied
+        // as a direct `M…` strkey or an alias resolving to a muxed key.
         if self
             .spender
-            .is_muxed_alias(&config.locator, &network.network_passphrase)
+            .is_muxed(&config.locator, &network.network_passphrase)
         {
             return Err(Error::MuxedNotSupported);
         }

@@ -42,14 +42,20 @@ impl FromStr for UnresolvedScAddress {
 }
 
 impl UnresolvedScAddress {
-    /// Whether this alias resolves to a muxed (`M…`) identity. Contexts that a
-    /// muxed address can't be used in — e.g. an allowance `spender`, or an
-    /// `owner` the host rejects — call this to fail up front with a clear
-    /// message instead of an opaque host error mid-simulation.
+    /// Whether this resolves to a muxed (`M…`) identity — either a literal `M…`
+    /// strkey or an alias whose stored key is muxed. Contexts that a muxed
+    /// address can't be used in — e.g. an allowance `spender`, or an `owner` the
+    /// host rejects — call this to fail up front with a clear message instead of
+    /// an opaque host error mid-simulation.
     #[must_use]
-    pub fn is_muxed_alias(&self, locator: &locator::Args, network_passphrase: &str) -> bool {
-        let UnresolvedScAddress::Alias(alias) = self else {
-            return false;
+    pub fn is_muxed(&self, locator: &locator::Args, network_passphrase: &str) -> bool {
+        let alias = match self {
+            // A literal `M…` is already resolved; catch it here so a direct
+            // strkey is rejected as readily as an alias.
+            UnresolvedScAddress::Resolved(addr) => {
+                return matches!(addr, xdr::ScAddress::MuxedAccount(_));
+            }
+            UnresolvedScAddress::Alias(alias) => alias,
         };
         // Mirror `resolve`'s precedence: a contract alias wins when both a
         // contract alias and a stored key exist, so the muxed key is never
@@ -101,7 +107,7 @@ impl UnresolvedScAddress {
             // Preserve a muxed (`M…`) key as a muxed `ScAddress` rather than
             // downgrading to its base `G…` account: collapsing it would target a
             // different recipient than the one named. Contexts that can't accept
-            // a muxed address reject it up front (see `is_muxed_alias`).
+            // a muxed address reject it up front (see `is_muxed`).
             (_, Ok(key)) => Ok(match key.muxed_account(hd_path)? {
                 xdr::MuxedAccount::Ed25519(ed25519) => xdr::ScAddress::Account(xdr::AccountId(
                     xdr::PublicKey::PublicKeyTypeEd25519(ed25519),
@@ -206,7 +212,29 @@ mod tests {
     }
 
     #[test]
-    fn is_muxed_alias_true_for_stored_muxed_key() {
+    fn is_muxed_true_for_resolved_muxed_strkey() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // A literal `M…` parses to a resolved muxed `ScAddress`; the guard must
+        // catch it too, so a direct strkey is rejected as readily as an alias.
+        let address = UnresolvedScAddress::from_str(MUXED).unwrap();
+        assert!(matches!(address, UnresolvedScAddress::Resolved(_)));
+        assert!(address.is_muxed(&locator, network_passphrase));
+
+        // A resolved non-muxed account is not flagged.
+        let account = UnresolvedScAddress::from_str(
+            "GA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQHES5",
+        )
+        .unwrap();
+        assert!(!account.is_muxed(&locator, network_passphrase));
+    }
+
+    #[test]
+    fn is_muxed_true_for_stored_muxed_key() {
         let dir = tempfile::tempdir().unwrap();
         let locator = locator::Args {
             config_dir: Some(dir.path().to_path_buf()),
@@ -216,12 +244,13 @@ mod tests {
         let key = Key::from_str(MUXED).unwrap();
         KeyType::Identity.write("owner", &key, dir.path()).unwrap();
 
-        assert!(UnresolvedScAddress::Alias("owner".to_string())
-            .is_muxed_alias(&locator, network_passphrase));
+        assert!(
+            UnresolvedScAddress::Alias("owner".to_string()).is_muxed(&locator, network_passphrase)
+        );
     }
 
     #[test]
-    fn is_muxed_alias_false_when_reserved_alias_is_shadowed() {
+    fn is_muxed_false_when_reserved_alias_is_shadowed() {
         let dir = tempfile::tempdir().unwrap();
         let locator = locator::Args {
             config_dir: Some(dir.path().to_path_buf()),
@@ -231,7 +260,7 @@ mod tests {
 
         // A reserved alias shadowed by a stored contract id, with a muxed key of
         // the same name. `resolve` surfaces the collision error, so
-        // `is_muxed_alias` must not mask it by reporting a muxed rejection.
+        // `is_muxed` must not mask it by reporting a muxed rejection.
         let key = Key::from_str(MUXED).unwrap();
         KeyType::Identity.write(native, &key, dir.path()).unwrap();
 
@@ -245,12 +274,13 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!UnresolvedScAddress::Alias(native.to_string())
-            .is_muxed_alias(&locator, network_passphrase));
+        assert!(
+            !UnresolvedScAddress::Alias(native.to_string()).is_muxed(&locator, network_passphrase)
+        );
     }
 
     #[test]
-    fn is_muxed_alias_false_when_contract_alias_takes_precedence() {
+    fn is_muxed_false_when_contract_alias_takes_precedence() {
         let dir = tempfile::tempdir().unwrap();
         let locator = locator::Args {
             config_dir: Some(dir.path().to_path_buf()),
@@ -258,7 +288,7 @@ mod tests {
         let network_passphrase = "Test Network";
 
         // A muxed key and a contract alias share the name. `resolve` picks the
-        // contract (never downgrading to a `G…` account), so `is_muxed_alias`
+        // contract (never downgrading to a `G…` account), so `is_muxed`
         // must not reject it.
         let key = Key::from_str(MUXED).unwrap();
         KeyType::Identity.write("dual", &key, dir.path()).unwrap();
@@ -273,7 +303,8 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!UnresolvedScAddress::Alias("dual".to_string())
-            .is_muxed_alias(&locator, network_passphrase));
+        assert!(
+            !UnresolvedScAddress::Alias("dual".to_string()).is_muxed(&locator, network_passphrase)
+        );
     }
 }
