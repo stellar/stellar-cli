@@ -5532,7 +5532,7 @@ version = "28.0.0"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "serde",
  "serde_json",
@@ -5545,7 +5545,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5563,7 +5563,7 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk-macros",
  "soroban-spec",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "visibility",
 ]
@@ -5571,7 +5571,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "darling 0.20.11",
  "heck 0.5.0",
@@ -5589,7 +5589,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5600,7 +5600,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-rust"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5698,7 +5698,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-sdk"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "soroban-sdk",
 ]
@@ -5706,7 +5706,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5755,7 +5755,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-asset-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=e041939e3b7041d9cce8dcfc5c02c07c600bdfe7#e041939e3b7041d9cce8dcfc5c02c07c600bdfe7"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=965a58e518491243c25c1626deec7fd5b69a5f53#965a58e518491243c25c1626deec7fd5b69a5f53"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5838,17 +5838,6 @@ checksum = "ee1832fb50c651ad10f734aaf5d31ca5acdfb197a6ecda64d93fcdb8885af913"
 dependencies = [
  "crate-git-revision 0.0.6",
  "data-encoding",
-]
-
-[[package]]
-name = "stellar-strkey"
-version = "0.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "084afcb0d458c3d5d5baa2d294b18f881e62cc258ef539d8fdf68be7dbe45520"
-dependencies = [
- "crate-git-revision 0.0.6",
- "data-encoding",
- "heapless 0.8.0",
 ]
 
 [[package]]
