@@ -8,9 +8,11 @@ use stellar_strkey::{
 
 // Wraps the embedded strkey CLI (`stellar_strkey::cli::Root`), which only reads
 // the input for `decode` and `encode` from stdin, so that the input can also be
-// passed as an argument, as it could before stellar-strkey v0.0.18. This avoids
-// a breaking change, so the wrapper can be deleted at the next major version
-// (v29/30), embedding `stellar_strkey::cli::Root` directly again.
+// passed as an argument, as it could before stellar-strkey v0.0.18, avoiding a
+// breaking change.
+//
+// TODO: Remove at the next major version (v29/30), and embed
+// `stellar_strkey::cli::Root` directly again.
 #[derive(Parser, Debug, Clone)]
 #[command(infer_subcommands = true)]
 pub struct Cmd {
