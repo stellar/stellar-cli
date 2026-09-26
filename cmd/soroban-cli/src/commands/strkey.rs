@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 use stellar_strkey::{
     cli::{decode, encode, version, zero, Error, RunOpts},
     ed25519, Decoded, Strkey, Unredacted,
 };
+
+use crate::commands::global;
 
 // Wraps the embedded strkey CLI (`stellar_strkey::cli::Root`), which only reads
 // the input for `decode` and `encode` from stdin, so that the input can also be
@@ -13,18 +15,9 @@ use stellar_strkey::{
 //
 // TODO: Remove at the next major version (v29/30), and embed
 // `stellar_strkey::cli::Root` directly again.
-#[derive(Parser, Debug, Clone)]
+#[derive(Subcommand, Debug)]
 #[command(infer_subcommands = true)]
-pub struct Cmd {
-    #[command(subcommand)]
-    command: SubCommand,
-    /// Suppress stderr log and warning output
-    #[arg(long, short = 'q', global = true)]
-    quiet: bool,
-}
-
-#[derive(Subcommand, Debug, Clone)]
-enum SubCommand {
+pub enum Cmd {
     /// Decode strkey
     Decode {
         /// Strkey to decode, or stdin if empty
@@ -42,15 +35,17 @@ enum SubCommand {
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
-        let opts = RunOpts { quiet: self.quiet };
-        match &self.command {
-            SubCommand::Decode { strkey: Some(s) } => decode_arg(s, &opts)?,
-            SubCommand::Decode { strkey: None } => decode::Cmd {}.run(&opts)?,
-            SubCommand::Encode { json: Some(j) } => encode_arg(j, &opts)?,
-            SubCommand::Encode { json: None } => encode::Cmd {}.run(&opts)?,
-            SubCommand::Zero(cmd) => cmd.run(),
-            SubCommand::Version => version::Cmd::run(),
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
+        let opts = RunOpts {
+            quiet: global_args.quiet,
+        };
+        match self {
+            Cmd::Decode { strkey: Some(s) } => decode_arg(s, &opts)?,
+            Cmd::Decode { strkey: None } => decode::Cmd {}.run(&opts)?,
+            Cmd::Encode { json: Some(j) } => encode_arg(j, &opts)?,
+            Cmd::Encode { json: None } => encode::Cmd {}.run(&opts)?,
+            Cmd::Zero(cmd) => cmd.run(),
+            Cmd::Version => version::Cmd::run(),
         }
         Ok(())
     }

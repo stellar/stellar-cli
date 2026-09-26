@@ -4861,7 +4861,7 @@ Print version information
 
 Decode and encode strkey
 
-**Usage:** `stellar strkey [OPTIONS] <COMMAND>`
+**Usage:** `stellar strkey <COMMAND>`
 
 ###### **Subcommands:**
 
@@ -4869,10 +4869,6 @@ Decode and encode strkey
 - `encode` — Encode strkey
 - `zero` — Generate the zero strkey
 - `version` — Print version information
-
-###### **Options:**
-
-- `-q`, `--quiet` — Suppress stderr log and warning output
 
 ## `stellar strkey decode`
 
