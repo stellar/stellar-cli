@@ -374,7 +374,7 @@ impl Spec {
         Ok(val)
     }
 
-    fn parse_udt(&self, name: &StringM<60>, value: &Value) -> Result<ScVal, Error> {
+    fn parse_udt(&self, name: &StringM<1024>, value: &Value) -> Result<ScVal, Error> {
         let name = &name.to_utf8_string_lossy();
         match (self.find(name)?, value) {
             (ScSpecEntry::UdtStructV0(strukt), Value::Object(map)) => {
@@ -687,7 +687,7 @@ impl Spec {
     /// # Panics
     ///
     /// May panic
-    pub fn udt_to_json(&self, name: &StringM<60>, sc_obj: &ScVal) -> Result<Value, Error> {
+    pub fn udt_to_json(&self, name: &StringM<1024>, sc_obj: &ScVal) -> Result<Value, Error> {
         let name = &name.to_utf8_string_lossy();
         let udt = self.find(name)?;
         Ok(match (sc_obj, udt) {
@@ -2456,7 +2456,7 @@ mod tests {
         ScSpecEventV0 {
             doc: StringM::default(),
             lib: StringM::default(),
-            name: ScSymbol(name.try_into().unwrap()),
+            name: name.try_into().unwrap(),
             prefix_topics: VecM::default(),
             params: VecM::default(),
             data_format: stellar_xdr::ScSpecEventDataFormat::SingleValue,
