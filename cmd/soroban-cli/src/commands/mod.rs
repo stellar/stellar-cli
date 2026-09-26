@@ -22,6 +22,7 @@ pub mod network;
 pub mod plugin;
 pub mod skill;
 pub mod snapshot;
+pub mod strkey;
 pub mod token;
 pub mod tx;
 pub mod version;
@@ -117,7 +118,7 @@ impl Root {
             Cmd::Config(config) => config.run()?,
             Cmd::Events(events) => events.run().await?,
             Cmd::Xdr(xdr) => xdr.run()?,
-            Cmd::Strkey(strkey) => strkey.run()?,
+            Cmd::Strkey(strkey) => strkey.run(&self.global_args)?,
             Cmd::Network(network) => network.run(&self.global_args).await?,
             Cmd::Container(container) => container.run(&self.global_args).await?,
             Cmd::Snapshot(snapshot) => snapshot.run(&self.global_args).await?,
@@ -203,7 +204,8 @@ pub enum Cmd {
     Xdr(stellar_xdr::cli::Root),
 
     /// Decode and encode strkey
-    Strkey(stellar_strkey::cli::Root),
+    #[command(subcommand)]
+    Strkey(strkey::Cmd),
 
     /// Print shell completion code for the specified shell.
     #[command(long_about = completion::LONG_ABOUT)]
