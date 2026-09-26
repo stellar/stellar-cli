@@ -50,6 +50,8 @@ pub enum Error {
     StellarStrkey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Address(#[from] address::Error),
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -194,13 +196,12 @@ impl Args {
     ) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
-        Ok((client
+        let seq_num = client
             .get_account(&account.into().to_string())
             .await?
             .seq_num
-            .0
-            + 1)
-        .into())
+            .0;
+        Ok(crate::utils::next_sequence_number(seq_num)?.into())
     }
 
     pub fn hd_path(&self) -> Option<u32> {
