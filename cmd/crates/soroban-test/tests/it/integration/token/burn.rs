@@ -78,7 +78,8 @@ async fn burn_rejects_muxed_from_with_clear_error() {
     let sandbox = &TestEnv::new();
 
     // Muxed (M…) source accounts aren't supported by the invoke pipeline yet
-    // (see #2645). The signer here is `--from`, so the guard must name it.
+    // (see #2645). Until then the command must reject them up front with a clear
+    // message rather than a raw strkey decode error deep in the pipeline.
     let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
     sandbox
         .new_assert_cmd("token")
@@ -86,7 +87,7 @@ async fn burn_rejects_muxed_from_with_clear_error() {
         .assert()
         .failure()
         .stderr(predicates::str::contains(
-            "muxed (M…) source accounts are not yet supported",
+            "muxed (M…) accounts are not yet supported",
         ));
 }
 
