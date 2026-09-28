@@ -1232,3 +1232,52 @@ fn cannot_deploy_with_reserved_native_alias() {
             .stderr(predicate::str::contains("reserved"));
     });
 }
+
+// A seed phrase or secret pasted where an alias/address is expected must never
+// reach stdout or stderr. `keys address` shares its resolve path
+// (`resolve_muxed_account`) with `--source-account` and `STELLAR_ACCOUNT`.
+const SEED_PHRASE: &str =
+    "illness spike retreat truth genius clock brain pass fit cave bargain toe";
+// A valid strkey charset with a bad checksum: fails to parse yet clears the
+// identity-name check, so it reaches the config lookup.
+const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
+
+#[test]
+fn keys_address_resolves_seed_phrase_without_leaking_it() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg(SEED_PHRASE)
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("G"))
+        .stdout(predicate::str::contains(SEED_PHRASE).not())
+        .stderr(predicate::str::contains(SEED_PHRASE).not());
+}
+
+#[test]
+fn keys_address_error_does_not_leak_secret_bearing_input() {
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("address")
+        .arg(MISTYPED_SECRET)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(MISTYPED_SECRET).not());
+}
+
+#[test]
+fn keys_fund_error_does_not_leak_secret_bearing_input() {
+    // A malformed secret fails during address resolution, before any network
+    // call, so the funding error must not echo it.
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg(MISTYPED_SECRET)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(MISTYPED_SECRET).not());
+}
