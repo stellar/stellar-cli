@@ -74,24 +74,32 @@ mod tests {
     use super::*;
     use clap::CommandFactory;
 
-    fn collect_env_aliases(cmd: &clap::Command, out: &mut Vec<String>) {
+    // Every env var wired to a CLI argument, paired with whether clap hides its
+    // value in help output.
+    fn collect_env_args(cmd: &clap::Command, out: &mut Vec<(String, bool)>) {
         for arg in cmd.get_arguments() {
             if let Some(env) = arg.get_env() {
-                out.push(env.to_string_lossy().into_owned());
+                out.push((
+                    env.to_string_lossy().into_owned(),
+                    arg.is_hide_env_values_set(),
+                ));
             }
         }
         for sub in cmd.get_subcommands() {
-            collect_env_aliases(sub, out);
+            collect_env_args(sub, out);
         }
+    }
+
+    fn declared_env_args() -> Vec<(String, bool)> {
+        let mut out = Vec::new();
+        collect_env_args(&crate::commands::Root::command(), &mut out);
+        out
     }
 
     #[test]
     fn every_declared_env_var_is_registered() {
-        let mut aliases = Vec::new();
-        collect_env_aliases(&crate::commands::Root::command(), &mut aliases);
-
         let registered = unprefixed();
-        for alias in aliases {
+        for (alias, _) in declared_env_args() {
             // Only STELLAR_/SOROBAN_ vars are governed here; third-party vars like
             // DOCKER_HOST are out of scope.
             let Some(name) = alias
@@ -105,6 +113,19 @@ mod tests {
                 "{alias} is wired to a CLI argument but missing from env_vars::unprefixed(); \
                  add it so the display allow list keeps it concealed by default"
             );
+        }
+    }
+
+    #[test]
+    fn concealed_env_vars_hide_their_values_in_help() {
+        for (alias, hidden) in declared_env_args() {
+            if is_concealed(&alias) {
+                assert!(
+                    hidden,
+                    "{alias} is concealed by env_vars but its CLI argument omits \
+                     `hide_env_values`, so its value would appear in --help"
+                );
+            }
         }
     }
 }
