@@ -40,7 +40,6 @@ struct ZemuResponse {
 }
 
 impl Emulator {
-    #[allow(dead_code)] //this is being used in tests only
     #[must_use]
     pub fn new(host: &str, port: u16) -> Self {
         Self {
