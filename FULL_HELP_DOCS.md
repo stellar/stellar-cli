@@ -276,12 +276,12 @@ Generate code client bindings for a contract
 
 - `rust` — Generate Rust bindings
 - `typescript` — ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
-- `python` — Generate Python bindings
-- `java` — Generate Java bindings
-- `flutter` — Generate Flutter bindings
-- `swift` — Generate Swift bindings
-- `php` — Generate PHP bindings
-- `kmp` — Generate Kotlin Multiplatform bindings
+- `python` — Generate Python bindings (requires external plugin)
+- `java` — Generate Java bindings (requires external plugin)
+- `flutter` — Generate Flutter bindings (requires external plugin)
+- `swift` — Generate Swift bindings (requires external plugin)
+- `php` — Generate PHP bindings (requires external plugin)
+- `kmp` — Generate Kotlin Multiplatform bindings (requires external plugin)
 
 ## `stellar contract bindings rust`
 
@@ -320,37 +320,37 @@ Generate Rust bindings
 
 ## `stellar contract bindings python`
 
-Generate Python bindings
+Generate Python bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings python`
 
 ## `stellar contract bindings java`
 
-Generate Java bindings
+Generate Java bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings java`
 
 ## `stellar contract bindings flutter`
 
-Generate Flutter bindings
+Generate Flutter bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings flutter`
 
 ## `stellar contract bindings swift`
 
-Generate Swift bindings
+Generate Swift bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings swift`
 
 ## `stellar contract bindings php`
 
-Generate PHP bindings
+Generate PHP bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings php`
 
 ## `stellar contract bindings kmp`
 
-Generate Kotlin Multiplatform bindings
+Generate Kotlin Multiplatform bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings kmp`
 
