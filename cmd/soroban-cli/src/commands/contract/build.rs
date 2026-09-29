@@ -242,6 +242,9 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::Error),
 
+    #[error(transparent)]
+    ReduceSpec(#[from] soroban_spec::reduce::DuplicateName),
+
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Optimize(#[from] optimize::Error),
@@ -588,7 +591,7 @@ impl Cmd {
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let spec = Spec::new(&wasm_bytes)?;
 
-        let reduced = soroban_spec::reduce::reduce(&spec.spec);
+        let reduced = soroban_spec::reduce::reduce(&spec.spec)?;
 
         // If every name was already simple, leave the wasm untouched.
         if reduced.renames().all(|r| !r.renamed()) {
