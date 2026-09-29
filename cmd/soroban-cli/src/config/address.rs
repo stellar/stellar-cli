@@ -8,10 +8,26 @@ use crate::{signer, xdr};
 use super::{key, locator, secret, utils};
 
 /// Address can be either a public key or eventually an alias of a address.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum UnresolvedMuxedAccount {
     Resolved(xdr::MuxedAccount),
     AliasOrSecret(String),
+}
+
+impl fmt::Debug for UnresolvedMuxedAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => {
+                f.debug_tuple("Resolved").field(muxed_account).finish()
+            }
+            // Never echo the raw input: it may be a secret key or seed phrase
+            // pasted where an alias was expected.
+            UnresolvedMuxedAccount::AliasOrSecret(_) => f
+                .debug_tuple("AliasOrSecret")
+                .field(&"<alias or secret>")
+                .finish(),
+        }
+    }
 }
 
 impl Default for UnresolvedMuxedAccount {
@@ -298,6 +314,14 @@ mod tests {
         assert!(!secret.to_string().contains(TEST_SECRET_KEY));
         let seed = UnresolvedMuxedAccount::AliasOrSecret(SEED_PHRASE.to_string());
         assert!(!seed.to_string().contains(SEED_PHRASE));
+    }
+
+    #[test]
+    fn debug_conceals_secret_bearing_input() {
+        let secret = UnresolvedMuxedAccount::AliasOrSecret(TEST_SECRET_KEY.to_string());
+        assert!(!format!("{secret:?}").contains(TEST_SECRET_KEY));
+        let seed = UnresolvedMuxedAccount::AliasOrSecret(SEED_PHRASE.to_string());
+        assert!(!format!("{seed:?}").contains(SEED_PHRASE));
     }
 
     #[test]
