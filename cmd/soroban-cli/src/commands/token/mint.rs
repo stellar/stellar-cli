@@ -13,8 +13,8 @@ use crate::{
 #[derive(Debug, Parser, Clone)]
 #[group(skip)]
 pub struct Cmd {
-    /// The token to mint: a contract id or alias, `native`, or a classic asset
-    /// as `CODE:ISSUER`.
+    /// The token to mint: a contract id or alias, or a classic asset as
+    /// `CODE:ISSUER`.
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
