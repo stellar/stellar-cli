@@ -25,15 +25,10 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let addr = self.address.public_key().await?;
         let network = self.network.get(&self.address.locator)?;
-        let label = self
-            .address
-            .name
-            .as_ref()
-            .map_or_else(|| format!("{addr}"), ToString::to_string);
         network.fund_address(&addr).await?;
         print.checkln(format!(
-            "Account {} funded on {:?}",
-            label, network.network_passphrase
+            "Account {addr} funded on {:?}",
+            network.network_passphrase
         ));
         Ok(())
     }
