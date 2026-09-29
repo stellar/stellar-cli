@@ -13,17 +13,13 @@ rust-version.workspace = true
 [dependencies]
 thiserror = "1.0.32"
 serde = "1.0.82"
-serde_derive = "1.0.82"
 serde_json = "1.0.82"
 sha2 = { workspace = true }
-ed25519-dalek = { workspace = true }
 stellar-strkey = { workspace = true }
 ledger-transport-hid = "0.10.0"
 ledger-transport = "0.10.0"
 tracing = { workspace = true }
 hex.workspace = true
-byteorder = "1.5.0"
-home = "0.5.9"
 tokio = { version = "1", features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
 phf = { version = "0.11.2", features = ["macros"], optional = true }
@@ -35,11 +31,6 @@ workspace = true
 features = ["std", "serde"]
 
 [dev-dependencies]
-env_logger = "0.11.3"
-log = "0.4.21"
-once_cell = "1.19.0"
-pretty_assertions = "1.2.1"
-serial_test = "3.0.0"
 httpmock = { workspace = true }
 test-case = "3.3.1"
 
