@@ -1281,3 +1281,29 @@ fn keys_fund_error_does_not_leak_secret_bearing_input() {
         .failure()
         .stderr(predicate::str::contains(MISTYPED_SECRET).not());
 }
+
+#[test]
+fn help_conceals_sensitive_env_var_values() {
+    // Each concealed env var, paired with a subcommand whose `--help` renders it.
+    let cases: &[(&str, &[&str])] = &[
+        ("STELLAR_RPC_URL", &["contract", "invoke"]),
+        ("STELLAR_RPC_HEADERS", &["contract", "invoke"]),
+        ("STELLAR_SIGN_WITH_KEY", &["contract", "invoke"]),
+        ("STELLAR_ARCHIVE_URL", &["snapshot", "create"]),
+        ("DOCKER_HOST", &["container", "logs"]),
+    ];
+    let sentinel = "s3cr3t-sentinel-value";
+
+    for &(var, args) in cases {
+        let sandbox = TestEnv::default();
+        let mut cmd = sandbox.new_assert_cmd(args[0]);
+        for arg in &args[1..] {
+            cmd.arg(arg);
+        }
+        cmd.arg("--help")
+            .env(var, sentinel)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(sentinel).not());
+    }
+}
