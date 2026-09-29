@@ -20,7 +20,6 @@ pub mod ledger;
 pub mod message;
 pub mod network;
 pub mod plugin;
-pub mod replay;
 pub mod skill;
 pub mod snapshot;
 pub mod strkey;
@@ -129,7 +128,6 @@ impl Root {
             Cmd::Token(token) => token.run(&self.global_args).await?,
             Cmd::Tx(tx) => tx.run(&self.global_args).await?,
             Cmd::Ledger(ledger) => ledger.run(&self.global_args).await?,
-            Cmd::Replay(replay) => replay.run(&self.global_args).await?,
             Cmd::Message(message) => message.run(&self.global_args).await?,
             Cmd::Cache(cache) => cache.run()?,
             Cmd::Env(env) => env.run(&self.global_args)?,
@@ -232,10 +230,6 @@ pub enum Cmd {
     #[command(subcommand)]
     Ledger(ledger::Cmd),
 
-    /// Replay ledgers and transactions with stellar-core to output their meta with diagnostic events
-    #[command(subcommand)]
-    Replay(replay::Cmd),
-
     /// Sign and verify arbitrary messages using SEP-53
     #[command(subcommand)]
     Message(message::Cmd),
@@ -304,9 +298,6 @@ pub enum Error {
 
     #[error(transparent)]
     Ledger(#[from] ledger::Error),
-
-    #[error(transparent)]
-    Replay(#[from] replay::Error),
 
     #[error(transparent)]
     Message(#[from] message::Error),

@@ -1,6 +1,8 @@
-use super::{args, Error};
 use crate::{
-    commands::global,
+    commands::{
+        global,
+        ledger::replay::{args, Error},
+    },
     xdr::{Hash, LedgerCloseMeta},
 };
 
@@ -11,7 +13,7 @@ use crate::{
 /// emitted, including diagnostic events that show the contract calls made and
 /// the errors raised.
 ///
-/// The transaction's ledger is replayed the same as with `replay ledger`.
+/// The transaction's ledger is replayed the same as with `ledger replay`.
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Hash of the transaction to replay
