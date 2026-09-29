@@ -36,7 +36,12 @@ pub struct Args {
     pub network: network::Args,
 
     /// Archive URL
-    #[arg(long, help_heading = HEADING_ARCHIVE, env = "STELLAR_ARCHIVE_URL")]
+    #[arg(
+        long,
+        help_heading = HEADING_ARCHIVE,
+        env = "STELLAR_ARCHIVE_URL",
+        hide_env_values = true
+    )]
     pub archive_url: Option<Url>,
 }
 
