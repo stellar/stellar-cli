@@ -51,15 +51,7 @@ impl Cmd {
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
         let (base64, spec) = match contract {
-            shared::Contract::Wasm { wasm_bytes } => {
-                let spec = Spec::new(&wasm_bytes)?;
-
-                if spec.env_meta_base64.is_none() {
-                    return Err(NoInterfacePresent());
-                }
-
-                (spec.spec_base64.unwrap(), spec.spec)
-            }
+            shared::Contract::Wasm { wasm_bytes } => spec_from_wasm(&wasm_bytes)?,
             shared::Contract::StellarAssetContract => {
                 Spec::spec_to_base64(stellar_asset_spec::xdr())?
             }
@@ -83,5 +75,61 @@ impl Cmd {
         println!("{res}");
 
         Ok(())
+    }
+}
+
+fn spec_from_wasm(wasm_bytes: &[u8]) -> Result<(String, Vec<crate::xdr::ScSpecEntry>), Error> {
+    let spec = Spec::new(wasm_bytes)?;
+
+    if spec.env_meta_base64.is_none() {
+        return Err(NoInterfacePresent());
+    }
+
+    // `contractenvmetav0` and `contractspecv0` are independent custom
+    // sections, so the presence of env meta does not imply a spec is present.
+    let Some(base64) = spec.spec_base64 else {
+        return Err(NoInterfacePresent());
+    };
+
+    Ok((base64, spec.spec))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::borrow::Cow;
+
+    /// A minimal WASM module containing only the given custom sections.
+    fn wasm_with_custom_sections(sections: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut module = wasm_encoder::Module::new();
+        for (name, data) in sections {
+            module.section(&wasm_encoder::CustomSection {
+                name: Cow::Borrowed(name),
+                data: Cow::Borrowed(data),
+            });
+        }
+        module.finish()
+    }
+
+    #[test]
+    fn env_meta_without_spec_returns_no_interface_error() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2429:
+        // `contractenvmetav0` and `contractspecv0` are independent custom
+        // sections, so a WASM can carry env meta without a spec. This used to
+        // panic on `spec.spec_base64.unwrap()`.
+        let wasm = wasm_with_custom_sections(&[("contractenvmetav0", &[])]);
+
+        let result = spec_from_wasm(&wasm);
+
+        assert!(matches!(result, Err(Error::NoInterfacePresent())));
+    }
+
+    #[test]
+    fn missing_env_meta_returns_no_interface_error() {
+        let wasm = wasm_with_custom_sections(&[]);
+
+        let result = spec_from_wasm(&wasm);
+
+        assert!(matches!(result, Err(Error::NoInterfacePresent())));
     }
 }
