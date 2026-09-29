@@ -9,7 +9,6 @@ const TAG: &str = "speculos-3a3439f6b45eca7f56395673caaf434c202e7005";
 const TEST_SEED_PHRASE: &str =
     "\"other base behind follow wet put glad muscle unlock sell income october\"";
 
-#[allow(dead_code)]
 static ENV: &Map = &Map(phf::phf_map! {
     "BOLOS_SDK"=> "/project/deps/nanos-secure-sdk",
     "BOLOS_ENV" => "/opt/bolos",
@@ -35,9 +34,7 @@ pub struct Speculos {
 
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
-    #[allow(dead_code)]
     pub fn new(ledger_device_model: String) -> Self {
-        #[allow(unused_mut)]
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("test_fixtures")

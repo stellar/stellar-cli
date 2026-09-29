@@ -153,7 +153,7 @@ pub fn deprecate_message(print: Print, arg: &str, hint: &str) {
 }
 
 /// Used in tests
-#[allow(unused)]
+#[cfg(test)]
 pub(crate) fn parse_secret_key(
     s: &str,
 ) -> Result<ed25519_dalek::SigningKey, stellar_strkey::DecodeError> {
