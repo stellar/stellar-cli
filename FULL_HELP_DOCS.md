@@ -5555,11 +5555,7 @@ Outputs the ledger's `LedgerCloseMeta`, the record of what closing the ledger di
 
 The ledger is replayed by stellar-core, which must be installed, from the network's history archive, starting from the ledger state at the checkpoint before the ledger. For mainnet the state is several GB to download and needs tens of GB of disk. The state is kept in the cache directory, and a ledger shortly after the last one replayed continues from it. Ledgers replayed are also kept, and aren't replayed again.
 
-**Usage:** `stellar replay ledger [OPTIONS] <LEDGER>`
-
-###### **Arguments:**
-
-- `<LEDGER>` — Ledger sequence number to replay
+**Usage:** `stellar replay ledger [OPTIONS] --ledger <LEDGER>`
 
 ###### **Archive Options:**
 
@@ -5567,6 +5563,7 @@ The ledger is replayed by stellar-core, which must be installed, from the networ
 
 ###### **Options:**
 
+- `--ledger <LEDGER>` — Ledger sequence number to replay
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `json`
@@ -5591,11 +5588,7 @@ Outputs the transaction's entry in its ledger's `LedgerCloseMeta`: the transacti
 
 The transaction's ledger is replayed the same as with `replay ledger`.
 
-**Usage:** `stellar replay tx [OPTIONS] --ledger <LEDGER> <HASH>`
-
-###### **Arguments:**
-
-- `<HASH>` — Hash of the transaction to replay
+**Usage:** `stellar replay tx [OPTIONS] --tx <HASH> --ledger <LEDGER>`
 
 ###### **Archive Options:**
 
@@ -5603,6 +5596,7 @@ The transaction's ledger is replayed the same as with `replay ledger`.
 
 ###### **Options:**
 
+- `--tx <HASH>` — Hash of the transaction to replay
 - `--ledger <LEDGER>` — Ledger sequence number of the ledger the transaction is in
 - `--output <OUTPUT>` — Format of the output
 

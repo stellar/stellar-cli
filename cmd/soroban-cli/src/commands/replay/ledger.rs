@@ -17,6 +17,7 @@ use crate::commands::global;
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Ledger sequence number to replay
+    #[arg(long)]
     pub ledger: u32,
 
     #[command(flatten)]

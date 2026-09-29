@@ -15,6 +15,7 @@ use crate::{
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Hash of the transaction to replay
+    #[arg(long = "tx")]
     pub hash: Hash,
 
     /// Ledger sequence number of the ledger the transaction is in
