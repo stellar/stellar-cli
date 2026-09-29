@@ -34,5 +34,3 @@ indexmap = { version = "2.7", features = ["serde"] }
 
 
 [dev-dependencies]
-which = { workspace = true }
-tokio = "1.28.1"
