@@ -3,7 +3,9 @@ use crate::{
     config::{self, token::ResolvedToken, UnresolvedContract},
     get_spec,
     output::Format,
+    print::Print,
     rpc,
+    xdr::{ContractExecutable, ScContractInstance, ScVal},
 };
 
 /// Output format shared by the `stellar token` subcommands.
@@ -130,6 +132,54 @@ pub fn not_deployed_error(token: &ResolvedToken, err: &invoke::Error) -> Option<
     } else {
         Error::ContractNotFound(format!("{contract_id}"))
     })
+}
+
+/// Warn when a SAC-admin command (`mint`, `clawback`, `set_admin`,
+/// `set_authorized`) targets a contract that isn't the built-in Stellar Asset
+/// Contract. These functions belong to the SAC `StellarAssetInterface`; a custom
+/// contract may expose a same-named `function` that behaves differently, so this
+/// is a heads-up, not a block — the call's signature is still validated
+/// downstream. Best-effort: `--quiet` skips it, and any RPC failure is ignored
+/// so the warning never gets in the way of the real invocation (which surfaces
+/// its own errors).
+pub async fn warn_if_not_sac(
+    print: &Print,
+    function: &str,
+    contract_id: &stellar_strkey::Contract,
+    network: &config::network::Network,
+) {
+    if print.quiet {
+        return;
+    }
+    let Ok(client) = network.rpc_client() else {
+        return;
+    };
+    let Ok(entry) = client.get_contract_data(&contract_id.0).await else {
+        return;
+    };
+    let ScVal::ContractInstance(ScContractInstance { executable, .. }) = entry.val else {
+        return;
+    };
+    if matches!(executable, ContractExecutable::StellarAsset) {
+        return;
+    }
+    print.warnln(format!(
+        "{contract_id} is not a Stellar Asset Contract; calling `{function}` on it as a SAC \
+         admin operation. Use `stellar contract invoke` if that isn't what you intend."
+    ));
+}
+
+/// Parse a token `--amount` as a non-negative `i128`. A negative amount is
+/// always invalid, so reject it at the clap layer instead of letting it reach
+/// the contract and fail as an opaque `HostError` deep in simulation.
+pub fn parse_nonneg_i128(value: &str) -> Result<i128, String> {
+    let amount: i128 = value
+        .parse()
+        .map_err(|_| format!("invalid amount: {value}"))?;
+    if amount < 0 {
+        return Err(format!("amount must not be negative: {value}"));
+    }
+    Ok(amount)
 }
 
 #[cfg(test)]
