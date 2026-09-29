@@ -169,6 +169,19 @@ pub async fn warn_if_not_sac(
     ));
 }
 
+/// Parse a token `--amount` as a non-negative `i128`. A negative amount is
+/// always invalid, so reject it at the clap layer instead of letting it reach
+/// the contract and fail as an opaque `HostError` deep in simulation.
+pub fn parse_nonneg_i128(value: &str) -> Result<i128, String> {
+    let amount: i128 = value
+        .parse()
+        .map_err(|_| format!("invalid amount: {value}"))?;
+    if amount < 0 {
+        return Err(format!("amount must not be negative: {value}"));
+    }
+    Ok(amount)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
