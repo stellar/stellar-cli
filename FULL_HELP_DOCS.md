@@ -61,6 +61,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `skill` — Print an AI-agent skill guide for using the Stellar CLI
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
+- `replay` — Replay ledgers and transactions with stellar-core to output their meta with diagnostic events
 - `message` — Sign and verify arbitrary messages using SEP-53
 - `fee-stats` — ⚠️ Deprecated, use `fees stats` instead. Fetch network feestats
 - `fees` — Fetch network feestats and configure CLI fee settings
@@ -5527,6 +5528,90 @@ Get the latest ledger sequence and information from the network
   Possible values:
   - `json`: XDR fields will be fetched as json and accessible via the headerJson and metadataJson fields
   - `xdr`: XDR fields will be fetched as xdr and accessible via the headerXdr and metadataXdr fields
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar replay`
+
+Replay ledgers and transactions with stellar-core to output their meta with diagnostic events
+
+**Usage:** `stellar replay <COMMAND>`
+
+###### **Subcommands:**
+
+- `ledger` — Replay a ledger with stellar-core and output its meta
+- `tx` — Replay a transaction with stellar-core and output its meta
+
+## `stellar replay ledger`
+
+Replay a ledger with stellar-core and output its meta
+
+Outputs the ledger's `LedgerCloseMeta`, the record of what closing the ledger did: the transactions applied, their results, the ledger entries they changed, and the events they emitted, including diagnostic events that show the contract calls made and the errors raised.
+
+The ledger is replayed by stellar-core, which must be installed, from the network's history archive, starting from the ledger state at the checkpoint before the ledger. For mainnet the state is several GB to download and needs tens of GB of disk. The state is kept in the cache directory, and a ledger shortly after the last one replayed continues from it. Ledgers replayed are also kept, and aren't replayed again.
+
+**Usage:** `stellar replay ledger [OPTIONS] <LEDGER>`
+
+###### **Arguments:**
+
+- `<LEDGER>` — Ledger sequence number to replay
+
+###### **Archive Options:**
+
+- `--archive-url <ARCHIVE_URL>` — Archive URL
+
+###### **Options:**
+
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`: JSON output (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output
+  - `xdr`: Base64 encoded XDR output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar replay tx`
+
+Replay a transaction with stellar-core and output its meta
+
+Outputs the transaction's entry in its ledger's `LedgerCloseMeta`: the transaction's result, the ledger entries it changed, and the events it emitted, including diagnostic events that show the contract calls made and the errors raised.
+
+The transaction's ledger is replayed the same as with `replay ledger`.
+
+**Usage:** `stellar replay tx [OPTIONS] --ledger <LEDGER> <HASH>`
+
+###### **Arguments:**
+
+- `<HASH>` — Hash of the transaction to replay
+
+###### **Archive Options:**
+
+- `--archive-url <ARCHIVE_URL>` — Archive URL
+
+###### **Options:**
+
+- `--ledger <LEDGER>` — Ledger sequence number of the ledger the transaction is in
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `json`
+
+  Possible values:
+  - `json`: JSON output (one line, not formatted)
+  - `json-formatted`: Formatted (multiline) JSON output
+  - `xdr`: Base64 encoded XDR output
 
 ###### **RPC Options:**
 

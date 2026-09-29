@@ -308,6 +308,20 @@ impl Network {
     }
 }
 
+/// Returns the default history archive URL for the network, if known.
+pub fn default_archive_url(network_passphrase: &str) -> Option<Url> {
+    match network_passphrase {
+        passphrase::MAINNET => Some("https://history.stellar.org/prd/core-live/core_live_001"),
+        passphrase::TESTNET => {
+            Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
+        }
+        passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
+        passphrase::LOCAL => Some("http://localhost:8000/archive"),
+        _ => None,
+    }
+    .map(|s| Url::from_str(s).expect("archive url valid"))
+}
+
 /// Default network key to use when no network is specified
 pub const DEFAULT_NETWORK_KEY: &str = "testnet";
 

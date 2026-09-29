@@ -41,6 +41,10 @@ pub fn data_local_dir() -> Result<std::path::PathBuf, Error> {
     Ok(project_dir()?.data_local_dir().to_path_buf())
 }
 
+pub fn cache_dir() -> Result<std::path::PathBuf, Error> {
+    Ok(project_dir()?.cache_dir().to_path_buf())
+}
+
 pub fn actions_dir() -> Result<std::path::PathBuf, Error> {
     let dir = data_local_dir()?.join("actions");
     std::fs::create_dir_all(&dir)?;
