@@ -28,7 +28,7 @@ pub enum Error {
     GettingHistory { url: String, error: reqwest::Error },
     #[error("ledger {ledger} is not in the history archive yet, the latest ledger in it is {latest}, archives are updated every 64 ledgers")]
     LedgerNotInArchive { ledger: u32, latest: u32 },
-    #[error("stellar-core not found, install it to replay ledgers: https://developers.stellar.org/docs/validators/admin-guide/installation")]
+    #[error("stellar-core not found, install stellar-core or docker to replay ledgers: https://developers.stellar.org/docs/validators/admin-guide/installation")]
     StellarCoreNotFound,
     #[error("running stellar-core: {0}")]
     RunningStellarCore(io::Error),

@@ -8,10 +8,10 @@ use crate::commands::global;
 /// changed, and the events they emitted, including diagnostic events that show
 /// the contract calls made and the errors raised.
 ///
-/// The ledger is replayed by stellar-core, which must be installed, from the
-/// network's history archive, starting from the ledger state at the checkpoint
-/// before the ledger. For mainnet the state is several GB to download and needs
-/// tens of GB of disk. The state is kept in the cache directory, and a ledger
+/// The ledger is replayed by stellar-core, or by its docker image if
+/// stellar-core isn't installed, from the network's history archive, starting
+/// from the ledger state at the checkpoint before the ledger. For mainnet the
+/// state is several GB to download and needs tens of GB of disk. The state is kept in the cache directory, and a ledger
 /// shortly after the last one replayed continues from it. Ledgers replayed are
 /// also kept, and aren't replayed again.
 #[derive(Debug, clap::Parser)]

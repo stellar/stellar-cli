@@ -1,12 +1,11 @@
 use std::{
-    fs,
+    fmt, fs,
     io::{self, BufRead, BufReader, IsTerminal},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use url::Url;
 
 use super::Error;
@@ -23,6 +22,9 @@ const LOG_FILE: &str = "stellar-core.log";
 const META_FILE: &str = "meta.xdr";
 const LAST_LEDGER_FILE: &str = "last-ledger";
 const LOCK_FILE: &str = "lock";
+
+/// Docker image run when stellar-core isn't installed.
+const STELLAR_CORE_IMAGE: &str = "stellar/stellar-core:latest";
 
 /// The most ledgers to replay to continue from the last ledger replayed.
 /// Replaying more takes longer than starting over from the ledger state at the
@@ -85,7 +87,7 @@ impl Args {
         let passphrase = &network.network_passphrase;
         let dir = data::cache_dir()?
             .join("replay")
-            .join(hex::encode(Sha256::digest(passphrase)));
+            .join(network.id().to_string());
         let meta_dir = dir.join("meta");
         fs::create_dir_all(&meta_dir)?;
 
@@ -108,7 +110,7 @@ impl Args {
             return Ok(meta);
         }
 
-        let bin = plugin::default::find_bin("core").map_err(|_| Error::StellarCoreNotFound)?;
+        let core = StellarCore::find()?;
         let archive_url = self
             .archive_url
             .clone()
@@ -133,12 +135,11 @@ impl Args {
         let _ = fs::remove_file(&last_ledger_file);
 
         print.infoln(format!(
-            "Replaying ledger {ledger} with {} in {}",
-            bin.display(),
+            "Replaying ledger {ledger} with {core} in {}",
             dir.display()
         ));
         let verbose = global_args.verbose || global_args.very_verbose;
-        let run = |args: &[&str]| run_stellar_core(&print, verbose, &bin, &dir, args);
+        let run = |args: &[&str]| run_stellar_core(&print, verbose, &core, &dir, args);
         match last_ledger {
             Some(last) if last < ledger && ledger - last <= MAX_LEDGERS_TO_CONTINUE => {
                 print.infoln(format!("Continuing from ledger {last} replayed previously"));
@@ -225,19 +226,75 @@ async fn latest_ledger_in_archive(archive_url: &Url) -> Result<u32, Error> {
     Ok(has.current_ledger)
 }
 
+/// How stellar-core is run: the stellar-core plugin (`stellar-core` on the
+/// PATH), or else its docker image.
+enum StellarCore {
+    Bin(PathBuf),
+    Docker(PathBuf),
+}
+
+impl StellarCore {
+    fn find() -> Result<Self, Error> {
+        if let Ok(bin) = plugin::default::find_bin("core") {
+            return Ok(Self::Bin(bin));
+        }
+        which::which("docker")
+            .map(Self::Docker)
+            .map_err(|_| Error::StellarCoreNotFound)
+    }
+
+    /// Returns a command that runs stellar-core in the directory.
+    fn command(&self, dir: &Path) -> Command {
+        match self {
+            Self::Bin(bin) => {
+                let mut cmd = Command::new(bin);
+                cmd.current_dir(dir);
+                cmd
+            }
+            Self::Docker(docker) => {
+                // Mount the directory at the same path, so that paths are the
+                // same inside and outside the container.
+                let mut cmd = Command::new(docker);
+                cmd.args(["run", "--rm", "--volume"])
+                    .arg(format!("{0}:{0}", dir.display()))
+                    .arg("--workdir")
+                    .arg(dir);
+                // Run as the current user so the files written are theirs.
+                #[cfg(target_os = "linux")]
+                cmd.arg("--user").arg(format!(
+                    "{}:{}",
+                    rustix::process::getuid().as_raw(),
+                    rustix::process::getgid().as_raw()
+                ));
+                cmd.arg(STELLAR_CORE_IMAGE);
+                cmd
+            }
+        }
+    }
+}
+
+impl fmt::Display for StellarCore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bin(bin) => write!(f, "{}", bin.display()),
+            Self::Docker(_) => write!(f, "docker image {STELLAR_CORE_IMAGE}"),
+        }
+    }
+}
+
 /// Runs stellar-core in the directory, printing its progress and errors, or
 /// all of its log when verbose.
 fn run_stellar_core(
     print: &Print,
     verbose: bool,
-    bin: &Path,
+    core: &StellarCore,
     dir: &Path,
     args: &[&str],
 ) -> Result<(), Error> {
-    let mut child = Command::new(bin)
+    let mut child = core
+        .command(dir)
         .args(args)
         .args(["--conf", CONFIG_FILE, "--console"])
-        .current_dir(dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
