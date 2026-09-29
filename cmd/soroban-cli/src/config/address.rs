@@ -8,10 +8,26 @@ use crate::{signer, xdr};
 use super::{key, locator, secret, utils};
 
 /// Address can be either a public key or eventually an alias of a address.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum UnresolvedMuxedAccount {
     Resolved(xdr::MuxedAccount),
     AliasOrSecret(String),
+}
+
+impl fmt::Debug for UnresolvedMuxedAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnresolvedMuxedAccount::Resolved(muxed_account) => {
+                f.debug_tuple("Resolved").field(muxed_account).finish()
+            }
+            // Never echo the raw input: it may be a secret key or seed phrase
+            // pasted where an alias was expected.
+            UnresolvedMuxedAccount::AliasOrSecret(_) => f
+                .debug_tuple("AliasOrSecret")
+                .field(&"<alias or secret>")
+                .finish(),
+        }
+    }
 }
 
 impl Default for UnresolvedMuxedAccount {
@@ -24,9 +40,9 @@ impl Display for UnresolvedMuxedAccount {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => write!(f, "{muxed_account}"),
-            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                write!(f, "{alias_or_secret}")
-            }
+            // Never echo the raw input: it may be a secret key or seed phrase
+            // pasted where an alias was expected.
+            UnresolvedMuxedAccount::AliasOrSecret(_) => write!(f, "<alias or secret>"),
         }
     }
 }
@@ -71,7 +87,8 @@ impl UnresolvedMuxedAccount {
         match self {
             UnresolvedMuxedAccount::Resolved(muxed_account) => Ok(muxed_account.clone()),
             UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => Ok(locator
-                .read_key_with_secure_store_cache(alias_or_secret, hd_path)?
+                .read_key_with_secure_store_cache(alias_or_secret, hd_path)
+                .map_err(locator::Error::conceal_secret_input)?
                 .muxed_account(hd_path)?),
         }
     }
@@ -97,9 +114,10 @@ impl UnresolvedMuxedAccount {
                     .secret_by_public_key(&target, hd_path)?
                     .ok_or_else(|| Error::CannotSign(muxed_account.clone()))
             }
-            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => {
-                Ok(locator.read_key(alias_or_secret)?.try_into()?)
-            }
+            UnresolvedMuxedAccount::AliasOrSecret(alias_or_secret) => Ok(locator
+                .read_key(alias_or_secret)
+                .map_err(locator::Error::conceal_secret_input)?
+                .try_into()?),
         }
     }
 }
@@ -277,6 +295,59 @@ mod tests {
             account.resolve_secret(&locator, None).unwrap_err(),
             Error::CannotSign(_)
         ));
+    }
+
+    const SEED_PHRASE: &str =
+        "illness spike retreat truth genius clock brain pass fit cave bargain toe";
+    // TEST_SECRET_KEY with its last character changed: bad checksum but valid strkey
+    // charset, so it fails to parse yet clears `validate_name` and reaches the config
+    // lookup (`ConfigMissing`).
+    const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
+    // SEED_PHRASE with an invalid final word: fails to parse and fails `validate_name`
+    // on its spaces (`InvalidName`).
+    const MALFORMED_SEED: &str =
+        "illness spike retreat truth genius clock brain pass fit cave bargain xyzzy";
+
+    #[test]
+    fn display_conceals_secret_bearing_input() {
+        let secret = UnresolvedMuxedAccount::AliasOrSecret(TEST_SECRET_KEY.to_string());
+        assert!(!secret.to_string().contains(TEST_SECRET_KEY));
+        let seed = UnresolvedMuxedAccount::AliasOrSecret(SEED_PHRASE.to_string());
+        assert!(!seed.to_string().contains(SEED_PHRASE));
+    }
+
+    #[test]
+    fn debug_conceals_secret_bearing_input() {
+        let secret = UnresolvedMuxedAccount::AliasOrSecret(TEST_SECRET_KEY.to_string());
+        assert!(!format!("{secret:?}").contains(TEST_SECRET_KEY));
+        let seed = UnresolvedMuxedAccount::AliasOrSecret(SEED_PHRASE.to_string());
+        assert!(!format!("{seed:?}").contains(SEED_PHRASE));
+    }
+
+    #[test]
+    fn resolve_muxed_account_does_not_leak_secret_bearing_input() {
+        let (_dir, locator) = locator_with_identity();
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            let account: UnresolvedMuxedAccount = input.parse().unwrap();
+            let err = account.resolve_muxed_account(&locator, None).unwrap_err();
+            assert!(
+                !err.to_string().contains(input),
+                "error leaked secret-bearing input: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_secret_does_not_leak_secret_bearing_input() {
+        let (_dir, locator) = locator_with_identity();
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            let account: UnresolvedMuxedAccount = input.parse().unwrap();
+            let err = account.resolve_secret(&locator, None).unwrap_err();
+            assert!(
+                !err.to_string().contains(input),
+                "error leaked secret-bearing input: {err}"
+            );
+        }
     }
 
     #[test]

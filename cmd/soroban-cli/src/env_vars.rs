@@ -5,6 +5,7 @@ pub fn unprefixed() -> Vec<&'static str> {
     vec![
         "ACCOUNT",
         "ARCHIVE_URL",
+        "AUTH_MODE",
         "CONFIG_HOME",
         "CONTAINER_ENGINE",
         "CONTRACT_ID",
@@ -17,6 +18,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "NO_CACHE",
         "NO_UPDATE_CHECK",
         "OPERATION_SOURCE_ACCOUNT",
+        "RESOURCE_FEE",
         "RPC_HEADERS",
         "RPC_URL",
         "SECRET_KEY",
@@ -30,6 +32,7 @@ pub fn unprefixed() -> Vec<&'static str> {
 /// Unprefixed names of env vars that are safe to display in plain text.
 const VISIBLE: &[&str] = &[
     "ACCOUNT",
+    "AUTH_MODE",
     "CONFIG_HOME",
     "CONTAINER_ENGINE",
     "CONTRACT_ID",
@@ -42,6 +45,7 @@ const VISIBLE: &[&str] = &[
     "NO_CACHE",
     "NO_UPDATE_CHECK",
     "OPERATION_SOURCE_ACCOUNT",
+    "RESOURCE_FEE",
     "SEND",
     "SIGN_WITH_LAB",
     "SIGN_WITH_LEDGER",
@@ -63,4 +67,65 @@ pub fn prefixed(key: &str) -> Vec<String> {
         .iter()
         .map(|var| format!("{key}_{var}"))
         .collect::<Vec<String>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    // Every env var wired to a CLI argument, paired with whether clap hides its
+    // value in help output.
+    fn collect_env_args(cmd: &clap::Command, out: &mut Vec<(String, bool)>) {
+        for arg in cmd.get_arguments() {
+            if let Some(env) = arg.get_env() {
+                out.push((
+                    env.to_string_lossy().into_owned(),
+                    arg.is_hide_env_values_set(),
+                ));
+            }
+        }
+        for sub in cmd.get_subcommands() {
+            collect_env_args(sub, out);
+        }
+    }
+
+    fn declared_env_args() -> Vec<(String, bool)> {
+        let mut out = Vec::new();
+        collect_env_args(&crate::commands::Root::command(), &mut out);
+        out
+    }
+
+    #[test]
+    fn every_declared_env_var_is_registered() {
+        let registered = unprefixed();
+        for (alias, _) in declared_env_args() {
+            // Only STELLAR_/SOROBAN_ vars are governed here; third-party vars like
+            // DOCKER_HOST are out of scope.
+            let Some(name) = alias
+                .strip_prefix("STELLAR_")
+                .or_else(|| alias.strip_prefix("SOROBAN_"))
+            else {
+                continue;
+            };
+            assert!(
+                registered.contains(&name),
+                "{alias} is wired to a CLI argument but missing from env_vars::unprefixed(); \
+                 add it so the display allow list keeps it concealed by default"
+            );
+        }
+    }
+
+    #[test]
+    fn concealed_env_vars_hide_their_values_in_help() {
+        for (alias, hidden) in declared_env_args() {
+            if is_concealed(&alias) {
+                assert!(
+                    hidden,
+                    "{alias} is concealed by env_vars but its CLI argument omits \
+                     `hide_env_values`, so its value would appear in --help"
+                );
+            }
+        }
+    }
 }

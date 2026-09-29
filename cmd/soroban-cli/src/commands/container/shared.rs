@@ -143,7 +143,7 @@ impl fmt::Display for Engine {
 #[derive(Debug, clap::Parser, Clone, Default)]
 pub struct Args {
     /// Optional argument to override the default docker host. This is useful when you are using a non-standard docker host path for your Docker-compatible container runtime, e.g. Docker Desktop defaults to $HOME/.docker/run/docker.sock instead of /var/run/docker.sock
-    #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST")]
+    #[arg(short = 'd', long, help = DOCKER_HOST_HELP, env = "DOCKER_HOST", hide_env_values = true)]
     pub docker_host: Option<String>,
 
     /// Container engine to use [default: docker].
