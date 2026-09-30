@@ -19,9 +19,10 @@ pub mod args;
 /// stellar-core isn't installed, from the network's history archive, starting
 /// from the ledger state at the checkpoint before the ledger. For mainnet the
 /// state is several GB to download and needs tens of GB of disk. The state is
-/// kept in the cache directory, and a ledger shortly after the last one
-/// replayed continues from it. Ledgers replayed are also kept, and aren't
-/// replayed again.
+/// kept in the `replay` directory of the CLI's OS cache directory, and a ledger
+/// shortly after the last one replayed continues from it. Ledgers replayed are
+/// also kept, and aren't replayed again. Nothing is removed automatically, so
+/// delete the directory to free the space.
 #[derive(Debug, clap::Parser)]
 pub struct Cmd {
     /// Ledger sequence number to replay

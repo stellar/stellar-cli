@@ -26,6 +26,10 @@ const LOCK_FILE: &str = "lock";
 /// Docker image run when stellar-core isn't installed.
 const STELLAR_CORE_IMAGE: &str = "stellar/stellar-core:latest";
 
+/// Where the replay directory is mounted in the docker image. A fixed POSIX
+/// path, because the host path isn't valid in the linux image on Windows.
+const STELLAR_CORE_IMAGE_DIR: &str = "/stellar-replay";
+
 /// The most ledgers to replay to continue from the last ledger replayed.
 /// Replaying more takes longer than starting over from the ledger state at the
 /// checkpoint before the ledger.
@@ -140,17 +144,18 @@ impl Args {
         ));
         let verbose = global_args.verbose || global_args.very_verbose;
         let run = |args: &[&str]| run_stellar_core(&print, verbose, &core, &dir, args);
-        match last_ledger {
-            Some(last) if last < ledger && ledger - last <= MAX_LEDGERS_TO_CONTINUE => {
-                print.infoln(format!("Continuing from ledger {last} replayed previously"));
-            }
-            _ => {
-                print.infoln(
-                    "Starting from the checkpoint before the ledger, downloading its ledger state can take several minutes",
-                );
-                run(&["new-db"])?;
-            }
+        if let Some(last) = continue_from(last_ledger, ledger) {
+            print.infoln(format!("Continuing from ledger {last} replayed previously"));
+        } else {
+            print.infoln(
+                "Starting from the checkpoint before the ledger, downloading its ledger state can take several minutes",
+            );
+            run(&["new-db"])?;
         }
+        // The count is only used when starting from an empty database, where
+        // it is the number of ledgers to replay from the checkpoint. With state
+        // from a previous replay, stellar-core replays every ledger after the
+        // last one it closed up to the ledger, so all of them are replayed.
         run(&[
             "catchup",
             &format!("{ledger}/1"),
@@ -168,6 +173,12 @@ impl Args {
         print.checkln(format!("Replayed ledger {ledger}"));
         Ok(meta)
     }
+}
+
+/// Returns the last ledger replayed if the ledger can be replayed by continuing
+/// from it, rather than starting over.
+fn continue_from(last_ledger: Option<u32>, ledger: u32) -> Option<u32> {
+    last_ledger.filter(|&last| last < ledger && ledger - last <= MAX_LEDGERS_TO_CONTINUE)
 }
 
 /// Returns the stellar-core config for replaying ledgers of the network from
@@ -252,13 +263,10 @@ impl StellarCore {
                 cmd
             }
             Self::Docker(docker) => {
-                // Mount the directory at the same path, so that paths are the
-                // same inside and outside the container.
                 let mut cmd = Command::new(docker);
                 cmd.args(["run", "--rm", "--volume"])
-                    .arg(format!("{0}:{0}", dir.display()))
-                    .arg("--workdir")
-                    .arg(dir);
+                    .arg(format!("{}:{STELLAR_CORE_IMAGE_DIR}", dir.display()))
+                    .args(["--workdir", STELLAR_CORE_IMAGE_DIR]);
                 // Run as the current user so the files written are theirs.
                 #[cfg(target_os = "linux")]
                 cmd.arg("--user").arg(format!(
@@ -359,7 +367,8 @@ fn ledger_seq(meta: &LedgerCloseMeta) -> u32 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::xdr::LedgerCloseMetaV2;
+    use crate::{test_utils::EnvGuard, xdr::LedgerCloseMetaV2};
+    use serial_test::serial;
 
     fn meta(ledger_seq: u32) -> LedgerCloseMeta {
         let mut meta = LedgerCloseMetaV2::default();
@@ -391,6 +400,92 @@ mod test {
         let stream = stream(&[meta(10), meta(11)]);
         let err = read_meta(stream.as_slice(), 12).unwrap_err();
         assert!(matches!(err, Error::LedgerMissingFromMeta(12)));
+    }
+
+    #[test]
+    fn test_continue_from() {
+        let ledger = 10_000;
+        let oldest = ledger - MAX_LEDGERS_TO_CONTINUE;
+        assert_eq!(continue_from(None, ledger), None);
+        assert_eq!(continue_from(Some(ledger - 1), ledger), Some(ledger - 1));
+        assert_eq!(continue_from(Some(oldest), ledger), Some(oldest));
+        assert_eq!(continue_from(Some(oldest - 1), ledger), None);
+        assert_eq!(continue_from(Some(ledger), ledger), None);
+        assert_eq!(continue_from(Some(ledger + 1), ledger), None);
+    }
+
+    #[test]
+    fn test_stellar_core_command_bin() {
+        let core = StellarCore::Bin(PathBuf::from("/usr/bin/stellar-core"));
+        let cmd = core.command(Path::new("/cache/replay"));
+        assert_eq!(cmd.get_program(), "/usr/bin/stellar-core");
+        assert_eq!(cmd.get_args().count(), 0);
+        assert_eq!(cmd.get_current_dir(), Some(Path::new("/cache/replay")));
+    }
+
+    #[test]
+    fn test_stellar_core_command_docker() {
+        let core = StellarCore::Docker(PathBuf::from("/usr/bin/docker"));
+        let cmd = core.command(Path::new("/cache/replay"));
+        assert_eq!(cmd.get_program(), "/usr/bin/docker");
+        let mut expected = vec![
+            "run".to_string(),
+            "--rm".to_string(),
+            "--volume".to_string(),
+            "/cache/replay:/stellar-replay".to_string(),
+            "--workdir".to_string(),
+            "/stellar-replay".to_string(),
+        ];
+        #[cfg(target_os = "linux")]
+        expected.extend([
+            "--user".to_string(),
+            format!(
+                "{}:{}",
+                rustix::process::getuid().as_raw(),
+                rustix::process::getgid().as_raw()
+            ),
+        ]);
+        expected.push("stellar/stellar-core:latest".to_string());
+        let args = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(args, expected);
+        assert_eq!(cmd.get_current_dir(), None);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_replay_uses_ledger_replayed_previously() {
+        let data_home = assert_fs::TempDir::new().unwrap();
+        let _env = EnvGuard::set("STELLAR_DATA_HOME", data_home.path());
+        let args = Args {
+            network: network::Args {
+                network_passphrase: Some(network::passphrase::TESTNET.to_string()),
+                ..Default::default()
+            },
+            archive_url: None,
+        };
+        let network = args
+            .network
+            .resolve(&global::Args::default().locator, false)
+            .unwrap();
+        let meta_dir = data::cache_dir()
+            .unwrap()
+            .join("replay")
+            .join(network.id().to_string())
+            .join("meta");
+        fs::create_dir_all(&meta_dir).unwrap();
+        fs::write(
+            meta_dir.join("42.xdr"),
+            meta(42).to_xdr(Limits::none()).unwrap(),
+        )
+        .unwrap();
+
+        // Neither stellar-core nor the archive is needed for a ledger that has
+        // been replayed before.
+        let replayed = args.replay(42, &global::Args::default()).await.unwrap();
+        assert_eq!(ledger_seq(&replayed), 42);
     }
 
     #[test]
