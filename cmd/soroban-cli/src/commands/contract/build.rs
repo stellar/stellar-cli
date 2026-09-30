@@ -243,7 +243,7 @@ pub enum Error {
     Xdr(#[from] stellar_xdr::Error),
 
     #[error(transparent)]
-    ReduceSpec(#[from] soroban_spec::reduce::DuplicateName),
+    ReduceSpec(#[from] soroban_spec::reduce::Error),
 
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
