@@ -582,7 +582,7 @@ mod tests {
             .expect("passphrase-only network should resolve for signing-only commands");
         assert_eq!(network.network_passphrase, "specified manually");
         assert_eq!(network.rpc_url, "");
-        assert!(network.rpc_headers.is_empty());
+        assert_eq!(network.rpc_headers.len(), 0);
     }
 
     #[test]

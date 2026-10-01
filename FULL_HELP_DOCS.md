@@ -2325,7 +2325,7 @@ Calls the token's Stellar Asset Contract `mint` function. A non-SAC contract wit
 ###### **Options:**
 
 - `--id <ID>` — The token to mint: a contract id or alias, or a classic asset as `CODE:ISSUER`
-- `--to <TO>` — Account or contract to mint the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--to <TO>` — Account or contract to mint the tokens to. Accepts a `G…` account, a `C…` contract address, or an alias
 - `--amount <AMOUNT>` — Amount to mint, in the token's smallest unit (stroops for a Stellar Asset Contract)
 - `--output <OUTPUT>` — Format of the output
 

@@ -18,8 +18,8 @@ pub struct Cmd {
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
-    /// Account or contract to mint the tokens to. Accepts a `G…`/`M…` account, a
-    /// `C…` contract address, or an alias.
+    /// Account or contract to mint the tokens to. Accepts a `G…` account, a `C…`
+    /// contract address, or an alias.
     #[arg(long)]
     pub to: UnresolvedScAddress,
 
@@ -55,6 +55,9 @@ pub enum Error {
 
     #[error("muxed (M…) source accounts are not yet supported for `token mint`")]
     MuxedSourceNotSupported,
+
+    #[error("muxed (M…) recipient accounts are not yet supported for `token mint`")]
+    MuxedToNotSupported,
 }
 
 /// Parse `--amount` as a non-negative `i128`. A negative mint amount is always
@@ -82,7 +85,7 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
-            Error::MuxedSourceNotSupported => "unsupported",
+            Error::MuxedSourceNotSupported | Error::MuxedToNotSupported => "unsupported",
         }
     }
 }
@@ -118,13 +121,23 @@ impl Cmd {
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
             return Err(Error::MuxedSourceNotSupported);
         }
+        // `--to` may be an account (`G…`), a contract (`C…`), or an alias. The
+        // host rejects a muxed (`M…`) recipient mid-simulation with an opaque
+        // error, so reject one up front — before any network round-trip — with a
+        // clear message, whether supplied as a direct `M…` strkey or an alias
+        // resolving to a muxed key.
+        if self
+            .to
+            .is_muxed(&config.locator, &network.network_passphrase)
+        {
+            return Err(Error::MuxedToNotSupported);
+        }
         // `mint` is a SAC-admin function; warn (in human-readable mode) if the
         // target isn't actually a Stellar Asset Contract.
         if !output.is_json() {
             args::warn_if_not_sac(output.print(), "mint", &token.contract_id, &network).await;
         }
-        // `--to` may be an account (`G…`/`M…`), a contract (`C…`), or an alias;
-        // resolve it to an `ScAddress` and hand the strkey to the `mint` arg,
+        // Resolve `--to` to an `ScAddress` and hand the strkey to the `mint` arg,
         // which accepts any of these destinations.
         let to = self
             .to

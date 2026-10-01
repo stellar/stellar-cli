@@ -47,7 +47,7 @@ async fn ledger_entry_account_with_alias() {
     let (_, expected_key) = expected_account_ledger_key(&new_account_addr).await;
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
 
-    assert!(!parsed.entries.is_empty());
+    assert_ne!(parsed.entries.len(), 0);
     assert_eq!(parsed.entries[0].key, expected_key);
     assert!(matches!(
         parsed.entries[0].val,
@@ -75,7 +75,7 @@ async fn ledger_entry_account_with_account_addr() {
     let (_, expected_key) = expected_account_ledger_key(&new_account_addr).await;
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
 
-    assert!(!parsed.entries.is_empty());
+    assert_ne!(parsed.entries.len(), 0);
     assert_eq!(parsed.entries[0].key, expected_key);
     assert!(matches!(
         parsed.entries[0].val,
@@ -132,7 +132,7 @@ async fn ledger_entry_trustline_asset_usdc() {
     });
 
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed.entries.is_empty());
+    assert_ne!(parsed.entries.len(), 0);
 
     let trustline_entry = &parsed.entries[0];
     assert_eq!(trustline_entry.key, expected_trustline_key);
@@ -166,7 +166,7 @@ async fn ledger_entry_account_data() {
         .stdout_as_str();
 
     let parsed: FullLedgerEntries = serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed.entries.is_empty());
+    assert_ne!(parsed.entries.len(), 0);
 
     let (account_id, _) = expected_account_ledger_key(&new_account_addr).await;
 
@@ -222,7 +222,7 @@ async fn ledger_entry_contract_data() {
         .success()
         .stdout_as_str();
     let parsed_key_output: FullLedgerEntries = serde_json::from_str(&key_output).unwrap();
-    assert!(!parsed_key_output.entries.is_empty());
+    assert_ne!(parsed_key_output.entries.len(), 0);
 
     // get entry by key xdr
     let key_xdr_output = sandbox
@@ -240,7 +240,7 @@ async fn ledger_entry_contract_data() {
         .success()
         .stdout_as_str();
     let parsed_key_xdr_output: FullLedgerEntries = serde_json::from_str(&key_xdr_output).unwrap();
-    assert!(!parsed_key_xdr_output.entries.is_empty());
+    assert_ne!(parsed_key_xdr_output.entries.len(), 0);
 
     let expected_contract_data_key = expected_contract_ledger_key(&contract_id, storage_key).await;
 
@@ -282,7 +282,7 @@ async fn ledger_entry_contract_data() {
         key: ScVal::LedgerKeyContractInstance,
         durability: ContractDataDurability::Persistent,
     });
-    assert!(!parsed_instance_output.entries.is_empty());
+    assert_ne!(parsed_instance_output.entries.len(), 0);
     assert_eq!(parsed_instance_output.entries[0].key, expected_instance_key);
     assert!(matches!(
         parsed_instance_output.entries[0].val,
@@ -331,7 +331,7 @@ async fn ledger_entry_contract_code() {
         .stdout_as_str();
     let parsed_output: FullLedgerEntries =
         serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
+    assert_ne!(parsed_output.entries.len(), 0);
 
     let hash = Hash(
         padded_hex_from_str(&contract_wasm_hash, 32)
@@ -378,7 +378,7 @@ async fn ledger_entry_claimable_balance() {
         .stdout_as_str();
     let parsed_output: FullLedgerEntries =
         serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
+    assert_ne!(parsed_output.entries.len(), 0);
     let expected_key = LedgerKey::ClaimableBalance(LedgerKeyClaimableBalance {
         balance_id: ClaimableBalanceId::ClaimableBalanceIdTypeV0(id),
     });
@@ -431,7 +431,7 @@ async fn ledger_entry_liquidity_pool() {
         .stdout_as_str();
     let parsed_output: FullLedgerEntries =
         serde_json::from_str(&output).expect("Failed to parse JSON");
-    assert!(!parsed_output.entries.is_empty());
+    assert_ne!(parsed_output.entries.len(), 0);
     let expected_key = LedgerKey::LiquidityPool(LedgerKeyLiquidityPool {
         liquidity_pool_id: PoolId(Hash(pool_id.0)),
     });
