@@ -1748,7 +1748,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "doc-gen"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "clap-markdown",
  "soroban-cli",
@@ -5251,7 +5251,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-cli"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "assert_fs",
  "async-compression",
@@ -5408,12 +5408,12 @@ dependencies = [
 
 [[package]]
 name = "soroban-hello"
-version = "28.1.0"
+version = "30.0.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "serde",
  "serde_json",
@@ -5425,8 +5425,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5451,8 +5451,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "darling 0.20.11",
  "heck 0.5.0",
@@ -5470,8 +5470,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5481,8 +5481,8 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5496,7 +5496,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-tools"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "base64 0.21.7",
  "escape-bytes",
@@ -5516,7 +5516,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-typescript"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "heck 0.4.1",
  "include_dir",
@@ -5534,7 +5534,7 @@ dependencies = [
 
 [[package]]
 name = "soroban-test"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -5572,16 +5572,16 @@ dependencies = [
 
 [[package]]
 name = "soroban-token-sdk"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "soroban-token-spec"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5629,8 +5629,8 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-asset-spec"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=043e83b3d8d0e3b137c08cc3ee0672e9603404de#043e83b3d8d0e3b137c08cc3ee0672e9603404de"
+version = "30.0.0"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=04d952b44508757f02ecc58f648750df6e339bee#04d952b44508757f02ecc58f648750df6e339bee"
 dependencies = [
  "soroban-sdk",
  "soroban-token-spec",
@@ -5638,18 +5638,18 @@ dependencies = [
 
 [[package]]
 name = "stellar-bye"
-version = "28.1.0"
+version = "30.0.0"
 
 [[package]]
 name = "stellar-cli"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-cli",
 ]
 
 [[package]]
 name = "stellar-ledger"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -5986,56 +5986,56 @@ dependencies = [
 
 [[package]]
 name = "test_auth"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_constructor"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_account"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_custom_types"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_empty_constructor"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_hello_world"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_swap"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_token"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -6043,14 +6043,14 @@ dependencies = [
 
 [[package]]
 name = "test_token_renamed"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "test_udt"
-version = "28.1.0"
+version = "30.0.0"
 dependencies = [
  "soroban-sdk",
 ]
