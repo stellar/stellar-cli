@@ -6,6 +6,7 @@ use soroban_spec_typescript::boilerplate::Project;
 
 use crate::commands::contract::info::shared as contract_spec;
 use crate::print::Print;
+use crate::utils::deprecate_message;
 use soroban_spec_tools::contract::Spec;
 
 #[derive(Parser, Debug, Clone)]
@@ -55,9 +56,12 @@ impl Cmd {
     pub async fn execute(&self, quiet: bool) -> Result<(), Error> {
         let print = Print::new(quiet);
 
-        print.warnln(
-            "`stellar contract bindings typescript` is deprecated. Use the JavaScript Stellar SDK \
-             instead: https://github.com/stellar/js-stellar-sdk#cli",
+        deprecate_message(
+            print.clone(),
+            "stellar contract bindings typescript",
+            "It will then be provided by the JavaScript Stellar SDK plugin: install \
+             `@stellar/stellar-sdk` 17.2.0 or later globally to keep using this command. See \
+             https://github.com/stellar/js-stellar-sdk#stellar-cli-plugin",
         );
 
         let contract_spec::Fetched { contract, source } =
