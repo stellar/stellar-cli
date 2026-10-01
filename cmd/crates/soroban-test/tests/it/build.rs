@@ -512,7 +512,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
         .unwrap(),
     });
 
-    // Build markers for the struct so it passes the version 2 filter
+    // Build markers for the struct so it passes the markers filter
     let mut markers = std::collections::HashSet::new();
     markers.insert(soroban_spec::shaking::generate_marker_for_entry(
         &used_struct,
@@ -528,7 +528,7 @@ fn filter_and_dedup_spec_removes_duplicates() {
     ];
 
     let result_xdr =
-        filter_and_dedup_spec(entries, &markers, soroban_spec::shaking::Version::V2).unwrap();
+        filter_and_dedup_spec(entries, &markers, soroban_spec::shaking::Model::Markers).unwrap();
 
     // Parse back the entries from the XDR
     let result_entries: Vec<ScSpecEntry> =
@@ -555,16 +555,16 @@ fn filter_and_dedup_spec_removes_duplicates() {
 fn build_with_spec_shaking_has_feature_meta() {
     let (_spec, meta) = build_spec_shaking_fixture();
 
-    let version = soroban_spec::shaking::spec_shaking_version_for_meta(&meta);
+    let model = soroban_spec::shaking::model_for_meta(&meta);
 
-    // The fixture builds against a published soroban-sdk, which records
-    // version 2. The workspace's `[patch.crates-io]` does not reach a contract
-    // built in a temp dir, so this covers the version 2 rules end to end, and
-    // the SDK's own test contract covers version 3.
+    // The fixture builds against a published soroban-sdk, which records spec
+    // shaking version 2. The workspace's `[patch.crates-io]` does not reach a
+    // contract built in a temp dir, so this covers the markers rules end to
+    // end, and the SDK's own test contract covers the references rules.
     assert_eq!(
-        version,
-        soroban_spec::shaking::Version::V2,
-        "contractmeta should indicate spec shaking version 2"
+        model,
+        soroban_spec::shaking::Model::Markers,
+        "contractmeta should select the markers model"
     );
 }
 
