@@ -56,32 +56,32 @@ version = "28.0.2"
 [workspace.dependencies.soroban-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 [workspace.dependencies.soroban-spec-rust]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 [workspace.dependencies.soroban-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 [workspace.dependencies.soroban-token-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 [workspace.dependencies.stellar-asset-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "04d952b44508757f02ecc58f648750df6e339bee"
+rev = "5d6f30a6f2c68437e8b80f5a3ae4d70c69e8abd6"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
