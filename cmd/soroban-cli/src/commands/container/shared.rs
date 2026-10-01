@@ -587,7 +587,7 @@ mod test {
 
     #[test]
     fn run_args_flags_emit_only_set_limits() {
-        assert!(RunArgs::default().flags().is_empty());
+        assert_eq!(RunArgs::default().flags().len(), 0);
         assert_eq!(
             RunArgs {
                 cpus: Some(1),
