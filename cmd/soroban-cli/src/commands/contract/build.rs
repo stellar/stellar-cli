@@ -242,8 +242,8 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::Error),
 
-    #[error(transparent)]
-    ReduceSpec(#[from] soroban_spec::reduce::Error),
+    #[error("{0}")]
+    ReduceSpec(String),
 
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
@@ -602,7 +602,10 @@ impl Cmd {
         let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
         let spec = Spec::new(&wasm_bytes)?;
 
-        let reduced = soroban_spec::reduce::reduce(&spec.spec)?;
+        // The error names entries of the spec, so sanitize it before it is
+        // printed, as the spec is untrusted input.
+        let reduced = soroban_spec::reduce::reduce(&spec.spec)
+            .map_err(|e| Error::ReduceSpec(sanitize(&e.to_string())))?;
 
         // If every name was already simple, leave the wasm untouched.
         if reduced.renames().all(|r| !r.renamed()) {
@@ -613,14 +616,14 @@ impl Cmd {
         if !collisions.is_empty() {
             use std::fmt::Write as _;
             let mut msg = format!(
-                "{name}: reduced type names collided and were disambiguated with a numeric suffix:"
+                "{name}: reduced type and event names collided and were disambiguated with a numeric suffix:"
             );
             for rename in collisions {
                 let _ = write!(
                     msg,
                     "\n    {} -> {}",
-                    String::from_utf8_lossy(&rename.from),
-                    String::from_utf8_lossy(&rename.to),
+                    sanitize(&String::from_utf8_lossy(&rename.from)),
+                    sanitize(&String::from_utf8_lossy(&rename.to)),
                 );
             }
             print.warnln(msg);
