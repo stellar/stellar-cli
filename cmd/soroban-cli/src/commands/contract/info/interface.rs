@@ -50,7 +50,7 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
-        let (base64, spec) = match contract {
+        let (base64, spec, sdk_major_version) = match contract {
             shared::Contract::Wasm { wasm_bytes } => {
                 let spec = Spec::new(&wasm_bytes)?;
 
@@ -58,10 +58,12 @@ impl Cmd {
                     return Err(NoInterfacePresent());
                 }
 
-                (spec.spec_base64.unwrap(), spec.spec)
+                let sdk_major_version = soroban_spec_rust::sdk_major_version_from_meta(&spec.meta);
+                (spec.spec_base64.unwrap(), spec.spec, sdk_major_version)
             }
             shared::Contract::StellarAssetContract => {
-                Spec::spec_to_base64(stellar_asset_spec::xdr())?
+                let (base64, spec) = Spec::spec_to_base64(stellar_asset_spec::xdr())?;
+                (base64, spec, None)
             }
         };
 
@@ -75,7 +77,7 @@ impl Cmd {
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
             // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec, sdk_major_version)?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };
