@@ -20,7 +20,11 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Contract ID to fetch
-    #[arg(long = "id", env = "STELLAR_CONTRACT_ID")]
+    #[arg(
+        long = "contract-id",
+        visible_alias = "id",
+        env = "STELLAR_CONTRACT_ID"
+    )]
     pub contract_id: Option<config::UnresolvedContract>,
     /// Wasm to fetch
     #[arg(long = "wasm-hash", conflicts_with = "contract_id")]
@@ -67,7 +71,7 @@ pub enum Error {
     Wasm(#[from] wasm::Error),
     #[error("wasm hash is invalid {0:?}")]
     InvalidWasmHash(String),
-    #[error("must provide one of --wasm-hash, or --id")]
+    #[error("must provide one of --wasm-hash, or --contract-id")]
     MissingArg,
 }
 

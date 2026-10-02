@@ -30,7 +30,8 @@ pub struct Args {
     /// Contract ID to which owns the data entries.
     /// If no keys provided the Contract's instance will be extended
     #[arg(
-        long = "id",
+        long = "contract-id",
+        visible_alias = "id",
         required_unless_present = "wasm",
         required_unless_present = "wasm_hash"
     )]

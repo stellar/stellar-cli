@@ -29,7 +29,9 @@ use crate::{
     wasm,
 };
 
+pub mod archive;
 pub mod container;
+pub(crate) mod source_archive;
 
 /// A built WASM artifact with its package name and file path.
 #[derive(Debug, Clone)]
@@ -54,6 +56,9 @@ pub struct BuiltContract {
 /// --print-commands-only option.
 #[derive(Parser, Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
+// Either the build flags or the `archive` subcommand — never both, since the
+// subcommand path ignores the parent build flags entirely.
+#[command(args_conflicts_with_subcommands = true)]
 pub struct Cmd {
     /// Path to Cargo.toml
     #[arg(long)]
@@ -135,6 +140,14 @@ pub struct Cmd {
     /// `--image` build container.
     #[command(flatten, next_help_heading = HEADING_CONTAINER)]
     pub run_args: ContainerRunArgs,
+
+    #[command(subcommand)]
+    pub command: Option<SubCommand>,
+}
+
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum SubCommand {
+    Archive(archive::Cmd),
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
@@ -244,6 +257,12 @@ pub enum Error {
 
     #[error(transparent)]
     Container(#[from] container::Error),
+
+    #[error(transparent)]
+    Engine(#[from] crate::commands::container::shared::Error),
+
+    #[error(transparent)]
+    Archive(#[from] archive::Error),
 }
 
 pub(crate) const WASM_TARGET: &str = "wasm32v1-none";
@@ -267,6 +286,7 @@ impl Default for Cmd {
             build_args: BuildArgs::default(),
             container_args: ContainerArgs::default(),
             run_args: ContainerRunArgs::default(),
+            command: None,
         }
     }
 }
@@ -275,6 +295,13 @@ impl Cmd {
     /// Builds the project and returns the built WASM artifacts.
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<Vec<BuiltContract>, Error> {
+        // `contract build archive` generates the source archive instead of
+        // building; it produces no wasm artifacts.
+        if let Some(SubCommand::Archive(cmd)) = &self.command {
+            cmd.run(global_args)?;
+            return Ok(Vec::new());
+        }
+
         let print = Print::new(global_args.quiet);
 
         // When an image is given, build inside that container instead of locally.
@@ -343,8 +370,15 @@ impl Cmd {
             }
 
             // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers.
+            // optimization using markers. Current and new SDK versions no
+            // longer read this var, relying on the CLI version below
+            // instead, but it must keep being set for past SDK versions that
+            // require it.
             cmd.env("SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2", "1");
+
+            // Set env var to inform the SDK of the CLI version. The SDK requires
+            // the CLI's major version to be the same or greater than its own.
+            cmd.env("STELLAR_CLI_VERSION", env!("CARGO_PKG_VERSION"));
 
             let cmd_str = serialize_command(&cmd);
 

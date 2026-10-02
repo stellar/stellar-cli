@@ -23,7 +23,7 @@ pub struct Cmd {
     pub overwrite: bool,
 
     /// The contract id that will be associated with the alias.
-    #[arg(long = "id")]
+    #[arg(long = "contract-id", visible_alias = "id")]
     pub contract_id: stellar_strkey::Contract,
 }
 

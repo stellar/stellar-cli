@@ -66,6 +66,7 @@ pub struct Args {
         long = "rpc-url",
         env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
+        hide_env_values = true,
     )]
     pub rpc_url: Option<String>,
     /// RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
@@ -152,6 +153,7 @@ pub struct Network {
         long = "rpc-url",
         env = "STELLAR_RPC_URL",
         help_heading = HEADING_RPC,
+        hide_env_values = true,
     )]
     pub rpc_url: String,
     /// Optional header to include in requests to the RPC, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times.
@@ -580,7 +582,7 @@ mod tests {
             .expect("passphrase-only network should resolve for signing-only commands");
         assert_eq!(network.network_passphrase, "specified manually");
         assert_eq!(network.rpc_url, "");
-        assert!(network.rpc_headers.is_empty());
+        assert_eq!(network.rpc_headers.len(), 0);
     }
 
     #[test]

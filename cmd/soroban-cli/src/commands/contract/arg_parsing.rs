@@ -1226,6 +1226,47 @@ mod tests {
     }
 
     #[test]
+    fn malformed_union_arg_surfaces_as_cannot_parse_arg() {
+        // A malformed user-defined-type argument must reach the user as the normal
+        // `CannotParseArg` CLI error (issues #2740/#2739/#2738), not as a panic.
+        // This exercises the actual `contract invoke` argument-parsing wrapper,
+        // one layer above the soroban-spec-tools parser the regressions cover.
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtUnionCaseTupleV0,
+            ScSpecUdtUnionCaseV0, ScSpecUdtUnionV0, StringM,
+        };
+
+        let union_name: StringM<60> = "MyEnum".try_into().unwrap();
+        let spec = Spec(Some(vec![ScSpecEntry::UdtUnionV0(ScSpecUdtUnionV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: union_name.clone(),
+            cases: vec![ScSpecUdtUnionCaseV0::TupleV0(ScSpecUdtUnionCaseTupleV0 {
+                doc: StringM::default(),
+                name: "WithValue".try_into().unwrap(),
+                type_: vec![ScSpecTypeDef::U32, ScSpecTypeDef::U32]
+                    .try_into()
+                    .unwrap(),
+            })]
+            .try_into()
+            .unwrap(),
+        })]));
+        let expected_type = ScSpecTypeDef::Udt(ScSpecTypeUdt { name: union_name });
+        let config = crate::config::Args::default();
+
+        // Empty object (no case selected) and a wrong-arity tuple payload both
+        // used to panic in the parser; both must now come back as CannotParseArg.
+        for bad in [r"{}", r#"{"WithValue":{"0":1}}"#] {
+            let err = parse_argument_with_validation("value", bad, &expected_type, &spec, &config)
+                .unwrap_err();
+            assert!(
+                matches!(err, Error::CannotParseArg { .. }),
+                "input {bad}: got {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn test_error_message_format() {
         use stellar_xdr::ScSpecTypeDef;
 

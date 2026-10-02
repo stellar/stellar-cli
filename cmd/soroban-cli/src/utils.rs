@@ -107,19 +107,7 @@ pub fn lab_url_for_contract(
 pub fn contract_id_from_str(
     contract_id: &str,
 ) -> Result<stellar_strkey::Contract, stellar_strkey::DecodeError> {
-    Ok(
-        if let Ok(strkey) = stellar_strkey::Contract::from_string(contract_id) {
-            strkey
-        } else {
-            // strkey failed, try to parse it as a hex string, for backwards compatibility.
-            stellar_strkey::Contract(
-                soroban_spec_tools::utils::padded_hex_from_str(contract_id, 32)
-                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?
-                    .try_into()
-                    .map_err(|_| stellar_strkey::DecodeError::Invalid)?,
-            )
-        },
-    )
+    soroban_spec_tools::utils::contract_id_from_str(contract_id).map(stellar_strkey::Contract)
 }
 
 /// # Errors
@@ -165,7 +153,7 @@ pub fn deprecate_message(print: Print, arg: &str, hint: &str) {
 }
 
 /// Used in tests
-#[allow(unused)]
+#[cfg(test)]
 pub(crate) fn parse_secret_key(
     s: &str,
 ) -> Result<ed25519_dalek::SigningKey, stellar_strkey::DecodeError> {

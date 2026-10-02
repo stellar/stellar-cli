@@ -32,11 +32,11 @@ Commands that work with contracts are organized under the `contract` subcommand.
 
 Use contracts like a CLI:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- --help
 
 Anything after the `--` double dash (the "slop") is parsed as arguments to the contract-specific CLI, generated on-the-fly from the contract schema. For the hello world example, with a function called `hello` that takes one string argument `to`, here's how you invoke it:
 
-    stellar contract invoke --id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
+    stellar contract invoke --contract-id CCR6QKTWZQYW6YUJ7UP7XXZRLWQPFRV6SWBLQS4ZQOSAF4BOUD77OTE2 --source alice --network testnet -- hello --to world
 
 **Usage:** `stellar [OPTIONS] <COMMAND>`
 
@@ -58,6 +58,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `completion` — Print shell completion code for the specified shell
 - `cache` — Cache for transactions and contract specs
 - `version` — Print version information
+- `skill` — Print an AI-agent skill guide for using the Stellar CLI
 - `plugin` — The subcommand for CLI plugins
 - `ledger` — Fetch ledger information
 - `message` — Sign and verify arbitrary messages using SEP-53
@@ -180,16 +181,18 @@ Utilities to manage contract aliases
 
 ###### **Subcommands:**
 
-- `remove` — Remove contract alias
+- `rm` — Remove contract alias
 - `add` — Add contract alias
 - `show` — Show the contract id associated with a given alias
 - `ls` — List all aliases
 
-## `stellar contract alias remove`
+## `stellar contract alias rm`
 
 Remove contract alias
 
-**Usage:** `stellar contract alias remove [OPTIONS] <ALIAS>`
+**Usage:** `stellar contract alias rm [OPTIONS] <ALIAS>`
+
+**Command Alias:** `remove`
 
 ###### **Arguments:**
 
@@ -210,7 +213,7 @@ Remove contract alias
 
 Add contract alias
 
-**Usage:** `stellar contract alias add [OPTIONS] --id <CONTRACT_ID> <ALIAS>`
+**Usage:** `stellar contract alias add [OPTIONS] --contract-id <CONTRACT_ID> <ALIAS>`
 
 ###### **Arguments:**
 
@@ -223,7 +226,7 @@ Add contract alias
 ###### **Options:**
 
 - `--overwrite` — Overwrite the contract alias if it already exists
-- `--id <CONTRACT_ID>` — The contract id that will be associated with the alias
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — The contract id that will be associated with the alias
 
 ###### **RPC Options:**
 
@@ -273,12 +276,12 @@ Generate code client bindings for a contract
 
 - `rust` — Generate Rust bindings
 - `typescript` — ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
-- `python` — Generate Python bindings
-- `java` — Generate Java bindings
-- `flutter` — Generate Flutter bindings
-- `swift` — Generate Swift bindings
-- `php` — Generate PHP bindings
-- `kmp` — Generate Kotlin Multiplatform bindings
+- `python` — Generate Python bindings (requires external plugin)
+- `java` — Generate Java bindings (requires external plugin)
+- `flutter` — Generate Flutter bindings (requires external plugin)
+- `swift` — Generate Swift bindings (requires external plugin)
+- `php` — Generate PHP bindings (requires external plugin)
+- `kmp` — Generate Kotlin Multiplatform bindings (requires external plugin)
 
 ## `stellar contract bindings rust`
 
@@ -317,37 +320,37 @@ Generate Rust bindings
 
 ## `stellar contract bindings python`
 
-Generate Python bindings
+Generate Python bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings python`
 
 ## `stellar contract bindings java`
 
-Generate Java bindings
+Generate Java bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings java`
 
 ## `stellar contract bindings flutter`
 
-Generate Flutter bindings
+Generate Flutter bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings flutter`
 
 ## `stellar contract bindings swift`
 
-Generate Swift bindings
+Generate Swift bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings swift`
 
 ## `stellar contract bindings php`
 
-Generate PHP bindings
+Generate PHP bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings php`
 
 ## `stellar contract bindings kmp`
 
-Generate Kotlin Multiplatform bindings
+Generate Kotlin Multiplatform bindings (requires external plugin)
 
 **Usage:** `stellar contract bindings kmp`
 
@@ -361,7 +364,11 @@ In workspaces builds all crates unless a package name is specified, or the comma
 
 To view the commands that will be executed, without executing them, use the --print-commands-only option.
 
-**Usage:** `stellar contract build [OPTIONS]`
+**Usage:** `stellar contract build [OPTIONS]        build <COMMAND>`
+
+###### **Subcommands:**
+
+- `archive` — Generate (or inspect) the reproducible source archive for a contract
 
 ###### **Container Options:**
 
@@ -421,6 +428,21 @@ To view the commands that will be executed, without executing them, use the --pr
 
 - `--print-commands-only` — Print commands to build without executing them
 
+## `stellar contract build archive`
+
+Generate (or inspect) the reproducible source archive for a contract.
+
+Produces a gzipped tarball of the source tree and prints its SHA-256 (the SEP-58 `source_sha256`). Use `--dry-run` to list exactly what would be archived without writing anything — handy for confirming the contents before publishing the archive.
+
+The archive is the current working directory, honoring the project's `.gitignore` and `.ignore` files (the `.git` directory itself is always skipped). Run this from the project (or workspace) root you want archived.
+
+**Usage:** `stellar contract build archive [OPTIONS]`
+
+###### **Options:**
+
+- `-o`, `--out-file <OUT_FILE>` — Where to write the gzipped tarball. Required unless `--dry-run` is used
+- `--dry-run` — List the entries that would be archived and the computed source_sha256, without writing any file
+
 ## `stellar contract extend`
 
 Extend the time to live ledger of a contract-data ledger entry.
@@ -437,7 +459,7 @@ If no keys are specified the contract itself is extended.
 
 - `--ledgers-to-extend <LEDGERS_TO_EXTEND>` — Number of ledgers to extend the entries
 - `--ttl-ledger-only` — Only print the new Time To Live ledger
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -558,7 +580,7 @@ Fetch a contract's Wasm binary
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to fetch
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to fetch
 - `--wasm-hash <WASM_HASH>` — Wasm to fetch
 - `-o`, `--out-file <OUT_FILE>` — Where to write output otherwise stdout is used
 
@@ -991,7 +1013,7 @@ Generates an "implicit CLI" for the specified contract on-the-fly using the cont
 
 stellar contract invoke ... -- --help
 
-**Usage:** `stellar contract invoke [OPTIONS] --id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
+**Usage:** `stellar contract invoke [OPTIONS] --contract-id <CONTRACT_ID> --source-account <SOURCE_ACCOUNT> [-- <CONTRACT_FN_AND_ARGS>...]`
 
 ###### **Arguments:**
 
@@ -1003,7 +1025,7 @@ stellar contract invoke ... -- --help
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to invoke
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to invoke
 - `--is-view` — ⚠️ Deprecated, use `--send=no`. View the result simulating and do not sign and submit transaction
 - `--send <SEND>` — Whether or not to send a transaction
 
@@ -1078,7 +1100,7 @@ Print the current value of a contract-data ledger entry
   - `json`: Json
   - `xdr`: XDR
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1112,7 +1134,7 @@ If no keys are specificed the contract itself is restored.
 
 ###### **Options:**
 
-- `--id <CONTRACT_ID>` — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
+- `--contract-id <CONTRACT_ID>` [alias: `id`] — Contract ID to which owns the data entries. If no keys provided the Contract's instance will be extended
 - `--key <KEY>` — Storage key (symbols only)
 - `--key-xdr <KEY_XDR>` — Storage key (base64-encoded XDR)
 - `--wasm <WASM>` — Path to Wasm file of contract code to extend
@@ -1924,12 +1946,18 @@ Interact with SEP-41 tokens and Stellar Asset Contracts
 ###### **Subcommands:**
 
 - `transfer` — Transfer tokens from one account to another
+- `transfer-from` — Transfer tokens on an owner's behalf using a granted allowance
+- `burn` — Burn tokens from an account, destroying them
+- `burn-from` — Burn tokens from an owner's account using a granted allowance
 - `balance` — Read the token balance of an account or contract
 - `name` — Read the token's name (SEP-41 metadata)
 - `symbol` — Read the token's symbol (SEP-41 metadata)
 - `decimals` — Read the token's decimals (SEP-41 metadata)
 - `approve` — Approve an allowance for a spender to transfer on your behalf
 - `allowance` — Read the allowance a spender has on an owner's behalf
+- `mint` — Mint new tokens to an account or contract (SAC admin)
+- `clawback` — Claw back tokens from an account or contract (SAC admin)
+- `set-admin` — Transfer administration of the token to a new admin (SAC admin)
 
 ## `stellar token transfer`
 
@@ -1947,6 +1975,126 @@ Transfer tokens from one account to another
 - `--from <FROM>` — Account to transfer tokens from. Signs and authorizes the transfer, so it must be an identity or secret key you control
 - `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
 - `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token transfer-from`
+
+Transfer tokens on an owner's behalf using a granted allowance
+
+**Usage:** `stellar token transfer-from [OPTIONS] --id <ID> --spender <SPENDER> --from <FROM> --to <TO> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to transfer from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--spender <SPENDER>` — Spender drawing on its allowance. Signs and authorizes the transfer, so it must be an identity or secret key you control
+- `--from <FROM>` — Owner whose tokens are moved. Must have granted `--spender` an allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--to <TO>` — Account or contract to transfer the tokens to. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to transfer, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token burn`
+
+Burn tokens from an account, destroying them
+
+**Usage:** `stellar token burn [OPTIONS] --id <ID> --from <FROM> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to burn: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account whose tokens are destroyed. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+## `stellar token burn-from`
+
+Burn tokens from an owner's account using a granted allowance
+
+**Usage:** `stellar token burn-from [OPTIONS] --id <ID> --spender <SPENDER> --from <FROM> --amount <AMOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to burn from: a contract id or alias, `native`, or a classic asset as `CODE:ISSUER`
+- `--spender <SPENDER>` — Spender drawing on its allowance. Signs and authorizes the burn, so it must be an identity or secret key you control
+- `--from <FROM>` — Owner whose tokens are destroyed. Must have granted `--spender` an allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to burn, in the token's smallest unit (stroops for a Stellar Asset Contract)
 - `--output <OUTPUT>` — Format of the output
 
   Default value: `text`
@@ -2161,6 +2309,146 @@ Read the allowance a spender has on an owner's behalf
 - `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
 - `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
 - `-n`, `--network <NETWORK>` — Name of network to use from config
+
+## `stellar token mint`
+
+Mint new tokens to an account or contract (SAC admin)
+
+Calls the token's Stellar Asset Contract `mint` function. A non-SAC contract with a same-named function that takes different arguments will fail or misbehave — use `stellar contract invoke` for those.
+
+**Usage:** `stellar token mint [OPTIONS] --id <ID> --to <TO> --amount <AMOUNT> --source-account <SOURCE_ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to mint: a contract id or alias, or a classic asset as `CODE:ISSUER`
+- `--to <TO>` — Account or contract to mint the tokens to. Accepts a `G…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to mint, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+###### **Transaction Options:**
+
+- `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+
+## `stellar token clawback`
+
+Claw back tokens from an account or contract (SAC admin)
+
+Calls the token's Stellar Asset Contract `clawback` function. A non-SAC contract with a same-named function that takes different arguments will fail or misbehave — use `stellar contract invoke` for those.
+
+**Usage:** `stellar token clawback [OPTIONS] --id <ID> --from <FROM> --amount <AMOUNT> --source-account <SOURCE_ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to claw back: a contract id or alias, or a classic asset as `CODE:ISSUER`
+- `--from <FROM>` — Account or contract to claw the tokens back from. Accepts a `G…` account, a `C…` contract address, or an alias
+- `--amount <AMOUNT>` — Amount to claw back, in the token's smallest unit (stroops for a Stellar Asset Contract)
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+###### **Transaction Options:**
+
+- `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+
+## `stellar token set-admin`
+
+Transfer administration of the token to a new admin (SAC admin)
+
+Calls the token's Stellar Asset Contract `set_admin` function. A non-SAC contract with a same-named function that takes different arguments will fail or misbehave — use `stellar contract invoke` for those.
+
+**Usage:** `stellar token set-admin [OPTIONS] --id <ID> --new-admin <NEW_ADMIN> --source-account <SOURCE_ACCOUNT>`
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--id <ID>` — The token to re-administer: a contract id or alias, or a classic asset as `CODE:ISSUER`
+- `--new-admin <NEW_ADMIN>` — The new administrator to hand control to. Accepts a `G…` account, a `C…` contract address, or an alias
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
+
+###### **Transaction Options:**
+
+- `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
+- `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
+- `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
 
 ## `stellar tx`
 
@@ -4729,21 +5017,21 @@ Decode and encode strkey
 
 Decode strkey
 
-**Usage:** `stellar strkey decode <STRKEY>`
+**Usage:** `stellar strkey decode [STRKEY]`
 
 ###### **Arguments:**
 
-- `<STRKEY>` — Strkey to decode
+- `<STRKEY>` — Strkey to decode, or stdin if empty
 
 ## `stellar strkey encode`
 
 Encode strkey
 
-**Usage:** `stellar strkey encode <JSON>`
+**Usage:** `stellar strkey encode [JSON]`
 
 ###### **Arguments:**
 
-- `<JSON>` — JSON for Strkey to encode
+- `<JSON>` — JSON for Strkey to encode, or stdin if empty
 
 ## `stellar strkey zero`
 
@@ -4859,6 +5147,14 @@ Print version information
 - `--only-version` — Print only the version
 - `--only-version-major` — Print only the major version
 - `--only-commit` — Print only the commit sha
+
+## `stellar skill`
+
+Print an AI-agent skill guide for using the Stellar CLI
+
+Outputs a Markdown document describing how to use the Stellar CLI idiomatically. It is meant to be read by AI coding agents (or pasted into their instructions) so they follow the CLI's conventions: using named networks, identities, and contract aliases instead of raw RPC URLs, secret keys, and hard-coded contract ids.
+
+**Usage:** `stellar skill`
 
 ## `stellar plugin`
 
