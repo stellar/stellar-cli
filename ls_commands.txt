@@ -1,0 +1,9 @@
+Commands directory structure:
+- simulate.rs (main simulation command)
+- tx.rs (transaction submission)
+- invoke.rs (invoke command)
+
+Key insight: The simulation command needs to be modified to:
+1. Capture ALL budget metrics from the simulation response
+2. Return them even on error
+3. Display them clearly in the output

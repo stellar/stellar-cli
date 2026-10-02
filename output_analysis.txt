@@ -1,0 +1,5 @@
+## Output Formatting Analysis
+
+Current output in `output.rs` likely formats simulation results. Need to:
+1. Add new fields for expanded cost metrics
+2. Handle display of error cases with budget info
