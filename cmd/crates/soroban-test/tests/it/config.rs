@@ -1283,6 +1283,36 @@ fn keys_fund_error_does_not_leak_secret_bearing_input() {
 }
 
 #[test]
+fn token_address_param_error_does_not_leak_secret_bearing_input() {
+    // `--account`/`--to`/`--spender` share `UnresolvedScAddress`; a mistyped
+    // secret pasted there resolves before any network call, so the "not found"
+    // error must not echo it — in text or JSON output. `token balance --account`
+    // stands in for the shared resolve path.
+    let sandbox = TestEnv::default();
+    for output in ["text", "json"] {
+        sandbox
+            .new_assert_cmd("token")
+            .args([
+                "balance",
+                "--id",
+                "native",
+                "--account",
+                MISTYPED_SECRET,
+                "--output",
+                output,
+                "--rpc-url",
+                "http://localhost:1",
+                "--network-passphrase",
+                "Test SDF Network ; September 2015",
+            ])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains(MISTYPED_SECRET).not())
+            .stderr(predicate::str::contains(MISTYPED_SECRET).not());
+    }
+}
+
+#[test]
 fn help_conceals_sensitive_env_var_values() {
     // Each concealed env var, paired with a subcommand whose `--help` renders it.
     let cases: &[(&str, &[&str])] = &[
