@@ -51,8 +51,8 @@ version = "28.0.0"
 version = "28.0.2"
 
 # Dependencies from the rs-soroban-sdk repo, pinned to
-# https://github.com/stellar/rs-soroban-sdk/pull/1970, which names user-defined
-# types in contract specs by their fully qualified path:
+# https://github.com/stellar/rs-soroban-sdk/pull/2043, which shakes specs by
+# following the references to each type by name:
 [workspace.dependencies.soroban-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
