@@ -136,6 +136,26 @@ pub fn test_address(sandbox: &TestEnv) -> String {
         .stdout_as_str()
 }
 
+/// Horizon ingests asynchronously from RPC, so poll until `ready` holds.
+pub async fn horizon_get_until(
+    url: &str,
+    ready: impl Fn(&serde_json::Value) -> bool,
+) -> serde_json::Value {
+    let mut json = serde_json::Value::Null;
+    for _ in 0..60 {
+        if let Ok(response) = reqwest::get(url).await {
+            if let Ok(body) = response.json().await {
+                json = body;
+                if ready(&json) {
+                    break;
+                }
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+    json
+}
+
 pub fn get_sponsoring_count(account: &soroban_cli::xdr::AccountEntry) -> u32 {
     match &account.ext {
         soroban_cli::xdr::AccountEntryExt::V1(v1) => match &v1.ext {
