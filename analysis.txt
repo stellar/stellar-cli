@@ -1,0 +1,1 @@
+The issue is about enhancing simulation error handling in stellar-cli to return budget/fee information even when transactions fail. Need to find simulation-related code, error handling for Soroban transactions, and where budget metrics (CPU, memory) are currently reported.

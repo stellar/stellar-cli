@@ -1,0 +1,16 @@
+## Soroban SDK Simulation Types Analysis
+
+The soroban-sdk provides these structures for simulation:
+- `SimulateTransactionResponse` - contains `cost` field with `SimulatedCost`
+- `SimulatedCost` contains:
+  - `cpu_instructions: u64`
+  - `mem_bytes: u64`
+  - Plus potentially: read_bytes, write_bytes, historical_data_bytes, footprint_bytes
+
+For error cases, the response may contain:
+- `error: String`
+- But still may include partial `cost` information
+
+The fix needs to:
+1. Capture and return cost data even when simulation errors occur
+2. Expand the output to show ALL cost metrics, not just cpu and mem

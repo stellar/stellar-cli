@@ -1,0 +1,47 @@
+## Changes Needed in simulate.rs
+
+The SimulateCmd needs to:
+
+1. **Expand SimCost struct** to include all cost metrics:
+   - cpu_instructions
+   - mem_bytes  
+   - read_bytes
+   - write_bytes
+   - historical_data_bytes
+   - footprint_bytes
+
+2. **Modify run() method** to:
+   - Call simulation
+   - On success: return full cost info
+   - On error: STILL return cost info if available, plus the error
+
+3. **Update SimulateOutput** to include error information along with cost data
+
+Example pseudo-code for the fix:
+```rust
+pub async fn run(&self) -> Result<SimulateOutput, Error> {
+    // ... setup code ...
+    
+    let simulation_result = horizon.simulate_transaction(&tx).await;
+    
+    match simulation_result {
+        Ok(sim) => {
+            // Return success with FULL cost metrics
+            Ok(SimulateOutput {
+                cost: sim.cost.into(), // Convert to expanded cost struct
+                results: sim.results,
+                error: None,
+            })
+        }
+        Err(e) => {
+            // Try to extract any cost info from error response
+            // Return error WITH cost information if available
+            let cost = extract_cost_from_error(&e);
+            Ok(SimulateOutput {
+                cost: cost.unwrap_or_default(),
+                results: vec![],
+                error: Some(format!("{}", e)),
+            })
+        }
+    }
+}
