@@ -1354,3 +1354,96 @@ fn contract_archive_dirty_tree_errors() {
         "no archive should be written for a dirty tree"
     );
 }
+
+#[test]
+fn build_reduces_qualified_names_and_rewrites_references() {
+    let sandbox = TestEnv::default();
+    let outdir = sandbox.dir().join("out");
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace-with-qualified-names");
+    let temp = TempDir::new().unwrap();
+    let dir_path = temp.path();
+    fs_extra::dir::copy(fixture_path, dir_path, &CopyOptions::new()).unwrap();
+    let dir_path = dir_path.join("workspace-with-qualified-names");
+
+    // The two `State` types collide once reduced to their last segment, and the
+    // build warns about the one it numbers.
+    sandbox
+        .new_assert_cmd("contract")
+        .current_dir(&dir_path)
+        .arg("build")
+        .arg("--out-dir")
+        .arg(&outdir)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "names: reduced type and event names collided and were disambiguated with a numeric suffix:",
+        ))
+        .stderr(predicate::str::contains("::names::b::State -> State2"));
+
+    let wasm = std::fs::read(dir_path.join(&outdir).join("names.wasm")).unwrap();
+    let spec = Spec::new(&wasm).unwrap();
+
+    let udt = |name: &str| {
+        soroban_cli::xdr::ScSpecTypeDef::Udt(soroban_cli::xdr::ScSpecTypeUdt {
+            name: name.try_into().unwrap(),
+        })
+    };
+
+    let mut structs = Vec::new();
+    let mut events = Vec::new();
+    let mut functions = Vec::new();
+    for entry in &spec.spec {
+        match entry {
+            ScSpecEntry::UdtStructV0(s) => structs.push((
+                s.name.to_utf8_string_lossy(),
+                s.fields.iter().map(|f| f.type_.clone()).collect::<Vec<_>>(),
+            )),
+            ScSpecEntry::EventV0(e) => events.push(e.name.to_utf8_string_lossy()),
+            ScSpecEntry::FunctionV0(f) => functions.push((
+                f.name.to_utf8_string_lossy(),
+                f.inputs.iter().map(|i| i.type_.clone()).collect::<Vec<_>>(),
+                f.outputs.to_vec(),
+            )),
+            _ => {}
+        }
+    }
+    structs.sort_by(|a, b| a.0.cmp(&b.0));
+    functions.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // `a::State` sorts before `b::State` by its full name, so keeps the name, and
+    // `b::State` is numbered. Every name is reduced to its last segment.
+    assert_eq!(
+        structs,
+        [
+            (
+                "State".to_string(),
+                vec![soroban_cli::xdr::ScSpecTypeDef::U32]
+            ),
+            (
+                "State2".to_string(),
+                vec![soroban_cli::xdr::ScSpecTypeDef::Bool]
+            ),
+            ("Wrapper".to_string(), vec![udt("State2")]),
+        ]
+    );
+    assert_eq!(events, ["Updated"]);
+
+    // The references in the functions are rewritten to the reduced names.
+    assert_eq!(
+        functions,
+        [
+            ("get_a".to_string(), vec![udt("State")], vec![udt("State")]),
+            (
+                "get_b".to_string(),
+                vec![udt("Wrapper")],
+                vec![udt("State2")]
+            ),
+            (
+                "update".to_string(),
+                vec![soroban_cli::xdr::ScSpecTypeDef::U32],
+                vec![]
+            ),
+        ]
+    );
+}
