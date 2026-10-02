@@ -5413,7 +5413,7 @@ version = "28.1.0"
 [[package]]
 name = "soroban-ledger-snapshot"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "serde",
  "serde_json",
@@ -5426,7 +5426,7 @@ dependencies = [
 [[package]]
 name = "soroban-meta"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "stellar-xdr",
  "thiserror 1.0.69",
@@ -5436,7 +5436,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5462,7 +5462,7 @@ dependencies = [
 [[package]]
 name = "soroban-sdk-macros"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "darling 0.20.11",
  "heck 0.5.0",
@@ -5481,7 +5481,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5492,7 +5492,7 @@ dependencies = [
 [[package]]
 name = "soroban-spec-rust"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5584,7 +5584,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-sdk"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "soroban-sdk",
 ]
@@ -5592,7 +5592,7 @@ dependencies = [
 [[package]]
 name = "soroban-token-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "soroban-sdk",
  "soroban-token-sdk",
@@ -5641,7 +5641,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "stellar-asset-spec"
 version = "28.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=58672356cd02a7b2eed5aa45086319d98cd68546#58672356cd02a7b2eed5aa45086319d98cd68546"
+source = "git+https://github.com/stellar/rs-soroban-sdk?rev=1e8f59c5772debc794b0c7dffa5916313f3aa0b6#1e8f59c5772debc794b0c7dffa5916313f3aa0b6"
 dependencies = [
  "soroban-sdk",
  "soroban-token-spec",
