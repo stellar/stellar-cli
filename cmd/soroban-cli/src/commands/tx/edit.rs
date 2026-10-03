@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{self},
-    io::{stdin, Cursor, IsTerminal},
+    io::{stdin, Cursor, IsTerminal, Read},
     path::PathBuf,
     process::{self},
 };
@@ -11,6 +11,8 @@ use tempfile::TempDir;
 use serde_json::json;
 
 use crate::{commands::global, print::Print, utils::XDR_DEPTH_LIMIT};
+
+use super::xdr::SkipWhitespace;
 
 fn schema_url() -> String {
     let ver = stellar_xdr::VERSION.pkg;
@@ -47,10 +49,7 @@ impl Cmd {
         let json: String = if stdin().is_terminal() {
             default_json()
         } else {
-            let mut input = String::new();
-            stdin().read_line(&mut input)?;
-            let input = input.trim();
-            xdr_to_json::<stellar_xdr::TransactionEnvelope>(input)?
+            xdr_to_json::<stellar_xdr::TransactionEnvelope>(stdin())?
         };
 
         let (_temp_dir, path) = tmp_file(&json)?;
@@ -146,11 +145,17 @@ fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Err
     }
 }
 
-fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
+/// Reads base64 XDR from `input`, ignoring any whitespace so that XDR wrapped
+/// across multiple lines is accepted like it is by the other `tx` commands.
+fn xdr_to_json<T>(input: impl Read) -> Result<String, Error>
 where
     T: stellar_xdr::ReadXdr + serde::Serialize,
 {
-    let tx = T::from_xdr_base64(xdr_string, stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT))?;
+    let mut limited = stellar_xdr::Limited::new(
+        SkipWhitespace::new(input),
+        stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT),
+    );
+    let tx = T::read_xdr_base64_to_end(&mut limited)?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
     schema["$schema"] = json!(schema_url());
     let json = serde_json::to_string_pretty(&schema)?;
@@ -204,6 +209,30 @@ fn default_json() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TX_XDR: &str = "AAAAAgAAAACYBFySPwzWk0YGRnApY9uHkYcuA63OEUJfPCHS15r6LgAAAGQAS7YyAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAltWKzUF0DSf6FJTJjnjOMD4PvqdD4llwfRAPBJ8Q25AAAAAAAAAAAAAAABAAAAAAAAAAA=";
+
+    #[test]
+    fn xdr_to_json_accepts_wrapped_input() {
+        // Same transaction as TX_XDR, wrapped at 76 columns as `fold -w 76` does
+        // (regression test for #2773).
+        let wrapped = concat!(
+            "AAAAAgAAAACYBFySPwzWk0YGRnApY9uHkYcuA63OEUJfPCHS15r6LgAAAGQAS7YyAAAAAwAAAAAA\n",
+            "AAAAAAAAAQAAAAAAAAABAAAAAAltWKzUF0DSf6FJTJjnjOMD4PvqdD4llwfRAPBJ8Q25AAAAAAAA\n",
+            "AAAAAAABAAAAAAAAAAA=\n",
+        );
+        let single = xdr_to_json::<stellar_xdr::TransactionEnvelope>(TX_XDR.as_bytes())
+            .expect("single line input");
+        let wrapped = xdr_to_json::<stellar_xdr::TransactionEnvelope>(wrapped.as_bytes())
+            .expect("wrapped input");
+        assert_eq!(single, wrapped);
+    }
+
+    #[test]
+    fn xdr_to_json_rejects_trailing_data() {
+        let input = format!("{TX_XDR}AAAA");
+        assert!(xdr_to_json::<stellar_xdr::TransactionEnvelope>(input.as_bytes()).is_err());
+    }
 
     #[test]
     fn tmp_file_uses_private_tempdir() {
