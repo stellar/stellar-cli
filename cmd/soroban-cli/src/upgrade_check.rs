@@ -8,6 +8,12 @@ use std::io::IsTerminal;
 use std::time::Duration;
 
 const MINIMUM_CHECK_INTERVAL: Duration = Duration::from_hours(24); // 1 day
+
+// The shared HTTP client only bounds how long connecting may take, so a server
+// that accepts the connection and then stalls would leave the request hanging
+// indefinitely. Bound the whole request: this is a background nicety, and it
+// must not be able to outlive the command it is running alongside.
+pub const FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 const CRATES_IO_API_URL: &str = "https://crates.io/api/v1/crates/";
 const NO_UPDATE_CHECK_ENV_VAR: &str = "STELLAR_NO_UPDATE_CHECK";
 
@@ -25,17 +31,62 @@ struct Crate {
     max_version: Version, // This is the latest version, including pre-releases
 }
 
+/// The path of the executable that is running, if it can be resolved.
+///
+/// `current_version` comes from `env!("CARGO_PKG_VERSION")`, so it describes
+/// the binary that is running and nothing else. When more than one Stellar CLI
+/// is installed (a stale `soroban` alongside a current `stellar`, or a Homebrew
+/// install shadowed by a `cargo install` one), an old binary reports its own
+/// old version and the message reads as though it were about the CLI the user
+/// thinks they are running. Naming the executable makes the warning say which
+/// install it is actually about.
+///
+/// Left as the process was started from, not canonicalized. Resolving symlinks
+/// would name a path that moves under a normal in-place upgrade wherever a
+/// package manager installs through one: Homebrew keeps
+/// `/opt/homebrew/bin/stellar` pointing into a versioned Cellar directory and
+/// retargets it on upgrade, so the canonical path changes while the install
+/// does not. The path the user invokes outlives the file it happens to point
+/// at, which is what makes it the install's identity.
+///
+/// It is also the more useful thing to name in a warning: it is the path the
+/// user can act on, rather than one they never typed.
+///
+/// This only reaches as far as the platform allows. Linux resolves
+/// `current_exe` through `/proc/self/exe` before we see it, so a retargeted
+/// symlink still reads as a new install there; nothing in-process can recover
+/// the invoked path once the kernel has resolved it. Not canonicalizing keeps
+/// the platforms that do hand us the invoked path from losing it too.
+pub fn running_binary() -> Option<String> {
+    let path = std::env::current_exe().ok()?;
+
+    Some(path.to_string_lossy().into_owned())
+}
+
 /// Fetch the latest stable version of the crate from crates.io
 async fn fetch_latest_crate_info() -> Result<Crate, Box<dyn Error>> {
     let crate_name = env!("CARGO_PKG_NAME");
     let url = format!("{CRATES_IO_API_URL}{crate_name}");
     let resp = http::client()
         .get(url)
+        .timeout(FETCH_TIMEOUT)
         .send()
         .await?
         .json::<CrateResponse>()
         .await?;
     Ok(resp.crate_)
+}
+
+/// The upgrade warning, naming the executable it refers to when that can be
+/// resolved.
+pub fn upgrade_message(current_version: &Version, latest_version: &Version) -> String {
+    let message =
+        format!("A new release of Stellar CLI is available: {current_version} -> {latest_version}");
+
+    match running_binary() {
+        Some(binary) => format!("{message} ({binary})"),
+        None => message,
+    }
 }
 
 /// Print a warning if a new version of the CLI is available
@@ -55,9 +106,7 @@ pub async fn upgrade_check(quiet: bool) {
 
     if let Ok((true, current_version, latest_version)) = has_available_upgrade(true).await {
         let printer = Print::new(quiet);
-        printer.warnln(format!(
-            "A new release of Stellar CLI is available: {current_version} -> {latest_version}"
-        ));
+        printer.warnln(upgrade_message(&current_version, &latest_version));
     }
 
     tracing::debug!("finished upgrade check");
@@ -153,6 +202,26 @@ mod tests {
         let current_version = Version::parse("1.1.0-beta.1").unwrap();
         let latest_version = get_latest_version(&current_version, &stats);
         assert_eq!(*latest_version, Version::parse("1.1.0-rc.1").unwrap());
+    }
+
+    #[test]
+    fn test_upgrade_message_names_the_running_binary() {
+        let current = Version::parse("22.1.0").unwrap();
+        let latest = Version::parse("23.3.0").unwrap();
+        let binary = running_binary().expect("test binary path should resolve");
+
+        let message = upgrade_message(&current, &latest);
+
+        assert!(
+            message.starts_with("A new release of Stellar CLI is available: 22.1.0 -> 23.3.0"),
+            "unexpected message: {message}"
+        );
+        // Without this, a stale install's warning is indistinguishable from the
+        // current install's -- the confusion reported in #2464.
+        assert!(
+            message.contains(&binary),
+            "message should name the running binary, got: {message}"
+        );
     }
 
     #[test]
