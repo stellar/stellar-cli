@@ -68,7 +68,9 @@ impl Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let address = tx_source_acct.to_string();
+        // A muxed (M...) source account shares the sequence number of its
+        // underlying G... account, which is the account RPC knows about.
+        let address = tx_source_acct.clone().account_id().to_string();
 
         let account = client.get_account(&address).await?;
         Ok(*account.seq_num.as_ref())

@@ -1,7 +1,7 @@
 use soroban_cli::assembled::simulate_and_assemble_transaction;
 use soroban_cli::xdr::{
-    Limits, OperationBody, ReadXdr, SorobanTransactionData, TransactionEnvelope, TransactionExt,
-    WriteXdr,
+    Limits, MuxedAccount, MuxedAccountMed25519, OperationBody, ReadXdr, SorobanTransactionData,
+    TransactionEnvelope, TransactionExt, WriteXdr,
 };
 use soroban_test::{AssertExt, TestEnv};
 
@@ -206,6 +206,46 @@ async fn sequence_number_next() {
     let client = sandbox.network.rpc_client().unwrap();
     let test_account = client.get_account(&test).await.unwrap();
     let test_account_seq_num = test_account.seq_num.as_ref();
+
+    let updated_tx = sandbox
+        .new_assert_cmd("tx")
+        .arg("update")
+        .arg("seq-num")
+        .arg("next")
+        .write_stdin(tx_base64.as_bytes())
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let updated_tx_env = TransactionEnvelope::from_xdr_base64(&updated_tx, Limits::none()).unwrap();
+    let tx = soroban_cli::commands::tx::xdr::unwrap_envelope_v1(updated_tx_env).unwrap();
+    assert_eq!(
+        tx.seq_num,
+        soroban_cli::xdr::SequenceNumber(test_account_seq_num + 1)
+    );
+}
+
+// A muxed source account uses the sequence number of its underlying account
+// (regression test for #2774).
+#[tokio::test]
+async fn sequence_number_next_muxed_source() {
+    let sandbox = &TestEnv::new();
+    let test = test_address(sandbox);
+    let client = sandbox.network.rpc_client().unwrap();
+    let test_account = client.get_account(&test).await.unwrap();
+    let test_account_seq_num = test_account.seq_num.as_ref();
+
+    let mut tx_env =
+        TransactionEnvelope::from_xdr_base64(test_tx_string(sandbox), Limits::none()).unwrap();
+    let TransactionEnvelope::Tx(ref mut v1_env) = tx_env else {
+        panic!("expected a v1 transaction envelope");
+    };
+    let MuxedAccount::Ed25519(ed25519) = v1_env.tx.source_account.clone() else {
+        panic!("expected an ed25519 source account");
+    };
+    v1_env.tx.source_account =
+        MuxedAccount::MuxedEd25519(MuxedAccountMed25519 { id: 123, ed25519 });
+    let tx_base64 = tx_env.to_xdr_base64(Limits::none()).unwrap();
 
     let updated_tx = sandbox
         .new_assert_cmd("tx")
