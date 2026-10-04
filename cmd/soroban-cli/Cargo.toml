@@ -76,7 +76,6 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "rustls-tls",
     "http2",
     "json",
-    "blocking",
     "stream",
 ] }
 regex = "1.6.0"

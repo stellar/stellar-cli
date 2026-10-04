@@ -9,7 +9,6 @@ use clap::{Parser, ValueEnum};
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
-use super::super::events;
 use super::arg_parsing;
 use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
@@ -120,17 +119,8 @@ impl Pwd for Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cannot add contract to ledger entries: {0}")]
-    CannotAddContractToLedgerEntries(xdr::Error),
-
     #[error("reading file {0:?}: {1}")]
     CannotReadContractFile(PathBuf, io::Error),
-
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitEventsFile {
-        filepath: std::path::PathBuf,
-        error: events::Error,
-    },
 
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),

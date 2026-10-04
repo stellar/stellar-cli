@@ -116,12 +116,6 @@ impl Assembled {
         self.fee_bump_fee
     }
 
-    #[must_use]
-    pub fn bump_seq_num(mut self) -> Self {
-        self.txn.seq_num.0 += 1;
-        self
-    }
-
     ///
     /// # Errors
     #[must_use]
@@ -161,11 +155,6 @@ impl Assembled {
             }
         }
         Ok(())
-    }
-
-    #[must_use]
-    pub fn requires_fee_bump(&self) -> bool {
-        self.fee_bump_fee.is_some()
     }
 
     #[must_use]

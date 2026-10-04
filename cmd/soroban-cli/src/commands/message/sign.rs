@@ -35,12 +35,6 @@ pub enum Error {
 
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
-
-    #[error("No signing key provided. Use --sign-with-key")]
-    NoSigningKey,
-
-    #[error("Ledger signing of arbitrary messages is not yet supported")]
-    LedgerNotSupported,
 }
 
 #[derive(Debug, Parser, Clone)]

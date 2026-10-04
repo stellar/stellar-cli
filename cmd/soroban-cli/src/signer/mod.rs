@@ -7,7 +7,7 @@ use crate::{
         HashIdPreimageSorobanAuthorization, HashIdPreimageSorobanAuthorizationWithAddress, Limits,
         MuxedAccount, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol, ScVal,
         Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
+        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256,
         WriteXdr,
     },
 };
@@ -27,8 +27,6 @@ pub mod secure_store;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Contract addresses are not supported to sign auth entries {address}")]
-    ContractAddressAreNotSupported { address: String },
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Missing signing key for account {address}")]
@@ -330,18 +328,6 @@ pub enum SignerKind {
 
 // It is advised to use the sign_with module, which handles creating a Signer with the appropriate SignerKind
 impl Signer {
-    pub async fn sign_tx(
-        &self,
-        tx: Transaction,
-        network: &Network,
-    ) -> Result<TransactionEnvelope, Error> {
-        let tx_env = TransactionEnvelope::Tx(TransactionV1Envelope {
-            tx,
-            signatures: VecM::default(),
-        });
-        self.sign_tx_env(&tx_env, network).await
-    }
-
     pub async fn sign_tx_env(
         &self,
         tx_env: &TransactionEnvelope,
@@ -508,6 +494,7 @@ mod tests {
     use crate::xdr::{
         BytesM, HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Memo, Preconditions,
         SequenceNumber, SorobanAuthorizedFunction, SorobanAuthorizedInvocation, TransactionExt,
+        VecM,
     };
 
     const NETWORK: &str = "Test SDF Network ; September 2015";

@@ -37,16 +37,6 @@ pub enum Error {
 
     #[error("failed to convert bytes to string: {0}")]
     ConvertBytesToString(#[from] str::Utf8Error),
-
-    #[error("contract package already exists: {0}")]
-    AlreadyExists(String),
-
-    #[error("provided project path exists and is not a directory")]
-    PathExistsNotDir,
-
-    #[error("provided project path exists and is not a cargo workspace root directory. Hint: run init on an empty or non-existing directory"
-    )]
-    PathExistsNotCargoProject,
 }
 
 impl Cmd {

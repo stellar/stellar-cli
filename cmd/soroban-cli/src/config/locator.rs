@@ -34,28 +34,16 @@ pub enum Error {
     HomeDirNotFound,
     #[error("Failed read current directory")]
     CurrentDirNotFound,
-    #[error("Failed read current directory and no STELLAR_CONFIG_HOME is set")]
-    NoConfigEnvVar,
     #[error("Failed to create directory: {path:?}")]
     DirCreationFailed { path: PathBuf },
-    #[error("Failed to read secret's file: {path}.\nProbably need to use `stellar keys add`")]
-    SecretFileRead { path: PathBuf },
     #[error("Failed to read network file: {path};\nProbably need to use `stellar network add`")]
     NetworkFileRead { path: PathBuf },
     #[error("Failed to read file: {path}")]
     FileRead { path: PathBuf },
     #[error(transparent)]
     Toml(#[from] toml::de::Error),
-    #[error("Secret file failed to deserialize")]
-    Deserialization,
     #[error("Failed to write identity file:{filepath}: {error}")]
     IdCreationFailed { filepath: PathBuf, error: io::Error },
-    #[error("Secret file failed to deserialize")]
-    NetworkDeserialization,
-    #[error("Failed to write network file: {0}")]
-    NetworkCreationFailed(std::io::Error),
-    #[error("Error Identity directory is invalid: {name}")]
-    IdentityList { name: String },
     #[error("Config file failed to serialize")]
     ConfigSerialization,
     #[error("STELLAR_CONFIG_HOME env variable is not a valid path. Got {0}")]
@@ -96,8 +84,6 @@ pub enum Error {
     KeyCannotOverlapWithContractAlias(String),
     #[error(transparent)]
     SecureStore(#[from] secure_store::Error),
-    #[error("Only private keys and seed phrases are supported for getting private keys {0}")]
-    SecretKeyOnly(String),
     #[error(transparent)]
     Key(#[from] key::Error),
     #[error("Unable to get project directory")]
@@ -208,14 +194,6 @@ impl Args {
             return Err(Error::KeyCannotOverlapWithContractAlias(name.to_owned()));
         }
         KeyType::Identity.write(name, secret, &self.config_dir()?)
-    }
-
-    pub fn write_public_key(
-        &self,
-        name: &str,
-        public_key: &stellar_strkey::ed25519::PublicKey,
-    ) -> Result<PathBuf, Error> {
-        self.write_key(name, &public_key.into())
     }
 
     pub fn write_key(&self, name: &str, key: &Key) -> Result<PathBuf, Error> {

@@ -30,11 +30,11 @@ use std::{
 };
 
 use assert_cmd::{assert::Assert, Command};
-use assert_fs::{fixture::FixtureError, prelude::PathChild, TempDir};
+use assert_fs::{fixture::FixtureError, TempDir};
 use fs_extra::dir::CopyOptions;
 
 use soroban_cli::{
-    commands::{contract::invoke, keys},
+    commands::contract::invoke,
     config::{self, network},
     CommandParser,
 };
@@ -97,11 +97,6 @@ impl TestEnv {
     ///
     pub fn with_default<F: FnOnce(&TestEnv)>(f: F) {
         let test_env = TestEnv::default();
-        f(&test_env);
-    }
-
-    pub fn with_default_network<F: FnOnce(&TestEnv)>(f: F) {
-        let test_env = TestEnv::new();
         f(&test_env);
     }
 
@@ -290,17 +285,6 @@ impl TestEnv {
         &self.temp_dir
     }
 
-    /// Returns the private key corresponding to the test keys's `hd_path`
-    pub fn test_show(&self, hd_path: usize) -> String {
-        format!(
-            "{}",
-            self.cmd::<keys::secret::Cmd>(&format!("--hd-path={hd_path}"))
-                .private_key()
-                .unwrap()
-                .as_unredacted()
-        )
-    }
-
     /// Copy the contents of the current `TestEnv` to another `TestEnv`
     pub fn fork(&self) -> Result<TestEnv, Error> {
         let this = TestEnv::new();
@@ -332,14 +316,6 @@ impl TestEnv {
         enable_hash_signing(ui_host_port).await;
         container
     }
-}
-
-pub fn temp_ledger_file() -> OsString {
-    TempDir::new()
-        .unwrap()
-        .child("ledger.json")
-        .as_os_str()
-        .into()
 }
 
 pub trait AssertExt {

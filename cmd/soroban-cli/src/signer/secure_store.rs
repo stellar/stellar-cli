@@ -17,9 +17,6 @@ pub enum Error {
     #[error(transparent)]
     Keyring(#[from] keyring::Error),
 
-    #[error("Storing an existing private key in Secure Store is not supported")]
-    DoesNotSupportPrivateKey,
-
     #[error(transparent)]
     SeedPhrase(#[from] sep5::Error),
 

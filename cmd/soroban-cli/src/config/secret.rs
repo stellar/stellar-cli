@@ -239,10 +239,6 @@ impl Secret {
     pub fn key_pair(&self, index: Option<u32>) -> Result<ed25519_dalek::SigningKey, Error> {
         Ok(utils::into_signing_key(&self.private_key(index)?))
     }
-
-    pub fn from_seed(seed: Option<&str>) -> Result<Self, Error> {
-        Ok(seed_phrase_from_seed(seed)?.into())
-    }
 }
 
 // Returns the cached public key when it can be used, or `None` to signal a

@@ -93,12 +93,8 @@ pub struct Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("cursor is not valid")]
-    InvalidCursor,
     #[error("filepath does not exist: {path}")]
     InvalidFile { path: String },
-    #[error("filepath ({path}) cannot be read: {error}")]
-    CannotReadFile { path: String, error: String },
     #[error("max of 5 topic filters allowed per request, received {filter_count}")]
     MaxTopicFilters { filter_count: usize },
     #[error("cannot parse topic filter {topic} into 1-4 segments")]
@@ -109,22 +105,13 @@ pub enum Error {
         segment: String,
         error: xdr::Error,
     },
-    #[error("cannot parse contract ID {contract_id}: {error}")]
-    InvalidContractId {
-        contract_id: String,
-        error: stellar_strkey::DecodeError,
-    },
     #[error("invalid JSON string: {error} ({debug})")]
     InvalidJson {
         debug: String,
         error: serde_json::Error,
     },
-    #[error("invalid timestamp in event: {ts}")]
-    InvalidTimestamp { ts: String },
     #[error("missing start_ledger and cursor")]
     MissingStartLedgerAndCursor,
-    #[error("missing target")]
-    MissingTarget,
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
     #[error(transparent)]

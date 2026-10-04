@@ -245,19 +245,6 @@ pub mod http {
             .build()
             .expect("Failed to build reqwest client")
     }
-
-    /// Creates and returns a configured `reqwest::blocking::Client`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the Client initialization fails.
-    pub fn blocking_client() -> reqwest::blocking::Client {
-        reqwest::blocking::Client::builder()
-            .user_agent(user_agent())
-            .connect_timeout(CONNECT_TIMEOUT)
-            .build()
-            .expect("Failed to build reqwest blocking client")
-    }
 }
 
 pub mod url {

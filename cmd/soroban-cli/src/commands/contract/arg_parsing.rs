@@ -35,13 +35,6 @@ pub enum Error {
         json_error: String,
         received_value: String,
     },
-    #[error("Type mismatch for argument '{arg}': expected {expected_type}, but got {actual_type}\n\nReceived value: '{received_value}'\n\nSuggestions:\n- For {expected_type}, ensure the value is properly formatted\n- Check the contract specification for the correct argument type")]
-    TypeMismatch {
-        arg: String,
-        expected_type: String,
-        actual_type: String,
-        received_value: String,
-    },
     #[error("Missing required argument '{arg}' of type {expected_type}\n\nSuggestions:\n- Add the argument: --{arg} <value>\n- Or use a file: --{arg}-file-path <path-to-json-file>\n- Check the contract specification for required arguments")]
     MissingArgument { arg: String, expected_type: String },
     #[error("Cannot read file {file_path:?}: {error}\n\nSuggestions:\n- Check if the file exists and is readable\n- Ensure the file path is correct\n- Verify file permissions")]

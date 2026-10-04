@@ -7,11 +7,6 @@ pub(crate) mod stop;
 pub(crate) mod unset;
 pub(crate) mod use_engine;
 
-// TODO: remove once `network start` is removed
-pub type StartCmd = start::Cmd;
-// TODO: remove once `network top` is removed
-pub type StopCmd = stop::Cmd;
-
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
     /// Get logs from a running network container

@@ -1,5 +1,4 @@
 use clap::builder::styling::{AnsiColor, Effects, Styles};
-use std::path::PathBuf;
 
 use super::{config, HEADING_GLOBAL};
 
@@ -39,21 +38,6 @@ pub struct Args {
     /// Do not cache your simulations and transactions
     #[arg(long, env = "STELLAR_NO_CACHE", global = true, help_heading = HEADING_GLOBAL)]
     pub no_cache: bool,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("reading file {filepath}: {error}")]
-    CannotReadLedgerFile {
-        filepath: PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
-
-    #[error("committing file {filepath}: {error}")]
-    CannotCommitLedgerFile {
-        filepath: PathBuf,
-        error: soroban_ledger_snapshot::Error,
-    },
 }
 
 impl Args {
