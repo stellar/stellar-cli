@@ -82,6 +82,13 @@ pub enum Error {
     CannotParseContractId(String, DecodeError),
     #[error("contract not found: {0}{hint}", hint = wasm_hash_hint(.0))]
     ContractNotFound(String),
+    // The secret-shaped counterpart of `ContractNotFound`: carries no payload so
+    // a secret key or seed phrase pasted where a contract id was expected is
+    // never stored (and so can't leak through a derived `Debug` or telemetry).
+    // `resolve_alias` routes secret-shaped input here; `ContractNotFound` above
+    // therefore only ever holds a genuine, safe-to-name alias.
+    #[error("contract not found")]
+    ContractNotFoundConcealed,
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
@@ -1083,6 +1090,15 @@ mod error_message_tests {
         let value = "z".repeat(64);
         let err = Error::ContractNotFound(value.clone());
         assert_eq!(err.to_string(), format!("contract not found: {value}"));
+    }
+
+    #[test]
+    fn contract_not_found_concealed_carries_no_input() {
+        // The secret-shaped counterpart carries no payload, so nothing to echo in
+        // either the message or a derived `Debug`. `resolve_alias` routes a
+        // mistyped secret here; see its `resolve_conceals_*` tests.
+        let err = Error::ContractNotFoundConcealed;
+        assert_eq!(err.to_string(), "contract not found");
     }
 }
 

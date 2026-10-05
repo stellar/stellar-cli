@@ -102,6 +102,38 @@ pub enum HardwareKind {
     Ledger,
 }
 
+/// Whether `value` could be a secret key or seed phrase mistyped where an alias
+/// or address was expected. Callers use it to decide whether a "not found" error
+/// may echo the raw input: a genuine alias is safe to name so the user can see
+/// which value was wrong, but secret-bearing input must be concealed. The check
+/// is shape-based on purpose — a one-character typo of a real secret no longer
+/// decodes yet still reveals nearly all of it, so matching a successful parse
+/// would miss exactly the case that matters.
+#[must_use]
+pub fn looks_like_secret(value: &str) -> bool {
+    // A secret seed strkey is `S…`, 56 uppercase base32 characters. Match on the
+    // `S` prefix and length (with slack for a dropped/added character) and
+    // tolerate a few stray characters, so a typo that lands outside the base32
+    // alphabet — a lowercase letter, `0`/`1`/`8`/`9`, punctuation — still looks
+    // like a secret rather than printing the near-complete key. No real alias is
+    // a 50+ character, almost-entirely-base32 string beginning with `S`.
+    let non_base32 = value
+        .bytes()
+        .filter(|b| !(b.is_ascii_uppercase() || (b'2'..=b'7').contains(b)))
+        .count();
+    let strkey_shaped =
+        (50..=60).contains(&value.len()) && value.starts_with('S') && non_base32 <= 3;
+    // A contract id, address, or alias never contains whitespace, so any
+    // multi-word input here is not a legitimate value — treat it as a possible
+    // seed phrase and conceal it. Matching on "two or more words" rather than a
+    // mnemonic's exact length (12–24) means every spacing drift is caught,
+    // including a joined word that drops a 12-word phrase to 11 tokens. The only
+    // cost is that a nonsensical space-containing input is not named in the
+    // error, which is harmless: it could never resolve anyway.
+    let mnemonic_shaped = value.split_whitespace().count() >= 2;
+    strkey_shaped || mnemonic_shaped
+}
+
 impl FromStr for Secret {
     type Err = Error;
 
@@ -276,6 +308,46 @@ mod tests {
     const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
     const TEST_SEED_PHRASE: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";
+
+    #[test]
+    fn looks_like_secret_matches_secret_shaped_input() {
+        assert!(looks_like_secret(TEST_SECRET_KEY));
+        assert!(looks_like_secret(TEST_SEED_PHRASE));
+        // A valid strkey charset with a bad checksum still looks like a secret.
+        assert!(looks_like_secret(
+            "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX"
+        ));
+        // A seed phrase with a bad final word keeps its 12-word shape.
+        assert!(looks_like_secret(
+            "illness spike retreat truth genius clock brain pass fit cave bargain xyzzy"
+        ));
+        // A joined word drops a 12-word phrase to 11 tokens; still concealed.
+        assert!(looks_like_secret(
+            "illness spike retreat truth genius clock brain pass fit cave bargaintoe"
+        ));
+        // Typos that land outside the base32 alphabet (lowercase, `0`/`1`) must
+        // still be detected, or the near-complete key would be printed.
+        assert!(looks_like_secret(
+            "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4Bx"
+        ));
+        assert!(looks_like_secret(
+            "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ401"
+        ));
+    }
+
+    #[test]
+    fn looks_like_secret_rejects_aliases_and_ids() {
+        assert!(!looks_like_secret("alice"));
+        assert!(!looks_like_secret("my-token"));
+        assert!(!looks_like_secret("native"));
+        // A contract id (C…) and a public key (G…) are not secrets.
+        assert!(!looks_like_secret(
+            "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE"
+        ));
+        assert!(!looks_like_secret(TEST_PUBLIC_KEY));
+        // A 64-char hex wasm hash begins with a hex digit, never `S`.
+        assert!(!looks_like_secret(&"a".repeat(64)));
+    }
 
     #[test]
     fn test_from_str_for_secret_key() {
