@@ -11,7 +11,7 @@ use std::{
     ffi::OsStr,
     fmt::Debug,
     fs,
-    io::{self, Cursor},
+    io::{self, Cursor, Write},
     path::{self, Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
@@ -523,10 +523,7 @@ impl Cmd {
         let xdr = self.encoded_new_meta()?;
         wasm_gen::write_custom_section(&mut wasm_bytes, META_CUSTOM_SECTION_NAME, &xdr);
 
-        // Deleting .wasm file effectively unlinking it from /release/deps/.wasm preventing from overwrite
-        // See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
-        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
+        replace_file(target_file_path, &wasm_bytes)
     }
 
     /// Filters unused types and events from the contract spec.
@@ -565,8 +562,7 @@ impl Cmd {
             .map_err(|e| Error::WasmParsing(e.to_string()))?;
 
         // Write the modified wasm back
-        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
+        replace_file(target_file_path, &new_wasm)
     }
 
     fn encoded_new_meta(&self) -> Result<Vec<u8>, Error> {
@@ -673,6 +669,24 @@ impl Cmd {
 
         print.checkln("Build Complete\n");
     }
+}
+
+/// Replaces the file at `path` with `bytes` by writing a temp file in the same
+/// directory and renaming it into place.
+///
+/// Renaming replaces the directory entry rather than writing through it, so the
+/// file is unlinked from /release/deps/.wasm preventing it from being
+/// overwritten. See https://github.com/stellar/stellar-cli/issues/1694#issuecomment-2709342205
+///
+/// The rename is atomic, so concurrent builds sharing a target dir never
+/// observe the file missing or partially written.
+fn replace_file(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    let mut tmp = tempfile::NamedTempFile::new_in(dir).map_err(Error::WritingWasmFile)?;
+    tmp.write_all(bytes).map_err(Error::WritingWasmFile)?;
+    tmp.persist(path)
+        .map_err(|e| Error::WritingWasmFile(e.error))?;
+    Ok(())
 }
 
 fn serialize_command(cmd: &Command) -> String {

@@ -238,3 +238,26 @@ pub async fn issue_asset(
         .assert()
         .success();
 }
+
+/// Fetches JSON from Horizon, retrying until `ready` returns true. Horizon
+/// ingests ledgers after RPC sees them, so a read immediately after a
+/// transaction can observe stale state.
+pub async fn horizon_get_until(
+    url: &str,
+    ready: impl Fn(&serde_json::Value) -> bool,
+) -> serde_json::Value {
+    let mut json = serde_json::Value::Null;
+    for _ in 0..30 {
+        json = reqwest::get(url)
+            .await
+            .expect("Failed to fetch from Horizon")
+            .json()
+            .await
+            .expect("Failed to parse Horizon response");
+        if ready(&json) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    json
+}

@@ -1,6 +1,6 @@
 use soroban_test::TestEnv;
 
-use crate::integration::util::{issue_asset, new_account, setup_accounts};
+use crate::integration::util::{horizon_get_until, issue_asset, new_account, setup_accounts};
 
 #[tokio::test]
 async fn clawback() {
@@ -107,27 +107,18 @@ async fn clawback() {
 
     // Verify holder's balance after clawback (should be 500 USDC: 1000 sent - 500 clawed back)
     let horizon_url = format!("http://localhost:8000/accounts/{}", holder);
-    let response = reqwest::get(&horizon_url)
-        .await
-        .expect("Failed to fetch account from Horizon");
-    let json: serde_json::Value = response
-        .json()
-        .await
-        .expect("Failed to parse Horizon response");
-
-    let final_balance = json["balances"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|balance| {
+    let usdc_balance = |json: &serde_json::Value| {
+        json["balances"].as_array()?.iter().find(|balance| {
             balance["asset_code"].as_str() == Some("USDC")
                 && balance["asset_issuer"].as_str() == Some(&issuer)
-        })
-        .expect("USDC balance not found after clawback")["balance"]
-        .as_str()
-        .unwrap()
-        .parse::<f64>()
-        .unwrap();
+        })?["balance"]
+            .as_str()?
+            .parse::<f64>()
+            .ok()
+    };
+    let json = horizon_get_until(&horizon_url, |json| usdc_balance(json) == Some(500.0)).await;
+
+    let final_balance = usdc_balance(&json).expect("USDC balance not found after clawback");
 
     assert_eq!(
         final_balance, 500.0,

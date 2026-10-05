@@ -1,6 +1,6 @@
 use soroban_test::TestEnv;
 
-use crate::integration::util::{issue_asset, new_account, setup_accounts};
+use crate::integration::util::{horizon_get_until, issue_asset, new_account, setup_accounts};
 
 #[tokio::test]
 async fn create_claimable_balance() {
@@ -145,14 +145,10 @@ async fn clawback_claimable_balance() {
         "http://localhost:8000/claimable_balances/?claimant={}",
         claimant
     );
-    let response = reqwest::get(&horizon_url)
-        .await
-        .expect("Failed to fetch claimable balances from Horizon");
-
-    let json: serde_json::Value = response
-        .json()
-        .await
-        .expect("Failed to parse Horizon response");
+    let json = horizon_get_until(&horizon_url, |json| {
+        json["_embedded"]["records"][0]["id"].is_string()
+    })
+    .await;
 
     // Extract the balance ID from the response
     let balance_id = json["_embedded"]["records"][0]["id"]
