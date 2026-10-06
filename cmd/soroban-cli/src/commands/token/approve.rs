@@ -174,7 +174,12 @@ impl Cmd {
         let spender = self
             .spender
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
         let amount = self.amount.to_string();
         let expiration_ledger = self.expiration_ledger.to_string();

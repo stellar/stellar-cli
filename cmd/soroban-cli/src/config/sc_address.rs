@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::print::Print;
 use crate::xdr;
 
 use super::{alias, key, locator, secret, UnresolvedContract};
@@ -115,6 +116,7 @@ impl UnresolvedScAddress {
         locator: &locator::Args,
         network_passphrase: &str,
         hd_path: Option<u32>,
+        print: &Print,
     ) -> Result<xdr::ScAddress, Error> {
         let alias = match self {
             UnresolvedScAddress::Resolved(addr) => return Ok(addr),
@@ -130,9 +132,7 @@ impl UnresolvedScAddress {
                 if alias::is_reserved(&alias) {
                     return Err(Error::ReservedAliasShadowsKey(alias));
                 }
-                eprintln!(
-                    "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
-                );
+                print.warnln(ambiguous_alias_warning(&alias));
                 Ok(xdr::ScAddress::Contract(stellar_xdr::ContractId(
                     xdr::Hash(contract.0),
                 )))
@@ -173,6 +173,17 @@ fn address_not_found_message(value: &str) -> String {
     }
 }
 
+// The ambiguous-alias warning names the alias so the user can tell which one
+// collided, but a secret key or seed phrase saved as an alias is concealed so it
+// never reaches the terminal, logs, or JSON output.
+fn ambiguous_alias_warning(value: &str) -> String {
+    if secret::looks_like_secret(value) {
+        "ScAddress alias is ambiguous, assuming it is a contract".to_string()
+    } else {
+        format!("ScAddress alias {value} is ambiguous, assuming it is a contract")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,7 +207,7 @@ mod tests {
         KeyType::Identity.write(native, &key, dir.path()).unwrap();
 
         let err = UnresolvedScAddress::Alias(native.to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap_err();
 
         assert!(matches!(err, Error::ReservedAliasShadowsKey(alias) if alias == native));
@@ -230,7 +241,7 @@ mod tests {
         .unwrap();
 
         let err = UnresolvedScAddress::Alias(native.to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap_err();
 
         assert!(matches!(
@@ -256,7 +267,7 @@ mod tests {
         KeyType::Identity.write("bobmux", &key, dir.path()).unwrap();
 
         let resolved = UnresolvedScAddress::Alias("bobmux".to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap();
 
         assert_eq!(resolved, xdr::ScAddress::from_str(MUXED).unwrap());
@@ -381,7 +392,7 @@ mod tests {
         for input in [MISTYPED_SECRET, MALFORMED_SEED] {
             let err = UnresolvedScAddress::from_str(input)
                 .unwrap()
-                .resolve(&locator, network_passphrase, None)
+                .resolve(&locator, network_passphrase, None, &Print::new(false))
                 .unwrap_err();
             assert!(
                 !err.to_string().contains(input),
@@ -410,7 +421,7 @@ mod tests {
         // error — otherwise a multi-address command gives no clue which value
         // failed.
         let err = UnresolvedScAddress::Alias("nosuchalias".to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap_err();
         assert!(err.to_string().contains("nosuchalias"), "got: {err}");
     }
@@ -436,5 +447,17 @@ mod tests {
     fn debug_error_names_plain_alias() {
         let err = Error::AccountAliasNotFound("nosuchalias".to_string());
         assert!(format!("{err:?}").contains("nosuchalias"));
+    }
+
+    #[test]
+    fn ambiguous_warning_conceals_secret_bearing_input() {
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            assert!(!ambiguous_alias_warning(input).contains(input));
+        }
+    }
+
+    #[test]
+    fn ambiguous_warning_names_plain_alias() {
+        assert!(ambiguous_alias_warning("nosuchalias").contains("nosuchalias"));
     }
 }

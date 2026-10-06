@@ -118,7 +118,12 @@ impl Cmd {
         let account = self
             .account
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
 
         let raw: i128 = self
