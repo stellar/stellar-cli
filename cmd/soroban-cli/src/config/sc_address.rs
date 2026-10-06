@@ -2,14 +2,18 @@ use std::str::FromStr;
 
 use crate::xdr;
 
-use super::{alias, key, locator, UnresolvedContract};
+use super::{
+    alias,
+    arg_name::{ArgName, ArgNameParser, FromArg},
+    key, locator, UnresolvedContract,
+};
 
 /// `ScAddress` can be either a resolved `xdr::ScAddress` or an alias of a `Contract` or `MuxedAccount`.
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
 pub enum UnresolvedScAddress {
     Resolved(xdr::ScAddress),
-    Alias(String),
+    Alias { alias: String, arg: ArgName },
 }
 
 impl std::fmt::Debug for UnresolvedScAddress {
@@ -18,16 +22,18 @@ impl std::fmt::Debug for UnresolvedScAddress {
             UnresolvedScAddress::Resolved(addr) => f.debug_tuple("Resolved").field(addr).finish(),
             // Never echo the raw input: it may be a secret key or seed phrase
             // pasted where an alias was expected.
-            UnresolvedScAddress::Alias(_) => {
-                f.debug_tuple("Alias").field(&"<alias or secret>").finish()
-            }
+            UnresolvedScAddress::Alias { arg, .. } => f
+                .debug_struct("Alias")
+                .field("alias", &"<alias or secret>")
+                .field("arg", arg)
+                .finish(),
         }
     }
 }
 
 impl Default for UnresolvedScAddress {
     fn default() -> Self {
-        UnresolvedScAddress::Alias(String::default())
+        UnresolvedScAddress::from_arg("", ArgName::default())
     }
 }
 
@@ -41,6 +47,8 @@ pub enum Error {
     // address was expected must not reach the terminal, logs, or JSON output.
     #[error("invalid address or alias")]
     AccountAliasNotFound,
+    #[error("{0}: invalid address or alias")]
+    ArgAccountAliasNotFound(ArgName),
     #[error("alias '{0}' is reserved for the native asset contract but also matches a stored key; pass an explicit contract (C...) or account (G...) address instead")]
     ReservedAliasShadowsKey(String),
 }
@@ -49,10 +57,27 @@ impl FromStr for UnresolvedScAddress {
     type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(xdr::ScAddress::from_str(value).map_or_else(
-            |_| UnresolvedScAddress::Alias(value.to_string()),
+        Ok(UnresolvedScAddress::from_arg(value, ArgName::default()))
+    }
+}
+
+impl FromArg for UnresolvedScAddress {
+    fn from_arg(value: &str, arg: ArgName) -> Self {
+        xdr::ScAddress::from_str(value).map_or_else(
+            |_| UnresolvedScAddress::Alias {
+                alias: value.to_string(),
+                arg,
+            },
             UnresolvedScAddress::Resolved,
-        ))
+        )
+    }
+}
+
+impl clap::builder::ValueParserFactory for UnresolvedScAddress {
+    type Parser = ArgNameParser<Self>;
+
+    fn value_parser() -> Self::Parser {
+        ArgNameParser::default()
     }
 }
 
@@ -70,7 +95,7 @@ impl UnresolvedScAddress {
             UnresolvedScAddress::Resolved(addr) => {
                 return matches!(addr, xdr::ScAddress::MuxedAccount(_));
             }
-            UnresolvedScAddress::Alias(alias) => alias,
+            UnresolvedScAddress::Alias { alias, .. } => alias,
         };
         // Mirror `resolve`'s precedence: a contract alias wins when both a
         // contract alias and a stored key exist, so the muxed key is never
@@ -90,9 +115,9 @@ impl UnresolvedScAddress {
         network_passphrase: &str,
         hd_path: Option<u32>,
     ) -> Result<xdr::ScAddress, Error> {
-        let alias = match self {
+        let (alias, arg) = match self {
             UnresolvedScAddress::Resolved(addr) => return Ok(addr),
-            UnresolvedScAddress::Alias(alias) => alias,
+            UnresolvedScAddress::Alias { alias, arg } => (alias, arg),
         };
         let contract = UnresolvedContract::resolve_alias(&alias, locator, network_passphrase);
         let key = locator.read_key(&alias);
@@ -131,6 +156,7 @@ impl UnresolvedScAddress {
                     xdr::ScAddress::MuxedAccount(xdr::MuxedEd25519Account { id, ed25519 })
                 }
             }),
+            _ if arg.is_known() => Err(Error::ArgAccountAliasNotFound(arg)),
             _ => Err(Error::AccountAliasNotFound),
         }
     }
@@ -158,7 +184,8 @@ mod tests {
             Key::from_str("SBEQMTXGCLDFQG3OXMRSMGLKJCPROAHB5GZCCGVZERDI645LCCCRLFGY").unwrap();
         KeyType::Identity.write(native, &key, dir.path()).unwrap();
 
-        let err = UnresolvedScAddress::Alias(native.to_string())
+        let err = UnresolvedScAddress::from_str(native)
+            .unwrap()
             .resolve(&locator, network_passphrase, None)
             .unwrap_err();
 
@@ -192,7 +219,8 @@ mod tests {
         )
         .unwrap();
 
-        let err = UnresolvedScAddress::Alias(native.to_string())
+        let err = UnresolvedScAddress::from_str(native)
+            .unwrap()
             .resolve(&locator, network_passphrase, None)
             .unwrap_err();
 
@@ -218,7 +246,8 @@ mod tests {
         let key = Key::from_str(MUXED).unwrap();
         KeyType::Identity.write("bobmux", &key, dir.path()).unwrap();
 
-        let resolved = UnresolvedScAddress::Alias("bobmux".to_string())
+        let resolved = UnresolvedScAddress::from_str("bobmux")
+            .unwrap()
             .resolve(&locator, network_passphrase, None)
             .unwrap();
 
@@ -259,9 +288,9 @@ mod tests {
         let key = Key::from_str(MUXED).unwrap();
         KeyType::Identity.write("owner", &key, dir.path()).unwrap();
 
-        assert!(
-            UnresolvedScAddress::Alias("owner".to_string()).is_muxed(&locator, network_passphrase)
-        );
+        assert!(UnresolvedScAddress::from_str("owner")
+            .unwrap()
+            .is_muxed(&locator, network_passphrase));
     }
 
     #[test]
@@ -289,9 +318,9 @@ mod tests {
         )
         .unwrap();
 
-        assert!(
-            !UnresolvedScAddress::Alias(native.to_string()).is_muxed(&locator, network_passphrase)
-        );
+        assert!(!UnresolvedScAddress::from_str(native)
+            .unwrap()
+            .is_muxed(&locator, network_passphrase));
     }
 
     #[test]
@@ -318,9 +347,9 @@ mod tests {
         )
         .unwrap();
 
-        assert!(
-            !UnresolvedScAddress::Alias("dual".to_string()).is_muxed(&locator, network_passphrase)
-        );
+        assert!(!UnresolvedScAddress::from_str("dual")
+            .unwrap()
+            .is_muxed(&locator, network_passphrase));
     }
 
     // A valid strkey charset with a bad checksum: fails to parse as an address

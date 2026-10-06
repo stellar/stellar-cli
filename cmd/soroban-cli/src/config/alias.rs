@@ -3,7 +3,10 @@ use std::{collections::HashMap, convert::Infallible, str::FromStr};
 use serde::{Deserialize, Serialize};
 use stellar_strkey::Contract;
 
-use super::locator;
+use super::{
+    arg_name::{ArgName, ArgNameParser, FromArg},
+    locator,
+};
 use crate::config::token::UnresolvedToken;
 use crate::tx::builder;
 
@@ -63,12 +66,12 @@ pub fn validate_reserved_aliases(alias: &str) -> Result<(), locator::Error> {
 #[derive(Clone, Debug)]
 pub enum UnresolvedContract {
     Resolved(stellar_strkey::Contract),
-    Alias(String),
+    Alias { alias: String, arg: ArgName },
 }
 
 impl Default for UnresolvedContract {
     fn default() -> Self {
-        UnresolvedContract::Alias(String::default())
+        UnresolvedContract::from_arg("", ArgName::default())
     }
 }
 
@@ -76,10 +79,27 @@ impl FromStr for UnresolvedContract {
     type Err = Infallible;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(stellar_strkey::Contract::from_str(value).map_or_else(
-            |_| UnresolvedContract::Alias(value.to_string()),
+        Ok(UnresolvedContract::from_arg(value, ArgName::default()))
+    }
+}
+
+impl FromArg for UnresolvedContract {
+    fn from_arg(value: &str, arg: ArgName) -> Self {
+        stellar_strkey::Contract::from_str(value).map_or_else(
+            |_| UnresolvedContract::Alias {
+                alias: value.to_string(),
+                arg,
+            },
             UnresolvedContract::Resolved,
-        ))
+        )
+    }
+}
+
+impl clap::builder::ValueParserFactory for UnresolvedContract {
+    type Parser = ArgNameParser<Self>;
+
+    fn value_parser() -> Self::Parser {
+        ArgNameParser::default()
     }
 }
 
@@ -91,8 +111,21 @@ impl UnresolvedContract {
     ) -> Result<stellar_strkey::Contract, locator::Error> {
         match self {
             UnresolvedContract::Resolved(contract) => Ok(*contract),
-            UnresolvedContract::Alias(alias) => {
-                Self::resolve_alias(alias, locator, network_passphrase)
+            UnresolvedContract::Alias { alias, arg } => {
+                Self::resolve_alias(alias, locator, network_passphrase).map_err(|e| match e {
+                    // Name the argument rather than echoing the value, which
+                    // may be a secret key or seed phrase pasted in the wrong
+                    // place. A seed phrase fails alias name validation.
+                    locator::Error::ContractNotFound(_) | locator::Error::InvalidName(_)
+                        if arg.is_known() =>
+                    {
+                        locator::Error::ArgContractNotFound {
+                            arg: arg.clone(),
+                            hint: locator::wasm_hash_hint(alias),
+                        }
+                    }
+                    e => e,
+                })
             }
         }
     }

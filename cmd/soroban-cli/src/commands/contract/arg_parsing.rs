@@ -507,7 +507,7 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
     let sc_address: UnresolvedScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
-        addr @ UnresolvedScAddress::Alias(_) => {
+        addr @ UnresolvedScAddress::Alias { .. } => {
             let addr = addr.resolve(
                 &config.locator,
                 &config.get_network()?.network_passphrase,

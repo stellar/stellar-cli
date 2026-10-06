@@ -157,7 +157,7 @@ mod tests {
     fn bare_name_parses_as_contract_alias() {
         assert!(matches!(
             "alice".parse::<UnresolvedToken>().unwrap(),
-            UnresolvedToken::Contract(UnresolvedContract::Alias(_))
+            UnresolvedToken::Contract(UnresolvedContract::Alias { .. })
         ));
     }
 

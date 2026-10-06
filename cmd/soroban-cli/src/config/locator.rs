@@ -20,6 +20,7 @@ use crate::{
 
 use super::{
     alias,
+    arg_name::ArgName,
     key::{self, Key},
     network::{self, Network},
     secret::Secret,
@@ -82,6 +83,8 @@ pub enum Error {
     CannotParseContractId(String, DecodeError),
     #[error("contract not found: {0}{hint}", hint = wasm_hash_hint(.0))]
     ContractNotFound(String),
+    #[error("{arg}: contract not found{hint}")]
+    ArgContractNotFound { arg: ArgName, hint: &'static str },
     #[error("Failed to read upgrade check file: {path}: {error}")]
     UpgradeCheckReadFailed { path: PathBuf, error: io::Error },
     #[error("Failed to write upgrade check file: {path}: {error}")]
@@ -120,7 +123,7 @@ impl Error {
     }
 }
 
-fn wasm_hash_hint(value: &str) -> &'static str {
+pub(crate) fn wasm_hash_hint(value: &str) -> &'static str {
     if value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit()) {
         "; expected a contract address (C...), got a hash"
     } else {
