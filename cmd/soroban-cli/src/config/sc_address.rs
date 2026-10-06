@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use soroban_spec_tools::sanitize;
+
 use crate::print::Print;
 use crate::xdr;
 
@@ -169,7 +171,7 @@ fn address_not_found_message(value: &str) -> String {
     if secret::looks_like_secret(value) {
         "invalid address or alias".to_string()
     } else {
-        format!("address alias '{value}' not found")
+        format!("address alias '{}' not found", sanitize(value))
     }
 }
 
@@ -180,7 +182,10 @@ fn ambiguous_alias_warning(value: &str) -> String {
     if secret::looks_like_secret(value) {
         "ScAddress alias is ambiguous, assuming it is a contract".to_string()
     } else {
-        format!("ScAddress alias {value} is ambiguous, assuming it is a contract")
+        format!(
+            "ScAddress alias {} is ambiguous, assuming it is a contract",
+            sanitize(value)
+        )
     }
 }
 
@@ -459,5 +464,27 @@ mod tests {
     #[test]
     fn ambiguous_warning_names_plain_alias() {
         assert!(ambiguous_alias_warning("nosuchalias").contains("nosuchalias"));
+    }
+
+    // A named value reaches the terminal, so terminal control characters in a
+    // mistyped alias must be escaped rather than interpreted.
+    const CONTROL_CHARS: &str = "alias\u{1b}[31m\u{7}";
+
+    #[test]
+    fn not_found_message_escapes_control_characters() {
+        let message = address_not_found_message(CONTROL_CHARS);
+        assert!(
+            !message.contains('\u{1b}') && !message.contains('\u{7}'),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn ambiguous_warning_escapes_control_characters() {
+        let message = ambiguous_alias_warning(CONTROL_CHARS);
+        assert!(
+            !message.contains('\u{1b}') && !message.contains('\u{7}'),
+            "{message}"
+        );
     }
 }

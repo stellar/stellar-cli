@@ -80,7 +80,7 @@ pub enum Error {
     CannotAccessAliasConfigFile,
     #[error("cannot parse contract ID {0}: {1}")]
     CannotParseContractId(String, DecodeError),
-    #[error("contract not found: {0}{hint}", hint = wasm_hash_hint(.0))]
+    #[error("contract not found: {alias}{hint}", alias = soroban_spec_tools::sanitize(.0), hint = wasm_hash_hint(.0))]
     ContractNotFound(String),
     // The secret-shaped counterpart of `ContractNotFound`: carries no payload so
     // a secret key or seed phrase pasted where a contract id was expected is
@@ -1099,6 +1099,18 @@ mod error_message_tests {
         // mistyped secret here; see its `resolve_conceals_*` tests.
         let err = Error::ContractNotFoundConcealed;
         assert_eq!(err.to_string(), "contract not found");
+    }
+
+    #[test]
+    fn contract_not_found_escapes_control_characters() {
+        // The named alias reaches the terminal, so control characters in a
+        // mistyped id must be escaped rather than interpreted.
+        let err = Error::ContractNotFound("alias\u{1b}[31m\u{7}".to_string());
+        let message = err.to_string();
+        assert!(
+            !message.contains('\u{1b}') && !message.contains('\u{7}'),
+            "{message}"
+        );
     }
 }
 
