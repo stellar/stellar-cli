@@ -22,7 +22,13 @@ impl ArgName {
 impl From<&Arg> for ArgName {
     fn from(arg: &Arg) -> Self {
         let name = if let Some(long) = arg.get_long() {
-            format!("--{long}")
+            // Visible aliases too, since the value may have been given under
+            // one, e.g. `--contract-id/--id`.
+            std::iter::once(long)
+                .chain(arg.get_visible_aliases().unwrap_or_default())
+                .map(|name| format!("--{name}"))
+                .collect::<Vec<_>>()
+                .join("/")
         } else if let Some(short) = arg.get_short() {
             format!("-{short}")
         } else {
@@ -128,7 +134,7 @@ mod tests {
         for value in ["nosuchalias", SECRET, SEED] {
             assert_eq!(
                 contract_err(&["--id", value]),
-                "--contract-id: contract not found"
+                "--contract-id/--id: contract not found"
             );
         }
         assert_eq!(
@@ -141,7 +147,7 @@ mod tests {
     fn contract_error_keeps_wasm_hash_hint() {
         assert_eq!(
             contract_err(&["--id", &"ab".repeat(32)]),
-            "--contract-id: contract not found; expected a contract address (C...), got a hash"
+            "--contract-id/--id: contract not found; expected a contract address (C...), got a hash"
         );
     }
 
