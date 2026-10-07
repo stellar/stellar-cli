@@ -15,7 +15,7 @@ use clap::Parser;
 pub struct Cmd {
     /// Contract alias or address to fetch
     #[arg(long)]
-    pub contract: config::UnresolvedContract,
+    pub contract: config::arg_name::Named<config::UnresolvedContract>,
 
     #[command(flatten)]
     pub args: Args,

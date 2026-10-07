@@ -29,12 +29,12 @@ pub struct Cmd {
     /// Owner whose tokens are moved. Must have granted `--spender` an allowance.
     /// Accepts a `G…`/`M…` account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub from: UnresolvedScAddress,
+    pub from: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Account or contract to transfer the tokens to. Accepts a `G…`/`M…`
     /// account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub to: UnresolvedScAddress,
+    pub to: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Amount to transfer, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract).

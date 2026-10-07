@@ -16,6 +16,7 @@ use network::Network;
 
 pub mod address;
 pub mod alias;
+pub mod arg_name;
 pub mod data;
 pub mod key;
 pub mod locator;

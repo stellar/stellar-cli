@@ -24,11 +24,11 @@ pub struct Cmd {
 
     /// Account or contract that granted the allowance (the owner of the funds).
     #[arg(long)]
-    pub from: UnresolvedScAddress,
+    pub from: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Account or contract allowed to spend on `--from`'s behalf.
     #[arg(long)]
-    pub spender: UnresolvedScAddress,
+    pub spender: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Format the allowance as a decimal using the token's `decimals`, instead
     /// of the raw smallest unit (stroops for a Stellar Asset Contract).

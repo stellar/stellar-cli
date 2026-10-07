@@ -47,7 +47,7 @@ pub struct Args {
         conflicts_with = "wasm",
         conflicts_with = "wasm_hash"
     )]
-    pub contract_id: Option<config::UnresolvedContract>,
+    pub contract_id: Option<config::arg_name::Named<config::UnresolvedContract>>,
     #[command(flatten)]
     pub network: network::Args,
     #[command(flatten)]

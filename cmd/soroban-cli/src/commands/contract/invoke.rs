@@ -54,7 +54,7 @@ pub struct Cmd {
         visible_alias = "id",
         env = "STELLAR_CONTRACT_ID"
     )]
-    pub contract_id: config::UnresolvedContract,
+    pub contract_id: config::arg_name::Named<config::UnresolvedContract>,
 
     // For testing only
     #[arg(skip)]

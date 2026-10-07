@@ -50,7 +50,7 @@ pub struct Cmd {
         num_args = 1..=6,
         help_heading = "FILTERS"
     )]
-    contract_ids: Vec<config::UnresolvedContract>,
+    contract_ids: Vec<config::arg_name::Named<config::UnresolvedContract>>,
 
     /// A set of (up to 5) topic filters to filter event topics on. A single
     /// topic filter can contain 1-4 different segments, separated by

@@ -25,7 +25,7 @@ pub struct Cmd {
         visible_alias = "id",
         env = "STELLAR_CONTRACT_ID"
     )]
-    pub contract_id: Option<config::UnresolvedContract>,
+    pub contract_id: Option<config::arg_name::Named<config::UnresolvedContract>>,
     /// Wasm to fetch
     #[arg(long = "wasm-hash", conflicts_with = "contract_id")]
     pub wasm_hash: Option<String>,

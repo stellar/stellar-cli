@@ -2,7 +2,11 @@ use std::str::FromStr;
 
 use crate::xdr;
 
-use super::{alias, key, locator, UnresolvedContract};
+use super::{
+    alias,
+    arg_name::{ArgName, Named},
+    key, locator, UnresolvedContract,
+};
 
 /// `ScAddress` can be either a resolved `xdr::ScAddress` or an alias of a `Contract` or `MuxedAccount`.
 #[allow(clippy::module_name_repetitions)]
@@ -41,6 +45,8 @@ pub enum Error {
     // address was expected must not reach the terminal, logs, or JSON output.
     #[error("invalid address or alias")]
     AccountAliasNotFound,
+    #[error("{0}: invalid address or alias")]
+    ArgAccountAliasNotFound(ArgName),
     #[error("alias '{0}' is reserved for the native asset contract but also matches a stored key; pass an explicit contract (C...) or account (G...) address instead")]
     ReservedAliasShadowsKey(String),
 }
@@ -133,6 +139,32 @@ impl UnresolvedScAddress {
             }),
             _ => Err(Error::AccountAliasNotFound),
         }
+    }
+}
+
+impl Named<UnresolvedScAddress> {
+    #[must_use]
+    pub fn is_muxed(&self, locator: &locator::Args, network_passphrase: &str) -> bool {
+        self.value.is_muxed(locator, network_passphrase)
+    }
+
+    /// Like [`UnresolvedScAddress::resolve`], but an alias that doesn't resolve
+    /// names the argument rather than echoing the value.
+    pub fn resolve(
+        self,
+        locator: &locator::Args,
+        network_passphrase: &str,
+        hd_path: Option<u32>,
+    ) -> Result<xdr::ScAddress, Error> {
+        let Named { value, arg } = self;
+        value
+            .resolve(locator, network_passphrase, hd_path)
+            .map_err(|e| match e {
+                Error::AccountAliasNotFound if arg.is_known() => {
+                    Error::ArgAccountAliasNotFound(arg)
+                }
+                e => e,
+            })
     }
 }
 

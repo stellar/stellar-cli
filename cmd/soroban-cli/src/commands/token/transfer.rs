@@ -29,7 +29,7 @@ pub struct Cmd {
     /// Account or contract to transfer the tokens to. Accepts a `G…`/`M…`
     /// account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub to: UnresolvedScAddress,
+    pub to: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Amount to transfer, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract).

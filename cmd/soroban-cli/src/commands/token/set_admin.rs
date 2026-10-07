@@ -21,7 +21,7 @@ pub struct Cmd {
     /// The new administrator to hand control to. Accepts a `G…` account, a `C…`
     /// contract address, or an alias.
     #[arg(long = "new-admin")]
-    pub new_admin: UnresolvedScAddress,
+    pub new_admin: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Format of the output.
     #[arg(long, default_value = "text")]

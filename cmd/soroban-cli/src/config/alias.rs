@@ -3,7 +3,7 @@ use std::{collections::HashMap, convert::Infallible, str::FromStr};
 use serde::{Deserialize, Serialize};
 use stellar_strkey::Contract;
 
-use super::locator;
+use super::{arg_name::Named, locator};
 use crate::config::token::UnresolvedToken;
 use crate::tx::builder;
 
@@ -105,6 +105,31 @@ impl UnresolvedContract {
         locator
             .get_contract_id(alias, network_passphrase)?
             .ok_or_else(|| locator::Error::ContractNotFound(alias.to_owned()))
+    }
+}
+
+impl Named<UnresolvedContract> {
+    /// Like [`UnresolvedContract::resolve_contract_id`], but an alias that
+    /// doesn't resolve names the argument rather than echoing the value, which
+    /// may be a secret key or seed phrase pasted in the wrong place. A seed
+    /// phrase fails alias name validation.
+    pub fn resolve_contract_id(
+        &self,
+        locator: &locator::Args,
+        network_passphrase: &str,
+    ) -> Result<stellar_strkey::Contract, locator::Error> {
+        self.value
+            .resolve_contract_id(locator, network_passphrase)
+            .map_err(|e| match (e, &self.value) {
+                (
+                    locator::Error::ContractNotFound(_) | locator::Error::InvalidName(_),
+                    UnresolvedContract::Alias(alias),
+                ) if self.arg.is_known() => locator::Error::ArgContractNotFound {
+                    arg: self.arg.clone(),
+                    hint: locator::wasm_hash_hint(alias),
+                },
+                (e, _) => e,
+            })
     }
 }
 

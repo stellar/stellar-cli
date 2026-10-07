@@ -29,7 +29,7 @@ pub struct Cmd {
         env = "STELLAR_CONTRACT_ID",
         conflicts_with = "wasm"
     )]
-    pub contract_id: Option<config::UnresolvedContract>,
+    pub contract_id: Option<config::arg_name::Named<config::UnresolvedContract>>,
     #[command(flatten)]
     pub network: network::Args,
     #[command(flatten)]

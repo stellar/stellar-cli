@@ -99,7 +99,7 @@ pub async fn invoke_by_position(
     send: invoke::Send,
 ) -> Result<TxnResult<invoke::InvokeReceipt>, invoke::Error> {
     let cmd = invoke::Cmd {
-        contract_id: UnresolvedContract::Resolved(token.contract_id),
+        contract_id: UnresolvedContract::Resolved(token.contract_id).into(),
         invocation: Some(invoke::PositionalInvocation {
             function: function.to_string(),
             args,

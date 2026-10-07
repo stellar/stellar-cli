@@ -24,7 +24,7 @@ pub struct Cmd {
 
     /// Account or contract whose balance to read.
     #[arg(long)]
-    pub account: UnresolvedScAddress,
+    pub account: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Format the balance as a decimal using the token's `decimals`, instead of
     /// the raw smallest unit (stroops for a Stellar Asset Contract).

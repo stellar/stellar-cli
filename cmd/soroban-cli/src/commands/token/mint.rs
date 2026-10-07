@@ -21,7 +21,7 @@ pub struct Cmd {
     /// Account or contract to mint the tokens to. Accepts a `G…` account, a `C…`
     /// contract address, or an alias.
     #[arg(long)]
-    pub to: UnresolvedScAddress,
+    pub to: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Amount to mint, in the token's smallest unit (stroops for a Stellar Asset
     /// Contract).

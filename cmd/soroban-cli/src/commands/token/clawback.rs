@@ -21,7 +21,7 @@ pub struct Cmd {
     /// Account or contract to claw the tokens back from. Accepts a `G…` account,
     /// a `C…` contract address, or an alias.
     #[arg(long)]
-    pub from: UnresolvedScAddress,
+    pub from: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Amount to claw back, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract).

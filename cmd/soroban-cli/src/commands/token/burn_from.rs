@@ -30,7 +30,7 @@ pub struct Cmd {
     /// allowance. Accepts a `G…`/`M…` account, a `C…` contract address, or an
     /// alias.
     #[arg(long)]
-    pub from: UnresolvedScAddress,
+    pub from: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Amount to burn, in the token's smallest unit (stroops for a Stellar Asset
     /// Contract).

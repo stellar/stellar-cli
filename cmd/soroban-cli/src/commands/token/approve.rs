@@ -29,7 +29,7 @@ pub struct Cmd {
     /// Account or contract allowed to spend on `--from`'s behalf. Accepts a
     /// `G…`/`M…` account, a `C…` contract address, or an alias.
     #[arg(long)]
-    pub spender: UnresolvedScAddress,
+    pub spender: config::arg_name::Named<UnresolvedScAddress>,
 
     /// Allowance to grant, in the token's smallest unit (stroops for a Stellar
     /// Asset Contract). Replaces any existing allowance.
