@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+  "contracts/*",
+]
+
+[workspace.dependencies]
+soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "a7081319bfa59a7da7352510dfa9e05734510be4" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
