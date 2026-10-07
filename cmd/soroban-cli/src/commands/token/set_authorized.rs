@@ -18,8 +18,8 @@ pub struct Cmd {
     #[arg(long = "id")]
     pub id: UnresolvedToken,
 
-    /// Account or contract whose authorization to set. Accepts a `G…`/`M…`
-    /// account, a `C…` contract address, or an alias.
+    /// Account or contract whose authorization to set. Accepts a `G…` account,
+    /// a `C…` contract address, or an alias.
     #[arg(long)]
     pub account: UnresolvedScAddress,
 
@@ -55,6 +55,9 @@ pub enum Error {
 
     #[error("muxed (M…) source accounts are not yet supported for `token set-authorized`")]
     MuxedSourceNotSupported,
+
+    #[error("muxed (M…) accounts are not yet supported for `token set-authorized`")]
+    MuxedAccountNotSupported,
 }
 
 impl Error {
@@ -69,7 +72,7 @@ impl Error {
             Error::ScAddress(_) => "invalid_address",
             Error::Invoke(_) => "invoke",
             Error::Serde(_) => "internal",
-            Error::MuxedSourceNotSupported => "unsupported",
+            Error::MuxedSourceNotSupported | Error::MuxedAccountNotSupported => "unsupported",
         }
     }
 }
@@ -117,8 +120,17 @@ impl Cmd {
             )
             .await;
         }
-        // `--account` may be an account (`G…`/`M…`), a contract (`C…`), or an
-        // alias; resolve it to an `ScAddress` and hand the strkey to the
+        // `--account` may be an account (`G…`), a contract (`C…`), or an alias.
+        // The host rejects a muxed (`M…`) target mid-simulation with an opaque
+        // error, so reject one up front with a clear message — whether supplied
+        // as a direct `M…` strkey or an alias resolving to a muxed key.
+        if self
+            .account
+            .is_muxed(&config.locator, &network.network_passphrase)
+        {
+            return Err(Error::MuxedAccountNotSupported);
+        }
+        // Resolve it to an `ScAddress` and hand the strkey to the
         // `set_authorized` arg, which accepts any of these targets.
         let account = self
             .account

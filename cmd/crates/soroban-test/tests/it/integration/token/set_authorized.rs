@@ -85,6 +85,27 @@ async fn set_authorized_toggles_authorization_and_returns_receipt() {
         !sac_authorized(sandbox, &sac, &test),
         "account should be deauthorized after set-authorized false"
     );
+
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "set-authorized",
+            "--id",
+            &asset,
+            "--source",
+            "issuer",
+            "--account",
+            &test,
+            "--authorize",
+            "true",
+        ])
+        .assert()
+        .success();
+
+    assert!(
+        sac_authorized(sandbox, &sac, &test),
+        "account should be reauthorized after set-authorized true"
+    );
 }
 
 #[tokio::test]
@@ -146,6 +167,34 @@ async fn set_authorized_rejects_muxed_source_with_clear_error() {
         .failure()
         .stderr(predicates::str::contains(
             "muxed (M…) source accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
+async fn set_authorized_rejects_muxed_account_with_clear_error() {
+    let sandbox = &TestEnv::new();
+
+    // The SAC `set_authorized` target is a plain `Address`; a muxed (M…) account
+    // is rejected mid-simulation with an opaque error, so the command must reject
+    // one up front with a clear message.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "set-authorized",
+            "--id",
+            "native",
+            "--source",
+            "test",
+            "--account",
+            muxed,
+            "--authorize",
+            "true",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) accounts are not yet supported",
         ));
 }
 

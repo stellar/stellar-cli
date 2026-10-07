@@ -2466,7 +2466,7 @@ Calls the token's Stellar Asset Contract `set_authorized` function. A non-SAC co
 ###### **Options:**
 
 - `--id <ID>` — The token whose authorization to set: a contract id or alias, or a classic asset as `CODE:ISSUER`
-- `--account <ACCOUNT>` — Account or contract whose authorization to set. Accepts a `G…`/`M…` account, a `C…` contract address, or an alias
+- `--account <ACCOUNT>` — Account or contract whose authorization to set. Accepts a `G…` account, a `C…` contract address, or an alias
 - `--authorize <AUTHORIZE>` — Whether the account is authorized (`true`) to hold and transact the token, or deauthorized/frozen (`false`)
 
   Possible values: `true`, `false`
