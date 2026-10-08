@@ -114,17 +114,19 @@ struct Receipt {
 impl Cmd {
     /// Assemble a full [`config::Args`] for the underlying invocation, using
     /// `--from` as the source account that signs and authorizes the transfer.
-    /// Fees are left unset so the pipeline applies its default inclusion fee —
-    /// this command intentionally exposes no fee or sequence knobs.
-    fn config(&self) -> config::Args {
-        config::Args {
+    /// The configured inclusion fee is honored (via `fees use` /
+    /// `STELLAR_INCLUSION_FEE`); this command exposes no per-invocation fee or
+    /// sequence knobs of its own.
+    fn config(&self) -> Result<config::Args, Error> {
+        let (fee, inclusion_fee) = args::configured_fees()?;
+        Ok(config::Args {
             network: self.network.clone(),
             source_account: self.from.clone(),
             locator: self.locator.clone(),
             sign_with: self.sign_with.clone(),
-            fee: None,
-            inclusion_fee: None,
-        }
+            fee,
+            inclusion_fee,
+        })
     }
 
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
@@ -133,7 +135,7 @@ impl Cmd {
         // logging (which writes to stderr) would still fire; run it quietly so
         // machine consumers get clean output without needing `--quiet`.
         let quiet = global_args.quiet || output.is_json();
-        let config = self.config();
+        let config = self.config()?;
         let network = config.get_network()?;
 
         let token = self
