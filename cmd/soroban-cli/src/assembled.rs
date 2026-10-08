@@ -12,13 +12,12 @@ use soroban_rpc::{
 
 use crate::utils::XDR_DEPTH_LIMIT;
 
-pub async fn simulate_and_assemble_transaction(
+pub async fn simulate_transaction(
     client: &soroban_rpc::Client,
     tx: &Transaction,
     resource_config: Option<ResourceConfig>,
-    resource_fee: Option<i64>,
     auth_mode: Option<AuthMode>,
-) -> Result<Assembled, Error> {
+) -> Result<SimulateTransactionResponse, Error> {
     let envelope = TransactionEnvelope::Tx(TransactionV1Envelope {
         tx: tx.clone(),
         signatures: VecM::default(),
@@ -29,17 +28,28 @@ pub async fn simulate_and_assemble_transaction(
         envelope.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT))?
     );
 
-    // Whether an explicit record mode was requested. In record mode the RPC re-records auth
-    // even when entries already exist, so the assembled output should adopt the recorded set.
-    let record_auth = matches!(
-        auth_mode,
-        Some(AuthMode::Record | AuthMode::RecordAllowNonRoot)
-    );
-
     let sim_res = client
         .next_simulate_transaction_envelope(&envelope, auth_mode, resource_config)
         .await?;
     tracing::trace!("{sim_res:#?}");
+
+    Ok(sim_res)
+}
+
+pub async fn simulate_and_assemble_transaction(
+    client: &soroban_rpc::Client,
+    tx: &Transaction,
+    resource_config: Option<ResourceConfig>,
+    resource_fee: Option<i64>,
+    auth_mode: Option<AuthMode>,
+) -> Result<Assembled, Error> {
+    // In record mode the RPC re-records auth even when entries already exist,
+    // so the assembled output should adopt the recorded set.
+    let record_auth = matches!(
+        auth_mode,
+        Some(AuthMode::Record | AuthMode::RecordAllowNonRoot)
+    );
+    let sim_res = simulate_transaction(client, tx, resource_config, auth_mode).await?;
 
     if let Some(e) = &sim_res.error {
         crate::log::event::all(&sim_res.events()?);
