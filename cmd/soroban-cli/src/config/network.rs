@@ -4,6 +4,7 @@ use reqwest::header::HeaderMap;
 use reqwest::header::{HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::str::FromStr;
 use stellar_strkey::ed25519::PublicKey;
@@ -14,6 +15,7 @@ use crate::utils::{http, url::redact_url};
 use crate::{
     commands::HEADING_RPC,
     rpc::{self, Client},
+    xdr::Hash,
 };
 pub mod passphrase;
 
@@ -225,6 +227,11 @@ fn validate_rpc_headers(headers: &[(String, String)]) -> Result<(), Error> {
 }
 
 impl Network {
+    /// Returns the network id, the SHA-256 hash of the network passphrase.
+    pub fn id(&self) -> Hash {
+        Hash(Sha256::digest(&self.network_passphrase).into())
+    }
+
     pub fn validate_headers(&self) -> Result<(), Error> {
         validate_rpc_headers(&self.rpc_headers)
     }
@@ -308,6 +315,20 @@ impl Network {
             other => Error::Rpc(other),
         })
     }
+}
+
+/// Returns the default history archive URL for the network, if known.
+pub fn default_archive_url(network_passphrase: &str) -> Option<Url> {
+    match network_passphrase {
+        passphrase::MAINNET => Some("https://history.stellar.org/prd/core-live/core_live_001"),
+        passphrase::TESTNET => {
+            Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
+        }
+        passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
+        passphrase::LOCAL => Some("http://localhost:8000/archive"),
+        _ => None,
+    }
+    .map(|s| Url::from_str(s).expect("archive url valid"))
 }
 
 /// Default network key to use when no network is specified
