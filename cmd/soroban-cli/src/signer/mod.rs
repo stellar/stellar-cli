@@ -115,7 +115,14 @@ pub async fn sign_soroban_authorizations(
 
         // Before we attempt to sign, validate the auth entry is strict
         match validation::classify_auth_invocation(&body.host_function, &raw_auth.root_invocation) {
-            validation::AuthStyle::Strict => {}
+            validation::AuthStyle::Strict => {
+                // Display the full authorization tree (root + sub-invocations)
+                // before signing even on the strict path. The signature covers
+                // the entire tree, so the signed content should always be
+                // visible to the user. Display-only: signing proceeds
+                // unchanged (see issue #2779).
+                print.println(format_auth_entry(raw_auth));
+            }
             validation::AuthStyle::NonStrict => {
                 handle_non_strict_authorization(raw_auth, skip_approval, print)?;
             }
