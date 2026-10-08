@@ -156,6 +156,7 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
         commands::Cmd::Token(token::Cmd::Clawback(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::SetAdmin(cmd)) => cmd.output.into(),
         commands::Cmd::Token(token::Cmd::SetAuthorized(cmd)) => cmd.output.into(),
+        commands::Cmd::Checkout(cmd) => cmd.output.into(),
         _ => return None,
     };
 
@@ -168,6 +169,7 @@ fn json_error_format(cmd: &commands::Cmd) -> Option<crate::output::Format> {
 fn error_type(err: &commands::Error) -> &'static str {
     match err {
         commands::Error::Token(e) => e.error_type(),
+        commands::Error::Checkout(e) => e.error_type(),
         _ => "unknown",
     }
 }

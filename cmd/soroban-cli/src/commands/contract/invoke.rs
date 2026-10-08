@@ -472,6 +472,104 @@ impl Cmd {
             .expect("output_to_string always returns a result");
         Ok(TxnResult::Res(InvokeReceipt { tx_hash, output }))
     }
+
+    /// Build, simulate, and authorization-sign this invocation into an off-chain
+    /// payment proof, without signing the transaction envelope or submitting it.
+    ///
+    /// The transaction is sourced by the null account, so the paying address
+    /// authorizes the call through an explicitly-signed authorization entry
+    /// (expiring at `auth_expiration_ledger`) rather than through the transaction
+    /// signature. This is what an x402 payment needs: the client proves the
+    /// transfer is authorized, and the facilitator re-sources the operation onto
+    /// its own account, signs the envelope, and submits it. Returns the
+    /// assembled, auth-signed transaction for the caller to serialize into the
+    /// payment header.
+    ///
+    /// Requires `self.invocation` to be set (the by-position call used by typed
+    /// clients like `stellar token` / `stellar checkout`).
+    pub async fn build_payment_authorization(
+        &self,
+        config: &config::Args,
+        auth_expiration_ledger: u32,
+        quiet: bool,
+        no_cache: bool,
+    ) -> Result<Transaction, Error> {
+        self.auth_mode.validate_not_enforce()?;
+
+        let print = print::Print::new(quiet);
+        let network = config.get_network()?;
+        let contract_id = self
+            .contract_id
+            .resolve_contract_id(&config.locator, &network.network_passphrase)?;
+        let client = network.rpc_client()?;
+
+        let global_args = global::Args {
+            locator: config.locator.clone(),
+            filter_logs: Vec::default(),
+            quiet,
+            verbose: false,
+            very_verbose: false,
+            no_cache,
+        };
+
+        let spec_entries = get_remote_contract_spec(
+            &contract_id.0,
+            &config.locator,
+            &config.network,
+            Some(&global_args),
+            Some(config),
+        )
+        .await
+        .map_err(Error::from)?;
+
+        let inv = self
+            .invocation
+            .as_ref()
+            .expect("build_payment_authorization requires a positional invocation");
+        let (_function, _spec, host_function_params, signers) =
+            build_host_function_parameters_by_position(
+                &contract_id,
+                &inv.function,
+                &inv.args,
+                &spec_entries,
+                config,
+                &print,
+            )?;
+
+        // Null source account: the paying address is then a non-invoker whose
+        // `require_auth` surfaces as a signable `Address` authorization entry,
+        // rather than being covered by the (absent) transaction signature.
+        let tx = build_invoke_contract_tx(
+            host_function_params,
+            1,
+            config.get_inclusion_fee()?,
+            Uint256([0; 32]),
+        )?;
+
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+            self.auth_mode.to_rpc(),
+        )
+        .await?;
+        let assembled = self.resources.apply_to_assembled_txn(assembled);
+        let tx = assembled.transaction().clone();
+
+        let signed = crate::signer::sign_soroban_authorizations(
+            &tx,
+            &signers,
+            auth_expiration_ledger,
+            &network.network_passphrase,
+            config.sign_with.auto_sign,
+            &print,
+        )
+        .await
+        .map_err(|e| Error::Config(config::Error::Signer(e)))?;
+
+        Ok(signed.unwrap_or(tx))
+    }
 }
 
 /// The outcome of a submitted contract invocation: the decoded return value
