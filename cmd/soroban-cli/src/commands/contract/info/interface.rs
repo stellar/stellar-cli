@@ -4,6 +4,8 @@ use crate::commands::contract::info::interface::Error::NoInterfacePresent;
 use crate::commands::contract::info::shared::{self, fetch, Fetched};
 use crate::commands::global;
 use crate::print::Print;
+use crate::xdr::{Limits, WriteXdr};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use clap::Parser;
 use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
@@ -37,6 +39,10 @@ pub enum Error {
     Wasm(#[from] shared::Error),
     #[error(transparent)]
     Spec(#[from] contract::Error),
+    #[error(transparent)]
+    ReadSpec(#[from] soroban_spec::read::FromWasmError),
+    #[error(transparent)]
+    Xdr(#[from] crate::xdr::Error),
     #[error("no interface present in provided WASM file")]
     NoInterfacePresent(),
     #[error(transparent)]
@@ -58,8 +64,16 @@ impl Cmd {
                     return Err(NoInterfacePresent());
                 }
 
+                // Read the entries with soroban_spec, which adds entries for
+                // callable functions the contract's spec does not describe.
+                let entries = soroban_spec::read::from_wasm(&wasm_bytes)?;
+                let mut raw = Vec::new();
+                for entry in &entries {
+                    raw.extend(entry.to_xdr(Limits::none())?);
+                }
+
                 let sdk_major_version = soroban_spec_rust::sdk_major_version_from_meta(&spec.meta);
-                (spec.spec_base64.unwrap(), spec.spec, sdk_major_version)
+                (STANDARD.encode(raw), entries, sdk_major_version)
             }
             shared::Contract::StellarAssetContract => {
                 let (base64, spec) = Spec::spec_to_base64(stellar_asset_spec::xdr())?;
