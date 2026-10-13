@@ -230,7 +230,19 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
 allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
-  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66"
+  "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
+
+  # Temporary pins, remove once released:
+  # rs-stellar-xdr main, which widens the user-defined type name limit so a
+  # fully qualified type name fits.
+  "https://github.com/stellar/rs-stellar-xdr?rev=e0d289adf4ad2483a10bcc8df743126974d77301",
+  # rs-soroban-sdk main, which names user-defined types in contract specs by
+  # their fully qualified path.
+  "https://github.com/stellar/rs-soroban-sdk?rev=a2e51be61dc5c179595ba5b26da7da724e253886",
+  # The rs-soroban-env rev that rs-soroban-sdk main uses, and the git
+  # dependencies of the env it brings in.
+  "https://github.com/stellar/rs-soroban-env?rev=cb32250d926bd7188f3a6f9075bd48c44550dcac",
+  "https://github.com/stellar/wasmi?rev=0ed3f3dee30dc41ebe21972399e0a73a41944aa0",
 ]
 
 [sources.allow-org]

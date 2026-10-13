@@ -242,6 +242,9 @@ pub enum Error {
     #[error(transparent)]
     Xdr(#[from] stellar_xdr::Error),
 
+    #[error("{0}")]
+    ReduceSpec(String),
+
     #[cfg(feature = "additional-libs")]
     #[error(transparent)]
     Optimize(#[from] optimize::Error),
@@ -370,7 +373,9 @@ impl Cmd {
             }
 
             // Set env var to inform the SDK that this CLI supports spec
-            // optimization using markers. Current and new SDK versions no
+            // optimization. The var says only that this CLI shakes; which
+            // rules it shakes a given contract by comes from the model that
+            // contract's meta selects. Current and new SDK versions no
             // longer read this var, relying on the CLI version below
             // instead, but it must keep being set for past SDK versions that
             // require it.
@@ -399,7 +404,10 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
-                Self::filter_spec(&target_file_path)?;
+                let model = Self::filter_spec(&target_file_path)?;
+                if model == soroban_spec::shaking::Model::References {
+                    Self::reduce_spec(&print, &p.name, &target_file_path)?;
+                }
 
                 let final_path = if let Some(out_dir) = &self.out_dir {
                     fs::create_dir_all(out_dir).map_err(Error::CreatingOutDir)?;
@@ -529,17 +537,19 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    /// Filters unused types and events from the contract spec.
+    /// Filters unused types and events from the contract spec, and returns the
+    /// model the contract's spec is shaken by.
     ///
-    /// This removes:
-    /// - Type definitions that are not referenced by any function
-    /// - Events that don't have corresponding markers in the WASM data section
-    ///   (events that are defined but never published)
-    ///
-    /// The SDK embeds markers in the data section for types/events that are
-    /// actually used. These markers survive dead code elimination, so we can
-    /// detect which spec entries are truly needed.
-    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
+    /// The SDK that built the contract selects the model, which says which
+    /// entries carry a marker and so what a missing marker means. Read it from
+    /// the contract's meta and shake by its rules rather than the newest known:
+    /// a soroban-sdk v30 or later contract marks only the events it publishes
+    /// and the errors it panics with, and every other type is settled by
+    /// following the references to it, while a contract recording spec
+    /// shaking version 2 marks every used type, so markers alone say what is
+    /// used. Any other contract records nothing to shake by, and its spec is
+    /// left alone.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<soroban_spec::shaking::Model, Error> {
         use soroban_spec_tools::contract::Spec;
         use soroban_spec_tools::wasm::replace_custom_section;
 
@@ -548,23 +558,90 @@ impl Cmd {
         // Parse the spec from the wasm
         let spec = Spec::new(&wasm_bytes)?;
 
-        // Check if the contract meta indicates spec shaking v2 is enabled.
-        if soroban_spec::shaking::spec_shaking_version_for_meta(&spec.meta) != 2 {
-            return Ok(());
+        // Read the model the contract is shaken by, which selects the rules
+        // below. Nothing to shake by under the none model, so leave it alone.
+        let model = soroban_spec::shaking::model_for_meta(&spec.meta);
+        if model == soroban_spec::shaking::Model::None {
+            return Ok(model);
         }
 
         // Extract markers from the WASM data section
         let markers = soroban_spec::shaking::find_all(&wasm_bytes);
 
-        // Filter spec entries (types, events) based on markers, and
+        // Filter spec entries (types, events) by that model's rules, and
         // deduplicate any exact duplicate entries.
-        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers)?;
+        let filtered_xdr = filter_and_dedup_spec(spec.spec.clone(), &markers, model)?;
 
         // Replace the contractspecv0 section with the filtered version
         let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &filtered_xdr)
             .map_err(|e| Error::WasmParsing(e.to_string()))?;
 
         // Write the modified wasm back
+        fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)?;
+        Ok(model)
+    }
+
+    /// Reduces user-defined type names in the contract spec to their simple
+    /// form, rewriting the `contractspecv0` section in place.
+    ///
+    /// Contract specs may name user-defined types by their fully qualified path
+    /// (e.g. `my_contract::inner::State`). This follows each to its simple name
+    /// (e.g. `State`), rewriting every reference, so the on-chain spec and every
+    /// downstream tool see the short names. Names that would collide are
+    /// disambiguated with a numeric suffix, which is warned about.
+    ///
+    /// Runs only for contracts shaken by the references model, the soroban-sdk
+    /// v30 or later contracts whose specs name types by their fully qualified
+    /// path, and after `filter_spec` so only the entries that survive shaking
+    /// are reduced.
+    fn reduce_spec(print: &Print, name: &str, target_file_path: &PathBuf) -> Result<(), Error> {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let spec = Spec::new(&wasm_bytes)?;
+
+        // The error names entries of the spec, so sanitize it before it is
+        // printed, as the spec is untrusted input.
+        let reduced = soroban_spec::reduce::reduce(&spec.spec)
+            .map_err(|e| Error::ReduceSpec(sanitize(&e.to_string())))?;
+
+        // If every name was already simple, leave the wasm untouched.
+        if reduced.renames().all(|r| !r.renamed()) {
+            return Ok(());
+        }
+
+        let collisions: Vec<_> = reduced.renames().filter(|r| r.collision()).collect();
+        if !collisions.is_empty() {
+            use std::fmt::Write as _;
+            let mut msg = format!(
+                "{name}: reduced type and event names collided and were disambiguated with a numeric suffix:"
+            );
+            for rename in collisions {
+                let _ = write!(
+                    msg,
+                    "\n    {} -> {}",
+                    sanitize(&String::from_utf8_lossy(&rename.from)),
+                    sanitize(&String::from_utf8_lossy(&rename.to)),
+                );
+            }
+            print.warnln(msg);
+        }
+
+        // Encode the reduced entries and replace the contractspecv0 section.
+        let mut reduced_xdr = Vec::new();
+        let mut writer = Limited::new(
+            Cursor::new(&mut reduced_xdr),
+            Limits::depth(XDR_DEPTH_LIMIT),
+        );
+        for entry in reduced.into_entries() {
+            entry.write_xdr(&mut writer)?;
+        }
+
+        let new_wasm = replace_custom_section(&wasm_bytes, "contractspecv0", &reduced_xdr)
+            .map_err(|e| Error::WasmParsing(e.to_string()))?;
+
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
         fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
@@ -895,15 +972,17 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
     }
 }
 
-/// Filters spec entries based on markers and deduplicates exact duplicates.
+/// Filters spec entries down to those the contract needs, by the rules of the
+/// model its spec is shaken by, and deduplicates exact duplicates.
 ///
-/// Functions are always kept. Other entries (types, events) are kept only if a
-/// matching marker exists. Exact duplicate entries (identical XDR) are collapsed
+/// Which entries survive is decided by `soroban_spec::shaking::filter` for the
+/// given model. Exact duplicate entries (identical XDR) are then collapsed
 /// to a single occurrence.
 #[allow(clippy::implicit_hasher)]
 pub fn filter_and_dedup_spec(
     entries: Vec<stellar_xdr::ScSpecEntry>,
     markers: &HashSet<soroban_spec::shaking::Marker>,
+    model: soroban_spec::shaking::Model,
 ) -> Result<Vec<u8>, Error> {
     let mut seen = HashSet::new();
     let mut filtered_xdr = Vec::new();
@@ -911,7 +990,7 @@ pub fn filter_and_dedup_spec(
         Cursor::new(&mut filtered_xdr),
         Limits::depth(XDR_DEPTH_LIMIT),
     );
-    for entry in soroban_spec::shaking::filter(entries, markers) {
+    for entry in soroban_spec::shaking::filter(entries, markers, model) {
         let entry_xdr = entry.to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
         if seen.insert(entry_xdr) {
             entry.write_xdr(&mut writer)?;
@@ -968,6 +1047,45 @@ mod tests {
 
         // Without --image the flag is rejected rather than silently ignored.
         assert!(Cmd::try_parse_from(["build", "--pull"]).is_err());
+    }
+
+    #[test]
+    fn reduce_spec_shortens_qualified_names_in_wasm() {
+        use soroban_spec_tools::contract::Spec;
+        use soroban_spec_tools::wasm::replace_custom_section;
+        use stellar_xdr::{ScSpecEntry, ScSpecUdtStructV0, VecM};
+
+        // A spec with a single struct whose name is fully qualified.
+        let entry = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: "mycrate::mymod::MyType".to_string().try_into().unwrap(),
+            fields: VecM::default(),
+        });
+        let mut spec_xdr = Vec::new();
+        entry
+            .write_xdr(&mut Limited::new(
+                Cursor::new(&mut spec_xdr),
+                Limits::depth(XDR_DEPTH_LIMIT),
+            ))
+            .unwrap();
+
+        // Embed the spec in a minimal (empty) wasm module and write it out.
+        let wasm = replace_custom_section(b"\0asm\x01\0\0\0", "contractspecv0", &spec_xdr).unwrap();
+        let path = env::temp_dir().join(format!("reduce_spec_test_{}.wasm", std::process::id()));
+        fs::write(&path, &wasm).unwrap();
+
+        Cmd::reduce_spec(&Print::new(true), "pkg", &path).unwrap();
+
+        let out = fs::read(&path).unwrap();
+        fs::remove_file(&path).ok();
+        let spec = Spec::new(&out).unwrap();
+
+        assert_eq!(spec.spec.len(), 1);
+        let ScSpecEntry::UdtStructV0(s) = &spec.spec[0] else {
+            panic!("expected a struct entry, got {:?}", spec.spec[0]);
+        };
+        assert_eq!(s.name.to_vec(), b"MyType".to_vec());
     }
 
     #[test]
