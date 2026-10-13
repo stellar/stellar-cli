@@ -64,9 +64,10 @@ impl Cmd {
                     return Err(NoInterfacePresent());
                 }
 
-                // Read the entries with soroban_spec, which adds entries for
-                // callable functions the contract's spec does not describe.
-                let entries = soroban_spec::read::from_wasm(&wasm_bytes)?;
+                // Callable functions the contract's spec does not describe are
+                // added with `Val` typed inputs and output.
+                let mut entries = spec.spec;
+                entries.extend(soroban_spec::read::missing_fns_from_wasm(&wasm_bytes)?);
                 let mut raw = Vec::new();
                 for entry in &entries {
                     raw.extend(entry.to_xdr(Limits::none())?);
