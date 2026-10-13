@@ -5,6 +5,7 @@ pub mod burn;
 pub mod burn_from;
 pub mod clawback;
 pub mod decimals;
+pub mod inclusion_fee;
 pub mod mint;
 pub mod name;
 pub mod renamed;
