@@ -562,7 +562,8 @@ impl Cmd {
     /// (e.g. `my_contract::inner::State`). This follows each to its simple name
     /// (e.g. `State`), rewriting every reference, so the on-chain spec and every
     /// downstream tool see the short names. Names that would collide are
-    /// disambiguated with a numeric suffix, which is warned about.
+    /// disambiguated with a numeric suffix, which is warned about. A name also
+    /// counts as colliding when it is the name of an SDK type.
     ///
     /// Runs only for contracts shaken by the references model, the soroban-sdk
     /// v30 or later contracts whose specs name types by their fully qualified
@@ -582,7 +583,7 @@ impl Cmd {
         if !collisions.is_empty() {
             use std::fmt::Write as _;
             let mut msg = format!(
-                "{name}: reduced type and event names collided and were disambiguated with a numeric suffix:"
+                "{name}: reduced type and event names collided with each other or with SDK type names and were disambiguated with a numeric suffix:"
             );
             for rename in collisions {
                 let _ = write!(

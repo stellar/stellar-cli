@@ -1371,7 +1371,7 @@ fn build_reduces_qualified_names_and_rewrites_references() {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "names: reduced type and event names collided and were disambiguated with a numeric suffix:",
+            "names: reduced type and event names collided with each other or with SDK type names and were disambiguated with a numeric suffix:",
         ))
         .stderr(predicate::str::contains("::names::b::State -> State2"));
 
