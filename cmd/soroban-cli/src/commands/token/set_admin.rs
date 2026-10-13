@@ -104,24 +104,24 @@ impl Cmd {
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
             return Err(Error::MuxedSourceNotSupported);
         }
-        // `set_admin` is a SAC-admin function; warn (in human-readable mode) if
-        // the target isn't actually a Stellar Asset Contract.
-        if !output.is_json() {
-            args::warn_if_not_sac(output.print(), "set_admin", &token.contract_id, &network).await;
-        }
         // `--new-admin` may be an account (`G…`), a contract (`C…`), or an alias.
         // A muxed (`M…`) successor would be stranded — it can't sign as a source
         // (see #2645) and the SAC stores a plain `Address` — so reject one up
-        // front rather than performing an irreversible transfer to an
-        // unusable admin.
+        // front, before any network round-trip, rather than performing an
+        // irreversible transfer to an unusable admin.
         if self
             .new_admin
             .is_muxed(&config.locator, &network.network_passphrase)
         {
             return Err(Error::MuxedNewAdminNotSupported);
         }
-        // Resolve it to an `ScAddress` and hand the strkey to the `set_admin`
-        // arg, which accepts any of these administrators.
+        // `set_admin` is a SAC-admin function; warn (in human-readable mode) if
+        // the target isn't actually a Stellar Asset Contract.
+        if !output.is_json() {
+            args::warn_if_not_sac(output.print(), "set_admin", &token.contract_id, &network).await;
+        }
+        // Resolve `--new-admin` to an `ScAddress` and hand the strkey to the
+        // `set_admin` arg, which accepts any of these administrators.
         let new_admin = self
             .new_admin
             .clone()

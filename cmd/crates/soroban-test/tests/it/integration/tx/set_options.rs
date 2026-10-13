@@ -173,7 +173,7 @@ async fn set_some_options() {
         after.home_domain,
         "".parse::<xdr::StringM<32>>().unwrap().into()
     );
-    assert!(after.signers.is_empty());
+    assert_eq!(after.signers.len(), 0);
     sandbox
         .new_assert_cmd("tx")
         .args(["new", "set-options", "--set-clawback-enabled"])

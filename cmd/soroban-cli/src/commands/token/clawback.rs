@@ -109,23 +109,24 @@ impl Cmd {
         if matches!(source_account, crate::xdr::MuxedAccount::MuxedEd25519(_)) {
             return Err(Error::MuxedSourceNotSupported);
         }
-        // `clawback` is a SAC-admin function; warn (in human-readable mode) if the
-        // target isn't actually a Stellar Asset Contract.
-        if !output.is_json() {
-            args::warn_if_not_sac(output.print(), "clawback", &token.contract_id, &network).await;
-        }
         // `--from` may be an account (`G…`), a contract (`C…`), or an alias. The
         // host rejects a muxed (`M…`) holder mid-simulation with an opaque error,
-        // so reject one up front with a clear message — whether supplied as a
-        // direct `M…` strkey or an alias resolving to a muxed key.
+        // so reject one up front — before any network round-trip — with a clear
+        // message, whether supplied as a direct `M…` strkey or an alias resolving
+        // to a muxed key.
         if self
             .from
             .is_muxed(&config.locator, &network.network_passphrase)
         {
             return Err(Error::MuxedFromNotSupported);
         }
-        // Resolve it to an `ScAddress` and hand the strkey to the `clawback` arg,
-        // which accepts any of these holders.
+        // `clawback` is a SAC-admin function; warn (in human-readable mode) if the
+        // target isn't actually a Stellar Asset Contract.
+        if !output.is_json() {
+            args::warn_if_not_sac(output.print(), "clawback", &token.contract_id, &network).await;
+        }
+        // Resolve `--from` to an `ScAddress` and hand the strkey to the `clawback`
+        // arg, which accepts any of these holders.
         let from = self
             .from
             .clone()

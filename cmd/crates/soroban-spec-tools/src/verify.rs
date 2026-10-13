@@ -273,7 +273,7 @@ mod tests {
             make_fn_entry("do_thing", vec![("s", make_udt_type("MyStruct"))], vec![]),
         ];
         let spec = Spec::new(&entries);
-        assert!(spec.verify().is_empty());
+        assert_eq!(spec.verify(), Vec::<SpecWarning>::new());
     }
 
     #[test]
@@ -301,7 +301,7 @@ mod tests {
             vec![],
         )];
         let spec = Spec::new(&entries);
-        assert!(spec.verify().is_empty());
+        assert_eq!(spec.verify(), Vec::<SpecWarning>::new());
     }
 
     #[test]

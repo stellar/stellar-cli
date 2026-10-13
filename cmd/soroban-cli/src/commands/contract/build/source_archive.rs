@@ -629,7 +629,7 @@ mod tests {
 
         let a = build_source_archive(root, &print, true, None).unwrap();
         let b = build_source_archive(root, &print, true, None).unwrap();
-        assert!(!a.is_empty());
+        assert_ne!(a.len(), 0);
         assert_eq!(a, b, "same tree should produce identical bytes");
 
         // The `.git` dir git_init_commit created is never archived.

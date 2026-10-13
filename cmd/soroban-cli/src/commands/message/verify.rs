@@ -7,7 +7,7 @@ use crate::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use clap::Parser;
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 use super::SEP53_PREFIX;
@@ -100,7 +100,7 @@ impl Cmd {
         let verifying_key = VerifyingKey::from_bytes(&public_key.0)?;
 
         // Verify the signature
-        if verifying_key.verify(&hash, &signature).is_ok() {
+        if verifying_key.verify_strict(&hash, &signature).is_ok() {
             print.checkln("Signature valid");
             Ok(())
         } else {
@@ -273,6 +273,38 @@ mod tests {
         };
         let successful = cmd.run(&global);
         assert!(successful.is_err());
+    }
+
+    #[test]
+    fn test_verify_rejects_small_order_public_keys() {
+        // Small-order ed25519 public keys have no secret key. A signature (R, s = 0) with R a
+        // small-order point passes non-strict verification without any key material.
+        const IDENTITY_PUBLIC_KEY: &str =
+            "GAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHV4";
+        const IDENTITY_FORGED_SIGNATURE: &str =
+            "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+        const ZERO_PUBLIC_KEY: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+        const ZERO_FORGED_SIGNATURE: &str =
+            "7P///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+        for (public_key, signature) in [
+            (IDENTITY_PUBLIC_KEY, IDENTITY_FORGED_SIGNATURE),
+            (ZERO_PUBLIC_KEY, ZERO_FORGED_SIGNATURE),
+        ] {
+            let cmd = super::Cmd {
+                message: Some("Hello, World!".to_string()),
+                base64: false,
+                signature: signature.to_string(),
+                public_key: public_key.to_string(),
+                hd_path: None,
+                locator: setup_locator(),
+            };
+            let err = cmd.run(&global_args()).unwrap_err();
+            assert!(
+                matches!(err, Error::VerificationFailed),
+                "{public_key}: {err:?}"
+            );
+        }
     }
 
     #[test]

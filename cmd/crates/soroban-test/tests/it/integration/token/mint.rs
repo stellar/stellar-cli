@@ -112,6 +112,26 @@ async fn mint_rejects_muxed_source_with_clear_error() {
 }
 
 #[tokio::test]
+async fn mint_rejects_muxed_to_with_clear_error() {
+    let sandbox = &TestEnv::new();
+
+    // A muxed (M…) recipient isn't a valid `mint` target — the host rejects it
+    // mid-simulation with an opaque error — so the command rejects it up front
+    // with a clear message.
+    let muxed = "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "mint", "--id", "native", "--source", "test", "--to", muxed, "--amount", "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "muxed (M…) recipient accounts are not yet supported",
+        ));
+}
+
+#[tokio::test]
 async fn mint_warns_when_target_is_not_a_sac() {
     let sandbox = &TestEnv::new();
     let test = test_address(sandbox);

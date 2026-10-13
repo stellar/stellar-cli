@@ -86,7 +86,7 @@ pub struct Cmd {
     out: PathBuf,
 
     /// Archive URL
-    #[arg(long, help_heading = HEADING_ARCHIVE, env = "STELLAR_ARCHIVE_URL")]
+    #[arg(long, help_heading = HEADING_ARCHIVE, env = "STELLAR_ARCHIVE_URL", hide_env_values = true)]
     archive_url: Option<Url>,
 
     #[command(flatten)]

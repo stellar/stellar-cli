@@ -108,6 +108,18 @@ pub enum Error {
     InvalidSigningKey,
 }
 
+impl Error {
+    /// Replace errors that embed the caller's raw input with a non-echoing error,
+    /// so a secret key or seed phrase pasted where an alias was expected never
+    /// reaches the terminal.
+    pub(crate) fn conceal_secret_input(self) -> Self {
+        match self {
+            Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
+            other => other,
+        }
+    }
+}
+
 fn wasm_hash_hint(value: &str) -> &'static str {
     if value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit()) {
         "; expected a contract address (C...), got a hash"
@@ -358,10 +370,9 @@ impl Args {
     }
 
     pub fn get_secret_key(&self, key_or_name: &str) -> Result<Secret, Error> {
-        let key = self.read_key(key_or_name).map_err(|e| match e {
-            Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
-            other => other,
-        })?;
+        let key = self
+            .read_key(key_or_name)
+            .map_err(Error::conceal_secret_input)?;
         match key {
             Key::Secret(s) => Ok(s),
             _ => Err(Error::InvalidSigningKey),
@@ -379,10 +390,7 @@ impl Args {
     ) -> Result<Secret, Error> {
         let key = self
             .read_key_with_secure_store_cache(key_or_name, hd_path)
-            .map_err(|e| match e {
-                Error::InvalidName(_) | Error::ConfigMissing(_, _) => Error::InvalidSigningKey,
-                other => other,
-            })?;
+            .map_err(Error::conceal_secret_input)?;
         match key {
             Key::Secret(s) => Ok(s),
             _ => Err(Error::InvalidSigningKey),

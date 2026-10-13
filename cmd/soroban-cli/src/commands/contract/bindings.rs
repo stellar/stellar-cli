@@ -15,22 +15,22 @@ pub enum Cmd {
     /// ⚠️ Deprecated, use the JavaScript Stellar SDK instead (https://github.com/stellar/js-stellar-sdk#cli). Generate a TypeScript / JavaScript package
     Typescript(Box<typescript::Cmd>),
 
-    /// Generate Python bindings
+    /// Generate Python bindings (requires external plugin)
     Python(python::Cmd),
 
-    /// Generate Java bindings
+    /// Generate Java bindings (requires external plugin)
     Java(java::Cmd),
 
-    /// Generate Flutter bindings
+    /// Generate Flutter bindings (requires external plugin)
     Flutter(flutter::Cmd),
 
-    /// Generate Swift bindings
+    /// Generate Swift bindings (requires external plugin)
     Swift(swift::Cmd),
 
-    /// Generate PHP bindings
+    /// Generate PHP bindings (requires external plugin)
     Php(php::Cmd),
 
-    /// Generate Kotlin Multiplatform bindings
+    /// Generate Kotlin Multiplatform bindings (requires external plugin)
     Kmp(kmp::Cmd),
 }
 
@@ -74,5 +74,31 @@ impl Cmd {
             Cmd::Kmp(kmp) => kmp.run()?,
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Subcommand;
+
+    #[test]
+    fn unimplemented_bindings_note_external_plugin() {
+        // Rust and TypeScript are the only generators implemented in-CLI; every
+        // other binding language is a placeholder that defers to the external
+        // plugin, so its help must say so. New placeholders inherit this check.
+        const IMPLEMENTED: &[&str] = &["rust", "typescript"];
+        let cmd = Cmd::augment_subcommands(clap::Command::new("bindings"));
+        for sub in cmd.get_subcommands() {
+            let name = sub.get_name();
+            if IMPLEMENTED.contains(&name) {
+                continue;
+            }
+            let about = sub.get_about().map(ToString::to_string).unwrap_or_default();
+            assert!(
+                about.contains("(requires external plugin)"),
+                "binding `{name}` is not implemented in-CLI; its help must note `(requires external plugin)`"
+            );
+        }
     }
 }

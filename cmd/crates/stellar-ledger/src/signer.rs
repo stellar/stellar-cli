@@ -1,4 +1,7 @@
 #[async_trait::async_trait]
+// async_trait emits `#[must_use]` on methods that already return a must_use
+// `Pin<Box<dyn Future>>`, tripping clippy 1.99.0's double_must_use. See #2784.
+#[allow(clippy::double_must_use)]
 pub trait Blob {
     type Key: Send;
     type Error;

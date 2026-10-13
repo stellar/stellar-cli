@@ -2514,7 +2514,7 @@ mod tests {
     fn test_find_events_empty_spec() {
         let spec = make_spec_with_events_and_functions(vec![], vec![]);
         let found_events: Vec<_> = spec.find_events().unwrap().collect();
-        assert!(found_events.is_empty());
+        assert_eq!(found_events, Vec::<&ScSpecEventV0>::new());
     }
 
     #[test]

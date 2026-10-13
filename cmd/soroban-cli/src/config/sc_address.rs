@@ -6,10 +6,23 @@ use super::{alias, key, locator, UnresolvedContract};
 
 /// `ScAddress` can be either a resolved `xdr::ScAddress` or an alias of a `Contract` or `MuxedAccount`.
 #[allow(clippy::module_name_repetitions)]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum UnresolvedScAddress {
     Resolved(xdr::ScAddress),
     Alias(String),
+}
+
+impl std::fmt::Debug for UnresolvedScAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnresolvedScAddress::Resolved(addr) => f.debug_tuple("Resolved").field(addr).finish(),
+            // Never echo the raw input: it may be a secret key or seed phrase
+            // pasted where an alias was expected.
+            UnresolvedScAddress::Alias(_) => {
+                f.debug_tuple("Alias").field(&"<alias or secret>").finish()
+            }
+        }
+    }
 }
 
 impl Default for UnresolvedScAddress {
@@ -24,8 +37,10 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Key(#[from] key::Error),
-    #[error("Account alias \"{0}\" not Found")]
-    AccountAliasNotFound(String),
+    // The input is never echoed: a secret key or seed phrase mistyped where an
+    // address was expected must not reach the terminal, logs, or JSON output.
+    #[error("invalid address or alias")]
+    AccountAliasNotFound,
     #[error("alias '{0}' is reserved for the native asset contract but also matches a stored key; pass an explicit contract (C...) or account (G...) address instead")]
     ReservedAliasShadowsKey(String),
 }
@@ -116,7 +131,7 @@ impl UnresolvedScAddress {
                     xdr::ScAddress::MuxedAccount(xdr::MuxedEd25519Account { id, ed25519 })
                 }
             }),
-            _ => Err(Error::AccountAliasNotFound(alias)),
+            _ => Err(Error::AccountAliasNotFound),
         }
     }
 }
@@ -306,5 +321,43 @@ mod tests {
         assert!(
             !UnresolvedScAddress::Alias("dual".to_string()).is_muxed(&locator, network_passphrase)
         );
+    }
+
+    // A valid strkey charset with a bad checksum: fails to parse as an address
+    // yet is shaped like a secret key, so it falls through to the not-found arm.
+    const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
+    // A seed phrase with an invalid final word: fails to derive a key, so it too
+    // falls through rather than resolving to an account.
+    const MALFORMED_SEED: &str =
+        "illness spike retreat truth genius clock brain pass fit cave bargain xyzzy";
+
+    #[test]
+    fn resolve_does_not_leak_secret_bearing_input() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // A mistyped secret key or seed phrase pasted where an address was
+        // expected must never be echoed back in the not-found error.
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            let err = UnresolvedScAddress::from_str(input)
+                .unwrap()
+                .resolve(&locator, network_passphrase, None)
+                .unwrap_err();
+            assert!(
+                !err.to_string().contains(input),
+                "error leaked secret-bearing input: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn debug_conceals_secret_bearing_input() {
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            let address = UnresolvedScAddress::from_str(input).unwrap();
+            assert!(!format!("{address:?}").contains(input));
+        }
     }
 }

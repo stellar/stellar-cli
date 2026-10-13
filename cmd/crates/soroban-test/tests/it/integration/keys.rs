@@ -21,6 +21,17 @@ async fn fund() {
         .arg("test2")
         .assert()
         .success();
+
+    let pubkey = pubkey_for_identity(sandbox, "test2");
+    let pubkey = pubkey.trim();
+    let secret = sandbox
+        .new_assert_cmd("keys")
+        .arg("secret")
+        .arg("test2")
+        .assert()
+        .stdout_as_str();
+    let secret = secret.trim();
+
     sandbox
         .new_assert_cmd("keys")
         .arg("fund")
@@ -30,7 +41,20 @@ async fn fund() {
         // already fully funded to the starting balance, because the
         // user's goal is to get funded, and the account is funded
         // so it is success much the same.
-        .success();
+        .success()
+        // The success message reports the resolved address, not the input.
+        .stderr(predicate::str::contains(pubkey));
+
+    // Funding by a pasted secret must report the resolved address and never
+    // echo the secret itself.
+    sandbox
+        .new_assert_cmd("keys")
+        .arg("fund")
+        .arg(secret)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(pubkey))
+        .stderr(predicate::str::contains(secret).not());
 }
 
 #[tokio::test]
