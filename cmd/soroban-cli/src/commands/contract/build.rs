@@ -406,9 +406,21 @@ impl Cmd {
                 self.inject_meta(&target_file_path)?;
                 let wasm_bytes = fs::read(&target_file_path).map_err(Error::ReadingWasmFile)?;
                 let spec = soroban_spec_tools::contract::Spec::new(&wasm_bytes)?;
+                // The SDK that built the contract selects the model, which says
+                // which entries carry a marker and so what a missing marker
+                // means. Shake by its rules rather than the newest known: a
+                // soroban-sdk v30 or later contract marks only the events it
+                // publishes and the errors it panics with, and every other type
+                // is settled by following the references to it, while a
+                // contract recording spec shaking version 2 marks every used
+                // type, so markers alone say what is used. Any other contract
+                // records nothing to shake by, and is not filtered.
                 let model = soroban_spec::shaking::model_for_meta(&spec.meta);
                 if model != soroban_spec::shaking::Model::None {
-                    let mut entries = Self::filter_spec(&wasm_bytes, spec.spec, model)?;
+                    // Filter unused types and events by that model's rules, and
+                    // deduplicate any exact duplicate entries.
+                    let markers = soroban_spec::shaking::find_all(&wasm_bytes);
+                    let mut entries = filter_and_dedup_spec(spec.spec, &markers, model)?;
                     if model == soroban_spec::shaking::Model::References {
                         entries = Self::reduce_spec(&print, &p.name, &entries)?;
                     }
@@ -543,30 +555,6 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    /// Filters unused types and events from the contract spec entries by the
-    /// rules of the given model.
-    ///
-    /// The SDK that built the contract selects the model, which says which
-    /// entries carry a marker and so what a missing marker means. Shake by its
-    /// rules rather than the newest known: a soroban-sdk v30 or later contract
-    /// marks only the events it publishes and the errors it panics with, and
-    /// every other type is settled by following the references to it, while a
-    /// contract recording spec shaking version 2 marks every used type, so
-    /// markers alone say what is used. Any other contract records nothing to
-    /// shake by, and is not filtered.
-    fn filter_spec(
-        wasm_bytes: &[u8],
-        entries: Vec<stellar_xdr::ScSpecEntry>,
-        model: soroban_spec::shaking::Model,
-    ) -> Result<Vec<stellar_xdr::ScSpecEntry>, Error> {
-        // Extract markers from the WASM data section
-        let markers = soroban_spec::shaking::find_all(wasm_bytes);
-
-        // Filter spec entries (types, events) by that model's rules, and
-        // deduplicate any exact duplicate entries.
-        filter_and_dedup_spec(entries, &markers, model)
-    }
-
     /// Reduces user-defined type names in the contract spec entries to their
     /// simple form.
     ///
@@ -578,7 +566,7 @@ impl Cmd {
     ///
     /// Runs only for contracts shaken by the references model, the soroban-sdk
     /// v30 or later contracts whose specs name types by their fully qualified
-    /// path, and after `filter_spec` so only the entries that survive shaking
+    /// path, and after filtering so only the entries that survive shaking
     /// are reduced.
     fn reduce_spec(
         print: &Print,
