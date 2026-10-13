@@ -404,7 +404,10 @@ impl Cmd {
                     .join(&file);
 
                 self.inject_meta(&target_file_path)?;
-                let model = Self::filter_spec(&target_file_path)?;
+                let model = Self::spec_shaking_model(&target_file_path)?;
+                if model != soroban_spec::shaking::Model::None {
+                    Self::filter_spec(&target_file_path)?;
+                }
                 if model == soroban_spec::shaking::Model::References {
                     Self::reduce_spec(&print, &p.name, &target_file_path)?;
                 }
@@ -537,8 +540,18 @@ impl Cmd {
         fs::write(target_file_path, wasm_bytes).map_err(Error::WritingWasmFile)
     }
 
-    /// Filters unused types and events from the contract spec, and returns the
-    /// model the contract's spec is shaken by.
+    /// Reads the model the contract's spec is shaken by from its meta.
+    fn spec_shaking_model(
+        target_file_path: &PathBuf,
+    ) -> Result<soroban_spec::shaking::Model, Error> {
+        use soroban_spec_tools::contract::Spec;
+
+        let wasm_bytes = fs::read(target_file_path).map_err(Error::ReadingWasmFile)?;
+        let spec = Spec::new(&wasm_bytes)?;
+        Ok(soroban_spec::shaking::model_for_meta(&spec.meta))
+    }
+
+    /// Filters unused types and events from the contract spec.
     ///
     /// The SDK that built the contract selects the model, which says which
     /// entries carry a marker and so what a missing marker means. Read it from
@@ -547,9 +560,9 @@ impl Cmd {
     /// and the errors it panics with, and every other type is settled by
     /// following the references to it, while a contract recording spec
     /// shaking version 2 marks every used type, so markers alone say what is
-    /// used. Any other contract records nothing to shake by, and its spec is
-    /// left alone.
-    fn filter_spec(target_file_path: &PathBuf) -> Result<soroban_spec::shaking::Model, Error> {
+    /// used. Any other contract records nothing to shake by, and is not
+    /// filtered.
+    fn filter_spec(target_file_path: &PathBuf) -> Result<(), Error> {
         use soroban_spec_tools::contract::Spec;
         use soroban_spec_tools::wasm::replace_custom_section;
 
@@ -559,11 +572,8 @@ impl Cmd {
         let spec = Spec::new(&wasm_bytes)?;
 
         // Read the model the contract is shaken by, which selects the rules
-        // below. Nothing to shake by under the none model, so leave it alone.
+        // below.
         let model = soroban_spec::shaking::model_for_meta(&spec.meta);
-        if model == soroban_spec::shaking::Model::None {
-            return Ok(model);
-        }
 
         // Extract markers from the WASM data section
         let markers = soroban_spec::shaking::find_all(&wasm_bytes);
@@ -578,8 +588,7 @@ impl Cmd {
 
         // Write the modified wasm back
         fs::remove_file(target_file_path).map_err(Error::DeletingArtifact)?;
-        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)?;
-        Ok(model)
+        fs::write(target_file_path, new_wasm).map_err(Error::WritingWasmFile)
     }
 
     /// Reduces user-defined type names in the contract spec to their simple
