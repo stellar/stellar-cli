@@ -47,6 +47,9 @@ pub enum Error {
          Query the raw smallest-unit value without `--decimal`."
     )]
     DecimalsTooLarge { decimals: u32, max: u32 },
+
+    #[error("{0} must be a non-negative integer number of stroops")]
+    InvalidFee(&'static str),
 }
 
 impl Error {
@@ -57,6 +60,7 @@ impl Error {
             Error::SacNotDeployed(_) => "sac_not_deployed",
             Error::ContractNotFound(_) => "contract_not_found",
             Error::DecimalsTooLarge { .. } => "decimals_too_large",
+            Error::InvalidFee(_) => "invalid_fee",
         }
     }
 }
@@ -80,6 +84,32 @@ pub fn format_decimal(value: i128, decimals: u32) -> Result<String, Error> {
         });
     }
     Ok(crate::fixed_point::FixedPoint::new(value, decimals).to_string())
+}
+
+/// Resolve the configured `(fee, inclusion_fee)` for the submitting token
+/// commands that build their own [`config::Args`]. They take `--from` (not
+/// `--source`) as the signing account, so they can't flatten `config::Args` and
+/// pick up its clap-resolved fee fields the way `mint`/`clawback`/`set-admin`
+/// do. The CLI entrypoint mirrors the `fees use` default into
+/// `STELLAR_INCLUSION_FEE` before parsing, so reading the env here honors both
+/// `fees use` and a directly set `STELLAR_INCLUSION_FEE`/`STELLAR_FEE` —
+/// `config::Args::get_inclusion_fee` then applies the usual precedence.
+///
+/// A set-but-unparseable value is rejected rather than silently dropped, so a
+/// typo'd env var fails the same way clap's `env =` resolution does for
+/// `mint`/`clawback`/`set-admin`, instead of quietly submitting at the default.
+pub fn configured_fees() -> Result<(Option<u32>, Option<u32>), Error> {
+    Ok((
+        fee_from_env("STELLAR_FEE")?,
+        fee_from_env("STELLAR_INCLUSION_FEE")?,
+    ))
+}
+
+fn fee_from_env(var: &'static str) -> Result<Option<u32>, Error> {
+    match std::env::var(var) {
+        Ok(value) => value.parse().map(Some).map_err(|_| Error::InvalidFee(var)),
+        Err(_) => Ok(None),
+    }
 }
 
 /// Invoke a token `function` by SEP-41 canonical position: `args` are supplied
