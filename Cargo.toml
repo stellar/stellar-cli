@@ -46,42 +46,43 @@ path = "cmd/crates/stellar-ledger"
 [workspace.dependencies.stellar-xdr]
 version = "28.0.0"
 
-# Dependencies from the rs-stellar-env repo:
+# Dependencies from the rs-soroban-env repo, pinned to the rev that the
+# rs-soroban-sdk revision below uses, so that both share one soroban-env-host:
 [workspace.dependencies.soroban-env-host]
-version = "28.0.2"
+version = "=29.0.0"
+git = "https://github.com/stellar/rs-soroban-env"
+rev = "cb32250d926bd7188f3a6f9075bd48c44550dcac"
 
-# Dependencies from the rs-soroban-sdk repo, pinned to
-# https://github.com/stellar/rs-soroban-sdk/pull/2043, which shakes specs by
-# following the references to each type by name:
+# Dependencies from the rs-soroban-sdk repo, pinned to a rev of main:
 [workspace.dependencies.soroban-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 [workspace.dependencies.soroban-spec-rust]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 [workspace.dependencies.soroban-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 [workspace.dependencies.soroban-token-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 [workspace.dependencies.stellar-asset-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "a7081319bfa59a7da7352510dfa9e05734510be4"
+rev = "a2e51be61dc5c179595ba5b26da7da724e253886"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
