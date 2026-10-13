@@ -482,7 +482,7 @@ fn build_with_spec_shaking_preserves_all_functions() {
 fn filter_and_dedup_spec_removes_duplicates() {
     use soroban_cli::commands::contract::build::filter_and_dedup_spec;
     use soroban_cli::xdr::{
-        ReadXdr, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
+        ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef,
         ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM, VecM,
     };
 
@@ -527,14 +527,8 @@ fn filter_and_dedup_spec_removes_duplicates() {
         used_struct.clone(),
     ];
 
-    let result_xdr =
+    let result_entries =
         filter_and_dedup_spec(entries, &markers, soroban_spec::shaking::Model::Markers).unwrap();
-
-    // Parse back the entries from the XDR
-    let result_entries: Vec<ScSpecEntry> =
-        ScSpecEntry::read_xdr_iter(&mut Limited::new(Cursor::new(result_xdr), Limits::none()))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
 
     // Should have exactly 1 function + 1 struct, no duplicates
     assert_eq!(
