@@ -8,6 +8,7 @@ use clap::Parser;
 use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
+use soroban_spec_tools::sanitize;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -41,8 +42,8 @@ pub enum Error {
     NoInterfacePresent(),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
-    #[error(transparent)]
-    Generate(#[from] soroban_spec_rust::GenerateError),
+    #[error("{0}")]
+    Generate(String),
 }
 
 impl Cmd {
@@ -76,8 +77,12 @@ impl Cmd {
             // rejects non-identifier bytes. If a future revision starts
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
-            // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec, sdk_major_version)?
+            // sanitized before printing. Names are reduced before they reach
+            // `format_ident!`, and reduce errors embed the raw names, so the
+            // error is sanitized before it is printed, as the spec is
+            // untrusted input.
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec, sdk_major_version)
+                .map_err(|e| Error::Generate(sanitize(&e.to_string())))?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };
