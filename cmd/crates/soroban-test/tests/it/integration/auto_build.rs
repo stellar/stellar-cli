@@ -11,6 +11,7 @@ async fn deploy_without_wasm_auto_builds() {
     let contract_id = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("deploy")
         .arg("--source-account")
         .arg("test")
@@ -35,6 +36,7 @@ async fn deploy_workspace_without_package_builds_all() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("deploy")
         .arg("--source-account")
         .arg("test")
@@ -53,6 +55,7 @@ async fn deploy_workspace_with_package_auto_builds() {
     let contract_id = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("deploy")
         .arg("--source-account")
         .arg("test")
@@ -76,6 +79,7 @@ async fn upload_without_wasm_auto_builds() {
     let wasm_hash = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("upload")
         .arg("--source-account")
         .arg("test")
@@ -97,6 +101,7 @@ async fn upload_workspace_without_package_builds_all() {
     sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("upload")
         .arg("--source-account")
         .arg("test")
@@ -115,6 +120,7 @@ async fn upload_workspace_with_package_auto_builds() {
     let wasm_hash = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("upload")
         .arg("--source-account")
         .arg("test")
@@ -214,6 +220,7 @@ async fn deploy_auto_build_with_meta() {
     let contract_id = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("deploy")
         .arg("--source-account")
         .arg("test")
@@ -236,6 +243,7 @@ async fn upload_auto_build_with_meta() {
     let wasm_hash = sandbox
         .new_assert_cmd("contract")
         .current_dir(&fixture_path)
+        .env("CARGO_TARGET_DIR", sandbox.dir().join("target"))
         .arg("upload")
         .arg("--source-account")
         .arg("test")
