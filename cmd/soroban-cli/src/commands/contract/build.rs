@@ -328,6 +328,8 @@ impl Cmd {
         }
 
         let wasm_target = get_wasm_target()?;
+        let thin_lto_env =
+            thin_lto_env(metadata.workspace_root.as_std_path(), &self.profile, &print);
         let mut built_contracts = Vec::new();
 
         for p in packages {
@@ -367,6 +369,10 @@ impl Cmd {
 
             if let Some(rustflags) = make_rustflags_to_remap_absolute_paths(&print)? {
                 cmd.env("CARGO_BUILD_RUSTFLAGS", rustflags);
+            }
+
+            if let Some((key, value)) = &thin_lto_env {
+                cmd.env(key, value);
             }
 
             // Set env var to inform the SDK that this CLI supports spec
@@ -893,6 +899,69 @@ fn check_overflow_checks(doc: &toml_edit::DocumentMut, profile: &str) -> Result<
             [profile.{profile}] in your Cargo.toml."
         )))
     }
+}
+
+/// Returns the environment variable that enables thin LTO for the profile, if
+/// the profile does not already enable LTO across crates.
+///
+/// Without LTO across crates, the linker only includes an object file of a
+/// dependency when the contract references a symbol in it, so the contract
+/// spec can leave out the types defined in dependency crates. Fat and thin LTO
+/// both include every crate. Fat LTO is left as is, and any other setting is
+/// changed to thin LTO.
+fn thin_lto_env(workspace_root: &Path, profile: &str, print: &Print) -> Option<(String, String)> {
+    let env_var_name = format!(
+        "CARGO_PROFILE_{}_LTO",
+        profile.to_uppercase().replace('-', "_")
+    );
+    let lto = env::var(&env_var_name).ok().or_else(|| {
+        let cargo_toml_str = fs::read_to_string(workspace_root.join("Cargo.toml")).ok()?;
+        let doc: toml_edit::DocumentMut = cargo_toml_str.parse().ok()?;
+        get_lto(&doc, profile, &mut Vec::new())
+    });
+    if matches!(lto.as_deref(), Some("true" | "fat" | "thin")) {
+        return None;
+    }
+    print.warnln(format!(
+        "Enabling thin LTO for profile `{profile}`, because without LTO across crates \
+        the contract spec can leave out types defined in dependency crates. To \
+        configure LTO explicitly, set `lto = true` or `lto = \"thin\"` in \
+        [profile.{profile}] in your Cargo.toml."
+    ));
+    Some((env_var_name, "thin".to_string()))
+}
+
+/// Returns the `lto` setting of the profile, following its inheritance chain,
+/// or `None` if it is not set.
+fn get_lto(
+    doc: &toml_edit::DocumentMut,
+    profile: &str,
+    visited: &mut Vec<String>,
+) -> Option<String> {
+    if visited.contains(&profile.to_string()) {
+        return None; // Prevent infinite loops
+    }
+    visited.push(profile.to_string());
+
+    let profile_section = doc.get("profile")?.get(profile)?;
+
+    if let Some(val) = profile_section
+        .get("lto")
+        .and_then(toml_edit::Item::as_value)
+    {
+        if let Some(b) = val.as_bool() {
+            return Some(b.to_string());
+        }
+        if let Some(s) = val.as_str() {
+            return Some(s.to_string());
+        }
+    }
+
+    if let Some(inherits) = profile_section.get("inherits").and_then(|v| v.as_str()) {
+        return get_lto(doc, inherits, visited);
+    }
+
+    None
 }
 
 /// Filters spec entries based on markers and deduplicates exact duplicates.
