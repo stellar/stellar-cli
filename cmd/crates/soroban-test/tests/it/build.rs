@@ -1348,3 +1348,61 @@ fn contract_archive_dirty_tree_errors() {
         "no archive should be written for a dirty tree"
     );
 }
+
+/// Copies the workspace fixture to a temp dir, replacing the `lto = true` line
+/// of its release profile with `lto`, or removing it when `lto` is `None`.
+fn workspace_with_lto(temp: &TempDir, lto: Option<&str>) -> PathBuf {
+    let cargo_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixture_path = cargo_dir.join("tests/fixtures/workspace");
+    fs_extra::dir::copy(fixture_path, temp.path(), &CopyOptions::new()).unwrap();
+    let dir_path = temp.path().join("workspace");
+    let cargo_toml_path = dir_path.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+    let replacement = lto.map(|lto| format!("lto = {lto}\n")).unwrap_or_default();
+    let modified_content = cargo_toml_content
+        .replace("lto = true\r\n", &replacement)
+        .replace("lto = true\n", &replacement);
+    assert_ne!(cargo_toml_content, modified_content);
+    std::fs::write(&cargo_toml_path, modified_content).unwrap();
+    dir_path
+}
+
+#[test]
+fn build_forces_thin_lto_when_lto_not_enabled() {
+    for lto in [None, Some("false"), Some("\"off\"")] {
+        let sandbox = TestEnv::default();
+        let temp = TempDir::new().unwrap();
+        let dir_path = workspace_with_lto(&temp, lto);
+
+        sandbox
+            .new_assert_cmd("contract")
+            .current_dir(&dir_path)
+            .arg("build")
+            .arg("--print-commands-only")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("CARGO_PROFILE_RELEASE_LTO=thin"))
+            .stderr(predicate::str::contains(
+                "Enabling thin LTO for profile `release`",
+            ));
+    }
+}
+
+#[test]
+fn build_keeps_lto_when_thin_or_fat() {
+    for lto in ["\"thin\"", "\"fat\""] {
+        let sandbox = TestEnv::default();
+        let temp = TempDir::new().unwrap();
+        let dir_path = workspace_with_lto(&temp, Some(lto));
+
+        sandbox
+            .new_assert_cmd("contract")
+            .current_dir(&dir_path)
+            .arg("build")
+            .arg("--print-commands-only")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("CARGO_PROFILE_RELEASE_LTO").not())
+            .stderr(predicate::str::contains("Enabling thin LTO").not());
+    }
+}
